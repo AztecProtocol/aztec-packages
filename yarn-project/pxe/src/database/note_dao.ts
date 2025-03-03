@@ -1,9 +1,12 @@
-import { Note, TxHash, randomTxHash } from '@aztec/circuit-types';
-import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
-import { NoteSelector } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type NoteData } from '@aztec/simulator/client';
+import type { NoteData } from '@aztec/simulator/client';
+import { NoteSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PublicKey } from '@aztec/stdlib/keys';
+import { Note } from '@aztec/stdlib/note';
+import { TxHash } from '@aztec/stdlib/tx';
 
 /**
  * A Note Data Access Object, representing a note that was committed to the note hash tree, holding all of the
@@ -134,7 +137,7 @@ export class NoteDao implements NoteData {
     nonce = Fr.random(),
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
-    txHash = randomTxHash(),
+    txHash = TxHash.random(),
     l2BlockNumber = Math.floor(Math.random() * 1000),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),

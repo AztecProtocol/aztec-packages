@@ -12,6 +12,18 @@
 
 namespace bb::avm2::simulation {
 
+// Possible types for an instruction's operand in its wire format.
+// Note that the TAG enum value is not supported in TS and is parsed as UINT8.
+// INDIRECT is parsed as UINT8 where the bits represent the operands that have indirect mem access.
+enum class OperandType : uint8_t { INDIRECT8, INDIRECT16, TAG, UINT8, UINT16, UINT32, UINT64, UINT128, FF };
+
+namespace testonly {
+
+const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_instruction_wire_formats();
+const std::unordered_map<OperandType, uint32_t>& get_operand_type_sizes();
+
+} // namespace testonly
+
 class Operand {
   private:
     // We use unique ptrs to bound the size of the Operand class to the size of a pointer.

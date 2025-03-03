@@ -1,7 +1,7 @@
-import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/circuit-types';
-import { type PXE, PXESchema } from '@aztec/circuit-types/interfaces';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type PXE, PXESchema } from '@aztec/stdlib/interfaces/client';
+import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/stdlib/versioning';
 
 /**
  * Creates a JSON-RPC client to remotely talk to PXE.

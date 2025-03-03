@@ -1,7 +1,7 @@
-import { type PXE } from '@aztec/circuit-types/interfaces';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 
-import { type AccountContract } from '../account/contract.js';
+import type { AccountContract } from '../account/contract.js';
 import { AccountWallet } from './account_wallet.js';
 
 export * from '../account/wallet.js';

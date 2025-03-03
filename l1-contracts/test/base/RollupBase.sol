@@ -4,7 +4,9 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  BlockLog, SubmitEpochRootProofArgs, PublicInputArgs
+} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -65,15 +67,15 @@ contract RollupBase is DecoderBase {
     BlockLog memory parentBlockLog = rollup.getBlock(startBlockNumber - 1);
 
     // What are these even?
-    bytes32[7] memory args = [
-      parentBlockLog.archive,
-      endFull.block.archive,
-      parentBlockLog.blockHash,
-      endFull.block.blockHash,
-      bytes32(0), // WHAT ?
-      bytes32(0), // WHAT ?
-      bytes32(uint256(uint160(bytes20(_prover)))) // Need the address to be left padded within the bytes32
-    ];
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: parentBlockLog.archive,
+      endArchive: endFull.block.archive,
+      previousBlockHash: parentBlockLog.blockHash,
+      endBlockHash: endFull.block.blockHash,
+      endTimestamp: Timestamp.wrap(0), // WHAT ?
+      outHash: bytes32(0), // WHAT ?
+      proverId: _prover
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     bytes memory blobPublicInputs;
@@ -196,7 +198,7 @@ contract RollupBase is DecoderBase {
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
-    rollup.propose(args, signatures, full.block.body, blobInputs);
+    rollup.propose(args, signatures, blobInputs);
 
     bytes32 l2ToL1MessageTreeRoot;
     uint32 numTxs = full.block.numTxs;
@@ -228,7 +230,7 @@ contract RollupBase is DecoderBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    outbox = Outbox(address(rollup.OUTBOX()));
+    outbox = Outbox(address(rollup.getOutbox()));
     (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
@@ -242,7 +244,7 @@ contract RollupBase is DecoderBase {
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
-    inbox = Inbox(address(rollup.INBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
 
     for (uint256 i = 0; i < _contents.length; i++) {
       vm.prank(_sender);

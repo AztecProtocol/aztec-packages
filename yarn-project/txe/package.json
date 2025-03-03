@@ -61,15 +61,14 @@
   "dependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/simulator": "workspace:^",
-    "@aztec/types": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "zod": "^3.23.8"
   },

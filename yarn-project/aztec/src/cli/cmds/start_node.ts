@@ -1,9 +1,10 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { aztecNodeConfigMappings, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, P2PApiSchema, type PXE } from '@aztec/circuit-types';
+import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn } from '@aztec/foundation/log';
+import { AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
@@ -14,19 +15,20 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
+import { getL1Config } from '../get_l1_config.js';
 import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
-import { validateL1Config } from '../validation.js';
 
 export async function startNode(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<{ config: AztecNodeConfig }> {
   // options specifically namespaced with --node.<option>
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
   // All options that are relevant to the Aztec Node
-  const nodeConfig = {
+  let nodeConfig: AztecNodeConfig = {
+    ...getConfigEnvVars(),
     ...extractRelevantOptions(options, aztecNodeConfigMappings, 'node'),
   };
 
@@ -58,11 +60,26 @@ export async function startNode(
       genesisArchiveRoot,
     });
   }
-  // If not deploying, validate that the addresses and config provided are correct.
-  // Eventually, we should be able to dynamically load this just by having the L1 governance address,
-  // instead of only validating the config the user has entered.
+  // If not deploying, validate that any addresses and config provided are correct.
   else {
-    await validateL1Config({ ...getNodeConfigEnvVars(), ...nodeConfig });
+    if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
+      throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
+    }
+    const { addresses, config } = await getL1Config(
+      nodeConfig.l1Contracts.registryAddress,
+      nodeConfig.l1RpcUrls,
+      nodeConfig.l1ChainId,
+    );
+
+    // TODO(#12272): will clean this up.
+    nodeConfig = {
+      ...nodeConfig,
+      l1Contracts: {
+        ...addresses,
+        slashFactoryAddress: nodeConfig.l1Contracts.slashFactoryAddress,
+      },
+      ...config,
+    };
   }
 
   // if no publisher private key, then use l1Mnemonic

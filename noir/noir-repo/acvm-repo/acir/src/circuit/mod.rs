@@ -11,7 +11,7 @@ use std::{io::prelude::*, num::ParseIntError, str::FromStr};
 
 use base64::Engine;
 use flate2::Compression;
-use serde::{de::Error as DeserializationError, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as DeserializationError};
 
 use std::collections::BTreeSet;
 
@@ -272,6 +272,7 @@ impl<F: for<'a> Deserialize<'a>> Program<F> {
             .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))
     }
 
+    /// Deserialize bytecode.
     pub fn deserialize_program(serialized_circuit: &[u8]) -> std::io::Result<Self> {
         Program::read(serialized_circuit)
     }
@@ -374,8 +375,8 @@ mod tests {
     use std::collections::BTreeSet;
 
     use super::{
-        opcodes::{BlackBoxFuncCall, FunctionInput},
         Circuit, Compression, Opcode, PublicInputs,
+        opcodes::{BlackBoxFuncCall, FunctionInput},
     };
     use crate::{
         circuit::{ExpressionWidth, Program},

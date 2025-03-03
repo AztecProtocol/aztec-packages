@@ -1,10 +1,9 @@
-import { type AccountManager, FeeJuicePaymentMethod, type WaitOpts } from '@aztec/aztec.js';
-import { type PXE } from '@aztec/circuit-types';
-import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { type AccountManager, FeeJuicePaymentMethod, type PXE, type WaitOpts } from '@aztec/aztec.js';
+import { Fr } from '@aztec/foundation/fields';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { getSchnorrAccountContractAddress } from '../schnorr/account_contract.js';
-import { getSchnorrAccount } from '../schnorr/index.js';
-import { type InitialAccountData } from './configuration.js';
+import { getSchnorrAccount, getSchnorrAccountContractAddress } from '../schnorr/index.js';
+import type { InitialAccountData } from './configuration.js';
 
 /**
  * Generate a fixed amount of random schnorr account contract instance.

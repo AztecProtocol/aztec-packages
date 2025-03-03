@@ -5,7 +5,7 @@
 pub struct NoteEmission<Note> {
     pub note: Note,
     pub storage_slot: Field,
-    pub note_hash_counter: u32, // a note_hash_counter of 0 means non-transient
+    pub note_hash_counter: u32, // a note_hash_counter of 0 means settled
 }
 
 impl<Note> NoteEmission<Note> {

@@ -1,31 +1,27 @@
+import type { ViemPublicClient } from '@aztec/ethereum';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import {
-  type GetContractReturnType,
-  type Hex,
-  type PublicClient,
-  type WalletClient,
-  createWalletClient,
-  getContract,
-  http,
-  publicActions,
-} from 'viem';
+import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
 import { foundry } from 'viem/chains';
 
 export { EthCheatCodes };
 
 /** Cheat codes for the L1 rollup contract. */
 export class RollupCheatCodes {
-  private client: WalletClient & PublicClient;
-  private rollup: GetContractReturnType<typeof RollupAbi, WalletClient>;
+  private client: ViemPublicClient;
+  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
   private logger = createLogger('aztecjs:cheat_codes');
 
   constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
-    this.client = createWalletClient({ chain: foundry, transport: http(ethCheatCodes.rpcUrl) }).extend(publicActions);
+    this.client = createPublicClient({
+      chain: foundry,
+      transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),
+    });
     this.rollup = getContract({
       abi: RollupAbi,
       address: addresses.rollupAddress.toString(),
@@ -110,14 +106,36 @@ export class RollupCheatCodes {
    * @param maybeBlockNumber - The block number to mark as proven (defaults to latest pending)
    */
   public async markAsProven(maybeBlockNumber?: number | bigint) {
-    const blockNumber = maybeBlockNumber
-      ? BigInt(maybeBlockNumber)
-      : await this.rollup.read.getTips().then(({ pendingBlockNumber }) => pendingBlockNumber);
+    const { pending, proven } = await this.getTips();
 
-    await this.asOwner(async account => {
-      await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account, chain: this.client.chain });
-      this.logger.warn(`Marked ${blockNumber} as proven`);
-    });
+    let blockNumber = maybeBlockNumber;
+    if (blockNumber === undefined || blockNumber > pending) {
+      blockNumber = pending;
+    }
+    if (blockNumber <= proven) {
+      this.logger.warn(`Block ${blockNumber} is already proven`);
+      return;
+    }
+
+    // @note @LHerskind this is heavily dependent on the storage layout and size of values
+    // The rollupStore is a struct and if the size of elements or the struct changes, this can break
+
+    // Convert string to bytes and then compute keccak256
+    const storageSlot = keccak256(Buffer.from('aztec.stf.storage', 'utf-8'));
+    const provenBlockNumberSlot = BigInt(storageSlot) + 1n;
+
+    const tipsBefore = await this.getTips();
+
+    await this.ethCheatCodes.store(
+      EthAddress.fromString(this.rollup.address),
+      provenBlockNumberSlot,
+      BigInt(blockNumber),
+    );
+
+    const tipsAfter = await this.getTips();
+    this.logger.info(
+      `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
+    );
   }
 
   /**
@@ -125,7 +143,7 @@ export class RollupCheatCodes {
    * @param action - The action to execute
    */
   public async asOwner(
-    action: (owner: Hex, rollup: GetContractReturnType<typeof RollupAbi, WalletClient>) => Promise<void>,
+    action: (owner: Hex, rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>) => Promise<void>,
   ) {
     const owner = await this.rollup.read.owner();
     await this.ethCheatCodes.startImpersonating(owner);
@@ -136,8 +154,31 @@ export class RollupCheatCodes {
   /** Directly calls the L1 gas fee oracle. */
   public async updateL1GasFeeOracle() {
     await this.asOwner(async (account, rollup) => {
-      await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
+      const hash = await rollup.write.updateL1GasFeeOracle({ account, chain: this.client.chain });
+      await this.client.waitForTransactionReceipt({ hash });
       this.logger.warn(`Updated L1 gas fee oracle`);
+    });
+  }
+
+  /**
+   * Bumps proving cost per mana.
+   * @param bumper - Callback to calculate the new proving cost per mana based on current value.
+   */
+  public async bumpProvingCostPerMana(bumper: (before: bigint) => bigint) {
+    const currentCost = await this.rollup.read.getProvingCostPerManaInEth();
+    const newCost = bumper(currentCost);
+    await this.setProvingCostPerMana(newCost);
+  }
+
+  /**
+   * Directly updates proving cost per mana.
+   * @param ethValue - The new proving cost per mana in ETH
+   */
+  public async setProvingCostPerMana(ethValue: bigint) {
+    await this.asOwner(async (account, rollup) => {
+      const hash = await rollup.write.setProvingCostPerMana([ethValue], { account, chain: this.client.chain });
+      await this.client.waitForTransactionReceipt({ hash });
+      this.logger.warn(`Updated proving cost per mana to ${ethValue}`);
     });
   }
 }

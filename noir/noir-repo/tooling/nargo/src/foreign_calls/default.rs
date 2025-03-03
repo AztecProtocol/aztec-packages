@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 use crate::PrintOutput;
 
 use super::{
+    ForeignCallExecutor,
     layers::{self, Either, Layer, Layering},
     mocker::{DisabledMockForeignCallExecutor, MockForeignCallExecutor},
     print::PrintForeignCallExecutor,
-    ForeignCallExecutor,
 };
 
 #[cfg(feature = "rpc")]
@@ -29,7 +29,7 @@ pub struct DefaultForeignCallBuilder<'a> {
     pub package_name: Option<String>,
 }
 
-impl<'a> Default for DefaultForeignCallBuilder<'a> {
+impl Default for DefaultForeignCallBuilder<'_> {
     fn default() -> Self {
         Self {
             output: PrintOutput::default(),

@@ -133,7 +133,7 @@ function test_cmds {
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
   # We need to include these as they will go out of date otherwise and externals use these examples.
-  local example_test_hash=$(hash_str $test_hash-$(../barretenberg/cpp/bootstrap.sh hash))
+  local example_test_hash=$(hash_str $test_hash-$(../../barretenberg/cpp/bootstrap.sh hash))
   echo "$example_test_hash noir/bootstrap.sh test_example codegen_verifier"
   echo "$example_test_hash noir/bootstrap.sh test_example prove_and_verify"
   echo "$example_test_hash noir/bootstrap.sh test_example recursion"

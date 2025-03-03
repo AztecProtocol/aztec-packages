@@ -47,13 +47,19 @@ function check_toolchains {
     echo "Installation: sudo apt install clang-16"
     exit 1
   fi
-  # Check rust version.
-  if ! rustup show | grep "1.75" > /dev/null; then
+  # Check rustup installed.
+  local rust_version=$(yq '.toolchain.channel' ./noir/noir-repo/rust-toolchain.toml)
+  if ! command -v rustup > /dev/null; then
     encourage_dev_container
-    echo "Rust version 1.75 not installed."
+    echo "Rustup not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $rust_version"
     exit 1
+  fi
+  if ! rustup show | grep $rust_version > /dev/null; then
+    # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
+    # is desirable.
+    echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
   fi
   # Check wasi-sdk version.
   if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 22.0 > /dev/null; then
@@ -100,14 +106,14 @@ function install_hooks {
   echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
   echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
-  echo "./yarn-project/circuits.js/precommit.sh" >>$hooks_dir/pre-commit
+  echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
 }
 
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes barretenberg l1-contracts noir
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
@@ -142,8 +148,11 @@ function test {
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
-  echo "Gathered $(echo "$tests" | wc -l) tests."
-  echo "$tests" | parallelise $((num_cpus / 2))
+  # Note: Capturing strips last newline. The echo re-adds it.
+  local num
+  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
+  echo "Gathered $num tests."
+  echo -n "$tests" | parallelise $((num_cpus / 2))
 }
 
 function build {
@@ -151,6 +160,9 @@ function build {
   denoise "git submodule update --init --recursive"
 
   check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
 
   projects=(
     noir
@@ -161,6 +173,7 @@ function build {
     l1-contracts
     yarn-project
     boxes
+    playground
     docs
     release-image
     aztec-up
@@ -176,8 +189,9 @@ function bench {
   if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
     return
   fi
-  denoise "barretenberg/cpp/bootstrap.sh bench"
+  denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
+  # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
 function release_github {
@@ -231,6 +245,7 @@ function release {
     l1-contracts
     yarn-project
     boxes
+    playground
     aztec-up
     docs
     release-image
@@ -265,6 +280,7 @@ function release_commit {
     yarn-project
     # Should publish at least one of our boxes to it's own repo.
     #boxes
+    playground
     docs
     release-image
   )
@@ -299,6 +315,7 @@ case "$cmd" in
     echo "Toolchains look good! 🎉"
   ;;
   ""|"fast"|"full")
+    install_hooks
     build $cmd
   ;;
   "ci")

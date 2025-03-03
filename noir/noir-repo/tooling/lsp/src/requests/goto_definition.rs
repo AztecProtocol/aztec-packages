@@ -2,7 +2,7 @@ use std::future::{self, Future};
 
 use crate::attribute_reference_finder::AttributeReferenceFinder;
 use crate::utils;
-use crate::{types::GotoDefinitionResult, LspState};
+use crate::{LspState, types::GotoDefinitionResult};
 use async_lsp::ResponseError;
 
 use fm::PathString;
@@ -40,7 +40,7 @@ fn on_goto_definition_inner(
             utils::position_to_byte_index(args.files, file_id, &position).and_then(|byte_index| {
                 let file = args.files.get_file(file_id).unwrap();
                 let source = file.source();
-                let (parsed_module, _errors) = noirc_frontend::parse_program(source);
+                let (parsed_module, _errors) = noirc_frontend::parse_program(source, file_id);
 
                 let mut finder = AttributeReferenceFinder::new(
                     file_id,

@@ -1,17 +1,9 @@
-import {
-  type L1RollupConstants,
-  L2Block,
-  L2BlockHash,
-  type L2BlockSource,
-  type L2Tips,
-  type TxHash,
-  TxReceipt,
-  TxStatus,
-  getSlotRangeForEpoch,
-} from '@aztec/circuit-types';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
@@ -172,9 +164,18 @@ export class MockL2BlockSource implements L2BlockSource {
     const finalizedBlock = this.l2Blocks[finalized - 1];
 
     return {
-      latest: { number: latest, hash: (await latestBlock?.hash())?.toString() },
-      proven: { number: proven, hash: (await provenBlock?.hash())?.toString() },
-      finalized: { number: finalized, hash: (await finalizedBlock?.hash())?.toString() },
+      latest: {
+        number: latest,
+        hash: (await latestBlock?.hash())?.toString(),
+      },
+      proven: {
+        number: proven,
+        hash: (await provenBlock?.hash())?.toString(),
+      },
+      finalized: {
+        number: finalized,
+        hash: (await finalizedBlock?.hash())?.toString(),
+      },
     };
   }
 

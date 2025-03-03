@@ -1,7 +1,7 @@
 import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
-import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 
 import { Argument, Command, Option } from 'commander';
 import { mkdirSync, readFileSync } from 'fs';
@@ -33,12 +33,12 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
     .command('get-alias')
     .description('Shows stored aliases')
     .addArgument(new Argument('[alias]', 'Alias to retrieve'))
-    .action(alias => {
+    .action(async alias => {
       if (alias?.includes(':')) {
-        const value = db.retrieveAlias(alias);
+        const value = await db.retrieveAlias(alias);
         log(value);
       } else {
-        const aliases = db.listAliases(alias);
+        const aliases = await db.listAliases(alias);
         for (const { key, value } of aliases) {
           log(`${key} -> ${value}`);
         }
@@ -106,7 +106,7 @@ async function main() {
           ...(proverEnabled && { proverEnabled, bbBinaryPath, bbWorkingDirectory }), // only override if we're profiling
         });
       }
-      db.init(AztecLmdbStore.open(dataDir));
+      await db.init(await openStoreAt(dataDir));
     });
 
   injectCommands(program, userLog, debugLogger, db, pxeWrapper);

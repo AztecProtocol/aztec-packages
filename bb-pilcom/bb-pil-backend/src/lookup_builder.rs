@@ -67,7 +67,7 @@ impl LookupBuilder for BBFiles {
             .iter()
             .filter(|identity| matches!(identity.kind, IdentityKind::Plookup))
             .map(|lookup| {
-                let name = lookup
+                let label = lookup
                     .attribute
                     .clone()
                     .expect(
@@ -83,6 +83,7 @@ impl LookupBuilder for BBFiles {
                     .unwrap_or_default()
                     .replace(".pil", "");
                 let file_name = format!("lookups_{}.hpp", relation);
+                let name = format!("lookup_{}_{}", relation, label);
                 Lookup {
                     name: name.clone(),
                     owning_relation: relation,
@@ -198,7 +199,13 @@ fn get_lookup_side<F: FieldElement>(
     def: &SelectedExpressions<AlgebraicExpression<F>>,
 ) -> LookupSide {
     let get_name = |expr: &AlgebraicExpression<F>| match expr {
-        AlgebraicExpression::Reference(a_ref) => sanitize_name(&a_ref.name),
+        AlgebraicExpression::Reference(a_ref) => {
+            let mut name = a_ref.name.clone();
+            if a_ref.next {
+                name = format!("{}_shift", name);
+            }
+            sanitize_name(&name)
+        }
         _ => panic!("Expected reference"),
     };
 

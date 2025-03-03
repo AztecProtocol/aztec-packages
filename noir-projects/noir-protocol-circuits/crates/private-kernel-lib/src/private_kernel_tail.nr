@@ -71,8 +71,8 @@ mod tests {
         traits::{Empty, FromField},
     };
     use dep::types::constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_L2_TO_L1_MSG,
-        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
         PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
@@ -121,25 +121,6 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.rollup_validation_requests.max_block_number.unwrap(), 13);
-    }
-
-    #[test]
-    fn measuring_of_log_lengths() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        // Logs for the previous call stack.
-        let prev_contract_class_logs_hash = 956;
-        let prev_contract_class_log_preimages_length = 24;
-        builder.previous_kernel.add_contract_class_log_hash(
-            prev_contract_class_logs_hash,
-            prev_contract_class_log_preimages_length,
-        );
-
-        let public_inputs = builder.execute();
-
-        assert_eq(
-            public_inputs.end.contract_class_log_preimages_length,
-            prev_contract_class_log_preimages_length,
-        );
     }
 
     #[test]
@@ -279,12 +260,14 @@ mod tests {
         let public_inputs = builder.execute();
 
         let num_private_logs = 1 + 2;
-        let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
-        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
+        let num_da_fields = 1 /* nullifier */
+            + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS
+            + 1 * 12 /* contract_class_logs */;
+        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD);
         let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
         let l2_gas = 1 * L2_GAS_PER_NULLIFIER
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG
-            + 12 * L2_GAS_PER_LOG_BYTE;
+            + 1 * L2_GAS_PER_CONTRACT_CLASS_LOG;
         assert_eq(Gas::tx_overhead() + Gas::new(da_gas, l2_gas), public_inputs.gas_used);
     }
 

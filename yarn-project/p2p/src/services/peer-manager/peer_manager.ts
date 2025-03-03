@@ -1,19 +1,20 @@
-import { type PeerErrorSeverity, type PeerInfo } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { type ENR } from '@chainsafe/enr';
-import { type Connection, type PeerId } from '@libp2p/interface';
-import { type Multiaddr } from '@multiformats/multiaddr';
+import type { ENR } from '@chainsafe/enr';
+import type { Connection, PeerId } from '@libp2p/interface';
+import type { Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
 
-import { type P2PConfig } from '../../config.js';
-import { type PubSubLibp2p } from '../../util.js';
+import type { P2PConfig } from '../../config.js';
+import { PeerEvent } from '../../types/index.js';
+import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
-import { type ReqResp } from '../reqresp/reqresp.js';
-import { type PeerDiscoveryService } from '../service.js';
-import { PeerEvent } from '../types.js';
+import type { ReqResp } from '../reqresp/reqresp.js';
+import type { PeerDiscoveryService } from '../service.js';
 import { PeerManagerMetrics } from './metrics.js';
 import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 
@@ -189,14 +190,14 @@ export class PeerManager {
   private discover() {
     const connections = this.libP2PNode.getConnections();
 
-    const healthyConnections = this.pruneUnhealthyPeers(connections);
+    const healthyConnections = this.prioritizePeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections)));
 
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - healthyConnections.length;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
-    this.logger[logLevel](`Connected to ${connections.length} peers`, {
-      connections: connections.length,
+    this.logger[logLevel](`Connected to ${healthyConnections.length} peers`, {
+      connections: healthyConnections.length,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),
@@ -257,7 +258,7 @@ export class PeerManager {
           void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.BANNED);
           break;
         case PeerScoreState.Disconnect:
-          void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.DISCONNECTED);
+          void this.goodbyeAndDisconnectPeer(peer.remotePeer, GoodByeReason.LOW_SCORE);
           break;
         case PeerScoreState.Healthy:
           connectedHealthyPeers.push(peer);
@@ -265,6 +266,63 @@ export class PeerManager {
     }
 
     return connectedHealthyPeers;
+  }
+
+  /**
+   * If the max peer count is reached, the lowest scoring peers will be pruned to satisfy the max peer count.
+   *
+   * @param connections - The list of connections to prune low scoring peers above the max peer count from.
+   * @returns The pruned list of connections.
+   */
+  private prioritizePeers(connections: Connection[]): Connection[] {
+    if (connections.length > this.config.maxPeerCount) {
+      // Sort the peer scores from lowest to highest
+      const prioritizedConnections = connections.sort((connectionA, connectionB) => {
+        const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
+        const connectionScoreB = this.peerScoring.getScore(connectionB.remotePeer.toString());
+        return connectionScoreB - connectionScoreA;
+      });
+
+      // Disconnect from the lowest scoring connections.
+      for (const conn of prioritizedConnections.slice(this.config.maxPeerCount)) {
+        void this.goodbyeAndDisconnectPeer(conn.remotePeer, GoodByeReason.MAX_PEERS);
+      }
+      return prioritizedConnections.slice(0, this.config.maxPeerCount);
+    } else {
+      return connections;
+    }
+  }
+
+  /**
+   * If multiple connections to the same peer are found, the oldest connection is kept and the duplicates are pruned.
+   *
+   * This is necessary to resolve a race condition where multiple connections to the same peer are established if
+   * they are discovered at the same time.
+   *
+   * @param connections - The list of connections to prune duplicate peers from.
+   * @returns The pruned list of connections.
+   */
+  private pruneDuplicatePeers(connections: Connection[]): Connection[] {
+    const peerConnections = new Map<string, Connection>();
+
+    for (const conn of connections) {
+      const peerId = conn.remotePeer.toString();
+      const existingConnection = peerConnections.get(peerId);
+      if (!existingConnection) {
+        peerConnections.set(peerId, conn);
+      } else {
+        // Keep the oldest connection for each peer
+        this.logger.debug(`Found duplicate connection to peer ${peerId}, keeping oldest connection`);
+        if (conn.timeline.open < existingConnection.timeline.open) {
+          peerConnections.set(peerId, conn);
+          void existingConnection.close();
+        } else {
+          void conn.close();
+        }
+      }
+    }
+
+    return [...peerConnections.values()];
   }
 
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {

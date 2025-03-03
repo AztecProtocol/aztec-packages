@@ -1,4 +1,4 @@
-use acvm::{acir::circuit::Program, FieldElement};
+use acvm::{FieldElement, acir::circuit::Program};
 use noirc_abi::{Abi, AbiType, AbiValue};
 use noirc_driver::{CompiledContract, CompiledContractOutputs, ContractFunction};
 use serde::{Deserialize, Serialize};
@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use fm::FileId;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ContractOutputsArtifact {
     pub structs: HashMap<String, Vec<AbiType>>,
     pub globals: HashMap<String, Vec<AbiValue>>,
@@ -21,7 +21,7 @@ impl From<CompiledContractOutputs> for ContractOutputsArtifact {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ContractArtifact {
     /// Version of noir used to compile this contract
     pub noir_version: String,

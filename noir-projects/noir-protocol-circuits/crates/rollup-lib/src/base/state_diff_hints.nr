@@ -25,4 +25,3 @@ pub(crate) struct PrivateBaseStateDiffHints {
     pub(crate) fee_write_low_leaf_membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     pub(crate) fee_write_sibling_path: [Field; PUBLIC_DATA_TREE_HEIGHT],
 }
-

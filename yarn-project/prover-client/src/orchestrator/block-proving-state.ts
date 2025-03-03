@@ -1,25 +1,24 @@
-import { type L2Block, type MerkleTreeId, type PublicInputsAndRecursiveProof } from '@aztec/circuit-types';
-import { type CircuitName } from '@aztec/circuit-types/stats';
+import { SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
-  type AppendOnlyTreeSnapshot,
   BLOBS_PER_BLOCK,
-  type BlockHeader,
   FIELDS_PER_BLOB,
-  Fr,
-  type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MembershipWitness,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type ParityPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
-  RootParityInput,
-  RootParityInputs,
-  StateReference,
   VK_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
+} from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness, type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -31,17 +30,14 @@ import {
   MergeRollupInputs,
   PreviousRollupData,
   SingleTxBlockRootRollupInputs,
-} from '@aztec/circuits.js/rollup';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { type Logger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
-import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+} from '@aztec/stdlib/rollup';
+import type { CircuitName } from '@aztec/stdlib/stats';
+import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 
 import { buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
-import { type EpochProvingState } from './epoch-proving-state.js';
-import { type TxProvingState } from './tx-proving-state.js';
+import type { EpochProvingState } from './epoch-proving-state.js';
+import type { TxProvingState } from './tx-proving-state.js';
 
 export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
 

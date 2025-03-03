@@ -51,7 +51,11 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         throw_or_abort("OinkRecursiveVerifier::verify: proof circuit size does not match verification key");
     }
     if (static_cast<uint32_t>(public_input_size.get_value()) != verification_key->verification_key->num_public_inputs) {
-        throw_or_abort("OinkRecursiveVerifier::verify: proof public input size does not match verification key");
+        const std::string message = "OinkRecursiveVerifier::verify: proof public input size (" +
+                                    std::to_string(static_cast<uint32_t>(public_input_size.get_value())) +
+                                    ") does not match verification key public input size (" +
+                                    std::to_string(verification_key->verification_key->num_public_inputs) + ")";
+        throw_or_abort(message);
     }
     if (static_cast<uint32_t>(pub_inputs_offset.get_value()) != verification_key->verification_key->pub_inputs_offset) {
         throw_or_abort("OinkRecursiveVerifier::verify: proof public input offset does not match verification key");

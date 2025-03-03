@@ -1,24 +1,24 @@
 import {
+  AztecAddress,
   type ContractArtifact,
   type ContractInstanceWithAddress,
   Fr,
   PublicKeys,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
-import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/circuit-types';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn } from '@aztec/foundation/log';
 import {
-  AztecAddress,
   type CliPXEOptions,
   type PXEService,
   type PXEServiceConfig,
   allPxeConfigMappings,
   createPXEService,
 } from '@aztec/pxe';
+import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { L2BasicContractsMap, Network } from '@aztec/stdlib/network';
 import { makeTracedFetch } from '@aztec/telemetry-client';
-import { L2BasicContractsMap, Network } from '@aztec/types/network';
 
 import { extractRelevantOptions } from '../util.js';
 import { getVersions } from '../versioning.js';
