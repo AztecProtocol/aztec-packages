@@ -1505,7 +1505,7 @@ interface IVerifier {
 
         // Derive public input delta
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
-            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
+            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, 1
         );
 
         // Sumcheck
