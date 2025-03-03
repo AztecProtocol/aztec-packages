@@ -17,7 +17,7 @@ function get_tag {
 function render {
   while IFS= read -r json_line; do
     IFS=$'\t' read ts status msg name author complete < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete] | @tsv' <<< "$json_line")
-    local date_time=$(date -d @${ts:0:10} "+%m-%Y %H:%M:%S")
+    local date_time=$(date -d @${ts:0:10} "+%m-%d %H:%M:%S")
     local link="${link_open}http://ci.aztec-labs.com/$ts${link_close}$ts${link_open}${link_close}"
     if [ -z "$complete" ]; then
       local from=$(date +%s%3N)
