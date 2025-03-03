@@ -35,6 +35,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
 
+    // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = 8;
 
     goblin_element() = default;
@@ -297,7 +298,14 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         _is_infinity.set_origin_tag(tag);
     }
 
-    // WORKTODO: comment about how this is funky bc we want consistency with biggroup/bigfield
+    /**
+     * @brief Set the witness indices representing the goblin element to public
+     * @details Even though the coordinates of a goblin element are represented using two field elements, we store them
+     * in the public inputs as if they were bigfield elements (where each coordinate is represented by four field
+     * elements). This uniformity is imposed for simplicity but could be reconsidered if desired.
+     *
+     * @return uint32_t The index into the public inputs array at which the representation of the goblin element starts
+     */
     uint32_t set_public() const
     {
         using BigFq = stdlib::bigfield<Builder, bb::fq::Params>;
@@ -326,6 +334,14 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         return start_idx;
     }
 
+    /**
+     * @brief Reconstruct a goblin element from its representation as limbs as stored in the public inputs
+     * @details For consistency with biggroup, a goblin element is represented in the public inputs using eight field
+     * elements (even though it could be represented using only four).
+     *
+     * @param limbs
+     * @return goblin_element
+     */
     static goblin_element reconstruct_from_public(const std::span<const Fr>& limbs)
     {
         const size_t FRS_PER_FQ = 4; // 4 instead of 2 since we assume biggroup format in pub inputs

@@ -968,11 +968,6 @@ template <typename C, typename Fq, typename Fr, typename G>
 using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
                                    element_goblin::goblin_element<C, goblin_field<C>, Fr, G>,
                                    element_default::element<C, Fq, Fr, G>>;
-
-using GoblinBigGroup = element_goblin::goblin_element<MegaCircuitBuilder,
-                                                      goblin_field<MegaCircuitBuilder>,
-                                                      bb::stdlib::field_t<MegaCircuitBuilder>,
-                                                      bb::g1>;
 } // namespace bb::stdlib
 #include "biggroup_batch_mul.hpp"
 #include "biggroup_bn254.hpp"
