@@ -39,7 +39,7 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
-import { type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log, UnencryptedL2Log } from '@aztec/stdlib/logs';
+import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { InboxLeaf, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -274,6 +274,8 @@ export class Archiver implements ArchiveSource, Traceable {
       // the chain locally before we start unwinding stuff. This can be optimized by figuring out
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
       await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
+
+      this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
     if (initialRun) {
@@ -896,10 +898,10 @@ class ArchiverStoreHelper
    * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
+  async #updateRegisteredContractClasses(allLogs: ContractClassLog[], blockNum: number, operation: Operation) {
     const contractClassRegisteredEvents = allLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .map(log => ContractClassRegisteredEvent.fromLog(log.data));
+      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
+      .map(log => ContractClassRegisteredEvent.fromLog(log));
 
     const contractClasses = await Promise.all(contractClassRegisteredEvents.map(e => e.toContractClassPublic()));
     if (contractClasses.length > 0) {
@@ -972,14 +974,14 @@ class ArchiverStoreHelper
    * @param _blockNum - The block number
    * @returns
    */
-  async #storeBroadcastedIndividualFunctions(allLogs: UnencryptedL2Log[], _blockNum: number) {
+  async #storeBroadcastedIndividualFunctions(allLogs: ContractClassLog[], _blockNum: number) {
     // Filter out private and unconstrained function broadcast events
     const privateFnEvents = allLogs
-      .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log.data))
-      .map(log => PrivateFunctionBroadcastedEvent.fromLog(log.data));
+      .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log))
+      .map(log => PrivateFunctionBroadcastedEvent.fromLog(log));
     const unconstrainedFnEvents = allLogs
-      .filter(log => UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log.data))
-      .map(log => UnconstrainedFunctionBroadcastedEvent.fromLog(log.data));
+      .filter(log => UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log))
+      .map(log => UnconstrainedFunctionBroadcastedEvent.fromLog(log));
 
     // Group all events by contract class id
     for (const [classIdString, classEvents] of Object.entries(
@@ -1031,9 +1033,7 @@ class ArchiverStoreHelper
       this.store.addLogs(blocks.map(block => block.data)),
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...blocks.map(async block => {
-        const contractClassLogs = block.data.body.txEffects
-          .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
-          .flatMap(txLog => txLog.unrollLogs());
+        const contractClassLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
         // ContractInstanceDeployed event logs are broadcast in privateLogs.
         const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
         const publicLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
@@ -1065,10 +1065,7 @@ class ArchiverStoreHelper
     const opResults = await Promise.all([
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...blocks.map(async block => {
-        const contractClassLogs = block.data.body.txEffects
-          .flatMap(txEffect => (txEffect ? [txEffect.contractClassLogs] : []))
-          .flatMap(txLog => txLog.unrollLogs());
-
+        const contractClassLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
         // ContractInstanceDeployed event logs are broadcast in privateLogs.
         const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
         const publicLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.publicLogs);

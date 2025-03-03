@@ -178,6 +178,48 @@ Service Address Setup Container
       mountPath: /shared/config
 {{- end -}}
 
+{{/*
+Sets up the OpenTelemetry resource attributes for a service
+*/}}
+{{- define "aztec-network.otelResourceSetupContainer" -}}
+{{- $serviceName := base $.Template.Name | trimSuffix ".yaml" -}}
+- name: setup-otel-resource
+  {{- include "aztec-network.image" . | nindent 2 }}
+  command:
+    - /bin/bash
+    - -c
+    - |
+      cp /scripts/setup-otel-resource.sh /tmp/setup-otel-resource.sh && \
+      chmod +x /tmp/setup-otel-resource.sh && \
+      /tmp/setup-otel-resource.sh
+  env:
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: K8S_POD_UID
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.uid
+    - name: K8S_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: K8S_NAMESPACE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: OTEL_SERVICE_NAME
+      value: "{{ $serviceName }}"
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: 'service.namespace={{ .Release.Namespace }},environment={{ .Values.environment | default "production" }}'
+  volumeMounts:
+    - name: scripts
+      mountPath: /scripts
+    - name: config
+      mountPath: /shared/config
+{{- end -}}
+
 {{/**
 Anti-affinity when running in public network mode
 */}}

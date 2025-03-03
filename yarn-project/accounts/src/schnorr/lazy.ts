@@ -20,6 +20,11 @@ import { SchnorrBaseAccountContract } from './account_contract.js';
  * @returns The contract artifact for the schnorr account contract
  */
 export async function getSchnorrAccountContractArtifact() {
+  // Cannot assert this import as it's incompatible with browsers
+  // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
+  // Use the new "with" syntax once supported by firefox
+  // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+  // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
   const { default: schnorrAccountContractJson } = await import('../../artifacts/SchnorrAccount.json');
   return loadContractArtifact(schnorrAccountContractJson);
 }

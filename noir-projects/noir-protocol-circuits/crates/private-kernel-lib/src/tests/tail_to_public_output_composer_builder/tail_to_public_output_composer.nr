@@ -2,9 +2,9 @@ use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComp
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_L2_TO_L1_MSG,
-        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
+        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     tests::utils::{assert_array_eq, swap_items},
 };
@@ -121,7 +121,8 @@ fn tail_to_public_output_composer_succeeds() {
     let mut num_msgs = 1;
     let mut num_private_logs = 2;
     let mut num_public_calls = 2;
-    let contract_class_log_bytes = 9;
+    let num_contract_class_logs = 1;
+    let contract_class_log_fields = 9;
     // Gas: revertible
     {
         num_note_hashes += 2;
@@ -134,15 +135,15 @@ fn tail_to_public_output_composer_succeeds() {
     let num_da_fields = num_note_hashes
         + num_nullifiers
         + num_msgs
+        + contract_class_log_fields
         + (num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS);
-    let computed_da_gas =
-        (num_da_fields * DA_BYTES_PER_FIELD + contract_class_log_bytes) * DA_GAS_PER_BYTE;
+    let computed_da_gas = (num_da_fields * DA_BYTES_PER_FIELD) * DA_GAS_PER_BYTE;
 
     let computed_l2_gas = num_note_hashes * L2_GAS_PER_NOTE_HASH
         + num_nullifiers * L2_GAS_PER_NULLIFIER
         + num_msgs * L2_GAS_PER_L2_TO_L1_MSG
         + num_private_logs * L2_GAS_PER_PRIVATE_LOG
-        + contract_class_log_bytes * L2_GAS_PER_LOG_BYTE
+        + num_contract_class_logs * L2_GAS_PER_CONTRACT_CLASS_LOG
         + num_public_calls * FIXED_AVM_STARTUP_L2_GAS;
 
     assert_eq(

@@ -105,6 +105,7 @@ container_script=$(cat <<EOF
   export DRY_RUN=${DRY_RUN:-0}
   source ci3/source
 
+  export NPM_TOKEN=${NPM_TOKEN:-}
   if [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
     echo ${DOCKERHUB_PASSWORD:-} | docker login -u aztecprotocolci --password-stdin
   fi

@@ -1,0 +1,320 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "aztec-network.fullname" . }}-full-node
+  replicas: {{ .Values.fullNode.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: full-node
+  {{- if not .Values.storage.localSsd }}
+  volumeClaimTemplates:
+    - metadata:
+        name: full-node-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.fullNode.storageSize }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: full-node
+    spec:
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        local-ssd: "{{ .Values.storage.localSsd }}"
+        node-type: network
+      {{- end }}
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
+      {{- end }}
+      initContainers:
+        {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+
+
+        - name: wait-for-services
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
+
+              if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
+                echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
+              else
+                until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
+                  echo "Waiting for boot node..."
+                  sleep 5
+                done
+                echo "Boot node is ready!"
+                echo "${BOOT_NODE_HOST}" > /shared/pxe/pxe_url
+              fi
+          volumeMounts:
+            - name: pxe-url
+              mountPath: /shared/pxe
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+
+        - name: configure-full-node-env
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              source /shared/config/service-addresses && \
+              cp /scripts/configure-full-node-env.sh /tmp/configure-full-node-env.sh && \
+              chmod +x /tmp/configure-full-node-env.sh && \
+              /tmp/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
+          volumeMounts:
+            - name: contracts-env
+              mountPath: /shared/contracts
+            - name: pxe-url
+              mountPath: /shared/pxe
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+          env:
+            - name: P2P_ENABLED
+              value: "{{ .Values.fullNode.p2p.enabled }}"
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
+
+        - name: wait-for-ethereum
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+      containers:
+        - name: full-node
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              sleep 30 && \
+              source /shared/contracts/contracts.env && \
+              source /shared/p2p/p2p-addresses && \
+              source /shared/config/service-addresses && \
+              env && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --pxe
+          startupProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.fullNode.service.nodePort }}
+            periodSeconds: {{ .Values.fullNode.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.fullNode.startupProbe.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.fullNode.service.nodePort }}
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            - name: p2p-addresses
+              mountPath: /shared/p2p
+            - name: config
+              mountPath: /shared/config
+            - name: full-node-data
+              mountPath: {{ .Values.fullNode.dataDir }}
+            - name: contracts-env
+              mountPath: /shared/contracts/contracts.env
+              subPath: contracts.env
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: full-node
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.fullNode.maxOldSpaceSize}}"
+            - name: AZTEC_PORT
+              value: "{{ .Values.fullNode.service.nodePort }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.fullNode.logLevel }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: P2P_ENABLED
+              value: "{{ .Values.fullNode.p2p.enabled }}"
+            - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
+              value: "{{ .Values.fullNode.p2p.floodPublish }}"
+            - name: COINBASE
+              value: "{{ .Values.fullNode.coinbaseAddress }}"
+            - name: VALIDATOR_DISABLED
+              value: "true"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: PXE_PROVER_ENABLED
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: ETHEREUM_SLOT_DURATION
+              value: "{{ .Values.ethereum.blockTime }}"
+            - name: AZTEC_SLOT_DURATION
+              value: "{{ .Values.aztec.slotDuration }}"
+            - name: AZTEC_EPOCH_DURATION
+              value: "{{ .Values.aztec.epochDuration }}"
+            - name: AZTEC_PROOF_SUBMISSION_WINDOW
+              value: "{{ .Values.aztec.proofSubmissionWindow }}"
+            - name: ARCHIVER_POLLING_INTERVAL_MS
+              value: {{ .Values.fullNode.archiverPollingInterval | quote }}
+            - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.fullNode.archiverViemPollingInterval | quote }}
+            - name: L1_READER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.fullNode.archiverViemPollingInterval | quote }}
+            - name: SEQ_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.fullNode.viemPollingInterval | quote }}
+            - name: PEER_ID_PRIVATE_KEY
+              value: "{{ .Values.fullNode.peerIdPrivateKey }}"
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.fullNode.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
+            - name: WS_DB_MAP_SIZE_KB
+              value: "{{ .Values.storage.worldStateMapSize }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
+              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
+            {{- if .Values.blobSink.enabled }}
+            - name: BLOB_SINK_URL
+              value: {{ include "aztec-network.blobSinkUrl" . }}
+            {{- end }}
+          ports:
+            - containerPort: {{ .Values.fullNode.service.nodePort }}
+            - containerPort: {{ .Values.fullNode.service.p2pTcpPort }}
+            - containerPort: {{ .Values.fullNode.service.p2pUdpPort }}
+              protocol: UDP
+          resources:
+            {{- toYaml .Values.fullNode.resources | nindent 12 }}
+      volumes:
+        - name: p2p-addresses
+          emptyDir: {}
+        - name: config
+          emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: full-node-data
+          emptyDir: {}
+      {{ else }}
+        - name: full-node-data
+          persistentVolumeClaim:
+            claimName: full-node-data
+      {{- end }}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: scripts-output
+          emptyDir: {}
+        - name: contracts-env
+          emptyDir: {}
+        - name: pxe-url
+          emptyDir: {}
+---
+# Headless service for StatefulSet DNS entries
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+    app: full-node
+spec:
+  # If this is a public network, we want to expose the fulls node as a LoadBalancer
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- if hasKey .Values.fullNode "fixedExternalIP" }}
+  loadBalancerIP: {{ .Values.fullNode.fixedExternalIP }}
+  {{- end}}
+  {{- else }}
+  type: ClusterIP
+  clusterIP: None
+  {{- end }}
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: full-node
+  ports:
+    # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
+    {{- if not .Values.network.public }}
+    - port: {{ .Values.fullNode.service.p2pTcpPort }}
+      name: p2p-tpc
+    - port: {{ .Values.fullNode.service.p2pUdpPort }}
+      name: p2p-udp
+      protocol: UDP
+    {{- end }}
+    - port: {{ .Values.fullNode.service.nodePort }}
+      name: node
+---
+{{- if hasKey .Values.fullNode "fixedExternalIP" }}
+apiVersion: networking.gke.io/v1beta2
+kind: ManagedCertificate
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node-cert
+spec:
+  domains:
+  - aztecprotocol.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: {{ include "aztec-network.fullname" . }}-full-node-cert
+spec:
+  rules:
+  - host: aztecprotocol.com
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ include "aztec-network.fullname" . }}-full-node
+            port:
+              number: {{ .Values.fullNode.service.nodePort }}
+{{- end }}
