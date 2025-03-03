@@ -13,6 +13,7 @@ aztec:
 
 network:
   setupL2Contracts: false
+  p2pBootstrapNodesAsFullPeers: false
 
 bot:
   enabled: false
