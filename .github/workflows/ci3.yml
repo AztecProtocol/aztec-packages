@@ -182,7 +182,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           CI_FULL: 1
         run: |
-          echo ./ci.sh ec2-test
+          ./ci.sh ec2-test
 
   # Necessary as github actions won't allow checks on matrix builds.
   merge-check:
