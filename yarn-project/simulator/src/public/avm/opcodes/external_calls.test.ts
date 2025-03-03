@@ -22,6 +22,7 @@ import {
 } from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 import { Call, Return, Revert, StaticCall } from './external_calls.js';
+import { SuccessCopy } from './external_calls.js';
 import type { Instruction } from './instruction.js';
 import { CalldataCopy, Set } from './memory.js';
 import { SStore } from './storage.js';
@@ -347,6 +348,48 @@ describe('External Calls', () => {
       expect(context.machineState.getHalted()).toBe(true);
       expect(context.machineState.getReverted()).toBe(true);
       expect(context.machineState.getOutput()).toEqual(returnData.map(f => f.toFr()));
+    });
+  });
+
+  describe('SuccessCopy', () => {
+    it('Should (de)serialize correctly', () => {
+      const buf = Buffer.from([
+        SuccessCopy.opcode, // opcode
+        ...Buffer.from('12', 'hex'), // indirect (8 bit)
+        ...Buffer.from('5678', 'hex'), // destOffset (16 bit)
+      ]);
+      const inst = new SuccessCopy(/*indirect=*/ 0x12, /*destOffset=*/ 0x5678);
+
+      expect(SuccessCopy.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Should copy success value correctly after a successful call', async () => {
+      // Directly set the success flag instead of running a call
+      context.machineState.nestedCallSuccess = true;
+
+      // Now test SuccessCopy
+      const destOffset = 40;
+      const instruction = new SuccessCopy(/*indirect=*/ 0, destOffset);
+      await instruction.execute(context);
+
+      // Check that the success value was copied correctly
+      const successValue = context.machineState.memory.get(destOffset);
+      expect(successValue).toEqual(new Uint1(1n));
+    });
+
+    it('Should copy failure value correctly after a failed call', async () => {
+      // Directly set the success flag instead of running a call
+      context.machineState.nestedCallSuccess = false;
+
+      // Now test SuccessCopy
+      const destOffset = 40;
+      const instruction = new SuccessCopy(/*indirect=*/ 0, destOffset);
+      await instruction.execute(context);
+
+      // Check that the failure value was copied correctly
+      const successValue = context.machineState.memory.get(destOffset);
+      expect(successValue).toEqual(new Uint1(0n));
     });
   });
 });

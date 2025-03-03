@@ -528,6 +528,7 @@ fn handle_foreign_call(
         "avmOpcodeL1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
         "avmOpcodeSendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
         "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
+        "avmOpcodeSuccessCopy" => handle_success_copy(avm_instrs, destinations, inputs),
         "avmOpcodeReturndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
         "avmOpcodeReturndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
         "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
@@ -1674,4 +1675,25 @@ fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
         BitSize::Integer(IntegerBitSize::U128) => AvmTypeTag::UINT128,
         BitSize::Field => AvmTypeTag::FIELD,
     }
+}
+
+fn handle_success_copy(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
+) {
+    assert!(inputs.is_empty());
+    assert!(destinations.len() == 1);
+
+    let dest_offset = match destinations[0] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("SuccessCopy destination should be a memory location"),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::SUCCESSCOPY,
+        indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build()),
+        operands: vec![AvmOperand::U16 { value: dest_offset.to_usize() as u16 }],
+        ..Default::default()
+    });
 }

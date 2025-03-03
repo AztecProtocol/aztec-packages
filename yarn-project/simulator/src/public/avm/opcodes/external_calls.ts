@@ -69,6 +69,9 @@ abstract class ExternalCall extends Instruction {
     const fullReturnData = nestedCallResults.output;
     context.machineState.nestedReturndata = fullReturnData;
 
+    // Track the success status directly
+    context.machineState.nestedCallSuccess = success;
+
     // If the nested call reverted, we try to save the reason and the revert data.
     // This will be used by the caller to try to reconstruct the call stack.
     // This is only a heuristic and may not always work. It is intended to work
@@ -113,6 +116,35 @@ export class StaticCall extends ExternalCall {
 
   public get type() {
     return StaticCall.type;
+  }
+}
+
+export class SuccessCopy extends Instruction {
+  static type: string = 'SUCCESSCOPY';
+  static readonly opcode: Opcode = Opcode.SUCCESSCOPY;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8, // Indirect (8-bit)
+    OperandType.UINT16, // destOffset (16-bit)
+  ];
+
+  constructor(private indirect: number, private destOffset: number) {
+    super();
+  }
+
+  public async execute(context: AvmContext): Promise<void> {
+    const memory = context.machineState.memory;
+
+    const operands = [this.destOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [destOffset] = addressing.resolve(operands, memory);
+
+    // Use the direct success tracking property
+    const success = context.machineState.nestedCallSuccess;
+
+    // Write the success flag to the provided memory location
+    memory.set(destOffset, new Uint1(success ? 1 : 0));
   }
 }
 

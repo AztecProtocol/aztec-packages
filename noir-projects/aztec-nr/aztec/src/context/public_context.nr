@@ -307,6 +307,12 @@ unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
 unconstrained fn call(gas: [Field; 2], address: AztecAddress, args: [Field]) -> bool {
     call_opcode(gas, address, args)
 }
+
+// This function is placed immediately after the CALL opcode to get the success value
+unconstrained fn successcopy() -> bool {
+    successcopy_opcode()
+}
+
 unconstrained fn call_static(gas: [Field; 2], address: AztecAddress, args: [Field]) -> bool {
     call_static_opcode(gas, address, args)
 }
@@ -446,3 +452,6 @@ unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 
 #[oracle(avmOpcodeStorageWrite)]
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
+
+#[oracle(avmOpcodeSuccessCopy)]
+unconstrained fn successcopy_opcode() -> bool {}
