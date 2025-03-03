@@ -31,13 +31,8 @@ function test_cmds {
 }
 
 function release {
-  echo_header "docs release"
-  if [ ${DRY_RUN:-0} = 1 ]; then
-    echo "Dry run, doing docs preview:"
-    yarn netlify deploy --site aztec-playground
-  else
-    yarn netlify deploy --site aztec-playground --prod
-  fi
+  echo_header "playground release"
+  do_or_dryrun yarn netlify deploy --site aztec-playground --prod
 }
 
 case "$cmd" in
