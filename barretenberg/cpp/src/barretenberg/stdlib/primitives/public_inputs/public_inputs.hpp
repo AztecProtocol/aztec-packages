@@ -22,12 +22,13 @@ concept HasSetAndReconstruct =
 template <typename ComponentType>
     requires HasSetAndReconstruct<ComponentType>
 class PublicInputComponent {
+    static constexpr uint32_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
+
   public:
     // The data needed to reconstruct the component from its limbs stored in the public inputs
     struct Key {
-        uint32_t start_idx = 0; // start index within public inputs array
-        uint32_t size = 0;      // length of sub-array within public inputs array
-        bool empty() const { return size == 0; }
+        uint32_t start_idx = 0;   // start index within public inputs array
+        bool exists_flag = false; // flag indicating exitence of component in the PI
     };
 
     // WORKTODO: maybe template this class on Builder?
@@ -43,18 +44,18 @@ class PublicInputComponent {
     void set(const ComponentType& component)
     {
         key_.start_idx = component.set_public();
-        key_.size = ComponentType::PUBLIC_INPUTS_SIZE;
+        key_.exists_flag = true;
     }
 
     ComponentType reconstruct(const std::vector<Fr>& public_inputs) const
     {
         // Ensure that the key has been set
-        if (key_.empty()) {
+        if (!key_exists()) {
             info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
             ASSERT(false);
         }
         // Extract from the public inputs the limbs needed reconstruct the component
-        std::span<const Fr> limbs{ public_inputs.data() + key_.start_idx, key_.size };
+        std::span<const Fr> limbs{ public_inputs.data() + key_.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }
 
@@ -62,17 +63,19 @@ class PublicInputComponent {
     static ComponentType reconstruct(const std::vector<Fr>& public_inputs, const Key& key)
     {
         // Ensure that the key has been set
-        if (key.empty()) {
+        if (!key.exists_flag) {
             info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
             ASSERT(false);
         }
         // Extract from the public inputs the limbs needed reconstruct the component
-        std::span<const Fr> limbs{ public_inputs.data() + key.start_idx, key.size };
+        std::span<const Fr> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }
 
   private:
     Key key_;
+
+    bool key_exists() const { return key_.exists_flag; }
 };
 
 } // namespace bb::stdlib

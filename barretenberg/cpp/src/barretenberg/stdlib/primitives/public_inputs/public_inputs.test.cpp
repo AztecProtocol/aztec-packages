@@ -109,14 +109,14 @@ TEST(PublicInputsTest, CircuitInteraction)
     {
         Builder builder;
 
-        // Construct the stdlib public inputs (e.g. as a recursive verifier would do upon receiving them)
+        // Construct the stdlib public inputs (e.g. as a recursive verifier would do upon receiving them in the proof)
         std::vector<Fr> stdlib_public_inputs;
         stdlib_public_inputs.reserve(public_inputs.size());
         for (const auto& val : public_inputs) {
             stdlib_public_inputs.push_back(Fr::from_witness(&builder, val));
         }
 
-        // Construct a public point object from the public component key
+        // Construct a public point object from the public component key (which would be stored in the VK)
         PublicPoint public_point(public_point_key);
 
         // Reconstruct the stdlib point from the limbs contained in public input
