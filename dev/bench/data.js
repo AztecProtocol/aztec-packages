@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741033986513,
+  "lastUpdate": 1741036464181,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "5764343+charlielye@users.noreply.github.com",
-            "name": "Charlie Lye",
-            "username": "charlielye"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f9f598d0692dd22471b563dbc95d0a1f2c3eb8af",
-          "message": "chore: flakes. for lasse. (#12316)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
-          "timestamp": "2025-02-26T23:54:46Z",
-          "tree_id": "38ad3c2ed1c6a3503196916cf9b3270c94a5a88e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f9f598d0692dd22471b563dbc95d0a1f2c3eb8af"
-        },
-        "date": 1740615639650,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18344.22951300007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16226.207793 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18803.769282000074,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16294.932283000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4007.930801999919,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3203.6870959999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55156.586070000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55156587000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11084.904166,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11084907000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1900256770,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1900256770 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 214513016,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 214513016 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 223876554,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 223876554 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3bdb886d1cfde30ba044a37f89c702b056a4834d",
+          "message": "feat: contract instance/class cache for current tx - ensure that later txs in block cannot wipe out contracts created earlier (#12261)\n\nEnsures that contracts only get wiped out of the cache when they really\nshould.\n\n## What's included\n1. Separates the caches for `ContractDataSourcePublicDB` as follows:\n    ```\n    private blockCache = new TxContractCache();\n    private currentTxNonRevertibleCache = new TxContractCache();\n    private currentTxRevertibleCache = new TxContractCache();\n    private bytecodeCommitmentCache = new Map<string, Fr>();\n    ```\n    - using a new little cache class `TxContractCache`.\n1. Caches non-revertibles before public setup and revertibles before\npublic app logic.\n1. Pushes all new contracts to block-level cache for private-only txs.\n1. Includes some progress towards ensuring that contracts can be called\nafter deployment in same block (including public-processor and e2e\ntests)\n1. Rearranged some things in `simulator/src/public` into subfolders\n1. Created a new suite of deployment tests for public processor.\n\n## Issues\nI discovered during this work, that if you run certain test-cases in\n`deploy_method.test.ts` _on their own_ (without running earlier test\ncases, they fail as follows (happens on master):\n\n![image](https://github.com/user-attachments/assets/7e9b476b-c9f4-48c0-97a4-e2a52de77b69)\n\nThis holds true for the new test. This *might* mean that contracts\ncannot be properly called after deployment in the same block! More\ninvestigation is needed in another ticket/pr.",
+          "timestamp": "2025-03-03T20:39:34Z",
+          "tree_id": "fddf79a445a74688db1e37ff6f8bd2622a87c365",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3bdb886d1cfde30ba044a37f89c702b056a4834d"
+        },
+        "date": 1741036455949,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18455.58466600005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16246.144482000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18843.664178000152,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16339.517242 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3905.0467419997403,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3138.345809 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55633.761479999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55633762000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9793.011663,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9793015000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1904656968,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1904656968 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 214122665,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 214122665 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
