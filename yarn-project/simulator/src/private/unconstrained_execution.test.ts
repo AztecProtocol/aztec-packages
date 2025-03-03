@@ -18,16 +18,14 @@ describe('Unconstrained Execution test suite', () => {
   const simulationProvider = new WASMSimulator();
 
   let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
-  let node: ReturnType<typeof mock<AztecNode>>;
   let acirSimulator: AcirSimulator;
 
   beforeEach(() => {
     executionDataProvider = mock<ExecutionDataProvider>();
 
-    node = mock<AztecNode>();
-    node.getBlockNumber.mockResolvedValue(42);
-    node.getChainId.mockResolvedValue(1);
-    node.getVersion.mockResolvedValue(1);
+    executionDataProvider.getBlockNumber.mockResolvedValue(42);
+    executionDataProvider.getChainId.mockResolvedValue(1);
+    executionDataProvider.getVersion.mockResolvedValue(1);
 
     acirSimulator = new AcirSimulator(executionDataProvider, simulationProvider);
   });
@@ -59,8 +57,8 @@ describe('Unconstrained Execution test suite', () => {
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      node.getBlockNumber.mockResolvedValue(27);
-      node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+      executionDataProvider.getBlockNumber.mockResolvedValue(27);
+      executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
       executionDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
       executionDataProvider.getContractInstance.mockResolvedValue({
         currentContractClassId: new Fr(42),

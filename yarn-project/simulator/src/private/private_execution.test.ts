@@ -81,7 +81,6 @@ describe('Private Execution test suite', () => {
   const simulationProvider = new WASMSimulator();
 
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
-  let node: MockProxy<AztecNode>;
   let acirSimulator: AcirSimulator;
 
   let header = BlockHeader.empty();
@@ -309,9 +308,8 @@ describe('Private Execution test suite', () => {
     );
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
-    node = mock<AztecNode>();
-    node.getPublicStorageAt.mockImplementation(
-      (_address: AztecAddress, _storageSlot: Fr, _blockNumber: L2BlockNumber) => {
+    executionDataProvider.getPublicStorageAt.mockImplementation(
+      (_blockNumber: L2BlockNumber, _address: AztecAddress, _storageSlot: Fr) => {
         return Promise.resolve(Fr.ZERO);
       },
     );
