@@ -1,10 +1,11 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 
+#include <cassert>
+
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include <cassert>
 
 namespace bb::avm2::tracegen {
 
