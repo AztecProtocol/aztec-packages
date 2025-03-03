@@ -114,7 +114,7 @@ export class PublicTxSimulator {
           processedPhases.push(appLogicResult);
         }
       } else {
-        this.log.debug(`Revertible insertion failed, skipping app logic`);
+        this.log.debug(`Revertible insertions failed. Skipping app logic.`);
       }
 
       if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
