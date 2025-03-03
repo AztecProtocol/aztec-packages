@@ -421,7 +421,7 @@ export class PublicTxSimulator {
         context.revert(
           TxExecutionPhase.APP_LOGIC,
           new SimulationError(
-            `Nullifier collision encountered when inserting revertible nullifiers from private\nDetails: ${e.message}\nStack:${e.stack}`,
+            `Nullifier collision encountered when inserting revertible nullifiers from private\nDetails: ${e.message}\nError stack: ${e.stack}`,
             [],
           ),
           /*culprit=*/ 'insertRevertiblesFromPrivate',

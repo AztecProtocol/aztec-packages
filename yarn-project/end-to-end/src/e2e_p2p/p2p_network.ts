@@ -340,8 +340,7 @@ export class P2PNetworkTest {
       },
     );
 
-    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues));
-    this.monitor.start();
+    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues)).start();
   }
 
   async stopNodes(nodes: AztecNodeService[]) {

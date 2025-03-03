@@ -164,9 +164,18 @@ export class MockL2BlockSource implements L2BlockSource {
     const finalizedBlock = this.l2Blocks[finalized - 1];
 
     return {
-      latest: { number: latest, hash: (await latestBlock?.hash())?.toString() },
-      proven: { number: proven, hash: (await provenBlock?.hash())?.toString() },
-      finalized: { number: finalized, hash: (await finalizedBlock?.hash())?.toString() },
+      latest: {
+        number: latest,
+        hash: (await latestBlock?.hash())?.toString(),
+      },
+      proven: {
+        number: proven,
+        hash: (await provenBlock?.hash())?.toString(),
+      },
+      finalized: {
+        number: finalized,
+        hash: (await finalizedBlock?.hash())?.toString(),
+      },
     };
   }
 

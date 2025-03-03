@@ -31,7 +31,7 @@ function test {
 }
 
 function test_cmds {
-  for browser in chromium webkit; do
+  for browser in chromium webkit firefox; do
     for box in vanilla react vite; do
       echo "$hash boxes/scripts/run_test.sh $box $browser"
     done
