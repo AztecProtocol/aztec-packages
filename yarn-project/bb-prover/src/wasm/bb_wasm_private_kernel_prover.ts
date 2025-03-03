@@ -39,4 +39,17 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     });
     return new ClientIvcProof(Buffer.from(proof), Buffer.from(vk));
   }
+
+  public override async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+    const backend = new AztecClientBackend([ungzip(_bytecode)], {
+      threads: this.threads,
+      logger: this.log.verbose,
+      wasmPath: process.env.BB_WASM_PATH,
+    });
+
+    const gateCount = await backend.gates();
+    await backend.destroy();
+
+    return gateCount[0];
+  }
 }
