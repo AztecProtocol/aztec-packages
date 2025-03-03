@@ -6,7 +6,7 @@ import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec
 import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../../public_db_sources.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
 import { markBytecodeAsAvm } from '../bytecode_utils.js';
@@ -29,12 +29,12 @@ import { SStore } from './storage.js';
 
 describe('External Calls', () => {
   let context: AvmContext;
-  let worldStateDB: WorldStateDB;
+  let worldStateDB: PublicTreesDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
   beforeEach(() => {
-    worldStateDB = mock<WorldStateDB>();
+    worldStateDB = mock<PublicTreesDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
     context = initContext({ persistableState });

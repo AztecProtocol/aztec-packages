@@ -6,7 +6,6 @@ import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee
 import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import type { PublicCallRequest } from '@aztec/stdlib/kernel';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import {
@@ -25,7 +24,7 @@ import type { AvmFinalizedCallResult } from './avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from './avm/index.js';
 import { NullifierCollisionError } from './avm/journal/nullifiers.js';
 import { ExecutorMetrics } from './executor_metrics.js';
-import type { WorldStateDB } from './public_db_sources.js';
+import type { ContractsDataSourcePublicDB, PublicTreesDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -52,8 +51,8 @@ export class PublicTxSimulator {
   private log: Logger;
 
   constructor(
-    private db: MerkleTreeReadOperations,
-    private worldStateDB: WorldStateDB,
+    private treesDB: PublicTreesDB,
+    private contractsDB: ContractsDataSourcePublicDB,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
@@ -78,8 +77,8 @@ export class PublicTxSimulator {
     this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
     const context = await PublicTxContext.create(
-      this.db,
-      this.worldStateDB,
+      this.treesDB,
+      this.contractsDB,
       tx,
       this.globalVariables,
       this.doMerkleOperations,
@@ -91,8 +90,8 @@ export class PublicTxSimulator {
     // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
     // TODO(#6464): Should we allow emitting contracts in the private setup phase?
     // if so, this should only add contracts that were deployed during private app logic.
-    // FIXME: we shouldn't need to directly modify worldStateDb here!
-    await this.worldStateDB.addNewContracts(tx);
+    // FIXME: we shouldn't need to directly modify treesDB here!
+    await this.contractsDB.addNewContracts(tx);
 
     const nonRevertStart = process.hrtime.bigint();
     await this.insertNonRevertiblesFromPrivate(context);
@@ -121,7 +120,7 @@ export class PublicTxSimulator {
     await context.halt();
     await this.payFee(context);
 
-    const endStateReference = await this.db.getStateReference();
+    const endStateReference = await this.treesDB.getStateReference();
 
     const avmProvingRequest = await context.generateProvingRequest(endStateReference);
 
@@ -130,8 +129,8 @@ export class PublicTxSimulator {
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
       // if so, this is removing contracts deployed in private setup
       // You can't submit contracts in public, so this is only relevant for private-created side effects
-      // FIXME: we shouldn't need to directly modify worldStateDb here!
-      await this.worldStateDB.removeNewContracts(tx, true);
+      // FIXME: we shouldn't need to directly modify treesDB here!
+      await this.contractsDB.removeNewContracts(tx, true);
       // FIXME(dbanks12): should not be changing immutable tx
       await tx.filterRevertedLogs();
     }
@@ -280,7 +279,7 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const address = executionRequest.callContext.contractAddress;
-    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, executionRequest.args);
+    const fnName = await getPublicFunctionDebugName(this.treesDB, address, executionRequest.args);
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
