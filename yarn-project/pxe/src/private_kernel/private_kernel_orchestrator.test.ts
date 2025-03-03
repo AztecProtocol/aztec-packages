@@ -34,7 +34,7 @@ import { mock } from 'jest-mock-extended';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 import { PrivateKernelOrchestrator } from './private_kernel_orchestrator.js';
 
-describe('Kernel Prover', () => {
+describe('Private Kernel Orchestrator', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<PrivateKernelOracle>>;
   let proofCreator: ReturnType<typeof mock<PrivateKernelProver>>;

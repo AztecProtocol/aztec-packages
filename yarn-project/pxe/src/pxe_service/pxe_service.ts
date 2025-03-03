@@ -69,7 +69,7 @@ import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import type { PxeDatabase } from '../database/index.js';
-import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle.js';
+import { PrivateKernelOracleImpl } from '../private_kernel/PrivateKernelOracleImpl.js';
 import {
   PrivateKernelOrchestrator,
   type PrivateKernelOrchestratorConfig,
