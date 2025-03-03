@@ -94,20 +94,8 @@ contract RollupTest is RollupBase {
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
-    rollup = IInstance(
-      address(
-        new Rollup(
-          feeJuicePortal,
-          rewardDistributor,
-          testERC20,
-          bytes32(0),
-          bytes32(0),
-          bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-          bytes32(Constants.GENESIS_BLOCK_HASH),
-          address(this)
-        )
-      )
-    );
+    rollup =
+      IInstance(address(new Rollup(feeJuicePortal, rewardDistributor, testERC20, address(this))));
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));
 
