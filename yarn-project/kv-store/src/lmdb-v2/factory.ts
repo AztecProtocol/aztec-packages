@@ -1,53 +1,44 @@
+import { DatabaseVersionManager } from '@aztec/foundation/database-version';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import type { DataStoreConfig } from '../config.js';
 import { AztecLMDBStoreV2 } from './store.js';
 
-const ROLLUP_ADDRESS_FILE = 'rollup_address';
+// The current version of the LMDB store schema
+// Increment this when making incompatible changes to the database
+export const LMDB_STORE_VERSION = 1;
 const MAX_READERS = 16;
 
 export async function createStore(
   name: string,
   config: DataStoreConfig,
   log: Logger = createLogger('kv-store:lmdb-v2:' + name),
+  version: number = LMDB_STORE_VERSION,
 ): Promise<AztecLMDBStoreV2> {
   const { dataDirectory, l1Contracts } = config;
 
   let store: AztecLMDBStoreV2;
   if (typeof dataDirectory !== 'undefined') {
+    // Get rollup address from contracts config, or use zero address
     const subDir = join(dataDirectory, name);
     await mkdir(subDir, { recursive: true });
 
-    if (l1Contracts) {
-      const { rollupAddress } = l1Contracts;
-      const localRollupAddress = await readFile(join(subDir, ROLLUP_ADDRESS_FILE), 'utf-8')
-        .then(EthAddress.fromString)
-        .catch(() => EthAddress.ZERO);
+    const rollupAddress = l1Contracts ? l1Contracts.rollupAddress : EthAddress.ZERO;
 
-      if (!localRollupAddress.equals(rollupAddress)) {
-        if (!localRollupAddress.isZero()) {
-          log.warn(`Rollup address mismatch. Clearing entire database...`, {
-            expected: rollupAddress,
-            found: localRollupAddress,
-          });
-
-          await rm(subDir, { recursive: true, force: true, maxRetries: 3 });
-          await mkdir(subDir, { recursive: true });
-        }
-
-        await writeFile(join(subDir, ROLLUP_ADDRESS_FILE), rollupAddress.toString());
-      }
-    }
+    // Create a version manager
+    const versionManager = new DatabaseVersionManager(version, rollupAddress, subDir, dbDirectory =>
+      AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKB, MAX_READERS, () => Promise.resolve(), log),
+    );
 
     log.info(
       `Creating ${name} data store at directory ${subDir} with map size ${config.dataStoreMapSizeKB} KB (LMDB v2)`,
     );
-    store = await AztecLMDBStoreV2.new(subDir, config.dataStoreMapSizeKB, MAX_READERS, () => Promise.resolve(), log);
+    [store] = await versionManager.open();
   } else {
     store = await openTmpStore(name, true, config.dataStoreMapSizeKB, MAX_READERS, log);
   }
@@ -79,15 +70,22 @@ export async function openTmpStore(
     }
   };
 
+  // For temporary stores, we don't need to worry about versioning
+  // as they are ephemeral and get cleaned up after use
   return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, log);
 }
 
-export function openStoreAt(
+export async function openStoreAt(
   dataDir: string,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
   log: Logger = createLogger('kv-store:lmdb-v2'),
+  version: number = LMDB_STORE_VERSION,
+  rollupAddress: EthAddress = EthAddress.ZERO,
 ): Promise<AztecLMDBStoreV2> {
   log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
-  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log);
+  const [store] = await new DatabaseVersionManager(version, rollupAddress, dataDir, dataDir =>
+    AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log),
+  ).open();
+  return store;
 }

@@ -1,5 +1,6 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { DatabaseVersionManager } from '@aztec/foundation/database-version';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -14,7 +15,7 @@ import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdli
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
-import { mkdir, mkdtemp, rm } from 'fs/promises';
+import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -32,15 +33,9 @@ import {
   worldStateRevision,
 } from './message.js';
 import { NativeWorldState } from './native_world_state_instance.js';
-import { WorldStateVersion } from './world_state_version.js';
 
-export const WORLD_STATE_VERSION_FILE = 'version';
-
-// A crude way of maintaining DB versioning
-// We don't currently have any method of performing data migrations
-// should the world state db structure change
-// For now we will track versions using this hardcoded value and delete
-// the state if a change is detected
+// The current version of the world state database schema
+// Increment this when making incompatible changes to the database schema
 export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
@@ -64,27 +59,17 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
-    const worldStateDirectory = join(dataDir, 'world_state');
-    const versionFile = join(worldStateDirectory, WORLD_STATE_VERSION_FILE);
-    const storedWorldStateVersion = await WorldStateVersion.readVersion(versionFile);
+    // Create a version manager to handle versioning
+    const versionManager = new DatabaseVersionManager(
+      WORLD_STATE_DB_VERSION,
+      rollupAddress,
+      dataDir,
+      (dataDir: string) => {
+        return Promise.resolve(new NativeWorldState(dataDir, dbMapSizeKb, prefilledPublicData, instrumentation));
+      },
+    );
 
-    if (!storedWorldStateVersion) {
-      log.warn('No world state version found, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
-    } else if (!rollupAddress.equals(storedWorldStateVersion.rollupAddress)) {
-      log.warn('Rollup address changed, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
-    } else if (storedWorldStateVersion.version != WORLD_STATE_DB_VERSION) {
-      log.warn('World state version change detected, deleting world state directory');
-      await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
-    }
-
-    const newWorldStateVersion = new WorldStateVersion(WORLD_STATE_DB_VERSION, rollupAddress);
-
-    await mkdir(worldStateDirectory, { recursive: true });
-    await newWorldStateVersion.writeVersionFile(versionFile);
-
-    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb, prefilledPublicData, instrumentation);
+    const [instance] = await versionManager.open();
     const worldState = new this(instance, instrumentation, log, cleanup);
     try {
       await worldState.init();
