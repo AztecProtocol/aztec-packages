@@ -54,6 +54,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
+    blockSource.setProvenBlockNumber(getProvenBlockNumber);
     await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
   };
 
