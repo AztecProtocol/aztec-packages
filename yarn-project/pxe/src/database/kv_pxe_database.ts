@@ -1,7 +1,7 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
-import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type {
   AztecAsyncArray,
   AztecAsyncKVStore,
@@ -9,8 +9,13 @@ import type {
   AztecAsyncMultiMap,
   AztecAsyncSingleton,
 } from '@aztec/kv-store';
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
-import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/stdlib/abi';
+import {
+  type ContractArtifact,
+  FunctionSelector,
+  FunctionType,
+  contractArtifactFromBuffer,
+  contractArtifactToBuffer,
+} from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock } from '@aztec/stdlib/block';
 import {
@@ -67,7 +72,7 @@ export class KVPxeDatabase implements PxeDatabase {
   // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
   #capsules: AztecAsyncMap<string, Buffer>;
 
-  debug: LogFn;
+  #logger: Logger;
 
   protected constructor(private db: AztecAsyncKVStore) {
     this.#db = db;
@@ -108,7 +113,7 @@ export class KVPxeDatabase implements PxeDatabase {
 
     this.#capsules = db.openMap('capsules');
 
-    this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
+    this.#logger = createLogger('aztec:kv-pxe-database');
   }
 
   public static async create(db: AztecAsyncKVStore): Promise<KVPxeDatabase> {
@@ -199,11 +204,26 @@ export class KVPxeDatabase implements PxeDatabase {
 
     return this.db.transactionAsync(async () => {
       for (const dao of notes) {
+        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+
+        // Check if note already exists in #notes and skip if it does
+        const existingNote = await this.#notes.getAsync(noteIndex);
+        if (existingNote) {
+          this.#logger.warn(`Note with index ${noteIndex} already exists in active notes. Skipping re-addition...`);
+          continue;
+        }
+
+        // Check if note already exists in #nullifiedNotes and skip if it does
+        const existingNullifiedNote = await this.#nullifiedNotes.getAsync(noteIndex);
+        if (existingNullifiedNote) {
+          this.#logger.warn(`Note with index ${noteIndex} already exists in nullified notes. Skipping re-addition...`);
+          continue;
+        }
+
         // store notes by their index in the notes hash tree
         // this provides the uniqueness we need to store individual notes
         // and should also return notes in the order that they were created.
         // Had we stored them by their nullifier, they would be returned in random order
-        const noteIndex = toBufferBE(dao.index, 32).toString('hex');
         await this.#notes.set(noteIndex, dao.toBuffer());
         await this.#notesToScope.set(noteIndex, scope.toString());
         await this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
@@ -624,7 +644,7 @@ export class KVPxeDatabase implements PxeDatabase {
   async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     const dataBuffer = await this.#capsules.getAsync(dbSlotToKey(contractAddress, slot));
     if (!dataBuffer) {
-      this.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
+      this.#logger.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return null;
     }
     const capsule: Fr[] = [];
