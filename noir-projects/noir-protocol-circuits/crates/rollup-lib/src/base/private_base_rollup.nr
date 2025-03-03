@@ -13,25 +13,21 @@ use crate::{
         },
         state_diff_hints::PrivateBaseStateDiffHints,
     },
-    components::{append_tx_effects_for_blob, compute_kernel_out_hash},
+    components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
 use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        constant_rollup_data::ConstantRollupData,
-        contract_class_log::{ContractClassLog, validate_and_silo_contract_class_log},
-        public_data_write::PublicDataWrite,
-        public_log::PublicLog,
-        sponge_blob::SpongeBlob,
-        tube::PrivateTubeData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
+        contract_class_log::ContractClassLog, public_data_write::PublicDataWrite,
+        public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
-    hash::silo_l2_to_l1_message,
+    hash::{silo_contract_class_log, silo_l2_to_l1_message},
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
@@ -120,13 +116,15 @@ impl PrivateBaseRollupInputs {
         let mut siloed_contract_class_logs =
             [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX];
         for i in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
-            siloed_contract_class_logs[i] = validate_and_silo_contract_class_log(
+            validate_contract_class_log(
                 self.contract_class_logs_preimages[i],
                 self.tube_data.public_inputs.end.contract_class_logs_hashes[i],
             );
+            siloed_contract_class_logs[i] =
+                silo_contract_class_log(self.contract_class_logs_preimages[i]);
         }
 
-        // These lengths have been constrained in validate_and_silo_contract_class_log to be correct.
+        // These lengths have been constrained above to be correct.
         let contract_class_logs_lengths =
             self.tube_data.public_inputs.end.contract_class_logs_hashes.map(|l| l.log_hash.length);
 

@@ -11,15 +11,17 @@ use crate::{
     address::{AztecAddress, EthAddress},
     constants::{
         FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
-        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH,
+        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     poseidon2::Poseidon2Sponge,
     traits::{FromField, Hash, ToField},
-    utils::field::field_from_bytes_32_trunc,
+    utils::{
+        arrays::{array_concat, find_index_hint_from_end},
+        field::{field_from_bytes, field_from_bytes_32_trunc},
+    },
 };
-use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
@@ -134,6 +136,19 @@ pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> Contract
             log.log.fields[0],
         );
         log
+    }
+}
+
+pub fn compute_contract_class_log_hash(contract_class_log: ContractClassLog) -> Field {
+    let array = contract_class_log.log.fields;
+    // Safety: the length is constrained in the base rollup.
+    let index = unsafe { find_index_hint_from_end(array, |elem| elem != 0) };
+    // We only hash the log's fields, not the trailing zeros added from padding
+    let length = if index == array.len() { 0 } else { index + 1 };
+    if length == 0 {
+        0
+    } else {
+        poseidon2_hash_subarray_variable(array, length)
     }
 }
 
