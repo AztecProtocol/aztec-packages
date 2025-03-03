@@ -32,12 +32,13 @@ if [ -z "$INSTANCE_TYPE_SUFFIX" ]; then
 fi
 
 # Construct the full instance type. We use m6a/m7g currently.
-if [ "$ARCH" == "x86_64" ]; then
+# Ami's are our custum built build-instance amis. See ami_update.sh.
+if [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "amd64" ]; then
   MACHINE_TYPE="m6a"
-  AMI=${AMI:-"ami-044f8e99cd65daf76"}
+  AMI=${AMI:-$(cat ./aws/ami_id_amd64)}
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="m7g"
-  AMI=${AMI:-"ami-0d8a9b0419ddb331a"}
+  AMI=${AMI:-$(cat ./aws/ami_id_arm64)}
 else
   echo "Unknown arch: $ARCH"
   exit 1
@@ -60,7 +61,9 @@ launch_spec=$(cat <<EOF
       "DeviceName": "/dev/sda1",
       "Ebs": {
         "VolumeSize": 64,
-        "VolumeType": "gp3"
+        "VolumeType": "gp3",
+        "Throughput": 1000,
+        "Iops": 4000
       }
     }
   ]
@@ -68,12 +71,15 @@ launch_spec=$(cat <<EOF
 EOF
 )
 
-# Save the launch specification to a temporary file
+# Save the launch specification to a temporary file.
 temp_file=$(mktemp)
+trap "rm -f $temp_file" EXIT
 echo "$launch_spec" > "$temp_file"
 
+info="(name: $NAME) (ami: $AMI) (cpus: $CPUS) (bid: $PRICE)"
+
 if [ "${NO_SPOT:-0}" -ne 1 ]; then
-  >&2 echo "Requesting $INSTANCE_TYPE spot instance (name: $NAME) (cpus: $CPUS) (bid: $PRICE)..."
+  >&2 echo "Requesting $INSTANCE_TYPE spot instance $info..."
   SIR=$(aws ec2 request-spot-instances \
     --spot-price "$PRICE" \
     --instance-count 1 \
@@ -104,7 +110,7 @@ fi
 
 if [ -z "${IID:-}" -o "${IID:-}" == "None" ]; then
   # Request on-demand instance.
-  >&2 echo "Requesting $INSTANCE_TYPE on-demand instance (name: $NAME) (cpus: $CPUS)..."
+  >&2 echo "Requesting $INSTANCE_TYPE on-demand instance $info..."
   IID=$(aws ec2 run-instances \
     --cli-input-json file://$temp_file \
     --query "Instances[*].[InstanceId]" \
@@ -126,7 +132,7 @@ done
 >&2 echo "Waiting for SSH at $IP..."
 SECONDS=0
 SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-aws/build_instance_ssh_config}
-[ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +60"
+[ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +${AWS_SHUTDOWN_TIME:-60}"
 while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP $LIVE_CMD > /dev/null 2>&1; do
   if (( SECONDS >= 60 )); then
     >&2 echo "Timeout: SSH could not login to $IP within 60 seconds."

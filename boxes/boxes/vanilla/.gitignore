@@ -10,3 +10,4 @@ src/contracts/target
 /blob-report/
 /playwright/.cache/
 codegenCache.json
+release-out

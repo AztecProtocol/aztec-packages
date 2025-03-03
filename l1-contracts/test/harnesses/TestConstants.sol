@@ -8,7 +8,7 @@ library TestConstants {
   uint256 internal constant AZTEC_SLOT_DURATION = 24;
   uint256 internal constant AZTEC_EPOCH_DURATION = 16;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
-  uint256 internal constant AZTEC_PROOF_SUBMISSION_WINDOW = 32;
+  uint256 internal constant AZTEC_PROOF_SUBMISSION_WINDOW = AZTEC_EPOCH_DURATION * 2 - 1;
   uint256 internal constant AZTEC_MINIMUM_STAKE = 100e18;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;

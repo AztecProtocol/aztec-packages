@@ -1,16 +1,30 @@
 use crate::{
-    constants::PROTOCOL_CONTRACT_TREE_HEIGHT, merkle_tree::merkle_tree::MerkleTree,
-    tests::fixtures::contracts::get_protocol_contract, traits::ToField,
+    abis::protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
+    constants::PROTOCOL_CONTRACT_TREE_HEIGHT,
+    merkle_tree::{leaf_preimage::LeafPreimage, merkle_tree::MerkleTree},
+    tests::fixtures::contracts::get_protocol_contract,
+    traits::{Empty, ToField},
 };
 
 global PROTOCOL_CONTRACT_TREE_WIDTH: u32 = 1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8;
 
-pub fn get_protocol_contract_tree() -> MerkleTree<PROTOCOL_CONTRACT_TREE_WIDTH> {
-    let mut leaves = [0; PROTOCOL_CONTRACT_TREE_WIDTH];
+pub fn get_protocol_contract_tree() -> (MerkleTree<PROTOCOL_CONTRACT_TREE_WIDTH>, [ProtocolContractLeafPreimage; PROTOCOL_CONTRACT_TREE_WIDTH]) {
+    let mut leaf_preimages = [ProtocolContractLeafPreimage::empty(); PROTOCOL_CONTRACT_TREE_WIDTH];
 
-    // Fake protocol contract addresses for testing purposes.
-    leaves[1] = get_protocol_contract(1).address.to_field();
-    leaves[2] = 12341234;
-
-    MerkleTree::new(leaves)
+    let contracts =
+        [get_protocol_contract(1).address.to_field(), get_protocol_contract(2).address.to_field()];
+    let next_addresses = if contracts[0].lt(contracts[1]) {
+        [contracts[1], 0]
+    } else {
+        [0, contracts[1]]
+    };
+    leaf_preimages[1] =
+        ProtocolContractLeafPreimage { address: contracts[0], next_address: next_addresses[0] };
+    leaf_preimages[2] =
+        ProtocolContractLeafPreimage { address: contracts[1], next_address: next_addresses[1] };
+    (
+        MerkleTree::new(
+            leaf_preimages.map(|l: ProtocolContractLeafPreimage| l.as_leaf()),
+        ), leaf_preimages,
+    )
 }

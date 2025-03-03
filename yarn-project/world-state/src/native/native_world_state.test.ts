@@ -1,10 +1,5 @@
-import { type L2Block, MerkleTreeId, type MerkleTreeWriteOperations, type SiblingPath } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
-  AppendOnlyTreeSnapshot,
-  BlockHeader,
-  EthAddress,
-  Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -13,9 +8,16 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  PublicDataWrite,
-} from '@aztec/circuits.js';
-import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
+} from '@aztec/constants';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import type { SiblingPath } from '@aztec/foundation/trees';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { makeContentCommitment, makeGlobalVariables } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
@@ -24,7 +26,7 @@ import { join } from 'path';
 
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
-import { type WorldStateStatusSummary } from './message.js';
+import type { WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
 import { WorldStateVersion } from './world_state_version.js';
 
@@ -41,7 +43,7 @@ describe('NativeWorldState', () => {
   });
 
   afterAll(async () => {
-    await rm(dataDir, { recursive: true });
+    await rm(dataDir, { recursive: true, maxRetries: 3 });
   });
 
   describe('persistence', () => {
@@ -541,7 +543,7 @@ describe('NativeWorldState', () => {
     let publicTree: number;
 
     beforeAll(async () => {
-      await rm(dataDir, { recursive: true });
+      await rm(dataDir, { recursive: true, maxRetries: 3 });
     });
 
     it('correctly reports block numbers', async () => {
@@ -599,7 +601,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     beforeAll(async () => {
-      await rm(dataDir, { recursive: true });
+      await rm(dataDir, { recursive: true, maxRetries: 3 });
     });
 
     it('correctly reports status', async () => {
@@ -711,6 +713,42 @@ describe('NativeWorldState', () => {
       expect(statuses[0].dbStats.publicDataTreeStats.mapSize).toBe(mapSizeBytes);
 
       await ws.close();
+    });
+  });
+
+  describe('Initialization args', () => {
+    it('initializes with prefilled public data', async () => {
+      // Without prefilled.
+      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
+      const { state: initialState, ...initialRest } = ws.getInitialHeader();
+
+      // With prefilled.
+      const prefilledPublicData = [
+        new PublicDataTreeLeaf(new Fr(1000), new Fr(2000)),
+        new PublicDataTreeLeaf(new Fr(3000), new Fr(4000)),
+      ];
+      const wsPrefilled = await NativeWorldStateService.new(
+        EthAddress.random(),
+        dataDir,
+        defaultDBMapSize,
+        prefilledPublicData,
+      );
+      const { state: prefilledState, ...prefilledRest } = wsPrefilled.getInitialHeader();
+
+      // The root of the public data tree has changed.
+      expect(initialState.partial.publicDataTree.root).not.toEqual(prefilledState.partial.publicDataTree.root);
+
+      // The rest of the values are the same.
+      expect(initialRest).toEqual(prefilledRest);
+      expect(initialState.l1ToL2MessageTree).toEqual(prefilledState.l1ToL2MessageTree);
+      expect(initialState.partial.noteHashTree).toEqual(prefilledState.partial.noteHashTree);
+      expect(initialState.partial.nullifierTree).toEqual(prefilledState.partial.nullifierTree);
+      expect(initialState.partial.publicDataTree.nextAvailableLeafIndex).toEqual(
+        prefilledState.partial.publicDataTree.nextAvailableLeafIndex,
+      );
+
+      await ws.close();
+      await wsPrefilled.close();
     });
   });
 

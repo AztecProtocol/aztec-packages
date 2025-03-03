@@ -18,7 +18,7 @@ aztec-wallet bridge-fee-juice 100000000000000000 main --mint --no-wait
 section "Create a bootstrapping account just to force block creation"
 
 aztec-wallet create-account -a bootstrap
-aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:main accounts:main -f bootstrap -a counter
+aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:main -f bootstrap -a counter
 aztec-wallet send increment -ca counter --args accounts:main accounts:main -f bootstrap
 aztec-wallet send increment -ca counter --args accounts:main accounts:main -f bootstrap
 

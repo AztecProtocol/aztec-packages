@@ -40,6 +40,8 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
 
     bb::nodejs::AsyncMessageProcessor _msg_processor;
 
+    void verify_store() const;
+
     BoolResponse open_database(const OpenDatabaseRequest& req);
 
     GetResponse get(const GetRequest& req);

@@ -7,10 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../epoch-cache"
@@ -26,6 +23,9 @@
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

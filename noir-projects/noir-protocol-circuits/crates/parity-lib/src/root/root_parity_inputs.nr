@@ -63,7 +63,7 @@ mod tests {
         constants::{BASE_PARITY_INDEX, NUM_BASE_PARITY_PER_ROOT_PARITY},
         hash::verification_key_hash,
         proof::{recursive_proof::RecursiveProof, verification_key::VerificationKey},
-        tests::fixtures::vk_tree::{generate_fake_honk_vk_for_index, get_vk_merkle_tree},
+        tests::fixtures::vk_tree::{generate_fake_honk_vk_for_index, VK_MERKLE_TREE},
         traits::Empty,
     };
 
@@ -76,7 +76,7 @@ mod tests {
             0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a,
         ];
 
-        let vk_tree = get_vk_merkle_tree();
+        let vk_tree = VK_MERKLE_TREE;
 
         let vk_path = vk_tree.get_sibling_path(BASE_PARITY_INDEX);
         let vk_tree_root = vk_tree.get_root();

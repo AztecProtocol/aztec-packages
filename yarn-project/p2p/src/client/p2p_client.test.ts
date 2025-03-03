@@ -1,18 +1,20 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { L2Block, P2PClientType, mockTx } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { L2Block } from '@aztec/stdlib/block';
+import { P2PClientType } from '@aztec/stdlib/p2p';
+import { mockTx } from '@aztec/stdlib/testing';
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type P2PService } from '../index.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type MemPools } from '../mem_pools/interface.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { P2PService } from '../index.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { MemPools } from '../mem_pools/interface.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { P2PClient } from './p2p_client.js';
 
 describe('In-Memory P2P Client', () => {
@@ -152,7 +154,7 @@ describe('In-Memory P2P Client', () => {
       blockSource.removeBlocks(10);
 
       // give the client a chance to react to the reorg
-      await sleep(100);
+      await sleep(1000);
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 90, hash: expect.any(String) },
@@ -163,7 +165,7 @@ describe('In-Memory P2P Client', () => {
       blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
 
       // give the client a chance to react to the new blocks
-      await sleep(100);
+      await sleep(1000);
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 92, hash: expect.any(String) },

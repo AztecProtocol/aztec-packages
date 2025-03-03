@@ -50,11 +50,18 @@ unconstrained fn test_get_scheduled_value_in_public() {
     let mut env = setup();
     let state_var = in_public(env);
 
+    // Schedule a value change that will activate at `public_context.block_number() + current_delay`.
+    // Since we haven't modified the delay, it remains at the initial value of TEST_INITIAL_DELAY.
     state_var.schedule_value_change(new_value);
 
     let (scheduled, block_of_change) = state_var.get_scheduled_value();
     assert_eq(scheduled, new_value);
-    assert_eq(block_of_change, env.block_number() + TEST_INITIAL_DELAY);
+
+    // The block of change should equal the pending block number plus TEST_INITIAL_DELAY because:
+    // 1. The value change is scheduled using the block number from the public context
+    // 2. The public context's block number corresponds to the pending block
+    // 3. The current delay is TEST_INITIAL_DELAY since it hasn't been modified
+    assert_eq(block_of_change, env.pending_block_number() + TEST_INITIAL_DELAY);
 }
 
 #[test]
@@ -120,7 +127,7 @@ unconstrained fn test_get_scheduled_delay_in_public() {
     let (scheduled, block_of_change) = state_var.get_scheduled_delay();
     assert_eq(scheduled, new_delay);
     // The new delay is smaller, therefore we need to wait for the difference between current and new
-    assert_eq(block_of_change, env.block_number() + TEST_INITIAL_DELAY - new_delay);
+    assert_eq(block_of_change, env.pending_block_number() + TEST_INITIAL_DELAY - new_delay);
 }
 
 #[test]
@@ -172,7 +179,7 @@ unconstrained fn test_get_current_delay_in_public_after_scheduled_change() {
 unconstrained fn test_get_current_value_in_private_initial() {
     let mut env = setup();
 
-    let historical_block_number = env.block_number();
+    let historical_block_number = env.pending_block_number();
     let state_var = in_private(&mut env, historical_block_number);
 
     assert_eq(state_var.get_current_value(), zeroed());
@@ -191,7 +198,7 @@ unconstrained fn test_get_current_value_in_private_before_change() {
 
     let (_, block_of_change) = public_state_var.get_scheduled_value();
 
-    let schedule_block_number = env.block_number();
+    let schedule_block_number = env.pending_block_number();
 
     let private_state_var = in_private(&mut env, schedule_block_number);
     assert_eq(private_state_var.get_current_value(), MockStruct::empty());

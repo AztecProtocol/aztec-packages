@@ -1,51 +1,51 @@
-import { createLogger } from '@aztec/aztec.js';
 import {
-  type AztecNode,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type L2Block,
-  L2BlockHash,
-  type L2BlockNumber,
-  type L2Tips,
-  type LogFilter,
-  type MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
+  type ARCHIVE_HEIGHT,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  type PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/constants';
+import type { L1ContractAddresses } from '@aztec/ethereum';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import type { SiblingPath } from '@aztec/foundation/trees';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type InBlock, L2Block, L2BlockHash, type L2BlockNumber, type L2Tips } from '@aztec/stdlib/block';
+import type {
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  ProtocolContractAddresses,
+} from '@aztec/stdlib/contract';
+import type { GasFees } from '@aztec/stdlib/gas';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type { AztecNode, GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import type {
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  ProverConfig,
+  SequencerConfig,
+  WorldStateSyncStatus,
+} from '@aztec/stdlib/interfaces/server';
+import { type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import {
+  MerkleTreeId,
   type NullifierMembershipWitness,
-  type ProverConfig,
-  type PublicDataWitness,
+  type PublicDataTreeLeafPreimage,
+  PublicDataWitness,
+} from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
   type PublicSimulationOutput,
-  type SequencerConfig,
-  type SiblingPath,
   type Tx,
   type TxEffect,
   TxHash,
   TxReceipt,
-  TxScopedL2Log,
   type TxValidationResult,
-} from '@aztec/circuit-types';
-import {
-  type ARCHIVE_HEIGHT,
-  type AztecAddress,
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type GasFees,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type NodeInfo,
-  type PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  type PrivateLog,
-  type ProtocolContractAddresses,
-  type PublicLog,
-} from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
-import { type NativeWorldStateService } from '@aztec/world-state';
+} from '@aztec/stdlib/tx';
+import type { NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
@@ -582,8 +582,23 @@ export class TXENode implements AztecNode {
    * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  getPublicStorageAt(_contract: AztecAddress, _slot: Fr, _blockNumber: L2BlockNumber): Promise<Fr> {
-    throw new Error('TXE Node method getPublicStorageAt not implemented');
+  async getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr> {
+    const db: MerkleTreeReadOperations =
+      blockNumber === (await this.getBlockNumber()) || blockNumber === 'latest' || blockNumber === undefined
+        ? this.baseFork
+        : this.nativeWorldStateService.getSnapshot(blockNumber);
+
+    const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
+
+    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+      return Fr.ZERO;
+    }
+    const preimage = (await db.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+    return preimage.value;
   }
 
   /**
@@ -610,7 +625,7 @@ export class TXENode implements AztecNode {
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<TxValidationResult> {
+  isValidTx(_tx: Tx): Promise<TxValidationResult> {
     throw new Error('TXE Node method isValidTx not implemented');
   }
 
@@ -699,5 +714,12 @@ export class TXENode implements AztecNode {
    */
   getNodeInfo(): Promise<NodeInfo> {
     throw new Error('TXE Node method getNodeInfo not implemented');
+  }
+
+  /**
+   * Returns the sync status of the node's world state
+   */
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    throw new Error('TXE Node method getWorldStateSyncStatus not implemented');
   }
 }

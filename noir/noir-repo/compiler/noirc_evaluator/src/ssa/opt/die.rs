@@ -26,15 +26,21 @@ impl Ssa {
     /// This step should come after the flattening of the CFG and mem2reg.
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn dead_instruction_elimination(self) -> Ssa {
-        self.dead_instruction_elimination_inner(true)
+        self.dead_instruction_elimination_inner(true, false)
     }
 
-    fn dead_instruction_elimination_inner(mut self, flattened: bool) -> Ssa {
+    /// Post the Brillig generation we do not need to run this pass on Brillig functions.
+    #[tracing::instrument(level = "trace", skip(self))]
+    pub(crate) fn dead_instruction_elimination_acir(self) -> Ssa {
+        self.dead_instruction_elimination_inner(true, true)
+    }
+
+    fn dead_instruction_elimination_inner(mut self, flattened: bool, skip_brillig: bool) -> Ssa {
         let mut used_globals_map: HashMap<_, _> = self
             .functions
             .par_iter_mut()
             .filter_map(|(id, func)| {
-                let set = func.dead_instruction_elimination(true, flattened);
+                let set = func.dead_instruction_elimination(true, flattened, skip_brillig);
                 if func.runtime().is_brillig() {
                     Some((*id, set))
                 } else {
@@ -79,7 +85,12 @@ impl Function {
         &mut self,
         insert_out_of_bounds_checks: bool,
         flattened: bool,
+        skip_brillig: bool,
     ) -> HashSet<ValueId> {
+        if skip_brillig && self.dfg.runtime().is_brillig() {
+            return HashSet::default();
+        }
+
         let mut context = Context { flattened, ..Default::default() };
 
         context.mark_function_parameter_arrays_as_used(self);
@@ -103,7 +114,7 @@ impl Function {
         // instructions (we don't want to remove those checks, or instructions that are
         // dependencies of those checks)
         if inserted_out_of_bounds_checks {
-            return self.dead_instruction_elimination(false, flattened);
+            return self.dead_instruction_elimination(false, flattened, skip_brillig);
         }
 
         context.remove_rc_instructions(&mut self.dfg);
@@ -284,7 +295,7 @@ impl Context {
             self.rc_instructions.iter().fold(HashMap::default(), |mut acc, (rc, block)| {
                 let value = match &dfg[*rc] {
                     Instruction::IncrementRc { value } => *value,
-                    Instruction::DecrementRc { value } => *value,
+                    Instruction::DecrementRc { value, .. } => *value,
                     other => {
                         unreachable!(
                             "Expected IncrementRc or DecrementRc instruction, found {other:?}"
@@ -434,7 +445,7 @@ impl Context {
         dfg: &DataFlowGraph,
     ) -> bool {
         use Instruction::*;
-        if let IncrementRc { value } | DecrementRc { value } = instruction {
+        if let IncrementRc { value } | DecrementRc { value, .. } = instruction {
             let Some(instruction) = dfg.get_local_or_global_instruction(*value) else {
                 return false;
             };
@@ -685,7 +696,7 @@ impl<'a> RcTracker<'a> {
                 // Remember that this array was RC'd by this instruction.
                 self.inc_rcs.entry(*value).or_default().insert(instruction_id);
             }
-            Instruction::DecrementRc { value } => {
+            Instruction::DecrementRc { value, .. } => {
                 let typ = function.dfg.type_of_value(*value);
 
                 // We assume arrays aren't mutated until we find an array_set
@@ -835,7 +846,7 @@ mod test {
               b0(v0: [Field; 2]):
                 inc_rc v0
                 v2 = array_get v0, index u32 0 -> Field
-                dec_rc v0
+                dec_rc v0 v0
                 return v2
             }
             ";
@@ -859,7 +870,7 @@ mod test {
               b0(v0: [Field; 2]):
                 inc_rc v0
                 v2 = array_set v0, index u32 0, value u32 0
-                dec_rc v0
+                dec_rc v0 v0
                 return v2
             }
             ";
@@ -967,7 +978,7 @@ mod test {
                 v3 = load v0 -> [Field; 3]
                 v6 = array_set v3, index u32 0, value Field 5
                 store v6 at v0
-                dec_rc v6
+                dec_rc v6 v1
                 return
             }
             ";
@@ -1099,7 +1110,7 @@ mod test {
         let ssa = Ssa::from_str(src).unwrap();
 
         // Even though these ACIR functions only have 1 block, we have not inlined and flattened anything yet.
-        let ssa = ssa.dead_instruction_elimination_inner(false);
+        let ssa = ssa.dead_instruction_elimination_inner(false, false);
 
         let expected = "
           acir(inline) fn main f0 {

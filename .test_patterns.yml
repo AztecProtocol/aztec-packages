@@ -1,0 +1,149 @@
+# Describes tests that we either:
+#   - Outright skip.
+#   - Run and alert owners on failure.
+# To outright skip a test add a "skip: true" property.
+# Only do this for tests that are currently expected to fail constantly and the noise is unbearable!
+# Otherwise, tests must have owner(s). Owners are identified by their Slack id, (profile, three dots, copy member id).
+# If there is no owner for failed test the build will fail, regardless of if it matches in this file.
+# When a failing test matches one or more of the "regex" properties below,
+# a message is sent to slack channel #aztec3-ci tagging the owners.
+
+tests:
+  # barretenberg
+  #
+  # Rare. But I saw it happen twice in 10 CI runs. Then twice in 10000 mainframe runs. Today I can't reproduce.
+  # Grind with: seq 1 10000 | parallel --bar "barretenberg/cpp/scripts/run_test.sh join_split_example_tests join_split_tests.test_defi_deposit_second_bridge_output_in_use_and_same_virtual_bridge_output_asset_ids >/dev/null"
+  # Logic failed: field_t::range_constraint
+  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/examples/join_split/join_split.test.cpp:1735: Failure
+  # Value of: result.valid
+  #   Actual: false
+  # Expected: true
+  - regex: "join_split_example_tests"
+    owners:
+      - "U03JYU7AQET" # luke
+
+  # noir
+  # Something to do with how I run the tests now. Think these are fine in nextest.
+  - regex: "noir_lsp-.* notifications::notification_tests::test_caches_open_files"
+    skip: true
+    owners:
+      - "UKUMA5J7K" # charlie
+  - regex: "noir_lsp-.* requests::"
+    skip: true
+    owners:
+      - "UKUMA5J7K" # charlie
+  # Sometimes see this on ARM. But not when run on it's own...
+  # FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
+  #                                                                                                                                                                                running 1 test
+  # test tests::debug_ram_blowup_regression has been running for over 60 seconds                                                                                                   test tests::debug_ram_blowup_regression ... FAILED
+  #                                                                                                                                                                                failures:
+  #                                                                                                                                                                                ---- tests::debug_ram_blowup_regression stdout ----
+  # thread 'tests::debug_ram_blowup_regression' panicked at tooling/debugger/tests/debug.rs:27:14:                                                                                 Could not start debugger: Timeout { expected: "Regex: \".*\Starting debugger.*\"", got: "`^`[?2004l`\r``\r``\n`
+  # Waiting for lock on Nargo.toml...`\r``\n`                                                                                                                                      ", timeout: 30s }
+  # note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+  #                                                                                                                                                                                failures:
+  #     tests::debug_ram_blowup_regression
+  # test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 232 filtered out; finished in 60.34s
+  - regex: "tests::debug_ram_blowup_regression"
+    skip: true
+    owners:
+      - "UKUMA5J7K" # charlie
+
+  # Seen this error on all the below.
+  # e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
+  # FAIL  e2e_p2p/reqresp.test.ts
+  #  ● e2e_p2p_reqresp_tx › should produce an attestation by requesting tx data over the p2p network
+
+  #    TypeError: Cannot read properties of null (reading 'address')
+
+  #      19 |
+  #      20 |   get(): T | undefined {
+  #    > 21 |     return this.#db.get(this.#slot);
+  #         |                     ^
+  #      22 |   }
+  #      23 |
+  #      24 |   getAsync(): Promise<T | undefined> {
+
+  #      at LMDBStore.getBinaryFast (../../node_modules/lmdb/read.js:90:9)
+  #      at LMDBStore.get (../../node_modules/lmdb/read.js:334:22)
+  #      at LmdbAztecSingleton.get (../../kv-store/src/lmdb/singleton.ts:21:21)
+  #      at initStoreForRollup (../../kv-store/src/utils.ts:26:82)
+  #      at createStore (../../kv-store/src/lmdb/index.ts:25:12)
+  #      at createArchiver (../../archiver/src/factory.ts:30:25)
+  #      at Function.createAndSync (../../aztec-node/src/aztec-node/server.ts:157:28)
+  #      at createAndSync (fixtures/setup_p2p_test.ts:72:33)
+  #          at async Promise.all (index 0)
+  #      at Object.<anonymous> (e2e_p2p/reqresp.test.ts:66:13)
+  - regex: "simple e2e_p2p/"
+    owners:
+      - "U04DT239VQU" # sean
+
+  - regex: "simple e2e_fees/private_payments"
+    owners:
+      - "U02G4KAD57Y" # phil
+
+  # Summary of all failing tests
+  #  FAIL  ./e2e_cheat_codes.test.ts
+  #   ● e2e_cheat_codes › L1 cheatcodes › setNextBlockTimestamp
+  #
+  #     expect(received).toBe(expected) // Object.is equality
+  #
+  #     Expected: 28
+  #     Received: 29
+  #
+  #       65 |       await cc.eth.mine();
+  #       66 |
+  #     > 67 |       expect(await cc.eth.blockNumber()).toBe(blockNumber + 1);
+  #          |                                          ^
+  #       68 |       expect(await cc.eth.timestamp()).toBe(timestamp + increment);
+  #       69 |     });
+  #       70 |
+  #
+  #       at toBe (e2e_cheat_codes.test.ts:67:42)
+  #
+  #
+  # Test Suites: 1 failed, 1 total
+  # Tests:       1 failed, 4 skipped, 13 passed, 18 total
+  # Snapshots:   0 total
+  # Time:        28.241 s
+  # Ran all test suites matching /e2e_cheat_codes/i.
+  - regex: "simple e2e_cheat_codes"
+    owners:
+      - "U03E5SYLY3Z" # lasse
+
+  - regex: "prover-client/src/test/bb_prover_parity.test.ts"
+    owners:
+      - "U04TPBU26E8" # palla
+  - regex: "prover-client/src/proving_broker/broker_prover_facade.test.ts"
+    owners:
+      - "U04TPBU26E8" # palla
+  - regex: "prover-client/src/orchestrator/orchestrator_errors.test.ts"
+    owners:
+      - "U04TPBU26E8" # palla
+
+  # yarn-project tests
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    owners:
+      - "U04DT239VQU" # sean
+  - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
+    owners:
+      - "U03E5SYLY3Z" # lasse
+  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
+    owners:
+      - "U04TPBU26E8" # palla
+
+  # kind tests
+  - regex: "spartan/bootstrap.sh test-kind"
+    owners:
+      - "UKUMA5J7K" # charlie
+      - "U04BM8H25NJ" # adam
+  - regex: "spartan/bootstrap.sh test-local"
+    skip: true
+    owners:
+      - "UKUMA5J7K" # charlie
+      - "U04BM8H25NJ" # adam
+
+  # Slack testing.
+  - regex: "nonsense to match"
+    owners:
+      - "UKUMA5J7K" # charlie

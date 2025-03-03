@@ -187,10 +187,10 @@ pub fn verify_squashed_transient_data<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIE
     transient_or_propagated_note_hash_indexes_for_logs: [u32; NUM_LOGS],
     split_counter: u32,
 ) {
-    /// Safety: The hints are verified below by verify_squashed_transient_data_with_hint_indexes.
+    // Safety: The hints are verified below by verify_squashed_transient_data_with_hint_indexes.
     let squashed_note_hash_hints =
         unsafe { get_squashed_note_hash_hints(transient_data_index_hints) };
-    /// Safety: The hints are verified below by verify_squashed_transient_data_with_hint_indexes.
+    // Safety: The hints are verified below by verify_squashed_transient_data_with_hint_indexes.
     let squashed_nullifier_hints =
         unsafe { get_squashed_nullifier_hints(transient_data_index_hints) };
     verify_squashed_transient_data_with_hint_indexes(
@@ -431,10 +431,10 @@ mod tests {
         }
 
         pub fn get_hint_indexes(self) -> ([bool; NUM_NOTE_HASHES], [bool; NUM_NULLIFIERS]) {
-            /// Safety: This is only used in tests.
+            // Safety: This is only used in tests.
             let squashed_note_hash_hints =
                 unsafe { get_squashed_note_hash_hints(self.transient_data_index_hints) };
-            /// Safety: This is only used in tests.
+            // Safety: This is only used in tests.
             let squashed_nullifier_hints =
                 unsafe { get_squashed_nullifier_hints(self.transient_data_index_hints) };
             (squashed_note_hash_hints, squashed_nullifier_hints)

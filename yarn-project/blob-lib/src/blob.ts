@@ -1,14 +1,14 @@
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer } from 'c-kzg';
 
 import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './encoding.js';
 import { BlobDeserializationError } from './errors.js';
-import { type BlobJson } from './interface.js';
+import type { BlobJson } from './interface.js';
 
 /* eslint-disable import/no-named-as-default-member */
 const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;
@@ -157,6 +157,23 @@ export class Blob {
   toEncodedFields(): Fr[] {
     try {
       return deserializeEncodedBlobToFields(this.data);
+    } catch (err) {
+      throw new BlobDeserializationError(
+        `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
+      );
+    }
+  }
+
+  /**
+   * Get the encoded fields from multiple blobs.
+   *
+   * @dev This method takes into account trailing zeros
+   *
+   * @returns The encoded fields from the blobs.
+   */
+  static toEncodedFields(blobs: Blob[]): Fr[] {
+    try {
+      return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
     } catch (err) {
       throw new BlobDeserializationError(
         `Failed to deserialize encoded blob fields, this blob was likely not created by us`,

@@ -3,3 +3,4 @@
 ^docs/static
 ^docs/.*\.js
 ^docs/.*\.json
+^docs/bootstrap.sh

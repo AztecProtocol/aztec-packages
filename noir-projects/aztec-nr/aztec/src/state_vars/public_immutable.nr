@@ -27,7 +27,7 @@ use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::Pack
 /// #[derive(Eq, Packable)]
 /// pub struct Config \{
 ///     pub address_1: AztecAddress,
-///     pub value_1: U128,
+///     pub value_1: u128,
 ///     pub value_2: u64,
 ///     ...
 /// }

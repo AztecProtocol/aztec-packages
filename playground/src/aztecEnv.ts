@@ -1,29 +1,22 @@
-import { createAztecNodeClient, AztecNode } from "@aztec/aztec.js/utils";
+import { createAztecNodeClient, type AztecNode } from "@aztec/aztec.js/utils";
 
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { AccountWalletWithSecretKey } from "@aztec/aztec.js/wallet";
 import { Contract } from "@aztec/aztec.js/contracts";
 import { type PXE } from "@aztec/aztec.js/interfaces/pxe";
 import { PXEService } from "@aztec/pxe/service";
-import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
+import { type PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
 import { KeyStore } from "@aztec/key-store";
 import { L2TipsStore } from "@aztec/kv-store/stores";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
 import { WASMSimulator } from "@aztec/simulator/client";
-import { debug } from "debug";
 import { createContext } from "react";
 import { NetworkDB, WalletDB } from "./utils/storage";
-import { ContractFunctionInteractionTx } from "./utils/txs";
-import { Logger, createLogger } from "@aztec/aztec.js/log";
-
-process.env = Object.keys(import.meta.env).reduce((acc, key) => {
-  acc[key.replace("VITE_", "")] = import.meta.env[key];
-  return acc;
-}, {});
-
-debug.enable("*");
+import { type ContractFunctionInteractionTx } from "./utils/txs";
+import { type Logger, createLogger } from "@aztec/aztec.js/log";
+import { LazyProtocolContractsProvider } from "@aztec/protocol-contracts/providers/lazy";
 
 const logLevel = [
   "silent",
@@ -192,6 +185,8 @@ export class AztecEnv {
     const db = await KVPxeDatabase.create(store);
     const tips = new L2TipsStore(store, "pxe");
 
+    const protocolContractsProvider = new LazyProtocolContractsProvider();
+
     const pxe = new PXEService(
       keyStore,
       aztecNode,
@@ -199,6 +194,7 @@ export class AztecEnv {
       tips,
       proofCreator,
       simulationProvider,
+      protocolContractsProvider,
       config,
       WebLogger.getInstance().createLogger("pxe:service")
     );

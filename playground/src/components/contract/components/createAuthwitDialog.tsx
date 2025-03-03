@@ -1,6 +1,11 @@
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
-import { AbiType, AuthWitness, AztecAddress, Contract } from "@aztec/aztec.js";
+import {
+  type AbiType,
+  AuthWitness,
+  AztecAddress,
+  Contract,
+} from "@aztec/aztec.js";
 import {
   Button,
   CircularProgress,

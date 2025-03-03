@@ -223,17 +223,4 @@ Simulation result:  25n
 
 ## What's next?
 
-Now you have a development network running, so you're ready to start coding your first app with Aztec.nr and Aztec.js!
-
-<div className="card-container full-width">
-  <Card shadow='tl' link='./tutorials/codealong/contract_tutorials/counter_contract'>
-    <CardHeader>
-      <h3>Write your first contract</h3>
-    </CardHeader>
-    <CardBody>
-     Write and deploy a simple private counter smart contract on your local sandbox
-    </CardBody>
-  </Card>
-</div>
-
-If you'd rather clone a repo, check out the [Aztec Starter](https://github.com/AztecProtocol/aztec-starter).
+Click the Next button below to continue on your journey and write your first Aztec smart contract.

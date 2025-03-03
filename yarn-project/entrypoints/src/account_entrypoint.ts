@@ -1,13 +1,13 @@
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
 import {
   type EntrypointInterface,
   EntrypointPayload,
   type ExecutionRequestInit,
   computeCombinedPayloadHash,
 } from '@aztec/aztec.js/entrypoint';
-import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 
@@ -24,7 +24,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee, nonce, cancellable } = exec;
+    const { calls, fee, nonce, cancellable, capsules = [] } = exec;
     const appPayload = await EntrypointPayload.fromAppExecution(calls, nonce);
     const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
@@ -44,6 +44,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
       argsOfCalls: [...appPayload.hashedArguments, ...feePayload.hashedArguments, entrypointHashedArgs],
       authWitnesses: [combinedPayloadAuthWitness],
+      capsules,
     });
 
     return txRequest;

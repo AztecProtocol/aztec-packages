@@ -13,10 +13,7 @@
       "path": "../blob-sink"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../ethereum"
@@ -40,10 +37,10 @@
       "path": "../protocol-contracts"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src"]

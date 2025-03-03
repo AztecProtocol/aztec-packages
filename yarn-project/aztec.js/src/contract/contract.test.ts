@@ -1,25 +1,19 @@
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
-} from '@aztec/circuit-types';
-import {
-  AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
-  EthAddress,
-  GasFees,
   type NodeInfo,
-} from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { Tx, TxExecutionRequest, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type Wallet } from '../account/wallet.js';
+import type { Wallet } from '../account/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -47,7 +41,6 @@ describe('Contract Class', () => {
     coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
     governanceProposerAddress: EthAddress.random(),
-    slashFactoryAddress: EthAddress.random(),
   };
 
   const defaultArtifact: ContractArtifact = {
@@ -79,14 +72,23 @@ describe('Contract Class', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
+        verificationKey: 'fake-verification-key',
       },
       {
-        name: 'baz',
+        name: 'public_dispatch',
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.PUBLIC,
         isInternal: false,
-        parameters: [],
+        parameters: [
+          {
+            name: 'selector',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+        ],
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
@@ -131,7 +133,12 @@ describe('Contract Class', () => {
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
     account = await CompleteAddress.random();
-    contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
+    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    contractInstance = {
+      address: contractAddress,
+      currentContractClassId: contractClass.id,
+      originalContractClassId: contractClass.id,
+    } as ContractInstanceWithAddress;
 
     const mockNodeInfo: NodeInfo = {
       nodeVersion: 'vx.x.x',

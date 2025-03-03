@@ -1,7 +1,6 @@
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 
 export interface TelemetryClientConfig {
-  useGcloudMetrics: boolean;
   metricsCollectorUrl?: URL;
   tracesCollectorUrl?: URL;
   logsCollectorUrl?: URL;
@@ -16,11 +15,6 @@ export interface TelemetryClientConfig {
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
-  useGcloudMetrics: {
-    env: 'USE_GCLOUD_METRICS',
-    description: 'Whether to use GCP metrics and traces',
-    ...booleanConfigHelper(false),
-  },
   metricsCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
     description: 'The URL of the telemetry collector for metrics',

@@ -100,7 +100,7 @@ impl<'b, B: BlackBoxFunctionSolver<F>, F: AcirField> BrilligSolver<'b, F, B> {
                     Err(_) => {
                         return Err(OpcodeResolutionError::OpcodeNotSolvable(
                             OpcodeNotSolvable::ExpressionHasTooManyUnknowns(expr.clone()),
-                        ))
+                        ));
                     }
                 },
                 BrilligInputs::Array(expr_arr) => {
@@ -111,7 +111,7 @@ impl<'b, B: BlackBoxFunctionSolver<F>, F: AcirField> BrilligSolver<'b, F, B> {
                             Err(_) => {
                                 return Err(OpcodeResolutionError::OpcodeNotSolvable(
                                     OpcodeNotSolvable::ExpressionHasTooManyUnknowns(expr.clone()),
-                                ))
+                                ));
                             }
                         }
                     }
@@ -133,7 +133,7 @@ impl<'b, B: BlackBoxFunctionSolver<F>, F: AcirField> BrilligSolver<'b, F, B> {
 
         // Instantiate a Brillig VM given the solved calldata
         // along with the Brillig bytecode.
-        let vm = VM::new(calldata, brillig_bytecode, vec![], bb_solver, profiling_active);
+        let vm = VM::new(calldata, brillig_bytecode, bb_solver, profiling_active);
         Ok(vm)
     }
 

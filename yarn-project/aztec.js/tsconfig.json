@@ -7,10 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../ethereum"
@@ -25,7 +22,7 @@
       "path": "../protocol-contracts"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     }
   ],
   "include": ["src", "src/**/*.json"]

@@ -1,4 +1,14 @@
 import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
+import { times } from '@aztec/foundation/collection';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import {
   type ProofAndVerificationKey,
   type ProvingJob,
   type ProvingJobId,
@@ -8,43 +18,30 @@ import {
   type ServerCircuitProver,
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
-import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type AvmCircuitInputs,
-  type BaseParityInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  RECURSIVE_PROOF_LENGTH,
-  type RootParityInputs,
-  TUBE_PROOF_LENGTH,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-} from '@aztec/circuits.js/rollup';
+} from '@aztec/stdlib/interfaces/server';
+import type { BaseParityInputs, RootParityInputs } from '@aztec/stdlib/parity';
+import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
+} from '@aztec/stdlib/rollup';
 import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
   makeParityPublicInputs,
   makeRootRollupPublicInputs,
-} from '@aztec/circuits.js/testing';
-import { times } from '@aztec/foundation/collection';
+} from '@aztec/stdlib/testing';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
-import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ProvingBroker } from '../proving_broker/proving_broker.js';
@@ -53,7 +50,6 @@ import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_databas
 export class TestBroker implements ProvingJobProducer {
   private broker: ProvingBroker;
   private agents: ProvingAgent[];
-  public facade: BrokerCircuitProverFacade;
 
   constructor(
     agentCount: number,
@@ -66,19 +62,16 @@ export class TestBroker implements ProvingJobProducer {
       agentCount,
       () => new ProvingAgent(this.broker, proofStore, prover, undefined, agentPollInterval),
     );
-    this.facade = new BrokerCircuitProverFacade(this.broker, proofStore);
   }
 
   public async start() {
     await this.broker.start();
     this.agents.forEach(agent => agent.start());
-    this.facade.start();
   }
 
   public async stop() {
     await Promise.all(this.agents.map(agent => agent.stop()));
     await this.broker.stop();
-    await this.facade.stop();
   }
 
   public getProofStore(): ProofStore {

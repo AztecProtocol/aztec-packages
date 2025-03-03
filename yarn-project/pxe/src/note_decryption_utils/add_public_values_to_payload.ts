@@ -1,7 +1,8 @@
-import { type L1NotePayload, Note } from '@aztec/circuit-types';
 import { ContractNotFoundError } from '@aztec/simulator/client';
+import type { L1NotePayload } from '@aztec/stdlib/logs';
+import { Note } from '@aztec/stdlib/note';
 
-import { type PxeDatabase } from '../database/pxe_database.js';
+import type { PxeDatabase } from '../database/pxe_database.js';
 
 /**
  * Merges privately and publicly delivered note values.
@@ -24,10 +25,10 @@ export async function getOrderedNoteItems(
     );
   }
 
-  const artifact = await db.getContractArtifact(instance.contractClassId);
+  const artifact = await db.getContractArtifact(instance.currentContractClassId);
   if (!artifact) {
     throw new Error(
-      `Could not find artifact for contract class ${instance.contractClassId.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
+      `Could not find artifact for contract class ${instance.currentContractClassId.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
     );
   }
 

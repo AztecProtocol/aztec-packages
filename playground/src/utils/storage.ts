@@ -1,5 +1,5 @@
 import {
-  ContractArtifact,
+  type ContractArtifact,
   type AztecAddress,
   Fr,
   TxReceipt,
@@ -10,7 +10,7 @@ import { type LogFn } from "@aztec/foundation/log";
 import {
   type AztecAsyncMap,
   type AztecAsyncKVStore,
-  AztecAsyncMultiMap,
+  type AztecAsyncMultiMap,
 } from "@aztec/kv-store";
 
 export const Aliases = [

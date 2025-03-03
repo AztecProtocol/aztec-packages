@@ -242,8 +242,8 @@ unconstrained fn get_chunks_of_random_bits<let NUM_CHUNKS: u32, let NUM_BITS: u3
  * Helper fn for be/le_bytes_to_padded_fields() fns.
  */
 fn pad_31_byte_fields_with_random_bits<let N: u32>(input: [Field; N]) -> [Field; N] {
-    /// Safety: we can't constrain whether or not the returned bits are actually random;
-    /// we can only rely on it being in the caller's best interest.
+    // Safety: we can't constrain whether or not the returned bits are actually random;
+    // we can only rely on it being in the caller's best interest.
     let chunks_of_random_bits = unsafe { get_chunks_of_random_bits::<((N + 30) / 31), 6>() };
     let mut fields = input;
     // We push the random bits to the "big end" of each field

@@ -1,15 +1,15 @@
-import { type AztecNode, type CheatCodes, type Logger, type PXE } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/circuits.js';
+import type { AztecNode, CheatCodes, Logger, PXE, Wallet } from '@aztec/aztec.js';
 import {
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   GovernanceProposerContract,
   RollupContract,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -19,9 +19,10 @@ import { submitTxsTo } from '../shared/submit-transactions.js';
 describe('e2e_gov_proposal', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
+  let wallet: Wallet;
   let pxe: PXE;
   let aztecNode: AztecNode;
-  let deployL1ContractsValues: DeployL1Contracts;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
   let aztecSlotDuration: number;
   let cheatCodes: CheatCodes;
   beforeEach(async () => {
@@ -30,7 +31,7 @@ describe('e2e_gov_proposal', () => {
     const { ethereumSlotDuration, aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
     aztecSlotDuration = _aztecSlotDuration;
 
-    ({ teardown, logger, pxe, aztecNode, deployL1ContractsValues, cheatCodes } = await setup(0, {
+    ({ teardown, logger, wallet, pxe, aztecNode, deployL1ContractsValues, cheatCodes } = await setup(1, {
       initialValidators,
       ethereumSlotDuration,
       salt: 420,
@@ -78,7 +79,7 @@ describe('e2e_gov_proposal', () => {
       // Simultaneously, we should be voting for the proposal in every slot.
 
       for (let i = 0; i < roundDuration; i++) {
-        const txs = await submitTxsTo(pxe as PXEService, 8, logger);
+        const txs = await submitTxsTo(pxe as PXEService, 8, wallet, logger);
         await Promise.all(
           txs.map(async (tx, j) => {
             logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);

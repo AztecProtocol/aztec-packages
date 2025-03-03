@@ -7,6 +7,7 @@ use crate::{
 };
 use dep::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 
+use crate::note::retrieved_note::RetrievedNote;
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use crate::utils::comparison::Comparator;
 
@@ -19,8 +20,8 @@ unconstrained fn setup() -> TestEnvironment {
     env
 }
 
-unconstrained fn build_valid_note(value: Field) -> MockNote {
-    MockNote::new(value).contract_address(get_contract_address()).storage_slot(storage_slot).build()
+unconstrained fn build_valid_retrieved_note(value: Field) -> RetrievedNote<MockNote> {
+    MockNote::new(value).contract_address(get_contract_address()).build_retrieved_note()
 }
 
 unconstrained fn assert_equivalent_vec_and_array<T, let N: u32>(
@@ -48,7 +49,7 @@ unconstrained fn processes_single_note() {
     let mut context = env.private();
 
     let mut notes_to_constrain = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    notes_to_constrain[0] = Option::some(build_valid_note(13));
+    notes_to_constrain[0] = Option::some(build_valid_retrieved_note(13));
 
     let options = NoteGetterOptions::new();
     let (returned, _) =
@@ -64,8 +65,8 @@ unconstrained fn processes_many_notes() {
     let mut context = env.private();
 
     let mut notes_to_constrain = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    notes_to_constrain[0] = Option::some(build_valid_note(13));
-    notes_to_constrain[1] = Option::some(build_valid_note(19));
+    notes_to_constrain[0] = Option::some(build_valid_retrieved_note(13));
+    notes_to_constrain[1] = Option::some(build_valid_retrieved_note(19));
 
     let options = NoteGetterOptions::new();
     let (returned, _) =
@@ -81,24 +82,24 @@ unconstrained fn collapses_notes_at_the_beginning_of_the_array() {
     let mut context = env.private();
 
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    opt_notes[1] = Option::some(build_valid_note(0));
-    opt_notes[2] = Option::some(build_valid_note(1));
-    opt_notes[3] = Option::some(build_valid_note(2));
-    opt_notes[5] = Option::some(build_valid_note(3));
-    opt_notes[8] = Option::some(build_valid_note(4));
-    opt_notes[13] = Option::some(build_valid_note(5));
+    opt_notes[1] = Option::some(build_valid_retrieved_note(0));
+    opt_notes[2] = Option::some(build_valid_retrieved_note(1));
+    opt_notes[3] = Option::some(build_valid_retrieved_note(2));
+    opt_notes[5] = Option::some(build_valid_retrieved_note(3));
+    opt_notes[8] = Option::some(build_valid_retrieved_note(4));
+    opt_notes[13] = Option::some(build_valid_retrieved_note(5));
 
     let options = NoteGetterOptions::new();
     let (returned, _) =
         constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
 
     let mut expected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    expected[0] = Option::some(build_valid_note(0));
-    expected[1] = Option::some(build_valid_note(1));
-    expected[2] = Option::some(build_valid_note(2));
-    expected[3] = Option::some(build_valid_note(3));
-    expected[4] = Option::some(build_valid_note(4));
-    expected[5] = Option::some(build_valid_note(5));
+    expected[0] = Option::some(build_valid_retrieved_note(0));
+    expected[1] = Option::some(build_valid_retrieved_note(1));
+    expected[2] = Option::some(build_valid_retrieved_note(2));
+    expected[3] = Option::some(build_valid_retrieved_note(3));
+    expected[4] = Option::some(build_valid_retrieved_note(4));
+    expected[5] = Option::some(build_valid_retrieved_note(5));
 
     assert_equivalent_vec_and_array(returned, expected);
 }
@@ -108,7 +109,7 @@ unconstrained fn can_return_zero_notes() {
     let mut env = setup();
     let mut context = env.private();
 
-    let opt_notes: [Option<MockNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] =
+    let opt_notes: [Option<RetrievedNote<MockNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] =
         [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
     let options = NoteGetterOptions::new();
@@ -122,11 +123,11 @@ unconstrained fn rejects_mote_notes_than_limit() {
     let mut env = setup();
     let mut context = env.private();
 
-    let mut opt_notes: [Option<MockNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] =
+    let mut opt_notes: [Option<RetrievedNote<MockNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] =
         [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    opt_notes[1] = Option::some(build_valid_note(0));
-    opt_notes[2] = Option::some(build_valid_note(1));
-    opt_notes[3] = Option::some(build_valid_note(2));
+    opt_notes[1] = Option::some(build_valid_retrieved_note(0));
+    opt_notes[2] = Option::some(build_valid_retrieved_note(1));
+    opt_notes[3] = Option::some(build_valid_retrieved_note(2));
 
     let mut options = NoteGetterOptions::new();
     options = options.set_limit(2);
@@ -139,16 +140,16 @@ unconstrained fn applies_filter_before_constraining() {
     let mut context = env.private();
 
     let mut notes_to_constrain = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    let invalid_note = MockNote::new(13).build(); // This note does not have the correct address or storage slot
+    let invalid_note = MockNote::new(13).build_retrieved_note(); // This note does not have the correct address or storage slot
     notes_to_constrain[0] = Option::some(invalid_note);
-    notes_to_constrain[1] = Option::some(build_valid_note(42));
+    notes_to_constrain[1] = Option::some(build_valid_retrieved_note(42));
 
-    let filter_fn = |opt_notes: [Option<MockNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], _| {
+    let filter_fn = |opt_notes: [Option<RetrievedNote<MockNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], _| {
         let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
 
         for i in 0..opt_notes.len() {
             // This will filter the notes so that only the valid one remains
-            if opt_notes[i].is_some() & (opt_notes[i].unwrap_unchecked().value == 42) {
+            if opt_notes[i].is_some() & (opt_notes[i].unwrap_unchecked().note.value == 42) {
                 selected[i] = opt_notes[i];
             }
         }
@@ -162,31 +163,18 @@ unconstrained fn applies_filter_before_constraining() {
     // Only the note with value 42 should be returned, and moved to the beginning of the array. The other notes were not
     // constrained, and hence validation did not fail.
     let mut expected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    expected[0] = Option::some(build_valid_note(42));
+    expected[0] = Option::some(build_valid_retrieved_note(42));
 
     assert_equivalent_vec_and_array(returned, expected);
     assert_eq(context.note_hash_read_requests.len(), 1);
 }
 
-#[test(should_fail_with = "Mismatch note header contract address.")]
+#[test(should_fail_with = "Note contract address mismatch.")]
 unconstrained fn rejects_mismatched_address() {
     let mut env = setup();
     let mut context = env.private();
 
-    let note = MockNote::new(1).storage_slot(storage_slot).build(); // We're not setting the right contract address
-    let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    opt_notes[0] = Option::some(note);
-
-    let mut options = NoteGetterOptions::new();
-    let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
-}
-
-#[test(should_fail_with = "Mismatch note header storage slot.")]
-unconstrained fn rejects_mismatched_storage_slot() {
-    let mut env = setup();
-    let mut context = env.private();
-
-    let note = MockNote::new(1).contract_address(get_contract_address()).build(); // We're not setting the right storage slot
+    let note = MockNote::new(1).build_retrieved_note(); // We're not setting the right contract address
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
 
@@ -200,7 +188,7 @@ unconstrained fn rejects_mismatched_selector() {
     let mut context = env.private();
 
     let value = 10;
-    let note = build_valid_note(value);
+    let note = build_valid_retrieved_note(value);
 
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     opt_notes[0] = Option::some(note);
@@ -222,8 +210,8 @@ unconstrained fn rejects_mismatched_desc_sort_order() {
 
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     // Notes in ascending order
-    opt_notes[0] = Option::some(build_valid_note(1));
-    opt_notes[1] = Option::some(build_valid_note(2));
+    opt_notes[0] = Option::some(build_valid_retrieved_note(1));
+    opt_notes[1] = Option::some(build_valid_retrieved_note(2));
 
     let mut options = NoteGetterOptions::new();
     options = options.sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.DESC);
@@ -237,8 +225,8 @@ unconstrained fn rejects_mismatched_asc_sort_order() {
 
     let mut opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     // Notes in descending order
-    opt_notes[0] = Option::some(build_valid_note(2));
-    opt_notes[1] = Option::some(build_valid_note(1));
+    opt_notes[0] = Option::some(build_valid_retrieved_note(2));
+    opt_notes[1] = Option::some(build_valid_retrieved_note(1));
 
     let mut options = NoteGetterOptions::new();
     options = options.sort(PropertySelector { index: 0, offset: 0, length: 32 }, SortOrder.ASC);

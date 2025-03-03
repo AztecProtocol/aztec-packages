@@ -1,7 +1,7 @@
-import { type DeployAccountOptions, type PXE } from '@aztec/aztec.js';
+import type { DeployAccountOptions, PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
@@ -65,14 +65,14 @@ export async function createAccount(
     await account.register();
   } else {
     const wallet = await account.getWallet();
-    const sendOpts: DeployAccountOptions = {
-      ...(await feeOpts.toSendOpts(wallet)),
+    const deployOpts: DeployAccountOptions = {
       skipClassRegistration: !publicDeploy,
       skipPublicDeployment: !publicDeploy,
       skipInitialization: skipInitialization,
+      ...(await feeOpts.toDeployAccountOpts(wallet)),
     };
     if (feeOpts.estimateOnly) {
-      const gas = await (await account.getDeployMethod()).estimateGas({ ...sendOpts });
+      const gas = await (await account.getDeployMethod(deployOpts.deployWallet)).estimateGas(deployOpts);
       if (json) {
         out.fee = {
           gasLimits: {
@@ -88,7 +88,7 @@ export async function createAccount(
         printGasEstimates(feeOpts, gas, log);
       }
     } else {
-      tx = account.deploy({ ...sendOpts });
+      tx = account.deploy(deployOpts);
       const txHash = await tx.getTxHash();
       debugLogger.debug(`Account contract tx sent with hash ${txHash}`);
       out.txHash = txHash;

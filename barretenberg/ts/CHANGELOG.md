@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.3...barretenberg.js-v0.76.4) (2025-02-13)
+
+
+### Miscellaneous
+
+* Unify webpack dev server versions ([#11965](https://github.com/AztecProtocol/aztec-packages/issues/11965)) ([921d2cd](https://github.com/AztecProtocol/aztec-packages/commit/921d2cd9de54a9fd7cc49e4951c9fa65ab1526ef))
+
 ## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.2...barretenberg.js-v0.76.3) (2025-02-13)
 
 

@@ -299,7 +299,6 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
-
     const auto proof = from_buffer<ClientIVC::Proof>(from_buffer<std::vector<uint8_t>>(proof_buf));
     const auto vk = from_buffer<ClientIVC::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
@@ -452,4 +451,24 @@ WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
     std::vector<bb::fr> vkey_as_fields = verification_key->to_field_elements();
     *out_vkey = to_heap_buffer(vkey_as_fields);
+}
+
+WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** out)
+{
+
+    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    std::vector<uint32_t> totals;
+
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+    const acir_format::ProgramMetadata metadata{ ivc };
+    for (auto& bincode : acirs) {
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0) };
+        auto builder = acir_format::create_circuit(program, metadata);
+        builder.finalize_circuit(/*ensure_nonzero=*/true);
+        totals.push_back(static_cast<uint32_t>(builder.get_finalized_total_circuit_size()));
+    }
+    auto totalsBytes = to_buffer<false>(totals);
+
+    *out = to_heap_buffer(totals);
 }

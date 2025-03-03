@@ -5,7 +5,7 @@ import "@fontsource/roboto/700.css";
 
 import { css } from "@emotion/react";
 
-import { ThemeOptions, createTheme } from "@mui/material/styles";
+import { type ThemeOptions, createTheme } from "@mui/material/styles";
 
 const themeOptions: ThemeOptions & { cssVariables: boolean } = {
   palette: {
@@ -28,10 +28,10 @@ export const globalStyle = css({
     display: "flex",
     minWidth: "100vw",
     minHeight: "100vh",
-    background: "linear-gradient(#f6fbfc, #d8d4e7)"
+    background: "linear-gradient(#f6fbfc, #d8d4e7)",
   },
 
   "#root": {
     width: "100%",
-  }
+  },
 });

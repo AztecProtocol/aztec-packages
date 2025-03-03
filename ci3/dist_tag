@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Used by docker and NPM. By default, push to our latest tag (i.e., for master).
+# For prerelease-tagged commits, use that as the dist tag, minus any point version at the end.
+source $(git rev-parse --show-toplevel)/ci3/source
+version=$REF_NAME
+if [ -n "${DIST_TAG:-}" ]; then
+  echo "$DIST_TAG"
+  return
+fi
+if ! semver check $version; then
+  echo_stderr "$version is not a valid semver."
+  exit 1
+fi
+dist=$(semver prerelease $version | sed 's/\..*//')
+if [ -n "$dist" ]; then
+  echo $dist
+else
+  echo latest
+fi

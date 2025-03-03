@@ -1,24 +1,24 @@
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types';
-import {
-  type AztecAddress,
-  type Fr,
-  type FunctionSelector,
-  type GrumpkinScalar,
-  MembershipWitness,
-  type NOTE_HASH_TREE_HEIGHT,
-  type Point,
-  VK_TREE_HEIGHT,
-  type VerificationKeyAsFields,
-  computeContractClassIdPreimage,
-  computeSaltedInitializationHash,
-} from '@aztec/circuits.js';
+import { type NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type KeyStore } from '@aztec/key-store';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { MembershipWitness } from '@aztec/foundation/trees';
+import type { KeyStore } from '@aztec/key-store';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockNumber } from '@aztec/stdlib/block';
+import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { UpdatedClassIdHints } from '@aztec/stdlib/kernel';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
+import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
+import type { ContractDataOracle } from '../contract_data_oracle/index.js';
+import type { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.
@@ -47,8 +47,8 @@ export class KernelOracle implements ProvingDataOracle {
     return computeContractClassIdPreimage(contractClass);
   }
 
-  public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
-    return await this.contractDataOracle.getFunctionMembershipWitness(contractAddress, selector);
+  public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
+    return await this.contractDataOracle.getFunctionMembershipWitness(contractClassId, selector);
   }
 
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
@@ -65,12 +65,15 @@ export class KernelOracle implements ProvingDataOracle {
     );
   }
 
-  getNullifierMembershipWitness(nullifier: Fr) {
+  getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     return this.node.getNullifierMembershipWitness(this.blockNumber, nullifier);
   }
 
   async getNoteHashTreeRoot(): Promise<Fr> {
     const header = await this.node.getBlockHeader(this.blockNumber);
+    if (!header) {
+      throw new Error(`No block header found for block number ${this.blockNumber}`);
+    }
     return header.state.partial.noteHashTree.root;
   }
 
@@ -80,5 +83,35 @@ export class KernelOracle implements ProvingDataOracle {
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
     return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+  }
+
+  public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
+    const { sharedMutableSlot, sharedMutableHashSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(
+      contractAddress,
+    );
+
+    const hashLeafSlot = await computePublicDataTreeLeafSlot(
+      ProtocolContractAddress.ContractInstanceDeployer,
+      sharedMutableHashSlot,
+    );
+    const updatedClassIdWitness = await this.node.getPublicDataTreeWitness(this.blockNumber, hashLeafSlot);
+
+    if (!updatedClassIdWitness) {
+      throw new Error(`No public data tree witness found for ${hashLeafSlot}`);
+    }
+
+    const readStorage = (storageSlot: Fr) =>
+      this.node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, this.blockNumber);
+    const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
+
+    return new UpdatedClassIdHints(
+      new MembershipWitness(
+        PUBLIC_DATA_TREE_HEIGHT,
+        updatedClassIdWitness.index,
+        updatedClassIdWitness.siblingPath.toTuple(),
+      ),
+      updatedClassIdWitness.leafPreimage,
+      sharedMutableValues,
+    );
   }
 }

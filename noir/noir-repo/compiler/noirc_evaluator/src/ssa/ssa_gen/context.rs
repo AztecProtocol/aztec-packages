@@ -7,6 +7,7 @@ use noirc_errors::Location;
 use noirc_frontend::ast::{BinaryOpKind, Signedness};
 use noirc_frontend::monomorphization::ast::{self, GlobalId, InlineType, LocalId, Parameters};
 use noirc_frontend::monomorphization::ast::{FuncId, Program};
+use noirc_frontend::signed_field::SignedField;
 
 use crate::errors::RuntimeError;
 use crate::ssa::function_builder::FunctionBuilder;
@@ -289,32 +290,30 @@ impl<'a> FunctionContext<'a> {
     /// otherwise values like 2^128 can be assigned to a u8 without error or wrapping.
     pub(super) fn checked_numeric_constant(
         &mut self,
-        value: impl Into<FieldElement>,
-        negative: bool,
+        value: SignedField,
         numeric_type: NumericType,
     ) -> Result<ValueId, RuntimeError> {
-        let value = value.into();
-
-        if let Some(range) = numeric_type.value_is_outside_limits(value, negative) {
+        if let Some(range) = numeric_type.value_is_outside_limits(value) {
             let call_stack = self.builder.get_call_stack();
             return Err(RuntimeError::IntegerOutOfBounds {
-                value: if negative { -value } else { value },
+                value,
                 typ: numeric_type,
                 range,
                 call_stack,
             });
         }
 
-        let value = if negative {
+        let value = if value.is_negative {
             match numeric_type {
-                NumericType::NativeField => -value,
+                NumericType::NativeField => -value.field,
                 NumericType::Signed { bit_size } | NumericType::Unsigned { bit_size } => {
+                    assert!(bit_size < 128);
                     let base = 1_u128 << bit_size;
-                    FieldElement::from(base) - value
+                    FieldElement::from(base) - value.field
                 }
             }
         } else {
-            value
+            value.field
         };
 
         Ok(self.builder.numeric_constant(value, numeric_type))
@@ -355,7 +354,8 @@ impl<'a> FunctionContext<'a> {
 
     /// Insert constraints ensuring that the operation does not overflow the bit size of the result
     ///
-    /// If the result is unsigned, overflow will be checked during acir-gen (cf. issue #4456), except for bit-shifts, because we will convert them to field multiplication
+    /// If the result is unsigned, overflow will be checked during acir-gen (cf. issue #4456), except for
+    /// bit-shifts, because we will convert them to field multiplication
     ///
     /// If the result is signed, we just prepare it for check_signed_overflow() by casting it to
     /// an unsigned value representing the signed integer.
@@ -964,11 +964,13 @@ impl<'a> FunctionContext<'a> {
     ///
     /// This is done on parameters rather than call arguments so that we can optimize out
     /// paired inc/dec instructions within brillig functions more easily.
-    pub(crate) fn increment_parameter_rcs(&mut self) -> HashSet<ValueId> {
+    ///
+    /// Returns the list of parameters incremented, together with the value ID of the arrays they refer to.
+    pub(crate) fn increment_parameter_rcs(&mut self) -> Vec<(ValueId, ValueId)> {
         let entry = self.builder.current_function.entry_block();
         let parameters = self.builder.current_function.dfg.block_parameters(entry).to_vec();
 
-        let mut incremented = HashSet::default();
+        let mut incremented = Vec::default();
         let mut seen_array_types = HashSet::default();
 
         for parameter in parameters {
@@ -979,10 +981,11 @@ impl<'a> FunctionContext<'a> {
                 if element.contains_an_array() {
                     // If we haven't already seen this array type, the value may be possibly
                     // aliased, so issue an inc_rc for it.
-                    if !seen_array_types.insert(element.get_contained_array().clone())
-                        && self.builder.increment_array_reference_count(parameter)
-                    {
-                        incremented.insert(parameter);
+                    if seen_array_types.insert(element.get_contained_array().clone()) {
+                        continue;
+                    }
+                    if let Some(id) = self.builder.increment_array_reference_count(parameter) {
+                        incremented.push((parameter, id));
                     }
                 }
             }
@@ -997,14 +1000,14 @@ impl<'a> FunctionContext<'a> {
     /// ignored.
     pub(crate) fn end_scope(
         &mut self,
-        mut incremented_params: HashSet<ValueId>,
+        mut incremented_params: Vec<(ValueId, ValueId)>,
         terminator_args: &[ValueId],
     ) {
-        incremented_params.retain(|parameter| !terminator_args.contains(parameter));
+        incremented_params.retain(|(parameter, _)| !terminator_args.contains(parameter));
 
-        for parameter in incremented_params {
+        for (parameter, original) in incremented_params {
             if self.builder.current_function.dfg.value_is_reference(parameter) {
-                self.builder.decrement_array_reference_count(parameter);
+                self.builder.decrement_array_reference_count(parameter, original);
             }
         }
     }

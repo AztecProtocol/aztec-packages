@@ -1,7 +1,6 @@
 dest
 node_modules
 .cache
-scripts/.earthly
 .pnp.cjs
 .pnp.loader.mjs
 build/
@@ -17,14 +16,6 @@ terraform.tfstate*
 
 .graphite*
 .DS_Store
-
-**/*.dockerignore
-
-# Earthly
-.arg
-.secret
-.bb_tmp
-
 
 # tmux
 tmux-client-*.log

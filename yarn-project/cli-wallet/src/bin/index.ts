@@ -1,10 +1,10 @@
 import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
-import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 
 import { Argument, Command, Option } from 'commander';
-import { readFileSync } from 'fs';
+import { mkdirSync, readFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 
 import { injectCommands } from '../cmds/index.js';
@@ -15,7 +15,7 @@ import { PXEWrapper } from '../utils/pxe_wrapper.js';
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('wallet');
 
-const { WALLET_DATA_DIRECTORY } = process.env;
+const { WALLET_DATA_DIRECTORY = '~/.aztec/wallet', PXE_PROVER = 'none' } = process.env;
 
 function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
   program
@@ -33,12 +33,12 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
     .command('get-alias')
     .description('Shows stored aliases')
     .addArgument(new Argument('[alias]', 'Alias to retrieve'))
-    .action(alias => {
+    .action(async alias => {
       if (alias?.includes(':')) {
-        const value = db.retrieveAlias(alias);
+        const value = await db.retrieveAlias(alias);
         log(value);
       } else {
-        const aliases = db.listAliases(alias);
+        const aliases = await db.listAliases(alias);
         for (const { key, value } of aliases) {
           log(`${key} -> ${value}`);
         }
@@ -75,6 +75,7 @@ async function main() {
     .description('Aztec wallet')
     .version(walletVersion)
     .option('-d, --data-dir <string>', 'Storage directory for wallet data', WALLET_DATA_DIRECTORY)
+    .option('-p, --prover <string>', 'wasm|native|none', PXE_PROVER)
     .addOption(
       new Option('--remote-pxe', 'Connect to an external PXE RPC server, instead of the local one')
         .env('REMOTE_PXE')
@@ -87,21 +88,25 @@ async function main() {
         .default(`http://${LOCALHOST}:8080`),
     )
     .hook('preSubcommand', async command => {
-      const { dataDir, remotePxe, nodeUrl } = command.optsWithGlobals();
+      const { dataDir, remotePxe, nodeUrl, prover } = command.optsWithGlobals();
 
       if (!remotePxe) {
         debugLogger.info('Using local PXE service');
 
-        // Always enable proving when profiling
-        const subcommand = command.args[0];
-        const isProfiling = command.args.includes('--profile');
-        const proverEnabled = subcommand === 'simulate' && isProfiling;
+        const bbBinaryPath =
+          prover === 'native'
+            ? resolve(dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/cpp/build/bin/bb')
+            : undefined;
+        const bbWorkingDirectory = dataDir + '/bb';
+        const proverEnabled = prover !== 'none';
+
+        mkdirSync(bbWorkingDirectory, { recursive: true });
 
         await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), {
-          ...(proverEnabled && { proverEnabled }), // only override if we're profiling
+          ...(proverEnabled && { proverEnabled, bbBinaryPath, bbWorkingDirectory }), // only override if we're profiling
         });
       }
-      db.init(AztecLmdbStore.open(dataDir));
+      await db.init(await openStoreAt(dataDir));
     });
 
   injectCommands(program, userLog, debugLogger, db, pxeWrapper);

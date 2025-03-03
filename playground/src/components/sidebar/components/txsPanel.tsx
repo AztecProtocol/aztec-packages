@@ -6,7 +6,7 @@ import {
   convertFromUTF8BufferAsString,
   formatFrAsString,
 } from "../../../utils/conversion";
-import { ContractFunctionInteractionTx } from "../../../utils/txs";
+import { type ContractFunctionInteractionTx } from "../../../utils/txs";
 import { TxHash } from "@aztec/aztec.js";
 
 const txPanel = css({

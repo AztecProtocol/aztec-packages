@@ -23,8 +23,6 @@ use super::debug_cmd::compile_bin_package_for_debugging;
 use super::fs::inputs::read_inputs_from_file;
 use crate::errors::CliError;
 
-use super::NargoConfig;
-
 use noir_debugger::errors::{DapError, LoadError};
 
 #[derive(Debug, Clone, Args)]
@@ -145,12 +143,7 @@ fn loop_uninitialized_dap<R: Read, W: Write>(
     expression_width: ExpressionWidth,
     pedantic_solving: bool,
 ) -> Result<(), DapError> {
-    loop {
-        let req = match server.poll_request()? {
-            Some(req) => req,
-            None => break,
-        };
-
+    while let Some(req) = server.poll_request()? {
         match req.command {
             Command::Initialize(_) => {
                 let rsp = req.success(ResponseBody::Initialize(Capabilities {
@@ -255,7 +248,7 @@ fn run_preflight_check(
     Ok(())
 }
 
-pub(crate) fn run(args: DapCommand, _config: NargoConfig) -> Result<(), CliError> {
+pub(crate) fn run(args: DapCommand) -> Result<(), CliError> {
     // When the --preflight-check flag is present, we run Noir's DAP server in "pre-flight mode", which test runs
     // the DAP initialization code without actually starting the DAP server.
     //

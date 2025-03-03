@@ -73,7 +73,6 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               if [ "${PROVER_BROKER_ENABLED}" == "false" ]; then
                 until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
@@ -84,6 +83,15 @@ spec:
               else
                 echo "Using built-in job broker"
               fi
+
+              # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
+              if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
+                echo "Registry address and bootstrap nodes already set, skipping wait for services"
+                exit 0
+              fi
+
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
+
 
               until curl --head --silent $BOOT_NODE_HOST/status; do
                 echo "Waiting for boot node..."
@@ -113,6 +121,13 @@ spec:
               mountPath: /scripts
             - name: config
               mountPath: /shared/config
+          env:
+            - name: P2P_ENABLED
+              value: "{{ .Values.proverNode.p2p.enabled }}"
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
 
       containers:
         - name: prover-node
@@ -198,7 +213,9 @@ spec:
             - name: L1_GAS_PRICE_MAX
               value: {{ .Values.proverNode.l1GasPriceMax | quote }}
             - name: P2P_ENABLED
-              value: "{{ .Values.proverNode.p2pEnabled }}"
+              value: "{{ .Values.proverNode.p2p.enabled }}"
+            - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
+              value: "{{ .Values.proverNode.p2p.floodPublish }}"
             - name: P2P_TCP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.proverNode.service.p2pTcpPort }}"
             - name: P2P_UDP_LISTEN_ADDR
@@ -209,8 +226,8 @@ spec:
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
-            - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
-              value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: AZTEC_PROOF_SUBMISSION_WINDOW
+              value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: PROVER_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.proverNode.viemPollingInterval | quote }}
             - name: DATA_DIRECTORY
@@ -221,14 +238,16 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
             {{- end }}
+            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
+              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}

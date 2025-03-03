@@ -58,7 +58,14 @@ contract UniswapPortalTest is Test {
     registry = new Registry(address(this));
     RewardDistributor rewardDistributor = new RewardDistributor(DAI, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, DAI, bytes32(0), bytes32(0), address(this)
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      DAI,
+      bytes32(0),
+      bytes32(0),
+      bytes32(0),
+      bytes32(0),
+      address(this)
     );
     registry.upgrade(address(rollup));
 
@@ -80,7 +87,7 @@ contract UniswapPortalTest is Test {
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
 
-    outbox = rollup.OUTBOX();
+    outbox = rollup.getOutbox();
   }
 
   /**

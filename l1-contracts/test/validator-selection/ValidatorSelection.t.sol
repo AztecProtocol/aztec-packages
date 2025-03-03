@@ -104,6 +104,8 @@ contract ValidatorSelectionTest is DecoderBase {
       _stakingAsset: testERC20,
       _vkTreeRoot: bytes32(0),
       _protocolContractTreeRoot: bytes32(0),
+      _genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      _genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       _ares: address(this),
       _config: Config({
         aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
@@ -122,8 +124,8 @@ contract ValidatorSelectionTest is DecoderBase {
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
 
-    inbox = Inbox(address(rollup.INBOX()));
-    outbox = Outbox(address(rollup.OUTBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = Outbox(address(rollup.getOutbox()));
 
     merkleTestUtil = new MerkleTestUtil();
 
@@ -267,7 +269,7 @@ contract ValidatorSelectionTest is DecoderBase {
       header: header,
       archive: full.block.archive,
       blockHash: bytes32(0),
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
 
@@ -313,14 +315,14 @@ contract ValidatorSelectionTest is DecoderBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
