@@ -65,6 +65,7 @@ export interface PrivateKernelOracle {
   /** Use debug data to get the function name corresponding to a selector. */
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
-  /** Returns a membership witness and leaf index to our public data indexed merkle tree, along with the updated class ID (as a field). */
+  /** Returns a membership witness and leaf index to our public data indexed merkle tree,
+   * along with an associated SharedMutable containing the class ID to update. */
   getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints>;
 }
