@@ -20,12 +20,12 @@ import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trac
 
 import { strict as assert } from 'assert';
 
-import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
-import type { AvmFinalizedCallResult } from './avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager, AvmSimulator } from './avm/index.js';
-import { NullifierCollisionError } from './avm/journal/nullifiers.js';
-import { ExecutorMetrics } from './executor_metrics.js';
-import type { WorldStateDB } from './public_db_sources.js';
+import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
+import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
+import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
+import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
+import { ExecutorMetrics } from '../executor_metrics.js';
+import type { WorldStateDB } from '../public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -72,85 +72,89 @@ export class PublicTxSimulator {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
-    const startTime = process.hrtime.bigint();
+    try {
+      const startTime = process.hrtime.bigint();
 
-    const txHash = await tx.getTxHash();
-    this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
+      const txHash = await tx.getTxHash();
+      this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
-    const context = await PublicTxContext.create(
-      this.db,
-      this.worldStateDB,
-      tx,
-      this.globalVariables,
-      this.doMerkleOperations,
-    );
+      const context = await PublicTxContext.create(
+        this.db,
+        this.worldStateDB,
+        tx,
+        this.globalVariables,
+        this.doMerkleOperations,
+      );
 
-    // add new contracts to the contracts db so that their functions may be found and called
-    // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
-    // have to capture contracts emitted in that phase as well.
-    // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
-    // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-    // if so, this should only add contracts that were deployed during private app logic.
-    // FIXME: we shouldn't need to directly modify worldStateDb here!
-    await this.worldStateDB.addNewContracts(tx);
-
-    const nonRevertStart = process.hrtime.bigint();
-    await this.insertNonRevertiblesFromPrivate(context);
-    const nonRevertEnd = process.hrtime.bigint();
-    this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
-    const processedPhases: ProcessedPhase[] = [];
-    if (context.hasPhase(TxExecutionPhase.SETUP)) {
-      const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
-      processedPhases.push(setupResult);
-    }
-
-    const revertStart = process.hrtime.bigint();
-    await this.insertRevertiblesFromPrivate(context);
-    const revertEnd = process.hrtime.bigint();
-    this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
-    if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
-      const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
-      processedPhases.push(appLogicResult);
-    }
-
-    if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
-      const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
-      processedPhases.push(teardownResult);
-    }
-
-    await context.halt();
-    await this.payFee(context);
-
-    const endStateReference = await this.db.getStateReference();
-
-    const avmProvingRequest = await context.generateProvingRequest(endStateReference);
-
-    const revertCode = context.getFinalRevertCode();
-    if (!revertCode.isOK()) {
+      const nonRevertStart = process.hrtime.bigint();
+      await this.insertNonRevertiblesFromPrivate(context);
+      // add new contracts to the contracts db so that their functions may be found and called
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-      // if so, this is removing contracts deployed in private setup
-      // You can't submit contracts in public, so this is only relevant for private-created side effects
-      // FIXME: we shouldn't need to directly modify worldStateDb here!
-      await this.worldStateDB.removeNewContracts(tx, true);
-      // FIXME(dbanks12): should not be changing immutable tx
-      await tx.filterRevertedLogs();
+      await this.worldStateDB.addNewNonRevertibleContracts(tx);
+      const nonRevertEnd = process.hrtime.bigint();
+      this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
+
+      const processedPhases: ProcessedPhase[] = [];
+      if (context.hasPhase(TxExecutionPhase.SETUP)) {
+        const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
+        processedPhases.push(setupResult);
+      }
+
+      const revertStart = process.hrtime.bigint();
+      // FIXME(#12375): TX shouldn't die if revertible insertions fail. Should just revert to snapshot.
+      await this.insertRevertiblesFromPrivate(context);
+      // add new contracts to the contracts db so that their functions may be found and called
+      await this.worldStateDB.addNewRevertibleContracts(tx);
+      const revertEnd = process.hrtime.bigint();
+      this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
+
+      if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
+        const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
+        processedPhases.push(appLogicResult);
+      }
+
+      if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
+        const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
+        processedPhases.push(teardownResult);
+      }
+
+      await context.halt();
+      await this.payFee(context);
+
+      const endStateReference = await this.db.getStateReference();
+
+      const avmProvingRequest = await context.generateProvingRequest(endStateReference);
+
+      const revertCode = context.getFinalRevertCode();
+
+      if (!revertCode.isOK()) {
+        await tx.filterRevertedLogs();
+      }
+      // Commit contracts from this TX to the block-level cache and clear tx cache
+      // If the tx reverted, only commit non-revertible contracts
+      // NOTE: You can't create contracts in public, so this is only relevant for private-created contracts
+      this.worldStateDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
+
+      const endTime = process.hrtime.bigint();
+      this.log.debug(`Public TX simulator took ${Number(endTime - startTime) / 1_000_000} ms\n`);
+
+      return {
+        avmProvingRequest,
+        gasUsed: {
+          totalGas: context.getActualGasUsed(),
+          teardownGas: context.teardownGasUsed,
+          publicGas: context.getActualPublicGasUsed(),
+          billedGas: context.getTotalGasUsed(),
+        },
+        revertCode,
+        revertReason: context.revertReason,
+        processedPhases: processedPhases,
+      };
+    } finally {
+      // Make sure there are no new contracts in the tx-level cache.
+      // They should either be committed to block-level cache or cleared.
+      this.worldStateDB.clearContractsForTx();
     }
-
-    const endTime = process.hrtime.bigint();
-    this.log.debug(`Public TX simulator took ${Number(endTime - startTime) / 1_000_000} ms\n`);
-
-    return {
-      avmProvingRequest,
-      gasUsed: {
-        totalGas: context.getActualGasUsed(),
-        teardownGas: context.teardownGasUsed,
-        publicGas: context.getActualPublicGasUsed(),
-        billedGas: context.getTotalGasUsed(),
-      },
-      revertCode,
-      revertReason: context.revertReason,
-      processedPhases: processedPhases,
-    };
   }
 
   /**
@@ -310,7 +314,7 @@ export class PublicTxSimulator {
 
   /**
    * Simulate an enqueued public call, without modifying the context (PublicTxContext).
-   * Resulting modifcations to the context can be applied by the caller.
+   * Resulting modifications to the context can be applied by the caller.
    *
    * This function can be mocked for testing to skip actual AVM simulation
    * while still simulating phases and generating a proving request.
@@ -409,6 +413,7 @@ export class PublicTxSimulator {
       await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
+        // FIXME(#12375): simulator should be able to recover from this and just revert to snapshot.
         throw new NullifierCollisionError(
           `Nullifier collision encountered when inserting revertible nullifiers from private. Details:\n${e.message}\n.Stack:${e.stack}`,
         );

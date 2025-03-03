@@ -2,7 +2,7 @@ import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { computeFeePayerBalanceStorageSlot, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -11,6 +11,7 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
+import { createContractClassAndInstance } from './index.js';
 import type { SimpleContractDataSource } from './simple_contract_data_source.js';
 
 /**
@@ -58,13 +59,16 @@ export abstract class BaseAvmSimulationTester {
     seed = 0,
     originalContractClassId?: Fr, // if previously upgraded
   ): Promise<ContractInstanceWithAddress> {
-    const contractInstance = await this.contractDataSource.registerAndDeployContract(
+    const { contractClass, contractInstance } = await createContractClassAndInstance(
       constructorArgs,
       deployer,
       contractArtifact,
       seed,
       originalContractClassId,
     );
+
+    await this.contractDataSource.addNewContract(contractArtifact, contractClass, contractInstance);
+
     if (!skipNullifierInsertion) {
       await this.insertContractAddressNullifier(contractInstance.address);
     }
@@ -72,11 +76,14 @@ export abstract class BaseAvmSimulationTester {
   }
 
   async registerFeeJuiceContract(): Promise<ContractInstanceWithAddress> {
-    return await this.contractDataSource.registerFeeJuiceContract();
-  }
-
-  getFirstContractInstance(): ContractInstanceWithAddress {
-    return this.contractDataSource.getFirstContractInstance();
+    const feeJuice = await getCanonicalFeeJuice();
+    const feeJuiceContractClassPublic = {
+      ...feeJuice.contractClass,
+      privateFunctions: [],
+      unconstrainedFunctions: [],
+    };
+    await this.contractDataSource.addNewContract(feeJuice.artifact, feeJuiceContractClassPublic, feeJuice.instance);
+    return feeJuice.instance;
   }
 
   addContractClass(contractClass: ContractClassPublic, contractArtifact: ContractArtifact): Promise<void> {

@@ -3,7 +3,7 @@ import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { PublicTxSimulationTester } from '../fixtures/public_tx_simulation_tester.js';
+import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('Public TX simulator apps tests: AvmTestContract', () => {
   const deployer = AztecAddress.fromNumber(42);

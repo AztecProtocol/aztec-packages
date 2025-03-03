@@ -45,10 +45,10 @@ import {
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import { AvmPersistableStateManager } from './avm/index.js';
-import type { WorldStateDB } from './public_db_sources.js';
-import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
-import { getCallRequestsByPhase, getExecutionRequestsByPhase } from './utils.js';
+import { AvmPersistableStateManager } from '../avm/index.js';
+import type { WorldStateDB } from '../public_db_sources.js';
+import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
+import { getCallRequestsByPhase, getExecutionRequestsByPhase } from '../utils.js';
 
 /**
  * The transaction-level context for public execution.

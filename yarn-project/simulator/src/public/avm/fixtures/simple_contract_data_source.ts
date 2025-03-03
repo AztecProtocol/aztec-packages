@@ -1,20 +1,15 @@
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type PublicFunction,
-  computeInitializationHash,
-  computePublicBytecodeCommitment,
+import type {
+  ContractClassPublic,
+  ContractDataSource,
+  ContractInstanceWithAddress,
+  PublicFunction,
 } from '@aztec/stdlib/contract';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
-import { PUBLIC_DISPATCH_FN_NAME, getContractFunctionArtifact } from './index.js';
+import { PUBLIC_DISPATCH_FN_NAME } from './index.js';
 
 /**
  * This class is used during public/avm testing to function as a database of
@@ -39,56 +34,14 @@ export class SimpleContractDataSource implements ContractDataSource {
    * Derive the contract class and instance with some seed.
    * Add both to the contract data source along with the contract artifact.
    */
-  async registerAndDeployContract(
-    constructorArgs: any[],
-    deployer: AztecAddress,
+  async addNewContract(
     contractArtifact: ContractArtifact,
-    seed = 0,
-    originalContractClassId?: Fr, // if previously upgraded
-  ): Promise<ContractInstanceWithAddress> {
-    const bytecode = getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact)!.bytecode;
-    const contractClass = await makeContractClassPublic(
-      seed,
-      /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
-    );
-
-    const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
-    const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
-    this.logger.trace(`Initialization hash for contract class ${contractClass.id}: ${initializationHash.toString()}`);
-    const contractInstance =
-      originalContractClassId === undefined
-        ? await makeContractInstanceFromClassId(contractClass.id, seed, {
-            deployer,
-            initializationHash,
-          })
-        : await makeContractInstanceFromClassId(originalContractClassId, seed, {
-            deployer,
-            initializationHash,
-            currentClassId: contractClass.id,
-          });
-
+    contractClass: ContractClassPublic,
+    contractInstance: ContractInstanceWithAddress,
+  ) {
     this.addContractArtifact(contractClass.id, contractArtifact);
     await this.addContractClass(contractClass);
     await this.addContractInstance(contractInstance);
-    return contractInstance;
-  }
-
-  async registerFeeJuiceContract(): Promise<ContractInstanceWithAddress> {
-    const feeJuice = await getCanonicalFeeJuice();
-    const feeJuiceContractClassPublic = {
-      ...feeJuice.contractClass,
-      privateFunctions: [],
-      unconstrainedFunctions: [],
-    };
-
-    this.addContractArtifact(feeJuiceContractClassPublic.id, feeJuice.artifact);
-    await this.addContractClass(feeJuiceContractClassPublic);
-    await this.addContractInstance(feeJuice.instance);
-    return feeJuice.instance;
-  }
-
-  getFirstContractInstance(): ContractInstanceWithAddress {
-    return this.contractInstances.values().next().value;
   }
 
   addContractArtifact(classId: Fr, artifact: ContractArtifact): void {
@@ -96,7 +49,7 @@ export class SimpleContractDataSource implements ContractDataSource {
   }
 
   /////////////////////////////////////////////////////////////
-  // ContractDataSource function impelementations
+  // ContractDataSource function implementations
   getPublicFunction(_address: AztecAddress, _selector: FunctionSelector): Promise<PublicFunction> {
     throw new Error('Method not implemented.');
   }
@@ -109,9 +62,8 @@ export class SimpleContractDataSource implements ContractDataSource {
     return Promise.resolve(this.contractClasses.get(id.toString()));
   }
 
-  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
-    const contractClass = await this.getContractClass(id);
-    return Promise.resolve(computePublicBytecodeCommitment(contractClass!.packedBytecode));
+  getBytecodeCommitment(_id: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(undefined);
   }
 
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {

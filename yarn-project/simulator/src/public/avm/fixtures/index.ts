@@ -1,13 +1,24 @@
-import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
+import {
+  DEPLOYER_CONTRACT_ADDRESS,
+  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  PUBLIC_DISPATCH_SELECTOR,
+} from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  computeInitializationHash,
+} from '@aztec/stdlib/contract';
 import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 import { GasFees } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
@@ -233,4 +244,53 @@ export function resolveAvmGadgetsTestContractAssertionMessage(
   }
 
   return resolveAssertionMessageFromRevertData(output, functionArtifact);
+}
+
+/**
+ * Create a contract class and instance given constructor args, artifact, etc.
+ * NOTE: This is useful for testing real-ish contract class registration and instance deployment TXs (via logs)
+ * @param constructorArgs - The constructor arguments for the contract.
+ * @param deployer - The deployer of the contract.
+ * @param contractArtifact - The contract artifact for the contract.
+ * @param seed - The seed for the contract.
+ * @param originalContractClassId - The original contract class ID (if upgraded)
+ * @returns The contract class, instance, and contract address nullifier.
+ */
+export async function createContractClassAndInstance(
+  constructorArgs: any[],
+  deployer: AztecAddress,
+  contractArtifact: ContractArtifact,
+  seed = 0,
+  originalContractClassId?: Fr, // if previously upgraded
+): Promise<{
+  contractClass: ContractClassPublic;
+  contractInstance: ContractInstanceWithAddress;
+  contractAddressNullifier: Fr;
+}> {
+  const bytecode = getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact)!.bytecode;
+  const contractClass = await makeContractClassPublic(
+    seed,
+    /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
+  );
+
+  const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
+  const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
+  const contractInstance =
+    originalContractClassId === undefined
+      ? await makeContractInstanceFromClassId(contractClass.id, seed, {
+          deployer,
+          initializationHash,
+        })
+      : await makeContractInstanceFromClassId(originalContractClassId, seed, {
+          deployer,
+          initializationHash,
+          currentClassId: contractClass.id,
+        });
+
+  const contractAddressNullifier = await siloNullifier(
+    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    contractInstance.address.toField(),
+  );
+
+  return { contractClass, contractInstance, contractAddressNullifier };
 }

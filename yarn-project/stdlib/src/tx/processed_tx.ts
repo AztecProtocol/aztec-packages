@@ -55,6 +55,10 @@ export type ProcessedTx = {
    */
   gasUsed: GasUsed;
   /**
+   * Code the tx was reverted (or OK).
+   */
+  revertCode: RevertCode;
+  /**
    * Reason the tx was reverted.
    */
   revertReason: SimulationError | undefined;
@@ -114,6 +118,7 @@ export async function makeProcessedTxFromPrivateOnlyTx(
     constants,
     txEffect,
     gasUsed,
+    revertCode: RevertCode.OK,
     revertReason: undefined,
   };
 }
@@ -170,6 +175,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     constants,
     txEffect,
     gasUsed,
+    revertCode,
     revertReason,
   };
 }
