@@ -30,7 +30,7 @@ While we talk about “arbitrary verification logic” describing the intuition 
 
 On Aztec, there is no limitation on the complexity of verification logic (what does it mean for the transaction to be valid). Whatever conditions it checks, the proof (that the sequencer needs to verify) is independent of its complexity.
 
-This unlocks a whole universe of new use cases and optimization of existing ones. Whenever the dapp can benefit from moving expensive computations off-chain, Aztec AA will provide a unique chance for an optimization. That is to say, on traditional chains users pay for each executed opcode, hence more complex operations (e.g. alternative signature verification) are quite expensive. In the case of Aztec, it can be moved off-chain so that it becomes almost free. The user pays for the operations in terms of client-side prover time.
+This unlocks a whole universe of new use cases and optimization of existing ones. Whenever the dapp can benefit from moving expensive computations off-chain, Aztec will provide a unique chance for an optimization. That is to say, on traditional chains users pay for each executed opcode, hence more complex operations (e.g. alternative signature verification) are quite expensive. In the case of Aztec, it can be moved off-chain so that it becomes almost free. The user pays for the operations in terms of client-side prover time. However, this refers to Aztec's client-side proving feature and not directly AA.
 
 Couple of examples:
 - Multisig contract with an arbitrary number of parties that can verify any number of signatures for free.
