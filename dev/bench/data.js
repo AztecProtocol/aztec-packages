@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741019609505,
+  "lastUpdate": 1741020465443,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "31c80347245f030ee6be4313e187cf000861556e",
-          "message": "feat!: rename compute_nullifier_without_context (#12308)\n\nFollow up from #12240. This aligns both compute nullifier functions.\nWith the new metadata bits calling this is quite simple, and it's very\nclear that we're only using it for note discovery. Some macros were\nsimplified a bit as a result as well.",
-          "timestamp": "2025-02-26T21:24:38Z",
-          "tree_id": "654efb8f4f3a2d6ce25a22700ee689b5f2e91474",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/31c80347245f030ee6be4313e187cf000861556e"
-        },
-        "date": 1740607075371,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17980.09371099988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15937.175013999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18543.606648999914,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16239.573944 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3917.8687190001256,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3071.3308740000007 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54764.119191,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54764115000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10786.79508,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10786797000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1912813568,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1912813568 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 213166604,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 213166604 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 215330860,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 215330860 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6cdb9db2bc38ee3fd5becf9fa8bb8444a3c050ce",
+          "message": "chore: remove `ROOTS` arg from unconstrained functions in bloblib (#12418)\n\nSome cleanup\n\nSee: https://github.com/noir-lang/noir/pull/7559#issuecomment-2694800192",
+          "timestamp": "2025-03-03T16:13:34Z",
+          "tree_id": "7ea6b2de56cdd50febe73a5d7b374b0ef87bf459",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6cdb9db2bc38ee3fd5becf9fa8bb8444a3c050ce"
+        },
+        "date": 1741020457869,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18221.681678000095,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16052.980071 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18803.074812999967,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16537.79653 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4016.1445319999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3144.127216 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55742.94014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55742942000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11174.574518000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11174582000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1900406278,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1900406278 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213410606,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213410606 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
