@@ -5,6 +5,7 @@ use dep::aztec::macros::aztec;
 pub contract Parent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public}};
     use dep::aztec::prelude::{AztecAddress, FunctionSelector};
+    use dep::aztec::protocol_types::constants::MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS;
     // Private function to call another private function in the target_contract using the provided selector
     #[private]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {
@@ -54,6 +55,30 @@ pub contract Parent {
     ) {
         context.call_public_function(target_contract, target_selector, [target_value]);
     }
+
+    #[public]
+    fn public_call_with_max_over_n_args(
+        _args: [Field; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / NUM_RECURSIONS],
+    ) {}
+
+    global NUM_RECURSIONS: u32 = 10;
+    #[private]
+    fn enqueue_call_to_child_with_many_args_and_recurse(recursion_depth: u32) {
+        //let num_recursions: u8 = 10;
+        let args: [Field; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / NUM_RECURSIONS] =
+            [0; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / NUM_RECURSIONS];
+        // +1 for function selector brings us to max
+        //let args: [Field; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS- 1] = [0; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS - 1];
+        Parent::at(context.this_address()).public_call_with_max_over_n_args(args).enqueue(
+            &mut context,
+        );
+        if recursion_depth < NUM_RECURSIONS {
+            Parent::at(context.this_address())
+                .enqueue_call_to_child_with_many_args_and_recurse(recursion_depth + 1)
+                .call(&mut context);
+        }
+    }
+
     // Private function that enqueues two calls to a child contract:
     // - one through a nested call to enqueue_call_to_child with value 10,
     // - followed by one issued directly from this function with value 20.
