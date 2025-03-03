@@ -151,7 +151,7 @@ Nonce abstraction is mostly relevant to those building wallets. For example, a d
 
 ### Fee abstraction
 
-It doesn't have to be the transaction sender who pays the transaction fees. Wallets or dapp developers can choose any payment logic they want using a paymaster. To learn more about fees on Aztec – check [this page](../fees.md).
+It doesn't have to be the transaction sender who pays the transaction fees. Wallets or dapp developers can choose any payment logic they want using a paymaster. To learn more about fees on Aztec – check [this page](../fees).
 
 Paymaster is a contract that can pay for transactions on behalf of users. It is invoked during the private execution stage and set as the fee payer.
 - It can be managed by a dapp itself (e.g. a DEX can have its own paymaster) or operate as a third party service available for everyone.
