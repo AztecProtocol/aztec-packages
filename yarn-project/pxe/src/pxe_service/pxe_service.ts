@@ -390,7 +390,6 @@ export class PXEService implements PXE {
         simulate: false,
         skipFeeEnforcement: false,
         profile: false,
-        dryRun: false,
       });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
@@ -427,10 +426,9 @@ export class PXEService implements PXE {
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
       const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-        simulate: !profile,
+        simulate: true,
         skipFeeEnforcement,
         profile,
-        dryRun: true,
       });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -727,19 +725,18 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig,
+    { simulate, skipFeeEnforcement, profile }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
     const block =
       privateExecutionResult.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
-    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
+    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile})...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
       simulate,
       skipFeeEnforcement,
       profile,
-      dryRun,
     });
   }
 
