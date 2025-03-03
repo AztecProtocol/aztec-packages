@@ -36,10 +36,6 @@ export class MockL2BlockSource implements L2BlockSource {
     this.log.verbose(`Removed ${numBlocks} blocks from the mock L2 block source`);
   }
 
-  public setProvenBlockNumber(provenBlockNumber: number) {
-    this.provenBlockNumber = provenBlockNumber;
-  }
-
   public setProvenEpochNumber(provenEpochNumber: number) {
     this.provenEpochNumber = provenEpochNumber;
   }
@@ -70,10 +66,6 @@ export class MockL2BlockSource implements L2BlockSource {
 
   public getProvenBlockNumber(): Promise<number> {
     return Promise.resolve(this.provenBlockNumber);
-  }
-
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.provenEpochNumber);
   }
 
   /**
