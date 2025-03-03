@@ -7,19 +7,16 @@ use crate::{
         archive::perform_archive_membership_check, constants::validate_combined_constant_data,
         PublicTubeDataValidator,
     },
-    components::{append_tx_effects_for_blob, compute_kernel_out_hash},
+    components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
 use dep::types::{
     abis::{
-        avm_circuit_public_inputs::AvmProofData,
-        combined_constant_data::CombinedConstantData,
-        constant_rollup_data::ConstantRollupData,
-        contract_class_log::{ContractClassLog, validate_and_silo_contract_class_log},
-        sponge_blob::SpongeBlob,
-        tube::PublicTubeData,
+        avm_circuit_public_inputs::AvmProofData, combined_constant_data::CombinedConstantData,
+        constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
+        sponge_blob::SpongeBlob, tube::PublicTubeData,
     },
     constants::{ARCHIVE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX},
-    hash::silo_l2_to_l1_message,
+    hash::{silo_contract_class_log, silo_l2_to_l1_message},
     merkle_tree::MembershipWitness,
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Empty, Hash},
@@ -73,12 +70,14 @@ impl PublicBaseRollupInputs {
         let mut siloed_contract_class_logs =
             [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX];
         for i in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
-            siloed_contract_class_logs[i] = validate_and_silo_contract_class_log(
+            validate_contract_class_log(
                 self.contract_class_logs_preimages[i],
                 contract_class_logs_hashes[i],
             );
+            siloed_contract_class_logs[i] =
+                silo_contract_class_log(self.contract_class_logs_preimages[i]);
         }
-        // These lengths have been constrained in validate_and_silo_contract_class_log to be correct.
+        // These lengths have been constrained above to be correct.
         let contract_class_logs_lengths = contract_class_logs_hashes.map(|l| l.log_hash.length);
 
         (
