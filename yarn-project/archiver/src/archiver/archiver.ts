@@ -134,17 +134,15 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   }
 
   /**
-   * Creates a new instance of the Archiver and blocks until it syncs from chain.
+   * Creates a new instance of the Archiver.
    * @param config - The archiver's desired configuration.
    * @param archiverStore - The backing store for the archiver.
-   * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    * @returns - An instance of the archiver.
    */
-  public static async createAndSync(
+  public static async create(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
     deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
-    blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
     const publicClient = createPublicClient({
@@ -178,6 +176,23 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
+    return archiver;
+  }
+
+  /**
+   * Creates a new instance of the Archiver and blocks until it syncs from chain.
+   * @param config - The archiver's desired configuration.
+   * @param archiverStore - The backing store for the archiver.
+   * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
+   * @returns - An instance of the archiver.
+   */
+  public static async createAndSync(
+    config: ArchiverConfig,
+    archiverStore: ArchiverDataStore,
+    deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
+    blockUntilSynced: boolean,
+  ): Promise<Archiver> {
+    const archiver = await this.create(config, archiverStore, deps);
     await archiver.start(blockUntilSynced);
     return archiver;
   }
@@ -315,6 +330,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       const localPendingEpochNumber = getEpochAtSlot(localPendingSlotNumber, this.l1constants);
 
       // Emit an event for listening services to react to the chain prune
+      this.log.debug('Emitting chain pruned event', {
+        blockNumber: localPendingBlockNumber,
+        slotNumber: localPendingSlotNumber,
+        epochNumber: localPendingEpochNumber,
+      });
       this.emit(L2BlockSourceEvents.ChainPruned, {
         type: L2BlockSourceEvents.ChainPruned,
         blockNumber: localPendingBlockNumber,
@@ -430,6 +450,10 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           });
 
           // Emit an event for listening services to react to the chain proven
+          this.log.debug('Emitting chain proven event', {
+            previousProvenBlockNumber: localProvenBlockNumber,
+            provenBlockNumber: provenBlockNumber,
+          });
           this.emit(L2BlockSourceEvents.ChainProven, {
             type: L2BlockSourceEvents.ChainProven,
             previousProvenBlockNumber: localProvenBlockNumber,
@@ -542,6 +566,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       }
 
       // Emit an event for listening services to react to the new blocks
+      this.log.debug('Emitting blocks added event', {
+        numberOfBlocks: retrievedBlocks.length,
+      });
       this.emit(L2BlockSourceEvents.BlocksAdded, {
         type: L2BlockSourceEvents.BlocksAdded,
         blocks: retrievedBlocks.map(b => b.data),

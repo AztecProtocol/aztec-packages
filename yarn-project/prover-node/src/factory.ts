@@ -37,7 +37,7 @@ export async function createProverNode(
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
   const log = deps.log ?? createLogger('prover-node');
-  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry));
+  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, telemetry));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
@@ -72,6 +72,8 @@ export async function createProverNode(
     epochCache,
     telemetry,
   });
+
+  await archiver.start(/* blockUntilSynced= */ true);
 
   const proverNodeConfig: ProverNodeOptions = {
     maxPendingJobs: config.proverNodeMaxPendingJobs,

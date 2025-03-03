@@ -9,7 +9,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider, type Timer } from '@aztec/foundation/timer';
-import type { P2P } from '@aztec/p2p';
+import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
@@ -181,7 +181,12 @@ describe('sequencer', () => {
       return Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 });
     });
 
-    p2p = mock<P2P>();
+    p2p = mock<P2P>({
+      getStatus: mockFn().mockResolvedValue({
+        state: P2PClientState.IDLE,
+        syncedToL2Block: { number: lastBlockNumber, hash },
+      }),
+    });
 
     fork = mock<MerkleTreeWriteOperations>({
       getInitialHeader: () => initialBlockHeader,
@@ -498,6 +503,7 @@ describe('sequencer', () => {
         } as WorldStateSyncStatus,
       }),
     );
+    p2p.getStatus.mockImplementation(() => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block }));
     l2BlockSource.getL2Tips.mockImplementation(() =>
       Promise.resolve({
         latest: syncedToL2Block,
