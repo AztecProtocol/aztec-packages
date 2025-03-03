@@ -39,7 +39,7 @@ import { mock } from 'jest-mock-extended';
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/journal/journal.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -60,7 +60,7 @@ describe('public_tx_simulator', () => {
 
   let db: MerkleTreeWriteOperations;
   let dbCopy: MerkleTreeWriteOperations;
-  let worldStateDB: WorldStateDB;
+  let worldStateDB: PublicTreesDB;
 
   let publicDataTree: AppendOnlyTree<Fr>;
 
@@ -280,7 +280,7 @@ describe('public_tx_simulator', () => {
   beforeEach(async () => {
     db = await (await NativeWorldStateService.tmp()).fork();
     dbCopy = await (await NativeWorldStateService.tmp()).fork();
-    worldStateDB = new WorldStateDB(db, mock<ContractDataSource>());
+    worldStateDB = new PublicTreesDB(db, mock<ContractDataSource>());
 
     treeStore = openTmpStore();
 

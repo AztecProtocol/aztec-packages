@@ -13,14 +13,10 @@ import {
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import type {
-  MerkleTreeCheckpointOperations,
-  MerkleTreeReadOperations,
-  MerkleTreeWriteOperations,
-} from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
-import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { ForwardMerkleTree, MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import type { PublicContractsDB, PublicStateDB } from '../common/db_interfaces.js';
@@ -264,38 +260,13 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 }
 
 /**
- * A public state DB that reads and writes to the world state.
+ * A class that provides access to the merkle trees, and other helper methods.
  */
-export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicStateDB, MerkleTreeCheckpointOperations {
+export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDB {
   private logger = createLogger('simulator:world-state-db');
 
-  constructor(public db: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
-    super(dataSource);
-  }
-
-  /**
-   * Checkpoints the current fork state
-   */
-  public async createCheckpoint() {
-    await this.db.createCheckpoint();
-  }
-
-  /**
-   * Commits the current checkpoint
-   */
-  public async commitCheckpoint() {
-    await this.db.commitCheckpoint();
-  }
-
-  /**
-   * Reverts the current checkpoint
-   */
-  public async revertCheckpoint() {
-    await this.db.revertCheckpoint();
-  }
-
-  public getMerkleInterface(): MerkleTreeWriteOperations {
-    return this.db;
+  constructor(public db: MerkleTreeWriteOperations) {
+    super(db);
   }
 
   /**

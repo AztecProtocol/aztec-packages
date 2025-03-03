@@ -6,7 +6,6 @@ import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee
 import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import type { PublicCallRequest } from '@aztec/stdlib/kernel';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import {
@@ -25,7 +24,7 @@ import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js'
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
-import type { WorldStateDB } from '../public_db_sources.js';
+import type { ContractsDataSourcePublicDB, PublicTreesDB } from '../public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -52,8 +51,8 @@ export class PublicTxSimulator {
   private log: Logger;
 
   constructor(
-    private db: MerkleTreeReadOperations,
-    private worldStateDB: WorldStateDB,
+    private treesDB: PublicTreesDB,
+    private contractsDB: ContractsDataSourcePublicDB,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
@@ -79,18 +78,27 @@ export class PublicTxSimulator {
       this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
       const context = await PublicTxContext.create(
-        this.db,
-        this.worldStateDB,
+        this.treesDB,
+        this.contractsDB,
         tx,
         this.globalVariables,
         this.doMerkleOperations,
       );
 
+      // add new contracts to the contracts db so that their functions may be found and called
+      // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
+      // have to capture contracts emitted in that phase as well.
+      // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
+      // TODO(#6464): Should we allow emitting contracts in the private setup phase?
+      // if so, this should only add contracts that were deployed during private app logic.
+      // FIXME: we shouldn't need to directly modify treesDB here!
+      await this.contractsDB.addNewContracts(tx);
+
       const nonRevertStart = process.hrtime.bigint();
       await this.insertNonRevertiblesFromPrivate(context);
       // add new contracts to the contracts db so that their functions may be found and called
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-      await this.worldStateDB.addNewNonRevertibleContracts(tx);
+      await this.contractsDB.addNewNonRevertibleContracts(tx);
       const nonRevertEnd = process.hrtime.bigint();
       this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
 
@@ -104,7 +112,7 @@ export class PublicTxSimulator {
       const success = await this.insertRevertiblesFromPrivate(context);
       if (success) {
         // add new contracts to the contracts db so that their functions may be found and called
-        await this.worldStateDB.addNewRevertibleContracts(tx);
+        await this.contractsDB.addNewRevertibleContracts(tx);
         const revertEnd = process.hrtime.bigint();
         this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
 
@@ -125,7 +133,7 @@ export class PublicTxSimulator {
       await context.halt();
       await this.payFee(context);
 
-      const endStateReference = await this.db.getStateReference();
+      const endStateReference = await this.treesDB.getStateReference();
 
       const avmProvingRequest = await context.generateProvingRequest(endStateReference);
 
@@ -137,7 +145,7 @@ export class PublicTxSimulator {
       // Commit contracts from this TX to the block-level cache and clear tx cache
       // If the tx reverted, only commit non-revertible contracts
       // NOTE: You can't create contracts in public, so this is only relevant for private-created contracts
-      this.worldStateDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
+      this.contractsDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
 
       const endTime = process.hrtime.bigint();
       this.log.debug(`Public TX simulator took ${Number(endTime - startTime) / 1_000_000} ms\n`);
@@ -157,7 +165,7 @@ export class PublicTxSimulator {
     } finally {
       // Make sure there are no new contracts in the tx-level cache.
       // They should either be committed to block-level cache or cleared.
-      this.worldStateDB.clearContractsForTx();
+      this.contractsDB.clearContractsForTx();
     }
   }
 
@@ -288,7 +296,7 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const address = executionRequest.callContext.contractAddress;
-    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, executionRequest.args);
+    const fnName = await getPublicFunctionDebugName(this.treesDB, address, executionRequest.args);
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 

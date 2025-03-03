@@ -21,7 +21,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -46,7 +45,7 @@ import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
-import type { WorldStateDB } from '../public_db_sources.js';
+import type { ContractsDataSourcePublicDB, PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from '../utils.js';
 
@@ -93,8 +92,8 @@ export class PublicTxContext {
   }
 
   public static async create(
-    db: MerkleTreeReadOperations,
-    worldStateDB: WorldStateDB,
+    treesDB: PublicTreesDB,
+    contractsDB: ContractsDataSourcePublicDB,
     tx: Tx,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
@@ -116,7 +115,8 @@ export class PublicTxContext {
 
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = AvmPersistableStateManager.create(
-      worldStateDB,
+      treesDB,
+      contractsDB,
       trace,
       doMerkleOperations,
       firstNullifier,
@@ -132,7 +132,7 @@ export class PublicTxContext {
       await tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       globalVariables,
-      await db.getStateReference(),
+      await treesDB.getStateReference(),
       gasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
@@ -412,16 +412,16 @@ export class PublicTxContext {
     );
     const numNoteHashesToPad =
       MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
-    await stateManager.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
+    await stateManager.treesDB.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
     const numNullifiersToPad =
       MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
-    await stateManager.db.batchInsert(
+    await stateManager.treesDB.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       padArrayEnd([], Fr.ZERO, numNullifiersToPad).map(nullifier => nullifier.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
 
-    const paddedState = await stateManager.db.getStateReference();
+    const paddedState = await stateManager.treesDB.getStateReference();
     avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
       paddedState.l1ToL2MessageTree,
       paddedState.partial.noteHashTree,

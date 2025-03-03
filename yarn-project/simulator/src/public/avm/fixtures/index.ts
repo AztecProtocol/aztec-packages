@@ -33,7 +33,7 @@ import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
 import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -66,7 +66,7 @@ export function initContext(overrides?: {
 
 /** Creates an empty state manager with mocked host storage. */
 export function initPersistableStateManager(overrides?: {
-  worldStateDB?: WorldStateDB;
+  worldStateDB?: PublicTreesDB;
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
@@ -75,7 +75,7 @@ export function initPersistableStateManager(overrides?: {
   firstNullifier?: Fr;
   blockNumber?: number;
 }): AvmPersistableStateManager {
-  const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
+  const worldStateDB = overrides?.worldStateDB || mock<PublicTreesDB>();
   return new AvmPersistableStateManager(
     worldStateDB,
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),

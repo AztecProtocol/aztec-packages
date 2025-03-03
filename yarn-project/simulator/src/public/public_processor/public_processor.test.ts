@@ -15,13 +15,13 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTreesDB } from '../public_db_sources.js';
 import type { PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeWriteOperations>;
-  let worldStateDB: MockProxy<WorldStateDB>;
+  let worldStateDB: MockProxy<PublicTreesDB>;
   let publicTxSimulator: MockProxy<PublicTxSimulator>;
 
   let root: Buffer;
@@ -40,7 +40,7 @@ describe('public_processor', () => {
 
   beforeEach(() => {
     db = mock<MerkleTreeWriteOperations>();
-    worldStateDB = mock<WorldStateDB>();
+    worldStateDB = mock<PublicTreesDB>();
     publicTxSimulator = mock();
 
     root = Buffer.alloc(32, 5);

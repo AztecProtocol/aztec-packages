@@ -8,10 +8,10 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
   PublicProcessor,
+  PublicTreesDB,
   PublicTxSimulationTester,
   PublicTxSimulator,
   SimpleContractDataSource,
-  WorldStateDB,
 } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -83,7 +83,7 @@ export class TestContext {
     const publicDb = await ws.fork();
 
     const contractDataSource = new SimpleContractDataSource();
-    const worldStateDB = new WorldStateDB(publicDb, contractDataSource);
+    const worldStateDB = new PublicTreesDB(publicDb, contractDataSource);
 
     const tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, publicDb);
 

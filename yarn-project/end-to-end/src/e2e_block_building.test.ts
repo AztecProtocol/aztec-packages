@@ -31,9 +31,9 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
   PublicProcessorFactory,
+  type PublicTreesDB,
   type PublicTxResult,
   PublicTxSimulator,
-  type WorldStateDB,
 } from '@aztec/simulator/server';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -636,7 +636,7 @@ class TestPublicTxSimulator extends PublicTxSimulator {
 class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
     db: MerkleTreeWriteOperations,
-    worldStateDB: WorldStateDB,
+    worldStateDB: PublicTreesDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,

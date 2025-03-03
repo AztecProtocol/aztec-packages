@@ -1,5 +1,5 @@
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
-import { SimpleContractDataSource, WorldStateDB } from '@aztec/simulator/server';
+import { PublicTreesDB, SimpleContractDataSource } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -28,7 +28,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
     private checkCircuitOnly: boolean,
-    worldStateDB: WorldStateDB,
+    worldStateDB: PublicTreesDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
   ) {
@@ -40,7 +40,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    const worldStateDB = new PublicTreesDB(merkleTrees, contractDataSource);
     return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, worldStateDB, contractDataSource, merkleTrees);
   }
 
@@ -108,7 +108,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 export class AvmProvingTesterV2 extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
-    worldStateDB: WorldStateDB,
+    worldStateDB: PublicTreesDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
   ) {
@@ -120,7 +120,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    const worldStateDB = new PublicTreesDB(merkleTrees, contractDataSource);
     return new AvmProvingTesterV2(bbWorkingDirectory, worldStateDB, contractDataSource, merkleTrees);
   }
 
