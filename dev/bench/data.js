@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741012635754,
+  "lastUpdate": 1741014131264,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "janbenes1234@gmail.com",
-            "name": "Jan Beneš",
-            "username": "benesjan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cc0130ab2626421ef537da0069fcac72a8291cce",
-          "message": "chore: enabling `e2e_contract_updates` in CI + nuking irrelevant test (#12293)",
-          "timestamp": "2025-02-26T18:12:00Z",
-          "tree_id": "4336394ad3dbd91cb0609a8c368d88e35b087b4a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc0130ab2626421ef537da0069fcac72a8291cce"
-        },
-        "date": 1740595482773,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18553.241402000138,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16325.891835 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18768.78591400009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16348.242003000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4018.8767839999855,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3143.8382229999993 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54914.925358,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54914926000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9962.699479,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9962710000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1920207300,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1920207300 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 222058131,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 222058131 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 214530429,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214530429 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eb00a467eb3804b095d4809382f03ab3aadbfe51",
+          "message": "feat(avm): use messagepack + zod for avm inputs serde (#12341)\n\nThis PR uses MP to serialize avm structures to C++, and Zod to (de)serialize avm structures in TS.\n* Zod is \"needed\" to make (de)serialization to the orchestrator and prover-agent work\n* MessagePack is used for serde to C++\n\nMessagePack CANT be used to do TS-TS serde because it loses type information when it serializes. That's what Zod schemas give you back.\n\nPS: Also note that on the C++ side we can deserialize a subset of the structure sent from TS, and that works! That lets us do things iteratively.",
+          "timestamp": "2025-03-03T14:23:24Z",
+          "tree_id": "5c5fca43d341a851662a5ca7834cb6e67fafad29",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/eb00a467eb3804b095d4809382f03ab3aadbfe51"
+        },
+        "date": 1741014123863,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18459.872023000116,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16133.820259 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18965.246343000217,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16378.973151 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4029.64044700002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3156.6474909999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55489.237926999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55489238000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9978.805886,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9978808000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1909006915,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1909006915 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 220134404,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 220134404 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
