@@ -97,6 +97,9 @@ function release_git_push {
     jq --arg v $version ".dependencies[\"$pkg\"] = \$v" package.json >$tmp && mv $tmp package.json
   done
 
+  # CI needs to authenticate from GITHUB_TOKEN.
+  gh auth setup-git &>/dev/null || true
+
   git init &>/dev/null
   git remote add origin "$mirrored_repo_url" &>/dev/null
   git fetch origin --quiet
