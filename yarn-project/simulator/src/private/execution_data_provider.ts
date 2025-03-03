@@ -33,7 +33,7 @@ export class ContractClassNotFoundError extends Error {
 /**
  * The database oracle interface.
  */
-export interface DBOracle extends CommitmentsDB {
+export interface ExecutionDataProvider extends CommitmentsDB {
   /**
    * Returns a contract instance associated with an address, if available.
    * @param address - Address.
@@ -160,6 +160,19 @@ export interface DBOracle extends CommitmentsDB {
   getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
+   * Gets the storage value at the given contract storage slot.
+   *
+   * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
+   * Aztec's version of `eth_getStorageAt`.
+   *
+   * @param contract - Address of the contract to query.
+   * @param slot - Slot to query.
+   * @returns Storage value at the given contract slot.
+   * @throws If the contract is not deployed.
+   */
+  getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr>;
+
+  /**
    * Fetch a block corresponding to the given block number.
    * @param blockNumber - The block number of a block to fetch.
    * @returns - The block corresponding to the given block number. Undefined if it does not exist.
@@ -171,6 +184,18 @@ export interface DBOracle extends CommitmentsDB {
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Fetches the current chain id.
+   * @returns The chain id.
+   */
+  getChainId(): Promise<number>;
+
+  /**
+   * Fetches the current chain id.
+   * @returns The chain id.
+   */
+  getVersion(): Promise<number>;
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.

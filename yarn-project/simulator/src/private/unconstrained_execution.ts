@@ -7,7 +7,7 @@ import { ExecutionError, resolveAssertionMessageFromError } from '../common/erro
 import { witnessMapToFields } from './acvm/deserialize.js';
 import { Oracle, extractCallStack, toACVMWitness } from './acvm/index.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';
-import type { ViewDataOracle } from './view_data_oracle.js';
+import type { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
 
 // docs:start:execute_unconstrained_function
 /**
@@ -15,7 +15,7 @@ import type { ViewDataOracle } from './view_data_oracle.js';
  */
 export async function executeUnconstrainedFunction(
   simulatorProvider: SimulationProvider,
-  oracle: ViewDataOracle,
+  oracle: UnconstrainedExecutionOracle,
   artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,

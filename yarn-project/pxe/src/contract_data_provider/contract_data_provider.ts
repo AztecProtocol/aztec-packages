@@ -11,18 +11,18 @@ import {
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClass, ContractInstance } from '@aztec/stdlib/contract';
 
-import type { ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
-import type { ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
+import type { ContractArtifactDatabase } from '../database/interfaces/contract_artifact_db.js';
+import type { ContractInstanceDatabase } from '../database/interfaces/contract_instance_db.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**
- * ContractDataOracle serves as a data manager and retriever for Aztec.nr contracts.
+ * ContractDataProvider serves as a data manager and retriever for Aztec.nr contracts.
  * It provides methods to obtain contract addresses, function ABI, bytecode, and membership witnesses
  * from a given contract address and function selector. The class maintains a cache of ContractTree instances
  * to efficiently serve the requested data. It interacts with the ContractDatabase and AztecNode to fetch
  * the required information and facilitate cryptographic proof generation.
  */
-export class ContractDataOracle {
+export class ContractDataProvider {
   /** Map from contract class id to private function tree. */
   private contractClasses: Map<string, PrivateFunctionsTree> = new Map();
 

@@ -7,14 +7,14 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { CallContext, PrivateExecutionResult, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { createSimulationError } from '../common/errors.js';
-import { ClientExecutionContext } from './client_execution_context.js';
-import type { DBOracle } from './db_oracle.js';
+import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
+import { PrivateExecutionOracle } from './private_execution_oracle.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
-import { ViewDataOracle } from './view_data_oracle.js';
+import { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
 
 /**
  * The ACIR simulator.
@@ -22,7 +22,7 @@ import { ViewDataOracle } from './view_data_oracle.js';
 export class AcirSimulator {
   private log: Logger;
 
-  constructor(private db: DBOracle, private node: AztecNode, private simulationProvider: SimulationProvider) {
+  constructor(private executionDataProvider: ExecutionDataProvider, private simulationProvider: SimulationProvider) {
     this.log = createLogger('simulator');
   }
 
@@ -42,15 +42,15 @@ export class AcirSimulator {
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
-    const header = await this.db.getBlockHeader();
+    const header = await this.executionDataProvider.getBlockHeader();
 
     await verifyCurrentClassId(
       contractAddress,
-      await this.db.getContractInstance(contractAddress),
-      this.node,
+      await this.executionDataProvider.getContractInstance(contractAddress),
+      this.executionDataProvider,
       header.globalVariables.blockNumber.toNumber(),
     );
-    const entryPointArtifact = await this.db.getFunctionArtifact(contractAddress, selector);
+    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
@@ -75,7 +75,7 @@ export class AcirSimulator {
     const txRequestHash = await request.toTxRequest().hash();
     const noteCache = new ExecutionNoteCache(txRequestHash);
 
-    const context = new ClientExecutionContext(
+    const context = new PrivateExecutionOracle(
       request.firstCallArgsHash,
       request.txContext,
       callContext,
@@ -84,8 +84,7 @@ export class AcirSimulator {
       request.capsules,
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
-      this.db,
-      this.node,
+      this.executionDataProvider,
       this.simulationProvider,
       startSideEffectCounter,
       undefined,
@@ -123,17 +122,24 @@ export class AcirSimulator {
   ) {
     await verifyCurrentClassId(
       contractAddress,
-      await this.db.getContractInstance(contractAddress),
-      this.node,
-      await this.node.getBlockNumber(),
+      await this.executionDataProvider.getContractInstance(contractAddress),
+      this.executionDataProvider,
+      await this.executionDataProvider.getBlockNumber(),
     );
-    const entryPointArtifact = await this.db.getFunctionArtifact(contractAddress, selector);
+    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
     }
 
-    const context = new ViewDataOracle(contractAddress, [], [], this.db, this.node, undefined, scopes);
+    const context = new UnconstrainedExecutionOracle(
+      contractAddress,
+      [],
+      [],
+      this.executionDataProvider,
+      undefined,
+      scopes,
+    );
 
     try {
       return await executeUnconstrainedFunction(

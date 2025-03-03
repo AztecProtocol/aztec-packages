@@ -16,7 +16,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
-import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
+import { ContractDataProvider, PXEDataProvider, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionNoteCache,
   type HashedValuesCache,
@@ -24,7 +24,7 @@ import {
   type NoteData,
   Oracle,
   type TypedOracle,
-  ViewDataOracle,
+  UnconstrainedExecutionOracle,
   WASMSimulator,
   extractCallStack,
   extractPrivateCircuitPublicInputs,
@@ -99,9 +99,9 @@ export class TXE implements TypedOracle {
   // Return/revert data of the latest nested call.
   private nestedCallReturndata: Fr[] = [];
 
-  private contractDataOracle: ContractDataOracle;
-  private simulatorOracle: SimulatorOracle;
-  private viewDataOracle: ViewDataOracle;
+  private contractDataProvider: ContractDataProvider;
+  private simulatorOracle: PXEDataProvider;
+  private viewDataOracle: UnconstrainedExecutionOracle;
 
   private publicDataWrites: PublicDataWrite[] = [];
   private uniqueNoteHashesFromPublic: Fr[] = [];
@@ -132,25 +132,25 @@ export class TXE implements TypedOracle {
     private baseFork: MerkleTreeWriteOperations,
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
-    this.contractDataOracle = new ContractDataOracle(txeDatabase);
+    this.contractDataProvider = new ContractDataProvider(txeDatabase);
 
     this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
 
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
-    this.simulatorOracle = new SimulatorOracle(
-      this.contractDataOracle,
+    this.simulatorOracle = new PXEDataProvider(
+      this.contractDataProvider,
       txeDatabase,
       keyStore,
       this.node,
       this.simulationProvider,
     );
 
-    this.viewDataOracle = new ViewDataOracle(
+    this.viewDataOracle = new UnconstrainedExecutionOracle(
       this.contractAddress,
       [] /* authWitnesses */,
       [] /* capsules */,
-      this.simulatorOracle, // note: SimulatorOracle implements DBOracle
+      this.simulatorOracle, // note: PXEDataProvider implements ExecutionDataProvider
       this.node,
       /* log, */
       /* scopes, */
@@ -229,8 +229,8 @@ export class TXE implements TypedOracle {
     this.node.setBlockNumber(blockNumber);
   }
 
-  getContractDataOracle() {
-    return this.contractDataOracle;
+  getContractDataProvider() {
+    return this.contractDataProvider;
   }
 
   getTXEDatabase() {
@@ -381,7 +381,7 @@ export class TXE implements TypedOracle {
   }
 
   async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const contractInstance = await this.contractDataOracle.getContractInstance(address);
+    const contractInstance = await this.contractDataProvider.getContractInstance(address);
     if (!contractInstance) {
       throw new Error(`Contract instance not found for address ${address}`);
     }
@@ -786,7 +786,7 @@ export class TXE implements TypedOracle {
     this.setContractAddress(targetContractAddress);
     this.setFunctionSelector(functionSelector);
 
-    const artifact = await this.contractDataOracle.getFunctionArtifact(targetContractAddress, functionSelector);
+    const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
 
     const acir = artifact.bytecode;
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
@@ -862,11 +862,11 @@ export class TXE implements TypedOracle {
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const instance = await this.contractDataOracle.getContractInstance(address);
+    const instance = await this.contractDataProvider.getContractInstance(address);
     if (!instance) {
       return undefined;
     }
-    const artifact = await this.contractDataOracle.getContractArtifact(instance!.currentContractClassId);
+    const artifact = await this.contractDataProvider.getContractArtifact(instance!.currentContractClassId);
     if (!artifact) {
       return undefined;
     }
@@ -988,7 +988,7 @@ export class TXE implements TypedOracle {
       if (executionResult.revertReason && executionResult.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           executionResult.revertReason,
-          this.contractDataOracle,
+          this.contractDataProvider,
           this.txeDatabase,
           this.logger,
         );

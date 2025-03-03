@@ -13,21 +13,20 @@ import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness }
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
 import { type NoteData, TypedOracle } from './acvm/index.js';
-import type { DBOracle } from './db_oracle.js';
+import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { pickNotes } from './pick_notes.js';
 
 /**
  * The execution context for a client view tx simulation.
  * It only reads data from data sources. Nothing will be updated or created during this simulation.
  */
-export class ViewDataOracle extends TypedOracle {
+export class UnconstrainedExecutionOracle extends TypedOracle {
   constructor(
     protected readonly contractAddress: AztecAddress,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     protected readonly capsules: Capsule[],
-    protected readonly db: DBOracle,
-    protected readonly aztecNode: AztecNode,
+    protected readonly executionDataProvider: ExecutionDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
@@ -35,7 +34,7 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   public override getBlockNumber(): Promise<number> {
-    return this.aztecNode.getBlockNumber();
+    return this.executionDataProvider.getBlockNumber();
   }
 
   public override getContractAddress(): Promise<AztecAddress> {
@@ -43,11 +42,11 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   public override getChainId(): Promise<Fr> {
-    return Promise.resolve(this.aztecNode.getChainId().then(id => new Fr(id)));
+    return Promise.resolve(this.executionDataProvider.getChainId().then(id => new Fr(id)));
   }
 
   public override getVersion(): Promise<Fr> {
-    return Promise.resolve(this.aztecNode.getVersion().then(v => new Fr(v)));
+    return Promise.resolve(this.executionDataProvider.getVersion().then(v => new Fr(v)));
   }
 
   /**
@@ -57,7 +56,7 @@ export class ViewDataOracle extends TypedOracle {
    * @throws If the keys are not registered in the key store.
    */
   public override getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
-    return this.db.getKeyValidationRequest(pkMHash, this.contractAddress);
+    return this.executionDataProvider.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
   /**
@@ -68,7 +67,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
   public override getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    return this.db.getMembershipWitness(blockNumber, treeId, leafValue);
+    return this.executionDataProvider.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
   /**
@@ -81,7 +80,7 @@ export class ViewDataOracle extends TypedOracle {
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return await this.db.getNullifierMembershipWitness(blockNumber, nullifier);
+    return await this.executionDataProvider.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   /**
@@ -97,7 +96,7 @@ export class ViewDataOracle extends TypedOracle {
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return await this.db.getLowNullifierMembershipWitness(blockNumber, nullifier);
+    return await this.executionDataProvider.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   /**
@@ -110,7 +109,7 @@ export class ViewDataOracle extends TypedOracle {
     blockNumber: number,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
-    return await this.db.getPublicDataTreeWitness(blockNumber, leafSlot);
+    return await this.executionDataProvider.getPublicDataTreeWitness(blockNumber, leafSlot);
   }
 
   /**
@@ -119,7 +118,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns Block extracted from a block with block number `blockNumber`.
    */
   public override async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
-    const block = await this.db.getBlock(blockNumber);
+    const block = await this.executionDataProvider.getBlock(blockNumber);
     if (!block) {
       return undefined;
     }
@@ -133,7 +132,7 @@ export class ViewDataOracle extends TypedOracle {
    * @throws An error if the account is not registered in the database.
    */
   public override getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    return this.db.getCompleteAddress(account);
+    return this.executionDataProvider.getCompleteAddress(account);
   }
 
   /**
@@ -142,7 +141,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns A contract instance.
    */
   public override getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    return this.db.getContractInstance(address);
+    return this.executionDataProvider.getContractInstance(address);
   }
 
   /**
@@ -153,7 +152,8 @@ export class ViewDataOracle extends TypedOracle {
    */
   public override getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return Promise.resolve(
-      this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness ?? this.db.getAuthWitness(messageHash),
+      this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness ??
+        this.executionDataProvider.getAuthWitness(messageHash),
     );
   }
 
@@ -194,7 +194,7 @@ export class ViewDataOracle extends TypedOracle {
     offset: number,
     status: NoteStatus,
   ): Promise<NoteData[]> {
-    const dbNotes = await this.db.getNotes(this.contractAddress, storageSlot, status, this.scopes);
+    const dbNotes = await this.executionDataProvider.getNotes(this.contractAddress, storageSlot, status, this.scopes);
     return pickNotes<NoteData>(dbNotes, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
@@ -217,12 +217,12 @@ export class ViewDataOracle extends TypedOracle {
    */
   public override async checkNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const index = await this.db.getNullifierIndex(nullifier);
+    const index = await this.executionDataProvider.getNullifierIndex(nullifier);
     return index !== undefined;
   }
 
   /**
-   * Fetches a message from the db, given its key.
+   * Fetches a message from the executionDataProvider, given its key.
    * @param contractAddress - Address of a contract by which the message was emitted.
    * @param messageHash - Hash of the message.
    * @param secret - Secret used to compute a nullifier.
@@ -230,7 +230,7 @@ export class ViewDataOracle extends TypedOracle {
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
   public override async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
-    return await this.db.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
+    return await this.executionDataProvider.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
 
   /**
@@ -249,7 +249,7 @@ export class ViewDataOracle extends TypedOracle {
     const values = [];
     for (let i = 0n; i < numberOfElements; i++) {
       const storageSlot = new Fr(startStorageSlot.value + i);
-      const value = await this.aztecNode.getPublicStorageAt(contractAddress, storageSlot, blockNumber);
+      const value = await this.executionDataProvider.getPublicStorageAt(blockNumber, contractAddress, storageSlot);
 
       this.log.debug(
         `Oracle storage read: slot=${storageSlot.toString()} address-${contractAddress.toString()} value=${value}`,
@@ -279,21 +279,21 @@ export class ViewDataOracle extends TypedOracle {
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
+    return await this.executionDataProvider.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
   public override async syncNotes() {
-    const taggedLogsByRecipient = await this.db.syncTaggedLogs(
+    const taggedLogsByRecipient = await this.executionDataProvider.syncTaggedLogs(
       this.contractAddress,
-      await this.aztecNode.getBlockNumber(),
+      await this.executionDataProvider.getBlockNumber(),
       this.scopes,
     );
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+      await this.executionDataProvider.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
 
-    await this.db.removeNullifiedNotes(this.contractAddress);
+    await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
 
   public override async deliverNote(
@@ -311,11 +311,20 @@ export class ViewDataOracle extends TypedOracle {
       throw new Error(`Got a note delivery request from ${contractAddress}, expected ${this.contractAddress}`);
     }
 
-    await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
+    await this.executionDataProvider.deliverNote(
+      contractAddress,
+      storageSlot,
+      nonce,
+      content,
+      noteHash,
+      nullifier,
+      txHash,
+      recipient,
+    );
   }
 
   public override getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
-    return this.db.getLogByTag(tag);
+    return this.executionDataProvider.getLogByTag(tag);
   }
 
   public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
@@ -323,7 +332,7 @@ export class ViewDataOracle extends TypedOracle {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.storeCapsule(this.contractAddress, slot, capsule);
+    return this.executionDataProvider.storeCapsule(this.contractAddress, slot, capsule);
   }
 
   public override async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
@@ -333,7 +342,7 @@ export class ViewDataOracle extends TypedOracle {
     }
     return (
       this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
-      (await this.db.loadCapsule(this.contractAddress, slot))
+      (await this.executionDataProvider.loadCapsule(this.contractAddress, slot))
     );
   }
 
@@ -342,7 +351,7 @@ export class ViewDataOracle extends TypedOracle {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.deleteCapsule(this.contractAddress, slot);
+    return this.executionDataProvider.deleteCapsule(this.contractAddress, slot);
   }
 
   public override copyCapsule(
@@ -355,7 +364,7 @@ export class ViewDataOracle extends TypedOracle {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
+    return this.executionDataProvider.copyCapsule(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.

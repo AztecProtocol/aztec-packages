@@ -5,6 +5,4 @@ export * from './config/index.js';
 export * from './utils/create_pxe_service.js';
 
 export * from './database/index.js';
-export { ContractDataOracle } from './contract_data_oracle/index.js';
-export { PrivateFunctionsTree } from './contract_data_oracle/private_functions_tree.js';
-export { SimulatorOracle } from './simulator_oracle/index.js';
+export { PXEDataProvider } from './pxe_data_provider/index.js';
