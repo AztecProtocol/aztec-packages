@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{
         accumulated_data::PrivateToPublicAccumulatedData, gas::Gas, log_hash::ScopedLogHash,
-        public_call_request::PublicCallRequest,
+        private_log::get_emitted_private_log_fields_len, public_call_request::PublicCallRequest,
     },
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
@@ -28,8 +28,12 @@ fn meter_accumulated_data_gas_used(data: PrivateToPublicAccumulatedData) -> Gas 
     metered_da_fields += num_l2_to_l1_msgs;
     metered_l2_gas += num_l2_to_l1_msgs * L2_GAS_PER_L2_TO_L1_MSG;
 
+    // Note: not sure if we should be measuring gas in bytes since we use blobs?
     let num_private_logs = array_length(data.private_logs);
-    metered_da_fields += num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+    // Safety: the length below is constrained in rollup base. Should we constrain it here?
+    let total_num_private_log_fields =
+        unsafe { get_emitted_private_log_fields_len(data.private_logs) };
+    metered_da_fields += total_num_private_log_fields;
     metered_l2_gas += num_private_logs * L2_GAS_PER_PRIVATE_LOG;
 
     let num_contract_class_logs = array_length(data.contract_class_logs_hashes);

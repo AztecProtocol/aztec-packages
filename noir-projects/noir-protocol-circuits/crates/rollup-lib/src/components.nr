@@ -150,7 +150,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
 // MAX_L2_TO_L1_MSGS_PER_TX for L2 to L1 messages
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
-// MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS fields for private logs
+// MAX_PRIVATE_LOGS_PER_TX * (PRIVATE_LOG_SIZE_IN_FIELDS + 1) fields for private logs (+1 for length of each log)
 // MAX_PUBLIC_LOGS_PER_TX * (PUBLIC_LOG_SIZE_IN_FIELDS + 1) fields for public logs (+1 for length of each log)
 // MAX_CONTRACT_CLASS_LOGS_PER_TX * (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1) fields for contract class logs (+1 for length of each log)
 // 7 fields for prefixes for each of the above categories
@@ -161,7 +161,7 @@ pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + MAX_NULLIFIERS_PER_TX
     + MAX_L2_TO_L1_MSGS_PER_TX
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-    + MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS
+    + MAX_PRIVATE_LOGS_PER_TX * (PRIVATE_LOG_SIZE_IN_FIELDS + 1)
     + MAX_PUBLIC_LOGS_PER_TX * (PUBLIC_LOG_SIZE_IN_FIELDS + 1)
     + MAX_CONTRACT_CLASS_LOGS_PER_TX * (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1)
     + 7;
@@ -318,23 +318,31 @@ fn get_tx_effects_hash_input(
     }
 
     // PRIVATE_LOGS
-    array_len = array_length(private_logs) * PRIVATE_LOG_SIZE_IN_FIELDS;
+    array_len = array_length(private_logs);
     if array_len != 0 {
         let mut check_elt = true;
-        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
-        assert_eq(tx_effects_hash_input[offset], private_logs_prefix);
+        let prefix_index = offset;
         offset += 1;
+        let mut total_private_log_len = 0;
 
         for j in 0..MAX_PRIVATE_LOGS_PER_TX {
+            let log_len = validate_trailing_zeroes(private_logs[j].fields);
+            if log_len != 0 {
+                assert_eq(tx_effects_hash_input[offset], log_len as Field);
+                offset += 1;
+                total_private_log_len += log_len + 1;
+                check_elt = true;
+            }
             for k in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-                let index = offset + j * PRIVATE_LOG_SIZE_IN_FIELDS + k;
-                check_elt &= j * PRIVATE_LOG_SIZE_IN_FIELDS + k != array_len;
+                check_elt &= k != log_len;
                 if check_elt {
-                    assert_eq(tx_effects_hash_input[index], private_logs[j].fields[k]);
+                    assert_eq(tx_effects_hash_input[offset + k], private_logs[j].fields[k]);
                 }
             }
+            offset += log_len;
         }
-        offset += array_len;
+        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_log_len);
+        assert_eq(tx_effects_hash_input[prefix_index], private_logs_prefix);
     }
 
     // PUBLIC LOGS
@@ -513,18 +521,22 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // PRIVATE_LOGS
     let num_private_logs = array_length(private_logs);
     if num_private_logs != 0 {
-        let array_len = num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
-        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
-        tx_effects_hash_input[offset] = private_logs_prefix;
+        let prefix_index = offset;
         offset += 1;
+        let mut array_len = 0;
 
         for j in 0..num_private_logs {
-            for k in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-                let index = offset + j * PRIVATE_LOG_SIZE_IN_FIELDS + k;
-                tx_effects_hash_input[index] = private_logs[j].fields[k];
+            let log_len = find_index_hint_from_end(private_logs[j].fields, |f| f == 0);
+            tx_effects_hash_input[offset] = log_len as Field;
+            offset += 1;
+            array_len += log_len + 1;
+            for k in 0..log_len {
+                tx_effects_hash_input[offset + k] = private_logs[j].fields[k];
             }
+            offset += log_len;
         }
-        offset += array_len;
+        let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
+        tx_effects_hash_input[prefix_index] = private_logs_prefix;
     }
 
     // PUBLIC LOGS

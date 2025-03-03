@@ -257,6 +257,11 @@ export class PrivateKernelTailCircuitPublicInputs {
     return this.getNonEmptyContractClassLogsHashes().reduce((total, log) => total + log.logHash.length, 0);
   }
 
+  getNonEmptyPrivateLogsLength() {
+    // TODO: Should this take into account prefixes?
+    return this.getNonEmptyPrivateLogs().reduce((total, log) => total + log.getEmittedLength(), 0);
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     const isForPublic = reader.readBoolean();

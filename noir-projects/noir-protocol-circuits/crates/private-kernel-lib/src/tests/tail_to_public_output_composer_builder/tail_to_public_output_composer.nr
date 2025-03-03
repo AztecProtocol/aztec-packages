@@ -1,6 +1,6 @@
 use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComposerBuilder;
 use dep::types::{
-    abis::gas::Gas,
+    abis::{gas::Gas, private_log::get_emitted_private_log_fields_len},
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
         L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
@@ -115,6 +115,10 @@ fn tail_to_public_output_composer_succeeds() {
         [public_call_requests[4], public_call_requests[3], public_call_requests[2]],
     );
 
+    // Safety: this is a test
+    let total_num_private_log_fields =
+        unsafe { get_emitted_private_log_fields_len(data.private_logs) };
+
     // Gas: non-revertible
     let mut num_note_hashes = 4;
     let mut num_nullifiers = 3;
@@ -136,7 +140,7 @@ fn tail_to_public_output_composer_succeeds() {
         + num_nullifiers
         + num_msgs
         + contract_class_log_fields
-        + (num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS);
+        + total_num_private_log_fields;
     let computed_da_gas = (num_da_fields * DA_BYTES_PER_FIELD) * DA_GAS_PER_BYTE;
 
     let computed_l2_gas = num_note_hashes * L2_GAS_PER_NOTE_HASH
