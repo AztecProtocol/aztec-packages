@@ -33,12 +33,6 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/circuits.js@link:../yarn-project/circuits.js::locator=aztec-app%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/circuits.js@link:../yarn-project/circuits.js::locator=aztec-app%40workspace%3A."
-  languageName: node
-  linkType: soft
-
 "@aztec/key-store@link:../yarn-project/key-store::locator=aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/key-store@link:../yarn-project/key-store::locator=aztec-app%40workspace%3A."
@@ -48,6 +42,12 @@ __metadata:
 "@aztec/kv-store@link:../yarn-project/kv-store::locator=aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/kv-store@link:../yarn-project/kv-store::locator=aztec-app%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=aztec-app%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=aztec-app%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -112,6 +112,12 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/stdlib@link:../yarn-project/stdlib::locator=aztec-app%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=aztec-app%40workspace%3A."
+  languageName: node
+  linkType: soft
+
 "@aztec/vanilla@workspace:boxes/vanilla":
   version: 0.0.0-use.local
   resolution: "@aztec/vanilla@workspace:boxes/vanilla"
@@ -139,11 +145,12 @@ __metadata:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
     "@aztec/bb-prover": "npm:latest"
-    "@aztec/circuits.js": "npm:latest"
     "@aztec/key-store": "npm:latest"
     "@aztec/kv-store": "npm:latest"
+    "@aztec/protocol-contracts": "npm:latest"
     "@aztec/pxe": "npm:latest"
     "@aztec/simulator": "npm:latest"
+    "@aztec/stdlib": "npm:latest"
     "@eslint/js": "npm:^9.13.0"
     "@types/react": "npm:^18.3.12"
     "@types/react-dom": "npm:^18.3.1"

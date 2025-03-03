@@ -22,6 +22,7 @@ uint256 constant CONGESTION_UPDATE_FRACTION = 854700854;
 
 uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
 uint256 constant GAS_PER_BLOB_POINT_EVALUATION = 50_000;
+uint256 constant BLOBS_PER_BLOCK = 3;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;
@@ -37,9 +38,10 @@ struct ManaBaseFeeComponents {
 
 struct FeeHeader {
   uint256 excessMana;
-  uint256 feeAssetPriceNumerator;
   uint256 manaUsed;
+  uint256 feeAssetPriceNumerator;
   uint256 congestionCost;
+  uint256 provingCost;
 }
 
 struct L1FeeData {
@@ -115,9 +117,11 @@ library FeeMath {
     );
 
     EthValue dataCostPerMana = EthValue.wrap(
-      Math.mulDiv(3 * BLOB_GAS_PER_BLOB, _fees.blobFee, MANA_TARGET, Math.Rounding.Ceil)
+      Math.mulDiv(
+        BLOBS_PER_BLOCK * BLOB_GAS_PER_BLOB, _fees.blobFee, MANA_TARGET, Math.Rounding.Ceil
+      )
     );
-    uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + 3 * GAS_PER_BLOB_POINT_EVALUATION
+    uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + BLOBS_PER_BLOCK * GAS_PER_BLOB_POINT_EVALUATION
       + L1_GAS_PER_EPOCH_VERIFIED / _epochDuration;
     EthValue gasCostPerMana =
       EthValue.wrap(Math.mulDiv(gasUsed, _fees.baseFee, MANA_TARGET, Math.Rounding.Ceil));
@@ -178,6 +182,10 @@ library FeeMath {
     return FeeAssetPerEthE9.wrap(
       fakeExponential(MINIMUM_FEE_ASSET_PER_ETH, _numerator, FEE_ASSET_PRICE_UPDATE_FRACTION)
     );
+  }
+
+  function computeExcessMana(FeeHeader memory _feeHeader) internal pure returns (uint256) {
+    return clampedAdd(_feeHeader.excessMana + _feeHeader.manaUsed, -int256(MANA_TARGET));
   }
 
   function congestionMultiplier(uint256 _numerator) internal pure returns (uint256) {

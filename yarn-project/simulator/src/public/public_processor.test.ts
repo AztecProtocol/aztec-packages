@@ -1,23 +1,23 @@
-import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/circuits.js/avm';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { SimulationError } from '@aztec/circuits.js/errors';
-import { Gas, GasFees } from '@aztec/circuits.js/gas';
-import { type MerkleTreeWriteOperations, type TreeInfo } from '@aztec/circuits.js/interfaces/server';
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
-import { mockTx } from '@aztec/circuits.js/testing';
-import { GlobalVariables, type ProcessedTx, Tx, type TxValidator } from '@aztec/circuits.js/tx';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
+import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { SimulationError } from '@aztec/stdlib/errors';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
+import type { MerkleTreeWriteOperations, TreeInfo } from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import { mockTx } from '@aztec/stdlib/testing';
+import { GlobalVariables, type ProcessedTx, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type WorldStateDB } from './public_db_sources.js';
+import type { WorldStateDB } from './public_db_sources.js';
 import { PublicProcessor } from './public_processor.js';
-import { type PublicTxResult, type PublicTxSimulator } from './public_tx_simulator.js';
+import type { PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeWriteOperations>;

@@ -1,6 +1,14 @@
-import { type L2Block, type L2BlockSource } from '@aztec/circuits.js/block';
-import { type ContractDataSource } from '@aztec/circuits.js/contract';
-import { getTimestampRangeForEpoch } from '@aztec/circuits.js/epoch-helpers';
+import { compact } from '@aztec/foundation/collection';
+import { memoize } from '@aztec/foundation/decorators';
+import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
+import { DateProvider } from '@aztec/foundation/timer';
+import type { Maybe } from '@aztec/foundation/types';
+import type { P2P } from '@aztec/p2p';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
@@ -9,18 +17,10 @@ import {
   type Service,
   type WorldStateSynchronizer,
   tryStop,
-} from '@aztec/circuits.js/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
-import type { P2PClientType } from '@aztec/circuits.js/p2p';
-import type { Tx, TxHash } from '@aztec/circuits.js/tx';
-import { compact } from '@aztec/foundation/collection';
-import { memoize } from '@aztec/foundation/decorators';
-import { createLogger } from '@aztec/foundation/log';
-import { RunningPromise } from '@aztec/foundation/running-promise';
-import { DateProvider } from '@aztec/foundation/timer';
-import { type Maybe } from '@aztec/foundation/types';
-import { type P2P } from '@aztec/p2p';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,
@@ -32,8 +32,8 @@ import {
 
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
 import { ProverNodeMetrics } from './metrics.js';
-import { type EpochMonitor, type EpochMonitorHandler } from './monitors/epoch-monitor.js';
-import { type ProverNodePublisher } from './prover-node-publisher.js';
+import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
+import type { ProverNodePublisher } from './prover-node-publisher.js';
 
 export type ProverNodeOptions = {
   pollingIntervalMs: number;
@@ -255,7 +255,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
         return;
       }
       const txHashes = block.body.txEffects.map(tx => tx.txHash);
-      this.log.verbose(`Fetching ${txHashes.length} for block number ${blockNumber} from coordination`);
+      this.log.verbose(`Fetching ${txHashes.length} tx hashes for block number ${blockNumber} from coordination`);
       await this.coordination.getTxsByHash(txHashes); // This stores the txs in the tx pool, no need to persist them here
       this.lastBlockNumber = blockNumber;
     }

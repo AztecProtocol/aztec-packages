@@ -1,12 +1,11 @@
-import { type AuthWitnessProvider, CompleteAddress } from '@aztec/aztec.js/account';
-import { type ContractArtifact } from '@aztec/circuits.js/abi';
-import { AuthWitness } from '@aztec/circuits.js/auth-witness';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { EcdsaSignature } from '@aztec/foundation/crypto';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { DefaultAccountContract } from '../../defaults/account_contract.js';
 import { signWithAgent } from '../../utils/ssh_agent.js';
-import { EcdsaRAccountContractArtifact } from './artifact.js';
 
 const secp256r1N = 115792089210356248762697446949407573529996955224135760342422259061068512044369n;
 /**
@@ -15,10 +14,12 @@ const secp256r1N = 1157920892103562487626974469494075735299969552241357603424222
  * Since this implementation relays signatures to an SSH agent, we provide the
  * public key here not for signature verification, but to identify actual identity
  * that will be used to sign authwitnesses.
+ * This abstract version does not provide a way to retrieve the artifact, as it
+ * can be implemented with or without lazy loading.
  */
-export class EcdsaRSSHAccountContract extends DefaultAccountContract {
+export abstract class EcdsaRSSHBaseAccountContract extends DefaultAccountContract {
   constructor(private signingPublicKey: Buffer) {
-    super(EcdsaRAccountContractArtifact as ContractArtifact);
+    super();
   }
 
   getDeploymentArgs() {

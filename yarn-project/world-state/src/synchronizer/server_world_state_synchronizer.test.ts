@@ -1,7 +1,3 @@
-import { L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/circuits.js/block';
-import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/circuits.js/interfaces/server';
-import { type L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
-import type { BlockHeader } from '@aztec/circuits.js/tx';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -9,11 +5,15 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { SHA256Trunc } from '@aztec/merkle-tree';
+import { L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
+import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type MerkleTreeAdminDatabase, type WorldStateConfig } from '../index.js';
+import type { MerkleTreeAdminDatabase, WorldStateConfig } from '../index.js';
 import { type WorldStateStatusSummary, buildEmptyWorldStateStatusFull } from '../native/message.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 

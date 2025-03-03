@@ -1,9 +1,9 @@
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 
 import { OtelGauge } from './prom_otel_adapter.js';
-import { type Meter, type ObservableGauge } from './telemetry.js';
+import type { Meter, ObservableGauge } from './telemetry.js';
 
 describe('OtelGauge', () => {
   let mockLogger: Logger;

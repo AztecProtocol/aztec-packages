@@ -23,12 +23,14 @@
 #include "relations/bc_hashing.hpp"
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
+#include "relations/class_id_derivation.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/range_check.hpp"
+#include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
 
 // Lookup and permutation relations
@@ -36,9 +38,11 @@
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
+#include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
+#include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
 
 // Metaprogramming to concatenate tuple types.
@@ -81,13 +85,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 36;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 737;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 89;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 37;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 771;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 102;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 862;
+    static constexpr size_t NUM_ALL_ENTITIES = 910;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -98,12 +102,14 @@ class AvmFlavor {
         avm2::bc_hashing<FF_>,
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
+        avm2::class_id_derivation<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
+        avm2::scalar_mul<FF_>,
         avm2::sha256<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
@@ -119,8 +125,11 @@ class AvmFlavor {
         lookup_bc_hashing_iv_is_len_relation<FF_>,
         lookup_bc_hashing_poseidon2_hash_relation<FF_>,
         lookup_bc_retrieval_bytecode_hash_is_correct_relation<FF_>,
+        lookup_bc_retrieval_class_id_derivation_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
+        lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
+        lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
@@ -134,6 +143,8 @@ class AvmFlavor {
         lookup_range_check_r5_is_u16_relation<FF_>,
         lookup_range_check_r6_is_u16_relation<FF_>,
         lookup_range_check_r7_is_u16_relation<FF_>,
+        lookup_scalar_mul_add_relation<FF_>,
+        lookup_scalar_mul_double_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
@@ -417,6 +428,7 @@ class AvmFlavor {
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =
                 verification_key->precomputed_sha256_compression_round_constant;
+            this->precomputed_zero = verification_key->precomputed_zero;
         }
     };
 

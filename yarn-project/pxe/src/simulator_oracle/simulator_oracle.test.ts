@@ -1,19 +1,3 @@
-import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { L2Block, randomInBlock, wrapInBlock } from '@aztec/circuits.js/block';
-import { CompleteAddress } from '@aztec/circuits.js/contract';
-import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
-import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/circuits.js/keys';
-import {
-  EncryptedLogPayload,
-  IndexedTaggingSecret,
-  L1NotePayload,
-  PublicLog,
-  TxScopedL2Log,
-} from '@aztec/circuits.js/logs';
-import { Note } from '@aztec/circuits.js/note';
-import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/circuits.js/testing';
-import { TxEffect, TxHash } from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
@@ -21,11 +5,21 @@ import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
+import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block, randomInBlock, wrapInBlock } from '@aztec/stdlib/block';
+import { CompleteAddress } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
+import { EncryptedLogPayload, IndexedTaggingSecret, L1NotePayload, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { Note } from '@aztec/stdlib/note';
+import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
+import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PxeDatabase } from '../database/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { ContractDataOracle } from '../index.js';
 import { SimulatorOracle } from './index.js';

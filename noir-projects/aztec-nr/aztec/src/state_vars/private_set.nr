@@ -5,7 +5,7 @@ use crate::note::{
     note_emission::NoteEmission,
     note_getter::{get_notes, view_notes},
     note_getter_options::NoteGetterOptions,
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHash, NoteType},
     note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_request,
 };
@@ -43,7 +43,7 @@ impl<Note, Context> PrivateSet<Note, Context> {
 
 impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
 where
-    Note: NoteInterface + NullifiableNote + Eq + Packable<N>,
+    Note: NoteType + NoteHash + Eq + Packable<N>,
 {
     // docs:start:insert
     pub fn insert(self, note: Note) -> NoteEmission<Note> {
@@ -97,7 +97,7 @@ where
 
 impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext>
 where
-    Note: NoteInterface + NullifiableNote + Packable<N>,
+    Note: NoteType + NoteHash + Packable<N>,
 {
     // docs:start:view_notes
     pub unconstrained fn view_notes(

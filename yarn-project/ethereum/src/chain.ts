@@ -1,4 +1,4 @@
-import { type Chain } from 'viem';
+import type { Chain } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { AZTEC_TEST_CHAIN_ID } from './constants.js';
@@ -13,17 +13,17 @@ export interface EthereumChain {
   chainInfo: Chain;
 
   /**
-   * The actual url to be used.
+   * The list of actual urls to be used.
    */
-  rpcUrl: string;
+  rpcUrls: string[];
 }
 
 /**
- * Helper function to create an instance of Aztec Chain from an rpc url and api key.
- * @param rpcUrl - The rpc url of the chain or a chain identifier (e.g. 'testnet')
- * @param apiKey - An optional API key for the chain client.
+ * Helper function to create an instance of Aztec Chain from an rpc url and chain id.
+ * @param rpcUrls - The rpc url of the chain or a chain identifier (e.g. 'http://localhost:8545')
+ * @param chainId - The chain id of the chain or a chain identifier (e.g. 1337)
  */
-export function createEthereumChain(rpcUrl: string, _chainId: number | string): EthereumChain {
+export function createEthereumChain(rpcUrls: string[], _chainId: number | string): EthereumChain {
   let chainId: number;
   if (typeof _chainId === 'string') {
     chainId = +_chainId;
@@ -37,7 +37,7 @@ export function createEthereumChain(rpcUrl: string, _chainId: number | string): 
         name: 'Ethereum',
         rpcUrls: {
           default: {
-            http: [rpcUrl],
+            http: rpcUrls,
           },
         },
         nativeCurrency: {
@@ -46,12 +46,12 @@ export function createEthereumChain(rpcUrl: string, _chainId: number | string): 
           symbol: 'ETH',
         },
       },
-      rpcUrl,
+      rpcUrls,
     };
   } else {
     return {
       chainInfo: foundry,
-      rpcUrl,
+      rpcUrls,
     };
   }
 }

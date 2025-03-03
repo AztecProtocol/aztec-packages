@@ -1,5 +1,5 @@
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AccountWalletWithSecretKey,
@@ -20,25 +20,25 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { type MerkleTreeWriteOperations } from '@aztec/circuits.js/interfaces/server';
-import { type Tx } from '@aztec/circuits.js/tx';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { type TestDateProvider } from '@aztec/foundation/timer';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type SequencerClient } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
   PublicProcessorFactory,
   type PublicTxResult,
   PublicTxSimulator,
   type WorldStateDB,
 } from '@aztec/simulator/server';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { Tx } from '@aztec/stdlib/tx';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';

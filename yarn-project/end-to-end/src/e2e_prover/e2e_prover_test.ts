@@ -3,14 +3,14 @@ import {
   getSchnorrAccount,
   getSchnorrWalletWithSecretKey,
 } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
   type CheatCodes,
   type CompleteAddress,
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   EthAddress,
   type Logger,
   type PXE,
@@ -19,12 +19,12 @@ import {
 } from '@aztec/aztec.js';
 import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type BlobSinkServer } from '@aztec/blob-sink/server';
+import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
@@ -79,7 +79,7 @@ export class FullProverTest {
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  public l1Contracts!: DeployL1Contracts;
+  public l1Contracts!: DeployL1ContractsReturnType;
   public proverAddress!: EthAddress;
 
   constructor(

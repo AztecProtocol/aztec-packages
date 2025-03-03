@@ -1,5 +1,5 @@
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
-import { type Timer } from '@aztec/foundation/timer';
+import type { Timer } from '@aztec/foundation/timer';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
   Attributes,
   type Histogram,

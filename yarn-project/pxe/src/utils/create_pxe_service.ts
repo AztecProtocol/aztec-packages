@@ -1,14 +1,15 @@
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
-import { type AztecNode, type PrivateKernelProver } from '@aztec/circuits.js/interfaces/client';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsStore } from '@aztec/kv-store/stores';
+import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
+import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 
-import { type PXEServiceConfig } from '../config/index.js';
+import type { PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { PXEService } from '../pxe_service/pxe_service.js';
 
@@ -48,7 +49,18 @@ export async function createPXEService(
   const tips = new L2TipsStore(store, 'pxe');
   const simulationProvider = new WASMSimulator();
   const prover = proofCreator ?? (await createProver(config, simulationProvider, logSuffix));
-  const pxe = new PXEService(keyStore, aztecNode, db, tips, prover, simulationProvider, config, logSuffix);
+  const protocolContractsProvider = new BundledProtocolContractsProvider();
+  const pxe = new PXEService(
+    keyStore,
+    aztecNode,
+    db,
+    tips,
+    prover,
+    simulationProvider,
+    protocolContractsProvider,
+    config,
+    logSuffix,
+  );
   await pxe.init();
   return pxe;
 }

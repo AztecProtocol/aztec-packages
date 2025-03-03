@@ -1,31 +1,31 @@
-import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/circuits.js/abi';
-import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { InBlock } from '@aztec/circuits.js/block';
-import {
-  CompleteAddress,
-  type ContractInstanceWithAddress,
-  SerializableContractInstance,
-} from '@aztec/circuits.js/contract';
-import type { PublicKey } from '@aztec/circuits.js/keys';
-import type { IndexedTaggingSecret } from '@aztec/circuits.js/logs';
-import { NoteStatus, type NotesFilter } from '@aztec/circuits.js/note';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import { BlockHeader } from '@aztec/circuits.js/tx';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
-import {
-  type AztecAsyncArray,
-  type AztecAsyncKVStore,
-  type AztecAsyncMap,
-  type AztecAsyncMultiMap,
-  type AztecAsyncSingleton,
+import type {
+  AztecAsyncArray,
+  AztecAsyncKVStore,
+  AztecAsyncMap,
+  AztecAsyncMultiMap,
+  AztecAsyncSingleton,
 } from '@aztec/kv-store';
+import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock } from '@aztec/stdlib/block';
+import {
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  SerializableContractInstance,
+} from '@aztec/stdlib/contract';
+import type { PublicKey } from '@aztec/stdlib/keys';
+import type { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { NoteDao } from './note_dao.js';
-import { type PxeDatabase } from './pxe_database.js';
+import type { PxeDatabase } from './pxe_database.js';
 
 /**
  * A PXE database backed by LMDB.

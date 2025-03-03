@@ -6,14 +6,14 @@ import {
   type PXE,
   type SendMethodOptions,
 } from '@aztec/aztec.js';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { Gas, GasFees, GasSettings } from '@aztec/circuits.js/gas';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import { Option } from 'commander';
 
-import { type WalletDB } from '../../storage/wallet_db.js';
+import type { WalletDB } from '../../storage/wallet_db.js';
 import { createOrRetrieveAccount } from '../accounts.js';
 import { aliasedAddressParser } from './options.js';
 
@@ -184,7 +184,7 @@ export function parsePaymentMethod(
           }
           log(`Using Fee Juice for fee payments with claim for ${claimAmount} tokens`);
           const { FeeJuicePaymentMethodWithClaim } = await import('@aztec/aztec.js/fee');
-          return new FeeJuicePaymentMethodWithClaim(sender.getAddress(), {
+          return new FeeJuicePaymentMethodWithClaim(sender, {
             claimAmount: (typeof claimAmount === 'string'
               ? Fr.fromHexString(claimAmount)
               : new Fr(claimAmount)

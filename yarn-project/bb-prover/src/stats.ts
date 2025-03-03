@@ -1,6 +1,5 @@
-import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
-
-import type { CircuitName } from '../../circuits.js/src/stats/index.js';
+import type { ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { CircuitName } from '@aztec/stdlib/stats';
 
 export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact): CircuitName {
   switch (artifact) {

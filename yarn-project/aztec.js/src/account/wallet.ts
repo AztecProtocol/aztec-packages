@@ -1,8 +1,8 @@
-import { type AuthWitness } from '@aztec/circuits.js/auth-witness';
-import { type PXE } from '@aztec/circuits.js/interfaces/client';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 
-import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
-import { type AccountInterface } from './interface.js';
+import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
+import type { AccountInterface } from './interface.js';
 
 /**
  * The wallet interface.

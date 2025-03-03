@@ -16,7 +16,7 @@ import {
   BatchCall,
   CheatCodes,
   type ContractMethod,
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   FeeJuicePaymentMethod,
   type Logger,
   type PXE,
@@ -30,12 +30,9 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import type { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import { Gas } from '@aztec/circuits.js/gas';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
@@ -53,12 +50,15 @@ import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { type SequencerClient } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { Gas } from '@aztec/stdlib/gas';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -68,24 +68,13 @@ import {
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { inspect } from 'util';
-import {
-  type Account,
-  type Chain,
-  type HDAccount,
-  type Hex,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  createPublicClient,
-  createWalletClient,
-  getContract,
-  http,
-} from 'viem';
+import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -121,13 +110,13 @@ export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
 };
 
 export const setupL1Contracts = async (
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   account: HDAccount | PrivateKeyAccount,
   logger: Logger,
   args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, {
+  const l1Data = await deployL1Contracts(l1RpcUrls, account, chain, logger, {
     l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
@@ -184,7 +173,11 @@ export async function setupPXEService(
 
   const teardown = async () => {
     if (!configuredDataDirectory) {
-      await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true });
+      try {
+        await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        logger.warn(`Failed to delete tmp PXE data directory ${pxeServiceConfig.dataDirectory}: ${err}`);
+      }
     }
   };
 
@@ -205,7 +198,7 @@ export async function setupPXEService(
  * @returns Private eXecution Environment (PXE) client, viem wallets, contract addresses etc.
  */
 async function setupWithRemoteEnvironment(
-  account: Account,
+  account: HDAccount | PrivateKeyAccount,
   config: AztecNodeConfig,
   logger: Logger,
   numberOfAccounts: number,
@@ -221,21 +214,14 @@ async function setupWithRemoteEnvironment(
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
 
-  const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
-    account,
-    chain: foundry,
-    transport: http(config.l1RpcUrl),
-  });
-  const publicClient = createPublicClient({
-    chain: foundry,
-    transport: http(config.l1RpcUrl),
-  });
-  const deployL1ContractsValues: DeployL1Contracts = {
+  const { walletClient, publicClient } = createL1Clients(config.l1RpcUrls, account, foundry);
+
+  const deployL1ContractsValues: DeployL1ContractsReturnType = {
     l1ContractAddresses: l1Contracts,
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
 
   await setupCanonicalFeeJuice(pxeClient);
@@ -277,7 +263,7 @@ export type SetupOptions = {
   /** Whether to enable metrics collection, if undefined, metrics collection is disabled */
   metricsPort?: number | undefined;
   /** Previously deployed contracts on L1 */
-  deployL1ContractsValues?: DeployL1Contracts;
+  deployL1ContractsValues?: DeployL1ContractsReturnType;
   /** Whether to skip deployment of protocol contracts (auth registry, etc) */
   skipProtocolContracts?: boolean;
   /** Initial fee juice for default accounts */
@@ -315,7 +301,7 @@ export type EndToEndContext = {
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Return values from deployL1Contracts function. */
-  deployL1ContractsValues: DeployL1Contracts;
+  deployL1ContractsValues: DeployL1ContractsReturnType;
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
   /** The data for the initial funded accounts. */
@@ -368,19 +354,19 @@ export async function setup(
 
   let anvil: Anvil | undefined;
 
-  if (!config.l1RpcUrl) {
+  if (!config.l1RpcUrls?.length) {
     if (!isAnvilTestChain(chain.id)) {
-      throw new Error(`No ETHEREUM_HOST set but non anvil chain requested`);
+      throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
     }
     if (PXE_URL) {
       throw new Error(
-        `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
+        `PXE_URL provided but no ETHEREUM_HOSTS set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
       );
     }
 
     const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
     anvil = res.anvil;
-    config.l1RpcUrl = res.rpcUrl;
+    config.l1RpcUrls = [res.rpcUrl];
   }
 
   // Enable logging metrics to a local file named after the test suite
@@ -390,7 +376,7 @@ export async function setup(
     setupMetricsLogger(filename);
   }
 
-  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
   if (opts.stateLoad) {
     await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -440,7 +426,7 @@ export async function setup(
   const deployL1ContractsValues =
     opts.deployL1ContractsValues ??
     (await setupL1Contracts(
-      config.l1RpcUrl,
+      config.l1RpcUrls,
       publisherHdAccount!,
       logger,
       { ...opts, genesisArchiveRoot, genesisBlockHash },
@@ -481,7 +467,7 @@ export async function setup(
   const dateProvider = new TestDateProvider();
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(config.l1RpcUrl),
+    new EthCheatCodesWithState(config.l1RpcUrls),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
     dateProvider,
@@ -552,7 +538,7 @@ export async function setup(
     );
   }
 
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
 
   const teardown = async () => {
     await pxeTeardown();
@@ -582,28 +568,32 @@ export async function setup(
     await blobSink?.stop();
 
     if (directoryToCleanup) {
-      logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
-      await fs.rm(directoryToCleanup, { recursive: true, force: true });
+      try {
+        logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
+        await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        logger.warn(`Failed to delete data directory at ${directoryToCleanup}: ${err}`);
+      }
     }
   };
 
   return {
     aztecNode,
+    blobSink,
+    cheatCodes,
+    config,
+    dateProvider,
+    deployL1ContractsValues,
+    initialFundedAccounts,
+    logger,
     proverNode,
     pxe,
-    deployL1ContractsValues,
-    config,
-    initialFundedAccounts,
+    sequencer,
+    teardown,
+    telemetryClient: telemetry,
     wallet: wallets[0],
     wallets,
-    logger,
-    cheatCodes,
-    sequencer,
     watcher,
-    dateProvider,
-    blobSink,
-    telemetryClient: telemetry,
-    teardown,
   };
 }
 
@@ -802,12 +792,13 @@ export async function createAndSyncProverNode(
     },
     { prefilledPublicData },
   );
+  getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.walletClient.account.address });
   proverNode.start();
   return proverNode;
 }
 
 function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`, logName: string) {
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, privateKey, foundry);
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
 
   const log = createLogger(logName);
   const l1TxUtils = new DelayedTxUtils(publicClient, walletClient, log, aztecNodeConfig);
@@ -820,7 +811,7 @@ export async function createForwarderContract(
   privateKey: `0x${string}`,
   rollupAddress: Hex,
 ) {
-  const { walletClient, publicClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, privateKey, foundry);
+  const { walletClient, publicClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
   const forwarderContract = await ForwarderContract.create(
     walletClient.account.address,
     walletClient,

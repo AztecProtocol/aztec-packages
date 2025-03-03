@@ -1,6 +1,6 @@
-import { PeerErrorSeverity } from '@aztec/circuits.js/p2p';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ENR, SignableENR } from '@chainsafe/enr';
@@ -9,9 +9,9 @@ import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { PeerEvent } from '../../types/index.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason } from '../reqresp/protocols/index.js';
-import { PeerEvent } from '../types.js';
 import { PeerManager } from './peer_manager.js';
 import { PeerScoring } from './peer_scoring.js';
 
@@ -328,13 +328,78 @@ describe('PeerManager', () => {
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
         disconnectPeerId,
         ReqRespSubProtocol.GOODBYE,
-        Buffer.from([GoodByeReason.DISCONNECTED]),
+        Buffer.from([GoodByeReason.LOW_SCORE]),
       );
 
       // Verify that hangUp was not called for the healthy peer
       expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(healthyPeerId);
 
       // Verify hangUp was called exactly twice (once for each unhealthy peer)
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(2);
+    });
+
+    it('should disconnect from low scoring peers above the max peer limit during heartbeat', async () => {
+      // Set the maxPeerCount to 3 in the mock peer manager
+      peerManager = new PeerManager(
+        mockLibP2PNode,
+        mockPeerDiscoveryService,
+        {
+          ...getP2PDefaultConfig(),
+          maxPeerCount: 3,
+        },
+        getTelemetryClient(),
+        createLogger('test'),
+        peerScoring,
+        mockReqResp,
+      );
+
+      const peerId1 = await createSecp256k1PeerId();
+      const peerId2 = await createSecp256k1PeerId();
+      const peerId3 = await createSecp256k1PeerId();
+      const lowScoringPeerId1 = await createSecp256k1PeerId();
+      const lowScoringPeerId2 = await createSecp256k1PeerId();
+
+      // Mock the connections to return our test peers
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: lowScoringPeerId1 },
+        { remotePeer: peerId1 },
+        { remotePeer: peerId2 },
+        { remotePeer: lowScoringPeerId2 },
+        { remotePeer: peerId3 },
+      ]);
+
+      // Set the peer scores to trigger different states
+      peerManager.penalizePeer(lowScoringPeerId1, PeerErrorSeverity.MidToleranceError);
+      peerManager.penalizePeer(lowScoringPeerId2, PeerErrorSeverity.HighToleranceError);
+      peerManager.penalizePeer(lowScoringPeerId2, PeerErrorSeverity.HighToleranceError);
+      peerManager.penalizePeer(peerId1, PeerErrorSeverity.HighToleranceError);
+
+      // Trigger heartbeat which should remove low scoring peers to satisfy max peer limit
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      // Verify that hangUp and a goodbye was sent for low scoring peers to satisfy max peer limit
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(lowScoringPeerId1);
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        lowScoringPeerId1,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.MAX_PEERS]),
+      );
+
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(lowScoringPeerId2);
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        lowScoringPeerId2,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.MAX_PEERS]),
+      );
+
+      // Verify that hangUp was not called for connected peers
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId1);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId2);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(peerId3);
+
+      // Verify hangUp was called exactly twice (once for each purged peer to satisfy max peer limit)
       expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(2);
     });
 
@@ -397,8 +462,8 @@ describe('PeerManager', () => {
       peerManager.goodbyeReceived(peerId, GoodByeReason.BANNED);
       expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'banned' });
 
-      peerManager.goodbyeReceived(peerId, GoodByeReason.DISCONNECTED);
-      expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'disconnected' });
+      peerManager.goodbyeReceived(peerId, GoodByeReason.LOW_SCORE);
+      expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'low_score' });
 
       peerManager.goodbyeReceived(peerId, GoodByeReason.SHUTDOWN);
       expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'shutdown' });

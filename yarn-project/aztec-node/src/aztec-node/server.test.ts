@@ -1,24 +1,20 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type L2BlockSource, type NullifierWithBlockSource } from '@aztec/circuits.js/block';
-import type { ContractDataSource } from '@aztec/circuits.js/contract';
-import { GasFees } from '@aztec/circuits.js/gas';
-import { type AztecNode } from '@aztec/circuits.js/interfaces/client';
-import {
-  type L2LogsSource,
-  type MerkleTreeReadOperations,
-  type WorldStateSynchronizer,
-} from '@aztec/circuits.js/interfaces/server';
-import { RollupValidationRequests } from '@aztec/circuits.js/kernel';
-import type { L1ToL2MessageSource } from '@aztec/circuits.js/messaging';
-import { mockTx } from '@aztec/circuits.js/testing';
-import { MerkleTreeId, PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import { BlockHeader, GlobalVariables, MaxBlockNumber } from '@aztec/circuits.js/tx';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type P2P } from '@aztec/p2p';
+import type { P2P } from '@aztec/p2p';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
+import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockSource, NullifierWithBlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { RollupValidationRequests } from '@aztec/stdlib/kernel';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { mockTx } from '@aztec/stdlib/testing';
+import { MerkleTreeId, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, MaxBlockNumber } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

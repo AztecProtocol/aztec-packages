@@ -1,9 +1,9 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
-import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/circuits.js/p2p';
 import { times } from '@aztec/foundation/collection';
-import { type PublicProcessorFactory, type PublicTxResult, type PublicTxSimulator } from '@aztec/simulator/server';
-import { type ValidatorClient } from '@aztec/validator-client';
+import type { PublicProcessorFactory, PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
+import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import type { ValidatorClient } from '@aztec/validator-client';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
 import { describe, it, jest } from '@jest/globals';
@@ -92,7 +92,7 @@ describe('e2e_p2p_reex', () => {
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${dataDir}-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${dataDir}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
 

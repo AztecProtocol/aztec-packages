@@ -1,5 +1,5 @@
-import { type NodeInfo } from '@aztec/aztec.js';
-import { type PXE } from '@aztec/circuits.js/interfaces/client';
+import type { NodeInfo } from '@aztec/aztec.js';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

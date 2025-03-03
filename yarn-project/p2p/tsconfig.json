@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -26,6 +23,9 @@
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

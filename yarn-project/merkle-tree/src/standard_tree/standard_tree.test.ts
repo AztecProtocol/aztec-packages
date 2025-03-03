@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type FromBuffer } from '@aztec/foundation/serialize';
-import { type Hasher } from '@aztec/foundation/trees';
-import { type AztecKVStore } from '@aztec/kv-store';
+import type { FromBuffer } from '@aztec/foundation/serialize';
+import type { Hasher } from '@aztec/foundation/trees';
+import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { loadTree } from '../load_tree.js';

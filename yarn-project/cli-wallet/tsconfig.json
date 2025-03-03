@@ -13,9 +13,6 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../cli"
     },
     {
@@ -32,6 +29,9 @@
     },
     {
       "path": "../pxe"
+    },
+    {
+      "path": "../stdlib"
     }
   ],
   "include": ["src"]

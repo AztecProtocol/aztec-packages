@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -20,6 +17,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

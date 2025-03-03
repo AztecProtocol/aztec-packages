@@ -6,13 +6,13 @@ import {
   type ProvingJobResult,
   type ProvingJobResultsMap,
   getProvingJobInputClassFor,
-} from '@aztec/circuits.js/interfaces/server';
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { Storage } from '@google-cloud/storage';
 import { join } from 'path';
 
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store.js';
 
 const INPUTS_PATH = 'inputs';
 

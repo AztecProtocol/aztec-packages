@@ -8,7 +8,7 @@ use crate::note::{
     lifecycle::create_note,
     note_emission::NoteEmission,
     note_getter::{get_note, view_notes},
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHash, NoteType},
     note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
@@ -56,7 +56,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
     pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
     where
-        Note: NoteInterface + NullifiableNote + Packable<N>,
+        Note: NoteType + NoteHash + Packable<N>,
     {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
@@ -69,7 +69,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:get_note
     pub fn get_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface + NullifiableNote + Packable<N>,
+        Note: NoteType + NoteHash + Packable<N>,
     {
         let storage_slot = self.storage_slot;
         let retrieved_note = get_note(self.context, storage_slot).0;
@@ -94,7 +94,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
     // docs:start:view_note
     pub unconstrained fn view_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface + NullifiableNote + Packable<N>,
+        Note: NoteType + NoteHash + Packable<N>,
     {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)

@@ -1,9 +1,26 @@
 import {
+  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  UPDATES_SHARED_MUTABLE_VALUES_LEN,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { assertLength, mapTuple } from '@aztec/foundation/serialize';
+import {
   CountedPublicCallRequest,
   KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
-  LogHash,
   NoteHash,
   type NoteHashReadRequestHints,
   Nullifier,
@@ -27,35 +44,16 @@ import {
   ReadRequestStatus,
   RollupValidationRequests,
   ScopedKeyValidationRequestAndGenerator,
-  ScopedLogHash,
   ScopedNoteHash,
   ScopedNullifier,
   ScopedPrivateLogData,
   ScopedReadRequest,
   SettledReadHint,
   TransientDataIndexHint,
-} from '@aztec/circuits.js/kernel';
-import type { PublicKeys } from '@aztec/circuits.js/keys';
-import { type NullifierLeafPreimage } from '@aztec/circuits.js/trees';
-import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/circuits.js/tx';
-import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  UPDATES_SHARED_MUTABLE_VALUES_LEN,
-} from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
-import { assertLength, mapTuple } from '@aztec/foundation/serialize';
+} from '@aztec/stdlib/kernel';
+import type { PublicKeys } from '@aztec/stdlib/keys';
+import type { NullifierLeafPreimage } from '@aztec/stdlib/trees';
+import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/stdlib/tx';
 
 import type {
   CallContext as CallContextNoir,
@@ -65,7 +63,6 @@ import type {
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
-  LogHash as LogHashNoir,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
   NoteHash as NoteHashNoir,
   NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
@@ -92,7 +89,6 @@ import type {
   ReadRequestStatus as ReadRequestStatusNoir,
   RollupValidationRequests as RollupValidationRequestsNoir,
   ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
-  ScopedLogHash as ScopedLogHashNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
   Scoped as ScopedPrivateLogDataNoir,
@@ -113,6 +109,7 @@ import {
   mapHeaderFromNoir,
   mapHeaderToNoir,
   mapL2ToL1MessageToNoir,
+  mapLogHashToNoir,
   mapMaxBlockNumberFromNoir,
   mapMaxBlockNumberToNoir,
   mapMembershipWitnessToNoir,
@@ -132,6 +129,8 @@ import {
   mapPublicDataTreePreimageToNoir,
   mapScopedL2ToL1MessageFromNoir,
   mapScopedL2ToL1MessageToNoir,
+  mapScopedLogHashFromNoir,
+  mapScopedLogHashToNoir,
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
@@ -249,56 +248,6 @@ function mapScopedPrivateLogDataFromNoir(data: ScopedPrivateLogDataNoir) {
   return new ScopedPrivateLogData(
     mapPrivateLogDataFromNoir(data.inner),
     mapAztecAddressFromNoir(data.contract_address),
-  );
-}
-
-/**
- * Maps a LogHash to a noir LogHash.
- * @param logHash - The LogHash.
- * @returns The noir log hash.
- */
-function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
-  return {
-    value: mapFieldToNoir(logHash.value),
-    counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
-  };
-}
-
-/**
- * Maps a noir LogHash to a LogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
-  return new LogHash(
-    mapFieldFromNoir(logHash.value),
-    mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
-  );
-}
-
-/**
- * Maps a ts ScopedLogHash to a noir ScopedLogHash.
- * @param logHash - The ts LogHash.
- * @returns The noir log hash.
- */
-function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
-  return {
-    log_hash: mapLogHashToNoir(scopedLogHash.logHash),
-    contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
-  };
-}
-
-/**
- * Maps a noir ScopedLogHash to a ts ScopedLogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
-  return new ScopedLogHash(
-    mapLogHashFromNoir(scopedLogHash.log_hash),
-    mapAztecAddressFromNoir(scopedLogHash.contract_address),
   );
 }
 

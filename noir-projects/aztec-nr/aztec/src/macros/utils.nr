@@ -252,7 +252,7 @@ pub(crate) comptime fn is_note(typ: Type) -> bool {
         let (def, _) = struc;
         def.has_named_attribute("note")
             | def.has_named_attribute("partial_note")
-            | def.has_named_attribute("note_custom_interface")
+            | def.has_named_attribute("custom_note")
     })
 }
 
@@ -266,7 +266,7 @@ pub(crate) comptime fn is_note(typ: Type) -> bool {
 /// A copy of this function exists in `noir-protocol-circuits/crates/types/src/meta/mod.nr`. We maintain separate
 /// copies because importing it here from there would cause the `target_trait` to be interpreted in the context
 /// of the protocol circuits types crate, making it impossible to compile code for traits from this crate
-/// (e.g. NoteInterface).
+/// (e.g. NoteType).
 pub(crate) comptime fn get_trait_impl_method(
     typ: Type,
     target_trait: Quoted,

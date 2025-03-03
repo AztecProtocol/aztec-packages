@@ -18,8 +18,8 @@ unconstrained fn sync_notes_oracle() {}
 ///
 /// The packed note is what `getNotes` will later return. PXE indexes notes by `storage_slot`, so this value
 /// is typically used to filter notes that correspond to different state variables. `note_hash` and `nullifier` are
-/// the inner hashes, i.e. the raw hashes returned by `NoteInterface::compute_note_hash` and
-/// `NullifiableNote::compute_nullifier`. PXE will verify that the siloed unique note hash was inserted into the tree
+/// the inner hashes, i.e. the raw hashes returned by `NoteHash::compute_note_hash` and
+/// `NoteHash::compute_nullifier`. PXE will verify that the siloed unique note hash was inserted into the tree
 /// at `tx_hash`, and will store the nullifier to later check for nullification.
 ///
 /// `recipient` is the account to which the note was sent to. Other accounts will not be able to access this note (e.g.

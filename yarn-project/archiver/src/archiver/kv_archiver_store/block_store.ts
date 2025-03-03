@@ -1,15 +1,15 @@
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { Body, type InBlock, L2Block, L2BlockHash } from '@aztec/circuits.js/block';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
-import { BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/circuits.js/tx';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Body, type InBlock, L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import { type L1Published, type L1PublishedData } from '../structs/published.js';
+import type { L1Published, L1PublishedData } from '../structs/published.js';
 
-export { type TxEffect, type TxHash, TxReceipt } from '@aztec/circuits.js/tx';
+export { type TxEffect, type TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -106,7 +106,8 @@ export class BlockStore {
         const block = await this.getBlock(blockNumber);
 
         if (block === undefined) {
-          throw new Error(`Cannot remove block ${blockNumber} from the store, we don't have it`);
+          this.#log.warn(`Cannot remove block ${blockNumber} from the store since we don't have it`);
+          continue;
         }
         await this.#blocks.delete(block.data.number);
         await Promise.all(block.data.body.txEffects.map(tx => this.#txIndex.delete(tx.txHash.toString())));

@@ -1,11 +1,11 @@
-import type { PeerInfo } from '@aztec/circuits.js/interfaces/server';
-import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/circuits.js/p2p';
-import { TxHash } from '@aztec/circuits.js/tx';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
-import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
+import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
 import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**

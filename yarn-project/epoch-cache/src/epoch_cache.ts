@@ -1,16 +1,16 @@
+import { RollupContract, createEthereumChain } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import {
   EmptyL1RollupConstants,
   type L1RollupConstants,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
-} from '@aztec/circuits.js/epoch-helpers';
-import { RollupContract, createEthereumChain } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { DateProvider } from '@aztec/foundation/timer';
+} from '@aztec/stdlib/epoch-helpers';
 
 import { EventEmitter } from 'node:events';
-import { createPublicClient, encodeAbiParameters, http, keccak256 } from 'viem';
+import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
@@ -76,10 +76,10 @@ export class EpochCache
   ) {
     config = config ?? getEpochCacheConfigEnvVars();
 
-    const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
+    const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
+      transport: fallback(config.l1RpcUrls.map(url => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 

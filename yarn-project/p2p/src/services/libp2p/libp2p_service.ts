@@ -1,9 +1,11 @@
-import { type L2BlockSource } from '@aztec/circuits.js/block';
-import {
-  type ClientProtocolCircuitVerifier,
-  type PeerInfo,
-  type WorldStateSynchronizer,
-} from '@aztec/circuits.js/interfaces/server';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { Fr } from '@aztec/foundation/fields';
+import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
+import { RunningPromise } from '@aztec/foundation/running-promise';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
   BlockAttestation,
   BlockProposal,
@@ -13,18 +15,12 @@ import {
   TopicTypeMap,
   getTopicTypeForClientType,
   metricsTopicStrToLabels,
-} from '@aztec/circuits.js/p2p';
-import { MerkleTreeId } from '@aztec/circuits.js/trees';
-import { Tx, type TxHash, type TxValidationResult } from '@aztec/circuits.js/tx';
-import { type EpochCacheInterface } from '@aztec/epoch-cache';
-import { Fr } from '@aztec/foundation/fields';
-import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
-import { RunningPromise } from '@aztec/foundation/running-promise';
-import type { AztecAsyncKVStore } from '@aztec/kv-store';
+} from '@aztec/stdlib/p2p';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { Tx, type TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
-import { type ENR } from '@chainsafe/enr';
+import type { ENR } from '@chainsafe/enr';
 import {
   type GossipSub,
   type GossipSubComponents,
@@ -38,14 +34,14 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
-import { type ConnectionManager } from '@libp2p/interface-internal';
+import type { ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { createLibp2p } from 'libp2p';
 
-import { type P2PConfig } from '../../config.js';
-import { type MemPools } from '../../mem_pools/interface.js';
+import type { P2PConfig } from '../../config.js';
+import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import {
   DataTxValidator,
@@ -53,6 +49,7 @@ import {
   MetadataTxValidator,
   TxProofValidator,
 } from '../../msg_validators/tx_validator/index.js';
+import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
@@ -64,7 +61,6 @@ import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
-import { GossipSubEvent } from '../types.js';
 
 interface MessageValidator {
   validator: {
@@ -210,7 +206,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0,
-        maxConnections: maxPeerCount,
 
         maxParallelDials: 100,
         dialTimeout: 30_000,
@@ -627,9 +622,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   public async propagate<T extends Gossipable>(message: T) {
     const p2pMessageIdentifier = await message.p2pMessageIdentifier();
     this.logger.trace(`Message ${p2pMessageIdentifier} queued`, { p2pMessageIdentifier });
-    void this.jobQueue.put(async () => {
-      await this.sendToPeers(message);
-    });
+    void this.jobQueue
+      .put(async () => {
+        await this.sendToPeers(message);
+      })
+      .catch(error => {
+        this.logger.error(`Error propagating message ${p2pMessageIdentifier}`, { error });
+      });
   }
 
   /**

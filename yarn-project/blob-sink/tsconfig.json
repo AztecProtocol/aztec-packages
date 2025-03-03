@@ -10,13 +10,13 @@
       "path": "../blob-lib"
     },
     {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../foundation"
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

@@ -1,6 +1,11 @@
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
-import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getDefaultConfig,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { z } from 'zod';
 
@@ -19,6 +24,8 @@ export const ProverBrokerConfig = z.object({
   proverBrokerBatchSize: z.number(),
   /** How often the job batches get flushed */
   proverBrokerBatchIntervalMs: z.number(),
+  /** The maximum number of epochs to keep results for */
+  proverBrokerMaxEpochsToKeepResultsFor: z.number(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
@@ -50,8 +57,15 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     description: 'How often to flush batches to disk',
     ...numberConfigHelper(50),
   },
+  proverBrokerMaxEpochsToKeepResultsFor: {
+    env: 'PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR',
+    description: 'The maximum number of epochs to keep results for',
+    ...numberConfigHelper(1),
+  },
   ...dataConfigMappings,
 };
+
+export const defaultProverBrokerConfig: ProverBrokerConfig = getDefaultConfig(proverBrokerConfigMappings);
 
 export const ProverAgentConfig = z.object({
   /** The number of prover agents to start */

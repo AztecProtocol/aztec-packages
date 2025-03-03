@@ -1,9 +1,9 @@
-import { type BlockAttestation } from '@aztec/circuits.js/p2p';
 import { createLogger } from '@aztec/foundation/log';
+import type { BlockAttestation } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
-import { type AttestationPool } from './attestation_pool.js';
+import type { AttestationPool } from './attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;

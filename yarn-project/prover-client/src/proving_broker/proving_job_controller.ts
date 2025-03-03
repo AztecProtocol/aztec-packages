@@ -1,10 +1,10 @@
-import {
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobResultsMap,
-  type ServerCircuitProver,
-} from '@aztec/circuits.js/interfaces/server';
-import { ProvingRequestType } from '@aztec/circuits.js/proofs';
+import type {
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobResultsMap,
+  ServerCircuitProver,
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 export enum ProvingJobControllerStatus {
   IDLE = 'idle',

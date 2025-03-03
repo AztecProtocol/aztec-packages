@@ -6,7 +6,7 @@ use types::{
     utils::reader::Reader,
 };
 
-// NB: This only exists because a nested array of [[Field; 2]; N] did not build with earthly, but was fine otherwise
+// NB: This only exists because a nested array of [[Field; 2]; N] did not build with ci2.5, but was fine otherwise
 // For blobs, we use the compressed 48 byte BLS12 commitment to compute the challenge. We never need to operate on it,
 // so it's encoded as 2 fields. The first is the first 31 bytes, and the second is the next 17 bytes.
 pub struct BlobCommitment {

@@ -1,5 +1,5 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AztecNodeConfig } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AztecAddress,
@@ -11,12 +11,12 @@ import {
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
-import { createL1Clients } from '@aztec/ethereum';
-import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { type ViemPublicClient, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import { InboxAbi, OutboxAbi, RollupAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
+import { getContract } from 'viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
@@ -39,7 +39,7 @@ export class CrossChainMessagingTest {
   pxe!: PXE;
   aztecNodeConfig!: AztecNodeConfig;
 
-  publicClient!: PublicClient<HttpTransport, Chain> | undefined;
+  publicClient!: ViemPublicClient | undefined;
 
   user1Wallet!: AccountWallet;
   user2Wallet!: AccountWallet;
@@ -68,7 +68,7 @@ export class CrossChainMessagingTest {
     this.aztecNode = aztecNode;
     this.pxe = pxe;
     this.aztecNodeConfig = aztecNodeConfig;
-    this.cheatcodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrl, this.pxe);
+    this.cheatcodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.pxe);
   }
 
   snapshot = <T>(
@@ -116,7 +116,24 @@ export class CrossChainMessagingTest {
         this.logger.verbose(`Public deploy accounts...`);
         await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 3));
 
-        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+
+        const underlyingERC20Address = await deployL1Contract(
+          walletClient,
+          publicClient,
+          TestERC20Abi,
+          TestERC20Bytecode,
+          ['Underlying', 'UND', walletClient.account.address],
+        ).then(({ address }) => address);
+
+        const underlyingERC20 = getContract({
+          address: underlyingERC20Address!.toString(),
+          abi: TestERC20Abi,
+          client: walletClient,
+        });
+
+        // allow anyone to mint
+        await underlyingERC20.write.setFreeForAll([true], {} as any);
 
         this.logger.verbose(`Setting up cross chain harness...`);
         this.crossChainTestHarness = await CrossChainTestHarness.new(
@@ -126,6 +143,7 @@ export class CrossChainMessagingTest {
           walletClient,
           this.wallets[0],
           this.logger,
+          underlyingERC20Address,
         );
 
         this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
@@ -141,7 +159,7 @@ export class CrossChainMessagingTest {
         this.ownerAddress = AztecAddress.fromString(crossChainContext.ownerAddress.toString());
         const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
-        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrl, MNEMONIC);
+        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
         const inbox = getContract({
           address: this.aztecNodeConfig.l1Contracts.inboxAddress.toString(),

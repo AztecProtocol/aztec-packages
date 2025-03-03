@@ -1,4 +1,6 @@
 #pragma once
+#include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 
@@ -11,8 +13,9 @@ namespace bb {
  */
 template <typename BF, typename FF> struct TranslationEvaluations_ {
     BF op, Px, Py, z1, z2;
-    static constexpr uint32_t NUM_EVALUATIONS = 5;
-    static size_t size() { return field_conversion::calc_num_bn254_frs<BF>() * NUM_EVALUATIONS; }
+    static size_t size() { return field_conversion::calc_num_bn254_frs<BF>() * NUM_TRANSLATION_EVALUATIONS; }
+
+    RefArray<BF, NUM_TRANSLATION_EVALUATIONS> get_all() { return { op, Px, Py, z1, z2 }; }
 
     MSGPACK_FIELDS(op, Px, Py, z1, z2);
 };

@@ -144,13 +144,13 @@ COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
 COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
-# Install rust and cross-compilers. Noir specifically uses 1.75.0.
+# Install rust and cross-compilers. Noir specifically uses 1.85.0.
 # We give everyone write ownership so downstream boxes can write.
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0 && \
-    rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
+    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
     chmod -R a+w /opt/rust
 
 # Install corepack and yarn.
@@ -216,6 +216,7 @@ RUN apt update && \
         psmisc \
         python3-blessed \
         redis-tools \
+        rsync \
         software-properties-common \
         ssh \
         strace \
@@ -226,10 +227,6 @@ RUN apt update && \
         zsh \
         inotify-tools \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Install earthly.
-RUN wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly && \
-    chmod +x /usr/local/bin/earthly
 
 # Install osxcross. Requires developer to mount SDK from their mac host.
 COPY --from=osxcross /opt/osxcross /opt/osxcross

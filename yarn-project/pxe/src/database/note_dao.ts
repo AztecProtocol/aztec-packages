@@ -1,12 +1,12 @@
-import { NoteSelector } from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import type { PublicKey } from '@aztec/circuits.js/keys';
-import { Note } from '@aztec/circuits.js/note';
-import { TxHash } from '@aztec/circuits.js/tx';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type NoteData } from '@aztec/simulator/client';
+import type { NoteData } from '@aztec/simulator/client';
+import { NoteSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PublicKey } from '@aztec/stdlib/keys';
+import { Note } from '@aztec/stdlib/note';
+import { TxHash } from '@aztec/stdlib/tx';
 
 /**
  * A Note Data Access Object, representing a note that was committed to the note hash tree, holding all of the
