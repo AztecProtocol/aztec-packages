@@ -4,7 +4,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
-import type { SimulationError } from '@aztec/stdlib/errors';
+import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import type { PublicCallRequest } from '@aztec/stdlib/kernel';
@@ -101,16 +101,20 @@ export class PublicTxSimulator {
       }
 
       const revertStart = process.hrtime.bigint();
-      // FIXME(#12375): TX shouldn't die if revertible insertions fail. Should just revert to snapshot.
-      await this.insertRevertiblesFromPrivate(context);
-      // add new contracts to the contracts db so that their functions may be found and called
-      await this.worldStateDB.addNewRevertibleContracts(tx);
-      const revertEnd = process.hrtime.bigint();
-      this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
+      const success = await this.insertRevertiblesFromPrivate(context);
+      if (success) {
+        // add new contracts to the contracts db so that their functions may be found and called
+        await this.worldStateDB.addNewRevertibleContracts(tx);
+        const revertEnd = process.hrtime.bigint();
+        this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
 
-      if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
-        const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
-        processedPhases.push(appLogicResult);
+        // Only proceed with app logic if there was no revert during revertible insertion
+        if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
+          const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
+          processedPhases.push(appLogicResult);
+        }
+      } else {
+        this.log.debug(`Revertible insertion failed, skipping app logic`);
       }
 
       if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
@@ -405,7 +409,7 @@ export class PublicTxSimulator {
    * Insert the revertible accumulated data from private into the public state.
    * Start by forking state so we can rollback to the end of setup if app logic or teardown reverts.
    */
-  public async insertRevertiblesFromPrivate(context: PublicTxContext) {
+  public async insertRevertiblesFromPrivate(context: PublicTxContext): /*success=*/ Promise<boolean> {
     // Fork the state manager so we can rollback to end of setup if app logic reverts.
     await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
@@ -413,11 +417,18 @@ export class PublicTxSimulator {
       await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
-        // FIXME(#12375): simulator should be able to recover from this and just revert to snapshot.
-        throw new NullifierCollisionError(
-          `Nullifier collision encountered when inserting revertible nullifiers from private. Details:\n${e.message}\n.Stack:${e.stack}`,
+        // Instead of throwing, revert the app_logic phase
+        context.revert(
+          TxExecutionPhase.APP_LOGIC,
+          new SimulationError(
+            `Nullifier collision encountered when inserting revertible nullifiers from private: ${e.message}\n.Stack:${e.stack}`,
+            [],
+          ),
+          /*culprit=*/ 'insertRevertiblesFromPrivate',
         );
+        return /*success=*/ false;
       }
+      throw e;
     }
     for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {
@@ -425,6 +436,7 @@ export class PublicTxSimulator {
         await stateManager.writeSiloedNoteHash(noteHash);
       }
     }
+    return /*success=*/ true;
   }
 
   private async payFee(context: PublicTxContext) {

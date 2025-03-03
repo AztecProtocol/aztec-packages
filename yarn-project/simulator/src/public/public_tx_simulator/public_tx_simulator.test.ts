@@ -40,6 +40,7 @@ import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import type { AvmPersistableStateManager } from '../avm/journal/journal.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTxContext } from './public_tx_context.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -972,5 +973,42 @@ describe('public_tx_simulator', () => {
       );
       expect(txResult.revertCode).toEqual(RevertCode.OK);
     });
+  });
+
+  it('nullifier collision in insertRevertiblesFromPrivate skips app logic but executes teardown', async () => {
+    // Setup a spy on context.revert
+    const revertSpy = jest.spyOn(PublicTxContext.prototype, 'revert');
+
+    // Mock a transaction with all three phases
+    const tx = await mockTxWithPublicCalls({
+      numberOfSetupCalls: 1,
+      numberOfAppLogicCalls: 1,
+      hasPublicTeardownCall: true,
+    });
+
+    // Mock the insertRevertiblesFromPrivate method to cause a nullifier collision
+    jest.spyOn(PublicTxSimulator.prototype, 'insertRevertiblesFromPrivate').mockImplementationOnce(async context => {
+      await Promise.resolve(); // Add await to satisfy linter
+      context.revert(
+        TxExecutionPhase.APP_LOGIC,
+        new SimulationError('Nullifier collision encountered when inserting revertible nullifiers from private', []),
+        'insertRevertiblesFromPrivate',
+      );
+      return /*success=*/ Promise.resolve(false);
+    });
+
+    // Simulate the transaction
+    const txResult = await simulator.simulate(tx);
+
+    // Verify that the transaction has app logic reverted code
+    expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+
+    // Verify that there are only 2 phases processed (setup and teardown)
+    expect(txResult.processedPhases.length).toBe(2);
+    expect(txResult.processedPhases[0].phase).toBe(TxExecutionPhase.SETUP);
+    expect(txResult.processedPhases[1].phase).toBe(TxExecutionPhase.TEARDOWN);
+
+    // Restore the spy
+    revertSpy.mockRestore();
   });
 });
