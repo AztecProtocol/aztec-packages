@@ -52,7 +52,7 @@ function release_git_push {
   local branch_name=$1
   local tag_name=$2
   local version=$3
-  local mirrored_repo_url="git@github.com:AztecProtocol/aztec-starter-vanilla.git"
+  local mirrored_repo_url="https://github.com/AztecProtocol/l1-contracts.git"
 
   cd boxes/vanilla
   rm -rf release-out && mkdir release-out
