@@ -28,14 +28,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
-import {
-  IndexedTaggingSecret,
-  L1NotePayload,
-  LogWithTxData,
-  PrivateLog,
-  PublicLog,
-  TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, L1NotePayload, LogWithTxData, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
