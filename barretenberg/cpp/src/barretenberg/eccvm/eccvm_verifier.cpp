@@ -26,7 +26,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
+    circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
     ASSERT(circuit_size == key->circuit_size);
 
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
@@ -99,7 +99,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
-    // Produce the opening claim for batch opening of 'op', 'Px', 'Py', 'z1', and 'z2' wires as univariate polynomials
+    // Produce the opening claim for batch opening of `op`, `Px`, `Py`, `z1`, and `z2` wires as univariate polynomials
     translation_commitments = { commitments.transcript_op,
                                 commitments.transcript_Px,
                                 commitments.transcript_Py,
@@ -107,6 +107,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                 commitments.transcript_z2 };
 
     compute_translation_opening_claims(translation_commitments);
+
+    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 
     opening_claims.back() = multivariate_to_univariate_opening_claim;
 
@@ -123,11 +125,13 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 }
 
 /**
- * @brief To link the ECCVM Transcript wires 'op', 'Px', 'Py', 'z1', and 'z2' to the accumulator computed by the
+ * @brief To link the ECCVM Transcript wires `op`, `Px`, `Py`, `z1`, and `z2` to the accumulator computed by the
  * translator, we verify their evaluations as univariates. For efficiency reasons, we batch these evaluations.
  *
- * @param translation_commitments Commitments to  'op', 'Px', 'Py', 'z1', and 'z2'
- * @return OpeningClaim<typename ECCVMFlavor::Curve>
+ * @details For details, see the docs of \ref ECCVMProver::compute_translation_opening_claims() method.
+ *
+ * @param translation_commitments Commitments to  `op`, `Px`, `Py`, `z1`, and `z2`
+ * @return Populate `opening_claims`.
  */
 void ECCVMVerifier::compute_translation_opening_claims(
     const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
@@ -151,7 +155,7 @@ void ECCVMVerifier::compute_translation_opening_claims(
     small_ipa_commitments[2] = small_ipa_commitments[1];
     small_ipa_commitments[3] = transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
 
-    FF small_ipa_evaluation_challenge =
+    const FF small_ipa_evaluation_challenge =
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
 
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
@@ -182,6 +186,6 @@ void ECCVMVerifier::compute_translation_opening_claims(
                                                       evaluation_challenge_x,
                                                       batching_challenge_v,
                                                       translation_masking_term_eval);
-    info(translation_masking_consistency_checked);
 };
+
 } // namespace bb

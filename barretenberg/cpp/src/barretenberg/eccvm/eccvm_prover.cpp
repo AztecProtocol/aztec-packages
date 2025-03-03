@@ -195,11 +195,48 @@ ECCVMProof ECCVMProver::construct_proof()
 }
 
 /**
- * @brief The evaluations of the wires `op`, `Px`, `Py`, `z_1`, and `z_2` as univariate polynomials have to proved as
- * they are used in the 'TranslatorVerifier::verify_translation' sub-protocol and its recursive counterpart. To increase
- * the efficiency, we produce an OpeningClaim that is fed to Shplonk along with the OpeningClaim produced by Shplemini.
+ * @brief To link the ECCVM Transcript wires `op`, `Px`, `Py`, `z1`, and `z2` to the accumulator computed by the
+ * translator, we verify their evaluations as univariates. For efficiency reasons, we batch these evaluations.
  *
- * @return ProverOpeningClaim<typename ECCVMFlavor::Curve>
+ * @details As a sub-protocol of ECCVM, we are batch opening the `op`, `Px`, `Py`, `z1`, and `z2` wires as univariates
+ * (as opposed to their openings as multilinears performed after Sumcheck). We often refer to these polynomials as
+ * `translation_polynomials` \f$ T_i \f$ for \f$ i=0, \ldots, 4\f$.
+ * Below, the `evaluation_challenge_x` is denoted by \f$ x \f$ and `batching_challenge_v` is denoted by \f$v\f$.
+ *
+ * The batched translation evaluation
+ * \f{align}{
+ * \sum_{i=0}^4 T_i(x) \cdot v^i
+ * \f}
+ * is used by the \ref TranslatorVerifier to bind the ECCOpQueues over BN254 and Grumpkin. Namely, we
+ * check that the field element \f$ A = \text{accumulated_result} \f$ accumulated from the Ultra ECCOpQueue by
+ * TranslatorProver satisfies
+ * \f{align}{ x\cdot A = \sum_{i=0}^4 T_i(x) \cdot v^i, \f}
+ * where \f$ x \f$ is an artifact of our implementation of shiftable polynomials.
+ *
+ * This check gets trickier when the witness wires in ECCVM are masked. Namely, we randomize the last \f$
+ * \text{MASKING_OFFSET} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} - 1 -
+ * \text{MASKING_OFFSET}\f$. Denote
+ * \f{align}{ \widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X). \f}
+ *
+ * Informally speaking, to preserve ZK, the \ref ECCVMVerifier must never obtain the commitments to \f$ T_i \f$ or
+ * the evaluations \f$ T_i(x) \f$ of the unmasked wires.
+ *
+ * With masking, the identity above becomes
+ * \f{align}{ x\cdot A = \sum_i (\widetilde{T}_i - X^N \cdot m_i(X)) v^i =\sum_i \widetilde{T}_i v^i - X^N \cdot \sum_i
+ * m_i(X) v^i \f}
+ *
+ * The prover could send the evals of \f$ \widetilde{T}_i \f$$ without revealing witness information. Moreover, the
+ * prover could prove the evaluation \f$ x^N \cdot \sum m_i(x) v^i \f$ using SmallSubgroupIPA argument. Namely, before
+ * obtaining \f$ x \f$ and \f$ v \f$, the prover sends a commitment to the polynomial \f$ \widetilde{M} = M + Z_H \cdot
+ * R\f$, where the coefficients of \f$ M \f$ are given by the concatenation \f{align}{ M = (m_0||m_1||m_2||m_3||m_4 ||
+ * \vec{0}) \f} in the Lagrange basis over the small multiplicative subgroup \f$ H \f$, where \f$ Z_H \f$ is the
+ * vanishing polynomial \f$ X^{|H|} -1 \f$ and \f$ R(X) \f$ is a random polynomial of degree \f$ 2 \f$. \ref
+ * SmallSubgroupIPAProver allows us to prove the inner product of \f$ M \f$ against the `challenge_polynomial`
+ * \f{align}{ ( 1, x , x^2 , x^3, v , v\cdot x ,\ldots, ... , v^4, v^4 x , v^4 x^2 , v^4 x^3, \vec{0} )\f}
+ * without revealing any other witness information apart from the claimed inner product.
+ *
+ * @return Ppopulate `opening_claims`.
+ *
  */
 void ECCVMProver::compute_translation_opening_claims()
 {

@@ -141,6 +141,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
  */
 template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
 {
+
     // Construct unmasked grand sum polynomial in Lagrange basis, compute its monomial coefficients and mask it
     compute_grand_sum_polynomial();
 

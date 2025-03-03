@@ -30,6 +30,8 @@ class ECCVMVerifier {
 
     bool verify_proof(const ECCVMProof& proof);
 
+    uint32_t circuit_size;
+
     std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
 
     std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;

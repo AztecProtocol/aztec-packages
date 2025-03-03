@@ -34,6 +34,7 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
 
     std::vector<Commitment> translation_commitments;
     TranslationEvaluations_<FF> translation_evaluations;
+    FF translation_masking_term_eval;
     std::array<OpeningClaim<Curve>, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
 
     std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments;

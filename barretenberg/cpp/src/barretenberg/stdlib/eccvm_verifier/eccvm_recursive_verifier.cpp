@@ -119,6 +119,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
                                                               commitments.transcript_z2 };
     // Reduce the univariate evaluations claims to a single claim to be batched by Shplonk
     compute_translation_opening_claims(translation_commitments);
+    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
@@ -129,12 +130,13 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 }
 
 /**
- * @brief To link the ECCVM Transcript wires 'op', 'Px', 'Py', 'z1', and 'z2' to the accumulator computed by the
+ * @brief To link the ECCVM Transcript wires `op`, `Px`, `Py`, `z1`, and `z2` to the accumulator computed by the
  * translator, we verify their evaluations as univariates. For efficiency reasons, we batch these evaluations.
  *
- * @tparam Flavor ECCVMRecursiveFlavor_<UltraCircuitBuilder>
- * @param translation_commitments Commitments to  'op', 'Px', 'Py', 'z1', and 'z2'
- * @return OpeningClaim<typename Flavor::Curve>
+ * @details For details, see the docs of \ref ECCVMProver::compute_translation_opening_claims() method.
+ *
+ * @param translation_commitments Commitments to  `op`, `Px`, `Py`, `z1`, and `z2`
+ * @return Populate `opening_claims`.
  */
 template <typename Flavor>
 void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
@@ -154,7 +156,7 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     // Get the batching challenge for commitments and evaluations
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
-    FF translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
+    translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
 
     small_ipa_commitments[1] = transcript->template receive_from_prover<Commitment>("Translation:grand_sum_commitment");
     small_ipa_commitments[2] = small_ipa_commitments[1];
@@ -194,7 +196,6 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
                                                       evaluation_challenge_x,
                                                       batching_challenge_v,
                                                       translation_masking_term_eval);
-    info(translation_masking_consistency_checked);
 };
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
