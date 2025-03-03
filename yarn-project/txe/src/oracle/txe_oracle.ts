@@ -100,7 +100,7 @@ export class TXE implements TypedOracle {
   private nestedCallReturndata: Fr[] = [];
 
   private contractDataProvider: ContractDataProvider;
-  private simulatorOracle: PXEDataProvider;
+  private pxeDataProvider: PXEDataProvider;
   private viewDataOracle: UnconstrainedExecutionOracle;
 
   private publicDataWrites: PublicDataWrite[] = [];
@@ -138,20 +138,19 @@ export class TXE implements TypedOracle {
 
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
-    this.simulatorOracle = new PXEDataProvider(
-      this.contractDataProvider,
+    this.pxeDataProvider = new PXEDataProvider(
       txeDatabase,
       keyStore,
       this.node,
       this.simulationProvider,
+      this.contractDataProvider,
     );
 
     this.viewDataOracle = new UnconstrainedExecutionOracle(
       this.contractAddress,
       [] /* authWitnesses */,
       [] /* capsules */,
-      this.simulatorOracle, // note: PXEDataProvider implements ExecutionDataProvider
-      this.node,
+      this.pxeDataProvider, // note: PXEDataProvider implements ExecutionDataProvider
       /* log, */
       /* scopes, */
     );
@@ -528,7 +527,7 @@ export class TXE implements TypedOracle {
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
-    const dbNotes = await this.simulatorOracle.getNotes(this.contractAddress, storageSlot, status);
+    const dbNotes = await this.pxeDataProvider.getNotes(this.contractAddress, storageSlot, status);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
@@ -1064,17 +1063,17 @@ export class TXE implements TypedOracle {
   }
 
   async syncNotes() {
-    const taggedLogsByRecipient = await this.simulatorOracle.syncTaggedLogs(
+    const taggedLogsByRecipient = await this.pxeDataProvider.syncTaggedLogs(
       this.contractAddress,
       await this.getBlockNumber(),
       undefined,
     );
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.simulatorOracle.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+      await this.pxeDataProvider.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
 
-    await this.simulatorOracle.removeNullifiedNotes(this.contractAddress);
+    await this.pxeDataProvider.removeNullifiedNotes(this.contractAddress);
 
     return Promise.resolve();
   }
@@ -1093,7 +1092,7 @@ export class TXE implements TypedOracle {
   }
 
   async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
-    return await this.simulatorOracle.getLogByTag(tag);
+    return await this.pxeDataProvider.getLogByTag(tag);
   }
 
   // AVM oracles
