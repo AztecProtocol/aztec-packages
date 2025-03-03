@@ -16,7 +16,14 @@ function get_tag {
 
 function render {
   while IFS= read -r json_line; do
-    IFS=$'\t' read ts status msg name author complete arch < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete, .arch] | @tsv' <<< "$json_line")
+    readarray -t arr < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete // "", .arch // ""][]' <<< "$json_line")
+    ts="${arr[0]}"
+    status="${arr[1]}"
+    msg="${arr[2]}"
+    name="${arr[3]}"
+    author="${arr[4]}"
+    complete="${arr[5]}"
+    arch="${arr[6]}"
     local date_time=$(date -d @${ts:0:10} "+%m-%d %H:%M:%S")
     local link="${link_open}http://ci.aztec-labs.com/$ts${link_close}$ts${link_open}${link_close}"
     if [ -z "$complete" ]; then

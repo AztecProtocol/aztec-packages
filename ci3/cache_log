@@ -32,7 +32,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   live_publish_log &
   if [ "$dup" -eq 1 ]; then
     tee $outfile
-    if [ "$(wc -l $outfile)" -ge 16 ]; then
+    if [ "$(cat $outfile | wc -l)" -ge 16 ]; then
       echo_stderr -e "$log_str"
     fi
   else

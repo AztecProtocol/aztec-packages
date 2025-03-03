@@ -42,6 +42,6 @@ spec:
               chmod +x /tmp/consolidate-sepolia-balances.sh
               /tmp/consolidate-sepolia-balances.sh "{{ .Values.aztec.l1DeploymentMnemonic }}" {{ add .Values.validator.replicas .Values.proverNode.replicas }}
           env:
-            - name: ETHEREUM_HOST
-              value: "{{ .Values.ethereum.execution.externalHost }}"
+            - name: ETHEREUM_HOSTS
+              value: "{{ .Values.ethereum.execution.externalHosts }}"
 {{ end }}

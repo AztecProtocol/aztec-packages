@@ -25,6 +25,7 @@ set -x
 test=$1
 values_file="${2:-default.yaml}"
 namespace="${3:-$(basename $test | tr '.' '-')}"
+mnemonic_file="${4:-$(mktemp)}"
 
 # Default values for environment variables
 helm_instance=${HELM_INSTANCE:-$namespace}
@@ -84,7 +85,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  deploy_result=$(OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $helm_instance)
+  deploy_result=$(OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
 fi
 
 if [ "$install_metrics" = "true" ]; then
@@ -102,11 +103,11 @@ aztec_epoch_duration=$(./read_value.sh "aztec.epochDuration" $value_yamls)
 aztec_proof_submission_window=$(./read_value.sh "aztec.proofSubmissionWindow" $value_yamls)
 
 if [ "$sepolia_run" = "true" ]; then
-  # Read the mnemonic from file mnemonic.tmp
+  # Read the mnemonic from tmp file
   set +x
-  l1_account_mnemonic=$(cat mnemonic.tmp)
+  l1_account_mnemonic=$(cat "$mnemonic_file")
   set -x
-  rm mnemonic.tmp
+  rm "$mnemonic_file"
 else
   l1_account_mnemonic=$(./read_value.sh "aztec.l1DeploymentMnemonic" $value_yamls)
 fi
