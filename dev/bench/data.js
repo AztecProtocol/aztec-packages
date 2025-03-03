@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741012596378,
+  "lastUpdate": 1741012635754,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6749596f41f45b566bedf58c9c5f5a5fdca2ac11",
-          "message": "feat: prepend based merge (#12093)\n\nReorganize the existing merge protocol to establish the _pre_-pending of\nsubtables of ecc ops from each circuit, rather than appending. This is\nfacilitated by classes `UltraEccOpsTable` and `EccvmOpsTable`\n(implemented in a previous PR) that handle the storage and virtual\npre-pending of subtables.\n\nThe merge protocol proceeds by opening univariate polynomials T_j,\nT_{j,prev}, and t_j (columns of full table, previous full table, and\ncurrent subtable respectively) and checking the identity T_j(x) = t_j(x)\n+ x^k * T_{j,prev}(x) at a single challenge point. (Polynomials t_j are\nexplicitly degree checked in main protocol via a relation that checks\nthat they are zero beyond idx k-1).\n\nNote: Missing pieces in the merge are (1) connecting [t] from the main\nprotocol to [t] in the merge and (2) connecting [T] from step i-1 to\n[T_prev] at step i. These will be handled in follow ons.",
-          "timestamp": "2025-02-26T11:01:31-07:00",
-          "tree_id": "d25cf6fad7b3b5b413f7e8a87456044865c3d14a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6749596f41f45b566bedf58c9c5f5a5fdca2ac11"
-        },
-        "date": 1740595387740,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18296.289300999888,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16247.807529 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18891.91436300007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16501.721402000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4009.243207000054,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3167.3543530000006 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55190.336882,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55190337000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10988.607329,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10988610000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1902961206,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1902961206 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 222074163,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 222074163 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 233449064,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 233449064 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "540b346eda9b367e500a06887f02dbb7c69c714c",
+          "message": "chore(iac): remove mainnet-fork (#12398)",
+          "timestamp": "2025-03-03T13:51:27Z",
+          "tree_id": "ed10dcaf8ef0f316bb316481a7045ee0d9b03636",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/540b346eda9b367e500a06887f02dbb7c69c714c"
+        },
+        "date": 1741012628386,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18303.268305000074,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16117.778882999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18965.401756999654,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16300.152602 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3963.1619890001275,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3156.8400899999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55614.251825,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55614252000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11612.728247,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11612729000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1925537046,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1925537046 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 214530429,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 214530429 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
