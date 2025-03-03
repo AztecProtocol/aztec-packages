@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
+import { Fr, type Logger, type PXE, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
@@ -32,7 +32,12 @@ export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 
-export type EpochsTestOpts = Partial<Pick<SetupOptions, 'startProverNode'>>;
+export type EpochsTestOpts = Partial<
+  Pick<
+    SetupOptions,
+    'startProverNode' | 'skipProtocolContracts' | 'acvmWorkingDirectory' | 'bbSkipCleanup' | 'bbWorkingDirectory'
+  >
+>;
 
 /**
  * Tests building of epochs using fast block times and short epochs.
@@ -51,6 +56,7 @@ export class EpochsTestContext {
 
   public proverNodes: ProverNode[] = [];
   public nodes: AztecNodeService[] = [];
+  public pxe!: PXE;
 
   public static async setup(opts: EpochsTestOpts = {}) {
     const test = new EpochsTestContext();
@@ -90,6 +96,7 @@ export class EpochsTestContext {
     this.logger = context.logger;
     this.l1Client = context.deployL1ContractsValues.publicClient;
     this.rollup = RollupContract.getFromConfig(context.config);
+    this.pxe = context.pxe;
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, this.logger).start();

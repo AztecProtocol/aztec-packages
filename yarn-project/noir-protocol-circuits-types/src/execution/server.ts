@@ -1,3 +1,4 @@
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { pushTestData } from '@aztec/foundation/testing';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import type {
@@ -16,6 +17,7 @@ import type {
 
 import type { WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
+import { mkdtempSync, writeFileSync } from 'fs';
 
 import { ServerCircuitArtifacts, SimulatedServerCircuitArtifacts } from '../artifacts/server.js';
 import {
@@ -97,6 +99,9 @@ export function convertSimulatedPublicBaseRollupInputsToWitnessMap(inputs: Publi
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicBaseRollupArtifact.abi, {
     inputs: mapped as any,
   });
+  const dir = mkdtempSync('/mnt/user-data/phil/tmp');
+  console.log(`TEMP DIR: ${dir}`);
+  writeFileSync(`${dir}/witness.json`, jsonStringify({ inputs: mapped as any }));
   return initialWitnessMap;
 }
 

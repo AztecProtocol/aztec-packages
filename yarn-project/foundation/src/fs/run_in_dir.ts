@@ -14,6 +14,8 @@ export async function runInDirectory<T>(
   // Create random directory to be used for temp files
   const workingDirectory = await fs.mkdtemp(path.join(workingDirBase, 'tmp-'));
 
+  console.log(`Working directory: ${workingDirectory}`);
+
   await fs.access(workingDirectory);
 
   try {
@@ -24,7 +26,7 @@ export async function runInDirectory<T>(
   } finally {
     if (!skipCleanup) {
       try {
-        await fs.rm(workingDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+        //await fs.rm(workingDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
       } catch (err) {
         logger.warn(`Failed to cleanup temporary directory ${workingDirectory}: ${err}`, { err });
       }
