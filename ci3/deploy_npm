@@ -6,7 +6,7 @@ version=$2
 
 dry_run=${DRY_RUN:-0}
 
-# Point to an .npmrc config to one that relies on 'NPM_TOKEN' in the environment.
+# Point .npmrc config to one that relies on 'NPM_TOKEN' in the environment.
 export NPM_CONFIG_GLOBALCONFIG="$root/ci3/npm/.npmrc"
 
 package_name=$(jq -r '.name' package.json)
