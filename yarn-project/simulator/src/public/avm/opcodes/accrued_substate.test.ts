@@ -5,7 +5,7 @@ import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifie
 import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../../public_db_sources.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
@@ -28,7 +28,7 @@ import {
 } from './accrued_substate.js';
 
 describe('Accrued Substate', () => {
-  let worldStateDB: WorldStateDB;
+  let worldStateDB: PublicTreesDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
   let context: AvmContext;
@@ -49,7 +49,7 @@ describe('Accrued Substate', () => {
   });
 
   beforeEach(() => {
-    worldStateDB = mock<WorldStateDB>();
+    worldStateDB = mock<PublicTreesDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
     context = initContext({ persistableState, env: initExecutionEnvironment({ address, sender }) });

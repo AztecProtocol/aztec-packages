@@ -34,7 +34,7 @@ import { mock } from 'jest-mock-extended';
 
 import { SideEffectTrace } from '../../public/side_effect_trace.js';
 import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTreesDB } from '../public_db_sources.js';
 import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
@@ -561,7 +561,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let siloedNullifier0: Fr;
 
     let db: MerkleTreeWriteOperations;
-    let worldStateDB: WorldStateDB;
+    let worldStateDB: PublicTreesDB;
     let trace: PublicSideEffectTraceInterface;
     let persistableState: AvmPersistableStateManager;
 
@@ -571,8 +571,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     beforeEach(() => {
       db = mock<MerkleTreeWriteOperations>();
-      worldStateDB = mock<WorldStateDB>();
-      (worldStateDB as jest.Mocked<WorldStateDB>).getMerkleInterface.mockReturnValue(db);
+      worldStateDB = mock<PublicTreesDB>();
+      (worldStateDB as jest.Mocked<PublicTreesDB>).getMerkleInterface.mockReturnValue(db);
       trace = mock<PublicSideEffectTraceInterface>();
       persistableState = initPersistableStateManager({ worldStateDB, trace });
     });
@@ -1184,7 +1184,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       const contractDataSource = new SimpleContractDataSource();
       merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-      const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+      const worldStateDB = new PublicTreesDB(merkleTrees, contractDataSource);
 
       persistableState = initPersistableStateManager({
         worldStateDB,

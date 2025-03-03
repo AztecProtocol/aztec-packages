@@ -10,7 +10,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../server.js';
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTreesDB } from '../public_db_sources.js';
 import { PublicProcessor } from '../public_processor.js';
 import { PublicTxSimulator } from '../public_tx_simulator.js';
 
@@ -32,7 +32,7 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    const worldStateDB = new PublicTreesDB(merkleTrees, contractDataSource);
     const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(

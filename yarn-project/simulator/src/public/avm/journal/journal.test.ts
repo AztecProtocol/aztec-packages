@@ -7,7 +7,7 @@ import { makeContractClassPublic } from '@aztec/stdlib/testing';
 import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../../public_db_sources.js';
 import { initPersistableStateManager } from '../fixtures/index.js';
 import {
   mockGetBytecodeCommitment,
@@ -26,13 +26,13 @@ describe('journal', () => {
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
-  let worldStateDB: WorldStateDB;
+  let worldStateDB: PublicTreesDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
   beforeEach(async () => {
     address = await AztecAddress.random();
-    worldStateDB = mock<WorldStateDB>();
+    worldStateDB = mock<PublicTreesDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
   });
