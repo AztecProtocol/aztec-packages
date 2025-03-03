@@ -1,6 +1,9 @@
 import { defineConfig, loadEnv, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
+import bundlesize from "vite-plugin-bundlesize";
+
+// Only required for alternative bb wasm file, left as reference
 // import { viteStaticCopy } from "vite-plugin-static-copy";
 
 // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
@@ -25,6 +28,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
+    logLevel: "error",
     server: {
       // Headers needed for bb WASM to work in multithreaded mode
       headers: {
@@ -32,7 +36,7 @@ export default defineConfig(({ mode }) => {
         "Cross-Origin-Embedder-Policy": "require-corp",
       },
       // Allow vite to serve files from these directories, since they are symlinked
-      // These are the protocol circuit artifacts and noir WASMs.
+      // These are the protocol circuit artifacts, noir WASMs and bb WASMs.
       fs: {
         allow: [
           searchForWorkspaceRoot(process.cwd()),
@@ -56,17 +60,23 @@ export default defineConfig(({ mode }) => {
       //     },
       //   ],
       // }),
+      bundlesize({
+        limits: [{ name: "assets/index-*", limit: "1900kB" }],
+      }),
     ],
     define: {
       "process.env": JSON.stringify({
         LOG_LEVEL: env.LOG_LEVEL,
-        AZTEC_NODE_URL: env.AZTEC_NODE_URL,
         // The path to a custom WASM file for bb.js.
         // Only the single-threaded file name is needed, the multithreaded file name will be inferred
         // by adding the -threads suffix: e.g: /assets/barretenberg.wasm.gz -> /assets/barretenberg-threads.wasm.gz
         // Files can be compressed or uncompressed, but must be gzipped if compressed.
         BB_WASM_PATH: env.BB_WASM_PATH,
       }),
+    },
+    build: {
+      // Required by vite-plugin-bundle-size
+      sourcemap: "hidden",
     },
   };
 });
