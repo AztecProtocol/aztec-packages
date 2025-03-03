@@ -4,6 +4,18 @@ set -euo pipefail
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
+tmp_filename=$(mktemp)
+
+# Cleanup function to handle the temp file
+cleanup() {
+  if [ -f "$tmp_filename" ]; then
+    rm -f "$tmp_filename"
+  fi
+}
+
+# Set up trap to call cleanup on script exit
+trap cleanup EXIT
+
 values_file=$1
 eth_amount=${2:-"1"}
 output_file=${3:-"mnemonic.tmp"}
@@ -38,10 +50,9 @@ fi
 
 # Create a new mnemonic with the required number of accounts
 echo "Creating mnemonic..."
-cast wallet new-mnemonic --accounts "$num_accounts" --json >output.json
-MNEMONIC=$(jq -r '.mnemonic' output.json)
-ADDRESSES=$(jq -r '.accounts[].address' output.json)
-rm output.json
+cast wallet new-mnemonic --accounts "$num_accounts" --json >"$tmp_filename"
+MNEMONIC=$(jq -r '.mnemonic' "$tmp_filename")
+ADDRESSES=$(jq -r '.accounts[].address' "$tmp_filename")
 
 # Convert ETH to wei
 wei_amount=$(cast to-wei "$eth_amount" ether)
