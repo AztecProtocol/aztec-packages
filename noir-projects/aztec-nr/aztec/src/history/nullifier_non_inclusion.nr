@@ -12,6 +12,8 @@ use dep::protocol_types::{
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
+mod test;
+
 trait ProveNullifierNonInclusion {
     fn prove_nullifier_non_inclusion(header: BlockHeader, nullifier: Field);
 }

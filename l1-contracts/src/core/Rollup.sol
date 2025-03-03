@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IRollup, ChainTips} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup, ChainTips, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking,
   ValidatorInfo,
@@ -19,7 +19,8 @@ import {EpochProofLib} from "./libraries/RollupLibs/EpochProofLib.sol";
 import {ValidatorSelectionLib} from "./libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {
   RollupCore,
-  Config,
+  RollupConfig,
+  GenesisState,
   IRewardDistributor,
   IFeeJuicePortal,
   IERC20,
@@ -61,22 +62,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
-    bytes32 _vkTreeRoot,
-    bytes32 _protocolContractTreeRoot,
-    bytes32 _genesisArchiveRoot,
-    bytes32 _genesisBlockHash,
-    address _ares,
-    Config memory _config
+    address _governance,
+    GenesisState memory _genesisState,
+    RollupConfig memory _config
   )
     RollupCore(
       _fpcJuicePortal,
       _rewardDistributor,
       _stakingAsset,
-      _vkTreeRoot,
-      _protocolContractTreeRoot,
-      _genesisArchiveRoot,
-      _genesisBlockHash,
-      _ares,
+      _governance,
+      _genesisState,
       _config
     )
   {}
@@ -161,7 +156,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
-    bytes32[7] calldata _args,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject

@@ -255,7 +255,6 @@ __metadata:
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/p2p-bootstrap": "workspace:^"
-    "@aztec/proof-verifier": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
     "@aztec/prover-node": "workspace:^"
@@ -498,6 +497,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/world-state": "workspace:^"
@@ -626,6 +626,7 @@ __metadata:
     lodash.chunk: "npm:^4.2.0"
     lodash.compact: "npm:^3.0.1"
     lodash.every: "npm:^4.6.0"
+    lodash.omit: "npm:^4.5.0"
     memdown: "npm:^6.1.1"
     process: "npm:^0.11.10"
     stream-browserify: "npm:^3.0.0"
@@ -1034,27 +1035,6 @@ __metadata:
     uint8arrays: "npm:^5.0.3"
     viem: "npm:2.22.8"
     xxhash-wasm: "npm:^1.1.0"
-  languageName: unknown
-  linkType: soft
-
-"@aztec/proof-verifier@workspace:^, @aztec/proof-verifier@workspace:proof-verifier":
-  version: 0.0.0-use.local
-  resolution: "@aztec/proof-verifier@workspace:proof-verifier"
-  dependencies:
-    "@aztec/archiver": "workspace:^"
-    "@aztec/bb-prover": "workspace:^"
-    "@aztec/ethereum": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@aztec/noir-protocol-circuits-types": "workspace:^"
-    "@aztec/stdlib": "workspace:^"
-    "@aztec/telemetry-client": "workspace:^"
-    "@jest/globals": "npm:^29.5.0"
-    "@types/jest": "npm:^29.5.0"
-    "@types/node": "npm:^18.7.23"
-    jest: "npm:^29.5.0"
-    ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
   languageName: unknown
   linkType: soft
 

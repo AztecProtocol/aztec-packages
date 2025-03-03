@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -26,7 +27,7 @@ export class ConsensusPayload implements Signable {
     return z
       .object({
         header: BlockHeader.schema,
-        archive: Fr.schema,
+        archive: schemas.Fr,
         txHashes: z.array(TxHash.schema),
       })
       .transform(obj => new ConsensusPayload(obj.header, obj.archive, obj.txHashes));

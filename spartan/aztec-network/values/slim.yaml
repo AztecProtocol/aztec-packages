@@ -1,0 +1,28 @@
+telemetry:
+  enabled: true
+
+network:
+  setupL2Contracts: false
+
+validator:
+  replicas: 1
+  sequencer:
+    minTxsPerBlock: 0
+  validator:
+    disabled: false
+
+pxe:
+  enabled: true
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+
+bootNode:
+  enabled: false
+
+bot:
+  enabled: false
+
+faucet:
+  enabled: false

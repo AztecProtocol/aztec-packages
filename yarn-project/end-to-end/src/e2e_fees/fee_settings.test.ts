@@ -4,6 +4,7 @@ import {
   type AztecNode,
   type CheatCodes,
   FeeJuicePaymentMethod,
+  retryUntil,
 } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -41,24 +42,21 @@ describe('e2e_fees fee settings', () => {
   describe('setting max fee per gas', () => {
     const bumpL2Fees = async () => {
       const before = await aztecNode.getCurrentBaseFees();
-      t.logger.warn(`Initial L2 base fees are ${inspect(before)}`, { baseFees: before.toInspect() });
-
-      // Bumps L1 base fee, updates the L1 fee oracle, and advances slots to update L2 base fees.
-      // Do we need all these advance and upgrade calls? Probably not, but these calls are blazing fast,
-      // so it's not big deal if we're throwing some unnecessary calls. We just want higher L2 base fees.
-      const { baseFeePerGas } = await t.context.deployL1ContractsValues.publicClient.getBlock();
-      t.logger.info(`Doubling current L1 base fee per gas ${baseFeePerGas}`);
-      await cheatCodes.rollup.updateL1GasFeeOracle();
-      await cheatCodes.eth.setNextBlockBaseFeePerGas(baseFeePerGas! * 2n);
-      await cheatCodes.eth.mine();
-      await cheatCodes.rollup.advanceSlots(6);
-      await cheatCodes.rollup.updateL1GasFeeOracle();
-      await cheatCodes.rollup.advanceSlots(6);
-      await cheatCodes.rollup.updateL1GasFeeOracle();
-
-      const after = await aztecNode.getCurrentBaseFees();
-      t.logger.warn(`L2 base fees after L1 gas spike are ${inspect(after)}`, { baseFees: after.toInspect() });
-      expect(after.feePerL2Gas.toBigInt()).toBeGreaterThan(before.feePerL2Gas.toBigInt());
+      t.logger.info(`Initial L2 base fees are ${inspect(before)}`, { baseFees: before.toInspect() });
+      await cheatCodes.rollup.bumpProvingCostPerMana(current => (current * 120n) / 100n);
+      await retryUntil(
+        async () => {
+          const after = await aztecNode.getCurrentBaseFees();
+          t.logger.info(`L2 base fees are now ${inspect(after)}`, {
+            baseFeesBefore: before.toInspect(),
+            baseFeesAfter: after.toInspect(),
+          });
+          return after.feePerL2Gas.toBigInt() > before.feePerL2Gas.toBigInt();
+        },
+        'L2 base fee increase',
+        5,
+        1,
+      );
     };
 
     const sendTx = async (baseFeePadding: number | undefined) => {
@@ -67,7 +65,7 @@ describe('e2e_fees fee settings', () => {
         .emit_nullifier_public(Fr.random())
         .prove({ fee: { gasSettings, paymentMethod, baseFeePadding } });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
-      t.logger.info(`Tx with hash ${tx.getTxHash()} ready with max fees ${inspect(maxFeesPerGas)}`);
+      t.logger.info(`Tx with hash ${await tx.getTxHash()} ready with max fees ${inspect(maxFeesPerGas)}`);
       return tx;
     };
 

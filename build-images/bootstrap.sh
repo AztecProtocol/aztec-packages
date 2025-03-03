@@ -96,11 +96,6 @@ case "$cmd" in
     docker_login
     update_manifests
     ;;
-  "deploy")
-    docker_login
-    build_all
-    update_manifests
-    ;;
   "ec2-amd64")
     check_login
     build_ec2 128 amd64
@@ -108,6 +103,11 @@ case "$cmd" in
   "ec2-arm64")
     check_login
     build_ec2 64 arm64
+    ;;
+  "deploy")
+    docker_login
+    build_all
+    update_manifests
     ;;
   "amis")
       parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64

@@ -39,7 +39,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 
-struct Config {
+struct RollupConfig {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
@@ -47,6 +47,13 @@ struct Config {
   uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
+}
+
+struct GenesisState {
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  bytes32 genesisArchiveRoot;
+  bytes32 genesisBlockHash;
 }
 
 /**
@@ -84,13 +91,10 @@ contract RollupCore is
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
-    bytes32 _vkTreeRoot,
-    bytes32 _protocolContractTreeRoot,
-    bytes32 _genesisArchiveRoot,
-    bytes32 _genesisBlockHash,
-    address _ares,
-    Config memory _config
-  ) Ownable(_ares) {
+    address _governance,
+    GenesisState memory _genesisState,
+    RollupConfig memory _config
+  ) Ownable(_governance) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
 
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
@@ -108,8 +112,8 @@ contract RollupCore is
     rollupStore.config.rewardDistributor = _rewardDistributor;
 
     rollupStore.config.epochProofVerifier = new MockVerifier();
-    rollupStore.config.vkTreeRoot = _vkTreeRoot;
-    rollupStore.config.protocolContractTreeRoot = _protocolContractTreeRoot;
+    rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
+    rollupStore.config.protocolContractTreeRoot = _genesisState.protocolContractTreeRoot;
     rollupStore.config.version = 1;
 
     rollupStore.config.inbox =
@@ -126,8 +130,8 @@ contract RollupCore is
         congestionCost: 0,
         provingCost: 0
       }),
-      archive: _genesisArchiveRoot,
-      blockHash: _genesisBlockHash,
+      archive: _genesisState.genesisArchiveRoot,
+      blockHash: _genesisState.genesisBlockHash,
       slotNumber: Slot.wrap(0)
     });
     rollupStore.l1GasOracleValues = L1GasOracleValues({
@@ -310,18 +314,14 @@ contract RollupCore is
    *
    * @param _args - The arguments to propose the block
    * @param _signatures - Signatures from the validators
-   * // TODO(#9101): The below _body should be removed once we can extract blobs. It's only here so the archiver can extract tx effects.
-   * @param _body - The body of the L2 block
    * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
    */
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    // TODO(#9101): Extract blobs from beacon chain => remove below body input
-    bytes calldata _body,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _signatures, _body, _blobInput, checkBlob);
+    ExtRollupLib.propose(_args, _signatures, _blobInput, checkBlob);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {

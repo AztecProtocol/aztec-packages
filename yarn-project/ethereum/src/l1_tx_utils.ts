@@ -146,7 +146,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   checkIntervalMs: {
     description: 'How often to check tx status',
     env: 'L1_TX_MONITOR_CHECK_INTERVAL_MS',
-    ...numberConfigHelper(10_000),
+    ...numberConfigHelper(1_000),
   },
   stallTimeMs: {
     description: 'How long before considering tx stalled',
@@ -225,6 +225,12 @@ export class L1TxUtils {
 
   public getSenderAddress() {
     return this.walletClient.account.address;
+  }
+
+  public getSenderBalance(): Promise<bigint> {
+    return this.publicClient.getBalance({
+      address: this.getSenderAddress(),
+    });
   }
 
   public getBlock() {
