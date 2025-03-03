@@ -1,9 +1,4 @@
-import {
-  INITIAL_L2_BLOCK_NUM,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-} from '@aztec/constants';
+import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { FunctionSelector } from '@aztec/stdlib/abi';
