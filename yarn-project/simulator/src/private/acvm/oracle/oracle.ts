@@ -281,16 +281,11 @@ export class Oracle {
     return newValues.map(toACVMField);
   }
 
-  async emitContractClassLog(
-    [contractAddress]: ACVMField[],
-    message: ACVMField[],
-    [counter]: ACVMField[],
-  ): Promise<ACVMField> {
+  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): void {
     const logPayload = message.map(fromACVMField);
     const log = new ContractClassLog(new AztecAddress(fromACVMField(contractAddress)), logPayload);
 
-    const logHash = await this.typedOracle.emitContractClassLog(log, +counter);
-    return toACVMField(logHash);
+    this.typedOracle.emitContractClassLog(log, +counter);
   }
 
   debugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): void {
