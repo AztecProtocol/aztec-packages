@@ -394,7 +394,7 @@ export class PublicTxSimulator {
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
-          `Nullifier collision encountered when inserting non-revertible nullifiers from private.\nDetails: ${e.message}\n.Stack:${e.stack}`,
+          `Nullifier collision encountered when inserting non-revertible nullifiers from private.\nDetails: ${e.message}\nStack:${e.stack}`,
         );
       }
     }
@@ -421,14 +421,15 @@ export class PublicTxSimulator {
         context.revert(
           TxExecutionPhase.APP_LOGIC,
           new SimulationError(
-            `Nullifier collision encountered when inserting revertible nullifiers from private: ${e.message}\n.Stack:${e.stack}`,
+            `Nullifier collision encountered when inserting revertible nullifiers from private\nDetails: ${e.message}\nStack:${e.stack}`,
             [],
           ),
           /*culprit=*/ 'insertRevertiblesFromPrivate',
         );
         return /*success=*/ false;
+      } else {
+        throw e;
       }
-      throw e;
     }
     for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {

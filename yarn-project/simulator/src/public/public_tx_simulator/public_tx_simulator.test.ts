@@ -37,10 +37,10 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import type { AvmPersistableStateManager } from '../avm/journal/journal.js';
+import { AvmPersistableStateManager } from '../avm/journal/journal.js';
+import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { WorldStateDB } from '../public_db_sources.js';
-import { PublicTxContext } from './public_tx_context.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -976,9 +976,6 @@ describe('public_tx_simulator', () => {
   });
 
   it('nullifier collision in insertRevertiblesFromPrivate skips app logic but executes teardown', async () => {
-    // Setup a spy on context.revert
-    const revertSpy = jest.spyOn(PublicTxContext.prototype, 'revert');
-
     // Mock a transaction with all three phases
     const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
@@ -986,16 +983,14 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    // Mock the insertRevertiblesFromPrivate method to cause a nullifier collision
-    jest.spyOn(PublicTxSimulator.prototype, 'insertRevertiblesFromPrivate').mockImplementationOnce(async context => {
-      await Promise.resolve(); // Add await to satisfy linter
-      context.revert(
-        TxExecutionPhase.APP_LOGIC,
-        new SimulationError('Nullifier collision encountered when inserting revertible nullifiers from private', []),
-        'insertRevertiblesFromPrivate',
-      );
-      return /*success=*/ Promise.resolve(false);
-    });
+    // Mock the writeSiloedNullifiersFromPrivate method to throw a NullifierCollisionError
+    (AvmPersistableStateManager.prototype as any).writeSiloedNullifiersFromPrivate = jest
+      .fn()
+      .mockImplementationOnce(() => {}) // Writing non-revertibles works
+      .mockImplementation(() => {
+        // Writing revertibles fails with a nullifier collision
+        throw new NullifierCollisionError('Nullifier collision');
+      });
 
     // Simulate the transaction
     const txResult = await simulator.simulate(tx);
@@ -1008,7 +1003,8 @@ describe('public_tx_simulator', () => {
     expect(txResult.processedPhases[0].phase).toBe(TxExecutionPhase.SETUP);
     expect(txResult.processedPhases[1].phase).toBe(TxExecutionPhase.TEARDOWN);
 
-    // Restore the spy
-    revertSpy.mockRestore();
+    // Verify that the SimulationError contains information about the nullifier collision
+    const simulationError = txResult.revertReason as SimulationError;
+    expect(simulationError.getOriginalMessage()).toContain('Nullifier collision');
   });
 });
