@@ -116,7 +116,10 @@ export interface L2BlockSource {
   getL1Constants(): Promise<L1RollupConstants>;
 }
 
-// todo(md): doc
+/**
+ * L2BlockSource that emits events upon pending / proven chain changes.
+ * see L2BlockSourceEvents for the events emitted.
+ */
 export interface L2BlockSourceEventEmitter extends L2BlockSource, EventEmitter {}
 
 /**

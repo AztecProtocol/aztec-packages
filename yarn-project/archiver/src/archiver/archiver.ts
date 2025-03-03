@@ -40,6 +40,7 @@ import {
 } from '@aztec/stdlib/contract';
 import {
   type L1RollupConstants,
+  getEpochAtSlot,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
@@ -262,7 +263,6 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
      * The second is that in between the various calls to L1, the block number can move meaning some
      * of the following calls will return data for blocks that were not present during earlier calls.
      * To combat this for the time being we simply ensure that all data retrieval methods only retrieve
-     // I need to get the slot number from the block that was just pruned
      * data up to the currentBlockNumber captured at the top of this function. We might want to improve on this
      * in future but for the time being it should give us the guarantees that we need
      */
@@ -311,10 +311,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     const canPrune = localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber));
 
     if (canPrune) {
-      const [localPendingSlotNumber, localPendingEpochNumber] = await Promise.all([
-        this.getL2SlotNumber(),
-        this.getL2EpochNumber(),
-      ]);
+      const localPendingSlotNumber = await this.getL2SlotNumber();
+      const localPendingEpochNumber = getEpochAtSlot(localPendingSlotNumber, this.l1constants);
+
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,

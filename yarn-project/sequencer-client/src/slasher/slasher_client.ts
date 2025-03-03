@@ -137,7 +137,6 @@ export class SlasherClient extends WithTracer {
 
     const slashEvent = this.slashEvents[0];
 
-    // The address of the proposal that does this exact thing will be found in this setting
     const [payloadAddress, isDeployed] = await this.slashFactoryContract.read.getAddressAndIsDeployed([
       slashEvent.epoch,
       slashEvent.amount,
