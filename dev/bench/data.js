@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1740825940922,
+  "lastUpdate": 1741000179921,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "16536249+LHerskind@users.noreply.github.com",
-            "name": "Lasse Herskind",
-            "username": "LHerskind"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5da66c833f25fcd72b611f6de75e2040554bc475",
-          "message": "refactor: proving cost in fee header (#12048)",
-          "timestamp": "2025-02-26T10:39:37Z",
-          "tree_id": "955f02b4219c5376e8d9deaa2c40e94694e0fc84",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5da66c833f25fcd72b611f6de75e2040554bc475"
-        },
-        "date": 1740567930890,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18421.864129999904,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16258.578279000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18708.696600000167,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16380.526998000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4000.644589000103,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3173.4500530000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55027.79324100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55027794000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11103.012053,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11103017000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1828765238,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1828765238 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132123741,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132123741 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 223016353,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 223016353 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "443d615d99f2092bcf7012600db4883449d45b64",
+          "message": "fix(avm): Use standard form in ecadd trace (#12332)\n\nEcadd was using the standard form (x, y, inf) but was representing\ninfinity with (p+1/2, 0, true) instead of (0,0,true). This PR makes it\nso ecadd traces use the standard form.",
+          "timestamp": "2025-03-03T11:35:19+01:00",
+          "tree_id": "356e0861ee545fcfb6d69b9ee9c42842017570fc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/443d615d99f2092bcf7012600db4883449d45b64"
+        },
+        "date": 1741000172394,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18191.322044000117,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16086.717512 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18939.53822100002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16299.462155000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3987.5755370001116,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3179.5706900000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55381.350218,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55381351000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9377.538685000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9377540000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1921779381,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1921779381 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 226590225,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 226590225 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
