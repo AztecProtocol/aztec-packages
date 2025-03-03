@@ -140,7 +140,7 @@ describe('e2e_deploy_contract deploy method', () => {
     await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
   }, 300_000);
 
-  it.skip('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
+  it('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
     await t.aztecNode.setConfig({ minTxsPerBlock: 2 });
 
     const owner = wallet.getAddress();
