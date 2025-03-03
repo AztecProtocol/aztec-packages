@@ -129,7 +129,7 @@ export class KernelProver {
       profile: false,
     },
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const skipWitnessGeneration = simulate && !profile;
+    const generateWitnesses = profile || !simulate;
     const skipProofGeneration = this.fakeProofs || simulate;
 
     const timer = new Timer();
@@ -169,10 +169,9 @@ export class KernelProver {
         );
         while (resetBuilder.needsReset()) {
           const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-          output =
-            skipWitnessGeneration
-              ? await this.proofCreator.simulateReset(privateInputs)
-              : await this.proofCreator.generateResetOutput(privateInputs);
+          output = generateWitnesses
+            ? await this.proofCreator.generateResetOutput(privateInputs)
+            : await this.proofCreator.simulateReset(privateInputs);
           // TODO(#7368) consider refactoring this redundant bytecode pushing
           acirs.push(output.bytecode);
           witnessStack.push(output.outputWitness);
@@ -223,10 +222,9 @@ export class KernelProver {
 
         pushTestData('private-kernel-inputs-init', proofInput);
 
-        output =
-          skipWitnessGeneration
-            ? await this.proofCreator.simulateInit(proofInput)
-            : await this.proofCreator.generateInitOutput(proofInput);
+        output = generateWitnesses
+          ? await this.proofCreator.generateInitOutput(proofInput)
+          : await this.proofCreator.simulateInit(proofInput);
 
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
@@ -245,10 +243,9 @@ export class KernelProver {
 
         pushTestData('private-kernel-inputs-inner', proofInput);
 
-        output =
-          skipWitnessGeneration
-            ? await this.proofCreator.simulateInner(proofInput)
-            : await this.proofCreator.generateInnerOutput(proofInput);
+        output = generateWitnesses
+          ? await this.proofCreator.generateInnerOutput(proofInput)
+          : await this.proofCreator.simulateInner(proofInput);
 
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
@@ -268,10 +265,9 @@ export class KernelProver {
     );
     while (resetBuilder.needsReset()) {
       const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-      output =
-        skipWitnessGeneration
-          ? await this.proofCreator.simulateReset(privateInputs)
-          : await this.proofCreator.generateResetOutput(privateInputs);
+      output = generateWitnesses
+        ? await this.proofCreator.generateResetOutput(privateInputs)
+        : await this.proofCreator.simulateReset(privateInputs);
 
       acirs.push(output.bytecode);
       witnessStack.push(output.outputWitness);
@@ -310,10 +306,9 @@ export class KernelProver {
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 
-    const tailOutput =
-      skipWitnessGeneration
-        ? await this.proofCreator.simulateTail(privateInputs)
-        : await this.proofCreator.generateTailOutput(privateInputs);
+    const tailOutput = generateWitnesses
+      ? await this.proofCreator.generateTailOutput(privateInputs)
+      : await this.proofCreator.simulateTail(privateInputs);
     if (tailOutput.publicInputs.forPublic) {
       const privateLogs = privateInputs.previousKernel.publicInputs.end.privateLogs;
       const nonRevertiblePrivateLogs = tailOutput.publicInputs.forPublic.nonRevertibleAccumulatedData.privateLogs;
@@ -328,7 +323,7 @@ export class KernelProver {
       tailOutput.profileResult = { gateCounts };
     }
 
-    if (!skipWitnessGeneration) {
+    if (generateWitnesses) {
       this.log.info(`Private kernel witness generation took ${timer.ms()}ms`);
     }
 

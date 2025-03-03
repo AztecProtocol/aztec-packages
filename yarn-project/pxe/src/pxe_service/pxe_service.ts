@@ -426,7 +426,7 @@ export class PXEService implements PXE {
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
       const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-        simulate: true,
+        simulate: !profile,
         skipFeeEnforcement,
         profile,
       });
