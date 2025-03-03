@@ -1,6 +1,10 @@
 #!/bin/bash
+set -x
 
 # Get the hardware memory in GB, useful for setting the memsuspend limit.
+# General rul of thumb:
+# - Allocate 1/4 of total hardware memory for the build.
+# - Max out at 64GB
 function get_hardware_memory {
   local os=$(uname -s)
   local total_mem_gb=64 # Default to 64GB
@@ -12,6 +16,10 @@ function get_hardware_memory {
     total_mem_gb=$(free -g | awk '/^Mem:/ {print $2}')
   fi
 
+  # Allocate 1/4 of total hardware memory for the build.
+  total_mem_gb=$((total_mem_gb / 4))
+
+  # Max out at 64GB
   echo $(( total_mem_gb < 64 ? total_mem_gb : 64 ))
 }
 
