@@ -2,7 +2,7 @@
 set -eu
 
 # Get the hardware memory in GB, useful for setting the memsuspend limit.
-# General rul of thumb:
+# General rule of thumb:
 # - Allocate 1/4 of total hardware memory for the build.
 # - Max out at 64GB
 if [ -n "${MEMSUSPEND:-}" ]; then
