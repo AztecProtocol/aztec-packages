@@ -187,8 +187,8 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels()
     {
         return { "Translation:concatenation_eval",
-                 "Translation:big_sum_shift_eval",
-                 "Translation:big_sum_eval",
+                 "Translation:grand_sum_shift_eval",
+                 "Translation:grand_sum_eval",
                  "Translation:quotient_eval" };
     };
 };
@@ -410,8 +410,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     static std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels()
     {
         return { "Translation:concatenation_eval",
-                 "Translation:big_sum_shift_eval",
-                 "Translation:big_sum_eval",
+                 "Translation:grand_sum_shift_eval",
+                 "Translation:grand_sum_eval",
                  "Translation:quotient_eval" };
     };
 };

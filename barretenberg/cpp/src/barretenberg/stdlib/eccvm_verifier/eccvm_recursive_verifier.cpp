@@ -165,7 +165,7 @@ std::array<OpeningClaim<typename Flavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> 
 
     FF translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
 
-    small_ipa_commitments[1] = transcript->template receive_from_prover<Commitment>("Translation:big_sum_commitment");
+    small_ipa_commitments[1] = transcript->template receive_from_prover<Commitment>("Translation:grand_sum_commitment");
     small_ipa_commitments[2] = small_ipa_commitments[1];
     small_ipa_commitments[3] = transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
 

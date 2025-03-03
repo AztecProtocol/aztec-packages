@@ -159,14 +159,14 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.round_univariates,
                          sumcheck_output.round_univariate_evaluations);
 
-    std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 1> translation_opening_claim =
+    std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 1> translation_opening_claims =
         ECCVMProver::compute_translation_opening_claims();
 
     std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 2> opening_claims = { std::move(
         multivariate_to_univariate_opening_claim) };
 
     for (size_t idx = 1; idx < NUM_TRANSLATION_EVALUATIONS + 2; idx++) {
-        opening_claims[idx] = std::move(translation_opening_claim[idx - 1]);
+        opening_claims[idx] = std::move(translation_opening_claims[idx - 1]);
     }
 
     // Reduce the opening claims to a single opening claim via Shplonk
@@ -244,6 +244,8 @@ std::array<ProverOpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUA
                                                    claimed_masking_eval,
                                                    transcript,
                                                    key->commitment_key);
+    translation_masking_term_prover.prove();
+
     FF small_ipa_evaluation_challenge =
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
     std::array<ProverOpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> opening_claims;
