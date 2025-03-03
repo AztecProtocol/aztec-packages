@@ -49,7 +49,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
     error ConsistencyCheckFailed();
 
     // Number of field elements in a ultra honk zero knowledge proof
-    uint256 constant PROOF_SIZE = 494;
+    uint256 constant PROOF_SIZE = 491;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
