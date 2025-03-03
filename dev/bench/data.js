@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741014793607,
+  "lastUpdate": 1741015436466,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "spypsy@users.noreply.github.com",
-            "name": "spypsy",
-            "username": "spypsy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fcf6278d376e9393d242d6c68f4df5d738ce75ab",
-          "message": "chore!: enable multiple L1 nodes to be used (#11945)\n\n- Updates `ETHEREUM_HOST` env var to `ETHEREUM_HOSTS`. Using a single\nhost should still work as it did before\n- Single `ViemWalletClient` & `ViemPublicClient`\n\nBREAKING CHANGE:\n- env var `ETHEREUM_HOST` -> `ETHEREUM_HOSTS`\n- CLI arg `--l1-rpc-url` -> `--l1-rpc-urls`\n- TypeScript configs with `l1RpcUrl` -> `l1RpcUrls`\n- aztec.js functions with `l1RpcUrl` -> `l1RpcUrls`\n- `DeployL1Contracts` (type) -> `DeployL1ContractsReturnType`\n\nFixes #11790 \n\nFollow-up #12254",
-          "timestamp": "2025-02-26T19:23:15Z",
-          "tree_id": "41392dcf4b4e30c692d15e1c644bad2d97ebda3c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fcf6278d376e9393d242d6c68f4df5d738ce75ab"
-        },
-        "date": 1740599599402,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18306.747417,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15949.069419 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18811.581847999834,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16396.840817 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3932.524032999936,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3172.3505649999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55308.658141,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55308658000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11126.477631999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11126481000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1898424441,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1898424441 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 226836388,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 226836388 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 231826289,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 231826289 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "68168980+just-mitch@users.noreply.github.com",
+            "name": "just-mitch",
+            "username": "just-mitch"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97993921687c5b4df401deef4aad8a3db380435b",
+          "message": "refactor: Simplify port forwarding and process management in kind tests (#12393)\n\nThis change updates the port forwarding utility to dynamically allocate\nports and improve process management across multiple end-to-end tests.\nKey modifications include:\n\n- Removing hardcoded host port configurations\n- Dynamically allocating ports during port forwarding\n- Centralizing process tracking with a `forwardProcesses` array\n- Adding `afterAll` hooks to kill port forward processes\n- Improving error handling and logging in port forward utility\n\nThe root cause was discovered by @spalladino. The time between a port\nbeing assigned in bash and then it being used was causing mismatches:\ntwo different services were trying to use the same port.\n\nAlso, not cleaning up ports behind ourselves was causing there to be an\nartificially low pool of ports to choose from.",
+          "timestamp": "2025-03-03T14:44:59Z",
+          "tree_id": "24d6ebd9e747df6b9547e7645cb96eebdfcfd96b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/97993921687c5b4df401deef4aad8a3db380435b"
+        },
+        "date": 1741015428864,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18400.275408000198,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16199.25281 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19000.19836399997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16361.028867999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3960.107959999732,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3191.8414669999993 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55709.694365999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55709694000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9539.020466,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9539025000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1923796353,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1923796353 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 216803305,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 216803305 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
