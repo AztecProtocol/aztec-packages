@@ -24,7 +24,7 @@ import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js'
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
-import type { ContractsDataSourcePublicDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -52,7 +52,7 @@ export class PublicTxSimulator {
 
   constructor(
     private treesDB: PublicTreesDB,
-    private contractsDB: ContractsDataSourcePublicDB,
+    private contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
@@ -84,15 +84,6 @@ export class PublicTxSimulator {
         this.globalVariables,
         this.doMerkleOperations,
       );
-
-      // add new contracts to the contracts db so that their functions may be found and called
-      // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
-      // have to capture contracts emitted in that phase as well.
-      // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
-      // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-      // if so, this should only add contracts that were deployed during private app logic.
-      // FIXME: we shouldn't need to directly modify treesDB here!
-      await this.contractsDB.addNewContracts(tx);
 
       const nonRevertStart = process.hrtime.bigint();
       await this.insertNonRevertiblesFromPrivate(context);
@@ -296,9 +287,14 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const address = executionRequest.callContext.contractAddress;
-    const fnName = await getPublicFunctionDebugName(this.treesDB, address, executionRequest.args);
+    const fnName = await getPublicFunctionDebugName(this.contractsDB, address, executionRequest.args);
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
+
+    // The reason we need enqueued hints at all (and cannot just use the public inputs) is
+    // because they don't have the actual calldata, just the hash of it.
+    stateManager.traceEnqueuedCall(callRequest);
+    // TODO(fcarreiro): Add hints.
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
@@ -313,8 +309,6 @@ export class PublicTxSimulator {
     this.log.debug(
       `Simulated enqueued public call (${fnName}) consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
-
-    stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
 
     if (result.reverted) {
       const culprit = `${executionRequest.callContext.contractAddress}:${executionRequest.callContext.functionSelector}`;

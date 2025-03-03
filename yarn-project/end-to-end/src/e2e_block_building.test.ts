@@ -30,12 +30,12 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
+  PublicContractsDB,
   PublicProcessorFactory,
   type PublicTreesDB,
   type PublicTxResult,
   PublicTxSimulator,
 } from '@aztec/simulator/server';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -635,16 +635,16 @@ class TestPublicTxSimulator extends PublicTxSimulator {
 }
 class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
-    db: MerkleTreeWriteOperations,
-    worldStateDB: PublicTreesDB,
+    treesDB: PublicTreesDB,
+    contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient?: TelemetryClient,
   ): PublicTxSimulator {
     return new TestPublicTxSimulator(
-      db,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,

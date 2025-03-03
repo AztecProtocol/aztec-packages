@@ -7,6 +7,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
+  PublicContractsDB,
   PublicProcessor,
   PublicTreesDB,
   PublicTxSimulationTester,
@@ -80,18 +81,19 @@ export class TestContext {
       true /* cleanupTmpDir */,
       prefilledPublicData,
     );
-    const publicDb = await ws.fork();
+    const merkleTrees = await ws.fork();
 
     const contractDataSource = new SimpleContractDataSource();
-    const worldStateDB = new PublicTreesDB(publicDb, contractDataSource);
+    const treesDB = new PublicTreesDB(merkleTrees);
+    const contractsDB = new PublicContractsDB(contractDataSource);
 
-    const tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, publicDb);
+    const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
 
-    const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, globalVariables, true);
+    const publicTxSimulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, true);
     const processor = new PublicProcessor(
-      publicDb,
       globalVariables,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       publicTxSimulator,
       new TestDateProvider(),
     );

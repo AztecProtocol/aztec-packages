@@ -62,6 +62,8 @@ struct ContractClassHint {
     MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode);
 };
 
+// The reason we need EnqueuedCall hints at all (and cannot just use the public inputs) is
+// because they don't have the actual calldata, just the hash of it.
 struct EnqueuedCallHint {
     AztecAddress contractAddress;
     std::vector<FF> calldata;

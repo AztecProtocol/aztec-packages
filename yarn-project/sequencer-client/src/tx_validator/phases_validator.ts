@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import { PublicContractsDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
@@ -12,10 +12,10 @@ import {
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
-  private contractDataSource: ContractsDataSourcePublicDB;
+  private contractDataSource: PublicContractsDB;
 
   constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
-    this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
+    this.contractDataSource = new PublicContractsDB(contracts);
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {

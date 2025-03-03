@@ -13,6 +13,7 @@ import { assertLength } from '@aztec/foundation/serialize';
 import {
   AvmCircuitInputs,
   type AvmCircuitPublicInputs,
+  AvmExecutionHints,
   type AvmProvingRequest,
   PublicDataWrite,
   RevertCode,
@@ -45,7 +46,7 @@ import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import { AvmPersistableStateManager } from '../avm/index.js';
-import type { ContractsDataSourcePublicDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from '../utils.js';
 
@@ -93,7 +94,7 @@ export class PublicTxContext {
 
   public static async create(
     treesDB: PublicTreesDB,
-    contractsDB: ContractsDataSourcePublicDB,
+    contractsDB: PublicContractsDB,
     tx: Tx,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
@@ -412,16 +413,18 @@ export class PublicTxContext {
     );
     const numNoteHashesToPad =
       MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
-    await stateManager.treesDB.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
+    await stateManager
+      .deprecatedGetTreesForPIGeneration()
+      .appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
     const numNullifiersToPad =
       MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
-    await stateManager.treesDB.batchInsert(
+    await stateManager.deprecatedGetTreesForPIGeneration().batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       padArrayEnd([], Fr.ZERO, numNullifiersToPad).map(nullifier => nullifier.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
 
-    const paddedState = await stateManager.treesDB.getStateReference();
+    const paddedState = await stateManager.deprecatedGetTreesForPIGeneration().getStateReference();
     avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
       paddedState.l1ToL2MessageTree,
       paddedState.partial.noteHashTree,
@@ -436,7 +439,8 @@ export class PublicTxContext {
    * Generate the proving request for the AVM circuit.
    */
   async generateProvingRequest(endStateReference: StateReference): Promise<AvmProvingRequest> {
-    const hints = this.trace.getAvmCircuitHints();
+    // TODO(fcarreiro): Bring back hints.
+    const hints = AvmExecutionHints.empty();
     return {
       type: ProvingRequestType.PUBLIC_VM,
       inputs: new AvmCircuitInputs(

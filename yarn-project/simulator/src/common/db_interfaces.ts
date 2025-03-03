@@ -10,7 +10,7 @@ import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 /**
  * Database interface for providing access to public state.
  */
-export interface PublicStateDB {
+export interface PublicStateDBInterface {
   /**
    * Reads a value from public storage, returning zero if none.
    * @param contract - Owner of the storage.
@@ -31,7 +31,7 @@ export interface PublicStateDB {
 /**
  * Database interface for providing access to public contract data.
  */
-export interface PublicContractsDB {
+export interface PublicContractsDBInterface {
   /**
    * Returns a publicly deployed contract instance.
    * @param address - Address of the contract.
@@ -44,7 +44,7 @@ export interface PublicContractsDB {
 }
 
 /** Database interface for providing access to commitment tree, l1 to l2 message tree, and nullifier tree. */
-export interface CommitmentsDB {
+export interface CommitmentsDBInterface {
   /**
    * Fetches a message from the db, given its key.
    * @param contractAddress - Address of a contract by which the message was emitted.

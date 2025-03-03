@@ -1,5 +1,4 @@
 import {
-  L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -8,10 +7,7 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -25,7 +21,6 @@ import {
   PublicDataWrite,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractClassWithCommitment, SerializableContractInstance } from '@aztec/stdlib/contract';
 import type { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
@@ -37,7 +32,6 @@ import {
 } from '@aztec/stdlib/kernel';
 import { PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import type { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
@@ -46,11 +40,6 @@ import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import type { PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 import { UniqueClassIds } from './unique_class_ids.js';
 
-const emptyPublicDataPath = () => new Array(PUBLIC_DATA_TREE_HEIGHT).fill(Fr.zero());
-const emptyNoteHashPath = () => new Array(NOTE_HASH_TREE_HEIGHT).fill(Fr.zero());
-const emptyNullifierPath = () => new Array(NULLIFIER_TREE_HEIGHT).fill(Fr.zero());
-const emptyL1ToL2MessagePath = () => new Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.zero());
-
 /**
  * A struct containing just the side effects as regular arrays
  * as opposed to "Tuple" arrays used by circuit public inputs.
@@ -58,12 +47,10 @@ const emptyL1ToL2MessagePath = () => new Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr
  **/
 export type SideEffects = {
   enqueuedCalls: PublicCallRequest[];
-
   publicDataWrites: PublicDataUpdateRequest[];
   noteHashes: NoteHash[];
   nullifiers: Nullifier[];
   l2ToL1Msgs: ScopedL2ToL1Message[];
-
   publicLogs: PublicLog[];
 };
 
@@ -92,7 +79,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   private sideEffectCounter: number;
 
   private enqueuedCalls: PublicCallRequest[] = [];
-
   private publicDataWrites: PublicDataUpdateRequest[] = [];
   private protocolPublicDataWritesLength: number = 0;
   private userPublicDataWritesLength: number = 0;
@@ -142,6 +128,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.enqueuedCalls.push(...forkedTrace.enqueuedCalls);
+    this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
 
     if (!reverted) {
       this.publicDataWrites.push(...forkedTrace.publicDataWrites);
@@ -164,31 +151,11 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     return this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length;
   }
 
-  public tracePublicStorageRead(
-    contractAddress: AztecAddress,
-    slot: Fr,
-    value: Fr,
-    _leafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
-    _leafIndex: Fr = Fr.zero(),
-    _path: Fr[] = emptyPublicDataPath(),
-  ) {
-    // TODO:(fcarreiro): Do we need no side effect? Maybe remove this then.
-    this.log.trace(
-      `Tracing storage read (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter})`,
-    );
-    this.incrementSideEffectCounter();
-  }
-
   public async tracePublicStorageWrite(
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
     protocolWrite: boolean,
-    _lowLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
-    _lowLeafIndex: Fr = Fr.zero(),
-    _lowLeafPath: Fr[] = emptyPublicDataPath(),
-    _newLeafPreimage: PublicDataTreeLeafPreimage = PublicDataTreeLeafPreimage.empty(),
-    _insertionPath: Fr[] = emptyPublicDataPath(),
   ): Promise<void> {
     if (protocolWrite) {
       if (
@@ -223,20 +190,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceNoteHashCheck(
-    _contractAddress: AztecAddress,
-    noteHash: Fr,
-    leafIndex: Fr,
-    _exists: boolean,
-    _path: Fr[] = emptyNoteHashPath(),
-  ) {
-    // TODO:(fcarreiro): Do we need no side effect? Maybe remove this then.
-    // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
-    this.log.trace(`Tracing note hash check (counter=${this.sideEffectCounter})`);
-  }
-
-  public traceNewNoteHash(noteHash: Fr, _leafIndex: Fr = Fr.zero(), _path: Fr[] = emptyNoteHashPath()) {
+  public traceNewNoteHash(noteHash: Fr) {
     if (this.noteHashes.length + this.previousSideEffectArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
@@ -246,25 +200,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNullifierCheck(
-    _siloedNullifier: Fr,
-    _exists: boolean,
-    _lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
-    _lowLeafIndex: Fr = Fr.zero(),
-    _lowLeafPath: Fr[] = emptyNullifierPath(),
-  ) {
-    // TODO:(fcarreiro): Do we need no side effect? Maybe remove this then.
-    this.log.trace(`Tracing nullifier check (counter=${this.sideEffectCounter})`);
-    this.incrementSideEffectCounter();
-  }
-
-  public traceNewNullifier(
-    siloedNullifier: Fr,
-    _lowLeafPreimage: NullifierLeafPreimage = NullifierLeafPreimage.empty(),
-    _lowLeafIndex: Fr = Fr.zero(),
-    _lowLeafPath: Fr[] = emptyNullifierPath(),
-    _insertionPath: Fr[] = emptyNullifierPath(),
-  ) {
+  public traceNewNullifier(siloedNullifier: Fr) {
     if (this.nullifiers.length + this.previousSideEffectArrayLengths.nullifiers >= MAX_NULLIFIERS_PER_TX) {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
@@ -273,18 +209,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.log.trace(`Tracing new nullifier (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
-  }
-
-  // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
-  public traceL1ToL2MessageCheck(
-    _contractAddress: AztecAddress,
-    _msgHash: Fr,
-    _msgLeafIndex: Fr,
-    _exists: boolean,
-    _path: Fr[] = emptyL1ToL2MessagePath(),
-  ) {
-    // TODO:(fcarreiro): Do we need no side effect? Maybe remove this then.
-    this.log.trace(`Tracing l1 to l2 message check (counter=${this.sideEffectCounter})`);
   }
 
   public traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
@@ -314,19 +238,11 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceGetContractInstance(
-    contractAddress: AztecAddress,
-    exists: boolean,
-    _instance: SerializableContractInstance = SerializableContractInstance.default(),
-    _updateMembershipHint?: any,
-    _updatePreimage: Fr[] = [],
-  ) {
-    // TODO:(fcarreiro): Do we need no side effect? Maybe remove this then.
-    this.log.trace(`Tracing contract instance retrieval (counter=${this.sideEffectCounter})`);
-    this.incrementSideEffectCounter();
-  }
-
-  public traceGetContractClass(contractClassId: Fr, exists: boolean, _contractClass?: ContractClassWithCommitment) {
+  // TODO(fcarreiro): seems weird to me that we are limiting the number of contract classes but not instances.
+  // I know this came from getBytecode but at some point we might want to rething this. Even if we hint
+  // contract classes, we could still trace "get bytecode" and count that if that's what we want.
+  // But maybe that's not what we want, and we want to limit the number of contract classes due to hashing.
+  public traceGetContractClass(contractClassId: Fr, exists: boolean) {
     if (exists && !this.uniqueClassIds.has(contractClassId.toString())) {
       if (this.uniqueClassIds.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
         this.log.debug(`Bytecode retrieval failure for contract class ID ${contractClassId} (limit reached)`);
@@ -335,9 +251,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
           MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
         );
       }
-
+      this.log.trace(`Adding contract class ID ${contractClassId} (counter=${this.sideEffectCounter})`);
       this.uniqueClassIds.add(contractClassId.toString());
-
       this.incrementSideEffectCounter();
     }
   }
@@ -346,14 +261,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
    * Trace an enqueued call.
    * Accept some results from a finished call's trace into this one.
    */
-  public traceEnqueuedCall(
-    /** The call request from private that enqueued this call. */
-    publicCallRequest: PublicCallRequest,
-    /** The call's calldata */
-    _calldata: Fr[],
-    /** Did the call revert? */
-    _reverted: boolean,
-  ) {
+  public traceEnqueuedCall(publicCallRequest: PublicCallRequest) {
     // TODO(4805): check if some threshold is reached for max enqueued or nested calls (to unique contracts?)
     this.enqueuedCalls.push(publicCallRequest);
   }
