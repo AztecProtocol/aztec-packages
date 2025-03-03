@@ -145,7 +145,6 @@ spec:
             - /bin/bash
             - -c
             - |
-              sleep 30 && \
               source /shared/contracts/contracts.env && \
               source /shared/p2p/p2p-addresses && \
               source /shared/config/service-addresses && \
