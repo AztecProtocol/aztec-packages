@@ -42,6 +42,7 @@ spec:
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
 
         # Generate the validator addresses; used in the deploy-l1-contracts step
         - name: generate-validator-addresses
@@ -148,6 +149,7 @@ spec:
               source /shared/contracts/contracts.env && \
               source /shared/p2p/p2p-addresses && \
               source /shared/config/service-addresses && \
+              source /shared/config/otel-resource && \
               env && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
           startupProbe:
@@ -186,8 +188,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: boot-node
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -210,8 +210,6 @@ spec:
               value: "true"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.aztec.realProofs }}"
             - name: PXE_PROVER_ENABLED
