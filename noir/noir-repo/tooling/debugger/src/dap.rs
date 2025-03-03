@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
-use acvm::acir::circuit::brillig::BrilligBytecode;
 use acvm::acir::circuit::Circuit;
+use acvm::acir::circuit::brillig::BrilligBytecode;
 use acvm::acir::native_types::WitnessMap;
 use acvm::{BlackBoxFunctionSolver, FieldElement};
 use nargo::PrintOutput;

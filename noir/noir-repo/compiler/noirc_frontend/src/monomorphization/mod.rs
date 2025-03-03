@@ -15,6 +15,7 @@ use crate::node_interner::{ExprId, GlobalValue, ImplSearchErrorKind};
 use crate::signed_field::SignedField;
 use crate::token::FmtStrFragment;
 use crate::{
+    Kind, Type, TypeBinding, TypeBindings,
     debug::DebugInstrumenter,
     hir_def::{
         expr::*,
@@ -23,9 +24,8 @@ use crate::{
         types,
     },
     node_interner::{self, DefinitionKind, NodeInterner, StmtId, TraitImplKind, TraitMethodId},
-    Kind, Type, TypeBinding, TypeBindings,
 };
-use acvm::{acir::AcirField, FieldElement};
+use acvm::{FieldElement, acir::AcirField};
 use ast::{GlobalId, While};
 use fxhash::FxHashMap as HashMap;
 use iter_extended::{btree_map, try_vecmap, vecmap};

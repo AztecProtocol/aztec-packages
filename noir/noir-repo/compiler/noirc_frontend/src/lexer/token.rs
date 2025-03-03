@@ -1055,11 +1055,7 @@ impl CustomAttribute {
     fn name(&self) -> Option<String> {
         let mut lexer = Lexer::new_with_dummy_file(&self.contents);
         let token = lexer.next()?.ok()?;
-        if let Token::Ident(ident) = token.into_token() {
-            Some(ident)
-        } else {
-            None
-        }
+        if let Token::Ident(ident) = token.into_token() { Some(ident) } else { None }
     }
 }
 
