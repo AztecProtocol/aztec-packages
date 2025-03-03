@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/commitment_schemes/utils/test_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -22,6 +23,7 @@ template <typename Curve> struct MockClaimGenerator {
     using PolynomialBatcher = bb::GeminiProver_<Curve>::PolynomialBatcher;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
     std::shared_ptr<CommitmentKey> ck;
 
@@ -45,6 +47,11 @@ template <typename Curve> struct MockClaimGenerator {
     std::vector<Commitment> sumcheck_commitments;
     std::vector<std::array<Fr, 3>> sumcheck_evaluations;
 
+    std::vector<std::vector<Polynomial>> concatenation_groups;
+    std::vector<Polynomial> concatenated_polynomials;
+    std::vector<Fr> c_evaluations;
+    std::vector<std::vector<Commitment>> concatenation_groups_commitments;
+
     static constexpr size_t k_magnitude = 6; // mock shift magnitude for right-shift-by-k (assumed even)
 
     /**
@@ -63,7 +70,10 @@ template <typename Curve> struct MockClaimGenerator {
                        const size_t num_to_be_shifted,
                        const size_t num_to_be_right_shifted_by_k,
                        const std::vector<Fr>& mle_opening_point,
-                       std::shared_ptr<CommitmentKey>& commitment_key)
+                       std::shared_ptr<CommitmentKey>& commitment_key,
+                       size_t num_interleaved = 0,
+                       size_t num_to_be_interleaved = 0)
+
         : ck(commitment_key) // Initialize the commitment key
         , polynomial_batcher(poly_size)
 
@@ -116,6 +126,16 @@ template <typename Curve> struct MockClaimGenerator {
                           .right_shifted_by_k = ClaimBatch{ RefVector(to_be_right_shifted_by_k.commitments),
                                                             RefVector(to_be_right_shifted_by_k.evals) },
                           .k_shift_magnitude = k_magnitude };
+        if (num_interleaved > 0) {
+            std::tie(concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments) =
+                generate_concatenation_inputs<Curve>(mle_opening_point, num_interleaved, num_to_be_interleaved, ck);
+            polynomial_batcher.set_interleaved(RefVector(concatenated_polynomials),
+                                               to_vector_of_ref_vectors(concatenation_groups));
+
+            claim_batcher.interleaved =
+                InterleavedBatch{ .commitments_groups = to_vector_of_ref_vectors(concatenation_groups_commitments),
+                                  .evaluations = RefVector(c_evaluations) };
+        }
     }
 
     // Generate zero polynomials to test edge cases in PCS
