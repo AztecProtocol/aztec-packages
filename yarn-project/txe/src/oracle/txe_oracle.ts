@@ -760,7 +760,7 @@ export class TXE implements TypedOracle {
     return new Fr(this.blockNumber + 6969);
   }
 
-  emitContractClassLog(_log: ContractClassLog, _counter: number): Fr {
+  emitContractClassLog(_log: ContractClassLog, _counter: number): Promise<Fr> {
     throw new Error('Method not implemented.');
   }
 

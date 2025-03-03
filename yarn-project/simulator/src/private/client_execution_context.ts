@@ -334,16 +334,16 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Emit a contract class log.
    * This fn exists because we only carry a poseidon hash through the kernels, and need to
    * keep the preimage in ts for later.
-   * We could also return the hash here if we must save extra gates.
    * @param log - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public override emitContractClassLog(log: ContractClassLog, counter: number) {
+  public override async emitContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
     this.log.verbose(
       `Emitted log from ContractClassRegisterer: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`,
     );
+    return await log.hash();
   }
 
   #checkValidStaticCall(childExecutionResult: PrivateCallExecutionResult) {
