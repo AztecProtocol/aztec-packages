@@ -1,8 +1,10 @@
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { ForeignCallHandler } from '@aztec/noir-protocol-circuits-types/types';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import type { ExecutionError } from '@noir-lang/acvm_js';
 import { abiDecodeError } from '@noir-lang/noirc_abi';
-import type { Abi, WitnessMap } from '@noir-lang/types';
+import type { Abi } from '@noir-lang/types';
 
 import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
@@ -11,8 +13,33 @@ import type { ACVMWitness } from '../acvm/acvm_types.js';
  * Low level simulation interface
  */
 export interface SimulationProvider {
-  executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap>;
-  executeUserCircuit(acir: Buffer, initialWitness: ACVMWitness, callback: ACIRCallback): Promise<ACIRExecutionResult>;
+  /**
+   * Execute a protocol circuit/generate a witness
+   * @param input - The initial witness map defining all of the inputs to `circuit`.
+   * @param artifact - ACIR circuit bytecode and its metadata.
+   * @param callback - A callback to process any foreign calls from the circuit. Can be undefined as for native
+   * ACVM simulator we don't process foreign calls.
+   * @returns The solved witness calculated by executing the circuit on the provided inputs.
+   */
+  executeProtocolCircuit(
+    input: ACVMWitness,
+    artifact: NoirCompiledCircuitWithName,
+    callback: ForeignCallHandler | undefined,
+  ): Promise<ACVMWitness>;
+
+  /**
+   * Execute a user circuit (smart contract function)/generate a witness
+   * @param input - The initial witness map defining all of the inputs to `circuit`.
+   * @param artifact - Contract function ACIR circuit bytecode and its metadata.
+   * @param callback - A callback to process any foreign calls from the circuit.
+   * @returns The solved witness calculated by executing the circuit on the provided inputs, as well as the return
+   * witness indices as specified by the circuit.
+   */
+  executeUserCircuit(
+    input: ACVMWitness,
+    artifact: FunctionArtifactWithContractName,
+    callback: ACIRCallback,
+  ): Promise<ACIRExecutionResult>;
 }
 
 export type ErrorWithPayload = ExecutionError & { decodedAssertionPayload?: any };
