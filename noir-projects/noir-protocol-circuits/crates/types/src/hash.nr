@@ -18,7 +18,7 @@ use crate::{
     poseidon2::Poseidon2Sponge,
     traits::{FromField, Hash, ToField},
     utils::{
-        arrays::{array_concat, find_index_hint_from_end},
+        arrays::{array_concat, unsafe_padded_array_length},
         field::{field_from_bytes, field_from_bytes_32_trunc},
     },
 };
@@ -141,10 +141,8 @@ pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> Contract
 
 pub fn compute_contract_class_log_hash(contract_class_log: ContractClassLog) -> Field {
     let array = contract_class_log.log.fields;
-    // Safety: the length is constrained in the base rollup.
-    let index = unsafe { find_index_hint_from_end(array, |elem| elem != 0) };
-    // We only hash the log's fields, not the trailing zeros added from padding
-    let length = if index == array.len() { 0 } else { index + 1 };
+    // Safety: The below length is constrained in the base rollup.
+    let length = unsafe { unsafe_padded_array_length(array) };
     if length == 0 {
         0
     } else {

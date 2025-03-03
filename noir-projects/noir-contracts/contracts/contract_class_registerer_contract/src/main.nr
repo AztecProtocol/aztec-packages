@@ -13,9 +13,7 @@ pub contract ContractClassRegisterer {
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
         },
         contract_class_id::ContractClassId,
-        hash::poseidon2_hash_subarray_variable,
-        traits::is_empty,
-        utils::arrays::{array_concat, find_index_hint_from_end},
+        utils::arrays::{array_concat, unsafe_padded_array_length},
     };
 
     use dep::aztec::{
@@ -222,9 +220,9 @@ pub contract ContractClassRegisterer {
         // TODO(#8978): review correctness
         let log_to_emit: [Field; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS] =
             array_concat(log, [0; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS - N]);
+        // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
         // Safety: The below length is constrained in the base rollup.
-        let index = unsafe { find_index_hint_from_end(log_to_emit, |elem| !is_empty(elem)) };
-        let length = if index == N { 0 } else { index + 1 };
+        let length = unsafe { unsafe_padded_array_length(log_to_emit) };
         // Safety: the below broadcasts the raw log and returns the hash, so we can provide it to the base rollup later to be constrained.
         let log_hash = unsafe {
             emit_contract_class_unencrypted_log_private(contract_address, log_to_emit, counter)

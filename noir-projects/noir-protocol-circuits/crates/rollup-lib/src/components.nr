@@ -21,7 +21,7 @@ use dep::types::{
     hash::{accumulate_sha256, compute_contract_class_log_hash},
     merkle_tree::VariableMerkleTree,
     traits::{Empty, Serialize, ToField},
-    utils::arrays::{array_length, array_merge, validate_trailing_zeroes},
+    utils::arrays::{array_length, array_merge, padded_array_length},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
 
@@ -140,7 +140,7 @@ pub fn validate_contract_class_log(log: ContractClassLog, log_hash: ScopedLogHas
         "mismatched contract class log address",
     );
     // Validate length
-    let length = validate_trailing_zeroes(log.log.fields);
+    let length = padded_array_length(log.log.fields);
     assert_eq(log_hash.log_hash.length, length, "mismatched contract class log length");
     // Validate hash
     assert_eq(
