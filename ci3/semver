@@ -19,7 +19,7 @@ if ($mode eq 'test') {
     exit 0;
 }
 elsif ($mode eq 'sort') {
-    die usage() unless @ARGV >= 2;
+    die usage() unless @ARGV >= 1;
     sort_versions(@ARGV);
     exit 0;
 }
@@ -269,6 +269,12 @@ sub run_tests {
             cmd          => [ 'buildmetadata', '1.2.3' ],
             expect_exit  => 0,
             expect_stdout => "\n",
+        },
+        {
+            name         => 'sort just 1.2.3',
+            cmd          => [ 'sort', '1.2.3' ],
+            expect_exit  => 0,
+            expect_stdout => "1.2.3\n",
         },
         {
             name         => 'sort 1.2.3 and 1.2.4',
