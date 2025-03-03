@@ -148,7 +148,10 @@ function test {
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
-  echo "Gathered $(echo -n "$tests" | wc -l) tests."
+  # Note: Capturing strips last newline. The echo re-adds it.
+  local num
+  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
+  echo "Gathered $num tests."
   echo -n "$tests" | parallelise $((num_cpus / 2))
 }
 

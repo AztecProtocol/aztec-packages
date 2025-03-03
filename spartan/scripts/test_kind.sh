@@ -60,7 +60,7 @@ fi
 
 function cleanup {
   set +e
-  (cat "logs/kind-$namespace.log" || true) | NO_CAT=1 cache_log "kind test $test" || true
+  (cat "logs/kind-$namespace.log" || true) | cache_log "kind test $test" || true
   # kill everything in our process group except our process
   trap - SIGTERM && kill $stern_pid $(jobs -p) &>/dev/null || true
 
