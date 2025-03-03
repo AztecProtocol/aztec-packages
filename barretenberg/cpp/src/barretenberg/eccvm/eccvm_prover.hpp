@@ -30,7 +30,9 @@ class ECCVMProver {
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
-    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS;
+    // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a
+    // `multivariate_to_univariate_opening_claim`
+    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
 
     explicit ECCVMProver(CircuitBuilder& builder,
                          const bool fixed_size = false,
@@ -54,7 +56,7 @@ class ECCVMProver {
 
     bool fixed_size;
 
-    std::array<OpeningClaim, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
+    std::array<OpeningClaim, NUM_OPENING_CLAIMS> opening_claims;
 
     TranslationEvaluations translation_evaluations;
 

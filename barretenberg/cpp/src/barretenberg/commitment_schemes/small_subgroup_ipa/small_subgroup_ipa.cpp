@@ -92,6 +92,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
 {
     // TranslationData is Grumpkin-specific
     if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
+        label_prefix = "Translation:";
         interpolation_domain = translation_data.interpolation_domain;
         concatenated_polynomial = translation_data.masked_concatenated_polynomial;
         concatenated_lagrange_form = translation_data.concatenated_polynomial_lagrange;
@@ -99,7 +100,6 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
         // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
         compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
 
-        label_prefix = "Translation:";
         // The prover computes the inner product of the challenge polynomial and the concatenation of
         // the masking terms. This value is used to "denoise" the masked batched evaluation of
         // `translation_polynomials` contained in `translation_data`.

@@ -19,7 +19,9 @@ class ECCVMVerifier {
     using PCS = typename Flavor::PCS;
     using SmallIPA = SmallSubgroupIPAVerifier<typename ECCVMFlavor::Curve>;
 
-    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS;
+    // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
+    // `multivariate_to_univariate_opening_claim`
+    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
 
   public:
     explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
@@ -32,7 +34,7 @@ class ECCVMVerifier {
 
     uint32_t circuit_size;
 
-    std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
+    std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_OPENING_CLAIMS> opening_claims;
 
     std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
     TranslationEvaluations translation_evaluations;

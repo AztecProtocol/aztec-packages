@@ -249,7 +249,7 @@ void ECCVMProver::compute_translation_opening_claims()
                                       key->polynomials.transcript_z2 };
 
     // Extract the masking terms of `translation_polynomials`, concatenate them in the Lagrange basis over SmallSubgroup
-    // H, mask the resulting polynomials, and commit to it
+    // H, mask the resulting polynomial, and commit to it
     TranslationData<Transcript> translation_data(translation_polynomials, transcript, key->commitment_key);
 
     // Get a challenge to evaluate the `translation_polynomials` as univariates

@@ -17,7 +17,9 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
-    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS;
+    // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
+    // `multivariate_to_univariate_opening_claim`
+    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
 
   public:
     explicit ECCVMRecursiveVerifier_(Builder* builder,
@@ -35,7 +37,7 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     std::vector<Commitment> translation_commitments;
     TranslationEvaluations_<FF> translation_evaluations;
     FF translation_masking_term_eval;
-    std::array<OpeningClaim<Curve>, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
+    std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
 
     std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
