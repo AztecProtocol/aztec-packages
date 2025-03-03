@@ -27,6 +27,7 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/991): switch recursive verifiers to StdlibProof
     std::pair<OpeningClaim<Curve>, std::shared_ptr<Transcript>> verify_proof(const ECCVMProof& proof);
+    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;
 
@@ -34,16 +35,9 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
-    std::vector<Commitment> translation_commitments;
     TranslationEvaluations_<FF> translation_evaluations;
     FF translation_masking_term_eval;
     std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
-
-    std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments;
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
-    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels;
-
-    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     // Translation evaluations challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;

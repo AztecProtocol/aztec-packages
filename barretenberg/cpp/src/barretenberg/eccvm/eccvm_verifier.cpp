@@ -100,11 +100,11 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
     // Produce the opening claim for batch opening of `op`, `Px`, `Py`, `z1`, and `z2` wires as univariate polynomials
-    translation_commitments = { commitments.transcript_op,
-                                commitments.transcript_Px,
-                                commitments.transcript_Py,
-                                commitments.transcript_z1,
-                                commitments.transcript_z2 };
+    std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments = { commitments.transcript_op,
+                                                                                    commitments.transcript_Px,
+                                                                                    commitments.transcript_Py,
+                                                                                    commitments.transcript_z1,
+                                                                                    commitments.transcript_z2 };
 
     compute_translation_opening_claims(translation_commitments);
 
@@ -136,9 +136,9 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 void ECCVMVerifier::compute_translation_opening_claims(
     const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
 {
-
-    small_ipa_commitments[0] =
-        transcript->template receive_from_prover<Commitment>("Translation:batched_masking_term_commitment");
+    std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments{
+        transcript->template receive_from_prover<Commitment>("Translation:batched_masking_term_commitment")
+    };
 
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
@@ -159,9 +159,11 @@ void ECCVMVerifier::compute_translation_opening_claims(
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
 
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
-    labels = SmallIPA::evaluation_labels("Translation");
 
-    evaluation_points = SmallIPA::evaluation_points(small_ipa_evaluation_challenge);
+    const std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels = SmallIPA::evaluation_labels("Translation");
+
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points =
+        SmallIPA::evaluation_points(small_ipa_evaluation_challenge);
 
     for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
         small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);

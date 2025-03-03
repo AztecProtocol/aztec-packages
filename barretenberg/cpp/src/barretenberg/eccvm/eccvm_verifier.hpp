@@ -31,6 +31,8 @@ class ECCVMVerifier {
         : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
     bool verify_proof(const ECCVMProof& proof);
+    void compute_translation_opening_claims(
+        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
 
     uint32_t circuit_size;
 
@@ -38,15 +40,6 @@ class ECCVMVerifier {
 
     std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
     TranslationEvaluations translation_evaluations;
-
-    std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments;
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
-
-    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels;
-
-    void compute_translation_opening_claims(
-        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
-
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;

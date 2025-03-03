@@ -1,16 +1,9 @@
 #pragma once
 
-#include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/constants.hpp"
-#include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/eccvm/eccvm_translation_data.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
-#include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 
 #include <array>
-#include <vector>
+#include <string>
 
 namespace bb {
 
