@@ -88,7 +88,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
   bytecode: Buffer.from([]),
 };
 
-export type PrivateKernelExecutorConfig = {
+export type PrivateKernelOrchestratorConfig = {
   simulate: boolean;
   skipFeeEnforcement: boolean;
   profile: boolean;
@@ -96,12 +96,12 @@ export type PrivateKernelExecutorConfig = {
 };
 
 /**
- * The PrivateKernelExecutor class is responsible for generating private kernel proofs.
- * It takes a transaction request, its signature, and the simulation result as inputs, and outputs a proof
- * along with output notes. The class interacts with a PrivateKernelOracle to fetch membership witnesses and
- * constructs private call data based on the execution results.
+ * The PrivateKernelOrchestrator class is responsible for taking a transaction request and sequencing the
+ * the execution of the private functions within, sequenced with private kernel "glue" to check protocol rules.
+ * The result can be a client IVC proof of the private transaction portion, or just a simulation that can e.g.
+ * inform state tree updates.
  */
-export class PrivateKernelExecutor {
+export class PrivateKernelOrchestrator {
   private log = createLogger('pxe:kernel-prover');
 
   constructor(
@@ -126,7 +126,7 @@ export class PrivateKernelExecutor {
   async prove(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: PrivateKernelExecutorConfig = {
+    { simulate, skipFeeEnforcement, profile, dryRun }: PrivateKernelOrchestratorConfig = {
       simulate: false,
       skipFeeEnforcement: false,
       profile: false,
