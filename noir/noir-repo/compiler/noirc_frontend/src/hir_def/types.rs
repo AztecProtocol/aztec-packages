@@ -12,7 +12,7 @@ use acvm::{AcirField, FieldElement};
 
 use crate::{
     ast::{IntegerBitSize, ItemVisibility},
-    hir::type_check::{generics::TraitGenerics, TypeCheckError},
+    hir::type_check::{TypeCheckError, generics::TraitGenerics},
     node_interner::{ExprId, NodeInterner, TraitId, TypeAliasId},
 };
 use iter_extended::vecmap;
@@ -249,11 +249,7 @@ impl Kind {
     }
 
     pub(crate) fn unify(&self, other: &Kind) -> Result<(), UnificationError> {
-        if self.unifies(other) {
-            Ok(())
-        } else {
-            Err(UnificationError)
-        }
+        if self.unifies(other) { Ok(()) } else { Err(UnificationError) }
     }
 
     /// Returns the default type this type variable should be bound to if it is still unbound
@@ -1058,11 +1054,7 @@ impl std::fmt::Display for Type {
                 let this = self.canonicalize_checked();
 
                 // Prevent infinite recursion
-                if this != *self {
-                    write!(f, "{this}")
-                } else {
-                    write!(f, "({lhs} {op} {rhs})")
-                }
+                if this != *self { write!(f, "{this}") } else { write!(f, "({lhs} {op} {rhs})") }
             }
         }
     }
@@ -1491,11 +1483,7 @@ impl Type {
     fn infix_kind(&self, other: &Self) -> Kind {
         let self_kind = self.kind();
         let other_kind = other.kind();
-        if self_kind.unifies(&other_kind) {
-            self_kind
-        } else {
-            Kind::numeric(Type::Error)
-        }
+        if self_kind.unifies(&other_kind) { self_kind } else { Kind::numeric(Type::Error) }
     }
 
     /// Creates an `InfixExpr`.
