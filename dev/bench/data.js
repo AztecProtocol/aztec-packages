@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741016602581,
+  "lastUpdate": 1741019609505,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3cb6920eae9814919e135d8715ef445f3c5cc8e0",
-          "message": "chore: Lazy loading artifacts everywhere (#12285)\n\nThis PR adds the *option* to lazily load JSON artifacts in all the\npackages that were missing that functionality, further improving bundle\nsizes for the browser and allowing us to finally put limits on our\nexample apps bundle sizes:\n\n* `noir-protocol-circuits-types/vks`: now allow vk lazy imports via the\n`LazyArtifactProvider` in the `/client` export, while maintaining the\nbundled version for the server under `/server/vks`\n* `accounts`: Now all exports provide a lazy version, e.g:\n`@aztec/accounts/schnorr/lazy`. This has proven to be complicated due to\nthe testing import leaking into the browser (where type assertions are\nnot widely supported). Now there's also `/testing/lazy`. This testing\npackage is needed in the browser for the prefunded accounts.\n* `protocol-contracts`: Now with a lazy version and exporting\n`ProtocolContractProviders` so that PXE can be configured with bundled\nand lazy versions.\n\n\nBesides the type assertion issue, we absolutely want to keep bundled and\nlazy versions because some environments don't play well with `await\nimport` (namely service workers in firefox)\n\n---------\n\nCo-authored-by: esau <152162806+sklppy88@users.noreply.github.com>",
-          "timestamp": "2025-02-26T19:56:40Z",
-          "tree_id": "63024bdc8fea5767ee221e8d0791de57da85da45",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3cb6920eae9814919e135d8715ef445f3c5cc8e0"
-        },
-        "date": 1740601561469,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18271.652731000133,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16225.018531 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18769.05979000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16323.808413000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3963.6365950000254,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3162.7365649999992 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55260.706969,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55260707000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10194.521936,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10194525000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1910639338,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1910639338 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 217566535,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 217566535 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 213487782,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 213487782 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f13fd51d615406c2f43facea444beb0c3affba9",
+          "message": "fix(p2p): slashing test + slasher client does not store own state (#12380)",
+          "timestamp": "2025-03-03T16:03:47Z",
+          "tree_id": "f1ccaf8d1d179e396d3e2bf9467d5a0b003d4e54",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8f13fd51d615406c2f43facea444beb0c3affba9"
+        },
+        "date": 1741019601422,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18033.1508270001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15859.691937000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18736.060855000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16411.163843000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3861.8076669999937,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3009.341203 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54601.658664999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54601659000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9311.083406,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9311087000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1911700340,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1911700340 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 215330860,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 215330860 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
