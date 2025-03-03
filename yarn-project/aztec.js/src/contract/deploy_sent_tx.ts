@@ -60,7 +60,7 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   }
 
   protected async getContractObject(wallet?: Wallet): Promise<TContract> {
-    const isWallet = (pxe: PXE | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
+    const isWallet = (pxe: typeof this.pxe | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
     const contractWallet = wallet ?? (isWallet(this.pxe) && this.pxe);
     if (!contractWallet) {
       throw new Error(`A wallet is required for creating a contract instance`);

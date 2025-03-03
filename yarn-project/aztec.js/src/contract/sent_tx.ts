@@ -1,4 +1,11 @@
-import { type GetPublicLogsResponse, type PXE, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type GetPublicLogsResponse,
+  type PXE,
+  type TxHash,
+  type TxReceipt,
+  TxStatus,
+} from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -33,7 +40,7 @@ export const DefaultWaitOpts: WaitOpts = {
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected pxe: PXE, protected txHashPromise: Promise<TxHash>) {}
+  constructor(protected pxe: PXE | AztecNode, protected txHashPromise: Promise<TxHash>) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
