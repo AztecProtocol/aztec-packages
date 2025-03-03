@@ -65,9 +65,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, numPublicInputs);
 
         // Derive public input delta
-        t.relationParameters.publicInputsDelta = computePublicInputDelta(
-            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
-        );
+        t.relationParameters.publicInputsDelta =
+            computePublicInputDelta(publicInputs, t.relationParameters.beta, t.relationParameters.gamma, 1);
 
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);

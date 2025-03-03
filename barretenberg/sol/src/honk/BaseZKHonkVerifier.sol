@@ -75,9 +75,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, numPublicInputs);
 
         // Derive public input delta
-        t.relationParameters.publicInputsDelta = computePublicInputDelta(
-            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
-        );
+        t.relationParameters.publicInputsDelta =
+            computePublicInputDelta(publicInputs, t.relationParameters.beta, t.relationParameters.gamma, 1);
 
         // Sumcheck
         if (!verifySumcheck(p, t)) revert SumcheckFailed();
