@@ -305,16 +305,19 @@ export const deployRollup = async (
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
   };
+  const genesisStateArgs = {
+    vkTreeRoot: args.vkTreeRoot.toString(),
+    protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
+    genesisArchiveRoot: args.genesisArchiveRoot.toString(),
+    genesisBlockHash: args.genesisBlockHash.toString(),
+  };
   logger.verbose(`Rollup config args`, rollupConfigArgs);
   const rollupArgs = [
     addresses.feeJuicePortalAddress.toString(),
     addresses.rewardDistributorAddress.toString(),
     addresses.stakingAssetAddress.toString(),
-    args.vkTreeRoot.toString(),
-    args.protocolContractTreeRoot.toString(),
-    args.genesisArchiveRoot.toString(),
-    args.genesisBlockHash.toString(),
     clients.walletClient.account.address.toString(),
+    genesisStateArgs,
     rollupConfigArgs,
   ];
 
