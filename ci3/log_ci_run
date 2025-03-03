@@ -1,0 +1,42 @@
+#!/bin/bash
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_refname
+source $ci3/source_redis
+
+status=${1:-RUNNING}
+key=${2:-}
+
+if [ -z "$key" ]; then
+  key=$(date +%s%3N)
+  msg=$(git log -1 --pretty=format:"%s")
+  author="$(git log -1 --pretty=format:"%an")"
+  json=$(jq -c -j -n \
+      --argjson timestamp "$key" \
+      --arg status "$status" \
+      --arg msg "$msg" \
+      --arg name "$REF_NAME" \
+      --arg author "$author" \
+      '{timestamp: $timestamp, status: $status, msg: $msg, name: $name, author: $author}')
+  # echo "$json" >&2
+  redis_cli ZADD ci-run $key "$json" &>/dev/null
+  redis_cli SETEX hb-$key 60 1 &>/dev/null
+
+  # To keep only the last 1000 entries (by score).
+  redis_cli ZREMRANGEBYRANK ci-run 0 -1001 &>/dev/null
+
+  echo $key
+else
+  # Retrieve the current entry.
+  old_json=$(redis_cli ZRANGEBYSCORE ci-run $key $key)
+  # Compute duration.
+  now=$(date +%s%3N)
+  json=$(echo "$old_json" | jq -c -j \
+      --arg status "$status" \
+      --argjson complete "$now" \
+      '. * { status: $status, complete: $complete }')
+  # echo "$json" >&2
+  # Remove the old entry.
+  redis_cli ZREM ci-run "$old_json" &>/dev/null
+  # Add the updated entry with the same key.
+  redis_cli ZADD ci-run $key "$json" &>/dev/null
+fi

@@ -203,12 +203,12 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    gate_count(bytecode_path, flags.recursive, flags.honk_recursion);
+    gate_count(bytecode_path, flags.recursive, flags.honk_recursion, flags.include_gates_per_opcode);
 }
 
-void UltraHonkAPI::write_contract(const Flags& flags,
-                                  const std::filesystem::path& output_path,
-                                  const std::filesystem::path& vk_path)
+void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
+                                           const std::filesystem::path& output_path,
+                                           const std::filesystem::path& vk_path)
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));

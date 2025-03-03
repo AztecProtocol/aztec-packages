@@ -11,12 +11,12 @@ on:
       - "v*"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group: {}
 
 concurrency:
-  # On master or workflow_dispatch (checked via event_name) the group id is the unique run_id so we get parallel runs.
   # On PR's the group id is the ref_name so only 1 can run at a time.
   group: |
-    ci3-${{(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.run_id || github.head_ref }}
+    ci3-${{ github.event_name == 'pull_request' && github.ref_name || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -76,6 +76,7 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           ./ci.sh ec2
@@ -85,7 +86,7 @@ jobs:
         run: |
           ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
           ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
-          ./ci3/cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+          # ./ci3/cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
 
       - name: Store barretenberg benchmark result
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
@@ -139,7 +140,7 @@ jobs:
 
   ci-grind:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'merge_group'
     strategy:
       matrix:
         number: [1, 2, 3, 4, 5]
@@ -159,6 +160,7 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+
       #############
       # Run
       #############
@@ -172,14 +174,17 @@ jobs:
           DRY_RUN: 1
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI_FULL: 1
         run: |
           ./ci.sh ec2-test
 
   # Necessary as github actions won't allow checks on matrix builds.
   merge-check:
     runs-on: ubuntu-20.04
-    needs: ci
     if: always()
+    needs:
+      - ci
+      - ci-grind
     steps:
       - name: Failing deploy
         if: ${{ contains(needs.*.result, 'failure') }}
