@@ -6,7 +6,7 @@ use feature 'say';
 # Usage:
 #   semver check <semver>
 #   semver <component> <semver>
-#   semver compare <semver1> <semver2>
+#   semver sort <semver1> <semver2>
 #   semver test
 
 # ---------------------------------------------------------------------------
@@ -18,10 +18,10 @@ if ($mode eq 'test') {
     run_tests();
     exit 0;
 }
-elsif ($mode eq 'compare') {
+elsif ($mode eq 'sort') {
     die usage() unless @ARGV == 2;
     my ($ver1, $ver2) = @ARGV;
-    compare_versions($ver1, $ver2);
+    sort_versions($ver1, $ver2);
     exit 0;
 }
 else {
@@ -85,7 +85,7 @@ sub usage {
 Usage:
   $0 check <semver>
   $0 <component> <semver>    # valid: major, minor, patch, prerelease, buildmetadata
-  $0 compare <semver1> <semver2>
+  $0 sort <semver1> <semver2>
   $0 test
 END_USAGE
 }
@@ -131,12 +131,12 @@ sub parse_semver {
     }
 }
 
-sub compare_versions {
+sub sort_versions {
     my ($ver1, $ver2) = @_;
     my $v1 = parse_semver($ver1);
     my $v2 = parse_semver($ver2);
 
-    my $cmp = compare_semver($v1, $v2);
+    my $cmp = sort_semver($v1, $v2);
     if ($cmp <= 0) {
         say $ver1;
         say $ver2;
@@ -146,7 +146,7 @@ sub compare_versions {
     }
 }
 
-sub compare_semver {
+sub sort_semver {
     my ($a, $b) = @_;
     for my $key (qw(major minor patch)) {
         my $cmp = $a->{$key} <=> $b->{$key};
@@ -265,20 +265,20 @@ sub run_tests {
             expect_stdout => "\n",
         },
         {
-            name         => 'compare 1.2.3 and 1.2.4',
-            cmd          => [ 'compare', '1.2.3', '1.2.4' ],
+            name         => 'sort 1.2.3 and 1.2.4',
+            cmd          => [ 'sort', '1.2.3', '1.2.4' ],
             expect_exit  => 0,
             expect_stdout => "1.2.3\n1.2.4\n",
         },
         {
-            name         => 'compare v2.0.0 and 2.0.0 should output v2.0.0 then 2.0.0 if they are equal',
-            cmd          => [ 'compare', 'v2.0.0', '2.0.0' ],
+            name         => 'sort v2.0.0 and 2.0.0 should output v2.0.0 then 2.0.0 if they are equal',
+            cmd          => [ 'sort', 'v2.0.0', '2.0.0' ],
             expect_exit  => 0,
             expect_stdout => "v2.0.0\n2.0.0\n",
         },
         {
-            name         => 'compare 1.0.0-alpha and 1.0.0 should print alpha first (lower)',
-            cmd          => [ 'compare', '1.0.0-alpha', '1.0.0' ],
+            name         => 'sort 1.0.0-alpha and 1.0.0 should print alpha first (lower)',
+            cmd          => [ 'sort', '1.0.0-alpha', '1.0.0' ],
             expect_exit  => 0,
             expect_stdout => "1.0.0-alpha\n1.0.0\n",
         },
