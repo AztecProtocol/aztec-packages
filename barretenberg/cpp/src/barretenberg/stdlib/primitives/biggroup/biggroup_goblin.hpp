@@ -295,6 +295,52 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         _is_infinity.set_origin_tag(tag);
     }
 
+    // WORKTODO: comment about how this is funky bc we want consistency with biggroup/bigfield
+    void set_public() const
+    {
+        using BigFq = stdlib::bigfield<Builder, bb::fq::Params>;
+        const auto to_bigfield_witness_indices = [](const Fr& lo, const Fr& hi) {
+            BigFq r(lo, hi);
+            return std::array<uint32_t, 4>{
+                r.binary_basis_limbs[0].element.normalize().witness_index,
+                r.binary_basis_limbs[1].element.normalize().witness_index,
+                r.binary_basis_limbs[2].element.normalize().witness_index,
+                r.binary_basis_limbs[3].element.normalize().witness_index,
+            };
+        };
+
+        auto x_idxs = to_bigfield_witness_indices(x.limbs[0], x.limbs[1]);
+        auto y_idxs = to_bigfield_witness_indices(y.limbs[0], y.limbs[1]);
+
+        Builder* context = get_context();
+        for (const uint32_t& idx : x_idxs) {
+            context->set_public_input(idx);
+        }
+        for (const uint32_t& idx : y_idxs) {
+            context->set_public_input(idx);
+        }
+    }
+
+    static goblin_element reconstruct_from_public(const std::span<const Fr>& limbs)
+    {
+        const size_t FRS_PER_FQ = 4; // 4 instead of 2 since we assume biggroup format in pub inputs
+        std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
+        std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
+
+        auto reconstruct_fq_from_fr_limbs = [](const std::span<const Fr, FRS_PER_FQ>& limbs) {
+            for (size_t i = 0; i < FRS_PER_FQ; ++i) {
+                // WORKTODO: do we need to range constrain here?
+                limbs[i].create_range_constraint(Fq::NUM_LIMB_BITS, "l" + std::to_string(i));
+            }
+            return Fq::construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
+        };
+
+        const Fq x = reconstruct_fq_from_fr_limbs(x_limbs);
+        const Fq y = reconstruct_fq_from_fr_limbs(y_limbs);
+
+        return { x, y };
+    }
+
     Fq x;
     Fq y;
 
