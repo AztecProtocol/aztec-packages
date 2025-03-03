@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741015436466,
+  "lastUpdate": 1741015745189,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "spypsy@users.noreply.github.com",
-            "name": "spypsy",
-            "username": "spypsy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "62faad5cf843bcc0655ac98f2dec8e7bc2378e29",
-          "message": "chore: new mnemonic deployments on sepolia (#12076)\n\nFixes #11765 \nUpdating how we make sepolia deployments on k8s. \nInstead of fixed pre-funded addresses, we have a single private key that\nfunds new addresses for each new deployment.\nAlso fixes setting up the transaction bot for sepolia deployments",
-          "timestamp": "2025-02-26T19:23:51Z",
-          "tree_id": "e87c326d376181a2bdf364965ff06562e04c82a6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/62faad5cf843bcc0655ac98f2dec8e7bc2378e29"
-        },
-        "date": 1740599612708,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18408.850437999943,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16101.926566 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18735.460719000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16350.875583000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3988.0140329998994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3182.173379 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55356.050455000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55356050000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9688.407573,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9688412000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1896751537,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1896751537 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 213749965,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 213749965 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 216803305,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 216803305 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0b0127fc0d46f2877367967b2dd4b7c58f593a6f",
+          "message": "feat: embed version info in release image (#12401)\n\nThis PR recreates the change to the release image from #12326",
+          "timestamp": "2025-03-03T14:53:34Z",
+          "tree_id": "63fc619eb471db23202522aa609cf142e21dede5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0b0127fc0d46f2877367967b2dd4b7c58f593a6f"
+        },
+        "date": 1741015737297,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18024.274655,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16068.569120999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18731.114273000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16322.295897 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3881.2688030000118,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3046.6070919999993 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55263.394395999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55263393000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11047.036785999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11047040000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1896732387,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1896732387 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 222786134,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 222786134 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
