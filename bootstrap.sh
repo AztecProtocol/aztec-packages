@@ -113,7 +113,7 @@ function install_hooks {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes barretenberg l1-contracts noir
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
@@ -148,7 +148,10 @@ function test {
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
-  echo "Gathered $(echo -n "$tests" | wc -l) tests."
+  # Note: Capturing strips last newline. The echo re-adds it.
+  local num
+  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
+  echo "Gathered $num tests."
   echo -n "$tests" | parallelise $((num_cpus / 2))
 }
 
@@ -170,6 +173,7 @@ function build {
     l1-contracts
     yarn-project
     boxes
+    playground
     docs
     release-image
     aztec-up
@@ -242,6 +246,7 @@ function release {
     yarn-project
     boxes
     aztec-up
+    playground
     docs
     release-image
   )
@@ -275,6 +280,7 @@ function release_commit {
     yarn-project
     boxes
     aztec-up
+    playground
     docs
     release-image
   )

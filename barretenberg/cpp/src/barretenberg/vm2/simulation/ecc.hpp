@@ -9,7 +9,7 @@ namespace bb::avm2::simulation {
 class EccInterface {
   public:
     virtual ~EccInterface() = default;
-    virtual AffinePoint add(const AffinePoint& p, const AffinePoint& q) = 0;
+    virtual EmbeddedCurvePoint add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q) = 0;
 };
 
 class Ecc : public EccInterface {
@@ -20,8 +20,8 @@ class Ecc : public EccInterface {
         , scalar_mul_events(scalar_mul_event_emitter)
     {}
 
-    AffinePoint add(const AffinePoint& p, const AffinePoint& q) override;
-    AffinePoint scalar_mul(const AffinePoint& point, const FF& scalar);
+    EmbeddedCurvePoint add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q) override;
+    EmbeddedCurvePoint scalar_mul(const EmbeddedCurvePoint& point, const FF& scalar);
 
   private:
     EventEmitterInterface<EccAddEvent>& add_events;
