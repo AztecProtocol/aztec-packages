@@ -53,7 +53,7 @@ proverBroker:
       cpu: "1"
 
 proverAgent:
-  replicas: 2
+  replicas: 4
   bb:
     hardwareConcurrency: 31
   gke:
