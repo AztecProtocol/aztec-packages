@@ -2,10 +2,11 @@ import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  booleanConfigHelper,
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import type { Logger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -100,6 +101,11 @@ export interface L1TxUtilsConfig {
    * First attempt is done at 1s, second at 2s, third at 3s, etc.
    */
   txPropagationMaxQueryAttempts?: number;
+
+  /**
+   * If true, use a max gas limit for all transactions, only use in debug mode
+   */
+  debugMaxGasLimit?: boolean;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -163,6 +169,11 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_TX_PROPAGATION_MAX_QUERY_ATTEMPTS',
     ...numberConfigHelper(3),
   },
+  debugMaxGasLimit: {
+    description: 'If true, use a max gas limit for all transactions, only use in debug mode',
+    env: 'DEBUG_L1_MAX_GAS_LIMIT',
+    ...booleanConfigHelper(false),
+  },
 };
 
 export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtilsConfigMappings);
@@ -199,13 +210,13 @@ export type TransactionStats = {
 };
 
 export class L1TxUtils {
-  protected readonly config: L1TxUtilsConfig;
+  public readonly config: L1TxUtilsConfig;
   private interrupted = false;
 
   constructor(
     public publicClient: ViemPublicClient,
     public walletClient: ViemWalletClient,
-    protected readonly logger?: Logger,
+    protected readonly logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {
@@ -257,9 +268,13 @@ export class L1TxUtils {
       const account = this.walletClient.account;
       let gasLimit: bigint;
 
-      if (gasConfig.gasLimit) {
+      if (gasConfig.debugMaxGasLimit) {
+        this.logger.info('\n\nUsing max gas limit for L1 transaction');
+        gasLimit = LARGE_GAS_LIMIT;
+      } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
+        this.logger.info('\n\nEstimating gas for L1 transaction');
         gasLimit = await this.estimateGas(account, request);
       }
 
@@ -287,7 +302,7 @@ export class L1TxUtils {
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
         });
       }
-      this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
+      this.logger.verbose(`Sent L1 transaction ${txHash}`, {
         gasLimit,
         maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
         maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
@@ -297,7 +312,7 @@ export class L1TxUtils {
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
       const viemError = formatViemError(err);
-      this.logger?.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
+      this.logger.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
       throw viemError;
     }
   }

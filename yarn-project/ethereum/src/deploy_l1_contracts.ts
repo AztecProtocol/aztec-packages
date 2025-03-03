@@ -675,11 +675,10 @@ export async function deployL1Contract(
   maybeSalt?: Hex,
   libraries?: Libraries,
   logger?: Logger,
-  _l1TxUtils?: L1TxUtils,
+  l1TxUtils?: L1TxUtils,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
-  let l1TxUtils: L1TxUtils | undefined = _l1TxUtils;
 
   if (!l1TxUtils) {
     l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
@@ -746,7 +745,8 @@ export async function deployL1Contract(
 
     // Reth fails gas estimation if the deployed contract attempts to call a library that is not yet deployed,
     // so we wait for all library deployments to be mined before deploying the contract.
-    if (libraryTxs.length > 0) {
+    // However, if we are specifically using the debugMaxGasLimit, we will skip simulation, so we can skip waiting.
+    if (libraryTxs.length > 0 && !l1TxUtils.config.debugMaxGasLimit) {
       logger?.verbose(`Awaiting for linked libraries to be deployed`);
       await Promise.all(libraryTxs.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
     }
