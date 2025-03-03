@@ -47,14 +47,8 @@ validator:
     requests:
       cpu: "1"
 
-proverBroker:
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "1"
-
 proverAgent:
-  replicas: 4
+  replicas: 8
   bb:
     hardwareConcurrency: 31
   gke:
