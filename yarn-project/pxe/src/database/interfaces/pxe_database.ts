@@ -8,9 +8,9 @@ import type { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NotesFilter } from '@aztec/stdlib/note';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
-import type { ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import type { NoteDao } from './note_dao.js';
+import type { NoteDao } from '../note_dao.js';
+import type { ContractArtifactDatabase } from './contract_artifact_db.js';
+import type { ContractInstanceDatabase } from './contract_instance_db.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec

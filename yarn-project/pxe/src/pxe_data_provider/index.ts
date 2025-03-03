@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import type { KeyStore } from '@aztec/key-store';
-import type { AcirSimulator, DBOracle, SimulationProvider } from '@aztec/simulator/client';
+import { AcirSimulator, type ExecutionDataProvider, type SimulationProvider } from '@aztec/simulator/client';
 import { MessageLoadOracleInputs } from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
@@ -42,24 +42,23 @@ import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
+import { ContractDataProvider } from '../contract_data_provider/index.js';
 import type { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
-import { getAcirSimulator } from '../simulator/index.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
  */
-export class SimulatorOracle implements DBOracle {
+export class PXEDataProvider implements ExecutionDataProvider {
   constructor(
-    private contractDataOracle: ContractDataOracle,
     private db: PxeDatabase,
     private keyStore: KeyStore,
     private aztecNode: AztecNode,
     private simulationProvider: SimulationProvider,
-    private log = createLogger('pxe:simulator_oracle'),
+    private contractDataProvider: ContractDataProvider,
+    private log = createLogger('pxe:pxe_data_provider'),
   ) {}
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
@@ -113,8 +112,8 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact> {
-    const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
+    const artifact = await this.contractDataProvider.getFunctionArtifact(contractAddress, selector);
+    const debug = await this.contractDataProvider.getFunctionDebugMetadata(contractAddress, selector);
     return {
       ...artifact,
       debug,
@@ -125,8 +124,8 @@ export class SimulatorOracle implements DBOracle {
     contractAddress: AztecAddress,
     functionName: string,
   ): Promise<FunctionArtifact | undefined> {
-    const instance = await this.contractDataOracle.getContractInstance(contractAddress);
-    const artifact = await this.contractDataOracle.getContractArtifact(instance.currentContractClassId);
+    const instance = await this.contractDataProvider.getContractInstance(contractAddress);
+    const artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
   }
 
@@ -234,6 +233,10 @@ export class SimulatorOracle implements DBOracle {
     return await this.aztecNode.getPublicDataTreeWitness(blockNumber, leafSlot);
   }
 
+  public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    return await this.aztecNode.getPublicStorageAt(contract, slot, blockNumber);
+  }
+
   /**
    * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
@@ -252,8 +255,24 @@ export class SimulatorOracle implements DBOracle {
     return await this.aztecNode.getBlockNumber();
   }
 
+  /**
+   * Fetches the current chain id.
+   * @returns The chain id.
+   */
+  public async getChainId(): Promise<number> {
+    return await this.aztecNode.getChainId();
+  }
+
+  /**
+   * Fetches the current version.
+   * @returns The version.
+   */
+  public async getVersion(): Promise<number> {
+    return await this.aztecNode.getVersion();
+  }
+
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
-    return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+    return this.contractDataProvider.getDebugFunctionName(contractAddress, selector);
   }
 
   /**
@@ -299,7 +318,7 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
   ): Promise<void> {
     const secret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
+    const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     this.log.debug(`Incrementing app tagging secret at ${contractName}(${contractAddress})`, {
       secret,
       sender,
@@ -401,7 +420,7 @@ export class SimulatorOracle implements DBOracle {
       numConsecutiveEmptyLogs = WINDOW_SIZE - indexOfLastLog - 1;
     } while (numConsecutiveEmptyLogs < MIN_CONSECUTIVE_EMPTY_LOGS);
 
-    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
+    const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     if (currentIndex !== oldIndex) {
       await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, currentIndex)]);
 
@@ -443,7 +462,7 @@ export class SimulatorOracle implements DBOracle {
     // due to us having a sliding window that "looks back" for logs as well. (We look back as there is no guarantee
     // that a logs will be received ordered by a given tax index and that the tags won't be reused).
     const logsMap = new Map<string, TxScopedL2Log[]>();
-    const contractName = await this.contractDataOracle.getDebugContractName(contractAddress);
+    const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
       const logsForRecipient: TxScopedL2Log[] = [];
 
@@ -817,7 +836,7 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ) {
-    const artifact: FunctionArtifact | undefined = await new ContractDataOracle(this.db).getFunctionArtifactByName(
+    const artifact: FunctionArtifact | undefined = await new ContractDataProvider(this.db).getFunctionArtifactByName(
       contractAddress,
       'process_log',
     );
@@ -844,10 +863,7 @@ export class SimulatorOracle implements DBOracle {
       returnTypes: artifact.returnTypes,
     };
 
-    await (
-      simulator ??
-      getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle)
-    ).runUnconstrained(
+    await (simulator ?? new AcirSimulator(this, this.simulationProvider)).runUnconstrained(
       execRequest,
       contractAddress,
       selector,

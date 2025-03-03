@@ -13,7 +13,7 @@ import { makeHeader, randomTxHash } from '@aztec/stdlib/testing';
 
 import times from 'lodash.times';
 
-import { NoteDao } from './note_dao.js';
+import { NoteDao } from '../note_dao.js';
 import type { PxeDatabase } from './pxe_database.js';
 
 /**

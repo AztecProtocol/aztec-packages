@@ -11,7 +11,6 @@ import {
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
@@ -28,18 +27,18 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { type NoteData, toACVMWitness } from './acvm/index.js';
-import type { DBOracle } from './db_oracle.js';
+import type { ExecutionDataProvider } from './execution_data_provider.js';
 import type { ExecutionNoteCache } from './execution_note_cache.js';
 import type { HashedValuesCache } from './hashed_values_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';
-import { ViewDataOracle } from './view_data_oracle.js';
+import { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
 
 /**
  * The execution context for a client tx simulation.
  */
-export class ClientExecutionContext extends ViewDataOracle {
+export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
   /**
    * New notes created during this execution.
    * It's possible that a note in this list has been nullified (in the same or other executions) and doesn't exist in the ExecutionNoteCache and the final proof data.
@@ -75,14 +74,13 @@ export class ClientExecutionContext extends ViewDataOracle {
     capsules: Capsule[],
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
-    db: DBOracle,
-    private node: AztecNode,
+    executionDataProvider: ExecutionDataProvider,
     private provider: SimulationProvider,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
   ) {
-    super(callContext.contractAddress, authWitnesses, capsules, db, node, log, scopes);
+    super(callContext.contractAddress, authWitnesses, capsules, executionDataProvider, log, scopes);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -221,7 +219,12 @@ export class ClientExecutionContext extends ViewDataOracle {
     const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
-    const dbNotes = await this.db.getNotes(this.callContext.contractAddress, storageSlot, status, this.scopes);
+    const dbNotes = await this.executionDataProvider.getNotes(
+      this.callContext.contractAddress,
+      storageSlot,
+      status,
+      this.scopes,
+    );
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
@@ -382,18 +385,21 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     await verifyCurrentClassId(
       targetContractAddress,
-      await this.db.getContractInstance(targetContractAddress),
-      this.node,
+      await this.executionDataProvider.getContractInstance(targetContractAddress),
+      this.executionDataProvider,
       this.historicalHeader.globalVariables.blockNumber.toNumber(),
     );
 
-    const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+    const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
+      targetContractAddress,
+      functionSelector,
+    );
 
     const derivedTxContext = this.txContext.clone();
 
     const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
 
-    const context = new ClientExecutionContext(
+    const context = new PrivateExecutionOracle(
       argsHash,
       derivedTxContext,
       derivedCallContext,
@@ -402,8 +408,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.capsules,
       this.executionCache,
       this.noteCache,
-      this.db,
-      this.node,
+      this.executionDataProvider,
       this.provider,
       sideEffectCounter,
       this.log,
@@ -448,7 +453,10 @@ export class ClientExecutionContext extends ViewDataOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ) {
-    const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+    const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
+      targetContractAddress,
+      functionSelector,
+    );
     const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
     const args = this.executionCache.getPreimage(argsHash);
 
@@ -578,23 +586,23 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   public getDebugFunctionName() {
-    return this.db.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+    return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
   public override async incrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
-    await this.db.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
+    await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
   public override async syncNotes() {
-    const taggedLogsByRecipient = await this.db.syncTaggedLogs(
+    const taggedLogsByRecipient = await this.executionDataProvider.syncTaggedLogs(
       this.contractAddress,
       this.historicalHeader.globalVariables.blockNumber.toNumber(),
       this.scopes,
     );
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+      await this.executionDataProvider.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
 
-    await this.db.removeNullifiedNotes(this.contractAddress);
+    await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
 }

@@ -17,7 +17,7 @@ import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import type { ContractDataOracle } from '../contract_data_oracle/index.js';
+import type { ContractDataProvider } from '../contract_data_provider/index.js';
 import type { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
 // TODO: Block number should not be "latest".
@@ -27,7 +27,7 @@ import type { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.j
  */
 export class KernelOracle implements ProvingDataOracle {
   constructor(
-    private contractDataOracle: ContractDataOracle,
+    private contractDataProvider: ContractDataProvider,
     private keyStore: KeyStore,
     private node: AztecNode,
     private blockNumber: L2BlockNumber = 'latest',
@@ -35,7 +35,7 @@ export class KernelOracle implements ProvingDataOracle {
   ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
-    const instance = await this.contractDataOracle.getContractInstance(address);
+    const instance = await this.contractDataProvider.getContractInstance(address);
     return {
       saltedInitializationHash: await computeSaltedInitializationHash(instance),
       ...instance,
@@ -43,12 +43,12 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public async getContractClassIdPreimage(contractClassId: Fr) {
-    const contractClass = await this.contractDataOracle.getContractClass(contractClassId);
+    const contractClass = await this.contractDataProvider.getContractClass(contractClassId);
     return computeContractClassIdPreimage(contractClass);
   }
 
   public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
-    return await this.contractDataOracle.getFunctionMembershipWitness(contractClassId, selector);
+    return await this.contractDataProvider.getFunctionMembershipWitness(contractClassId, selector);
   }
 
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
@@ -82,7 +82,7 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
-    return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+    return this.contractDataProvider.getDebugFunctionName(contractAddress, selector);
   }
 
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {

@@ -19,10 +19,10 @@ import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { ContractDataProvider } from '../contract_data_provider/index.js';
 import type { PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { ContractDataOracle } from '../index.js';
-import { SimulatorOracle } from './index.js';
+import { PXEDataProvider } from './index.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
 
 const TXS_PER_BLOCK = 4;
@@ -105,8 +105,8 @@ async function computeSiloedTagForIndex(
 describe('Simulator oracle', () => {
   let aztecNode: MockProxy<AztecNode>;
   let database: PxeDatabase;
-  let contractDataOracle: ContractDataOracle;
-  let simulatorOracle: SimulatorOracle;
+  let contractDataProvider: ContractDataProvider;
+  let pxeDataProvider: PXEDataProvider;
   let keyStore: KeyStore;
   let simulationProvider: SimulationProvider;
 
@@ -117,11 +117,11 @@ describe('Simulator oracle', () => {
     const db = await openTmpStore('test');
     aztecNode = mock<AztecNode>();
     database = await KVPxeDatabase.create(db);
-    contractDataOracle = new ContractDataOracle(database);
-    jest.spyOn(contractDataOracle, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
+    contractDataProvider = new ContractDataProvider(database);
+    jest.spyOn(contractDataProvider, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
     keyStore = new KeyStore(db);
     simulationProvider = new WASMSimulator();
-    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode, simulationProvider);
+    pxeDataProvider = new PXEDataProvider(database, keyStore, aztecNode, simulationProvider, contractDataProvider);
     // Set up contract address
     contractAddress = await AztecAddress.random();
     // Set up recipient account
@@ -225,7 +225,7 @@ describe('Simulator oracle', () => {
     it('should sync tagged logs', async () => {
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeDataProvider.syncTaggedLogs(contractAddress, 3);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first
       // one + half of the logs for the second index
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
@@ -285,7 +285,7 @@ describe('Simulator oracle', () => {
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
 
       for (let i = 0; i < senders.length; i++) {
-        await simulatorOracle.syncTaggedLogsAsSender(
+        await pxeDataProvider.syncTaggedLogsAsSender(
           contractAddress,
           senders[i].completeAddress.address,
           recipient.address,
@@ -304,7 +304,7 @@ describe('Simulator oracle', () => {
       tagIndex = 11;
       await generateMockLogs(tagIndex);
       for (let i = 0; i < senders.length; i++) {
-        await simulatorOracle.syncTaggedLogsAsSender(
+        await pxeDataProvider.syncTaggedLogsAsSender(
           contractAddress,
           senders[i].completeAddress.address,
           recipient.address,
@@ -320,7 +320,7 @@ describe('Simulator oracle', () => {
     it('should sync tagged logs with a sender index offset', async () => {
       const tagIndex = 5;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeDataProvider.syncTaggedLogs(contractAddress, 3);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first one + half of the logs for the second index
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
@@ -370,7 +370,7 @@ describe('Simulator oracle', () => {
       // Increase our indexes to 2
       await database.setTaggingSecretsIndexesAsRecipient(secrets.map(secret => new IndexedTaggingSecret(secret, 2)));
 
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeDataProvider.syncTaggedLogs(contractAddress, 3);
 
       // Even if our index as recipient is higher than what the sender sent, we should be able to find the logs
       // since the window starts at Math.max(0, 2 - window_size) = 0
@@ -412,7 +412,7 @@ describe('Simulator oracle', () => {
         secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 1)),
       );
 
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeDataProvider.syncTaggedLogs(contractAddress, 3);
 
       // Only half of the logs should be synced since we start from index 1 = (11 - window_size), the other half should be skipped
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
@@ -448,7 +448,7 @@ describe('Simulator oracle', () => {
         secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 2)),
       );
 
-      let syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+      let syncedLogs = await pxeDataProvider.syncTaggedLogs(contractAddress, 3);
 
       // No logs should be synced since we start from index 2 = 12 - window_size
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
@@ -461,7 +461,7 @@ describe('Simulator oracle', () => {
       // Wipe the database
       await database.resetNoteSyncData();
 
-      syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 3);
+      syncedLogs = await pxeDataProvider.syncTaggedLogs(contractAddress, 3);
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
@@ -479,7 +479,7 @@ describe('Simulator oracle', () => {
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 1);
+      const syncedLogs = await pxeDataProvider.syncTaggedLogs(contractAddress, 1);
 
       // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
@@ -500,7 +500,7 @@ describe('Simulator oracle', () => {
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
-      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 1);
+      const syncedLogs = await pxeDataProvider.syncTaggedLogs(contractAddress, 1);
 
       // We expect the above log to be discarded, and so none to be synced
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
@@ -632,7 +632,7 @@ describe('Simulator oracle', () => {
 
       const taggedLogs = await mockTaggedLogs(requests);
 
-      await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
+      await pxeDataProvider.processTaggedLogs(taggedLogs, recipient.address, simulator);
 
       // We test that a call to `processLog` is made with the correct function artifact and contract address
       expect(runUnconstrainedSpy).toHaveBeenCalledTimes(3);
@@ -653,7 +653,7 @@ describe('Simulator oracle', () => {
 
       const taggedLogs = await mockTaggedLogs(requests);
 
-      await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
+      await pxeDataProvider.processTaggedLogs(taggedLogs, recipient.address, simulator);
 
       expect(addNotesSpy).toHaveBeenCalledTimes(0);
     });
@@ -675,7 +675,7 @@ describe('Simulator oracle', () => {
         return [await wrapInBlock(1n, await L2Block.random(2)), undefined, undefined];
       });
 
-      await simulatorOracle.removeNullifiedNotes(contractAddress);
+      await pxeDataProvider.removeNullifiedNotes(contractAddress);
 
       expect(removeNullifiedNotesSpy).toHaveBeenCalledTimes(1);
       expect(removeNullifiedNotesSpy).toHaveBeenCalledWith(

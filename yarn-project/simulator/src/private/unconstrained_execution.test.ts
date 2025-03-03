@@ -3,33 +3,30 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note } from '@aztec/stdlib/note';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import type { DBOracle } from './db_oracle.js';
+import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { WASMSimulator } from './providers/acvm_wasm.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
   const simulationProvider = new WASMSimulator();
 
-  let oracle: ReturnType<typeof mock<DBOracle>>;
-  let node: ReturnType<typeof mock<AztecNode>>;
+  let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
   let acirSimulator: AcirSimulator;
 
   beforeEach(() => {
-    oracle = mock<DBOracle>();
+    executionDataProvider = mock<ExecutionDataProvider>();
 
-    node = mock<AztecNode>();
-    node.getBlockNumber.mockResolvedValue(42);
-    node.getChainId.mockResolvedValue(1);
-    node.getVersion.mockResolvedValue(1);
+    executionDataProvider.getBlockNumber.mockResolvedValue(42);
+    executionDataProvider.getChainId.mockResolvedValue(1);
+    executionDataProvider.getVersion.mockResolvedValue(1);
 
-    acirSimulator = new AcirSimulator(oracle, node, simulationProvider);
+    acirSimulator = new AcirSimulator(executionDataProvider, simulationProvider);
   });
 
   describe('private token contract', () => {
@@ -45,7 +42,7 @@ describe('Unconstrained Execution test suite', () => {
       const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
       owner = ownerCompleteAddress.address;
 
-      oracle.getCompleteAddress.mockImplementation((account: AztecAddress) => {
+      executionDataProvider.getCompleteAddress.mockImplementation((account: AztecAddress) => {
         if (account.equals(owner)) {
           return Promise.resolve(ownerCompleteAddress);
         }
@@ -59,17 +56,17 @@ describe('Unconstrained Execution test suite', () => {
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      node.getBlockNumber.mockResolvedValue(27);
-      node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
-      oracle.getFunctionArtifact.mockResolvedValue(artifact);
-      oracle.getContractInstance.mockResolvedValue({
+      executionDataProvider.getBlockNumber.mockResolvedValue(27);
+      executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+      executionDataProvider.getFunctionArtifact.mockResolvedValue(artifact);
+      executionDataProvider.getContractInstance.mockResolvedValue({
         currentContractClassId: new Fr(42),
         originalContractClassId: new Fr(42),
       } as ContractInstance);
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getBlockHeader.mockResolvedValue(BlockHeader.empty());
-      oracle.getNotes.mockResolvedValue(
+      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
+      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.getBlockHeader.mockResolvedValue(BlockHeader.empty());
+      executionDataProvider.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
           contractAddress,
           storageSlot: Fr.random(),
@@ -82,8 +79,10 @@ describe('Unconstrained Execution test suite', () => {
         })),
       );
 
-      oracle.syncTaggedLogs.mockImplementation((_, __, ___) => Promise.resolve(new Map<string, TxScopedL2Log[]>()));
-      oracle.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+      executionDataProvider.syncTaggedLogs.mockImplementation((_, __, ___) =>
+        Promise.resolve(new Map<string, TxScopedL2Log[]>()),
+      );
+      executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
       const execRequest: FunctionCall = {
         name: artifact.name,
