@@ -73,7 +73,7 @@ mod tests {
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_CONTRACT_CLASS_LOG,
         L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.

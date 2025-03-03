@@ -4,7 +4,7 @@ use crate::{
     constants::CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
     hash::{poseidon2_hash_subarray_variable, silo_contract_class_log},
     traits::{Empty, is_empty},
-    utils::arrays::validate_trailing_zeroes,
+    utils::arrays::padded_array_length,
 };
 
 pub struct ContractClassLog {
@@ -29,7 +29,7 @@ pub fn validate_and_silo_contract_class_log(
         "mismatched contract class log address",
     );
     // Validate length
-    let length = validate_trailing_zeroes(log.log.fields);
+    let length = padded_array_length(log.log.fields);
     assert_eq(log_hash.log_hash.length, length, "mismatched contract class log length");
     // Validate hash
     if length == 0 {

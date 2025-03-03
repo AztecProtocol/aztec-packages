@@ -7,7 +7,7 @@ use dep::types::{
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
         L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_LOG_SIZE_IN_FIELDS,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
     },
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,

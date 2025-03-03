@@ -21,7 +21,7 @@ use dep::types::{
     hash::accumulate_sha256,
     merkle_tree::VariableMerkleTree,
     traits::{Empty, Serialize, ToField},
-    utils::arrays::{array_length, array_merge, find_index_hint_from_end, validate_trailing_zeroes},
+    utils::arrays::{array_length, array_merge, padded_array_length, unsafe_padded_array_length},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
 
@@ -326,7 +326,7 @@ fn get_tx_effects_hash_input(
         let mut total_private_log_len = 0;
 
         for j in 0..MAX_PRIVATE_LOGS_PER_TX {
-            let log_len = validate_trailing_zeroes(private_logs[j].fields);
+            let log_len = padded_array_length(private_logs[j].fields);
             if log_len != 0 {
                 assert_eq(tx_effects_hash_input[offset], log_len as Field);
                 offset += 1;
@@ -355,7 +355,7 @@ fn get_tx_effects_hash_input(
 
         for j in 0..MAX_PUBLIC_LOGS_PER_TX {
             let log = public_logs[j].serialize();
-            let log_len = validate_trailing_zeroes(log);
+            let log_len = padded_array_length(log);
             if log_len != 0 {
                 assert_eq(tx_effects_hash_input[offset], log_len as Field);
                 offset += 1;
@@ -526,7 +526,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
         let mut array_len = 0;
 
         for j in 0..num_private_logs {
-            let log_len = find_index_hint_from_end(private_logs[j].fields, |f| f == 0);
+            let log_len = unsafe_padded_array_length(private_logs[j].fields);
             tx_effects_hash_input[offset] = log_len as Field;
             offset += 1;
             array_len += log_len + 1;
@@ -548,7 +548,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
 
         for j in 0..num_public_logs {
             let log = public_logs[j].serialize();
-            let log_len = find_index_hint_from_end(log, |f| f != 0);
+            let log_len = unsafe_padded_array_length(log);
             tx_effects_hash_input[offset] = log_len as Field;
             offset += 1;
             array_len += log_len + 1;

@@ -184,8 +184,8 @@ mod tests {
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
             log::Log, nullifier_leaf_preimage::NullifierLeafPreimage,
-            public_data_write::PublicDataWrite, side_effect::OrderedValue, sponge_blob::SpongeBlob,
-            tree_snapshots::TreeSnapshots,
+            private_log::get_emitted_private_log_fields_len, public_data_write::PublicDataWrite,
+            side_effect::OrderedValue, sponge_blob::SpongeBlob, tree_snapshots::TreeSnapshots,
         },
         address::EthAddress,
         constants::{
@@ -206,7 +206,7 @@ mod tests {
             merkle_tree_utils::NonEmptyMerkleTree,
         },
         traits::{Empty, Hash, Serialize, ToField},
-        utils::{arrays::{array_concat, find_index_hint_from_end}, field::field_from_bytes},
+        utils::{arrays::{array_concat, unsafe_padded_array_length}, field::field_from_bytes},
     };
     use types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
 
@@ -539,18 +539,17 @@ mod tests {
         reconstructed_tx_effects[offset + 1] = PUB_DATA_VALUE;
         offset += 2;
         // private logs
-        let total_private_logs_len = builder
+        let total_private_logs_len = get_emitted_private_log_fields_len(builder
             .tube_data
             .private_logs
             .storage()
-            .map(|l| find_index_hint_from_end(l.inner.log.fields, |f| f == 0))
-            .fold(0, |acc, len| acc + len + if len == 0 { 0 } else { 1 });
+            .map(|l| l.inner.log));
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
         reconstructed_tx_effects[offset] = private_logs_prefix;
         offset += 1;
         for i in 0..NUM_PRIV_EVENT_LOGS {
             let log = builder.tube_data.private_logs.storage()[i].inner.log.fields;
-            let log_len = find_index_hint_from_end(log, |f| f == 0);
+            let log_len = unsafe_padded_array_length(log);
             if log_len != 0 {
                 reconstructed_tx_effects[offset] = log_len as Field;
                 offset += 1;
@@ -565,14 +564,14 @@ mod tests {
             .avm_data
             .public_logs
             .storage()
-            .map(|l| find_index_hint_from_end(l.serialize(), |f| f != 0))
+            .map(|l| unsafe_padded_array_length(l.serialize()))
             .fold(0, |acc, len| acc + len + if len == 0 { 0 } else { 1 });
         let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, total_public_logs_len);
         reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
         for i in 0..NUM_PUB_LOGS {
             let log = builder.avm_data.public_logs.storage()[i].serialize();
-            let log_len = find_index_hint_from_end(log, |f| f != 0);
+            let log_len = unsafe_padded_array_length(log);
             if log_len != 0 {
                 reconstructed_tx_effects[offset] = log_len as Field;
                 offset += 1;

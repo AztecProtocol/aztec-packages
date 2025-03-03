@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{PRIVATE_LOG_DATA_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS},
     traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::{array_concat, find_index_hint_from_end}, reader::Reader},
+    utils::{arrays::{array_concat, unsafe_padded_array_length}, reader::Reader},
 };
 
 pub type PrivateLog = Log<PRIVATE_LOG_SIZE_IN_FIELDS>;
@@ -68,7 +68,7 @@ impl Ordered for Scoped<PrivateLogData> {
 }
 
 pub unconstrained fn get_emitted_private_log_fields_len<let N: u32>(logs: [PrivateLog; N]) -> u32 {
-    logs.map(|l| find_index_hint_from_end(l.fields, |f| f == 0)).fold(0, |acc, len| {
+    logs.map(|l| unsafe_padded_array_length(l.fields)).fold(0, |acc, len| {
         acc + len + if len == 0 { 0 } else { 1 }
     })
 }

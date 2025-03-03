@@ -236,7 +236,8 @@ mod tests {
             constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
             gas::Gas, gas_fees::GasFees,
             kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs, log::Log,
-            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+            nullifier_leaf_preimage::NullifierLeafPreimage,
+            private_log::get_emitted_private_log_fields_len, public_data_write::PublicDataWrite,
             side_effect::OrderedValue, sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
@@ -263,7 +264,7 @@ mod tests {
         },
         traits::{Empty, FromField, Hash, ToField},
         utils::{
-            arrays::{array_concat, find_index_hint_from_end, get_sorted_tuple::get_sorted_tuple},
+            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple, unsafe_padded_array_length},
             field::{field_from_bytes, full_field_less_than},
         },
     };
@@ -1006,18 +1007,17 @@ mod tests {
         reconstructed_tx_effects[offset + 1] = fee_write.value;
         offset += 2;
         // private logs
-        let total_private_logs_len = builder
+        let total_private_logs_len = get_emitted_private_log_fields_len(builder
             .tube_data
             .private_logs
             .storage()
-            .map(|l| find_index_hint_from_end(l.inner.log.fields, |f| f == 0))
-            .fold(0, |acc, len| acc + len + if len == 0 { 0 } else { 1 });
+            .map(|l| l.inner.log));
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
         reconstructed_tx_effects[offset] = private_logs_prefix;
         offset += 1;
         for i in 0..NUM_NOTES + NUM_PRIV_EVENT_LOGS {
             let log = builder.tube_data.private_logs.storage()[i].inner.log.fields;
-            let log_len = find_index_hint_from_end(log, |f| f == 0);
+            let log_len = unsafe_padded_array_length(log);
             if log_len != 0 {
                 reconstructed_tx_effects[offset] = log_len as Field;
                 offset += 1;
