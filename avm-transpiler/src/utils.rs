@@ -26,8 +26,14 @@ pub fn extract_brillig_from_acir_program(
     let opcodes = &main_function.opcodes;
     assert_eq!(opcodes.len(), 1, "An AVM program should only have a single `BrilligCall`");
     match opcodes[0] {
-        Opcode::BrilligCall { id, .. } => assert_eq!(id, BrilligFunctionId(0), "The ID of the `BrilligCall` must be 0 as we have a single `Brillig` function"),
-        _ => panic!("Tried to extract a Brillig program from its ACIR wrapper opcode, but the opcode doesn't contain Brillig!"),
+        Opcode::BrilligCall { id, .. } => assert_eq!(
+            id,
+            BrilligFunctionId(0),
+            "The ID of the `BrilligCall` must be 0 as we have a single `Brillig` function"
+        ),
+        _ => panic!(
+            "Tried to extract a Brillig program from its ACIR wrapper opcode, but the opcode doesn't contain Brillig!"
+        ),
     }
     assert_eq!(
         program.unconstrained_functions.len(),

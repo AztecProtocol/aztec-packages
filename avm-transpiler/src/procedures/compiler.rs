@@ -4,7 +4,7 @@ use crate::{
     bit_traits::bits_needed_for,
     instructions::{AvmInstruction, AvmOperand},
     opcodes::AvmOpcode,
-    utils::{make_operand, make_unresolved_pc, UnresolvedPCLocation},
+    utils::{UnresolvedPCLocation, make_operand, make_unresolved_pc},
 };
 use fxhash::FxHashMap as HashMap;
 use operand_collector::OperandCollector;
