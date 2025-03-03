@@ -334,7 +334,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Emit a contract class log.
    * This fn exists because we only carry a poseidon hash through the kernels, and need to
    * keep the preimage in ts for later.
-   * We could also return the hash here if we must save extra gates.
    * @param log - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */

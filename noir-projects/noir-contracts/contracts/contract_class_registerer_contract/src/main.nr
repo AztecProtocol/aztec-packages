@@ -13,6 +13,7 @@ pub contract ContractClassRegisterer {
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
         },
         contract_class_id::ContractClassId,
+        hash::poseidon2_hash_subarray_variable,
         utils::arrays::{array_concat, unsafe_padded_array_length},
     };
 
