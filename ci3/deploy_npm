@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
+set -x
 dist_tag=$1
 version=$2
 
