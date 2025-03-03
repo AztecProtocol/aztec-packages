@@ -1,20 +1,20 @@
 #pragma once
 
-#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 
 namespace bb::avm2::simulation {
 
 struct EccAddEvent {
-    AffinePoint p;
-    AffinePoint q;
-    AffinePoint result;
+    EmbeddedCurvePoint p;
+    EmbeddedCurvePoint q;
+    EmbeddedCurvePoint result;
 };
 
 struct ScalarMulIntermediateState {
     /* Accumulated result on this bit of the scalar */
-    AffinePoint res;
+    EmbeddedCurvePoint res;
     /* 2**(bit_idx) * point */
-    AffinePoint temp;
+    EmbeddedCurvePoint temp;
     /* current bit of the scalar */
     bool bit;
 
@@ -22,10 +22,10 @@ struct ScalarMulIntermediateState {
 };
 
 struct ScalarMulEvent {
-    AffinePoint point;
+    EmbeddedCurvePoint point;
     FF scalar;
     std::vector<ScalarMulIntermediateState> intermediate_states;
-    AffinePoint result;
+    EmbeddedCurvePoint result;
 
     bool operator==(const ScalarMulEvent& other) const = default;
 };
