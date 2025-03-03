@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 
 # Get the hardware memory in GB, useful for setting the memsuspend limit.
 # General rul of thumb:
