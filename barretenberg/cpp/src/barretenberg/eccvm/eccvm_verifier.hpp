@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 
@@ -16,6 +17,9 @@ class ECCVMVerifier {
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using PCS = typename Flavor::PCS;
+    using SmallIPA = SmallSubgroupIPAVerifier<typename ECCVMFlavor::Curve>;
+
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS;
 
   public:
     explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
@@ -25,8 +29,8 @@ class ECCVMVerifier {
         : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
     bool verify_proof(const ECCVMProof& proof);
-    OpeningClaim<typename ECCVMFlavor::Curve> compute_translation_opening_claim(
-        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
+
+    std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
 
     std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
     TranslationEvaluations translation_evaluations;
@@ -36,8 +40,7 @@ class ECCVMVerifier {
 
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels;
 
-    std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1>
-    compute_translation_opening_claims(
+    void compute_translation_opening_claims(
         const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;

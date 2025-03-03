@@ -17,6 +17,8 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS;
+
   public:
     explicit ECCVMRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
@@ -32,13 +34,13 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
 
     std::vector<Commitment> translation_commitments;
     TranslationEvaluations_<FF> translation_evaluations;
+    std::array<OpeningClaim<Curve>, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
 
     std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels;
 
-    std::array<OpeningClaim<Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> compute_translation_opening_claims(
-        const std::vector<Commitment>& translation_commitments);
+    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     // Translation evaluations challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;

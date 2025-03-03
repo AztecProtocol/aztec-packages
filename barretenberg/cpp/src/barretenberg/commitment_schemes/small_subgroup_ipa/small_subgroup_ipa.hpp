@@ -8,6 +8,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
+#include "small_subgroup_ipa_utils.hpp"
 
 #include <array>
 #include <vector>
@@ -87,9 +88,6 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // Fixed generator of H
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
-    // The SmallSubgroupIPA claim
-    FF claimed_inner_product;
-
     // Interpolation domain {1, g, \ldots, g^{SUBGROUP_SIZE - 1}} used by ECCVM
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
     // We use IFFT over BN254 scalar field
@@ -123,6 +121,9 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     std::shared_ptr<typename Flavor::CommitmentKey> commitment_key;
 
   public:
+    // The SmallSubgroupIPA claim
+    FF claimed_inner_product{ 0 };
+
     // Default constructor to initialize all polynomials, transcript, and commitment key.
     SmallSubgroupIPAProver(const std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
@@ -138,7 +139,6 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
                            const FF evaluation_challenge_x,
                            const FF batching_challenge_v,
-                           const FF claimed_inner_product,
                            const std::shared_ptr<typename Flavor::Transcript>& transcript,
                            std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key);
 
@@ -161,9 +161,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
                                             const std::vector<FF>& multivariate_challenge,
                                             const size_t& log_circuit_size);
 
-    static FF compute_claimed_translation_inner_product(TranslationData<typename Flavor::Transcript>& translation_data,
-                                                        const FF& evaluation_challenge_x,
-                                                        const FF& batching_challenge_v);
+    FF compute_claimed_translation_inner_product(TranslationData<typename Flavor::Transcript>& translation_data);
 
     Polynomial<FF> static compute_monomial_coefficients(std::span<FF> lagrange_coeffs,
                                                         const std::array<FF, SUBGROUP_SIZE>& interpolation_domain,
@@ -186,10 +184,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels()
     {
-        return { "Translation:concatenation_eval",
-                 "Translation:grand_sum_shift_eval",
-                 "Translation:grand_sum_eval",
-                 "Translation:quotient_eval" };
+        return get_evaluation_labels(label_prefix);
     };
 };
 
@@ -407,12 +402,9 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
     {
         return compute_evaluation_points<FF>(small_ipa_evaluation_challenge, Curve::subgroup_generator);
     }
-    static std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels()
+    static std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels(const std::string& label_prefix)
     {
-        return { "Translation:concatenation_eval",
-                 "Translation:grand_sum_shift_eval",
-                 "Translation:grand_sum_eval",
-                 "Translation:quotient_eval" };
+        return get_evaluation_labels(label_prefix);
     };
 };
 
@@ -482,15 +474,5 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
     }
 
     return coeffs_lagrange_basis;
-}
-
-template <typename FF>
-std::array<FF, NUM_SMALL_IPA_EVALUATIONS> compute_evaluation_points(const FF& small_ipa_evaluation_challenge,
-                                                                    const FF& subgroup_generator)
-{
-    return { small_ipa_evaluation_challenge,
-             small_ipa_evaluation_challenge * subgroup_generator,
-             small_ipa_evaluation_challenge,
-             small_ipa_evaluation_challenge };
 }
 } // namespace bb

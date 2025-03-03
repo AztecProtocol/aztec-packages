@@ -200,7 +200,7 @@ class GoblinProver {
      */
     void prove_translator()
     {
-        fq translation_batching_challenge_v = eccvm_prover->translation_batching_challenge_v;
+        fq translation_batching_challenge_v = eccvm_prover->batching_challenge_v;
         fq evaluation_challenge_x = eccvm_prover->evaluation_challenge_x;
         std::shared_ptr<Transcript> transcript = eccvm_prover->transcript;
         eccvm_key = eccvm_prover->key;

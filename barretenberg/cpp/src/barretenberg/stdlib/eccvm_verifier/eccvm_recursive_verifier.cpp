@@ -118,16 +118,9 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
                                                               commitments.transcript_z1,
                                                               commitments.transcript_z2 };
     // Reduce the univariate evaluations claims to a single claim to be batched by Shplonk
-    std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 1> translation_opening_claims =
-        compute_translation_opening_claims(translation_commitments);
+    compute_translation_opening_claims(translation_commitments);
 
-    std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 2> opening_claims = {
-        multivariate_to_univariate_opening_claim
-    };
-
-    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS + 1; idx++) {
-        opening_claims[idx + 1] = translation_opening_claims[idx];
-    };
+    opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
@@ -144,15 +137,13 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
  * @return OpeningClaim<typename Flavor::Curve>
  */
 template <typename Flavor>
-std::array<OpeningClaim<typename Flavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> ECCVMRecursiveVerifier_<
-    Flavor>::compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments)
+void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
+    const std::vector<Commitment>& translation_commitments)
 {
-    using SmallIPAVerifier = SmallSubgroupIPAVerifier<typename Flavor::Curve>;
-
-    std::array<OpeningClaim<typename Flavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> opening_claims;
+    using SmallIPA = SmallSubgroupIPAVerifier<typename Flavor::Curve>;
 
     small_ipa_commitments[0] =
-        transcript->template receive_from_prover<Commitment>("Translation:masking_term_commitment");
+        transcript->template receive_from_prover<Commitment>("Translation:batched_masking_term_commitment");
 
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
@@ -173,14 +164,13 @@ std::array<OpeningClaim<typename Flavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> 
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
 
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
-    labels = SmallIPAVerifier::evaluation_labels();
+    labels = SmallIPA::evaluation_labels("Translation");
 
-    evaluation_points = SmallIPAVerifier::evaluation_points(small_ipa_evaluation_challenge);
+    evaluation_points = SmallIPA::evaluation_points(small_ipa_evaluation_challenge);
 
     for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
         small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);
-        opening_claims[idx + 1] = { { evaluation_points[idx], small_ipa_evaluations[idx] },
-                                    small_ipa_commitments[idx] };
+        opening_claims[idx] = { { evaluation_points[idx], small_ipa_evaluations[idx] }, small_ipa_commitments[idx] };
     }
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
@@ -195,17 +185,16 @@ std::array<OpeningClaim<typename Flavor::Curve>, NUM_SMALL_IPA_EVALUATIONS + 1> 
     }
     const Commitment batched_commitment = Commitment::batch_mul(translation_commitments, batching_challenges);
 
-    opening_claims[0] = { { evaluation_challenge_x, batched_translation_evaluation }, batched_commitment };
+    opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
+                                                  batched_commitment };
 
     translation_masking_consistency_checked =
-        SmallIPAVerifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
-                                                              small_ipa_evaluation_challenge,
-                                                              evaluation_challenge_x,
-                                                              batching_challenge_v,
-                                                              translation_masking_term_eval);
+        SmallIPA::check_eccvm_evaluations_consistency(small_ipa_evaluations,
+                                                      small_ipa_evaluation_challenge,
+                                                      evaluation_challenge_x,
+                                                      batching_challenge_v,
+                                                      translation_masking_term_eval);
     info(translation_masking_consistency_checked);
-
-    return opening_claims;
 };
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

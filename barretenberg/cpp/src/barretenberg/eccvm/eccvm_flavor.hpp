@@ -99,6 +99,10 @@ class ECCVMFlavor {
     // define the containers for storing the contributions from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
 
+    // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
+    // evaluation of 'op', 'Px', 'Py', 'z1', and 'z2', and an array of opening claims for the evaluations of the
+    // SmallSubgroupIPA witness polynomials.
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
@@ -1011,7 +1015,7 @@ class ECCVMFlavor {
         std::vector<Commitment> gemini_fold_comms;
         std::vector<FF> gemini_fold_evals;
         Commitment shplonk_q_comm;
-        Commitment translation_masking_term_commitment;
+        Commitment translation_batched_masking_term_commitment;
         FF translation_masking_term_eval;
         FF translation_eval_op;
         FF translation_eval_px;
@@ -1248,7 +1252,7 @@ class ECCVMFlavor {
             libra_quotient_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
-            translation_masking_term_commitment =
+            translation_batched_masking_term_commitment =
                 NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             translation_eval_op =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
@@ -1415,7 +1419,7 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(libra_quotient_eval, proof_data);
             NativeTranscript::template serialize_to_buffer(shplonk_q_comm, proof_data);
 
-            NativeTranscript::template serialize_to_buffer(translation_masking_term_commitment, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_batched_masking_term_commitment, proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_px, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_py, NativeTranscript::proof_data);

@@ -30,6 +30,8 @@ class ECCVMProver {
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS;
+
     explicit ECCVMProver(CircuitBuilder& builder,
                          const bool fixed_size = false,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
@@ -45,12 +47,14 @@ class ECCVMProver {
 
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
-    std::array<OpeningClaim, NUM_SMALL_IPA_EVALUATIONS + 1> compute_translation_opening_claims();
+    void compute_translation_opening_claims();
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
     bool fixed_size;
+
+    std::array<OpeningClaim, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
 
     TranslationEvaluations translation_evaluations;
 
@@ -67,7 +71,7 @@ class ECCVMProver {
     ZKData zk_sumcheck_data;
 
     FF evaluation_challenge_x;
-    FF translation_batching_challenge_v;
+    FF batching_challenge_v;
 
     SumcheckOutput<Flavor> sumcheck_output;
 };
