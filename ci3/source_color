@@ -8,18 +8,18 @@
 # export purple="\033[35m"
 
 # Quite nice colors guessed by GPT.
-# export yellow="\033[38;2;230;197;71m"
-# export blue="\033[38;2;95;167;241m"
-# export green="\033[38;2;97;214;104m"
-# export red="\033[38;2;230;69;83m"
-# export purple="\033[38;2;178;99;198m"
+export yellow="\033[38;2;250;217;121m"
+export blue="\033[38;2;95;167;241m"
+export green="\033[38;2;97;214;104m"
+export red="\033[38;2;230;69;83m"
+export purple="\033[38;2;188;109;208m"
 
 # Copied from iTerm2 Pastel Dark Background
-export yellow="\033[38;2;255;253;201m"
-export blue="\033[38;2;175;212;250m"
-export green="\033[38;2;195;249;133m"
-export red="\033[38;2;239;138;121m"
-export purple="\033[38;2;240;150;248m"
+# export yellow="\033[38;2;255;253;201m"
+# export blue="\033[38;2;175;212;250m"
+# export green="\033[38;2;195;249;133m"
+# export red="\033[38;2;239;138;121m"
+# export purple="\033[38;2;240;150;248m"
 
 export bold="\033[1m"
 export reset="\033[0m"
