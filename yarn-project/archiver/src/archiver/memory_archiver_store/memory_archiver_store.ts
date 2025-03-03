@@ -1,9 +1,4 @@
-import {
-  INITIAL_L2_BLOCK_NUM,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-} from '@aztec/constants';
+import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { FunctionSelector } from '@aztec/stdlib/abi';
@@ -276,15 +271,18 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
-  #storeTaggedLogsFromPrivate(block: L2Block): void {
+  #storeTaggedLogs(block: L2Block): void {
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
       block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
     block.body.txEffects.forEach((txEffect, txIndex) => {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
+
       txEffect.privateLogs.forEach(log => {
         const tag = log.fields[0];
+        this.#log.verbose(`Storing private log with tag ${tag.toString()} from block ${block.number}`);
+
         const currentLogs = this.taggedLogs.get(tag.toString()) || [];
         this.taggedLogs.set(tag.toString(), [
           ...currentLogs,
@@ -293,41 +291,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
         const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
         this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
       });
-    });
-  }
 
-  #storeTaggedLogsFromPublic(block: L2Block): void {
-    const dataStartIndexForBlock =
-      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
-    block.body.txEffects.forEach((txEffect, txIndex) => {
-      const txHash = txEffect.txHash;
-      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.publicLogs.forEach(log => {
-        // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
-        // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
-        // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
-        const firstFieldBuf = log.log[0].toBuffer();
-        if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
-          // See parseLogFromPublic - the first field of a tagged log is 8 bytes structured:
-          // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
-          this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
-          return;
-        }
-        // Check that the length values line up with the log contents
-        const publicValuesLength = firstFieldBuf.subarray(-5).readUint16BE();
-        const privateValuesLength = firstFieldBuf.subarray(-5).readUint16BE(3);
-        // Add 1 for the first field holding lengths
-        const totalLogLength = 1 + publicValuesLength + privateValuesLength;
-        // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
-        if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
-          this.#log.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
-          return;
-        }
+        const tag = log.log[0];
+        this.#log.verbose(`Storing public log with tag ${tag.toString()} from block ${block.number}`);
 
-        // The first elt stores lengths => tag is in fields[1]
-        const tag = log.log[1];
-        this.#log.verbose(`Storing public tagged log with tag ${tag.toString()} in block ${block.number}`);
         const currentLogs = this.taggedLogs.get(tag.toString()) || [];
         this.taggedLogs.set(tag.toString(), [
           ...currentLogs,
@@ -346,8 +314,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean> {
     blocks.forEach(block => {
-      this.#storeTaggedLogsFromPrivate(block);
-      this.#storeTaggedLogsFromPublic(block);
+      this.#storeTaggedLogs(block);
       this.privateLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       this.publicLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.publicLogs).flat());
       this.contractClassLogsPerBlock.set(
@@ -566,8 +533,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * that tag.
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    const noteLogs = tags.map(tag => this.taggedLogs.get(tag.toString()) || []);
-    return Promise.resolve(noteLogs);
+    const logs = tags.map(tag => this.taggedLogs.get(tag.toString()) || []);
+    return Promise.resolve(logs);
   }
 
   /**
