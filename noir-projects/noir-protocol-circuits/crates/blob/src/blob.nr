@@ -651,8 +651,8 @@ mod tests {
         }
         // Safety: this is a test
         unsafe {
-            let partial_sums = __compute_partial_sums(fields, ROOTS);
-            let sum = __compute_sum(fields, ROOTS);
+            let partial_sums = __compute_partial_sums(fields);
+            let sum = __compute_sum(fields);
 
             assert_eq(partial_sums[FIELDS_PER_BLOB / 8 - 1], sum);
         }
