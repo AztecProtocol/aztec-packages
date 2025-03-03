@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741026093173,
+  "lastUpdate": 1741033986513,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "5764343+charlielye@users.noreply.github.com",
-            "name": "Charlie Lye",
-            "username": "charlielye"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e83fe03b8fb93c990f332d3fb31ebc35cf9a1d19",
-          "message": "feat: Slack message to ci channel tagging owners on flakes. (#12284)\n\n* .test_skip_patterns is now .test_patterns.yml and assigns owners to\ntests.\n* If in CI and a matching test fails, it doesnt fail the build but\nslacks the log to the owner.\n* Some additional denoise header metadata.\n* We still \"fail fast\" when doing a test run locally.",
-          "timestamp": "2025-02-26T22:52:21Z",
-          "tree_id": "4e461dc26b6f38542403a08ef9a318631b1345d9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e83fe03b8fb93c990f332d3fb31ebc35cf9a1d19"
-        },
-        "date": 1740612120092,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18413.378018999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16299.849970000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18763.52351200012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16369.790009999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4001.129346000198,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3150.7979550000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55032.740424,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55032741000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9293.240442999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9293242000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1912368646,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1912368646 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 212168083,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 212168083 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 215300597,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 215300597 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7cb6328ee6106c2436d1e80e3aeb8c30df7bf831",
+          "message": "chore: pull out formatter changes from sync (#12426)\n\nThis PR pulls out a bunch of formatter changes from the noir sync to\nreduce noise",
+          "timestamp": "2025-03-03T20:01:51Z",
+          "tree_id": "e77adc2e544a8979252d701da7f84ae709116190",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7cb6328ee6106c2436d1e80e3aeb8c30df7bf831"
+        },
+        "date": 1741033978549,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18293.90081199995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16206.493926000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18686.57101099984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16310.210768 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3980.5286610001076,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3103.178491 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55514.586755,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55514587000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10980.870231,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10980873000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1915413931,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1915413931 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 223876554,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 223876554 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
