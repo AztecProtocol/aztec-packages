@@ -8,7 +8,7 @@ use lsp_types::{
 };
 use noirc_errors::{Location, Span};
 use noirc_frontend::{
-    self,
+    self, Kind, Type, TypeBinding, TypeVariable,
     ast::{
         CallExpression, Expression, ExpressionKind, ForLoopStatement, Ident, Lambda, LetStatement,
         MethodCallExpression, NoirFunction, NoirTraitImpl, Pattern, Statement, TypeImpl,
@@ -17,12 +17,11 @@ use noirc_frontend::{
     hir_def::stmt::HirPattern,
     node_interner::{NodeInterner, ReferenceId},
     parser::{Item, ParsedSubModule},
-    Kind, Type, TypeBinding, TypeVariable,
 };
 
-use crate::{utils, LspState};
+use crate::{LspState, utils};
 
-use super::{process_request, to_lsp_location, InlayHintsOptions};
+use super::{InlayHintsOptions, process_request, to_lsp_location};
 
 pub(crate) fn on_inlay_hint_request(
     state: &mut LspState,
@@ -919,8 +918,8 @@ mod inlay_hints_tests {
     }
 
     #[test]
-    async fn test_do_not_show_parameter_inlay_hints_if_single_param_name_is_suffix_of_function_name(
-    ) {
+    async fn test_do_not_show_parameter_inlay_hints_if_single_param_name_is_suffix_of_function_name()
+     {
         let inlay_hints = get_inlay_hints(64, 67, parameter_hints()).await;
         assert!(inlay_hints.is_empty());
     }

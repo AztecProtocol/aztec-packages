@@ -255,7 +255,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
         return;
       }
       const txHashes = block.body.txEffects.map(tx => tx.txHash);
-      this.log.verbose(`Fetching ${txHashes.length} for block number ${blockNumber} from coordination`);
+      this.log.verbose(`Fetching ${txHashes.length} tx hashes for block number ${blockNumber} from coordination`);
       await this.coordination.getTxsByHash(txHashes); // This stores the txs in the tx pool, no need to persist them here
       this.lastBlockNumber = blockNumber;
     }

@@ -2,22 +2,22 @@ use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
 use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use std::collections::BTreeMap;
 
+use acvm::FieldElement;
 use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
-use acvm::FieldElement;
 use noirc_errors::debug_info::DebugInfo;
 
-use crate::bit_traits::{bits_needed_for, BitsQueryable};
+use crate::bit_traits::{BitsQueryable, bits_needed_for};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
 use crate::procedures::{
-    compile_procedure, Label as ProcedureLocalLabel, Procedure, SCRATCH_SPACE_START,
+    Label as ProcedureLocalLabel, Procedure, SCRATCH_SPACE_START, compile_procedure,
 };
 use crate::utils::{
-    dbg_print_avm_program, dbg_print_brillig_program, make_operand, make_unresolved_pc,
-    UnresolvedPCLocation, UNRESOLVED_PC,
+    UNRESOLVED_PC, UnresolvedPCLocation, dbg_print_avm_program, dbg_print_brillig_program,
+    make_operand, make_unresolved_pc,
 };
 
 enum Label {
@@ -640,18 +640,19 @@ fn handle_note_hash_exists(
     inputs: &[ValueOrArray],
 ) {
     let (note_hash_offset_operand, leaf_index_offset_operand) = match inputs {
-        [
-            ValueOrArray::MemoryAddress(nh_offset),
-            ValueOrArray::MemoryAddress(li_offset)
-        ] => (nh_offset, li_offset),
+        [ValueOrArray::MemoryAddress(nh_offset), ValueOrArray::MemoryAddress(li_offset)] => {
+            (nh_offset, li_offset)
+        }
         _ => panic!(
-            "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 2 inputs of type MemoryAddress, got {:?}", inputs
+            "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 2 inputs of type MemoryAddress, got {:?}",
+            inputs
         ),
     };
     let exists_offset_operand = match destinations {
         [ValueOrArray::MemoryAddress(offset)] => offset,
         _ => panic!(
-            "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 1 output of type MemoryAddress, got {:?}", destinations
+            "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 1 output of type MemoryAddress, got {:?}",
+            destinations
         ),
     };
     avm_instrs.push(AvmInstruction {
@@ -751,19 +752,29 @@ fn handle_nullifier_exists(
     inputs: &[ValueOrArray],
 ) {
     if destinations.len() != 1 || inputs.len() != 2 {
-        panic!("Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 2 inputs, got {} and {}", destinations.len(), inputs.len());
+        panic!(
+            "Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 2 inputs, got {} and {}",
+            destinations.len(),
+            inputs.len()
+        );
     }
     let nullifier_offset_operand = match &inputs[0] {
         ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+        _ => panic!(
+            "Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"
+        ),
     };
     let address_offset_operand = match &inputs[1] {
         ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+        _ => panic!(
+            "Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"
+        ),
     };
     let exists_offset_operand = match &destinations[0] {
         ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+        _ => panic!(
+            "Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"
+        ),
     };
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::NULLIFIEREXISTS,

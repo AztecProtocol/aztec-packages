@@ -38,7 +38,7 @@ class ClientIVCAPI : public API {
                const std::filesystem::path& witness_path) override;
 };
 
-void gate_count_for_ivc(const std::string& bytecode_path);
+void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode);
 
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir);
 
