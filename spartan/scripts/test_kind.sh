@@ -24,10 +24,10 @@ set -x
 # Main positional parameter
 test=$1
 values_file="${2:-default.yaml}"
-helm_instance="${3:-$(basename $test | tr '.' '-')}"
+namespace="${3:-$(basename $test | tr '.' '-')}"
 
 # Default values for environment variables
-namespace="${NAMESPACE:-test-kind}"
+helm_instance=${HELM_INSTANCE:-$namespace}
 chaos_values="${CHAOS_VALUES:-}"
 fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
@@ -60,7 +60,7 @@ fi
 
 function cleanup {
   set +e
-  (cat "logs/kind-$namespace.log" || true) | NO_CAT=1 cache_log "kind test $test" || true
+  (cat "logs/kind-$namespace.log" || true) | cache_log "kind test $test" || true
   # kill everything in our process group except our process
   trap - SIGTERM && kill $stern_pid $(jobs -p) &>/dev/null || true
 

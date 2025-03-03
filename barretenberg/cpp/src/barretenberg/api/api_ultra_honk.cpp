@@ -110,6 +110,12 @@ bool _verify(const bool honk_recursion_2, const std::filesystem::path& proof_pat
         verified = verifier.verify_proof(proof);
     }
 
+    if (verified) {
+        info("Proof verified successfully");
+    } else {
+        info("Proof verification failed");
+    }
+
     return verified;
 }
 
@@ -214,12 +220,12 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    gate_count(bytecode_path, flags.recursive, flags.honk_recursion);
+    gate_count(bytecode_path, flags.recursive, flags.honk_recursion, flags.include_gates_per_opcode);
 }
 
-void UltraHonkAPI::write_contract(const Flags& flags,
-                                  const std::filesystem::path& output_path,
-                                  const std::filesystem::path& vk_path)
+void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
+                                           const std::filesystem::path& output_path,
+                                           const std::filesystem::path& vk_path)
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
@@ -229,6 +235,7 @@ void UltraHonkAPI::write_contract(const Flags& flags,
         std::cout << contract;
     } else {
         write_file(output_path, { contract.begin(), contract.end() });
+        info("Solidity verifier saved to ", output_path);
     }
 }
 

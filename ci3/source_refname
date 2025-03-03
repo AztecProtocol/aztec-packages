@@ -30,7 +30,7 @@ if [ -z "${REF_NAME:-}" ]; then
 fi
 
 if [ -z "${CI_FULL:-}" ]; then
-  if [ ${CI:-0} -lt 1 ]; then
+  if [ "$CI" -eq 0 ]; then
     export CI_FULL=0
   elif semver check "$REF_NAME"; then
     export CI_FULL=1

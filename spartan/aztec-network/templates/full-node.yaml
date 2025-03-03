@@ -94,6 +94,10 @@ spec:
           env:
             - name: P2P_ENABLED
               value: "{{ .Values.fullNode.p2p.enabled }}"
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
 
         - name: wait-for-ethereum
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -215,6 +219,8 @@ spec:
               value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
+              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}

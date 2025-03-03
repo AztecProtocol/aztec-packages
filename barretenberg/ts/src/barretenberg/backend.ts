@@ -10,6 +10,12 @@ import {
   reconstructUltraPlonkProof,
 } from '../proof/index.js';
 
+export class AztecClientBackendError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export class UltraPlonkBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` and `acirComposer` in the constructor.
@@ -378,7 +384,12 @@ export class AztecClientBackend {
 
   async prove(witnessMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
     await this.instantiate();
-    return this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+    const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+    const [proof, vk] = proofAndVk;
+    if (!await this.verify(proof, vk)) {
+      throw new AztecClientBackendError("Failed to verify the private (ClientIVC) transaction proof!");
+    }
+    return proofAndVk;
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
