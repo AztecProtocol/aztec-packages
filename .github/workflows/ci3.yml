@@ -140,7 +140,7 @@ jobs:
 
   ci-grind:
     runs-on: ubuntu-latest
-    if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref_name == 'master')
     strategy:
       matrix:
         number: [1, 2, 3, 4, 5]
