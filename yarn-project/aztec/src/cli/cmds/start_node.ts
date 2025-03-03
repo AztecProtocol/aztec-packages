@@ -14,7 +14,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
+import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
 import { getL1Config } from '../get_l1_config.js';
 import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
 

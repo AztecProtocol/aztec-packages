@@ -2,7 +2,7 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
@@ -15,14 +15,10 @@ import {
 } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
-import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -35,8 +31,10 @@ import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, h
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { createAccountLogs } from './cli/util.js';
-import { DefaultMnemonic } from './mnemonic.js';
+import { createAccountLogs } from '../cli/util.js';
+import { DefaultMnemonic } from '../mnemonic.js';
+import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
+import { getSponsoredFPCAddress, setupSponsoredFPC } from './sponsored_fpc.js';
 
 const logger = createLogger('sandbox');
 
@@ -80,64 +78,6 @@ export async function deployContractsToL1(
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
 
   return aztecNodeConfig.l1Contracts;
-}
-
-async function getBananaCoinInstance(admin: AztecAddress): Promise<ContractInstanceWithAddress> {
-  return await getContractInstanceFromDeployParams(TokenContract.artifact, {
-    constructorArgs: [admin, 'BC', 'BC', 18n],
-    salt: new Fr(0),
-  });
-}
-
-async function getBananaFPCInstance(
-  admin: AztecAddress,
-  bananaCoin: AztecAddress,
-): Promise<ContractInstanceWithAddress> {
-  return await getContractInstanceFromDeployParams(FPCContract.artifact, {
-    constructorArgs: [bananaCoin, admin],
-    salt: new Fr(0),
-  });
-}
-
-async function setupFPC(
-  admin: AztecAddress,
-  deployer: Wallet,
-  bananaCoinInstance: ContractInstanceWithAddress,
-  fpcInstance: ContractInstanceWithAddress,
-  log: LogFn,
-) {
-  const [bananaCoin, fpc] = await Promise.all([
-    TokenContract.deploy(deployer, admin, 'BC', 'BC', 18n)
-      .send({ contractAddressSalt: bananaCoinInstance.salt, universalDeploy: true })
-      .deployed(),
-    FPCContract.deploy(deployer, bananaCoinInstance.address, admin)
-      .send({ contractAddressSalt: fpcInstance.salt, universalDeploy: true })
-      .deployed(),
-  ]);
-
-  log(`BananaCoin: ${bananaCoin.address}`);
-  log(`FPC: ${fpc.address}`);
-}
-
-export async function getDeployedBananaCoinAddress(pxe: PXE) {
-  const [initialAccount] = await getInitialTestAccounts();
-  const bananaCoin = await getBananaCoinInstance(initialAccount.address);
-  const contracts = await pxe.getContracts();
-  if (!contracts.find(c => c.equals(bananaCoin.address))) {
-    throw new Error('BananaCoin not deployed.');
-  }
-  return bananaCoin.address;
-}
-
-export async function getDeployedBananaFPCAddress(pxe: PXE) {
-  const [initialAccount] = await getInitialTestAccounts();
-  const bananaCoin = await getBananaCoinInstance(initialAccount.address);
-  const fpc = await getBananaFPCInstance(initialAccount.address, bananaCoin.address);
-  const contracts = await pxe.getContracts();
-  if (!contracts.find(c => c.equals(fpc.address))) {
-    throw new Error('BananaFPC not deployed.');
-  }
-  return fpc.address;
 }
 
 /** Sandbox settings. */
@@ -190,10 +130,11 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     return [];
   })();
 
-  const bananaAdmin = initialAccounts[0]?.address ?? AztecAddress.ZERO;
-  const bananaCoin = await getBananaCoinInstance(bananaAdmin);
-  const fpc = await getBananaFPCInstance(bananaAdmin, bananaCoin.address);
-  const fundedAddresses = initialAccounts.length ? [...initialAccounts.map(a => a.address), fpc.address] : [];
+  const bananaFPC = await getBananaFPCAddress(initialAccounts);
+  const sponsoredFPC = await getSponsoredFPCAddress(initialAccounts);
+  const fundedAddresses = initialAccounts.length
+    ? [...initialAccounts.map(a => a.address), bananaFPC, sponsoredFPC]
+    : [];
   const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(fundedAddresses);
 
   let watcher: AnvilTestWatcher | undefined = undefined;
@@ -244,7 +185,8 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     userLog(accLogs.join(''));
 
     const deployer = await getSchnorrWallet(pxe, initialAccounts[0].address, initialAccounts[0].signingKey);
-    await setupFPC(bananaAdmin, deployer, bananaCoin, fpc, userLog);
+    await setupBananaFPC(initialAccounts, deployer, userLog);
+    await setupSponsoredFPC(initialAccounts, deployer, userLog);
   }
 
   const stop = async () => {
