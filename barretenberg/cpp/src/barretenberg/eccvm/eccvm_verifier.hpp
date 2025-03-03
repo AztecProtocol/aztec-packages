@@ -1,5 +1,7 @@
 #pragma once
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/goblin/translation_evaluations.hpp"
 
 namespace bb {
 class ECCVMVerifier {
@@ -10,10 +12,14 @@ class ECCVMVerifier {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
     using ProvingKey = typename Flavor::ProvingKey;
+    using TranslationEvaluations = bb::TranslationEvaluations_<FF>;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using PCS = typename Flavor::PCS;
+    using SmallIPA = SmallSubgroupIPAVerifier<typename ECCVMFlavor::Curve>;
+
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS;
 
   public:
     explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
@@ -23,17 +29,31 @@ class ECCVMVerifier {
         : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
     bool verify_proof(const ECCVMProof& proof);
-    OpeningClaim<typename ECCVMFlavor::Curve> compute_translation_opening_claim(
-        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
+
+    std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_TRANSLATION_OPENING_CLAIMS> opening_claims;
 
     std::array<Commitment, NUM_TRANSLATION_EVALUATIONS> translation_commitments;
+    TranslationEvaluations translation_evaluations;
+
+    std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments;
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
+
+    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels;
+
+    void compute_translation_opening_claims(
+        const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments);
+
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
-    // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
+    // Translation evaluations challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;
     FF batching_challenge_v;
+
+    FF translation_masking_term_eval;
+
+    bool translation_masking_consistency_checked = false;
 };
 } // namespace bb

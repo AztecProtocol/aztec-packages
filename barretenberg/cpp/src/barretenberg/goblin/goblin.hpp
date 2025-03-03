@@ -200,7 +200,7 @@ class GoblinProver {
      */
     void prove_translator()
     {
-        fq translation_batching_challenge_v = eccvm_prover->translation_batching_challenge_v;
+        fq translation_batching_challenge_v = eccvm_prover->batching_challenge_v;
         fq evaluation_challenge_x = eccvm_prover->evaluation_challenge_x;
         std::shared_ptr<Transcript> transcript = eccvm_prover->transcript;
         eccvm_key = eccvm_prover->key;
@@ -300,7 +300,8 @@ class GoblinVerifier {
             proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
         // correctly
-        bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
+        bool translation_verified = translator_verifier.verify_translation(
+            proof.translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 
         vinfo("merge verified?: ", merge_verified);
         vinfo("eccvm verified?: ", eccvm_verified);

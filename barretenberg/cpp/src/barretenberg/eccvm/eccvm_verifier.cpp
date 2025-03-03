@@ -96,7 +96,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                sumcheck_output.round_univariate_evaluations);
 
     // Reduce the accumulator to a single opening claim
-    const OpeningClaim multivariate_to_univariate_opening_claim =
+    OpeningClaim multivariate_to_univariate_opening_claim =
         PCS::reduce_batch_opening_claim(sumcheck_batch_opening_claims);
 
     // Produce the opening claim for batch opening of 'op', 'Px', 'Py', 'z1', and 'z2' wires as univariate polynomials
@@ -106,10 +106,9 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                 commitments.transcript_z1,
                                 commitments.transcript_z2 };
 
-    const OpeningClaim translation_opening_claim = compute_translation_opening_claim(translation_commitments);
+    compute_translation_opening_claims(translation_commitments);
 
-    const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
-                                                         translation_opening_claim };
+    opening_claims.back() = multivariate_to_univariate_opening_claim;
 
     // Construct and verify the combined opening claim
     const OpeningClaim batch_opening_claim =
@@ -119,7 +118,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
     vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified);
     vinfo("batch opening verified?: ", batched_opening_verified);
-    return sumcheck_output.verified && batched_opening_verified && consistency_checked;
+    return sumcheck_output.verified && batched_opening_verified && consistency_checked &&
+           translation_masking_consistency_checked;
 }
 
 /**
@@ -129,33 +129,59 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
  * @param translation_commitments Commitments to  'op', 'Px', 'Py', 'z1', and 'z2'
  * @return OpeningClaim<typename ECCVMFlavor::Curve>
  */
-OpeningClaim<typename ECCVMFlavor::Curve> ECCVMVerifier::compute_translation_opening_claim(
+void ECCVMVerifier::compute_translation_opening_claims(
     const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
 {
+
+    small_ipa_commitments[0] =
+        transcript->template receive_from_prover<Commitment>("Translation:batched_masking_term_commitment");
+
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
     // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
-    std::array<FF, NUM_TRANSLATION_EVALUATIONS> translation_evaluations = {
-        transcript->template receive_from_prover<FF>("Translation:op"),
-        transcript->template receive_from_prover<FF>("Translation:Px"),
-        transcript->template receive_from_prover<FF>("Translation:Py"),
-        transcript->template receive_from_prover<FF>("Translation:z1"),
-        transcript->template receive_from_prover<FF>("Translation:z2")
-    };
-
+    for (auto [eval, label] : zip_view(translation_evaluations.get_all(), translation_evaluations.labels)) {
+        eval = transcript->template receive_from_prover<FF>(label);
+    }
     // Get the batching challenge for commitments and evaluations
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
+    translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
+
+    small_ipa_commitments[1] = transcript->template receive_from_prover<Commitment>("Translation:grand_sum_commitment");
+    small_ipa_commitments[2] = small_ipa_commitments[1];
+    small_ipa_commitments[3] = transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
+
+    FF small_ipa_evaluation_challenge =
+        transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
+
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
+    labels = SmallIPA::evaluation_labels("Translation");
+
+    evaluation_points = SmallIPA::evaluation_points(small_ipa_evaluation_challenge);
+
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
+        small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);
+        opening_claims[idx] = { { evaluation_points[idx], small_ipa_evaluations[idx] }, small_ipa_commitments[idx] };
+    }
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     Commitment batched_commitment = translation_commitments[0];
-    FF batched_translation_evaluation = translation_evaluations[0];
+    FF batched_translation_evaluation = translation_evaluations.get_all()[0];
     FF batching_scalar = batching_challenge_v;
     for (size_t idx = 1; idx < NUM_TRANSLATION_EVALUATIONS; ++idx) {
         batched_commitment = batched_commitment + translation_commitments[idx] * batching_scalar;
-        batched_translation_evaluation += batching_scalar * translation_evaluations[idx];
+        batched_translation_evaluation += batching_scalar * translation_evaluations.get_all()[idx];
         batching_scalar *= batching_challenge_v;
     }
 
-    return { { evaluation_challenge_x, batched_translation_evaluation }, batched_commitment };
+    opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
+                                                  batched_commitment };
+
+    translation_masking_consistency_checked =
+        SmallIPA::check_eccvm_evaluations_consistency(small_ipa_evaluations,
+                                                      small_ipa_evaluation_challenge,
+                                                      evaluation_challenge_x,
+                                                      batching_challenge_v,
+                                                      translation_masking_term_eval);
+    info(translation_masking_consistency_checked);
 };
 } // namespace bb
