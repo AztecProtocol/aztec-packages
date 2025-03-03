@@ -96,12 +96,14 @@ TEST(AvmInputsTest, Deserialization)
             },
             .contractClasses = {
                 {
+                    .classId = FF(0x41181337),
                     .artifactHash = FF(0xdeadbeef),
                     .privateFunctionsRoot = FF(0x111111),
                     .publicBytecodeCommitment = FF(0x222222),
                     .packedBytecode = string_to_buffer("firstbuffer"),
                 },
                 {
+                    .classId = FF(0x51181337),
                     .artifactHash = FF(0xdead0000),
                     .privateFunctionsRoot = FF(0x222222),
                     .publicBytecodeCommitment = FF(0x333333),
