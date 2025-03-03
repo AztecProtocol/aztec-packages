@@ -153,7 +153,7 @@ describe('Kernel Prover', () => {
       privateFunctionsRoot: Fr.random(),
     });
 
-    proofCreator = mock<PrivateKernelExecutor>();
+    proofCreator = mock<PrivateKernelProver>();
     proofCreator.simulateInit.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateInner.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateReset.mockResolvedValue(simulateProofOutput([]));

@@ -111,10 +111,6 @@ export class PrivateKernelExecutor {
   ) {}
 
   /**
-   *
-   */
-
-  /**
    * Generate a proof for a given transaction request and execution result.
    * The function iterates through the nested executions in the execution result, creates private call data,
    * and generates a proof using the provided ProofCreator instance. It also maintains an index of new notes
