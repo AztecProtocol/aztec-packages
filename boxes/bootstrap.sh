@@ -68,8 +68,9 @@ function release_git_push {
     jq --arg v $version ".dependencies[\"$pkg\"] = \$v" package.json >$tmp && mv $tmp package.json
   done
 
-  # We use 'gh repo clone' as it can authenticate through GITHUB_TOKEN.
-  gh repo clone "$mirrored_repo_url"
+  git init &>/dev/null
+  git remote add origin "$mirrored_repo_url" &>/dev/null
+  git fetch origin --quiet
 
   # Checkout the existing branch or create it if it doesn't exist.
   if git ls-remote --heads origin "$branch_name" | grep -q "$branch_name"; then
