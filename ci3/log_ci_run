@@ -16,7 +16,8 @@ if [ -z "$key" ]; then
       --arg msg "$msg" \
       --arg name "$REF_NAME" \
       --arg author "$author" \
-      '{timestamp: $timestamp, status: $status, msg: $msg, name: $name, author: $author}')
+      --arg arch "$(arch)" \
+      '{timestamp: $timestamp, status: $status, msg: $msg, name: $name, author: $author, arch: $arch}')
   # echo "$json" >&2
   redis_cli ZADD ci-run $key "$json" &>/dev/null
   redis_cli SETEX hb-$key 60 1 &>/dev/null
