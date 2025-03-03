@@ -11,8 +11,8 @@ import {
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
-import { type ViemPublicClient, createL1Clients } from '@aztec/ethereum';
-import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { type ViemPublicClient, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import { InboxAbi, OutboxAbi, RollupAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
@@ -118,6 +118,23 @@ export class CrossChainMessagingTest {
 
         const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
+        const underlyingERC20Address = await deployL1Contract(
+          walletClient,
+          publicClient,
+          TestERC20Abi,
+          TestERC20Bytecode,
+          ['Underlying', 'UND', walletClient.account.address],
+        ).then(({ address }) => address);
+
+        const underlyingERC20 = getContract({
+          address: underlyingERC20Address!.toString(),
+          abi: TestERC20Abi,
+          client: walletClient,
+        });
+
+        // allow anyone to mint
+        await underlyingERC20.write.setFreeForAll([true], {} as any);
+
         this.logger.verbose(`Setting up cross chain harness...`);
         this.crossChainTestHarness = await CrossChainTestHarness.new(
           this.aztecNode,
@@ -126,6 +143,7 @@ export class CrossChainMessagingTest {
           walletClient,
           this.wallets[0],
           this.logger,
+          underlyingERC20Address,
         );
 
         this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);

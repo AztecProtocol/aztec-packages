@@ -75,6 +75,13 @@ spec:
             - /bin/bash
             - -c
             - |
+              # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
+              if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
+                echo "Registry address and bootstrap nodes already set, skipping wait for services"
+                echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
+                exit 0
+              fi
+
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
@@ -120,6 +127,12 @@ spec:
           env:
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
+            - name: SLASH_FACTORY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
       containers:
         - name: validator
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -242,6 +255,8 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
+              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
