@@ -691,22 +691,18 @@ export class Sequencer {
         };
       }),
       this.l2BlockSource.getL2Tips().then(t => t.latest),
-      this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getBlockNumber(),
     ] as const);
 
-    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource] = syncedBlocks;
+    const [worldState, l2BlockSource, l1ToL2MessageSource] = syncedBlocks;
 
     const result =
       // check that world state has caught up with archiver
       // note that the archiver reports undefined hash for the genesis block
       // because it doesn't have access to world state to compute it (facepalm)
       (l2BlockSource.hash === undefined || worldState.hash === l2BlockSource.hash) &&
-      // and p2p client and message source are at least at the same block
-      // this should change to hashes once p2p client handles reorgs
-      // and once we stop pretending that the l1tol2message source is not
+      // we should stop pretending that the l1tol2message source is not
       // just the archiver under a different name
-      (!l2BlockSource.hash || p2p.hash === l2BlockSource.hash) &&
       l1ToL2MessageSource === l2BlockSource.number;
 
     this.log.debug(`Sequencer sync check ${result ? 'succeeded' : 'failed'}`, {
@@ -714,8 +710,6 @@ export class Sequencer {
       worldStateHash: worldState.hash,
       l2BlockSourceNumber: l2BlockSource.number,
       l2BlockSourceHash: l2BlockSource.hash,
-      p2pNumber: p2p.number,
-      p2pHash: p2p.hash,
       l1ToL2MessageSourceNumber: l1ToL2MessageSource,
     });
 

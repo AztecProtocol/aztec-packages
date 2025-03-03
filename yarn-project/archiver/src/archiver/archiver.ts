@@ -315,8 +315,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       const localPendingEpochNumber = getEpochAtSlot(localPendingSlotNumber, this.l1constants);
 
       // Emit an event for listening services to react to the chain prune
-      this.emit(L2BlockSourceEvents.L2PruneDetected, {
-        type: L2BlockSourceEvents.L2PruneDetected,
+      this.emit(L2BlockSourceEvents.ChainPruned, {
+        type: L2BlockSourceEvents.ChainPruned,
         blockNumber: localPendingBlockNumber,
         slotNumber: localPendingSlotNumber,
         epochNumber: localPendingEpochNumber,
@@ -409,14 +409,15 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         );
       }
 
+      const [localProvenEpochNumber, localProvenBlockNumber] = await Promise.all([
+        this.store.getProvenL2EpochNumber(),
+        this.store.getProvenL2BlockNumber(),
+      ]);
+
       if (
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        const [localProvenEpochNumber, localProvenBlockNumber] = await Promise.all([
-          this.store.getProvenL2EpochNumber(),
-          this.store.getProvenL2BlockNumber(),
-        ]);
         if (
           localProvenEpochNumber !== Number(provenEpochNumber) ||
           localProvenBlockNumber !== Number(provenBlockNumber)
@@ -429,6 +430,13 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           });
         }
       }
+
+      // Emit an event for listening services to react to the chain proven
+      this.emit(L2BlockSourceEvents.ChainProven, {
+        type: L2BlockSourceEvents.ChainProven,
+        previousProvenBlockNumber: localProvenBlockNumber,
+        provenBlockNumber: provenBlockNumber,
+      });
       this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
 
@@ -532,6 +540,12 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           ...block.data.getStats(),
         });
       }
+
+      // Emit an event for listening services to react to the new blocks
+      this.emit(L2BlockSourceEvents.BlocksAdded, {
+        type: L2BlockSourceEvents.BlocksAdded,
+        blocks: retrievedBlocks.map(b => b.data),
+      });
 
       const [processDuration] = await elapsed(() => this.store.addBlocks(retrievedBlocks));
       this.instrumentation.processNewBlocks(

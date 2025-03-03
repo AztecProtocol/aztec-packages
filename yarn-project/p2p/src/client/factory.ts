@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -29,7 +29,7 @@ type P2PClientDeps<T extends P2PClientType> = {
 export const createP2PClient = async <T extends P2PClientType>(
   clientType: T,
   _config: P2PConfig & DataStoreConfig,
-  l2BlockSource: L2BlockSource,
+  l2BlockSource: L2BlockSourceEventEmitter,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
@@ -85,5 +85,5 @@ export const createP2PClient = async <T extends P2PClientType>(
     logger.verbose('P2P is disabled. Using dummy P2P service');
     p2pService = new DummyP2PService();
   }
-  return new P2PClient(clientType, store, l2BlockSource, mempools, p2pService, config, telemetry);
+  return new P2PClient(clientType, l2BlockSource, mempools, p2pService, config, telemetry);
 };
