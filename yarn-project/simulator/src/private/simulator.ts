@@ -3,7 +3,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { CallContext, PrivateExecutionResult, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { createSimulationError } from '../common/errors.js';

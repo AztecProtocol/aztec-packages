@@ -5,7 +5,6 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
