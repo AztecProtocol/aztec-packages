@@ -1,6 +1,7 @@
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, type Tuple, assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
@@ -17,10 +18,10 @@ import { PublicCallRequest } from '../kernel/public_call_request.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { AvmAccumulatedData } from './avm_accumulated_data.js';
+import { serializeWithMessagePack } from './message_pack.js';
 
-// Needed by Zod schemas.
-export { EthAddress } from '@aztec/foundation/eth-address';
-
+// Note: the {from,to}{Buffer,Fields,String} methods are needed by AvmProofData and PublicBaseRollupInputs.
+// At some point it might be worth writing Zod schemas for all dependent types and get rid of that.
 export class AvmCircuitPublicInputs {
   constructor(
     public globalVariables: GlobalVariables,
@@ -42,7 +43,6 @@ export class AvmCircuitPublicInputs {
     public reverted: boolean,
   ) {}
 
-  // Zod schema to treat this class as an opaque buffer.
   static get schema() {
     return z
       .object({
@@ -61,7 +61,7 @@ export class AvmCircuitPublicInputs {
         endTreeSnapshots: TreeSnapshots.schema,
         endGasUsed: Gas.schema,
         accumulatedData: AvmAccumulatedData.schema,
-        transactionFee: Fr.schema,
+        transactionFee: schemas.Fr,
         reverted: z.boolean(),
       })
       .transform(
@@ -202,6 +202,10 @@ export class AvmCircuitPublicInputs {
       Fr.zero(),
       false,
     );
+  }
+
+  public serializeWithMessagePack(): Buffer {
+    return serializeWithMessagePack(this);
   }
 
   [inspect.custom]() {

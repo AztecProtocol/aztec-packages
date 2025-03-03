@@ -23,9 +23,6 @@ import { z } from 'zod';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import type { UInt32 } from '../types/shared.js';
 
-// Needed by Zod schemas.
-export { EthAddress } from '@aztec/foundation/eth-address';
-
 export class PrivateToAvmAccumulatedData {
   constructor(
     public noteHashes: Tuple<Fr, typeof MAX_NOTE_HASHES_PER_TX>,
@@ -36,9 +33,9 @@ export class PrivateToAvmAccumulatedData {
   static get schema() {
     return z
       .object({
-        noteHashes: Fr.schema.array().max(MAX_NOTE_HASHES_PER_TX),
-        nullifiers: Fr.schema.array().max(MAX_NULLIFIERS_PER_TX),
-        l2ToL1Msgs: ScopedL2ToL1Message.schema.array().max(MAX_L2_TO_L1_MSGS_PER_TX),
+        noteHashes: schemas.Fr.array().min(MAX_NOTE_HASHES_PER_TX).max(MAX_NOTE_HASHES_PER_TX),
+        nullifiers: schemas.Fr.array().min(MAX_NULLIFIERS_PER_TX).max(MAX_NULLIFIERS_PER_TX),
+        l2ToL1Msgs: ScopedL2ToL1Message.schema.array().min(MAX_L2_TO_L1_MSGS_PER_TX).max(MAX_L2_TO_L1_MSGS_PER_TX),
       })
       .transform(
         ({ noteHashes, nullifiers, l2ToL1Msgs }) =>

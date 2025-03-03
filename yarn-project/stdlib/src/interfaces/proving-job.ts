@@ -108,10 +108,6 @@ export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): Se
   }
 }
 
-// Needed by Zod schemas.
-export { EthAddress } from '@aztec/foundation/eth-address';
-export { Point } from '@aztec/foundation/fields';
-
 export const ProvingJobInputs = z.discriminatedUnion('type', [
   AvmProvingRequestSchema,
   z.object({ type: z.literal(ProvingRequestType.BASE_PARITY), inputs: BaseParityInputs.schema }),

@@ -440,8 +440,6 @@ export async function generateAvmProof(
   logger: Logger,
   checkCircuitOnly: boolean = false,
 ): Promise<BBFailure | BBSuccess> {
-  throw new Error('Not implemented');
-
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
@@ -566,7 +564,7 @@ export async function verifyAvmProofV2(
   verificationKeyPath: string,
   logger: Logger,
 ): Promise<BBFailure | BBSuccess> {
-  const inputsBuffer = publicInputs.toBuffer();
+  const inputsBuffer = publicInputs.serializeWithMessagePack();
 
   // Write the inputs to the working directory.
   const filePresent = async (file: string) =>

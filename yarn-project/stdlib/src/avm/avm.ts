@@ -1,8 +1,7 @@
-import { Fq, Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { schemas } from '@aztec/foundation/schemas';
 
-import { strict as assert } from 'assert';
-import { Encoder, addExtension } from 'msgpackr';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
@@ -10,9 +9,7 @@ import { PublicKeys } from '../keys/public_keys.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
-
-// Needed by Zod schemas.
-export { EthAddress } from '@aztec/foundation/eth-address';
+import { serializeWithMessagePack } from './message_pack.js';
 
 export class AvmEnqueuedCallHint {
   constructor(public readonly contractAddress: AztecAddress, public readonly calldata: Fr[]) {}
@@ -301,66 +298,15 @@ export class AvmCircuitInputs {
       );
   }
 
-  // FIXME: This will call toJSON on AvmCircuitPublicInputs and we don't want that.
   public serializeWithMessagePack(): Buffer {
-    return serializeWithMessagePack({
-      functionName: this.functionName,
-      calldata: this.calldata,
-      hints: this.hints,
-      publicInputs: this.publicInputs as object,
-    });
+    return serializeWithMessagePack(this);
   }
 
-  // These are used by gcs_proof_store.ts.
+  // These are used by the prover to generate an id, and also gcs_proof_store.ts.
   public toBuffer(): Buffer {
-    throw new Error('Not implemented');
+    return Buffer.from(jsonStringify(this));
   }
-  static fromBuffer(_buf: Buffer) {
-    throw new Error('Not implemented');
+  static fromBuffer(buf: Buffer) {
+    return jsonParseWithSchema(buf.toString(), this.schema);
   }
-}
-
-////////////////////////////////////////
-// MessagePack helpers follow.
-////////////////////////////////////////
-function serializeWithMessagePack(obj: any): Buffer {
-  setUpMessagePackExtensions();
-  const encoder = new Encoder({
-    // always encode JS objects as MessagePack maps
-    // this makes it compatible with other MessagePack decoders
-    useRecords: false,
-    int64AsType: 'bigint',
-  });
-  return encoder.encode(obj);
-}
-
-let messagePackWasSetUp = false;
-function setUpMessagePackExtensions() {
-  if (messagePackWasSetUp) {
-    return;
-  }
-  // C++ Fr and Fq classes work well with the buffer serialization.
-  addExtension({
-    Class: Fr,
-    write: (fr: Fr) => fr.toBuffer(),
-  });
-  addExtension({
-    Class: Fq,
-    write: (fq: Fq) => fq.toBuffer(),
-  });
-  // AztecAddress is a class that has a field in TS, but just a field in C++.
-  addExtension({
-    Class: AztecAddress,
-    write: (addr: AztecAddress) => addr.toField(),
-  });
-  // Affine points are a mess, we do our best.
-  addExtension({
-    Class: Point,
-    write: (p: Point) => {
-      assert(!p.inf, 'Cannot serialize infinity');
-      // TODO: should these be Frs?
-      return { x: new Fq(p.x.toBigInt()), y: new Fq(p.y.toBigInt()) };
-    },
-  });
-  messagePackWasSetUp = true;
 }

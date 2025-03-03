@@ -13,6 +13,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import {
   AvmAppendTreeHint,
+  AvmContractInstanceHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
@@ -27,7 +28,6 @@ import { PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message } from '@aztec/stdlib/messaging';
 import { makeContractClassPublic } from '@aztec/stdlib/testing';
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { Vector } from '@aztec/stdlib/types';
 
 import { randomInt } from 'crypto';
 
@@ -162,7 +162,6 @@ describe('Public Side Effect Trace', () => {
 
   it('Should trace get contract instance', async () => {
     const instance = await SerializableContractInstance.random();
-    const { version: _, ...instanceWithoutVersion } = instance;
     const updateSlot = Fr.random();
     const updateMembershipHint = new AvmPublicDataReadTreeHint(
       new PublicDataTreeLeafPreimage(updateSlot, Fr.ZERO, Fr.ZERO, updateSlot.add(new Fr(10n)).toBigInt()),
@@ -175,13 +174,18 @@ describe('Public Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     expect(trace.getAvmCircuitHints().contractInstances).toEqual([
-      {
+      new AvmContractInstanceHint(
         address,
         exists,
-        ...instanceWithoutVersion,
+        instance.salt,
+        instance.deployer,
+        instance.currentContractClassId,
+        instance.originalContractClassId,
+        instance.initializationHash,
+        instance.publicKeys,
         updateMembershipHint,
-        updatePreimage: new Vector(updatePreimage),
-      },
+        updatePreimage,
+      ),
     ]);
   });
 

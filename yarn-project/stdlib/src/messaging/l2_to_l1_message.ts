@@ -1,6 +1,7 @@
 import { L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -14,8 +15,8 @@ export class L2ToL1Message {
   static get schema() {
     return z
       .object({
-        recipient: EthAddress.schema,
-        content: Fr.schema,
+        recipient: schemas.EthAddress,
+        content: schemas.Fr,
         counter: z.number(),
       })
       .transform(({ recipient, content, counter }) => new L2ToL1Message(recipient, content, counter));

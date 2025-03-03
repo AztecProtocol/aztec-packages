@@ -1,5 +1,6 @@
 import { COUNTED_PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_CALL_REQUEST_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -41,7 +42,7 @@ export class PublicCallRequest {
         contractAddress: AztecAddress.schema,
         functionSelector: FunctionSelector.schema,
         isStaticCall: z.boolean(),
-        argsHash: Fr.schema,
+        argsHash: schemas.Fr,
       })
       .transform(({ msgSender, contractAddress, functionSelector, isStaticCall, argsHash }) => {
         return new PublicCallRequest(msgSender, contractAddress, functionSelector, isStaticCall, argsHash);
