@@ -129,8 +129,8 @@ export class KernelProver {
       profile: false,
     },
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const generateWitnesses = profile || !simulate;
     const skipProofGeneration = this.fakeProofs || simulate;
+    const generateWitnesses = !skipProofGeneration || profile;
 
     const timer = new Timer();
 
