@@ -14,7 +14,6 @@ import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
 import type { ScopedLogHash } from '../kernel/log_hash.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
-import { PrivateLog } from '../logs/private_log.js';
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';

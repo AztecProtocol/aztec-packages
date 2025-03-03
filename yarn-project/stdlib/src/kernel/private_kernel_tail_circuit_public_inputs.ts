@@ -258,7 +258,6 @@ export class PrivateKernelTailCircuitPublicInputs {
   }
 
   getNonEmptyPrivateLogsLength() {
-    // TODO: Should this take into account prefixes?
     return this.getNonEmptyPrivateLogs().reduce((total, log) => total + log.getEmittedLength(), 0);
   }
 

@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{PRIVATE_LOG_DATA_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS},
     traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::{array_concat, unsafe_padded_array_length}, reader::Reader},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 pub type PrivateLog = Log<PRIVATE_LOG_SIZE_IN_FIELDS>;
