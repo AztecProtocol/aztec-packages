@@ -44,6 +44,7 @@ export class PrivateLog {
 
   getEmittedLength() {
     // This assumes that we cut trailing zeroes from the end of the log. In ts, these will always be added back.
+    // Does not include length prefix.
     return this.getEmittedFields().length;
   }
 

@@ -330,6 +330,7 @@ fn get_tx_effects_hash_input(
             if log_len != 0 {
                 assert_eq(tx_effects_hash_input[offset], log_len as Field);
                 offset += 1;
+                // plus one for prefix
                 total_private_log_len += log_len + 1;
                 check_elt = true;
             }
@@ -359,6 +360,7 @@ fn get_tx_effects_hash_input(
             if log_len != 0 {
                 assert_eq(tx_effects_hash_input[offset], log_len as Field);
                 offset += 1;
+                // plus one for prefix
                 total_public_log_len += log_len + 1;
                 check_elt = true;
             }

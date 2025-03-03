@@ -1,7 +1,7 @@
 use crate::components::tail_to_public_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
-        gas::Gas, private_log::get_emitted_private_log_fields_len,
+        gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
         public_call_request::PublicCallRequest,
     },
     constants::{
@@ -81,16 +81,24 @@ fn meter_gas_used_everything_succeeds() {
 
     // Safety: this is a test
     let total_num_private_log_fields = unsafe {
-        get_emitted_private_log_fields_len(array_merge(
+        get_emitted_private_logs_len(array_merge(
             non_revertible_builder.private_logs.storage(),
             revertible_builder.private_logs.storage(),
         )
             .map(|l| l.inner.log))
     };
 
+    // Safety: this is a test
+    let total_num_cc_log_fields = unsafe {
+        get_emitted_contract_class_logs_len(array_merge(
+            non_revertible_builder.contract_class_logs_hashes.storage(),
+            revertible_builder.contract_class_logs_hashes.storage(),
+        ))
+    };
+
     let total_num_side_effects = 4 + 3 + 1;
     let total_log_bytes = total_num_private_log_fields * DA_BYTES_PER_FIELD // private_logs
-        + 51 * DA_BYTES_PER_FIELD; // contract_class_logs
+        + total_num_cc_log_fields * DA_BYTES_PER_FIELD; // contract_class_logs
     let computed_da_gas =
         (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_bytes) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH

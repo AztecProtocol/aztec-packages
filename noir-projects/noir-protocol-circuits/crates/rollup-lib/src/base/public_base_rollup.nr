@@ -182,10 +182,15 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
-            log::Log, nullifier_leaf_preimage::NullifierLeafPreimage,
-            private_log::get_emitted_private_log_fields_len, public_data_write::PublicDataWrite,
-            side_effect::OrderedValue, sponge_blob::SpongeBlob, tree_snapshots::TreeSnapshots,
+            constant_rollup_data::ConstantRollupData,
+            contract_class_log::ContractClassLog,
+            gas::{get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
+            log::Log,
+            nullifier_leaf_preimage::NullifierLeafPreimage,
+            public_data_write::PublicDataWrite,
+            side_effect::OrderedValue,
+            sponge_blob::SpongeBlob,
+            tree_snapshots::TreeSnapshots,
         },
         address::EthAddress,
         constants::{
@@ -194,7 +199,8 @@ mod tests {
             MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-            PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
+            PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{poseidon2_hash_subarray_variable, silo_contract_class_log, silo_l2_to_l1_message},
@@ -208,7 +214,6 @@ mod tests {
         traits::{Empty, Hash, Serialize, ToField},
         utils::{arrays::{array_concat, unsafe_padded_array_length}, field::field_from_bytes},
     };
-    use types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
 
     struct NullifierInsertion {
         existing_index: u32,
@@ -539,7 +544,7 @@ mod tests {
         reconstructed_tx_effects[offset + 1] = PUB_DATA_VALUE;
         offset += 2;
         // private logs
-        let total_private_logs_len = get_emitted_private_log_fields_len(builder
+        let total_private_logs_len = get_emitted_private_logs_len(builder
             .tube_data
             .private_logs
             .storage()
@@ -582,7 +587,10 @@ mod tests {
             }
         }
         // cc logs
-        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 2);
+        let total_contract_class_logs_len = get_emitted_contract_class_logs_len(builder
+            .tube_data
+            .contract_class_logs_hashes
+            .storage());
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;

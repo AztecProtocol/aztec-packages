@@ -67,12 +67,6 @@ impl Ordered for Scoped<PrivateLogData> {
     }
 }
 
-pub unconstrained fn get_emitted_private_log_fields_len<let N: u32>(logs: [PrivateLog; N]) -> u32 {
-    logs.map(|l| unsafe_padded_array_length(l.fields)).fold(0, |acc, len| {
-        acc + len + if len == 0 { 0 } else { 1 }
-    })
-}
-
 #[test]
 fn serialization_of_empty_private_log() {
     let item = PrivateLogData::empty();

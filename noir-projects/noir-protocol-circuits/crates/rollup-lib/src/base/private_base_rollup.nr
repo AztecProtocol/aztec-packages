@@ -233,12 +233,16 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
-            gas::Gas, gas_fees::GasFees,
-            kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs, log::Log,
+            constant_rollup_data::ConstantRollupData,
+            contract_class_log::ContractClassLog,
+            gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
+            gas_fees::GasFees,
+            kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
+            log::Log,
             nullifier_leaf_preimage::NullifierLeafPreimage,
-            private_log::get_emitted_private_log_fields_len, public_data_write::PublicDataWrite,
-            side_effect::OrderedValue, sponge_blob::SpongeBlob,
+            public_data_write::PublicDataWrite,
+            side_effect::OrderedValue,
+            sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -1007,7 +1011,7 @@ mod tests {
         reconstructed_tx_effects[offset + 1] = fee_write.value;
         offset += 2;
         // private logs
-        let total_private_logs_len = get_emitted_private_log_fields_len(builder
+        let total_private_logs_len = get_emitted_private_logs_len(builder
             .tube_data
             .private_logs
             .storage()
@@ -1028,7 +1032,10 @@ mod tests {
             }
         }
         // cc logs
-        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 2);
+        let total_contract_class_logs_len = get_emitted_contract_class_logs_len(builder
+            .tube_data
+            .contract_class_logs_hashes
+            .storage());
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
