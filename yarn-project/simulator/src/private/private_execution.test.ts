@@ -45,7 +45,6 @@ import {
   deriveStorageSlotInMap,
   siloNoteHash,
 } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
