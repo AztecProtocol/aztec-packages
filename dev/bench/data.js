@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741000179921,
+  "lastUpdate": 1741003876462,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "james.zaki@proton.me",
-            "name": "James Zaki",
-            "username": "jzaki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5d49445812dca3405805d92c9236f90236b3ce98",
-          "message": "docs: Fees doc snippets and code snippets (#12229)",
-          "timestamp": "2025-02-26T11:06:12Z",
-          "tree_id": "a78a223ab01d242e5530be89da7f384b70ea9e5e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5d49445812dca3405805d92c9236f90236b3ce98"
-        },
-        "date": 1740569721187,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18231.541997000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15980.735325 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18726.657449999948,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16336.34813 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3967.7975150002567,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3163.96359 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54884.056704,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54884056000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11671.069705999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11671075000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1811684462,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1811684462 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 130761695,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 130761695 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 226590225,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 226590225 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "71542737dc0ea54708dd7e8e289da169a972877b",
+          "message": "feat: Watch CI3 from terminal and ci.aztec-labs.com. (#12396)\n\n* You can now `ci watch` and see each ci run.\n* You can also see the same at http://ci.aztec-labs.com.\n* For now at least, revert to running the exact commit in CI rather than\nthe master merge.\n* Fix off-by-one on gather test count.\n* Sanitize `cache_log` to require `DUP=1` to also print to term.\n* Update colors to 256 support (for consistent rendering in term and\nbrowser).\n* export `CI` when computed in `source`",
+          "timestamp": "2025-03-03T11:40:23Z",
+          "tree_id": "f420e9393d5646ab18e6122b59c4d13ffad2b362",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/71542737dc0ea54708dd7e8e289da169a972877b"
+        },
+        "date": 1741003869253,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18136.66093400002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15976.094367999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18722.463539999808,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16293.369211000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3853.805591000082,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3118.4148480000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55626.787313,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55626787000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10668.349804,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10668352000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1948479009,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1948479009 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213380019,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213380019 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
