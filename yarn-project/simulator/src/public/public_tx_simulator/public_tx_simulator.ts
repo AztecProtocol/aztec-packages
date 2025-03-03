@@ -86,14 +86,14 @@ export class PublicTxSimulator {
         this.doMerkleOperations,
       );
 
-      // add new contracts to the contracts db so that their functions may be found and called
-      // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-      await this.worldStateDB.addNewContracts(tx);
-
       const nonRevertStart = process.hrtime.bigint();
       await this.insertNonRevertiblesFromPrivate(context);
+      // add new contracts to the contracts db so that their functions may be found and called
+      // TODO(#6464): Should we allow emitting contracts in the private setup phase?
+      await this.worldStateDB.addNewNonRevertibleContracts(tx);
       const nonRevertEnd = process.hrtime.bigint();
       this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
+
       const processedPhases: ProcessedPhase[] = [];
       if (context.hasPhase(TxExecutionPhase.SETUP)) {
         const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
@@ -103,8 +103,11 @@ export class PublicTxSimulator {
       const revertStart = process.hrtime.bigint();
       // FIXME(#12375): TX shouldn't die if revertible insertions fail. Should just revert to snapshot.
       await this.insertRevertiblesFromPrivate(context);
+      // add new contracts to the contracts db so that their functions may be found and called
+      await this.worldStateDB.addNewRevertibleContracts(tx);
       const revertEnd = process.hrtime.bigint();
       this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
+
       if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
         const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
         processedPhases.push(appLogicResult);
