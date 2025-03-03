@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
@@ -37,11 +37,15 @@ import {
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import { type WitnessMap } from '@noir-lang/types';
+import type { WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
+<<<<<<< HEAD:yarn-project/pxe/src/kernel/kernel_prover.ts
 import { type ProvingDataOracle } from './kernel_proving_data_oracle.js';
+=======
+import type { ProvingDataOracle } from './proving_data_oracle.js';
+>>>>>>> origin/master:yarn-project/pxe/src/kernel_prover/kernel_prover.ts
 
 // TODO(#10592): Temporary workaround to check that the private logs are correctly split into non-revertible set and revertible set.
 // This should be done in TailToPublicOutputValidator in private kernel tail.

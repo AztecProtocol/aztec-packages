@@ -1,5 +1,5 @@
 import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import { type L1TxUtils, type RollupContract } from '@aztec/ethereum';
+import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -9,10 +9,10 @@ import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { type PublisherConfig, type TxSenderConfig } from '@aztec/sequencer-client';
-import { type Proof } from '@aztec/stdlib/proofs';
-import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/stdlib/rollup';
-import { type L1PublishProofStats } from '@aztec/stdlib/stats';
+import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
+import type { Proof } from '@aztec/stdlib/proofs';
+import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import type { L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
@@ -104,6 +104,12 @@ export class ProverNodePublisher {
       const txReceipt = await this.sendSubmitEpochProofTx(args);
       if (!txReceipt) {
         return false;
+      }
+
+      try {
+        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+      } catch (err) {
+        this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
       }
 
       // Tx was mined successfully
@@ -252,15 +258,15 @@ export class ProverNodePublisher {
     return [
       BigInt(args.fromBlock),
       BigInt(args.toBlock),
-      [
-        args.publicInputs.previousArchive.root.toString(),
-        args.publicInputs.endArchive.root.toString(),
-        args.publicInputs.previousBlockHash.toString(),
-        args.publicInputs.endBlockHash.toString(),
-        args.publicInputs.endTimestamp.toString(),
-        args.publicInputs.outHash.toString(),
-        args.publicInputs.proverId.toString(),
-      ],
+      {
+        previousArchive: args.publicInputs.previousArchive.root.toString(),
+        endArchive: args.publicInputs.endArchive.root.toString(),
+        previousBlockHash: args.publicInputs.previousBlockHash.toString(),
+        endBlockHash: args.publicInputs.endBlockHash.toString(),
+        endTimestamp: args.publicInputs.endTimestamp.toBigInt(),
+        outHash: args.publicInputs.outHash.toString(),
+        proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
+      },
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()

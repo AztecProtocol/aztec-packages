@@ -15,9 +15,9 @@ import {
 } from '@aztec/stdlib/contract';
 import { Capsule } from '@aztec/stdlib/tx';
 
-import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type Wallet } from '../wallet/index.js';
-import { getRegistererContract } from './protocol_contracts.js';
+import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { getRegistererContract } from '../contract/protocol_contracts.js';
+import type { Wallet } from '../wallet/index.js';
 
 /**
  * Sets up a call to broadcast a private function's bytecode via the ClassRegisterer contract.

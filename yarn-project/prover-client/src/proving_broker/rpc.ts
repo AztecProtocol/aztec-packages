@@ -1,5 +1,5 @@
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
-import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import type { SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import {
   type GetProvingJobResponse,
   ProofUri,

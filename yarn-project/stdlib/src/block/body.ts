@@ -1,12 +1,12 @@
+import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { ContractClass2BlockL2Logs } from '@aztec/stdlib/logs';
-import { type ZodFor } from '@aztec/stdlib/schemas';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
+import type { ZodFor } from '../schemas/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
 
 export class Body {
@@ -52,15 +52,21 @@ export class Body {
     this.txEffects.forEach((effect: TxEffect) => {
       flattened = flattened.concat(effect.toBlobFields());
     });
+    if (flattened.length > BLOBS_PER_BLOCK * FIELDS_PER_BLOB) {
+      throw new Error(
+        `Attempted to overfill block's blobs with ${flattened.length} elements. The maximum is ${
+          BLOBS_PER_BLOCK * FIELDS_PER_BLOB
+        }`,
+      );
+    }
+
     return flattened;
   }
 
   /**
    * Decodes a block from blob fields.
-   * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields in TxEffect.fromBlobFields.
-   * Logs are best input by gathering from the getters below, as they don't remove empty log arrays.
    */
-  static fromBlobFields(fields: Fr[], contractClassLogs?: ContractClass2BlockL2Logs) {
+  static fromBlobFields(fields: Fr[]) {
     const txEffectsFields: Fr[][] = [];
     let checkedFields = 0;
     while (checkedFields !== fields.length) {
@@ -71,9 +77,7 @@ export class Body {
       txEffectsFields.push(fields.slice(checkedFields, checkedFields + len));
       checkedFields += len;
     }
-    const txEffects = txEffectsFields
-      .filter(effect => effect.length)
-      .map((effect, i) => TxEffect.fromBlobFields(effect, contractClassLogs?.txLogs[i]));
+    const txEffects = txEffectsFields.filter(effect => effect.length).map(effect => TxEffect.fromBlobFields(effect));
     return new this(txEffects);
   }
 
@@ -81,12 +85,6 @@ export class Body {
     return `Body {
   txEffects: ${inspect(this.txEffects)},
 }`;
-  }
-
-  get contractClassLogs(): ContractClass2BlockL2Logs {
-    const logs = this.txEffects.map(txEffect => txEffect.contractClassLogs);
-
-    return new ContractClass2BlockL2Logs(logs);
   }
 
   static async random(txsPerBlock = 4, numPublicCallsPerTx = 3, numPublicLogsPerCall = 1) {

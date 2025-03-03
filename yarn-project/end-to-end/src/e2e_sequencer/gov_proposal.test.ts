@@ -1,6 +1,6 @@
-import { type AztecNode, type CheatCodes, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import type { AztecNode, CheatCodes, Logger, PXE, Wallet } from '@aztec/aztec.js';
 import {
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   GovernanceProposerContract,
   RollupContract,
   deployL1Contract,
@@ -9,7 +9,7 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -22,7 +22,7 @@ describe('e2e_gov_proposal', () => {
   let wallet: Wallet;
   let pxe: PXE;
   let aztecNode: AztecNode;
-  let deployL1ContractsValues: DeployL1Contracts;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
   let aztecSlotDuration: number;
   let cheatCodes: CheatCodes;
   beforeEach(async () => {

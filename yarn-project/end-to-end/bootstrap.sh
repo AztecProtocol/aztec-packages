@@ -23,6 +23,7 @@ function test_cmds {
   echo "$prefix simple e2e_amm"
   echo "$prefix simple e2e_authwit"
   echo "$prefix simple e2e_avm_simulator"
+  echo "$prefix simple e2e_contract_updates"
 
   # blacklist_token_contract sub-tests
   echo "$prefix simple e2e_blacklist_token_contract/access_control"
@@ -58,8 +59,10 @@ function test_cmds {
 
   # fees sub-tests
   echo "$prefix simple e2e_fees/account_init"
+  echo "$prefix simple e2e_fees/dapp_subscription"
   echo "$prefix simple e2e_fees/failures"
   echo "$prefix simple e2e_fees/fee_juice_payments"
+  echo "$prefix simple e2e_fees/fee_settings"
   echo "$prefix simple e2e_fees/gas_estimation"
   echo "$prefix simple e2e_fees/private_payments"
   echo "$prefix simple e2e_fees/public_payments"
@@ -120,6 +123,7 @@ function test_cmds {
   echo "$prefix compose guides/up_quick_start"
   echo "$prefix compose guides/writing_an_account_contract"
   echo "$prefix compose e2e_token_bridge_tutorial_test"
+  echo "$prefix compose uniswap_trade_on_l1_from_l2"
 }
 
 function test {

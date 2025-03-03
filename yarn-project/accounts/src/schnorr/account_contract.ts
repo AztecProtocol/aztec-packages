@@ -1,21 +1,20 @@
-import { CompleteAddress, getAccountContractAddress } from '@aztec/aztec.js';
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { Schnorr } from '@aztec/foundation/crypto';
-import { type Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { type ContractArtifact } from '@aztec/stdlib/abi';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
-import { SchnorrAccountContractArtifact } from './artifact.js';
 
 /**
  * Account contract that authenticates transactions using Schnorr signatures
  * verified against a Grumpkin public key stored in an immutable encrypted note.
+ * This abstract version does not provide a way to retrieve the artifact, as it
+ * can be implemented with or without lazy loading.
  */
-export class SchnorrAccountContract extends DefaultAccountContract {
+export abstract class SchnorrBaseAccountContract extends DefaultAccountContract {
   constructor(private signingPrivateKey: GrumpkinScalar) {
-    super(SchnorrAccountContractArtifact as ContractArtifact);
+    super();
   }
 
   async getDeploymentArgs() {
@@ -29,7 +28,7 @@ export class SchnorrAccountContract extends DefaultAccountContract {
 }
 
 /** Creates auth witnesses using Schnorr signatures. */
-class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
+export class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private signingPrivateKey: GrumpkinScalar) {}
 
   async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
@@ -37,16 +36,4 @@ class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
     const signature = await schnorr.constructSignature(messageHash.toBuffer(), this.signingPrivateKey);
     return new AuthWitness(messageHash, [...signature.toBuffer()]);
   }
-}
-
-/**
- * Compute the address of a schnorr account contract.
- * @param secret - A seed for deriving the signing key and public keys.
- * @param salt - The contract address salt.
- * @param signingPrivateKey - A specific signing private key that's not derived from the secret.
- */
-export async function getSchnorrAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: GrumpkinScalar) {
-  const signingKey = signingPrivateKey ?? deriveSigningKey(secret);
-  const accountContract = new SchnorrAccountContract(signingKey);
-  return await getAccountContractAddress(accountContract, secret, salt);
 }

@@ -10,10 +10,21 @@ opentelemetry-collector:
         limit_percentage: 80
         spike_limit_percentage: 15
 
-      filter:
+      filter/large_histograms:
         metrics:
           datapoint:
             - metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20
+
+      transform/promote_resource_attributes:
+        metric_statements:
+          - context: datapoint
+            statements:
+            # see recommendations https://prometheus.io/docs/guides/opentelemetry/#promoting-resource-attributes
+            - set(attributes["service.instance.id"], resource.attributes["service.instance.id"])
+            - set(attributes["service.name"], resource.attributes["service.name"])
+            - set(attributes["service.namespace"], resource.attributes["service.namespace"])
+            - set(attributes["k8s.namespace.name"], resource.attributes["k8s.namespace.name"])
+            - set(attributes["k8s.pod.name"], resource.attributes["k8s.pod.name"])
 
     exporters:
       otlphttp/logs:
@@ -26,13 +37,14 @@ opentelemetry-collector:
         endpoint: ${env:MY_POD_IP}:8889
         metric_expiration: 5m
         resource_to_telemetry_conversion:
-          enabled: true
+          enabled: false # manually handled through transform
     service:
       pipelines:
         logs:
           receivers:
             - otlp
           processors:
+            - memory_limiter
             - batch
           exporters:
             - otlphttp/logs
@@ -40,6 +52,7 @@ opentelemetry-collector:
           receivers:
             - otlp
           processors:
+            - memory_limiter
             - batch
           exporters:
             - otlp/tempo
@@ -48,7 +61,8 @@ opentelemetry-collector:
             - otlp
           processors:
             - memory_limiter
-            - filter
+            - filter/large_histograms
+            - transform/promote_resource_attributes
             - batch
           exporters:
             - prometheus

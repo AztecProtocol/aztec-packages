@@ -1,5 +1,5 @@
-import { type Timer } from '@aztec/foundation/timer';
-import { type CircuitName } from '@aztec/stdlib/stats';
+import type { Timer } from '@aztec/foundation/timer';
+import type { CircuitName } from '@aztec/stdlib/stats';
 import {
   Attributes,
   type Gauge,

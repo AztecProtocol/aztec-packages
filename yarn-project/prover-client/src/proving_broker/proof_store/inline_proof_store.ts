@@ -8,9 +8,9 @@ import {
   type ProvingJobResultsMap,
 } from '@aztec/stdlib/interfaces/server';
 import type { ProvingRequestType } from '@aztec/stdlib/proofs';
-import { type ZodFor } from '@aztec/stdlib/schemas';
+import type { ZodFor } from '@aztec/stdlib/schemas';
 
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store.js';
 
 // use an ASCII encoded data uri https://datatracker.ietf.org/doc/html/rfc2397#section-2
 // we do this to avoid double encoding to base64 (since the inputs already serialize to a base64 string)

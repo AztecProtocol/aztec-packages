@@ -1,7 +1,7 @@
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type Fr } from '@aztec/foundation/fields';
-import { type EventSelector, type FunctionSelector } from '@aztec/stdlib/abi';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
+import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 /** Any type that can be converted into a field for a contract call. */
 export type FieldLike = Fr | Buffer | bigint | number | { /** Converts to field */ toField: () => Fr };

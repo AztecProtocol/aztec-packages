@@ -1,12 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
-import { type PXE } from '@aztec/stdlib/interfaces/client';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
-import { type AccountContract } from '../account/contract.js';
-import { type Salt, type Wallet } from '../account/index.js';
-import { type AccountInterface } from '../account/interface.js';
+import type { AccountContract } from '../account/contract.js';
+import type { Salt, Wallet } from '../account/index.js';
+import type { AccountInterface } from '../account/interface.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { Contract } from '../contract/index.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
@@ -48,7 +48,8 @@ export class AccountManager {
     const { publicKeys } = await deriveKeys(secretKey);
     salt = salt !== undefined ? new Fr(salt) : Fr.random();
 
-    const instance = await getContractInstanceFromDeployParams(accountContract.getContractArtifact(), {
+    const artifact = await accountContract.getContractArtifact();
+    const instance = await getContractInstanceFromDeployParams(artifact, {
       constructorArgs: await accountContract.getDeploymentArgs(),
       salt: salt,
       publicKeys,
@@ -121,7 +122,7 @@ export class AccountManager {
    */
   public async register(): Promise<AccountWalletWithSecretKey> {
     await this.pxe.registerContract({
-      artifact: this.accountContract.getContractArtifact(),
+      artifact: await this.accountContract.getContractArtifact(),
       instance: this.getInstance(),
     });
 
@@ -138,17 +139,15 @@ export class AccountManager {
    * @returns A DeployMethod instance that deploys this account contract.
    */
   public async getDeployMethod(deployWallet?: Wallet) {
+    const artifact = await this.accountContract.getContractArtifact();
+
     if (!(await this.isDeployable())) {
-      throw new Error(
-        `Account contract ${this.accountContract.getContractArtifact().name} does not require deployment.`,
-      );
+      throw new Error(`Account contract ${artifact.name} does not require deployment.`);
     }
 
     const completeAddress = await this.getCompleteAddress();
 
     await this.pxe.registerAccount(this.secretKey, completeAddress.partialAddress);
-
-    const artifact = this.accountContract.getContractArtifact();
 
     const args = (await this.accountContract.getDeploymentArgs()) ?? [];
 

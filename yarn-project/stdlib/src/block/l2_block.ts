@@ -2,11 +2,11 @@ import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { BlockHeader } from '../tx/block_header.js';
 import { Body } from './body.js';
 import { makeAppendOnlyTreeSnapshot, makeHeader } from './l2_block_code_to_purge.js';
 
@@ -185,11 +185,12 @@ export class L2Block {
       privateLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.privateLogs.length, 0),
       publicLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.publicLogs.length, 0),
       contractClassLogCount: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.contractClassLogs.getTotalLogCount(),
+        (logCount, txEffect) => logCount + txEffect.contractClassLogs.length,
         0,
       ),
       contractClassLogSize: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.contractClassLogs.getSerializedLength(),
+        (totalLogSize, txEffect) =>
+          totalLogSize + txEffect.contractClassLogs.reduce((logSize, log) => logSize + log.getEmittedLength(), 0),
         0,
       ),
     };

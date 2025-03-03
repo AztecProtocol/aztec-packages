@@ -1,6 +1,7 @@
-import { type NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
-import { type PrivateResetArtifact } from '../private_kernel_reset_types.js';
+import type { PrivateResetArtifact } from '../private_kernel_reset_types.js';
 
 export type ClientProtocolArtifact =
   | 'PrivateKernelInitArtifact'
@@ -27,4 +28,5 @@ export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;
 export interface ArtifactProvider {
   getClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit>;
   getSimulatedClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit>;
+  getCircuitVkByName(artifact: ClientProtocolArtifact): Promise<VerificationKeyData>;
 }

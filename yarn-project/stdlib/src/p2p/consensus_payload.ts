@@ -1,14 +1,15 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { type Signable, type SignatureDomainSeparator } from './signature_utils.js';
+import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
 
 export class ConsensusPayload implements Signable {
   private size: number | undefined;
@@ -26,7 +27,7 @@ export class ConsensusPayload implements Signable {
     return z
       .object({
         header: BlockHeader.schema,
-        archive: Fr.schema,
+        archive: schemas.Fr,
         txHashes: z.array(TxHash.schema),
       })
       .transform(obj => new ConsensusPayload(obj.header, obj.archive, obj.txHashes));

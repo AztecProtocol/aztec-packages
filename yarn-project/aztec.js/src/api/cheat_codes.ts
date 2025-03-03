@@ -1,6 +1,6 @@
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { type PXE } from '@aztec/stdlib/interfaces/client';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { AztecCheatCodes } from '../utils/aztec_cheatcodes.js';
 import { RollupCheatCodes } from './ethereum/cheat_codes.js';
@@ -18,8 +18,8 @@ export class CheatCodes {
     public rollup: RollupCheatCodes,
   ) {}
 
-  static async create(rpcUrl: string, pxe: PXE): Promise<CheatCodes> {
-    const ethCheatCodes = new EthCheatCodes(rpcUrl);
+  static async create(rpcUrls: string[], pxe: PXE): Promise<CheatCodes> {
+    const ethCheatCodes = new EthCheatCodes(rpcUrls);
     const aztecCheatCodes = new AztecCheatCodes(pxe);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
@@ -28,8 +28,8 @@ export class CheatCodes {
     return new CheatCodes(ethCheatCodes, aztecCheatCodes, rollupCheatCodes);
   }
 
-  static createRollup(rpcUrl: string, addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
-    const ethCheatCodes = new EthCheatCodes(rpcUrl);
+  static createRollup(rpcUrls: string[], addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
+    const ethCheatCodes = new EthCheatCodes(rpcUrls);
     return new RollupCheatCodes(ethCheatCodes, addresses);
   }
 }

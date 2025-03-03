@@ -1,4 +1,4 @@
-import { type Gas } from './gas.js';
+import type { Gas } from './gas.js';
 
 export interface GasUsed {
   /**

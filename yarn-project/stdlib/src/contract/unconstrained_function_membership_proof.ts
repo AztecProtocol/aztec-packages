@@ -11,10 +11,10 @@ import {
   computeFunctionMetadataHash,
   getArtifactMerkleTreeHasher,
 } from './artifact_hash.js';
-import {
-  type ContractClassPublic,
-  type UnconstrainedFunctionMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
+import type {
+  ContractClassPublic,
+  UnconstrainedFunctionMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from './interfaces/index.js';
 
 /**

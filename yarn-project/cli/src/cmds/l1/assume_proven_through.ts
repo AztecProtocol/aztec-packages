@@ -1,9 +1,9 @@
 import { EthCheatCodes, RollupCheatCodes, createPXEClient, makeFetch } from '@aztec/aztec.js';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 export async function assumeProvenThrough(
   blockNumberOrLatest: number | undefined,
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   rpcUrl: string,
   log: LogFn,
 ) {
@@ -11,7 +11,7 @@ export async function assumeProvenThrough(
   const rollupAddress = await pxe.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);
   const blockNumber = blockNumberOrLatest ?? (await pxe.getBlockNumber());
 
-  const ethCheatCode = new EthCheatCodes(l1RpcUrl);
+  const ethCheatCode = new EthCheatCodes(l1RpcUrls);
   const rollupCheatCodes = new RollupCheatCodes(ethCheatCode, { rollupAddress });
 
   await rollupCheatCodes.markAsProven(blockNumber);

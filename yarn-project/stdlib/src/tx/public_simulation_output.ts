@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
-import { type GasUsed } from '../gas/gas_used.js';
+import type { GasUsed } from '../gas/gas_used.js';
 import { CombinedConstantData } from '../kernel/combined_constant_data.js';
 import { TxEffect } from '../tx/tx_effect.js';
 

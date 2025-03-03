@@ -1,5 +1,5 @@
 import { toArray } from '@aztec/foundation/iterable';
-import { type ProofUri, type ProvingJob, type ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
+import type { ProofUri, ProvingJob, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { jest } from '@jest/globals';
@@ -8,7 +8,7 @@ import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type ProverBrokerConfig } from '../config.js';
+import type { ProverBrokerConfig } from '../config.js';
 import { makeInputsUri, makeRandomProvingJobId } from '../fixtures.js';
 import { KVBrokerDatabase } from './persisted.js';
 
@@ -280,7 +280,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       batchSize = 5;
 
       config = {
-        dataStoreMapSizeKB: 1024 * 1024 * 1024, // 1GB
+        dataStoreMapSizeKB: 1024 * 1024, // 1GB
         dataDirectory: directory,
         proverBrokerJobMaxRetries: 1,
         proverBrokerJobTimeoutMs: 1000,

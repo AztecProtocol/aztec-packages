@@ -21,7 +21,7 @@ import {
   serializeToBuffer,
   serializeToFields,
 } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { LogHash } from '../kernel/log_hash.js';
@@ -112,7 +112,6 @@ export class PrivateCircuitPublicInputs {
     public privateLogs: Tuple<PrivateLogData, typeof MAX_PRIVATE_LOGS_PER_CALL>,
     /**
      * Hash of the contract class logs emitted in this function call.
-     * Note: Truncated to 31 bytes to fit in Fr.
      */
     public contractClassLogsHashes: Tuple<LogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**

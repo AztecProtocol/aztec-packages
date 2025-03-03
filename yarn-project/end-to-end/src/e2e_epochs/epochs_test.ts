@@ -6,15 +6,15 @@ import { DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ether
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
-import { type TestProverNode } from '@aztec/prover-node/test';
-import { type SequencerPublisher } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { TestProverNode } from '@aztec/prover-node/test';
+import type { SequencerPublisher } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { L2BlockNumber } from '@aztec/stdlib/block';
-import { type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { join } from 'path';
-import { type Hex, type PublicClient } from 'viem';
+import type { Hex, PublicClient } from 'viem';
 
 import {
   type EndToEndContext,
@@ -92,8 +92,7 @@ export class EpochsTestContext {
     this.rollup = RollupContract.getFromConfig(context.config);
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
-    this.monitor = new ChainMonitor(this.rollup, this.logger);
-    this.monitor.start();
+    this.monitor = new ChainMonitor(this.rollup, this.logger).start();
 
     // This is hideous.
     // We ought to have a definite reference to the l1TxUtils that we're using in both places, provided by the test context.

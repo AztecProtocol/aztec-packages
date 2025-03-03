@@ -1,4 +1,4 @@
-import { type RollupContract } from '@aztec/ethereum';
+import type { RollupContract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';

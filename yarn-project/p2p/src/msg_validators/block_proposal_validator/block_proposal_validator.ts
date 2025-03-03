@@ -1,4 +1,4 @@
-import { type EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { type BlockProposal, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 export class BlockProposalValidator implements P2PValidator<BlockProposal> {

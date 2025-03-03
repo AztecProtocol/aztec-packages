@@ -1,8 +1,9 @@
 import { TREE_SNAPSHOTS_LENGTH } from '@aztec/constants';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 
@@ -16,6 +17,20 @@ export class TreeSnapshots {
     public readonly nullifierTree: AppendOnlyTreeSnapshot,
     public readonly publicDataTree: AppendOnlyTreeSnapshot,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        l1ToL2MessageTree: AppendOnlyTreeSnapshot.schema,
+        noteHashTree: AppendOnlyTreeSnapshot.schema,
+        nullifierTree: AppendOnlyTreeSnapshot.schema,
+        publicDataTree: AppendOnlyTreeSnapshot.schema,
+      })
+      .transform(
+        ({ l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree }) =>
+          new TreeSnapshots(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree),
+      );
+  }
 
   getSize() {
     return (

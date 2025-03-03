@@ -3,11 +3,11 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type L2Block } from '@aztec/stdlib/block';
-import {
-  type IndexedTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
+import type { L2Block } from '@aztec/stdlib/block';
+import type {
+  IndexedTreeId,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
@@ -19,7 +19,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
-import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
+import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
@@ -182,21 +182,26 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       });
     });
 
-    return await this.instance.call(
-      WorldStateMessageType.SYNC_BLOCK,
-      {
-        blockNumber: l2Block.number,
-        blockHeaderHash: await l2Block.header.hash(),
-        paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
-        paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
-        paddedNullifiers: paddedNullifiers.map(serializeLeaf),
-        publicDataWrites: publicDataWrites.map(serializeLeaf),
-        blockStateRef: blockStateReference(l2Block.header.state),
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.SYNC_BLOCK,
+        {
+          blockNumber: l2Block.number,
+          blockHeaderHash: await l2Block.header.hash(),
+          paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+          paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
+          paddedNullifiers: paddedNullifiers.map(serializeLeaf),
+          publicDataWrites: publicDataWrites.map(serializeLeaf),
+          blockStateRef: blockStateReference(l2Block.header.state),
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('synch_pending_block');
+      throw err;
+    }
   }
 
   public async close(): Promise<void> {
@@ -231,15 +236,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async setFinalised(toBlockNumber: bigint) {
-    await this.instance.call(
-      WorldStateMessageType.FINALISE_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummary.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      await this.instance.call(
+        WorldStateMessageType.FINALISE_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummary.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('finalize_block');
+      throw err;
+    }
     return this.getStatusSummary();
   }
 
@@ -249,15 +259,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async removeHistoricalBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(
-      WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('prune_historical_block');
+      throw err;
+    }
   }
 
   /**
@@ -266,15 +281,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
    * @returns The new WorldStateStatus
    */
   public async unwindBlocks(toBlockNumber: bigint) {
-    return await this.instance.call(
-      WorldStateMessageType.UNWIND_BLOCKS,
-      {
-        toBlockNumber,
-        canonical: true,
-      },
-      this.sanitiseAndCacheSummaryFromFull.bind(this),
-      this.deleteCachedSummary.bind(this),
-    );
+    try {
+      return await this.instance.call(
+        WorldStateMessageType.UNWIND_BLOCKS,
+        {
+          toBlockNumber,
+          canonical: true,
+        },
+        this.sanitiseAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+    } catch (err) {
+      this.worldStateInstrumentation.incCriticalErrors('prune_pending_block');
+      throw err;
+    }
   }
 
   public async getStatusSummary() {

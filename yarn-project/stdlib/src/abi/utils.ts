@@ -1,4 +1,4 @@
-import { type AbiType } from './abi.js';
+import type { AbiType } from './abi.js';
 
 /**
  * Returns whether the ABI type is an Aztec or Ethereum Address defined in Aztec.nr.
@@ -34,14 +34,6 @@ export function isAztecAddressStruct(abiType: AbiType) {
  */
 export function isFunctionSelectorStruct(abiType: AbiType) {
   return abiType.kind === 'struct' && abiType.path.endsWith('types::abis::function_selector::FunctionSelector');
-}
-
-/**
- * Returns whether the ABI type is the U128 defined in noir::std.
- * @param abiType - Type to check.
- */
-export function isU128Struct(abiType: AbiType) {
-  return abiType.kind === 'struct' && abiType.path.endsWith('U128');
 }
 
 /**

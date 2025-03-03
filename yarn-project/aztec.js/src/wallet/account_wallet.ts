@@ -1,14 +1,14 @@
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
-import { type AuthWitness } from '@aztec/stdlib/auth-witness';
-import { type AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type PXE } from '@aztec/stdlib/interfaces/client';
-import { type TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import { type AccountInterface } from '../account/interface.js';
+import type { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import {
   type IntentAction,
   type IntentInnerHash,

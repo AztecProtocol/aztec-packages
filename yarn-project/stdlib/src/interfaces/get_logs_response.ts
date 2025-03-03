@@ -1,20 +1,19 @@
-import { type ZodFor } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
 
+import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
+import type { ZodFor } from '../schemas/index.js';
 
 /** Response for the getContractClassLogs archiver call. */
 export type GetContractClassLogsResponse = {
-  /** An array of ExtendedUnencryptedL2Log elements. */
-  logs: ExtendedUnencryptedL2Log[];
+  /** An array of ExtendedContractClassLog elements. */
+  logs: ExtendedContractClassLog[];
   /** Indicates if a limit has been reached. */
   maxLogsHit: boolean;
 };
 
 export const GetContractClassLogsResponseSchema: ZodFor<GetContractClassLogsResponse> = z.object({
-  logs: z.array(ExtendedUnencryptedL2Log.schema),
+  logs: z.array(ExtendedContractClassLog.schema),
   maxLogsHit: z.boolean(),
 });
 

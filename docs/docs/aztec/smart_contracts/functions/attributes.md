@@ -90,7 +90,7 @@ To generate the environment, the simulator gets the blockheader from the [PXE da
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 
-#include_code execute_unconstrained_function yarn-project/simulator/src/client/unconstrained_execution.ts typescript
+#include_code execute_unconstrained_function yarn-project/simulator/src/private/unconstrained_execution.ts typescript
 
 This:
 
@@ -236,7 +236,7 @@ impl NoteHash for CustomNote {
         )
     }
 
-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
+    unconstrained fn compute_nullifier_unconstrained(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
         // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
         // not make sense in an unconstrained context.
         let retrieved_note = RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };

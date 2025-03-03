@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { GoogleCloudStorageProofStore } from './gcs_proof_store.js';
 import { InlineProofStore } from './inline_proof_store.js';
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store.js';
 
 export function createProofStore(config: string | undefined, logger = createLogger('prover-client:proof-store')) {
   if (config === undefined) {

@@ -13,6 +13,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import {
   AvmAppendTreeHint,
+  AvmContractInstanceHint,
   AvmNullifierReadTreeHint,
   AvmNullifierWriteTreeHint,
   AvmPublicDataReadTreeHint,
@@ -20,13 +21,13 @@ import {
   PublicDataUpdateRequest,
 } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractClassIdPreimage, SerializableContractInstance } from '@aztec/stdlib/contract';
+import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
 import { PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message } from '@aztec/stdlib/messaging';
+import { makeContractClassPublic } from '@aztec/stdlib/testing';
 import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { Vector } from '@aztec/stdlib/types';
 
 import { randomInt } from 'crypto';
 
@@ -34,7 +35,6 @@ import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
 
 describe('Public Side Effect Trace', () => {
-  const bytecode = Buffer.from('0xdeadbeef');
   const utxo = Fr.random();
   const leafIndex = Fr.random();
   const lowLeafIndex = Fr.random();
@@ -65,7 +65,7 @@ describe('Public Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, siblingPath);
-    expect(trace.getAvmCircuitHints().publicDataReads.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().publicDataReads).toEqual([expected]);
   });
 
   it('Should trace storage writes', async () => {
@@ -91,14 +91,14 @@ describe('Public Side Effect Trace', () => {
 
     const readHint = new AvmPublicDataReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     const expectedHint = new AvmPublicDataWriteTreeHint(readHint, newLeafPreimage, siblingPath);
-    expect(trace.getAvmCircuitHints().publicDataWrites.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().publicDataWrites).toEqual([expectedHint]);
   });
 
   it('Should trace note hash checks', () => {
     const exists = true;
     trace.traceNoteHashCheck(address, utxo, leafIndex, exists, siblingPath);
     const expected = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().noteHashReads.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().noteHashReads).toEqual([expected]);
   });
 
   it('Should trace note hashes', () => {
@@ -109,7 +109,7 @@ describe('Public Side Effect Trace', () => {
     expect(trace.getSideEffects().noteHashes).toEqual(expected);
 
     const expectedHint = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().noteHashWrites.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().noteHashWrites).toEqual([expectedHint]);
   });
 
   it('Should trace nullifier checks', () => {
@@ -119,7 +119,7 @@ describe('Public Side Effect Trace', () => {
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = new AvmNullifierReadTreeHint(lowLeafPreimage, leafIndex, siblingPath);
-    expect(trace.getAvmCircuitHints().nullifierReads.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().nullifierReads).toEqual([expected]);
   });
 
   it('Should trace nullifiers', () => {
@@ -132,14 +132,14 @@ describe('Public Side Effect Trace', () => {
 
     const readHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath);
     const expectedHint = new AvmNullifierWriteTreeHint(readHint, siblingPath);
-    expect(trace.getAvmCircuitHints().nullifierWrites.items).toEqual([expectedHint]);
+    expect(trace.getAvmCircuitHints().nullifierWrites).toEqual([expectedHint]);
   });
 
   it('Should trace L1ToL2 Message checks', () => {
     const exists = true;
     trace.traceL1ToL2MessageCheck(address, utxo, leafIndex, exists, siblingPath);
     const expected = new AvmAppendTreeHint(leafIndex, utxo, siblingPath);
-    expect(trace.getAvmCircuitHints().l1ToL2MessageReads.items).toEqual([expected]);
+    expect(trace.getAvmCircuitHints().l1ToL2MessageReads).toEqual([expected]);
   });
 
   it('Should trace new L2ToL1 messages', () => {
@@ -162,17 +162,6 @@ describe('Public Side Effect Trace', () => {
 
   it('Should trace get contract instance', async () => {
     const instance = await SerializableContractInstance.random();
-    const { version: _, ...instanceWithoutVersion } = instance;
-    const initializationLowLeafPreimage = new NullifierLeafPreimage(
-      /*siloedNullifier=*/ address.toField(),
-      Fr.ZERO,
-      0n,
-    );
-    const initializationMembershipHint = new AvmNullifierReadTreeHint(
-      initializationLowLeafPreimage,
-      lowLeafIndex,
-      lowLeafSiblingPath,
-    );
     const updateSlot = Fr.random();
     const updateMembershipHint = new AvmPublicDataReadTreeHint(
       new PublicDataTreeLeafPreimage(updateSlot, Fr.ZERO, Fr.ZERO, updateSlot.add(new Fr(10n)).toBigInt()),
@@ -181,77 +170,37 @@ describe('Public Side Effect Trace', () => {
     );
     const updatePreimage = [new Fr(1), new Fr(2), new Fr(3), new Fr(4)];
     const exists = true;
-    trace.traceGetContractInstance(
-      address,
-      exists,
-      instance,
-      initializationMembershipHint,
-      updateMembershipHint,
-      updatePreimage,
-    );
+    trace.traceGetContractInstance(address, exists, instance, updateMembershipHint, updatePreimage);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    expect(trace.getAvmCircuitHints().contractInstances.items).toEqual([
-      {
+    expect(trace.getAvmCircuitHints().contractInstances).toEqual([
+      new AvmContractInstanceHint(
         address,
         exists,
-        ...instanceWithoutVersion,
-        initializationMembershipHint,
+        instance.salt,
+        instance.deployer,
+        instance.currentContractClassId,
+        instance.originalContractClassId,
+        instance.initializationHash,
+        instance.publicKeys,
         updateMembershipHint,
-        updatePreimage: new Vector(updatePreimage),
-      },
+        updatePreimage,
+      ),
     ]);
   });
 
-  it('Should trace get bytecode', async () => {
-    const instance = await SerializableContractInstance.random();
-    const contractClass: ContractClassIdPreimage = {
-      artifactHash: Fr.random(),
-      privateFunctionsRoot: Fr.random(),
-      publicBytecodeCommitment: Fr.random(),
-    };
-    const { version: _, ...instanceWithoutVersion } = instance;
-    const initializationLowLeafPreimage = new NullifierLeafPreimage(
-      /*siloedNullifier=*/ address.toField(),
-      Fr.ZERO,
-      0n,
-    );
-    const initializationMembership = new AvmNullifierReadTreeHint(
-      initializationLowLeafPreimage,
-      lowLeafIndex,
-      lowLeafSiblingPath,
-    );
-    const updateSlot = Fr.random();
-    const updateMembershipHint = new AvmPublicDataReadTreeHint(
-      new PublicDataTreeLeafPreimage(updateSlot, Fr.ZERO, Fr.ZERO, updateSlot.add(new Fr(10n)).toBigInt()),
-      new Fr(1),
-      [],
-    );
-    const updatePreimage = [new Fr(1), new Fr(2), new Fr(3), new Fr(4)];
-    const exists = true;
-    trace.traceGetBytecode(
-      address,
-      exists,
-      bytecode,
-      instance,
-      contractClass,
-      initializationMembership,
-      updateMembershipHint,
-      updatePreimage,
-    );
+  it('Should trace get contract class', async () => {
+    const klass = { ...(await makeContractClassPublic()), publicBytecodeCommitment: Fr.random() };
+    trace.traceGetContractClass(/*id=*/ new Fr(44), /*exists=*/ true, klass);
 
-    expect(Array.from(trace.getAvmCircuitHints().contractBytecodeHints.values())).toEqual([
+    expect(Array.from(trace.getAvmCircuitHints().contractClasses)).toEqual([
       {
-        bytecode,
-        contractInstanceHint: {
-          address,
-          exists,
-          ...instanceWithoutVersion,
-          initializationMembershipHint: { ...initializationMembership },
-          updateMembershipHint,
-          updatePreimage: new Vector(updatePreimage),
-        },
-        contractClassHint: contractClass,
+        classId: new Fr(44),
+        exists: true,
+        artifactHash: klass.artifactHash,
+        privateFunctionsRoot: klass.privateFunctionsRoot,
+        publicBytecodeCommitment: klass.publicBytecodeCommitment,
+        packedBytecode: klass.packedBytecode,
       },
     ]);
   });
@@ -385,35 +334,38 @@ describe('Public Side Effect Trace', () => {
       );
     });
 
-    it('Should enforce maximum number of calls to unique contract class IDs', async () => {
-      const firstAddr = AztecAddress.fromNumber(0);
-      const firstInstance = await SerializableContractInstance.random();
-      trace.traceGetBytecode(firstAddr, /*exists=*/ true, bytecode, firstInstance);
+    it('Should enforce maximum number of unique contract class IDs', async () => {
+      const firstClass = { ...(await makeContractClassPublic(0)), publicBytecodeCommitment: Fr.random() };
+      trace.traceGetContractClass(firstClass.id, /*exists=*/ true, firstClass);
 
       for (let i = 1; i < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
-        const addr = AztecAddress.fromNumber(i);
-        const instance = await SerializableContractInstance.random();
-        trace.traceGetBytecode(addr, /*exists=*/ true, bytecode, instance);
+        const klass = { ...(await makeContractClassPublic(i)), publicBytecodeCommitment: Fr.random() };
+        trace.traceGetContractClass(klass.id, /*exists=*/ true, klass);
       }
 
-      const addr = AztecAddress.fromNumber(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
-      const instance = await SerializableContractInstance.random();
-      expect(() => trace.traceGetBytecode(addr, /*exists=*/ true, bytecode, instance)).toThrow(
-        SideEffectLimitReachedError,
-      );
+      const klass = {
+        ...(await makeContractClassPublic(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS)),
+        publicBytecodeCommitment: Fr.random(),
+      };
+      expect(() => trace.traceGetContractClass(klass.id, /*exists=*/ true, klass)).toThrow(SideEffectLimitReachedError);
 
-      // can re-trace same contract address
-      trace.traceGetBytecode(firstAddr, /*exists=*/ true, bytecode, firstInstance);
+      // can re-trace same first class
+      trace.traceGetContractClass(firstClass.id, /*exists=*/ true, firstClass);
 
-      const differentAddr = AztecAddress.fromNumber(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1);
-      const instanceWithSameClassId = await SerializableContractInstance.random({
-        currentContractClassId: firstInstance.currentContractClassId,
-      });
-      // can re-trace different contract address if it has a duplicate class ID
-      trace.traceGetBytecode(differentAddr, /*exists=*/ true, bytecode, instanceWithSameClassId);
+      const differentClass = {
+        ...(await makeContractClassPublic(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1)),
+        publicBytecodeCommitment: Fr.random(),
+      };
+      const classWithSameId = {
+        ...(await makeContractClassPublic(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 3)),
+        publicBytecodeCommitment: Fr.random(),
+        id: firstClass.id,
+      };
+      // can re-trace different class if it has a duplicate class ID
+      trace.traceGetContractClass(classWithSameId.id, /*exists=*/ true, classWithSameId);
 
-      // can trace a call to a non-existent contract
-      trace.traceGetBytecode(differentAddr, /*exists=*/ false);
+      // can trace a call to a non-existent class
+      trace.traceGetContractClass(differentClass.id, /*exists=*/ false);
     });
 
     it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', async () => {
@@ -453,7 +405,6 @@ describe('Public Side Effect Trace', () => {
       let testCounter = startCounter;
       const leafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
       const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
-      const nullifierMembership = new AvmNullifierReadTreeHint(lowLeafPreimage, Fr.ZERO, []);
       nestedTrace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
       testCounter++;
       await nestedTrace.tracePublicStorageWrite(
@@ -484,9 +435,9 @@ describe('Public Side Effect Trace', () => {
       testCounter++;
       nestedTrace.tracePublicLog(address, log);
       testCounter++;
-      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance, nullifierMembership);
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance);
       testCounter++;
-      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance, nullifierMembership);
+      nestedTrace.traceGetContractInstance(address, /*exists=*/ false, contractInstance);
       testCounter++;
 
       trace.merge(nestedTrace, reverted);
@@ -510,16 +461,16 @@ describe('Public Side Effect Trace', () => {
 
       const parentHints = trace.getAvmCircuitHints();
       const childHints = nestedTrace.getAvmCircuitHints();
-      expect(parentHints.enqueuedCalls.items).toEqual(childHints.enqueuedCalls.items);
-      expect(parentHints.contractInstances.items).toEqual(childHints.contractInstances.items);
-      expect(parentHints.contractBytecodeHints).toEqual(childHints.contractBytecodeHints);
-      expect(parentHints.publicDataReads.items).toEqual(childHints.publicDataReads.items);
-      expect(parentHints.publicDataWrites.items).toEqual(childHints.publicDataWrites.items);
-      expect(parentHints.nullifierReads.items).toEqual(childHints.nullifierReads.items);
-      expect(parentHints.nullifierWrites.items).toEqual(childHints.nullifierWrites.items);
-      expect(parentHints.noteHashReads.items).toEqual(childHints.noteHashReads.items);
-      expect(parentHints.noteHashWrites.items).toEqual(childHints.noteHashWrites.items);
-      expect(parentHints.l1ToL2MessageReads.items).toEqual(childHints.l1ToL2MessageReads.items);
+      expect(parentHints.enqueuedCalls).toEqual(childHints.enqueuedCalls);
+      expect(parentHints.contractInstances).toEqual(childHints.contractInstances);
+      expect(parentHints.contractClasses).toEqual(childHints.contractClasses);
+      expect(parentHints.publicDataReads).toEqual(childHints.publicDataReads);
+      expect(parentHints.publicDataWrites).toEqual(childHints.publicDataWrites);
+      expect(parentHints.nullifierReads).toEqual(childHints.nullifierReads);
+      expect(parentHints.nullifierWrites).toEqual(childHints.nullifierWrites);
+      expect(parentHints.noteHashReads).toEqual(childHints.noteHashReads);
+      expect(parentHints.noteHashWrites).toEqual(childHints.noteHashWrites);
+      expect(parentHints.l1ToL2MessageReads).toEqual(childHints.l1ToL2MessageReads);
     });
   });
 });

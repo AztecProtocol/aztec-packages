@@ -18,6 +18,9 @@ else
   fi
 fi
 
+# Allow override.
+cores=${CPUS:-$cores}
+
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
   set +e
@@ -82,7 +85,7 @@ if [ -t 1 ]; then
   fi
 else
   # LOG_ID can optionally be set externally to be e.g. the GA run id.
-  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
+  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
 container_script=$(cat <<EOF
@@ -101,7 +104,13 @@ container_script=$(cat <<EOF
   export CI_FULL=$CI_FULL
   export DRY_RUN=${DRY_RUN:-0}
   source ci3/source
+  source ci3/source_redis
+  ci_log_id=\$(log_ci_run)
 
+  # Heartbeat.
+  while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
+
+  export NPM_TOKEN=${NPM_TOKEN:-}
   if [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
     echo ${DOCKERHUB_PASSWORD:-} | docker login -u aztecprotocolci --password-stdin
   fi
@@ -109,8 +118,16 @@ container_script=$(cat <<EOF
   if semver check "$REF_NAME"; then
     echo "Performing a release because $REF_NAME is a semver."
   fi
+  set +e
   set -x
   $cmd
+  code=\$?
+  case \$code in
+    155) ;;
+    0) log_ci_run PASSED \$ci_log_id ;;
+    *) log_ci_run FAILED \$ci_log_id ;;
+  esac
+  exit \$code
 EOF
 )
 
@@ -157,6 +174,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
     -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
     -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
+    -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
 "

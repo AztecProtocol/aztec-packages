@@ -6,7 +6,7 @@ import {
   writeToOutputDirectory,
 } from '@aztec/bb-prover';
 import { createLogger } from '@aztec/foundation/log';
-import { type ClientIvcProof } from '@aztec/stdlib/proofs';
+import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { jest } from '@jest/globals';
 import { encode } from '@msgpack/msgpack';

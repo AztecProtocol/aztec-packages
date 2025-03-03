@@ -1,7 +1,7 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type NoteData } from '@aztec/simulator/client';
+import type { NoteData } from '@aztec/simulator/client';
 import { NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PublicKey } from '@aztec/stdlib/keys';

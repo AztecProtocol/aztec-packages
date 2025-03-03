@@ -1,13 +1,26 @@
 import { L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 
 export class L2ToL1Message {
   constructor(public recipient: EthAddress, public content: Fr, public counter: number) {}
+
+  static get schema() {
+    return z
+      .object({
+        recipient: schemas.EthAddress,
+        content: schemas.Fr,
+        counter: z.number(),
+      })
+      .transform(({ recipient, content, counter }) => new L2ToL1Message(recipient, content, counter));
+  }
 
   /**
    * Creates an empty L2ToL1Message with default values.
@@ -85,6 +98,15 @@ export class L2ToL1Message {
 
 export class ScopedL2ToL1Message {
   constructor(public message: L2ToL1Message, public contractAddress: AztecAddress) {}
+
+  static get schema() {
+    return z
+      .object({
+        message: L2ToL1Message.schema,
+        contractAddress: AztecAddress.schema,
+      })
+      .transform(({ message, contractAddress }) => new ScopedL2ToL1Message(message, contractAddress));
+  }
 
   static getFields(fields: FieldsOf<ScopedL2ToL1Message>) {
     return [fields.message, fields.contractAddress] as const;

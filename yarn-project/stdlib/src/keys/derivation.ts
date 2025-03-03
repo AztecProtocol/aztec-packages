@@ -4,7 +4,7 @@ import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { CompleteAddress } from '../contract/complete_address.js';
-import { type KeyPrefix } from './key_types.js';
+import type { KeyPrefix } from './key_types.js';
 import { PublicKeys } from './public_keys.js';
 import { getKeyGenerator } from './utils.js';
 

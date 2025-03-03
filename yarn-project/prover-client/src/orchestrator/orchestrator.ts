@@ -15,15 +15,15 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
-import { type TreeNodeLocation } from '@aztec/foundation/trees';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import type { TreeNodeLocation } from '@aztec/foundation/trees';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { L2Block } from '@aztec/stdlib/block';
-import {
-  type EpochProver,
-  type ForkMerkleTreeOperations,
-  type MerkleTreeWriteOperations,
-  type ProofAndVerificationKey,
-  type ServerCircuitProver,
+import type {
+  EpochProver,
+  ForkMerkleTreeOperations,
+  MerkleTreeWriteOperations,
+  ProofAndVerificationKey,
+  ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
 import { BaseParityInputs } from '@aztec/stdlib/parity';
 import { makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
@@ -34,7 +34,7 @@ import {
   SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/stdlib/rollup';
-import { type CircuitName } from '@aztec/stdlib/stats';
+import type { CircuitName } from '@aztec/stdlib/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/stdlib/tx';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
@@ -58,7 +58,7 @@ import {
   validatePartialState,
   validateTx,
 } from './block-building-helpers.js';
-import { type BlockProvingState } from './block-proving-state.js';
+import type { BlockProvingState } from './block-proving-state.js';
 import { EpochProvingState, type ProvingResult, type TreeSnapshots } from './epoch-proving-state.js';
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
 import { TxProvingState } from './tx-proving-state.js';

@@ -1,19 +1,20 @@
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type AvmCircuitInputs, serializeWithMessagePack } from '@aztec/stdlib/avm';
+import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
-import { type UltraHonkFlavor } from '../honk.js';
+import type { UltraHonkFlavor } from '../honk.js';
 import { CLIENT_IVC_PROOF_FILE_NAME, CLIENT_IVC_VK_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
+export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
 export const AVM_HINTS_FILENAME = 'avm_hints.bin';
@@ -380,11 +381,11 @@ export async function generateAvmProofV2(
     return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
   }
 
-  const inputsBuffer = input.serializeForAvm2();
+  const inputsBuffer = input.serializeWithMessagePack();
 
   try {
     // Write the inputs to the working directory.
-    const avmInputsPath = join(workingDirectory, 'avm_inputs.bin');
+    const avmInputsPath = join(workingDirectory, AVM_INPUTS_FILENAME);
     await fs.writeFile(avmInputsPath, inputsBuffer);
     if (!(await filePresent(avmInputsPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
@@ -435,7 +436,7 @@ export async function generateAvmProofV2(
 export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
-  input: AvmCircuitInputs,
+  _input: AvmCircuitInputs,
   logger: Logger,
   checkCircuitOnly: boolean = false,
 ): Promise<BBFailure | BBSuccess> {
@@ -467,15 +468,16 @@ export async function generateAvmProof(
   try {
     // Write the inputs to the working directory.
 
-    await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
-    if (!(await filePresent(publicInputsPath))) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
-    }
+    // WARNING: Not writing the inputs since VM1 is disabled!
+    // await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
+    // if (!(await filePresent(publicInputsPath))) {
+    //   return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
+    // }
 
-    await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
-    if (!(await filePresent(avmHintsPath))) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
-    }
+    // await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
+    // if (!(await filePresent(avmHintsPath))) {
+    //   return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
+    // }
 
     const args = ['--avm-public-inputs', publicInputsPath, '--avm-hints', avmHintsPath, '-o', outputPath];
     const loggingArg =
@@ -558,11 +560,11 @@ export async function verifyAvmProofV2(
   pathToBB: string,
   workingDirectory: string,
   proofFullPath: string,
-  publicInputs: any,
+  publicInputs: AvmCircuitPublicInputs,
   verificationKeyPath: string,
   logger: Logger,
 ): Promise<BBFailure | BBSuccess> {
-  const inputsBuffer = serializeWithMessagePack(publicInputs);
+  const inputsBuffer = publicInputs.serializeWithMessagePack();
 
   // Write the inputs to the working directory.
   const filePresent = async (file: string) =>
@@ -779,8 +781,8 @@ export async function computeGateCountForCircuit(
 
     const result = await executeBB(
       pathToBB,
-      flavor === 'mega_honk' ? `gates_for_ivc` : `gates`,
-      ['-b', bytecodePath, '-v'],
+      'gates',
+      ['--scheme', flavor === 'mega_honk' ? 'client_ivc' : 'ultra_honk', '-b', bytecodePath, '-v'],
       logHandler,
     );
     const duration = timer.ms();

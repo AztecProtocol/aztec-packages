@@ -1,12 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { type GasDimensions } from './gas.js';
+import type { GasDimensions } from './gas.js';
 
 /** Gas prices for each dimension. */
 export class GasFees {
@@ -91,7 +91,14 @@ export class GasFees {
     return serializeToFields(this.feePerDaGas, this.feePerL2Gas);
   }
 
+  toInspect() {
+    return {
+      feePerDaGas: this.feePerDaGas.toNumberUnsafe(),
+      feePerL2Gas: this.feePerL2Gas.toNumberUnsafe(),
+    };
+  }
+
   [inspect.custom]() {
-    return `GasFees { feePerDaGas=${this.feePerDaGas} feePerL2Gas=${this.feePerL2Gas} }`;
+    return `GasFees { feePerDaGas=${this.feePerDaGas.toBigInt()} feePerL2Gas=${this.feePerL2Gas.toBigInt()} }`;
   }
 }

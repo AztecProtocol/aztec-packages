@@ -1,16 +1,16 @@
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
-import { type P2PBootstrapApi } from '@aztec/stdlib/interfaces/server';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import type { P2PBootstrapApi } from '@aztec/stdlib/interfaces/server';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
-import { type ENR, SignableENR } from '@chainsafe/enr';
+import { ENR, type SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
-import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
-import { setAztecEnrKey } from '../versioning.js';
+import { createBootnodeENRandPeerId } from '../enr/generate-enr.js';
+import { convertToMultiaddr, getPeerIdPrivateKey } from '../util.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -32,28 +32,26 @@ export class BootstrapNode implements P2PBootstrapApi {
    */
   public async start(config: BootnodeConfig) {
     const { udpListenAddress, udpAnnounceAddress } = config;
-
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
-    const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
-    this.peerId = peerId;
-    const enr = SignableENR.createFromPeerId(peerId);
-
     const listenAddrUdp = multiaddr(convertToMultiaddr(udpListenAddress, 'udp'));
 
     if (!udpAnnounceAddress) {
       throw new Error('You need to provide a UDP announce address.');
     }
 
-    const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
-    enr.setLocationMultiaddr(publicAddr);
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
 
-    const versions = setAztecEnrKey(enr, config);
+    const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
+      peerIdPrivateKey,
+      udpAnnounceAddress,
+      config.l1ChainId,
+    );
+    this.peerId = peerId;
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
 
     const metricsRegistry = new OtelMetricsAdapter(this.telemetry);
     this.node = Discv5.create({
-      enr,
+      enr: ourEnr,
       peerId,
       bindAddrs: { ip4: listenAddrUdp },
       config: {
@@ -72,15 +70,30 @@ export class BootstrapNode implements P2PBootstrapApi {
     });
 
     try {
+      this.logger.info('Starting bootnode');
       await this.node.start();
       this.logger.info('Bootstrap node started', {
         peerId,
-        enr: enr.encodeTxt(),
+        enr: ourEnr.encodeTxt(),
         addr: listenAddrUdp.toString(),
-        versions,
       });
     } catch (e) {
       this.logger.error('Error starting Discv5', e);
+    }
+
+    // Add bootnode ENRs if provided, making sure we filter our own
+    if (config.bootstrapNodes?.length) {
+      const otherBootnodeENRs = config.bootstrapNodes
+        .map(x => ENR.decodeTxt(x))
+        .filter(b => b.nodeId !== ourEnr.nodeId);
+      this.logger.info(`Adding bootstrap nodes ENRs: ${otherBootnodeENRs.map(x => x.encodeTxt()).join(', ')}`);
+      try {
+        otherBootnodeENRs.forEach(enr => {
+          this.node.addEnr(enr);
+        });
+      } catch (e) {
+        this.logger.error(`Error adding bootnode ENRs: ${e}`);
+      }
     }
   }
 

@@ -1,13 +1,15 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { BlockHeader, TxReceipt } from '@aztec/stdlib/tx';
 
+import type { EventEmitter } from 'events';
 import { z } from 'zod';
 
-import { type L1RollupConstants } from '../epoch-helpers/index.js';
-import { type TxEffect } from '../tx/tx_effect.js';
-import { type TxHash } from '../tx/tx_hash.js';
-import { type InBlock } from './in_block.js';
-import { type L2Block } from './l2_block.js';
+import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import type { BlockHeader } from '../tx/block_header.js';
+import type { TxEffect } from '../tx/tx_effect.js';
+import type { TxHash } from '../tx/tx_hash.js';
+import type { TxReceipt } from '../tx/tx_receipt.js';
+import type { InBlock } from './in_block.js';
+import type { L2Block } from './l2_block.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -115,6 +117,12 @@ export interface L2BlockSource {
 }
 
 /**
+ * L2BlockSource that emits events upon pending / proven chain changes.
+ * see L2BlockSourceEvents for the events emitted.
+ */
+export interface L2BlockSourceEventEmitter extends L2BlockSource, EventEmitter {}
+
+/**
  * Identifier for L2 block tags.
  * - latest: Latest block pushed to L1.
  * - proven: Proven block on L1.
@@ -145,3 +153,14 @@ export const L2TipsSchema = z.object({
   proven: L2BlockIdSchema,
   finalized: L2BlockIdSchema,
 }) satisfies z.ZodType<L2Tips>;
+
+export enum L2BlockSourceEvents {
+  L2PruneDetected = 'l2PruneDetected',
+}
+
+export type L2BlockSourceEvent = {
+  type: 'l2PruneDetected';
+  blockNumber: bigint;
+  slotNumber: bigint;
+  epochNumber: bigint;
+};

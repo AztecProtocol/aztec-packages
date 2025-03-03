@@ -1,4 +1,4 @@
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -151,6 +151,8 @@ export type ContractClassPublic = {
   unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[];
 } & Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
   Omit<ContractClass, 'privateFunctions'>;
+export type ContractClassWithCommitment = ContractClassPublic &
+  Pick<ContractClassCommitments, 'publicBytecodeCommitment'>;
 
 export const ContractClassPublicSchema = z
   .object({

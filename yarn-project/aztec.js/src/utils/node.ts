@@ -1,6 +1,6 @@
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { type AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 export const waitForNode = async (node: AztecNode, logger?: Logger) => {
   await retryUntil(async () => {

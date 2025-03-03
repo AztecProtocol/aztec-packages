@@ -3,14 +3,14 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { type L2Block } from '@aztec/stdlib/block';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import type { L2Block } from '@aztec/stdlib/block';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { jest } from '@jest/globals';
 
 import { NativeWorldStateService } from '../native/native_world_state.js';
-import { type WorldStateConfig } from '../synchronizer/config.js';
+import type { WorldStateConfig } from '../synchronizer/config.js';
 import { createWorldState } from '../synchronizer/factory.js';
 import { ServerWorldStateSynchronizer } from '../synchronizer/server_world_state_synchronizer.js';
 import { mockBlocks } from './utils.js';

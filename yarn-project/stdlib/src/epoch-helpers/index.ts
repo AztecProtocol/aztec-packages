@@ -1,6 +1,6 @@
-import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
-
 import { z } from 'zod';
+
+import { type ZodFor, schemas } from '../schemas/index.js';
 
 export type L1RollupConstants = {
   l1StartBlock: bigint;

@@ -16,7 +16,7 @@ import type { AbiDecoded } from '../abi/decoder.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock } from '../block/in_block.js';
+import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -29,17 +29,17 @@ import {
 import { GasFees } from '../gas/gas_fees.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PublicKeys } from '../keys/public_keys.js';
+import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/index.js';
-import { type NotesFilter } from '../note/notes_filter.js';
+import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { PrivateExecutionResult, Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
-import { type GetContractClassLogsResponse, type GetPublicLogsResponse } from './get_logs_response.js';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import {
   type ContractClassMetadata,
   type ContractMetadata,
@@ -247,7 +247,7 @@ describe('PXESchema', () => {
 
   it('getContractClassLogs', async () => {
     const result = await context.client.getContractClassLogs({ contractAddress: address });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    expect(result).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
   });
 
   it('getBlockNumber', async () => {
@@ -467,7 +467,7 @@ class MockPXE implements PXE {
   }
   async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
-    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
+    return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
   getBlockNumber(): Promise<number> {
     return Promise.resolve(1);

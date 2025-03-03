@@ -1,4 +1,4 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
@@ -89,11 +89,11 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes}`);
 
     // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
-    // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
+    // Original implementation of `handleGossipedTx` will store received transactions in the tx pool.
     // We chose the first 2 nodes that will be the proposers for the next few slots
     for (const nodeIndex of nodesToTurnOffTxGossip) {
       jest
-        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'processTxFromPeer')
+        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx')
         .mockImplementation((): Promise<void> => {
           return Promise.resolve();
         });
@@ -116,7 +116,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+          await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT * 1.5 }); // more transactions in this test so allow more time
           t.logger.info(`Tx ${i}-${j}: ${await tx.getTxHash()} has been mined`);
           return await tx.getTxHash();
         }),

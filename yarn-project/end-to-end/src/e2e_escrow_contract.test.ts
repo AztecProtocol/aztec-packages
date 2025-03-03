@@ -10,7 +10,7 @@ import {
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { computePartialAddress } from '@aztec/stdlib/contract';
-import { type PublicKeys } from '@aztec/stdlib/keys';
+import type { PublicKeys } from '@aztec/stdlib/keys';
 
 import { expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';

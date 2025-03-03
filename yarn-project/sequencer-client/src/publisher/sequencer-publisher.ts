@@ -1,7 +1,7 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import {
   FormattedViemError,
   type ForwarderContract,
@@ -17,10 +17,10 @@ import {
   type TransactionStats,
   formatViemError,
 } from '@aztec/ethereum';
-import { type L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Signature } from '@aztec/foundation/eth-signature';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -32,7 +32,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import pick from 'lodash.pick';
 import { type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import { type PublisherConfig, type TxSenderConfig } from './config.js';
+import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
 /** Arguments to the process method of the rollup contract */
@@ -43,8 +43,6 @@ type L1ProcessArgs = {
   archive: Buffer;
   /** The L2 block's leaf in the archive tree. */
   blockHash: Buffer;
-  /** L2 block body. TODO(#9101): Remove block body once we can extract blobs. */
-  body: Buffer;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -230,6 +228,12 @@ export class SequencerPublisher {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
       return undefined;
+    } finally {
+      try {
+        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+      } catch (err) {
+        this.log.warn(`Failed to record balance after sending tx: ${err}`);
+      }
     }
   }
 
@@ -483,8 +487,6 @@ export class SequencerPublisher {
         txHashes,
       },
       attestations,
-      // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
-      `0x${encodedData.body.toString('hex')}`,
       blobInput,
     ] as const;
 

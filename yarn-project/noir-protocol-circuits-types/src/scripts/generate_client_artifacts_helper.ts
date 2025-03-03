@@ -19,8 +19,10 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
 
 function generateImports() {
   return `
-  import { type NoirCompiledCircuit } from '@aztec/stdlib/noir';
-  import { type ClientProtocolArtifact } from './artifacts/types.js';
+  import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+  import type { ClientProtocolArtifact } from './artifacts/types.js';
+  import { VerificationKeyData } from '@aztec/stdlib/vks';
+  import { keyJsonToVKData } from './utils/vk_json.js';
 `;
 }
 
@@ -35,7 +37,7 @@ function generateArtifactNames() {
   `;
 }
 
-function generateImportFunction() {
+function generateCircuitArtifactImportFunction() {
   const cases = Object.values(ClientCircuitArtifactNames)
     .flatMap(artifactName => {
       const isReset = artifactName.includes('private_kernel_reset');
@@ -45,6 +47,11 @@ function generateImportFunction() {
       return [artifactName, simulatedArtifactName];
     })
     .map(artifactName => {
+      // Cannot assert this import as it's incompatible with browsers
+      // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
+      // Use the new "with" syntax once supported by firefox
+      // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+      // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
       return `case '${artifactName}': {
         const { default: compiledCircuit } = await import(\"../artifacts/${artifactName}.json\");
         return compiledCircuit as NoirCompiledCircuit;
@@ -65,6 +72,29 @@ function generateImportFunction() {
   `;
 }
 
+function generateVkImportFunction() {
+  const cases = Object.values(ClientCircuitArtifactNames).map(artifactName => {
+    // Cannot assert this import as it's incompatible with browsers
+    // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
+    // Use the new "with" syntax once supported by firefox
+    // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+    // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
+    return `case '${artifactName}': {
+        const { default: keyData } = await import(\"../artifacts/keys/${artifactName}.vk.data.json\");
+        return keyJsonToVKData(keyData);
+      }`;
+  });
+
+  return `
+    export async function getClientCircuitVkData(artifactName: string): Promise<VerificationKeyData> {
+      switch(artifactName) {
+        ${cases.join('\n')}
+        default: throw new Error(\`Unknown artifact: \${artifactName}\`);
+      }
+    }
+  `;
+}
+
 const main = async () => {
   const content = `
     /* eslint-disable camelcase */
@@ -74,7 +104,9 @@ const main = async () => {
 
     ${generateArtifactNames()}
 
-    ${generateImportFunction()}
+    ${generateCircuitArtifactImportFunction()}
+
+    ${generateVkImportFunction()}
 
   `;
 

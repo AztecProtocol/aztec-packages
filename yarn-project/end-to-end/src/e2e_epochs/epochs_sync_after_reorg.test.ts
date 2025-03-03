@@ -1,10 +1,10 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { type Logger } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js';
 import { executeTimeout } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext } from '../fixtures/utils.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_L1_SLOTS } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
