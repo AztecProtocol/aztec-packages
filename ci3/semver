@@ -5,8 +5,8 @@ use feature 'say';
 
 # Usage:
 #   semver check <semver>
-#   semver <component> <semver>
-#   semver sort <semver1> <semver2>
+#   semver <component> <semver>    # valid: major, minor, patch, prerelease, buildmetadata
+#   semver sort <semver1> [<semver2> ...]
 #   semver test
 
 # ---------------------------------------------------------------------------
@@ -19,9 +19,8 @@ if ($mode eq 'test') {
     exit 0;
 }
 elsif ($mode eq 'sort') {
-    die usage() unless @ARGV == 2;
-    my ($ver1, $ver2) = @ARGV;
-    sort_versions($ver1, $ver2);
+    die usage() unless @ARGV >= 2;
+    sort_versions(@ARGV);
     exit 0;
 }
 else {
@@ -56,6 +55,7 @@ else {
 
     if ($version =~ $regex) {
         if ($mode eq 'check') {
+            # valid semver
             exit 0;
         }
 
@@ -72,6 +72,7 @@ else {
         exit 0;
     }
     else {
+        # invalid semver
         exit 1;
     }
 }
@@ -85,7 +86,7 @@ sub usage {
 Usage:
   $0 check <semver>
   $0 <component> <semver>    # valid: major, minor, patch, prerelease, buildmetadata
-  $0 sort <semver1> <semver2>
+  $0 sort <semver1> [<semver2> ...]
   $0 test
 END_USAGE
 }
@@ -131,29 +132,33 @@ sub parse_semver {
     }
 }
 
+# Sort any number of versions (ascending order) by SemVer precedence.
 sub sort_versions {
-    my ($ver1, $ver2) = @_;
-    my $v1 = parse_semver($ver1);
-    my $v2 = parse_semver($ver2);
+    my @versions = @_;
 
-    my $cmp = sort_semver($v1, $v2);
-    if ($cmp <= 0) {
-        say $ver1;
-        say $ver2;
-    } else {
-        say $ver2;
-        say $ver1;
+    # Parse each version once
+    my @parsed = map { { original => $_, parsed => parse_semver($_) } } @versions;
+
+    # Sort by comparing their parsed data
+    my @sorted = sort {
+        compare_semver($a->{parsed}, $b->{parsed});
+    } @parsed;
+
+    # Print them in the sorted order
+    for my $v (@sorted) {
+        say $v->{original};
     }
 }
 
-sub sort_semver {
+# Compare two parsed semver structures, returning -1/0/+1
+sub compare_semver {
     my ($a, $b) = @_;
     for my $key (qw(major minor patch)) {
         my $cmp = $a->{$key} <=> $b->{$key};
         return $cmp if $cmp != 0;
     }
 
-    # prerelease absent => higher precedence
+    # If one has no prerelease, that one is considered higher precedence
     if (!defined $a->{prerelease} && defined $b->{prerelease}) {
         return 1;
     }
@@ -167,6 +172,7 @@ sub sort_semver {
     my @a_ids = @{ $a->{prerelease} };
     my @b_ids = @{ $b->{prerelease} };
     my $len   = @a_ids < @b_ids ? @a_ids : @b_ids;
+
     for (my $i = 0; $i < $len; $i++) {
         my $c = compare_identifiers($a_ids[$i], $b_ids[$i]);
         return $c if $c != 0;
@@ -271,16 +277,41 @@ sub run_tests {
             expect_stdout => "1.2.3\n1.2.4\n",
         },
         {
-            name         => 'sort v2.0.0 and 2.0.0 should output v2.0.0 then 2.0.0 if they are equal',
+            name         => 'sort v2.0.0 and 2.0.0 (they are equal, so keep input order)',
             cmd          => [ 'sort', 'v2.0.0', '2.0.0' ],
             expect_exit  => 0,
             expect_stdout => "v2.0.0\n2.0.0\n",
         },
         {
-            name         => 'sort 1.0.0-alpha and 1.0.0 should print alpha first (lower)',
+            name         => 'sort 1.0.0-alpha and 1.0.0 (alpha is lower)',
             cmd          => [ 'sort', '1.0.0-alpha', '1.0.0' ],
             expect_exit  => 0,
             expect_stdout => "1.0.0-alpha\n1.0.0\n",
+        },
+        {
+            name => 'sort multiple versions',
+            cmd  => [
+                'sort',
+                'v1.2.3',
+                '1.10.0-alpha',
+                '1.2.3-beta.1',
+                '1.2.3-alpha.2',
+                '1.2.3-alpha.1',
+                'v1.2.3+build123',
+                '2.0.0',
+                'v0.1.2',
+            ],
+            expect_exit  => 0,
+            expect_stdout => join("\n",
+                'v0.1.2',
+                '1.2.3-alpha.1',
+                '1.2.3-alpha.2',
+                '1.2.3-beta.1',
+                'v1.2.3',
+                'v1.2.3+build123',
+                '1.10.0-alpha',
+                '2.0.0',
+            ) . "\n",
         },
     );
 
@@ -291,7 +322,7 @@ sub run_tests {
         $test_count++;
         my $name = $test->{name};
 
-        # Fix: properly build the command string from the array
+        # Build the command string from the array
         my $cmd_str = join(' ', @{ $test->{cmd} });
 
         # $^X is the current Perl executable
