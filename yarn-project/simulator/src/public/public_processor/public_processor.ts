@@ -33,7 +33,7 @@ import {
 } from '@aztec/telemetry-client';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
-import { ContractsDataSourcePublicDB, PublicTreesDB } from '../public_db_sources.js';
+import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
@@ -60,7 +60,7 @@ export class PublicProcessorFactory {
     skipFeeEnforcement: boolean,
   ): PublicProcessor {
     const treesDB = new PublicTreesDB(merkleTree);
-    const contractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
+    const contractsDB = new PublicContractsDB(this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
       treesDB,
       contractsDB,
@@ -71,9 +71,9 @@ export class PublicProcessorFactory {
     );
 
     return new PublicProcessor(
-      merkleTree,
       globalVariables,
       treesDB,
+      contractsDB,
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
@@ -82,7 +82,7 @@ export class PublicProcessorFactory {
 
   protected createPublicTxSimulator(
     treesDB: PublicTreesDB,
-    contractsDB: ContractsDataSourcePublicDB,
+    contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
@@ -113,9 +113,9 @@ class PublicProcessorTimeoutError extends Error {
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
   constructor(
-    protected db: MerkleTreeWriteOperations,
     protected globalVariables: GlobalVariables,
     protected treesDB: PublicTreesDB,
+    protected contractsDB: PublicContractsDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
     telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -268,8 +268,8 @@ export class PublicProcessor implements Traceable {
           await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
           // Add any contracts registered/deployed in this private-only tx to the block-level cache
           // (add to tx-level cache and then commit to block-level cache)
-          await this.worldStateDB.addNewContracts(tx);
-          this.worldStateDB.commitContractsForTx();
+          await this.contractsDB.addNewContracts(tx);
+          this.contractsDB.commitContractsForTx();
         }
 
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
@@ -295,7 +295,7 @@ export class PublicProcessor implements Traceable {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was reverted
         await checkpoint.commit();
         // The tx-level contracts cache should not live on to the next tx
-        this.worldStateDB.clearContractsForTx();
+        this.contractsDB.clearContractsForTx();
       }
     }
 
@@ -354,12 +354,12 @@ export class PublicProcessor implements Traceable {
     // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
     // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
     // The below is taken from buildBaseRollupHints:
-    await this.db.appendLeaves(
+    await this.treesDB.appendLeaves(
       MerkleTreeId.NOTE_HASH_TREE,
       padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
     try {
-      await this.db.batchInsert(
+      await this.treesDB.batchInsert(
         MerkleTreeId.NULLIFIER_TREE,
         padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
@@ -375,7 +375,7 @@ export class PublicProcessor implements Traceable {
     }
 
     // The only public data write should be for fee payment
-    await this.db.sequentialInsert(
+    await this.treesDB.sequentialInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
     );

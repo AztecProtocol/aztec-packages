@@ -5,7 +5,7 @@ import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
@@ -20,7 +20,8 @@ describe('Contract opcodes', () => {
   let contractClassId: Fr;
   let initializationHash: Fr;
 
-  let worldStateDB: PublicTreesDB;
+  let treesDB: PublicTreesDB;
+  let contractsDB: PublicContractsDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
   let context: AvmContext;
@@ -31,9 +32,10 @@ describe('Contract opcodes', () => {
     deployer = contractInstance.deployer;
     contractClassId = contractInstance.currentContractClassId;
     initializationHash = contractInstance.initializationHash;
-    worldStateDB = mock<PublicTreesDB>();
+    treesDB = mock<PublicTreesDB>();
+    contractsDB = mock<PublicContractsDB>();
     trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ worldStateDB, trace });
+    persistableState = initPersistableStateManager({ treesDB, contractsDB, trace });
     context = initContext({ persistableState });
   });
 
@@ -66,8 +68,8 @@ describe('Contract opcodes', () => {
     ])('GETCONTRACTINSTANCE member instruction ', (memberEnum: ContractInstanceMember, valueGetter: () => Fr) => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
         const value = valueGetter();
-        mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
-        mockGetNullifierIndex(worldStateDB, address.toField());
+        mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
+        mockGetNullifierIndex(treesDB, address.toField());
 
         context.machineState.memory.set(0, new Field(address.toField()));
         await new GetContractInstance(
@@ -87,9 +89,6 @@ describe('Contract opcodes', () => {
         expect(context.machineState.memory.getTag(2)).toBe(TypeTag.UINT1);
         const exists = context.machineState.memory.get(2);
         expect(exists).toEqual(new Uint1(1));
-
-        expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-        expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ true, contractInstance);
       });
     });
 
@@ -119,9 +118,6 @@ describe('Contract opcodes', () => {
           expect(context.machineState.memory.getTag(2)).toBe(TypeTag.UINT1);
           const exists = context.machineState.memory.get(2);
           expect(exists).toEqual(new Uint1(0));
-
-          expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-          expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ false);
         });
       },
     );
@@ -138,8 +134,6 @@ describe('Contract opcodes', () => {
       await expect(instruction.execute(context)).rejects.toThrow(
         `Invalid GETCONSTRACTINSTANCE member enum ${invalidEnum}`,
       );
-
-      expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(0);
     });
   });
 });

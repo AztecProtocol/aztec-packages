@@ -2,16 +2,15 @@ import { Fr } from '@aztec/foundation/fields';
 import { PublicTreesDB } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 
 import type { TXE } from '../oracle/txe_oracle.js';
 
-export class TXEWorldStateDB extends PublicTreesDB {
-  constructor(private merkleDb: MerkleTreeWriteOperations, dataSource: ContractDataSource, private txe: TXE) {
-    super(merkleDb, dataSource);
+export class TXEPublicTreesDB extends PublicTreesDB {
+  constructor(private merkleDb: MerkleTreeWriteOperations, private txe: TXE) {
+    super(merkleDb);
   }
 
   override async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
