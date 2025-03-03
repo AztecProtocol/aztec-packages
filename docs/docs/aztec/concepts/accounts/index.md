@@ -106,7 +106,7 @@ Address is derived from the [address keys](keys.md#address-keys). While the Addr
 
 ### Complete address
 
-Because of the contract address derivation scheme you can check that a given set of public [keys](keys.md) corresponds to a given address just by trying to recompute it.
+Because of the contract address derivation scheme, you can check that a given set of public [keys](keys.md) corresponds to a given address by trying to recompute it.
 
 If Alice wants Bob to send her a note, it's enough to share with him her address (x coordinate of the AddressPublicKey). 
 
