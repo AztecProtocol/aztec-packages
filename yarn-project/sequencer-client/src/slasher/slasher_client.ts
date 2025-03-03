@@ -170,7 +170,6 @@ export class SlasherClient extends WithTracer {
    */
   public stop() {
     this.log.debug('Stopping Slasher client...');
-    // TODO: abort controller?
     this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
     this.log.info('Slasher client stopped.');
   }
