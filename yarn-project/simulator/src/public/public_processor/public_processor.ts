@@ -33,7 +33,7 @@ import {
 } from '@aztec/telemetry-client';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
-import { WorldStateDB } from '../public_db_sources.js';
+import { ContractsDataSourcePublicDB, PublicTreesDB } from '../public_db_sources.js';
 import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
@@ -59,10 +59,11 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     skipFeeEnforcement: boolean,
   ): PublicProcessor {
-    const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
+    const treesDB = new PublicTreesDB(merkleTree);
+    const contractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
-      merkleTree,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       globalVariables,
       /*doMerkleOperations=*/ true,
       skipFeeEnforcement,
@@ -72,7 +73,7 @@ export class PublicProcessorFactory {
     return new PublicProcessor(
       merkleTree,
       globalVariables,
-      worldStateDB,
+      treesDB,
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
@@ -80,16 +81,16 @@ export class PublicProcessorFactory {
   }
 
   protected createPublicTxSimulator(
-    db: MerkleTreeWriteOperations,
-    worldStateDB: WorldStateDB,
+    treesDB: PublicTreesDB,
+    contractsDB: ContractsDataSourcePublicDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient: TelemetryClient,
   ) {
     return new PublicTxSimulator(
-      db,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,
@@ -114,7 +115,7 @@ export class PublicProcessor implements Traceable {
   constructor(
     protected db: MerkleTreeWriteOperations,
     protected globalVariables: GlobalVariables,
-    protected worldStateDB: WorldStateDB,
+    protected treesDB: PublicTreesDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
     telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -222,7 +223,7 @@ export class PublicProcessor implements Traceable {
       // We checkpoint the transaction here, then within the try/catch we
       // 1. Revert the checkpoint if the tx fails or needs to be discarded for any reason
       // 2. Commit the transaction in the finally block. Note that by using the ForkCheckpoint lifecycle only the first commit/revert takes effect
-      const checkpoint = await ForkCheckpoint.new(this.worldStateDB);
+      const checkpoint = await ForkCheckpoint.new(this.treesDB);
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -426,7 +427,7 @@ export class PublicProcessor implements Traceable {
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
-    const balance = await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
+    const balance = await this.treesDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
       throw new Error(
@@ -435,7 +436,7 @@ export class PublicProcessor implements Traceable {
     }
 
     const updatedBalance = balance.sub(txFee);
-    await this.worldStateDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
+    await this.treesDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
 
     return new PublicDataWrite(leafSlot, updatedBalance);
   }

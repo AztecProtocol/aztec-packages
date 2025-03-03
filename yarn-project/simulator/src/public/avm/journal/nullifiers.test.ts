@@ -2,15 +2,15 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../../public_db_sources.js';
 import { NullifierManager } from './nullifiers.js';
 
 describe('avm nullifier caching', () => {
-  let worldStateDB: MockProxy<WorldStateDB>;
+  let worldStateDB: MockProxy<PublicTreesDB>;
   let nullifiers: NullifierManager;
 
   beforeEach(() => {
-    worldStateDB = mock<WorldStateDB>();
+    worldStateDB = mock<PublicTreesDB>();
     nullifiers = new NullifierManager(worldStateDB);
   });
 

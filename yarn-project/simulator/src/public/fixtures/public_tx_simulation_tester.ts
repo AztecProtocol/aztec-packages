@@ -11,7 +11,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
 import { getContractFunctionArtifact, getFunctionSelector } from '../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
@@ -36,7 +36,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private txCount = 0;
 
   constructor(
-    private worldStateDB: WorldStateDB,
+    private worldStateDB: PublicTreesDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
   ) {
@@ -46,7 +46,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   public static async create(): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    const worldStateDB = new PublicTreesDB(merkleTrees, contractDataSource);
     return new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
   }
 
