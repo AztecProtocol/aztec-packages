@@ -71,11 +71,11 @@ function release_preview {
 
 function release {
   echo_header "docs release"
-  if [ ${DRY_RUN:-0} = 1 ]; then
-    echo "Dry run, doing docs preview:"
-    yarn netlify deploy --site aztec-docs-dev
+  if [ $(dist_tag) != "latest" ]; then
+    # TODO attach to github release
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev
   else
-    yarn netlify deploy --site aztec-docs-dev --prod
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
   fi
 }
 
