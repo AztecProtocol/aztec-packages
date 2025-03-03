@@ -46,6 +46,9 @@ jobs:
       #############
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
@@ -154,7 +157,9 @@ jobs:
       #############
       - name: Checkout
         uses: actions/checkout@v4
-
+        with:
+          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.

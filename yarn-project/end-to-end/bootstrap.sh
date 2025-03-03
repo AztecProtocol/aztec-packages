@@ -123,6 +123,7 @@ function test_cmds {
   echo "$prefix compose guides/up_quick_start"
   echo "$prefix compose guides/writing_an_account_contract"
   echo "$prefix compose e2e_token_bridge_tutorial_test"
+  echo "$prefix compose uniswap_trade_on_l1_from_l2"
 }
 
 function test {

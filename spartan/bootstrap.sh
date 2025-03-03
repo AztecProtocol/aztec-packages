@@ -61,6 +61,7 @@ function test_cmds {
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
   fi
 }
 
@@ -130,6 +131,9 @@ case "$cmd" in
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
+    ;;
+  "test-prod-deployment")
+    FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
     ;;
   "test-local")
     # Isolate network stack in docker.

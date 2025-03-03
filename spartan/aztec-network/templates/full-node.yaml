@@ -94,6 +94,10 @@ spec:
           env:
             - name: P2P_ENABLED
               value: "{{ .Values.fullNode.p2p.enabled }}"
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
 
         - name: wait-for-ethereum
           {{- include "aztec-network.image" . | nindent 10 }}
