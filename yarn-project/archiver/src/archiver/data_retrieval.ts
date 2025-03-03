@@ -255,18 +255,6 @@ async function getBlockFromRollupTx(
   // The blob source gives us blockFields, and we must construct the body from them:
   const blockBody = Body.fromBlobFields(blockFields);
 
-  // TODO: Will this ever throw now that we do not get blocks from calldata at all?
-  const blobCheck = await Blob.getBlobs(blockFields);
-  if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
-    // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
-    // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.
-    throw new Error(
-      `Block body mismatched with blob for block number ${l2BlockNum}. \nExpected: ${Blob.getEthBlobEvaluationInputs(
-        blobCheck,
-      )} \nGot: ${blobInputs}`,
-    );
-  }
-
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
 
   if (blockNumberFromHeader !== l2BlockNum) {
