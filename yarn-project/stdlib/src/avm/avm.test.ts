@@ -85,12 +85,14 @@ describe('Avm circuit inputs', () => {
       ],
       contractClasses: [
         {
+          classId: new Fr(0x41181337n),
           artifactHash: new Fr(0xdeadbeefn),
           privateFunctionsRoot: new Fr(0x111111n),
           publicBytecodeCommitment: new Fr(0x222222n),
           packedBytecode: Buffer.from('firstbuffer'),
         },
         {
+          classId: new Fr(0x51181337n),
           artifactHash: new Fr(0xdead0000n),
           privateFunctionsRoot: new Fr(0x222222n),
           publicBytecodeCommitment: new Fr(0x333333n),
