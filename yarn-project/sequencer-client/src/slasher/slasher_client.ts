@@ -86,6 +86,8 @@ export class SlasherClient extends WithTracer {
   // showing that the slashing mechanism is working.
   private slashingAmount: bigint = 0n;
 
+  private pruneHandler: ((event: L2BlockSourceChainPrunedEvent) => void) | null = null;
+
   constructor(
     private config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
     private l2BlockSource: L2BlockSourceEventEmitter,
@@ -116,7 +118,10 @@ export class SlasherClient extends WithTracer {
 
   public start() {
     this.log.info('Starting Slasher client...');
-    this.l2BlockSource.on(L2BlockSourceEvents.ChainPruned, this.handlePruneL2Blocks.bind(this));
+
+    this.pruneHandler = this.handlePruneL2Blocks.bind(this);
+
+    this.l2BlockSource.on(L2BlockSourceEvents.ChainPruned, this.pruneHandler);
   }
 
   // This is where we should put a bunch of the improvements mentioned earlier.
@@ -156,7 +161,9 @@ export class SlasherClient extends WithTracer {
    */
   public stop() {
     this.log.debug('Stopping Slasher client...');
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.ChainPruned, this.handlePruneL2Blocks.bind(this));
+    if (this.pruneHandler) {
+      this.l2BlockSource.removeListener(L2BlockSourceEvents.ChainPruned, this.pruneHandler);
+    }
     this.log.info('Slasher client stopped.');
   }
 

@@ -409,15 +409,15 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         );
       }
 
-      const [localProvenEpochNumber, localProvenBlockNumber] = await Promise.all([
-        this.store.getProvenL2EpochNumber(),
-        this.store.getProvenL2BlockNumber(),
-      ]);
-
       if (
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
+        const [localProvenBlockNumber, localProvenEpochNumber] = await Promise.all([
+          this.store.getProvenL2BlockNumber(),
+          this.store.getProvenL2EpochNumber(),
+        ]);
+
         if (
           localProvenEpochNumber !== Number(provenEpochNumber) ||
           localProvenBlockNumber !== Number(provenBlockNumber)
@@ -428,16 +428,16 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
             provenBlockNumber,
             provenEpochNumber,
           });
+
+          // Emit an event for listening services to react to the chain proven
+          this.emit(L2BlockSourceEvents.ChainProven, {
+            type: L2BlockSourceEvents.ChainProven,
+            previousProvenBlockNumber: localProvenBlockNumber,
+            provenBlockNumber: provenBlockNumber,
+          });
+          this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
         }
       }
-
-      // Emit an event for listening services to react to the chain proven
-      this.emit(L2BlockSourceEvents.ChainProven, {
-        type: L2BlockSourceEvents.ChainProven,
-        previousProvenBlockNumber: localProvenBlockNumber,
-        provenBlockNumber: provenBlockNumber,
-      });
-      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
 
     // This is an edge case that we only hit if there are no proposed blocks.

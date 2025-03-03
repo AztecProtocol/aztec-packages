@@ -1,5 +1,6 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { Fr } from '@aztec/foundation/fields';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -43,9 +44,15 @@ describe('In-Memory P2P Client', () => {
     client = new P2PClient(P2PClientType.Full, blockSource, mempools, p2pService);
   });
 
-  const advanceToProvenBlock = (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
+  const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
     blockSource.setProvenEpochNumber(provenEpochNumber);
+    await retryUntil(
+      () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
+      'synced',
+      10,
+      0.1,
+    );
   };
 
   afterEach(async () => {
@@ -94,8 +101,7 @@ describe('In-Memory P2P Client', () => {
     await client.start();
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
 
-    advanceToProvenBlock(5);
-    await sleep(100); // wait for the event to be emitted and handled
+    await advanceToProvenBlock(5);
 
     expect(txPool.deleteTxs).toHaveBeenCalledTimes(5);
     await client.stop();
@@ -109,16 +115,13 @@ describe('In-Memory P2P Client', () => {
     await client.start();
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
 
-    advanceToProvenBlock(5);
-    await sleep(100); // wait for the event to be emitted and handled
+    await advanceToProvenBlock(5);
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
 
-    advanceToProvenBlock(12);
-    await sleep(100); // wait for the event to be emitted and handled
+    await advanceToProvenBlock(12);
     expect(txPool.deleteTxs).toHaveBeenCalledTimes(2);
 
-    advanceToProvenBlock(20);
-    await sleep(100); // wait for the event to be emitted and handled
+    await advanceToProvenBlock(20);
     expect(txPool.deleteTxs).toHaveBeenCalledTimes(10);
     await client.stop();
   });
@@ -192,8 +195,7 @@ describe('In-Memory P2P Client', () => {
       await client.start();
       expect(attestationPool.deleteAttestationsOlderThan).not.toHaveBeenCalled();
 
-      advanceToProvenBlock(advanceToProvenBlockNumber);
-      await sleep(100); // wait for the event to be emitted and handled
+      await advanceToProvenBlock(advanceToProvenBlockNumber);
       expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledTimes(1);
       expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledWith(
         BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor),
