@@ -161,8 +161,7 @@ int main(int argc, char* argv[])
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag(
-            "--write_vk", flags.write_vk, "Should the prove command additionally write the verification key?");
+        return subcommand->add_flag("--write_vk", flags.write_vk, "Write the provided circuit's verification key");
     };
 
     const auto add_input_type_option = [&](CLI::App* subcommand) {
@@ -170,15 +169,15 @@ int main(int argc, char* argv[])
             subcommand
                 ->add_option("--input_type",
                              flags.input_type,
-                             "Is the input a single circuit, a compile-time stack or a run-time stack?")
+                             "Specify the type of input circuit. Options are: single_circuit, compiletime_stack, "
+                             "runtime_stack")
                 ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"));
         return input_type_option;
     };
 
     const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--ipa_accumulation",
-                                    flags.ipa_accumulation,
-                                    "Does the protocol accumulate/aggregate IPA (Inner Product Argument) claims?");
+        return subcommand->add_flag(
+            "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
     };
 
     const auto add_zk_option = [&](CLI::App* subcommand) {
