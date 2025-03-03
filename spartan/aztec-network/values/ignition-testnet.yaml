@@ -12,6 +12,7 @@ aztec:
     slashFactoryAddress: "0x0f216a792a4cc3691010e7870ae2c0f4fadd952a"
 
 network:
+  public: true
   setupL2Contracts: false
   p2pBootstrapNodesAsFullPeers: false
 
