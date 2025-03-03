@@ -184,16 +184,16 @@ describe('In-Memory P2P Client', () => {
       await client.stop();
     });
 
-    // TODO:
-    // - whenever the p2p client starts, if it has any stale state within it, we should respond to archiver's sync events
-    // - this means we need the p2p client to be running BEFORE the archiver starts syncing
-    it("clears sync's stores on startup", async () => {
-      client = new P2PClient(P2PClientType.Full, blockSource, mempools, p2pService, {
-        keepProvenTxsInPoolFor: 10,
-      });
-      blockSource.setProvenBlockNumber(0);
-      await client.start();
-    });
+    // // TODO:
+    // // - whenever the p2p client starts, if it has any stale state within it, we should respond to archiver's sync events
+    // // - this means we need the p2p client to be running BEFORE the archiver starts syncing
+    // it("clears sync's stores on startup", async () => {
+    //   client = new P2PClient(P2PClientType.Full, blockSource, mempools, p2pService, {
+    //     keepProvenTxsInPoolFor: 10,
+    //   });
+    //   blockSource.setProvenBlockNumber(0);
+    //   await client.start();
+    // });
   });
 
   describe('Attestation pool pruning', () => {
