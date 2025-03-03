@@ -25,11 +25,7 @@ class PublicInputComponent {
     static constexpr uint32_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
 
   public:
-    // The data needed to reconstruct the component from its limbs stored in the public inputs
-    struct Key {
-        uint32_t start_idx = 0;   // start index within public inputs array
-        bool exists_flag = false; // flag indicating exitence of component in the PI
-    };
+    using Key = PublicComponentKey;
 
     // WORKTODO: maybe template this class on Builder?
     using Fr = stdlib::field_t<MegaCircuitBuilder>;

@@ -2,6 +2,7 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/public_inputs/public_inputs.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
 #include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
@@ -70,6 +71,7 @@ template <class Builder> class DataBusDepot {
     using Fq = typename Curve::BaseField;
     using CommitmentNative = typename Curve::AffineElementNative;
     using FrNative = typename Curve::ScalarFieldNative;
+    using PublicPoint = stdlib::PublicInputComponent<Commitment>;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>;
     using RecursiveDeciderVerificationKeys =
@@ -122,10 +124,12 @@ template <class Builder> class DataBusDepot {
         // commitments and the return data commitments stored in the provided kernel proof public inputs
         if (propagation_data.is_kernel) {
             // Reconstruct the kernel and app return data commitments stored in the public inputs of the kernel proof
-            size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
-            Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
-            start_idx = propagation_data.app_return_data_public_input_idx;
-            Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+
+            Commitment kernel_return_data =
+                PublicPoint::reconstruct(public_inputs, propagation_data.kernel_return_data_commitment_pub_input_key);
+
+            Commitment app_return_data =
+                PublicPoint::reconstruct(public_inputs, propagation_data.app_return_data_commitment_pub_input_key);
 
             // Assert equality between the corresponding calldata and return data commitments
             assert_equality_of_commitments(kernel_return_data, calldata);
@@ -150,108 +154,37 @@ template <class Builder> class DataBusDepot {
      */
     void propagate_return_data_commitments(Builder& builder)
     {
+        PublicPoint app_return_data_public_point;
+        PublicPoint kernel_return_data_public_point;
+
         // Set default commitment value to be used in the absence of one or the other return_data commitment
         CommitmentNative default_commitment_val = CommitmentNative::one() * FrNative(BusVector::DEFAULT_VALUE);
         if (kernel_return_data_commitment_exists) {
-            propagate_commitment_via_public_inputs(kernel_return_data_commitment, /*is_kernel=*/true);
+            kernel_return_data_public_point.set(kernel_return_data_commitment);
         } else {
             Commitment default_commitment(default_commitment_val);
             default_commitment.convert_constant_to_fixed_witness(&builder);
-            propagate_commitment_via_public_inputs(default_commitment, /*is_kernel=*/true);
+            kernel_return_data_public_point.set(default_commitment);
         }
 
         if (app_return_data_commitment_exists) {
-            propagate_commitment_via_public_inputs(app_return_data_commitment, /*is_kernel=*/false);
+            app_return_data_public_point.set(app_return_data_commitment);
         } else {
             Commitment default_commitment(default_commitment_val);
             default_commitment.convert_constant_to_fixed_witness(&builder);
-            propagate_commitment_via_public_inputs(default_commitment, /*is_kernel=*/false);
+            app_return_data_public_point.set(default_commitment);
         }
         // Reset flags indicating existence of return data commitments
         kernel_return_data_commitment_exists = false;
         app_return_data_commitment_exists = false;
-    }
 
-    /**
-     * @brief Set the witness indices for a commitment to public
-     * @details Indicate the presence of the propagated commitment by setting the corresponding flag and index in the
-     * public inputs. A distinction is made between kernel and app return data so consistency can be checked against the
-     * correct calldata entry later on.
-     *
-     * @param commitment
-     * @param is_kernel Indicates whether the return data being propagated is from a kernel or an app
-     */
-    void propagate_commitment_via_public_inputs(const Commitment& commitment, bool is_kernel = false)
-    {
-        auto context = commitment.get_context();
-
-        // Set flag indicating propagation of return data; save the index at which it will be stored in public inputs
-        auto start_idx = static_cast<uint32_t>(context->public_inputs.size());
-        if (is_kernel) {
-            context->databus_propagation_data.kernel_return_data_public_input_idx = start_idx;
-        } else {
-            context->databus_propagation_data.app_return_data_public_input_idx = start_idx;
-        }
-
-        // Set public the witness indices corresponding to the limbs of the point coordinates
-        for (auto& index : get_witness_indices_for_commitment(commitment)) {
-            context->set_public_input(index);
-        }
-    }
-
-    /**
-     * @brief Reconstruct a commitment from limbs stored in public inputs
-     *
-     * @param public_inputs Vector of public inputs in which a propagated return data commitment is stored
-     * @param return_data_commitment_limbs_start_idx Start index for range where commitment limbs are stored
-     * @return Commitment
-     */
-    Commitment reconstruct_commitment_from_public_inputs(std::span<const Fr> public_inputs,
-                                                         const size_t& return_data_commitment_limbs_start_idx)
-    {
-        // Extract from the public inputs the limbs needed reconstruct a commitment
-        std::span<const Fr, NUM_FR_LIMBS_PER_COMMITMENT> return_data_commitment_limbs{
-            public_inputs.data() + return_data_commitment_limbs_start_idx, NUM_FR_LIMBS_PER_COMMITMENT
-        };
-        return reconstruct_commitment_from_fr_limbs(return_data_commitment_limbs);
+        // Set the public input component keys for the kernel and app return data commitments in the builder
+        builder.databus_propagation_data.kernel_return_data_commitment_pub_input_key =
+            kernel_return_data_public_point.key();
+        builder.databus_propagation_data.app_return_data_commitment_pub_input_key = app_return_data_public_point.key();
     }
 
   private:
-    /**
-     * @brief Reconstruct a commitment (point) from the Fr limbs of the coordinates (Fq, Fq)
-     *
-     * @param limbs
-     * @return Commitment
-     */
-    Commitment reconstruct_commitment_from_fr_limbs(std::span<const Fr, NUM_FR_LIMBS_PER_COMMITMENT> limbs)
-    {
-        std::span<const Fr, NUM_FR_LIMBS_PER_FQ> x_limbs{ limbs.data(), NUM_FR_LIMBS_PER_FQ };
-        std::span<const Fr, NUM_FR_LIMBS_PER_FQ> y_limbs{ limbs.data() + NUM_FR_LIMBS_PER_FQ, NUM_FR_LIMBS_PER_FQ };
-        const Fq x = reconstruct_fq_from_fr_limbs(x_limbs);
-        const Fq y = reconstruct_fq_from_fr_limbs(y_limbs);
-
-        return Commitment(x, y);
-    }
-
-    /**
-     * @brief Reconstruct a bn254 Fq from four limbs represented as bn254 Fr's
-     *
-     * @param limbs
-     * @return Fq
-     */
-    Fq reconstruct_fq_from_fr_limbs(std::span<const Fr, NUM_FR_LIMBS_PER_FQ>& limbs)
-    {
-        const Fr l0 = limbs[0];
-        const Fr l1 = limbs[1];
-        const Fr l2 = limbs[2];
-        const Fr l3 = limbs[3];
-        l0.create_range_constraint(Fq::NUM_LIMB_BITS, "l0");
-        l1.create_range_constraint(Fq::NUM_LIMB_BITS, "l1");
-        l2.create_range_constraint(Fq::NUM_LIMB_BITS, "l2");
-        l3.create_range_constraint(Fq::NUM_LAST_LIMB_BITS, "l3");
-        return Fq::construct_from_limbs(l0, l1, l2, l3, /*can_overflow=*/false);
-    }
-
     void assert_equality_of_commitments(const Commitment& P0, const Commitment& P1)
     {
         if (P0.get_value() != P1.get_value()) { // debug print indicating consistency check failure
@@ -259,47 +192,6 @@ template <class Builder> class DataBusDepot {
         }
         P0.x.assert_equal(P1.x);
         P0.y.assert_equal(P1.y);
-    }
-
-    /**
-     * @brief Get the witness indices for a commitment (biggroup)
-     *
-     * @param point A biggroup element
-     * @return std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT>
-     */
-    std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(const Commitment& point)
-        requires(!IsMegaBuilder<Builder>)
-    {
-        return { point.x.binary_basis_limbs[0].element.normalize().witness_index,
-                 point.x.binary_basis_limbs[1].element.normalize().witness_index,
-                 point.x.binary_basis_limbs[2].element.normalize().witness_index,
-                 point.x.binary_basis_limbs[3].element.normalize().witness_index,
-                 point.y.binary_basis_limbs[0].element.normalize().witness_index,
-                 point.y.binary_basis_limbs[1].element.normalize().witness_index,
-                 point.y.binary_basis_limbs[2].element.normalize().witness_index,
-                 point.y.binary_basis_limbs[3].element.normalize().witness_index };
-    }
-
-    std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(const Commitment& point)
-        requires(IsMegaBuilder<Builder>)
-    {
-        // If using a goblin-plonk compatible builder, goblin element coordinates are stored as 2 field elements not 4.
-        // We convert to stdlib::bigfield elements so data is stored in the databus uniformly regardless of flavor
-        using BigFq = stdlib::bigfield<Builder, typename Curve::BaseFieldNative::Params>;
-        const auto to_bigfield = [](Fr lo, Fr hi) {
-            BigFq r(lo, hi);
-            return std::array<uint32_t, 4>{
-                r.binary_basis_limbs[0].element.normalize().witness_index,
-                r.binary_basis_limbs[1].element.normalize().witness_index,
-                r.binary_basis_limbs[2].element.normalize().witness_index,
-                r.binary_basis_limbs[3].element.normalize().witness_index,
-            };
-        };
-        auto x = to_bigfield(point.x.limbs[0], point.x.limbs[1]);
-        auto y = to_bigfield(point.y.limbs[0], point.y.limbs[1]);
-        return {
-            x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3],
-        };
     }
 };
 

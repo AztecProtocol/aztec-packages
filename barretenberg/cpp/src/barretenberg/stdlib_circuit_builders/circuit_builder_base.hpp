@@ -12,6 +12,17 @@
 namespace bb {
 static constexpr uint32_t DUMMY_TAG = 0;
 
+// WORKTODO: find home for this
+// The data needed to reconstruct a public input component from its limbs stored in the public inputs
+struct PublicComponentKey {
+    uint32_t start_idx = 0;   // start index within public inputs array
+    bool exists_flag = false; // flag indicating exitence of component in the PI
+
+    bool operator==(const PublicComponentKey&) const = default;
+
+    MSGPACK_FIELDS(start_idx, exists_flag);
+};
+
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
