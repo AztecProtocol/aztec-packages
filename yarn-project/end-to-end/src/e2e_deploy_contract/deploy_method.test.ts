@@ -9,6 +9,7 @@ import {
   createPXEClient,
   getContractClassFromArtifact,
   makeFetch,
+  sleep,
 } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
@@ -158,8 +159,8 @@ describe('e2e_deploy_contract deploy method', () => {
     // First send the deploy transaction
     const deployTxPromise = deployTx.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
 
-    // Wait a short delay to ensure the deployment transaction gets processed first
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait a bit to ensure the deployment transaction gets processed first
+    await sleep(5000);
 
     // Then send the public call transaction
     const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
