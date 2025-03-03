@@ -42,7 +42,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { type PrivateCallExecutionResult, collectNested } from '@aztec/stdlib/tx';
 
-import type { ProvingDataOracle } from '../proving_data_oracle.js';
+import type { PrivateKernelOracle } from '../private_kernel_oracle.js';
 
 function collectNestedReadRequests(
   executionStack: PrivateCallExecutionResult[],
@@ -56,7 +56,7 @@ function collectNestedReadRequests(
   });
 }
 
-function getNullifierMembershipWitnessResolver(oracle: ProvingDataOracle) {
+function getNullifierMembershipWitnessResolver(oracle: PrivateKernelOracle) {
   return async (nullifier: Fr) => {
     const res = await oracle.getNullifierMembershipWitness(nullifier);
     if (!res) {
@@ -73,7 +73,7 @@ function getNullifierMembershipWitnessResolver(oracle: ProvingDataOracle) {
 
 async function getMasterSecretKeysAndAppKeyGenerators(
   keyValidationRequests: Tuple<ScopedKeyValidationRequestAndGenerator, typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
-  oracle: ProvingDataOracle,
+  oracle: PrivateKernelOracle,
 ) {
   const keysHints = [];
   for (let i = 0; i < keyValidationRequests.length; ++i) {
@@ -143,7 +143,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     }
   }
 
-  async build(oracle: ProvingDataOracle, noteHashLeafIndexMap: Map<bigint, bigint>) {
+  async build(oracle: PrivateKernelOracle, noteHashLeafIndexMap: Map<bigint, bigint>) {
     if (privateKernelResetDimensionNames.every(name => !this.requestedDimensions[name])) {
       throw new Error('Reset is not required.');
     }

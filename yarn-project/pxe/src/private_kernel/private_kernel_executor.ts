@@ -17,6 +17,7 @@ import {
   PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelProofOutput,
   type PrivateKernelSimulateOutput,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
@@ -41,7 +42,7 @@ import type { WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
-import type { ProvingDataOracle } from './proving_data_oracle.js';
+import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 // TODO(#10592): Temporary workaround to check that the private logs are correctly split into non-revertible set and revertible set.
 // This should be done in TailToPublicOutputValidator in private kernel tail.
@@ -87,7 +88,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
   bytecode: Buffer.from([]),
 };
 
-export type ProvingConfig = {
+export type PrivateKernelExecutorConfig = {
   simulate: boolean;
   skipFeeEnforcement: boolean;
   profile: boolean;
@@ -95,16 +96,16 @@ export type ProvingConfig = {
 };
 
 /**
- * The KernelProver class is responsible for generating kernel proofs.
+ * The PrivateKernelExecutor class is responsible for generating private kernel proofs.
  * It takes a transaction request, its signature, and the simulation result as inputs, and outputs a proof
- * along with output notes. The class interacts with a ProvingDataOracle to fetch membership witnesses and
+ * along with output notes. The class interacts with a PrivateKernelOracle to fetch membership witnesses and
  * constructs private call data based on the execution results.
  */
-export class KernelProver {
+export class PrivateKernelExecutor {
   private log = createLogger('pxe:kernel-prover');
 
   constructor(
-    private oracle: ProvingDataOracle,
+    private oracle: PrivateKernelOracle,
     private proofCreator: PrivateKernelProver,
     private fakeProofs = false,
   ) {}
@@ -129,7 +130,7 @@ export class KernelProver {
   async prove(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig = {
+    { simulate, skipFeeEnforcement, profile, dryRun }: PrivateKernelExecutorConfig = {
       simulate: false,
       skipFeeEnforcement: false,
       profile: false,

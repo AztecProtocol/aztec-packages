@@ -1,13 +1,8 @@
-import {
-  type FUNCTION_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
-  type VK_TREE_HEIGHT,
-} from '@aztec/constants';
+import { FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
-import type { MembershipWitness } from '@aztec/foundation/trees';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -29,7 +24,7 @@ import type { ContractDataOracle } from '../contract_data_oracle/index.js';
  * Provides functionality to fetch membership witnesses for verification keys,
  * contract addresses, and function selectors in their respective merkle trees.
  */
-export interface ProvingDataOracle {
+export interface PrivateKernelOracle {
   /** Retrieves the preimage of a contract address from the registered contract instances db. */
   getContractAddressPreimage(address: AztecAddress): Promise<{
     saltedInitializationHash: Fr;
@@ -104,7 +99,7 @@ export interface ProvingDataOracle {
 /**
  * A data oracle that provides information needed for simulating a transaction.
  */
-export class KernelProvingDataOracle implements ProvingDataOracle {
+export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   constructor(
     private contractDataOracle: ContractDataOracle,
     private keyStore: KeyStore,

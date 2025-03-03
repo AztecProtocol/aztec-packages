@@ -7,7 +7,7 @@ import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsStore } from '@aztec/kv-store/stores';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
-import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PrivateKernelExecutor } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
@@ -28,7 +28,7 @@ export async function createPXEService(
   aztecNode: AztecNode,
   config: PXEServiceConfig,
   useLogSuffix: string | boolean | undefined = undefined,
-  proofCreator?: PrivateKernelProver,
+  proofCreator?: PrivateKernelExecutor,
 ) {
   const logSuffix =
     typeof useLogSuffix === 'boolean' ? (useLogSuffix ? randomBytes(3).toString('hex') : undefined) : useLogSuffix;

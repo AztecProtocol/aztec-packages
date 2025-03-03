@@ -45,7 +45,7 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { type PrivateKernelProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
@@ -69,8 +69,8 @@ import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import type { PxeDatabase } from '../database/index.js';
-import { KernelProver, type ProvingConfig } from '../kernel/kernel_prover.js';
-import { KernelOracle } from '../kernel_oracle/index.js';
+import { PrivateKernelExecutor, type PrivateKernelExecutorConfig } from '../private_kernel/private_kernel_executor.js';
+import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -727,11 +727,11 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    config: ProvingConfig,
+    config: PrivateKernelExecutorConfig,
   ): Promise<PrivateKernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const block = privateExecutionResult.getSimulationBlockNumber();
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
+    const kernelOracle = new PrivateKernelOracleImpl(this.contractDataOracle, this.keyStore, this.node, block);
+    const kernelProver = new PrivateKernelExecutor(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel prover (${JSON.stringify(config)})...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }

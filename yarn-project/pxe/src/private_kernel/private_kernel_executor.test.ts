@@ -31,14 +31,14 @@ import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
 
-import { KernelProver } from './kernel_prover.js';
-import type { ProvingDataOracle } from './proving_data_oracle.js';
+import { PrivateKernelExecutor } from './private_kernel_executor.js';
+import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
-  let oracle: ReturnType<typeof mock<ProvingDataOracle>>;
+  let oracle: ReturnType<typeof mock<PrivateKernelOracle>>;
   let proofCreator: ReturnType<typeof mock<PrivateKernelProver>>;
-  let prover: KernelProver;
+  let prover: PrivateKernelExecutor;
   let dependencies: { [name: string]: string[] } = {};
 
   const contractAddress = AztecAddress.fromBigInt(987654n);
@@ -137,7 +137,7 @@ describe('Kernel Prover', () => {
   beforeEach(async () => {
     txRequest = makeTxRequest();
 
-    oracle = mock<ProvingDataOracle>();
+    oracle = mock<PrivateKernelOracle>();
     // TODO(dbanks12): will need to mock oracle.getNoteMembershipWitness() to test non-transient reads
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
@@ -153,13 +153,13 @@ describe('Kernel Prover', () => {
       privateFunctionsRoot: Fr.random(),
     });
 
-    proofCreator = mock<PrivateKernelProver>();
+    proofCreator = mock<PrivateKernelExecutor>();
     proofCreator.simulateInit.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateInner.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateReset.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal([]));
 
-    prover = new KernelProver(oracle, proofCreator, true);
+    prover = new PrivateKernelExecutor(oracle, proofCreator, true);
   });
 
   it('should create proofs in correct order', async () => {
