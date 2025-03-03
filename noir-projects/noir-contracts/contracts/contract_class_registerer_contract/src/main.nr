@@ -19,7 +19,7 @@ pub contract ContractClassRegisterer {
 
     use dep::aztec::{
         context::PrivateContext, macros::functions::private,
-        oracle::logs::emit_contract_class_unencrypted_log_private,
+        oracle::logs::notify_created_contract_class_log,
     };
 
     use crate::events::{
@@ -227,7 +227,7 @@ pub contract ContractClassRegisterer {
         let log_hash = poseidon2_hash_subarray_variable(log_to_emit, length);
         // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
         unsafe {
-            emit_contract_class_unencrypted_log_private(contract_address, log_to_emit, counter);
+            notify_created_contract_class_log(contract_address, log_to_emit, counter);
         }
 
         context.contract_class_logs_hashes.push(LogHash { value: log_hash, counter, length });

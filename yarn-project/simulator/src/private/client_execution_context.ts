@@ -337,7 +337,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param log - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public override emitContractClassLog(log: ContractClassLog, counter: number) {
+  public override notifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
     this.log.verbose(
