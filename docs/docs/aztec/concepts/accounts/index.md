@@ -74,7 +74,7 @@ Read more about how to write an account contract [here](../../../developers/tuto
 
 ### Non-standard entrypoints
 
-Since the `entrypoint` interface is not enshrined, there is nothing that differentiates an account contract from an application one. This allows implementing functions that do not need to be called by any particular user and are just intended to advance the state of a contract.
+Since the `entrypoint` interface is not enshrined, there is nothing that differentiates an account contract from an application contract. This allows implementing functions that can be called by any user and are just intended to advance the state of a contract.
 
 For example, a lottery contract, where at some point a prize needs to be paid out to its winners. This `pay` action does not require authentication and does not need to be executed by any user in particular, so anyone could submit a transaction that defines the lottery contract itself as `origin` and `pay` as `entrypoint` function.
 
