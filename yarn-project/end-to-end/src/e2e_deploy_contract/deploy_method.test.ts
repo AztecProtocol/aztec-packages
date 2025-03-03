@@ -155,11 +155,17 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug('Creating public call to run in same block as deployment');
     const publicCall = contract.methods.increment_public_value(owner, 84);
 
+    // First send the deploy transaction
+    const deployTxPromise = deployTx.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+
+    // Wait a short delay to ensure the deployment transaction gets processed first
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Then send the public call transaction
+    const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+
     logger.debug('Deploying a contract and calling a public function in the same block');
-    const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([
-      deployTx.send({ skipPublicSimulation: true }).wait({ timeout: 600 }),
-      publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 }),
-    ]);
+    const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([deployTxPromise, publicCallTxPromise]);
     expect(deployTxReceipt.blockNumber).toEqual(publicCallTxReceipt.blockNumber);
   }, 300_000);
 
