@@ -85,7 +85,10 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> [Field] {
         let args = args.push_front(function_selector.to_field());
-        let success = call(gas_for_call(gas_opts), contract_address, args);
+
+        let _ = call(gas_for_call(gas_opts), contract_address, args);
+        // Use success_copy to determine whether the call succeeded
+        let success = success_copy();
 
         let result_data = returndata_copy(0, returndata_size());
         if !success {
@@ -103,7 +106,10 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> [Field] {
         let args = args.push_front(function_selector.to_field());
-        let success = call_static(gas_for_call(gas_opts), contract_address, args);
+
+        let _ = call_static(gas_for_call(gas_opts), contract_address, args);
+        // Use success_copy to determine whether the call succeeded
+        let success = success_copy();
 
         let result_data = returndata_copy(0, returndata_size());
         if !success {
@@ -309,8 +315,8 @@ unconstrained fn call(gas: [Field; 2], address: AztecAddress, args: [Field]) -> 
 }
 
 // This function is placed immediately after the CALL opcode to get the success value
-unconstrained fn successcopy() -> bool {
-    successcopy_opcode()
+unconstrained fn success_copy() -> bool {
+    success_copy_opcode()
 }
 
 unconstrained fn call_static(gas: [Field; 2], address: AztecAddress, args: [Field]) -> bool {
@@ -454,4 +460,4 @@ unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
 #[oracle(avmOpcodeSuccessCopy)]
-unconstrained fn successcopy_opcode() -> bool {}
+unconstrained fn success_copy_opcode() -> bool {}

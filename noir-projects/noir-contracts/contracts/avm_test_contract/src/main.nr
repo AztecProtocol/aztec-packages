@@ -272,7 +272,7 @@ pub contract AvmTest {
         );
 
         // Instead, use the SUCCESSCOPY opcode to get the success value
-        let success = dep::aztec::context::public_context::successcopy();
+        let success = dep::aztec::context::public_context::success_copy();
 
         assert(!success, "Nested CALL instruction should return failure on exceptional halt");
         assert(
