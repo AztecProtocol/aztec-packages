@@ -11,26 +11,11 @@ import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
-export class AvmEnqueuedCallHint {
-  constructor(public readonly contractAddress: AztecAddress, public readonly calldata: Fr[]) {}
-
-  static get schema() {
-    return z
-      .object({
-        contractAddress: AztecAddress.schema,
-        calldata: schemas.Fr.array(),
-      })
-      .transform(({ contractAddress, calldata }) => new AvmEnqueuedCallHint(contractAddress, calldata));
-  }
-}
-
 export class AvmContractClassHint {
   constructor(
     public readonly classId: Fr,
-    public readonly exists: boolean,
     public readonly artifactHash: Fr,
     public readonly privateFunctionsRoot: Fr,
-    public readonly publicBytecodeCommitment: Fr,
     public readonly packedBytecode: Buffer,
   ) {}
 
@@ -38,37 +23,39 @@ export class AvmContractClassHint {
     return z
       .object({
         classId: schemas.Fr,
-        exists: z.boolean(),
         artifactHash: schemas.Fr,
         privateFunctionsRoot: schemas.Fr,
-        publicBytecodeCommitment: schemas.Fr,
         packedBytecode: schemas.Buffer,
       })
       .transform(
-        ({ classId, exists, artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode }) =>
-          new AvmContractClassHint(
-            classId,
-            exists,
-            artifactHash,
-            privateFunctionsRoot,
-            publicBytecodeCommitment,
-            packedBytecode,
-          ),
+        ({ classId, artifactHash, privateFunctionsRoot, packedBytecode }) =>
+          new AvmContractClassHint(classId, artifactHash, privateFunctionsRoot, packedBytecode),
       );
+  }
+}
+
+export class AvmBytecodeCommitmentHint {
+  constructor(public readonly classId: Fr, public readonly commitment: Fr) {}
+
+  static get schema() {
+    return z
+      .object({
+        classId: schemas.Fr,
+        commitment: schemas.Fr,
+      })
+      .transform(({ classId, commitment }) => new AvmBytecodeCommitmentHint(classId, commitment));
   }
 }
 
 export class AvmContractInstanceHint {
   constructor(
     public readonly address: AztecAddress,
-    public readonly exists: boolean,
     public readonly salt: Fr,
     public readonly deployer: AztecAddress,
     public readonly currentContractClassId: Fr,
     public readonly originalContractClassId: Fr,
     public readonly initializationHash: Fr,
     public readonly publicKeys: PublicKeys,
-    // public readonly updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
     public readonly updateMembershipHint: AvmPublicDataReadTreeHint,
     public readonly updatePreimage: Fr[] = [],
   ) {}
@@ -77,7 +64,6 @@ export class AvmContractInstanceHint {
     return z
       .object({
         address: AztecAddress.schema,
-        exists: z.boolean(),
         salt: schemas.Fr,
         deployer: AztecAddress.schema,
         currentContractClassId: schemas.Fr,
@@ -90,7 +76,6 @@ export class AvmContractInstanceHint {
       .transform(
         ({
           address,
-          exists,
           salt,
           deployer,
           currentContractClassId,
@@ -102,7 +87,6 @@ export class AvmContractInstanceHint {
         }) =>
           new AvmContractInstanceHint(
             address,
-            exists,
             salt,
             deployer,
             currentContractClassId,
@@ -213,28 +197,28 @@ export class AvmPublicDataWriteTreeHint {
 
 export class AvmExecutionHints {
   constructor(
-    public readonly enqueuedCalls: AvmEnqueuedCallHint[],
-    public readonly contractInstances: AvmContractInstanceHint[],
-    public readonly contractClasses: AvmContractClassHint[],
-    public readonly publicDataReads: AvmPublicDataReadTreeHint[],
-    public readonly publicDataWrites: AvmPublicDataWriteTreeHint[],
-    public readonly nullifierReads: AvmNullifierReadTreeHint[],
-    public readonly nullifierWrites: AvmNullifierWriteTreeHint[],
-    public readonly noteHashReads: AvmAppendTreeHint[],
-    public readonly noteHashWrites: AvmAppendTreeHint[],
-    public readonly l1ToL2MessageReads: AvmAppendTreeHint[],
+    public readonly contractInstances: AvmContractInstanceHint[] = [],
+    public readonly contractClasses: AvmContractClassHint[] = [],
+    public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
+    public readonly publicDataReads: AvmPublicDataReadTreeHint[] = [],
+    public readonly publicDataWrites: AvmPublicDataWriteTreeHint[] = [],
+    public readonly nullifierReads: AvmNullifierReadTreeHint[] = [],
+    public readonly nullifierWrites: AvmNullifierWriteTreeHint[] = [],
+    public readonly noteHashReads: AvmAppendTreeHint[] = [],
+    public readonly noteHashWrites: AvmAppendTreeHint[] = [],
+    public readonly l1ToL2MessageReads: AvmAppendTreeHint[] = [],
   ) {}
 
   static empty() {
-    return new AvmExecutionHints([], [], [], [], [], [], [], [], [], []);
+    return new AvmExecutionHints();
   }
 
   static get schema() {
     return z
       .object({
-        enqueuedCalls: AvmEnqueuedCallHint.schema.array(),
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
+        bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
         publicDataReads: AvmPublicDataReadTreeHint.schema.array(),
         publicDataWrites: AvmPublicDataWriteTreeHint.schema.array(),
         nullifierReads: AvmNullifierReadTreeHint.schema.array(),
@@ -245,9 +229,9 @@ export class AvmExecutionHints {
       })
       .transform(
         ({
-          enqueuedCalls,
           contractInstances,
           contractClasses,
+          bytecodeCommitments,
           publicDataReads,
           publicDataWrites,
           nullifierReads,
@@ -257,9 +241,9 @@ export class AvmExecutionHints {
           l1ToL2MessageReads,
         }) =>
           new AvmExecutionHints(
-            enqueuedCalls,
             contractInstances,
             contractClasses,
+            bytecodeCommitments,
             publicDataReads,
             publicDataWrites,
             nullifierReads,
