@@ -566,11 +566,11 @@ export class PXEDataProvider implements ExecutionDataProvider {
         secretsAndWindows = newSecretsAndWindows;
       }
 
-      // We filter the logs by block number and store them in the map.
-      logsMap.set(
-        recipient.toString(),
-        logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber),
-      );
+      // We filter the logs by block number and then we filter out the logs that have been seen.
+      const filteredLogsByBlock = logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber);
+      const filteredUnseenLogs = await this.db.updateSeenLogsAndGetUnseen(filteredLogsByBlock);
+
+      logsMap.set(recipient.toString(), filteredUnseenLogs);
 
       // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db.
       await this.db.setTaggingSecretsIndexesAsRecipient(

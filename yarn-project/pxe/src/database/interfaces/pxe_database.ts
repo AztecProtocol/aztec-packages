@@ -4,7 +4,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { PublicKey } from '@aztec/stdlib/keys';
-import type { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { NotesFilter } from '@aztec/stdlib/note';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -177,6 +177,14 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
   setTaggingSecretsIndexesAsRecipient(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
+
+  /**
+   * Iterates through logs, checks if the log is unseen, if it is, it adds it to the seen logs set stored in the db
+   * and adds the logs to the returned logs array. Returns the unseen logs.
+   * @param logs - The logs to check for being unseen
+   * @returns Unseen logs
+   */
+  updateSeenLogsAndGetUnseen(logs: TxScopedL2Log[]): Promise<TxScopedL2Log[]>;
 
   /**
    * Deletes all notes synched after this block number.

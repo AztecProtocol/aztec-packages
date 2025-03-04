@@ -1,4 +1,5 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { sha256 } from '@aztec/foundation/crypto';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -24,7 +25,7 @@ import {
   SerializableContractInstance,
 } from '@aztec/stdlib/contract';
 import type { PublicKey } from '@aztec/stdlib/keys';
-import type { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -72,6 +73,9 @@ export class KVPxeDatabase implements PxeDatabase {
   // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
   #capsules: AztecAsyncMap<string, Buffer>;
 
+  // Stores the hashes of the logs that have been seen
+  #seenLogHashes: AztecAsyncMap<string, true>;
+
   #logger: Logger;
 
   protected constructor(private db: AztecAsyncKVStore) {
@@ -112,6 +116,8 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#taggingSecretIndexesForRecipients = db.openMap('tagging_secret_indexes_for_recipients');
 
     this.#capsules = db.openMap('capsules');
+
+    this.#seenLogHashes = db.openMap('seen_log_hashes');
 
     this.#logger = createLogger('aztec:kv-pxe-database');
   }
@@ -635,6 +641,24 @@ export class KVPxeDatabase implements PxeDatabase {
       const senders = await toArray(this.#taggingSecretIndexesForSenders.keysAsync());
       await Promise.all(senders.map(sender => this.#taggingSecretIndexesForSenders.delete(sender)));
     });
+  }
+
+  async updateSeenLogsAndGetUnseen(logs: TxScopedL2Log[]): Promise<TxScopedL2Log[]> {
+    const unseenLogs: TxScopedL2Log[] = [];
+
+    for (const log of logs) {
+      // Create a hash of the log data and tx hash to uniquely identify it
+      const hash = sha256(log.toBuffer()).toString('hex');
+
+      // Check if we've seen this log before
+      const seen = await this.#seenLogHashes.hasAsync(hash);
+      if (!seen) {
+        // If we haven't seen it, add it to results and mark as seen
+        unseenLogs.push(log);
+        await this.#seenLogHashes.set(hash, true);
+      }
+    }
+    return unseenLogs;
   }
 
   async storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
