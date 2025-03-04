@@ -87,9 +87,15 @@ function release_git_push {
     git checkout -b "$branch_name"
   fi
 
-  git add .
-  git commit -m "Release $tag_name." >/dev/null
-  git tag -a "$tag_name" -m "Release $tag_name."
+  if git rev-parse "$tag_name" >/dev/null 2>&1; then
+    echo "Tag $tag_name already exists. Skipping tag creation."
+  else
+    git add .
+    git commit -m "Release $tag_name." >/dev/null
+    git tag -a "$tag_name" -m "Release $tag_name."
+    do_or_dryrun git push origin "$branch_name" --quiet
+    do_or_dryrun git push origin --quiet --force "$tag_name" --tags
+  fi
 
   do_or_dryrun git push origin "$branch_name" --quiet
   do_or_dryrun git push origin --quiet --force "$tag_name" --tags
