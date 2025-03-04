@@ -29,16 +29,21 @@ function build {
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
     # TODO: Check if resolved. Move to .test_skip_patterns if not.
     rm -rf acir_tests/regression_5045
+    # Don't compile these until we generate their inputs
+    rm -rf acir_tests/{verify_honk_proof,verify_rollup_honk_proof}
 
     # COMPILE=2 only compiles the test.
     denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
+    cp -R ../../noir/noir-repo/test_programs/execution_success/{verify_honk_proof,verify_rollup_honk_proof} acir_tests
     echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
     (cd ./acir_tests/assert_statement && \
       # TODO(https://github.com/AztecProtocol/barretenberg/issues/1253) Deprecate command and construct TOML (e.g., via yq or via conversion from a JSON)
       $bb OLD_API write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
       $bb OLD_API write_recursion_inputs_ultra_honk --ipa_accumulation -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+
+    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{verify_honk_proof,verify_rollup_honk_proof}"
 
     cache_upload $tests_tar acir_tests
   fi
