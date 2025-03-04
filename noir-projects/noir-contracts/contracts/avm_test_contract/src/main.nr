@@ -27,8 +27,9 @@ pub contract AvmTest {
     };
     use dep::aztec::protocol_types::{
         constants::MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-        contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
-        traits::{FromField, Empty, ToField}
+        contract_class_id::ContractClassId,
+        storage::map::derive_storage_slot_in_map,
+        traits::{Empty, FromField, ToField},
     };
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;

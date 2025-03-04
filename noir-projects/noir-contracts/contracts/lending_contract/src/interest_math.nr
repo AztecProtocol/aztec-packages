@@ -1,5 +1,4 @@
-use std::ops::{Add, Sub, Mul, Div};
-
+use std::ops::{Add, Div, Mul, Sub};
 
 // Binomial approximation of exponential
 // using lower than desired precisions for everything due to u128 limit

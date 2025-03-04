@@ -3,9 +3,12 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Claim {
     use dep::aztec::{
-        macros::{functions::{initializer, private, public}, storage::storage},
-        note::{retrieved_note::RetrievedNote, utils::compute_note_hash_for_nullify, note_interface::NoteHash},
         history::note_inclusion::ProveNoteInclusion,
+        macros::{functions::{initializer, private, public}, storage::storage},
+        note::{
+            note_interface::NoteHash, retrieved_note::RetrievedNote,
+            utils::compute_note_hash_for_nullify,
+        },
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };

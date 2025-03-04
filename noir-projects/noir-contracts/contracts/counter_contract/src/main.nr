@@ -8,9 +8,9 @@ pub contract Counter {
     // docs:start:imports
     use aztec::macros::{functions::{initializer, private}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
+    use aztec::protocol_types::traits::{FromField, ToField};
     use easy_private_state::EasyPrivateUint;
     use value_note::{balance_utils, value_note::ValueNote};
-    use aztec::protocol_types::traits::{FromField,ToField};
     // docs:end:imports
 
     // docs:start:storage_struct

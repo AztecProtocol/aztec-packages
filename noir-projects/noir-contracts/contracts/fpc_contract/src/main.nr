@@ -14,7 +14,9 @@ pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
     use aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField},
+        protocol_types::{
+            abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
+        },
         state_vars::PublicImmutable,
     };
     use token::Token;

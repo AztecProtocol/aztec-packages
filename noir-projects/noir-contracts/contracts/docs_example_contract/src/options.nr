@@ -1,7 +1,10 @@
 use crate::types::card_note::CardNote;
 use dep::aztec::prelude::{NoteGetterOptions, RetrievedNote};
 
-use dep::aztec::{note::note_interface::NoteProperties, note::note_getter_options::SortOrder, utils::comparison::Comparator};
+use dep::aztec::{
+    note::{note_getter_options::SortOrder, note_interface::NoteProperties},
+    utils::comparison::Comparator,
+};
 use dep::aztec::protocol_types::{
     address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
 };

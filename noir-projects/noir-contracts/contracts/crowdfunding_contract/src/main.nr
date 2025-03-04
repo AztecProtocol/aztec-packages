@@ -11,17 +11,16 @@ pub contract Crowdfunding {
     // docs:start:all-deps
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+        event::event_interface::EventInterface,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
             storage::storage,
         },
         prelude::{AztecAddress, PrivateSet, PublicImmutable},
-        protocol_types::traits::Serialize,
+        protocol_types::traits::{Serialize, ToField},
         unencrypted_logs::unencrypted_event_emission::encode_event,
         utils::comparison::Comparator,
-        event::event_interface::EventInterface,
-        protocol_types::traits::ToField
     };
     use dep::uint_note::uint_note::UintNote;
     use router::utils::privately_check_timestamp;

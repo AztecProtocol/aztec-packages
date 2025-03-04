@@ -8,9 +8,8 @@ pub contract Child {
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{internal, private, public}, storage::storage},
-        note::note_getter_options::NoteGetterOptions,
+        note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
         utils::comparison::Comparator,
-        note::note_interface::NoteProperties
     };
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
