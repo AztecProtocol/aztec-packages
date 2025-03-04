@@ -240,7 +240,6 @@ function release {
 
   echo_header "release all"
   set -x
-  check_release
 
   # Ensure we have a github release for our REF_NAME, if not on latest.
   # On latest we rely on release-please to create this for us.
@@ -330,9 +329,14 @@ case "$cmd" in
   ;;
   "ci")
     build
-    test
-    bench
-    release
+    if ! semver check $REF_NAME; then
+      test
+      bench
+      echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
+    else
+      echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
+      release
+    fi
     ;;
   test|test_cmds|bench|release|release_dryrun|release_commit)
     $cmd "$@"
