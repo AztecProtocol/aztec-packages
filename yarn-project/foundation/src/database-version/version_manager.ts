@@ -88,7 +88,7 @@ export class DatabaseVersionManager<T> {
    * @param dataDirectory - The directory where version information will be stored
    * @param onOpen - A callback to the open the database at the given location
    * @param onUpgrade - An optional callback to upgrade the database before opening. If not provided it will reset the database
-   * @param fs - An interface to access the filesystem
+   * @param fileSystem - An interface to access the filesystem
    * @param log - Optional custom logger
    * @param options - Configuration options
    */
@@ -98,7 +98,7 @@ export class DatabaseVersionManager<T> {
     private dataDirectory: string,
     private onOpen: (dataDir: string) => Promise<T>,
     private onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>,
-    private fs: DatabaseVersionManagerFs = fs,
+    private fileSystem: DatabaseVersionManagerFs = fs,
     private log = createLogger(`foundation:version-manager`),
   ) {
     if (schemaVersion < 1) {
@@ -122,7 +122,7 @@ export class DatabaseVersionManager<T> {
     let storedVersion: DatabaseVersion;
 
     try {
-      const versionBuf = await this.fs.readFile(this.versionFile);
+      const versionBuf = await this.fileSystem.readFile(this.versionFile);
       storedVersion = DatabaseVersion.fromBuffer(versionBuf);
     } catch (err) {
       if (err && (err as Error & { code: string }).code === 'ENOENT') {
@@ -173,9 +173,9 @@ export class DatabaseVersionManager<T> {
    */
   private async writeVersion(): Promise<void> {
     // Ensure the directory exists
-    await this.fs.mkdir(this.dataDirectory, { recursive: true });
+    await this.fileSystem.mkdir(this.dataDirectory, { recursive: true });
     // Write the version file
-    await this.fs.writeFile(this.versionFile, this.currentVersion.toBuffer());
+    await this.fileSystem.writeFile(this.versionFile, this.currentVersion.toBuffer());
   }
 
   /**
@@ -183,8 +183,8 @@ export class DatabaseVersionManager<T> {
    */
   private async resetDataDirectory(): Promise<void> {
     try {
-      await this.fs.rm(this.dataDirectory, { recursive: true, force: true, maxRetries: 3 });
-      await this.fs.mkdir(this.dataDirectory, { recursive: true });
+      await this.fileSystem.rm(this.dataDirectory, { recursive: true, force: true, maxRetries: 3 });
+      await this.fileSystem.mkdir(this.dataDirectory, { recursive: true });
     } catch (err) {
       this.log.error(`Failed to reset data directory: ${err}`);
       throw new Error(`Failed to reset data directory: ${err}`, { cause: err });

@@ -9,16 +9,13 @@ import { join } from 'path';
 import type { DataStoreConfig } from '../config.js';
 import { AztecLMDBStoreV2 } from './store.js';
 
-// The current version of the LMDB store schema
-// Increment this when making incompatible changes to the database
-export const LMDB_STORE_VERSION = 1;
 const MAX_READERS = 16;
 
 export async function createStore(
   name: string,
+  schemaVersion: number,
   config: DataStoreConfig,
   log: Logger = createLogger('kv-store:lmdb-v2:' + name),
-  version: number = LMDB_STORE_VERSION,
 ): Promise<AztecLMDBStoreV2> {
   const { dataDirectory, l1Contracts } = config;
 
@@ -31,7 +28,7 @@ export async function createStore(
     const rollupAddress = l1Contracts ? l1Contracts.rollupAddress : EthAddress.ZERO;
 
     // Create a version manager
-    const versionManager = new DatabaseVersionManager(version, rollupAddress, subDir, dbDirectory =>
+    const versionManager = new DatabaseVersionManager(schemaVersion, rollupAddress, subDir, dbDirectory =>
       AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKB, MAX_READERS, () => Promise.resolve(), log),
     );
 
@@ -80,11 +77,21 @@ export async function openStoreAt(
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
   log: Logger = createLogger('kv-store:lmdb-v2'),
-  version: number = LMDB_STORE_VERSION,
-  rollupAddress: EthAddress = EthAddress.ZERO,
 ): Promise<AztecLMDBStoreV2> {
   log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
-  const [store] = await new DatabaseVersionManager(version, rollupAddress, dataDir, dataDir =>
+  return await AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log);
+}
+
+export async function openVersionedStoreAt(
+  dataDir: string,
+  schemaVersion: number,
+  rollupAddress: EthAddress,
+  dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
+  maxReaders = MAX_READERS,
+  log: Logger = createLogger('kv-store:lmdb-v2'),
+): Promise<AztecLMDBStoreV2> {
+  log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  const [store] = await new DatabaseVersionManager(schemaVersion, rollupAddress, dataDir, dataDir =>
     AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, log),
   ).open();
   return store;
