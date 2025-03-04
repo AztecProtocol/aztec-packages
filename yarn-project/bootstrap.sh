@@ -138,13 +138,14 @@ function test {
 
 function release_packages {
   echo "Computing packages to publish..."
-  local packages=$(get_projects topological)
+  local packages=$(get_projects topological | grep -v '^end-to-end$')
   local package_list=()
   for package in $packages; do
     (cd $package && deploy_npm $1 $2)
     local package_name=$(jq -r .name "$package/package.json")
     package_list+=("$package_name@$2")
   done
+  export DRY_RUN=0
   # Smoke test the deployed packages.
   local dir=$(mktemp -d)
   cd "$dir"
