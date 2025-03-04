@@ -307,15 +307,14 @@ struct Transcript {
 }
 
 library TranscriptLib {
-    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
+    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
         internal
         pure
         returns (Transcript memory t)
     {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) =
-            generateRelationParametersChallenges(proof, publicInputs, publicInputsSize, previousChallenge);
-
+            generateRelationParametersChallenges(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
@@ -345,40 +344,45 @@ library TranscriptLib {
     function generateRelationParametersChallenges(
         Honk.Proof memory proof,
         bytes32[] calldata publicInputs,
+        uint256 circuitSize,
         uint256 publicInputsSize,
+        uint256 pubInputsOffset,
         Fr previousChallenge
     ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, publicInputsSize);
+            generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
 
     }
 
-    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
+    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
         internal
         pure
         returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
     {
-        bytes32[] memory round0 = new bytes32[](publicInputsSize + 12);
+        bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
+        round0[0] = bytes32(circuitSize);
+        round0[1] = bytes32(publicInputsSize);
+        round0[2] = bytes32(pubInputsOffset);
         for (uint256 i = 0; i < publicInputsSize; i++) {
-            round0[i] = bytes32(publicInputs[i]);
+            round0[3 + i] = bytes32(publicInputs[i]);
         }
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
-        round0[publicInputsSize] = bytes32(proof.w1.x_0);
-        round0[publicInputsSize + 1] = bytes32(proof.w1.x_1);
-        round0[publicInputsSize + 2] = bytes32(proof.w1.y_0);
-        round0[publicInputsSize + 3] = bytes32(proof.w1.y_1);
-        round0[publicInputsSize + 4] = bytes32(proof.w2.x_0);
-        round0[publicInputsSize + 5] = bytes32(proof.w2.x_1);
-        round0[publicInputsSize + 6] = bytes32(proof.w2.y_0);
-        round0[publicInputsSize + 7] = bytes32(proof.w2.y_1);
-        round0[publicInputsSize + 8] = bytes32(proof.w3.x_0);
-        round0[publicInputsSize + 9] = bytes32(proof.w3.x_1);
-        round0[publicInputsSize + 10] = bytes32(proof.w3.y_0);
-        round0[publicInputsSize + 11] = bytes32(proof.w3.y_1);
+        round0[3 + publicInputsSize] = bytes32(proof.w1.x_0);
+        round0[3 + publicInputsSize + 1] = bytes32(proof.w1.x_1);
+        round0[3 + publicInputsSize + 2] = bytes32(proof.w1.y_0);
+        round0[3 + publicInputsSize + 3] = bytes32(proof.w1.y_1);
+        round0[3 + publicInputsSize + 4] = bytes32(proof.w2.x_0);
+        round0[3 + publicInputsSize + 5] = bytes32(proof.w2.x_1);
+        round0[3 + publicInputsSize + 6] = bytes32(proof.w2.y_0);
+        round0[3 + publicInputsSize + 7] = bytes32(proof.w2.y_1);
+        round0[3 + publicInputsSize + 8] = bytes32(proof.w3.x_0);
+        round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
+        round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
+        round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -1443,9 +1447,11 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         // Generate the fiat shamir challenges for the whole protocol
-        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.publicInputsSize);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
+        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, vk.publicInputsSize, 1);
 
         // Derive public input delta
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
             publicInputs, t.relationParameters.beta, t.relationParameters.gamma, 1
         );

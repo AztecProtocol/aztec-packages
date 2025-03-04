@@ -72,9 +72,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         }
 
         // Generate the fiat shamir challenges for the whole protocol
-        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, numPublicInputs);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
+        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, 1);
 
         // Derive public input delta
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         t.relationParameters.publicInputsDelta =
             computePublicInputDelta(publicInputs, t.relationParameters.beta, t.relationParameters.gamma, 1);
 
