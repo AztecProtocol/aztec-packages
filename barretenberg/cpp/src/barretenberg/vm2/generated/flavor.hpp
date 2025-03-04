@@ -85,13 +85,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 37;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 771;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 38;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 772;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 102;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 910;
+    static constexpr size_t NUM_ALL_ENTITIES = 912;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -401,6 +401,7 @@ class AvmFlavor {
             this->precomputed_clk = verification_key->precomputed_clk;
             this->precomputed_exec_opcode = verification_key->precomputed_exec_opcode;
             this->precomputed_first_row = verification_key->precomputed_first_row;
+            this->precomputed_instr_size_in_bytes = verification_key->precomputed_instr_size_in_bytes;
             this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
