@@ -16,7 +16,14 @@ function get_tag {
 
 function render {
   while IFS= read -r json_line; do
-    IFS=$'\t' read ts status msg name author complete < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete] | @tsv' <<< "$json_line")
+    readarray -t arr < <(jq -r '[.timestamp, .status, .msg, .name, .author, .complete // "", .arch // ""][]' <<< "$json_line")
+    ts="${arr[0]}"
+    status="${arr[1]}"
+    msg="${arr[2]}"
+    name="${arr[3]}"
+    author="${arr[4]}"
+    complete="${arr[5]}"
+    arch="${arr[6]}"
     local date_time=$(date -d @${ts:0:10} "+%m-%d %H:%M:%S")
     local link="${link_open}http://ci.aztec-labs.com/$ts${link_close}$ts${link_open}${link_close}"
     if [ -z "$complete" ]; then
@@ -24,12 +31,18 @@ function render {
     else
       local from=complete
     fi
+
+    if [[ $msg =~ \(#([0-9]+)\) ]]; then
+        pr_number="${BASH_REMATCH[1]}"
+        msg="${link_open}https://github.com/aztecprotocol/aztec-packages/pull/$pr_number${link_close}$msg${link_open}${link_close}"
+    fi
+
     if [ "$status" != "INACTIVE" ]; then
       local duration=$(( (from - ts) / 1000 ))
       local duration_str="($((duration / 60))m$((duration % 60))s)"
-      echo -e "$date_time $(get_tag $status) (${yellow}$link${reset}): ${bold}$name${reset} ${purple}$author${reset}: $msg ${duration_str} \e[K"
+      echo -en "\n$date_time $(get_tag $status) (${yellow}$link${reset}): $arch ${bold}$name${reset} ${purple}$author${reset}: $msg ${duration_str} \e[K"
     else
-      echo -e "$date_time $(get_tag $status) ($link): ${bold}$name${reset} $author: $msg \e[K"
+      echo -en "\n$date_time $(get_tag $status) ($link): $arch ${bold}$name${reset} $author: $msg \e[K"
     fi
   done
 }
@@ -38,8 +51,8 @@ SECONDS=5
 
 function update_status {
   # Jump to top left and clear.
-  echo -e -n "\e[0;0H\e[K"
-  echo -e "${bold}${blue}AZTEC LABS TERMINAL CI SYSTEM${reset}:" \
+  echo -en "\e[0;0H\e[K"
+  echo -en "${bold}${blue}AZTEC LABS TERMINAL CI SYSTEM${reset}:" \
     "(offset: $offset) (filter: ${filter_string:-unset}) (filter_prop: ${filter_property:-unset} [status,name,author,msg])"
 }
 
@@ -49,12 +62,12 @@ function refresh {
   if [ "$SECONDS" -ge 5 ]; then
     # result="$(redis-cli --raw ZREVRANGE ci-run $offset $((offset + height - 3)))"
     result=$(redis_cli --eval $ci3/lua/set-filter.lua ci-run , \
-      $offset $((offset + height - 3)) $filter_property $filter_string)
+      $offset $((offset + height - 1)) $filter_property $filter_string)
     SECONDS=0
   fi
   update_status
   if [ -z "$result" ]; then
-    echo -n "Nothing to see here..."
+    echo -n "\nNothing to see here..."
   else
     echo -e "$result" | render
   fi

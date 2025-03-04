@@ -13,7 +13,7 @@ import type { Fieldable } from '@aztec/foundation/serialize';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { SerializableContractInstance } from '@aztec/stdlib/contract';
+import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
   computeNoteHashNonce,
@@ -73,13 +73,13 @@ import {
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 import {
-  mockGetBytecode,
+  mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
+  mockGetNullifierIndex,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
   mockNoteHashExists,
-  mockNullifierExists,
   mockStorageRead,
   mockStorageReadWithMap,
   mockTraceFork,
@@ -626,7 +626,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
 
         if (exists) {
-          mockNullifierExists(worldStateDB, leafIndex, siloedNullifier0);
+          mockGetNullifierIndex(worldStateDB, leafIndex, siloedNullifier0);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -928,9 +928,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
         mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
 
         const bytecode = getAvmTestContractBytecode('test_get_contract_instance');
 
@@ -963,16 +963,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
+        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -987,7 +987,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_add');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
@@ -996,7 +995,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractClass(worldStateDB, contractClass);
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -1014,16 +1014,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);
         const artifact = getAvmTestContractArtifact('public_dispatch');
-        await mockGetBytecode(worldStateDB, artifact.bytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: artifact.bytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
+        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -1036,16 +1036,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_set_storage');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
+        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -1066,16 +1066,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_assert_same');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
+        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -1091,16 +1091,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('returndata_copy_oracle');
         const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
-        await mockGetBytecode(worldStateDB, nestedBytecode);
 
         const contractClass = await makeContractClassPublic(0, {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
+        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
-        mockNullifierExists(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 

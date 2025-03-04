@@ -118,29 +118,33 @@ function test_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
 
+function start_txes {
+  # Starting txe servers with incrementing port numbers.
+  trap 'kill -SIGTERM $(jobs -p) &>/dev/null || true' EXIT
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    existing_pid=$(lsof -ti :$((45730 + i)) || true)
+    [ -n "$existing_pid" ] && kill -9 $existing_pid
+    dump_fail "cd $root/yarn-project/txe && LOG_LEVEL=info TXE_PORT=$((45730 + i)) node --no-warnings ./dest/bin/index.js" &
+  done
+  echo "Waiting for TXE's to start..."
+  for i in $(seq 0 $((NUM_TXES-1))); do
+      local j=0
+      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
+        [ $j == 15 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
+        sleep 1
+        j=$((j+1))
+      done
+  done
+}
+export -f start_txes
+
 function test {
   echo_header "test all"
 
   # Make sure KIND starts so it is running by the time we do spartan tests.
   spartan/bootstrap.sh kind &>/dev/null &
 
-  # Starting txe servers with incrementing port numbers.
-  trap 'kill $(jobs -p) &>/dev/null || true' EXIT
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    existing_pid=$(lsof -ti :$((45730 + i)) || true)
-    [ -n "$existing_pid" ] && kill -9 $existing_pid
-    # TODO: I'd like to use dump_fail here, but TXE needs to exit 0 on receiving a SIGTERM.
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) retry yarn start) &>/dev/null &
-  done
-  echo "Waiting for TXE's to start..."
-  for i in $(seq 0 $((NUM_TXES-1))); do
-      local j=0
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 60 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
-        sleep 1
-        j=$((j+1))
-      done
-  done
+  start_txes
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
