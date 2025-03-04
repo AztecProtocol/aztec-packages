@@ -49,8 +49,10 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
 
     // Populate some non-zero values in the databus_propagation_data to ensure its being handled
     if constexpr (IsMegaBuilder<Builder>) {
-        original_vkey.databus_propagation_data.app_return_data_public_input_idx = 2;
-        original_vkey.databus_propagation_data.kernel_return_data_public_input_idx = 4;
+        original_vkey.databus_propagation_data.app_return_data_commitment_pub_input_key =
+            PublicComponentKey{ /*start_idx=*/1 };
+        original_vkey.databus_propagation_data.kernel_return_data_commitment_pub_input_key =
+            PublicComponentKey{ /*start_idx=*/5 };
         original_vkey.databus_propagation_data.is_kernel = 1;
     }
 

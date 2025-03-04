@@ -35,6 +35,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
 
+    // Number of bb::fr field elements used to represent a goblin element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 8;
+
     goblin_element() = default;
     goblin_element(const typename NativeGroup::affine_element& input)
         : x(input.x)
@@ -51,6 +54,15 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     goblin_element& operator=(const goblin_element& other) = default;
     goblin_element& operator=(goblin_element&& other) noexcept = default;
     ~goblin_element() = default;
+
+    void assert_equal(const goblin_element& other) const
+    {
+        if (this->get_value() != other.get_value()) {
+            info("WARNING: goblin_element::assert_equal value check failed!");
+        }
+        x.assert_equal(other.x);
+        y.assert_equal(other.y);
+    }
 
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
@@ -293,6 +305,70 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         x.set_origin_tag(tag);
         y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
+    }
+
+    /**
+     * @brief Set the witness indices representing the goblin element to public
+     * @details Even though the coordinates of a goblin element are represented using two field elements, we store them
+     * in the public inputs as if they were bigfield elements (where each coordinate is represented by four field
+     * elements). This uniformity is imposed for simplicity but could be reconsidered if desired.
+     *
+     * @return uint32_t The index into the public inputs array at which the representation of the goblin element starts
+     */
+    uint32_t set_public() const
+    {
+        using BigFq = stdlib::bigfield<Builder, bb::fq::Params>;
+        const auto to_bigfield_witness_indices = [](const Fr& lo, const Fr& hi) {
+            BigFq r(lo, hi);
+            return std::array<uint32_t, 4>{
+                r.binary_basis_limbs[0].element.normalize().witness_index,
+                r.binary_basis_limbs[1].element.normalize().witness_index,
+                r.binary_basis_limbs[2].element.normalize().witness_index,
+                r.binary_basis_limbs[3].element.normalize().witness_index,
+            };
+        };
+
+        auto x_idxs = to_bigfield_witness_indices(x.limbs[0], x.limbs[1]);
+        auto y_idxs = to_bigfield_witness_indices(y.limbs[0], y.limbs[1]);
+
+        Builder* context = get_context();
+        const uint32_t start_idx = static_cast<uint32_t>(context->public_inputs.size());
+        for (const uint32_t& idx : x_idxs) {
+            context->set_public_input(idx);
+        }
+        for (const uint32_t& idx : y_idxs) {
+            context->set_public_input(idx);
+        }
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct a goblin element from its representation as limbs as stored in the public inputs
+     * @details For consistency with biggroup, a goblin element is represented in the public inputs using eight field
+     * elements (even though it could be represented using only four).
+     *
+     * @param limbs
+     * @return goblin_element
+     */
+    static goblin_element reconstruct_from_public(const std::span<const Fr>& limbs)
+    {
+        const size_t FRS_PER_FQ = 4; // 4 instead of 2 since we assume biggroup format in pub inputs
+        std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
+        std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
+
+        auto reconstruct_fq_from_fr_limbs = [](const std::span<const Fr, FRS_PER_FQ>& limbs) {
+            for (size_t i = 0; i < FRS_PER_FQ; ++i) {
+                // WORKTODO: do we need to range constrain here?
+                limbs[i].create_range_constraint(Fq::NUM_LIMB_BITS, "l" + std::to_string(i));
+            }
+            return Fq::construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
+        };
+
+        const Fq x = reconstruct_fq_from_fr_limbs(x_limbs);
+        const Fq y = reconstruct_fq_from_fr_limbs(y_limbs);
+
+        return { x, y };
     }
 
     Fq x;

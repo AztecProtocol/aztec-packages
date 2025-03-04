@@ -163,9 +163,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
-            this->databus_propagation_data.app_return_data_public_input_idx =
+            this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->databus_propagation_data.kernel_return_data_public_input_idx =
+            this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->databus_propagation_data.is_kernel =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
