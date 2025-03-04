@@ -14,6 +14,7 @@ pub contract AppSubscription {
         macros::{functions::{initializer, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
         protocol_types::constants::MAX_FIELD_VALUE,
+        protocol_types::traits::ToField,
         utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;

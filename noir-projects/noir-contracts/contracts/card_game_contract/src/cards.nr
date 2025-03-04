@@ -8,7 +8,7 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        traits::{FromField, Serialize, ToField},
+        traits::{FromField, Serialize, ToField, Hash},
     },
     state_vars::PrivateSet,
 };

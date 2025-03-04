@@ -20,6 +20,8 @@ pub contract Crowdfunding {
         protocol_types::traits::Serialize,
         unencrypted_logs::unencrypted_event_emission::encode_event,
         utils::comparison::Comparator,
+        event::event_interface::EventInterface,
+        protocol_types::traits::ToField
     };
     use dep::uint_note::uint_note::UintNote;
     use router::utils::privately_check_timestamp;
