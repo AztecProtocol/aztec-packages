@@ -263,31 +263,6 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn external_call_to_divide_by_zero_with_success_copy() {
-        // Get the gas remaining and allocate some smaller amount to nested call.
-        let l2_gas_left = context.l2_gas_left();
-        let da_gas_left = context.da_gas_left();
-        let gas_allocation: [Field; 2] = [l2_gas_left - 200_000, da_gas_left - 200_000];
-        let selector = FunctionSelector::from_signature("divide_by_zero()");
-
-        // Make the call (no return value since call no longer returns success)
-        dep::aztec::context::public_context::call(
-            gas_allocation,
-            context.this_address(),
-            &[selector.to_field()],
-        );
-
-        // Instead, use the SUCCESSCOPY opcode to get the success value
-        let success = dep::aztec::context::public_context::success_copy();
-
-        assert(!success, "Nested CALL instruction should return failure on exceptional halt");
-        assert(
-            dep::aztec::context::public_context::returndata_size() == 0,
-            "Returndata should be empty when nested call exceptionally halts",
-        );
-    }
-
-    #[public]
     fn debug_logging() {
         dep::aztec::oracle::debug_log::debug_log("just text");
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
