@@ -1,3 +1,6 @@
+use std::ops::{Add, Sub, Mul, Div};
+
+
 // Binomial approximation of exponential
 // using lower than desired precisions for everything due to u128 limit
 // (1+x)^n = 1+n*x+[n/2*(n-1)]*x^2+[n/6*(n-1)*(n-2)*x^3]...

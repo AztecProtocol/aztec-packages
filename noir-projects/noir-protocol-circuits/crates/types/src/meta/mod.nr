@@ -16,7 +16,10 @@ comptime fn get_trait_impl_method(
     target_method: Quoted,
 ) -> TypedExpr {
     let trait_constraint = target_trait.as_trait_constraint();
-    typ.get_trait_impl(trait_constraint).unwrap().methods().filter(|m| m.name() == target_method)[0]
+    typ.get_trait_impl(trait_constraint)
+        .expect(f"Could not find impl for {target_trait} for type {typ}")
+        .methods()
+        .filter(|m| m.name() == target_method)[0]
         .as_typed_expr()
 }
 
@@ -328,7 +331,12 @@ pub comptime fn generate_serialize_to_fields(
             let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
 
             // We add the individual fields to the fields array
-            let packed_struct = quote { let $packed_struct_name = $name.pack() };
+            let pack_method = get_trait_impl_method(
+                typ,
+                quote { Packable<$maybe_packed_len_typ> },
+                quote { pack},
+            );
+            let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
             for i in 0..packed_len {
                 fields = fields.push_back(quote { $packed_struct_name[$i] });
             }
@@ -459,7 +467,7 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
         generate_deserialize_from_fields(quote { self }, typ, quote { serialized }, 0, false);
     quote {
         impl Deserialize<$serialized_len> for $typ {
-            fn deserialize(serialized: [Field; $serialized_len]) -> Self {
+            fn deserialize(serialized: [Field; $serialized_len]) -> Self {              
                 $deserialized
             }
         }

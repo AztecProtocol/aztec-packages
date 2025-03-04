@@ -5,7 +5,7 @@ use crate::hash::{
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_FIELD_VALUE;
-use dep::protocol_types::traits::{Empty, Packable, Serialize};
+use dep::protocol_types::traits::{Empty, FromField, Packable, Serialize, ToField};
 
 pub struct PublicContext {
     pub args_hash: Option<Field>,
