@@ -21,7 +21,7 @@ import {
   encodeArguments,
   getFunctionArtifact,
 } from '@aztec/stdlib/abi';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -360,7 +360,6 @@ export class PXEDataProvider implements ExecutionDataProvider {
       }),
     );
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
-    console.log('indexes for recipient', recipient, 'are', indexes);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 
@@ -442,7 +441,6 @@ export class PXEDataProvider implements ExecutionDataProvider {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
-    console.log(`Syncing tagged logs for ${contractAddress} at block ${maxBlockNumber} with scopes ${scopes}`);
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
@@ -454,7 +452,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
     // A map of logs going from recipient address to logs. Note that the logs might have been processed before
     // due to us having a sliding window that "looks back" for logs as well. (We look back as there is no guarantee
-    // that a logs will be received ordered by a given tax index and that the tags won't be reused).
+    // that a logs will be received ordered by a given tag index and that the tags won't be reused).
     const logsMap = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
@@ -636,7 +634,6 @@ export class PXEDataProvider implements ExecutionDataProvider {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    console.log('Processing tagged logs');
     const decryptedLogs = await this.#decryptTaggedLogs(logs, recipient);
 
     // We've produced the full NoteDao, which we'd be able to simply insert into the database. However, this is
