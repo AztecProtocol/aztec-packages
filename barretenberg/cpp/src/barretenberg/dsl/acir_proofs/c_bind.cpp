@@ -461,8 +461,6 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** ou
     std::vector<uint32_t> totals;
 
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-    const acir_format::ProgramMetadata metadata{ ivc };
     for (auto& bincode : acirs) {
         const acir_format::AcirFormat constraint_system =
             acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
