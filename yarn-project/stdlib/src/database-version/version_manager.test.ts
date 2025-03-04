@@ -1,7 +1,8 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
+
 import { jest } from '@jest/globals';
 import { join } from 'path';
 
-import { EthAddress } from '../eth-address/index.js';
 import { DatabaseVersion, DatabaseVersionManager, type DatabaseVersionManagerFs } from './version_manager.js';
 
 describe('VersionManager', () => {

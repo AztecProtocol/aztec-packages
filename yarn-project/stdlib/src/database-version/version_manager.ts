@@ -1,10 +1,10 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonParseWithSchemaSync, jsonStringify } from '@aztec/foundation/json-rpc';
+import { createLogger } from '@aztec/foundation/log';
+
 import fs from 'fs/promises';
 import { join } from 'path';
 import { z } from 'zod';
-
-import { EthAddress } from '../eth-address/index.js';
-import { jsonParseWithSchemaSync, jsonStringify } from '../json-rpc/index.js';
-import { createLogger } from '../log/index.js';
 
 /**
  * Represents a version record for storing in a version file.

@@ -1,10 +1,10 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { DatabaseVersionManager } from '@aztec/foundation/database-version';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
+import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type {
   IndexedTreeId,
   MerkleTreeReadOperations,

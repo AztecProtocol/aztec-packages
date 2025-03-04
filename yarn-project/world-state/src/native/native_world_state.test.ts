@@ -9,12 +9,12 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { DatabaseVersion, DatabaseVersionManager } from '@aztec/foundation/database-version';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { L2Block } from '@aztec/stdlib/block';
+import { DatabaseVersion, DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
