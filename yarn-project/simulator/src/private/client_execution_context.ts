@@ -82,10 +82,10 @@ export class ClientExecutionContext extends ViewDataOracle {
     db: DBOracle,
     private node: AztecNode,
     private provider: SimulationProvider,
+    private totalPublicArgsCount: number,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
-    private totalPublicArgsCount = 0,
   ) {
     super(callContext.contractAddress, authWitnesses, capsules, db, node, log, scopes);
   }
@@ -410,10 +410,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.db,
       this.node,
       this.provider,
+      this.totalPublicArgsCount,
       sideEffectCounter,
       this.log,
       this.scopes,
-      this.totalPublicArgsCount,
     );
 
     const childExecutionResult = await executePrivateFunction(

@@ -64,11 +64,8 @@ pub contract Parent {
     global NUM_RECURSIONS: u32 = 10;
     #[private]
     fn enqueue_call_to_child_with_many_args_and_recurse(recursion_depth: u32) {
-        //let num_recursions: u8 = 10;
-        let args: [Field; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / NUM_RECURSIONS] =
-            [0; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / NUM_RECURSIONS];
+        let args = [0; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / NUM_RECURSIONS];
         // +1 for function selector brings us to max
-        //let args: [Field; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS- 1] = [0; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS - 1];
         Parent::at(context.this_address()).public_call_with_max_over_n_args(args).enqueue(
             &mut context,
         );

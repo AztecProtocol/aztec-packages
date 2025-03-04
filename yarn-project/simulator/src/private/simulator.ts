@@ -87,6 +87,7 @@ export class AcirSimulator {
       this.db,
       this.node,
       this.simulationProvider,
+      /*totalPublicArgsCount=*/ 0,
       startSideEffectCounter,
       undefined,
       scopes,
