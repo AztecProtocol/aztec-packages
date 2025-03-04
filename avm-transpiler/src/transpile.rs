@@ -557,7 +557,7 @@ fn handle_foreign_call(
 //     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
 //     address: AztecAddress,
 //     args: [Field],
-// ) -> bool {}
+// ) {}
 fn handle_external_call(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
@@ -1682,13 +1682,20 @@ fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
     }
 }
 
+/// #[oracle(avmOpcodeSuccessCopy)]
+/// unconstrained fn success_copy_opcode() -> bool {}
 fn handle_success_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
 ) {
-    assert!(inputs.is_empty());
-    assert!(destinations.len() == 1);
+    if destinations.len() != 1 || !inputs.is_empty() {
+        panic!(
+            "Transpiler expects SuccessCopy to have 1 destination and 0 inputs, got {} and {}.",
+            destinations.len(),
+            inputs.len()
+        );
+    }
 
     let dst_offset = match destinations[0] {
         ValueOrArray::MemoryAddress(address) => address,
