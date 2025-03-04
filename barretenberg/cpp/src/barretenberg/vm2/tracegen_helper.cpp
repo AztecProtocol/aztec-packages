@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
@@ -267,7 +268,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_1_settings>>(),
             // Scalar mul
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_settings>>(),
-            std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>());
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>(),
+            // To radix
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_range_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_gt_safe_limbs_range_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

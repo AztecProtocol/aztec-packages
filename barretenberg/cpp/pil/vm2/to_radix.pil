@@ -93,7 +93,7 @@ namespace to_radix;
 
     // Limb should be less than radix
     pol commit limb_radix_diff;
-    radix - 1 - limb - limb_radix_diff = 0;
+    sel * (radix - 1 - limb - limb_radix_diff) = 0;
 
     #[LIMB_LESS_THAN_RADIX_RANGE]
     sel { limb_radix_diff }
@@ -104,13 +104,13 @@ namespace to_radix;
 
     // On start, current acc must be equal to limb
     start * (acc - limb) = 0;
-    // Next acc must be current acc + next_exponent*limb
-    not_end * (acc + exponent' * limb - acc') = 0;
+    // Next acc must be current acc + next_exponent*next_limb
+    not_end * (acc + exponent' * limb' - acc') = 0;
 
     // found is 1 when value - acc = 0
     pol REM = value - acc;
     pol commit rem_inverse;
-    REM * (found * (1 - rem_inverse) + rem_inverse) - 1 + found = 0;
+    sel * (REM * (found * (1 - rem_inverse) + rem_inverse) - 1 + found) = 0;
 
     // when found is 1, next limb is 0
     not_end * found * limb' = 0;
@@ -127,20 +127,24 @@ namespace to_radix;
     // If is_unsafe_limb, next limb is zero
     not_end * is_unsafe_limb * limb' = 0;
 
-    // is_unsafe_limb = limb_index >= safe_limbs
+    // if is_unsafe_limb, limb >= safe_limbs
+    // else limb < safe_limbs
     // Both are implicitely range checked to 8 bits
-    pol commit limb_index_safe_limbs_diff;
-    safe_limbs - limb_index - limb_index_safe_limbs_diff = 0;
+    pol commit limb_index_safe_limbs_comparison_hint;
+    pol LIMB_GT_SAFE_LIMBS = limb_index - safe_limbs;
+    pol SAFE_LIMBS_GT_LIMB = safe_limbs - 1 - limb_index;
+    // Conditionally assign the subtraction that we'll range check
+    sel * ((LIMB_GT_SAFE_LIMBS - SAFE_LIMBS_GT_LIMB) * is_unsafe_limb + SAFE_LIMBS_GT_LIMB - limb_index_safe_limbs_comparison_hint) = 0;
 
     #[LIMB_GT_SAFE_LIMBS_RANGE]
-    sel { limb_index_safe_limbs_diff }
+    sel { limb_index_safe_limbs_comparison_hint }
     in
     precomputed.sel_range_8
         { precomputed.clk };
 
     // If current one is safe and next is unsafe, we need to assert that next acc is gte than current acc
     pol commit assert_gt_lookup;
-    not_end * (1 - found) * is_unsafe_limb * is_unsafe_limb' - assert_gt_lookup = 0;
+    not_end * (1 - found) * (1 - is_unsafe_limb) * is_unsafe_limb' - assert_gt_lookup = 0;
 
     // TODO(Alvaro) lookup field gt
 

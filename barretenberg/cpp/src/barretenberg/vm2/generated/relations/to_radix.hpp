@@ -13,7 +13,7 @@ template <typename FF_> class to_radixImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 28> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3,
-                                                                            3, 2, 3, 4, 4, 4, 3, 4, 2, 5, 4, 3, 3, 3 };
+                                                                            3, 3, 3, 4, 5, 4, 3, 4, 4, 5, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -29,6 +29,9 @@ template <typename FF_> class to_radixImpl {
     {
         const auto to_radix_LATCH_CONDITION = new_term.to_radix_end + new_term.precomputed_first_row;
         const auto to_radix_REM = (new_term.to_radix_value - new_term.to_radix_acc);
+        const auto to_radix_LIMB_GT_SAFE_LIMBS = (new_term.to_radix_limb_index - new_term.to_radix_safe_limbs);
+        const auto to_radix_SAFE_LIMBS_GT_LIMB =
+            ((new_term.to_radix_safe_limbs - FF(1)) - new_term.to_radix_limb_index);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -124,8 +127,8 @@ template <typename FF_> class to_radixImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp =
-                (((new_term.to_radix_radix - FF(1)) - new_term.to_radix_limb) - new_term.to_radix_limb_radix_diff);
+            auto tmp = new_term.to_radix_sel * (((new_term.to_radix_radix - FF(1)) - new_term.to_radix_limb) -
+                                                new_term.to_radix_limb_radix_diff);
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
@@ -138,14 +141,15 @@ template <typename FF_> class to_radixImpl {
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = new_term.to_radix_not_end *
-                       ((new_term.to_radix_acc + new_term.to_radix_exponent_shift * new_term.to_radix_limb) -
+                       ((new_term.to_radix_acc + new_term.to_radix_exponent_shift * new_term.to_radix_limb_shift) -
                         new_term.to_radix_acc_shift);
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = ((to_radix_REM * (new_term.to_radix_found * (FF(1) - new_term.to_radix_rem_inverse) +
+            auto tmp = new_term.to_radix_sel *
+                       ((to_radix_REM * (new_term.to_radix_found * (FF(1) - new_term.to_radix_rem_inverse) +
                                          new_term.to_radix_rem_inverse) -
                          FF(1)) +
                         new_term.to_radix_found);
@@ -172,15 +176,18 @@ template <typename FF_> class to_radixImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = ((new_term.to_radix_safe_limbs - new_term.to_radix_limb_index) -
-                        new_term.to_radix_limb_index_safe_limbs_diff);
+            auto tmp =
+                new_term.to_radix_sel *
+                (((to_radix_LIMB_GT_SAFE_LIMBS - to_radix_SAFE_LIMBS_GT_LIMB) * new_term.to_radix_is_unsafe_limb +
+                  to_radix_SAFE_LIMBS_GT_LIMB) -
+                 new_term.to_radix_limb_index_safe_limbs_comparison_hint);
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
             auto tmp = (new_term.to_radix_not_end * (FF(1) - new_term.to_radix_found) *
-                            new_term.to_radix_is_unsafe_limb * new_term.to_radix_is_unsafe_limb_shift -
+                            (FF(1) - new_term.to_radix_is_unsafe_limb) * new_term.to_radix_is_unsafe_limb_shift -
                         new_term.to_radix_assert_gt_lookup);
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);

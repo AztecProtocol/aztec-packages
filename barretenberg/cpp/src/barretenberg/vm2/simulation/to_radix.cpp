@@ -11,12 +11,10 @@ std::vector<uint8_t> ToRadix::to_le_radix(const FF& value, uint32_t num_limbs, u
     auto limbs = std::vector<uint8_t>();
     limbs.reserve(num_limbs);
 
-    // Decomposing is easier in big endian limbs
     while (value_integer > 0) {
         limbs.push_back(static_cast<uint8_t>(value_integer % radix));
         value_integer /= radix;
     }
-    std::reverse(limbs.begin(), limbs.end());
 
     if (num_limbs > limbs.size()) {
         limbs.insert(limbs.end(), num_limbs - limbs.size(), 0);

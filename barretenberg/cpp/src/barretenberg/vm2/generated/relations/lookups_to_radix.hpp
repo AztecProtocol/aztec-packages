@@ -200,7 +200,7 @@ class lookup_to_radix_limb_gt_safe_limbs_range_settings {
     static constexpr Column COUNTS = Column::lookup_to_radix_limb_gt_safe_limbs_range_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_limb_gt_safe_limbs_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_limb_index_safe_limbs_diff
+        ColumnAndShifts::to_radix_limb_index_safe_limbs_comparison_hint
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
@@ -234,7 +234,7 @@ class lookup_to_radix_limb_gt_safe_limbs_range_settings {
                                      in._lookup_to_radix_limb_gt_safe_limbs_range_counts(),
                                      in._to_radix_sel(),
                                      in._precomputed_sel_range_8(),
-                                     in._to_radix_limb_index_safe_limbs_diff(),
+                                     in._to_radix_limb_index_safe_limbs_comparison_hint(),
                                      in._precomputed_clk());
     }
 };
