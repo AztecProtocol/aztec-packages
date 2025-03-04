@@ -1,0 +1,160 @@
+include "range_check.pil";
+
+// Decomposes a field in radixes
+// +-------+-------+------+------------+------+----------+-------+------------+-----------+-------+-----+-----+
+// | value | radix | limb | limb_index | acc  | exponent | found | safe_limbs | is_unsafe | start | end | sel |
+// +-------+-------+------+------------+------+----------+-------+------------+-----------+-------+-----+-----+
+// |     0 |     0 |    0 |          0 |    0 | 0        |     0 |          0 |         0 |     0 |   0 |   0 |
+// |  1337 |    10 |    7 |          0 |    7 | 1        |     0 |         76 |         0 |     1 |   0 |   1 |
+// |  1337 |    10 |    3 |          1 |   37 | 10       |     0 |         76 |         0 |     0 |   0 |   1 |
+// |  1337 |    10 |    3 |          2 |  337 | 100      |     0 |         76 |         0 |     0 |   0 |   1 |
+// |  1337 |    10 |    1 |          3 | 1337 | 1000     |     1 |         76 |         0 |     0 |   0 |   1 |
+// |  1337 |    10 |    0 |          4 | 1337 | 10000    |     1 |         76 |         0 |     0 |   0 |   1 |
+// |  1337 |    10 |    0 |         76 | 1337 | 10**76   |     1 |         76 |         1 |     0 |   0 |   1 |
+// |  1337 |    10 |    0 |         77 | 1337 | 0        |     1 |         76 |         1 |     0 |   1 |   1 |
+// |     0 |     0 |    0 |          0 |    0 | 0        |     0 |          0 |         0 |     0 |   0 |   0 |
+// +-------+-------+------+------------+------+----------+-------+------------+-----------+-------+-----+-----+
+
+namespace to_radix;
+
+    #[skippable_if]
+    sel = 0;
+
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    // Inputs to to_radix
+    pol commit value;
+    pol commit radix; // Must be 256 >= radix >= 2
+    pol commit limb_index;
+
+    // Outputs of to_radix
+    pol commit limb;
+
+
+    // LIFECYCLE
+
+    pol commit start;
+    start * (1 - start) = 0;
+
+    pol commit end;
+    end * (1 - end) = 0;
+
+    // end and first_row are NAND
+    end * precomputed.first_row = 0;
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
+
+    // Selector must be 1 in a start row
+    #[SELECTOR_ON_START]
+    start * (1 - sel) = 0;
+    // Next selector must be current selector unless LATCH_CONDITION
+    #[SELECTOR_CONSISTENCY]
+    (sel' - sel) * (1 - LATCH_CONDITION) = 0;
+    // Selector must be 1 in an end row
+    end * (1 - sel) = 0;
+
+    // Commited to reduce the degree of expressions
+    pol commit not_end;
+    sel * (1 - end) - not_end = 0;
+
+
+    // EXPONENTIATION
+
+    pol commit exponent;
+    pol commit is_unsafe_limb;
+    is_unsafe_limb * (1 - is_unsafe_limb) = 0;
+
+    // exponent starts at 1
+    start * (exponent - 1) = 0;
+    // next exponent is current exponent * radix
+    not_end * (1 - is_unsafe_limb) * (exponent * radix - exponent') = 0;
+
+
+    // ACCUMULATION
+
+    pol commit acc;
+    pol commit found;
+    found * (1 - found) = 0;
+
+    // Limb index starts at zero
+    start * (limb_index - 0) = 0;
+
+    // Limb index must increase
+    not_end * (limb_index + 1 - limb_index') = 0;
+
+    #[LIMB_RANGE]
+    sel { limb }
+    in
+    precomputed.sel_range_8
+        { precomputed.clk };
+
+    // Limb should be less than radix
+    pol commit limb_radix_diff;
+    radix - 1 - limb - limb_radix_diff = 0;
+
+    #[LIMB_LESS_THAN_RADIX_RANGE]
+    sel { limb_radix_diff }
+    in
+    precomputed.sel_range_8
+        { precomputed.clk };
+
+
+    // On start, current acc must be equal to limb
+    start * (acc - limb) = 0;
+    // Next acc must be current acc + next_exponent*limb
+    not_end * (acc + exponent' * limb - acc') = 0;
+
+    // found is 1 when value - acc = 0
+    pol REM = value - acc;
+    pol commit rem_inverse;
+    REM * (found * (1 - rem_inverse) + rem_inverse) - 1 + found = 0;
+
+    // when found is 1, next limb is 0
+    not_end * found * limb' = 0;
+
+    // We can only enable end when found is one
+    (1 - found) * end = 0;
+
+
+    // OVERFLOW PROTECTION
+
+    pol commit safe_limbs;
+    // TODO(Alvaro) lookup precomputed safe limbs
+
+    // If is_unsafe_limb, next limb is zero
+    not_end * is_unsafe_limb * limb' = 0;
+
+    // is_unsafe_limb = limb_index >= safe_limbs
+    // Both are implicitely range checked to 8 bits
+    pol commit limb_index_safe_limbs_diff;
+    safe_limbs - limb_index - limb_index_safe_limbs_diff = 0;
+
+    #[LIMB_GT_SAFE_LIMBS_RANGE]
+    sel { limb_index_safe_limbs_diff }
+    in
+    precomputed.sel_range_8
+        { precomputed.clk };
+
+    // If current one is safe and next is unsafe, we need to assert that next acc is gte than current acc
+    pol commit assert_gt_lookup;
+    not_end * (1 - found) * is_unsafe_limb * is_unsafe_limb' - assert_gt_lookup = 0;
+
+    // TODO(Alvaro) lookup field gt
+
+    // when is_unsafe_limb is 1, next limb is 0
+    not_end * is_unsafe_limb * limb' = 0;
+
+
+    // CONSTANT CONSISTENCY
+
+    #[CONSTANT_CONSISTENCY_RADIX]
+    not_end * (radix - radix') = 0;
+
+    #[CONSTANT_CONSISTENCY_VALUE]
+    not_end * (value - value') = 0;
+
+    #[CONSTANT_CONSISTENCY_SAFE_LIMBS]
+    not_end * (safe_limbs - safe_limbs') = 0;

@@ -32,6 +32,7 @@
 #include "relations/range_check.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
+#include "relations/to_radix.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_bc_decomposition.hpp"
@@ -44,6 +45,7 @@
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
+#include "relations/lookups_to_radix.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -86,12 +88,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 37;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 771;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 102;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 796;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 112;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 910;
+    static constexpr size_t NUM_ALL_ENTITIES = 945;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -110,7 +112,8 @@ class AvmFlavor {
         avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
         avm2::scalar_mul<FF_>,
-        avm2::sha256<FF_>>;
+        avm2::sha256<FF_>,
+        avm2::to_radix<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
 
@@ -145,7 +148,11 @@ class AvmFlavor {
         lookup_range_check_r7_is_u16_relation<FF_>,
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
-        lookup_sha256_round_constant_relation<FF_>>;
+        lookup_scalar_mul_to_radix_relation<FF_>,
+        lookup_sha256_round_constant_relation<FF_>,
+        lookup_to_radix_limb_gt_safe_limbs_range_relation<FF_>,
+        lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
+        lookup_to_radix_limb_range_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
 
