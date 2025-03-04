@@ -8,7 +8,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { GasSettings } from '../gas/gas_settings.js';
-import { siloContractClassLog } from '../hash/hash.js';
 import type { GetPublicLogsResponse } from '../interfaces/get_logs_response.js';
 import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
 import type { ScopedLogHash } from '../kernel/log_hash.js';
@@ -197,9 +196,11 @@ export class Tx extends Gossipable {
     const contractClassLogs = [];
     for (const log of this.contractClassLogs) {
       const hashedLog = await log.hash();
-      const logHash = logHashes.find(hash => hash.value.equals(hashedLog));
+      const logHash = logHashes.find(
+        hash => hash.value.equals(hashedLog) && hash.contractAddress.equals(log.contractAddress),
+      );
       if (logHash) {
-        contractClassLogs.push(silo ? await siloContractClassLog(log, logHash.contractAddress) : log);
+        contractClassLogs.push(silo ? await log.silo() : log);
       }
     }
     return contractClassLogs;

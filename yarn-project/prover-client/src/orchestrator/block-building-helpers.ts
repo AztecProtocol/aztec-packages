@@ -143,7 +143,7 @@ export const buildBaseRollupHints = runInSpan(
 
     const contractClassLogsPreimages = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      i => tx.txEffect.contractClassLogs[i] || ContractClassLog.empty(),
+      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed() || ContractClassLog.empty(),
     );
 
     if (tx.avmProvingRequest) {
