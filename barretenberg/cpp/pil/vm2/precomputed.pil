@@ -75,6 +75,7 @@ pol constant sel_op_dc_16;
 pol constant sel_op_dc_17;
 
 pol constant exec_opcode;
+pol constant instr_size_in_bytes;
 
 // Toggle the rows which index (clk) is equal to a wire opcode
 // Is used to lookup into the wire instruction spec table which contains the operand decomposition

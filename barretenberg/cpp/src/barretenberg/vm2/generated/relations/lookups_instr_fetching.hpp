@@ -241,7 +241,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
     static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 20;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 21;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
@@ -252,28 +252,50 @@ class lookup_instr_fetching_wire_instruction_info_settings {
     static constexpr Column COUNTS = Column::lookup_instr_fetching_wire_instruction_info_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_wire_instruction_info_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_bd0,          ColumnAndShifts::instr_fetching_exec_opcode,
-        ColumnAndShifts::instr_fetching_sel_op_dc_0,  ColumnAndShifts::instr_fetching_sel_op_dc_1,
-        ColumnAndShifts::instr_fetching_sel_op_dc_2,  ColumnAndShifts::instr_fetching_sel_op_dc_3,
-        ColumnAndShifts::instr_fetching_sel_op_dc_4,  ColumnAndShifts::instr_fetching_sel_op_dc_5,
-        ColumnAndShifts::instr_fetching_sel_op_dc_6,  ColumnAndShifts::instr_fetching_sel_op_dc_7,
-        ColumnAndShifts::instr_fetching_sel_op_dc_8,  ColumnAndShifts::instr_fetching_sel_op_dc_9,
-        ColumnAndShifts::instr_fetching_sel_op_dc_10, ColumnAndShifts::instr_fetching_sel_op_dc_11,
-        ColumnAndShifts::instr_fetching_sel_op_dc_12, ColumnAndShifts::instr_fetching_sel_op_dc_13,
-        ColumnAndShifts::instr_fetching_sel_op_dc_14, ColumnAndShifts::instr_fetching_sel_op_dc_15,
-        ColumnAndShifts::instr_fetching_sel_op_dc_16, ColumnAndShifts::instr_fetching_sel_op_dc_17
+        ColumnAndShifts::instr_fetching_bd0,
+        ColumnAndShifts::instr_fetching_exec_opcode,
+        ColumnAndShifts::instr_fetching_instr_size_in_bytes,
+        ColumnAndShifts::instr_fetching_sel_op_dc_0,
+        ColumnAndShifts::instr_fetching_sel_op_dc_1,
+        ColumnAndShifts::instr_fetching_sel_op_dc_2,
+        ColumnAndShifts::instr_fetching_sel_op_dc_3,
+        ColumnAndShifts::instr_fetching_sel_op_dc_4,
+        ColumnAndShifts::instr_fetching_sel_op_dc_5,
+        ColumnAndShifts::instr_fetching_sel_op_dc_6,
+        ColumnAndShifts::instr_fetching_sel_op_dc_7,
+        ColumnAndShifts::instr_fetching_sel_op_dc_8,
+        ColumnAndShifts::instr_fetching_sel_op_dc_9,
+        ColumnAndShifts::instr_fetching_sel_op_dc_10,
+        ColumnAndShifts::instr_fetching_sel_op_dc_11,
+        ColumnAndShifts::instr_fetching_sel_op_dc_12,
+        ColumnAndShifts::instr_fetching_sel_op_dc_13,
+        ColumnAndShifts::instr_fetching_sel_op_dc_14,
+        ColumnAndShifts::instr_fetching_sel_op_dc_15,
+        ColumnAndShifts::instr_fetching_sel_op_dc_16,
+        ColumnAndShifts::instr_fetching_sel_op_dc_17
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::precomputed_exec_opcode,
-        ColumnAndShifts::precomputed_sel_op_dc_0,  ColumnAndShifts::precomputed_sel_op_dc_1,
-        ColumnAndShifts::precomputed_sel_op_dc_2,  ColumnAndShifts::precomputed_sel_op_dc_3,
-        ColumnAndShifts::precomputed_sel_op_dc_4,  ColumnAndShifts::precomputed_sel_op_dc_5,
-        ColumnAndShifts::precomputed_sel_op_dc_6,  ColumnAndShifts::precomputed_sel_op_dc_7,
-        ColumnAndShifts::precomputed_sel_op_dc_8,  ColumnAndShifts::precomputed_sel_op_dc_9,
-        ColumnAndShifts::precomputed_sel_op_dc_10, ColumnAndShifts::precomputed_sel_op_dc_11,
-        ColumnAndShifts::precomputed_sel_op_dc_12, ColumnAndShifts::precomputed_sel_op_dc_13,
-        ColumnAndShifts::precomputed_sel_op_dc_14, ColumnAndShifts::precomputed_sel_op_dc_15,
-        ColumnAndShifts::precomputed_sel_op_dc_16, ColumnAndShifts::precomputed_sel_op_dc_17
+        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::precomputed_exec_opcode,
+        ColumnAndShifts::precomputed_instr_size_in_bytes,
+        ColumnAndShifts::precomputed_sel_op_dc_0,
+        ColumnAndShifts::precomputed_sel_op_dc_1,
+        ColumnAndShifts::precomputed_sel_op_dc_2,
+        ColumnAndShifts::precomputed_sel_op_dc_3,
+        ColumnAndShifts::precomputed_sel_op_dc_4,
+        ColumnAndShifts::precomputed_sel_op_dc_5,
+        ColumnAndShifts::precomputed_sel_op_dc_6,
+        ColumnAndShifts::precomputed_sel_op_dc_7,
+        ColumnAndShifts::precomputed_sel_op_dc_8,
+        ColumnAndShifts::precomputed_sel_op_dc_9,
+        ColumnAndShifts::precomputed_sel_op_dc_10,
+        ColumnAndShifts::precomputed_sel_op_dc_11,
+        ColumnAndShifts::precomputed_sel_op_dc_12,
+        ColumnAndShifts::precomputed_sel_op_dc_13,
+        ColumnAndShifts::precomputed_sel_op_dc_14,
+        ColumnAndShifts::precomputed_sel_op_dc_15,
+        ColumnAndShifts::precomputed_sel_op_dc_16,
+        ColumnAndShifts::precomputed_sel_op_dc_17
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
@@ -308,6 +330,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
                                      in._precomputed_sel_range_wire_opcode(),
                                      in._instr_fetching_bd0(),
                                      in._instr_fetching_exec_opcode(),
+                                     in._instr_fetching_instr_size_in_bytes(),
                                      in._instr_fetching_sel_op_dc_0(),
                                      in._instr_fetching_sel_op_dc_1(),
                                      in._instr_fetching_sel_op_dc_2(),
@@ -328,6 +351,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
                                      in._instr_fetching_sel_op_dc_17(),
                                      in._precomputed_clk(),
                                      in._precomputed_exec_opcode(),
+                                     in._precomputed_instr_size_in_bytes(),
                                      in._precomputed_sel_op_dc_0(),
                                      in._precomputed_sel_op_dc_1(),
                                      in._precomputed_sel_op_dc_2(),
