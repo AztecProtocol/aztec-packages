@@ -10,6 +10,7 @@ pub contract Counter {
     use aztec::prelude::{AztecAddress, Map};
     use easy_private_state::EasyPrivateUint;
     use value_note::{balance_utils, value_note::ValueNote};
+    use aztec::protocol_types::traits::{FromField,ToField};
     // docs:end:imports
 
     // docs:start:storage_struct

@@ -10,6 +10,7 @@ pub contract Child {
         macros::{functions::{internal, private, public}, storage::storage},
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
+        note::note_interface::NoteProperties
     };
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
