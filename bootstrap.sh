@@ -151,9 +151,11 @@ function test {
   # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
+  echo "num_cpus: $num_cpus"
   tests=$(test_cmds $@)
   # Note: Capturing strips last newline. The echo re-adds it.
   local num
+  echo "num: $num"
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
   echo "Gathered $num tests."
   echo -n "$tests" | parallelise $((num_cpus / 2))
