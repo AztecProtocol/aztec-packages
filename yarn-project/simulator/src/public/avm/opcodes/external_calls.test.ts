@@ -73,7 +73,7 @@ describe('External Calls', () => {
       const args = [new Field(1), new Field(2), new Field(3)];
       const argsSize = args.length;
       const argsSizeOffset = 20;
-      // Define dstOffset for SuccessCopy
+      // Define dst offset for SuccessCopy
       const successDstOffset = 6;
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
@@ -87,7 +87,7 @@ describe('External Calls', () => {
       const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
 
-      // Use SuccessCopy to get the success value
+      // Use SuccessCopy to get success
       const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
       await successCopyInstruction.execute(context);
 
@@ -113,7 +113,7 @@ describe('External Calls', () => {
       const args = [new Field(1), new Field(2), new Field(3)];
       const argsSize = args.length;
       const argsSizeOffset = 20;
-      // Define dstOffset for SuccessCopy
+      // Define dst offset for SuccessCopy
       const successDstOffset = 6;
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
@@ -147,7 +147,7 @@ describe('External Calls', () => {
       const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
 
-      // Use SuccessCopy to get the success value
+      // Use SuccessCopy to get success
       const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
       await successCopyInstruction.execute(context);
 
@@ -169,7 +169,7 @@ describe('External Calls', () => {
       const addr = new Fr(123456n);
       const argsSize = 0;
       const argsSizeOffset = 20;
-      // Define dstOffset for SuccessCopy
+      // Define dst offset for SuccessCopy
       const successDstOffset = 6;
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
@@ -204,7 +204,7 @@ describe('External Calls', () => {
       const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, /*argsOffset=*/ 0, argsSizeOffset);
       await instruction.execute(context);
 
-      // Use SuccessCopy to get the success value
+      // Use SuccessCopy to get success
       const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
       await successCopyInstruction.execute(context);
 
@@ -252,8 +252,6 @@ describe('External Calls', () => {
 
       const argsSize = args.length;
       const argsSizeOffset = 60;
-      // This isn't needed in this test, but kept for consistency
-      const _successDstOffset = 70;
 
       context.machineState.memory.setSlice(gasOffset, gas);
       context.machineState.memory.set(addrOffset, addr);
@@ -366,7 +364,6 @@ describe('External Calls', () => {
       context.machineState.nestedCallSuccess = true;
       const dstOffset = 0;
 
-      // Now test SuccessCopy
       const instruction = new SuccessCopy(/*indirect=*/ 0, dstOffset);
       await instruction.execute(context);
 
@@ -378,7 +375,6 @@ describe('External Calls', () => {
       context.machineState.nestedCallSuccess = false;
       const dstOffset = 0;
 
-      // Now test SuccessCopy
       const instruction = new SuccessCopy(/*indirect=*/ 0, dstOffset);
       await instruction.execute(context);
 
