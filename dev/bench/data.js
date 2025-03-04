@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741128368736,
+  "lastUpdate": 1741128823894,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "16536249+LHerskind@users.noreply.github.com",
-            "name": "Lasse Herskind",
-            "username": "LHerskind"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7b7ef154eb6bbe802bce89518a15d4aaed194565",
-          "message": "refactor: run separate anvils for the l1 cheatcode tests (#12334)",
-          "timestamp": "2025-02-27T12:55:00Z",
-          "tree_id": "7b168d4ba6899627cd59b43759cb1ef61b148022",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7b7ef154eb6bbe802bce89518a15d4aaed194565"
-        },
-        "date": 1740662764057,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18270.141677000083,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16127.697770999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18777.5182219998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16372.404836999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3967.964168000208,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3198.9219090000006 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55022.847493,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55022852000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10283.098544000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10283104000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1911372272,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1911372272 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 220355679,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 220355679 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 210915891,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 210915891 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "14b9df8850df3a0b8151a924532bf1a4862822e3",
+          "message": "fix: update cli payment method option (#12423)\n\n- Only allow to configure `feePayer` for the `--payment` option of\n`create-account` and `deploy-account`.\n  - If `feePayer` is set for other commands, it will simply be ignored.\n- Add descriptions for the parameters of  the `--payment` option.",
+          "timestamp": "2025-03-04T22:18:01Z",
+          "tree_id": "969b6a4621fe4038c44217760a08e1773c9d809b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/14b9df8850df3a0b8151a924532bf1a4862822e3"
+        },
+        "date": 1741128816334,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18296.27789999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16086.481404999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18901.081848999864,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16474.707217 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3952.021487000138,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3147.5787750000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55725.698284000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55725698000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11259.298213000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11259303000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1905687882,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1905687882 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 218820818,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 218820818 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
