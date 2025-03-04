@@ -32,7 +32,6 @@ function test_cmds {
 
 function release {
   echo_header "playground release"
-  yarn netlify build
   if [ $(dist_tag) != "latest" ]; then
     # TODO attach to github release
     do_or_dryrun yarn netlify deploy --site aztec-docs-dev --dir=dist
