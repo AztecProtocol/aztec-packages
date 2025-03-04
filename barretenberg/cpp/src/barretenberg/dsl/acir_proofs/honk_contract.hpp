@@ -1764,7 +1764,6 @@ contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {
 
 inline std::string get_honk_solidity_verifier(auto const& verification_key)
 {
-    info("in get_honk_solidity_verifier");
     std::ostringstream stream;
     output_vk_sol_ultra_honk(stream, verification_key, "HonkVerificationKey");
     return stream.str() + HONK_CONTRACT_SOURCE;

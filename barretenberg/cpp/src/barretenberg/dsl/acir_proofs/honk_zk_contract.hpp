@@ -370,7 +370,7 @@ library ZKTranscriptLib {
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
     }
 
-    function generateEtaChallenge(Honk.ZKProof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize)
+    function generateEtaChallenge(Honk.ZKProof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
         internal
         pure
         returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
