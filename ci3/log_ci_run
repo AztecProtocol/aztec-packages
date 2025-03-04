@@ -10,14 +10,22 @@ if [ -z "$key" ]; then
   key=$(date +%s%3N)
   msg=$(git log -1 --pretty=format:"%s")
   author="$(git log -1 --pretty=format:"%an")"
+  name=$REF_NAME
+  [ "$(aws_get_meta_data instance-life-cycle)" == "spot"] && spot=true || spot=false
+  # instance_type=$(aws_get_meta_data instance-type)
+  if [[ "$name" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
+    name=${BASH_REMATCH[1]}
+  fi
+
   json=$(jq -c -j -n \
       --argjson timestamp "$key" \
       --arg status "$status" \
       --arg msg "$msg" \
-      --arg name "$REF_NAME" \
+      --arg name "$name" \
       --arg author "$author" \
       --arg arch "$(arch)" \
-      '{timestamp: $timestamp, status: $status, msg: $msg, name: $name, author: $author, arch: $arch}')
+      --argjson spot "$spot" \
+      '{timestamp: $timestamp, status: $status, msg: $msg, name: $name, author: $author, arch: $arch, spot: $spot}')
   # echo "$json" >&2
   redis_cli ZADD ci-run $key "$json" &>/dev/null
   redis_cli SETEX hb-$key 60 1 &>/dev/null
