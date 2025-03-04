@@ -1,7 +1,9 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { ForeignCallHandler } from '@aztec/noir-protocol-circuits-types/types';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import type { WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';
@@ -136,12 +138,21 @@ export async function executeNativeCircuit(
 
 export class NativeACVMSimulator implements SimulationProvider {
   constructor(private workingDirectory: string, private pathToAcvm: string, private witnessFilename?: string) {}
-  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
+
+  async executeProtocolCircuit(
+    input: ACVMWitness,
+    artifact: NoirCompiledCircuitWithName,
+    callback: ForeignCallHandler | undefined,
+  ): Promise<ACVMWitness> {
     // Execute the circuit on those initial witness values
+
+    if (callback) {
+      logger.warn('Native ACVM simulator does not support foreign calls. Ignoring callback.');
+    }
 
     const operation = async (directory: string) => {
       // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-      const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+      const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
       // Execute the circuit
       const result = await executeNativeCircuit(
         input,
@@ -162,8 +173,8 @@ export class NativeACVMSimulator implements SimulationProvider {
   }
 
   executeUserCircuit(
-    _acir: Buffer,
-    _initialWitness: ACVMWitness,
+    _input: ACVMWitness,
+    _artifact: FunctionArtifactWithContractName,
     _callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     throw new Error('Not implemented');

@@ -52,7 +52,10 @@ describe('Unconstrained Execution test suite', () => {
 
     it('should run the summed_values function', async () => {
       const contractAddress = await AztecAddress.random();
-      const artifact = StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!;
+      const artifact = {
+        ...StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!,
+        contractName: StatefulTestContractArtifact.name,
+      };
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
