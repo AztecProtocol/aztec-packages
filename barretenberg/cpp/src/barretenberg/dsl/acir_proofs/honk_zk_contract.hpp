@@ -1485,7 +1485,7 @@ interface IVerifier {
     error GeminiChallengeInSubgroup();
     error ConsistencyCheckFailed();
 
-    uint256 constant PROOF_SIZE = 494;
+    uint256 constant PROOF_SIZE = 491;
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool verified) {
       // Check the received proof is the expected size where each field element is 32 bytes
