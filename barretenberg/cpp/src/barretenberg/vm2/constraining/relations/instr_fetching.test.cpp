@@ -43,7 +43,6 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
         .opcode = WireOpCode::ADD_8,
         .indirect = 3,
         .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
-        .size_in_bytes = 5,
     };
 
     std::vector<uint8_t> bytecode = { static_cast<uint8_t>(WireOpCode::ADD_8), 0x03, 0x34, 0x35, 0x36 };
@@ -74,7 +73,6 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
                       Operand::u16(0x127d),
                       Operand::u16(0x127e),
                       Operand::u16(0x127f) },
-        .size_in_bytes = 17,
     };
 
     std::vector<uint8_t> bytecode = {

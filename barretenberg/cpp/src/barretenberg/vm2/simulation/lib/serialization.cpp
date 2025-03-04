@@ -12,6 +12,7 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 
 namespace bb::avm2::simulation {
@@ -224,6 +225,23 @@ Operand& Operand::operator=(const Operand& other)
     return *this;
 }
 
+bool Operand::operator==(const Operand& other) const
+{
+    if (value.index() != other.value.index()) {
+        return false;
+    }
+
+    if (std::holds_alternative<U128InHeap>(value)) {
+        return *std::get<U128InHeap>(value) == *std::get<U128InHeap>(other.value);
+    }
+
+    if (std::holds_alternative<FieldInHeap>(value)) {
+        return *std::get<FieldInHeap>(value) == *std::get<FieldInHeap>(other.value);
+    }
+
+    return value == other.value;
+}
+
 Operand::operator bool() const
 {
     return (this->operator uint8_t() == 1);
@@ -333,7 +351,6 @@ std::string Operand::to_string() const
 Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos)
 {
     const auto bytecode_length = bytecode.size();
-    const auto starting_pos = pos;
 
     assert(pos < bytecode_length);
     (void)bytecode_length; // Avoid GCC unused parameter warning when asserts are disabled.
@@ -451,10 +468,11 @@ Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos)
         pos += operand_size;
     }
 
-    return { .opcode = opcode,
-             .indirect = indirect,
-             .operands = std::move(operands),
-             .size_in_bytes = static_cast<uint8_t>(pos - starting_pos) };
+    return {
+        .opcode = opcode,
+        .indirect = indirect,
+        .operands = std::move(operands),
+    };
 };
 
 std::string Instruction::to_string() const
@@ -464,14 +482,14 @@ std::string Instruction::to_string() const
     for (const auto& operand : operands) {
         oss << operand.to_string() << " ";
     }
-    oss << "], size: " << static_cast<int>(size_in_bytes);
+    oss << "]";
     return oss.str();
 }
 
 std::vector<uint8_t> Instruction::encode() const
 {
     std::vector<uint8_t> output;
-    output.reserve(size_in_bytes);
+    output.reserve(WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes);
     output.emplace_back(static_cast<uint8_t>(opcode));
     size_t operand_pos = 0;
 
