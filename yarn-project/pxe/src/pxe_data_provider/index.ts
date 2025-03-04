@@ -28,14 +28,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
-import {
-  IndexedTaggingSecret,
-  L1NotePayload,
-  LogWithTxData,
-  PrivateLog,
-  PublicLog,
-  TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, L1NotePayload, LogWithTxData, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -45,7 +38,6 @@ import { TxHash } from '@aztec/stdlib/tx';
 import { ContractDataProvider } from '../contract_data_provider/index.js';
 import type { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
-import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
@@ -368,6 +360,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
       }),
     );
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
+    console.log('indexes for recipient', recipient, 'are', indexes);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 
@@ -449,6 +442,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
+    console.log(`Syncing tagged logs for ${contractAddress} at block ${maxBlockNumber} with scopes ${scopes}`);
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
@@ -506,31 +500,21 @@ export class PXEDataProvider implements ExecutionDataProvider {
 
         logsByTags.forEach((logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
-            // Check that public logs have the correct contract address
-            const checkedLogsbyTag = logsByTag.filter(
-              l => !l.isFromPublic || PublicLog.fromBuffer(l.logData).contractAddress.equals(contractAddress),
-            );
-            if (checkedLogsbyTag.length < logsByTag.length) {
-              const discarded = logsByTag.filter(
-                log => checkedLogsbyTag.find(filteredLog => filteredLog.equals(log)) === undefined,
-              );
-              this.log.warn(
-                `Discarded ${
-                  logsByTag.length - checkedLogsbyTag.length
-                } public logs with mismatched contract address ${contractAddress}:`,
-                discarded.map(l => PublicLog.fromBuffer(l.logData)),
-              );
+            // Discard public logs
+            const filteredLogsByTag = logsByTag.filter(l => !l.isFromPublic);
+            if (filteredLogsByTag.length < logsByTag.length) {
+              this.log.warn(`Discarded ${logsByTag.filter(l => l.isFromPublic).length} public logs with matching tags`);
             }
 
             // The logs for the given tag exist so we store them for later processing
-            logsForRecipient.push(...checkedLogsbyTag);
+            logsForRecipient.push(...filteredLogsByTag);
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
 
-            this.log.debug(`Found ${checkedLogsbyTag.length} logs as recipient ${recipient}`, {
+            this.log.debug(`Found ${filteredLogsByTag.length} logs as recipient ${recipient}`, {
               recipient,
               secret: secretCorrespondingToLog.appTaggingSecret,
               contractName,
@@ -619,12 +603,14 @@ export class PXEDataProvider implements ExecutionDataProvider {
     const decrypted = [];
 
     for (const scopedLog of scopedLogs) {
-      const payload = scopedLog.isFromPublic
-        ? await L1NotePayload.decryptAsIncomingFromPublic(PublicLog.fromBuffer(scopedLog.logData), addressSecret)
-        : await L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
+      if (scopedLog.isFromPublic) {
+        throw new Error('Attempted to decrypt public log');
+      }
+
+      const payload = await L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
       if (!payload) {
-        this.log.verbose('Unable to decrypt log');
+        this.log.warn('Unable to decrypt tagged log - was it not meant for us?');
         continue;
       }
 
@@ -632,8 +618,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
         excludedIndices.set(scopedLog.txHash.toString(), new Set());
       }
 
-      const note = await getOrderedNoteItems(this.db, payload);
-      const plaintext = [payload.storageSlot, payload.noteTypeId.toField(), ...note.items];
+      const plaintext = [payload.storageSlot, payload.noteTypeId.toField(), ...payload.privateNoteValues];
 
       decrypted.push({ plaintext, txHash: scopedLog.txHash, contractAddress: payload.contractAddress });
     }
@@ -651,6 +636,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
+    console.log('Processing tagged logs');
     const decryptedLogs = await this.#decryptTaggedLogs(logs, recipient);
 
     // We've produced the full NoteDao, which we'd be able to simply insert into the database. However, this is

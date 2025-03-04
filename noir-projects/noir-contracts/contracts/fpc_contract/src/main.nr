@@ -12,9 +12,13 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
+    use dep::uint_note::uint_note::PartialUintNote;
     use aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
+        protocol_types::{
+            abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize,
+            utils::arrays::array_concat,
+        },
         state_vars::PublicImmutable,
     };
     use token::Token;
@@ -89,13 +93,16 @@ pub contract FPC {
         token.transfer_to_public(user, context.this_address(), max_fee, nonce).call(&mut context);
 
         // Prepare a partial note for the refund for the user.
-        let refund_slot = token.prepare_private_balance_increase(user, user).call(&mut context);
+        let partial_note = token.prepare_private_balance_increase(user, user).call(&mut context);
 
         // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
         context.set_public_teardown_function(
             context.this_address(),
             comptime { FunctionSelector::from_signature("complete_refund((Field),Field,u128)") },
-            [accepted_asset.to_field(), refund_slot, max_fee as Field],
+            array_concat(
+                array_concat(accepted_asset.serialize(), partial_note.serialize()),
+                max_fee.serialize(),
+            ),
         );
 
         // Set the FPC as the fee payer of the tx.
@@ -108,7 +115,7 @@ pub contract FPC {
     // docs:start:complete_refund
     #[public]
     #[internal]
-    fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: u128) {
+    fn complete_refund(accepted_asset: AztecAddress, partial_note: PartialUintNote, max_fee: u128) {
         let tx_fee = safe_cast_to_u128(context.transaction_fee());
 
         // 1. Check that user funded the fee payer contract with at least the transaction fee.
@@ -119,7 +126,7 @@ pub contract FPC {
         // TODO(#10805): Introduce a real exchange rate
         let refund_amount = max_fee - tx_fee;
 
-        Token::at(accepted_asset).finalize_transfer_to_private(refund_amount, refund_slot).call(
+        Token::at(accepted_asset).finalize_transfer_to_private(refund_amount, partial_note).call(
             &mut context,
         );
     }
@@ -162,7 +169,10 @@ pub contract FPC {
         context.set_public_teardown_function(
             context.this_address(),
             comptime { FunctionSelector::from_signature("pay_refund((Field),u128,(Field))") },
-            [context.msg_sender().to_field(), max_fee as Field, config.accepted_asset.to_field()],
+            array_concat(
+                array_concat(context.msg_sender().serialize(), max_fee.serialize()),
+                config.accepted_asset.serialize(),
+            ),
         );
     }
 
