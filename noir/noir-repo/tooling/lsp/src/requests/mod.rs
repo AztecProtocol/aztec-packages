@@ -191,7 +191,7 @@ impl Default for LspInitializationOptions {
 pub(crate) fn on_initialize(
     state: &mut LspState,
     params: InitializeParams,
-) -> impl Future<Output = Result<InitializeResult, ResponseError>> {
+) -> impl Future<Output = Result<InitializeResult, ResponseError>> + use<> {
     state.root_path = params.root_uri.and_then(|root_uri| root_uri.to_file_path().ok());
     let initialization_options: LspInitializationOptions = params
         .initialization_options
@@ -293,7 +293,7 @@ pub(crate) fn on_initialize(
 pub(crate) fn on_formatting(
     state: &mut LspState,
     params: lsp_types::DocumentFormattingParams,
-) -> impl Future<Output = Result<Option<Vec<lsp_types::TextEdit>>, ResponseError>> {
+) -> impl Future<Output = Result<Option<Vec<lsp_types::TextEdit>>, ResponseError>> + use<> {
     std::future::ready(on_formatting_inner(state, params))
 }
 
@@ -441,7 +441,7 @@ where
 pub(crate) fn on_shutdown(
     _state: &mut LspState,
     _params: (),
-) -> impl Future<Output = Result<(), ResponseError>> {
+) -> impl Future<Output = Result<(), ResponseError>> + use<> {
     async { Ok(()) }
 }
 

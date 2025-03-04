@@ -78,6 +78,7 @@ jobs:
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI: 1
         run: |
           ./ci.sh ec2
 
@@ -141,10 +142,6 @@ jobs:
   ci-grind:
     runs-on: ubuntu-latest
     if: github.event_name == 'merge_group'
-    strategy:
-      matrix:
-        number: [1, 2, 3, 4, 5]
-      fail-fast: false
     steps:
       #############
       # Prepare Env
@@ -170,17 +167,17 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           ARCH: amd64
           LOG_ID: ${{ github.run_id }}
-          INSTANCE_POSTFIX: ${{ matrix.number }}
           DRY_RUN: 1
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI: 1
           CI_FULL: 1
         run: |
-          ./ci.sh ec2-test
+          ./ci.sh ec2-grind 5
 
   # Necessary as github actions won't allow checks on matrix builds.
   merge-check:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: always()
     needs:
       - ci
