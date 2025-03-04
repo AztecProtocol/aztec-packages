@@ -337,7 +337,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       });
       this.emit(L2BlockSourceEvents.ChainPruned, {
         type: L2BlockSourceEvents.ChainPruned,
-        blockNumber: localPendingBlockNumber,
+        blockNumber: provenBlockNumber,
         slotNumber: localPendingSlotNumber,
         epochNumber: localPendingEpochNumber,
       });

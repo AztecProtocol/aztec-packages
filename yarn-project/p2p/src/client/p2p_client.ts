@@ -678,6 +678,14 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.txPool.markMinedAsPending(txsToMoveToPending);
 
     this.synchedLatestBlockNumber = Number(latestBlock);
+    this.synchedProvenBlockNumber = Number(latestBlock);
+    this.log.verbose(
+      `Handled chain prune. Latest block ${this.synchedLatestBlockNumber} and proven block ${this.synchedProvenBlockNumber}`,
+      {
+        latestBlockNumber: this.synchedLatestBlockNumber,
+        provenBlockNumber: this.synchedProvenBlockNumber,
+      },
+    );
   }
 
   /**
