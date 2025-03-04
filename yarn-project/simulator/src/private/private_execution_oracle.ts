@@ -385,7 +385,6 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
 
     await verifyCurrentClassId(
       targetContractAddress,
-      await this.executionDataProvider.getContractInstance(targetContractAddress),
       this.executionDataProvider,
       this.historicalHeader.globalVariables.blockNumber.toNumber(),
     );

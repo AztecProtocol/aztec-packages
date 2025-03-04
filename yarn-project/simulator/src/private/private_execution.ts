@@ -136,10 +136,11 @@ export async function readCurrentClassId(
 
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
-  instance: ContractInstance,
   executionDataProvider: ExecutionDataProvider,
-  blockNumber: number,
+  blockNumber?: number,
 ) {
+  const instance = await executionDataProvider.getContractInstance(contractAddress);
+  blockNumber = blockNumber ?? (await executionDataProvider.getBlockNumber());
   const currentClassId = await readCurrentClassId(contractAddress, instance, executionDataProvider, blockNumber);
   if (!instance.currentContractClassId.equals(currentClassId)) {
     throw new Error(

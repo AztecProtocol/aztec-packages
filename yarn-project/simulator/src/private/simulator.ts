@@ -43,12 +43,7 @@ export class AcirSimulator {
   ): Promise<PrivateExecutionResult> {
     const header = await this.executionDataProvider.getBlockHeader();
 
-    await verifyCurrentClassId(
-      contractAddress,
-      await this.executionDataProvider.getContractInstance(contractAddress),
-      this.executionDataProvider,
-      header.globalVariables.blockNumber.toNumber(),
-    );
+    await verifyCurrentClassId(contractAddress, this.executionDataProvider);
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
@@ -119,12 +114,7 @@ export class AcirSimulator {
     selector: FunctionSelector,
     scopes?: AztecAddress[],
   ) {
-    await verifyCurrentClassId(
-      contractAddress,
-      await this.executionDataProvider.getContractInstance(contractAddress),
-      this.executionDataProvider,
-      await this.executionDataProvider.getBlockNumber(),
-    );
+    await verifyCurrentClassId(contractAddress, this.executionDataProvider);
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
