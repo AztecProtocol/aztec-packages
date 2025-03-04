@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
+#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <cstdint>
 namespace bb {
 

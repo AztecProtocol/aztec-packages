@@ -55,6 +55,15 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     goblin_element& operator=(goblin_element&& other) noexcept = default;
     ~goblin_element() = default;
 
+    void assert_equal(const goblin_element& other) const
+    {
+        if (this->get_value() != other.get_value()) {
+            info("WARNING: goblin_element::assert_equal value check failed!");
+        }
+        x.assert_equal(other.x);
+        y.assert_equal(other.y);
+    }
+
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
         goblin_element out;

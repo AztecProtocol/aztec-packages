@@ -43,21 +43,10 @@ class PublicInputComponent {
         key_.exists_flag = true;
     }
 
-    ComponentType reconstruct(const std::vector<Fr>& public_inputs) const
-    {
-        // Ensure that the key has been set
-        if (!key_exists()) {
-            info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
-            ASSERT(false);
-        }
-        // Extract from the public inputs the limbs needed reconstruct the component
-        std::span<const Fr> limbs{ public_inputs.data() + key_.start_idx, COMPONENT_SIZE };
-        return ComponentType::reconstruct_from_public(limbs);
-    }
-
-    // WORKTODO: this might be simpler if the above version is not needed.
+    // Reconstruct the component from the public inputs and the key indicating its location
     static ComponentType reconstruct(const std::vector<Fr>& public_inputs, const Key& key)
     {
+        // WORKTODO: figure out what to do with this check
         // Ensure that the key has been set
         if (!key.exists_flag) {
             info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");

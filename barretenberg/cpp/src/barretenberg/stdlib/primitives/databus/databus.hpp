@@ -120,20 +120,17 @@ template <class Builder> class DataBusDepot {
             app_return_data_commitment_exists = true;
         }
 
-        // If the input data corresponds to a kernel, perform consistency checks between the provided calldata
-        // commitments and the return data commitments stored in the provided kernel proof public inputs
+        // If the input data corresponds to a kernel, perform commitment consistency checks
         if (propagation_data.is_kernel) {
             // Reconstruct the kernel and app return data commitments stored in the public inputs of the kernel proof
-
             Commitment kernel_return_data =
                 PublicPoint::reconstruct(public_inputs, propagation_data.kernel_return_data_commitment_pub_input_key);
-
             Commitment app_return_data =
                 PublicPoint::reconstruct(public_inputs, propagation_data.app_return_data_commitment_pub_input_key);
 
             // Assert equality between the corresponding calldata and return data commitments
-            assert_equality_of_commitments(kernel_return_data, calldata);
-            assert_equality_of_commitments(app_return_data, secondary_calldata);
+            kernel_return_data.assert_equal(calldata);
+            app_return_data.assert_equal(secondary_calldata);
         }
     }
 
@@ -182,16 +179,6 @@ template <class Builder> class DataBusDepot {
         builder.databus_propagation_data.kernel_return_data_commitment_pub_input_key =
             kernel_return_data_public_point.key();
         builder.databus_propagation_data.app_return_data_commitment_pub_input_key = app_return_data_public_point.key();
-    }
-
-  private:
-    void assert_equality_of_commitments(const Commitment& P0, const Commitment& P1)
-    {
-        if (P0.get_value() != P1.get_value()) { // debug print indicating consistency check failure
-            info("DataBusDepot: Databus consistency check failed!");
-        }
-        P0.x.assert_equal(P1.x);
-        P0.y.assert_equal(P1.y);
     }
 };
 
