@@ -71,8 +71,11 @@ function printOptionParams(params: OptionParams) {
   const paramsWithDescription = Object.keys(params).filter(name => params[name].description);
   const maxParamWidth = paramsWithDescription.reduce((v, name) => Math.max(v, name.length), 0);
   const indent = (size: number) => ''.padEnd(size, ' ');
-  const descriptionList = paramsWithDescription.map(
-    name => `${indent(5)}${name}${indent(maxParamWidth - name.length)}  ${params[name].description}`,
+  const descriptionList = paramsWithDescription.map(name =>
+    [
+      `${indent(5)}${name}${indent(maxParamWidth - name.length)}  ${params[name].description}`,
+      params[name].default ? `Default: ${params[name].default}` : '',
+    ].join(' '),
   );
   return descriptionList.length ? `\n   Parameters:\n${descriptionList.join('\n')}` : '';
 }
@@ -94,17 +97,25 @@ function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
       type: 'address',
       description: 'The FPC contract that pays in fee juice. Not required for the "fee_juice" method.',
     },
+    claim: {
+      type: 'boolean',
+      description: 'Whether to use a previously stored claim to bridge fee juice.',
+    },
     claimSecret: {
       type: 'string',
       description: 'The secret to claim fee juice on L1.',
     },
     claimAmount: {
-      type: 'string',
+      type: 'bigint',
       description: 'The amount of fee juice to be claimed.',
+    },
+    messageLeafIndex: {
+      type: 'bigint',
+      description: 'The index of the claim in the l1toL2Message tree.',
     },
     feeRecipient: {
       type: 'string',
-      description: 'Recipient of the fee. Optional.',
+      description: 'Recipient of the fee.',
     },
   };
 }
