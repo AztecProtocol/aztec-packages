@@ -1,4 +1,8 @@
-import { PRIVATE_CONTEXT_INPUTS_LENGTH, PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import {
+  MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
+  PUBLIC_DISPATCH_SELECTOR,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import {
@@ -76,6 +80,7 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
     private readonly noteCache: ExecutionNoteCache,
     executionDataProvider: ExecutionDataProvider,
     private provider: SimulationProvider,
+    private totalPublicArgsCount: number,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
@@ -409,6 +414,7 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
       this.noteCache,
       this.executionDataProvider,
       this.provider,
+      this.totalPublicArgsCount,
       sideEffectCounter,
       this.log,
       this.scopes,
@@ -506,10 +512,8 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = await this.executionCache.store([
-      functionSelector.toField(),
-      ...this.executionCache.getPreimage(argsHash),
-    ]);
+    const newArgs = [functionSelector.toField(), ...this.executionCache.getPreimage(argsHash)];
+    const newArgsHash = await this.executionCache.store(newArgs);
     await this.createPublicExecutionRequest(
       'enqueued',
       targetContractAddress,
@@ -518,6 +522,10 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
       sideEffectCounter,
       isStaticCall,
     );
+    this.totalPublicArgsCount += newArgs.length;
+    if (this.totalPublicArgsCount > MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS) {
+      throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS})`);
+    }
     return newArgsHash;
   }
 
