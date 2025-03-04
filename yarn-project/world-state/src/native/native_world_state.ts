@@ -59,13 +59,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
+    const worldStateDirectory = join(dataDir, 'world_state');
     // Create a version manager to handle versioning
     const versionManager = new DatabaseVersionManager(
       WORLD_STATE_DB_VERSION,
       rollupAddress,
-      dataDir,
-      (dataDir: string) => {
-        return Promise.resolve(new NativeWorldState(dataDir, dbMapSizeKb, prefilledPublicData, instrumentation));
+      worldStateDirectory,
+      (dir: string) => {
+        return Promise.resolve(new NativeWorldState(dir, dbMapSizeKb, prefilledPublicData, instrumentation));
       },
     );
 
