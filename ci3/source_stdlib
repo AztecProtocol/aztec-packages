@@ -44,4 +44,8 @@ function get_num_cpus_max {
   echo $jobs
 }
 
+function aws_get_meta_data {
+  curl -fs -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/$1 || true
+}
+
 export -f hash_str hash_str_orig echo_stderr uuid get_num_cpus get_num_cpus_max
