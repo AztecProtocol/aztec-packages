@@ -45,14 +45,14 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Call.opcode, // opcode
-        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('12', 'hex'), // indirect (8 bit)
         ...Buffer.from('1234', 'hex'), // gasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
       ]);
       const inst = new Call(
-        /*indirect=*/ 0x1234,
+        /*indirect=*/ 0x12,
         /*gasOffset=*/ 0x1234,
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
@@ -224,14 +224,14 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StaticCall.opcode, // opcode
-        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('12', 'hex'), // indirect (8 bit)
         ...Buffer.from('1234', 'hex'), // gasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
       ]);
       const inst = new StaticCall(
-        /*indirect=*/ 0x1234,
+        /*indirect=*/ 0x12,
         /*gasOffset=*/ 0x1234,
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
