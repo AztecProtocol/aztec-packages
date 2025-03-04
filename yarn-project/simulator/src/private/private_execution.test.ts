@@ -877,8 +877,8 @@ describe('Private Execution test suite', () => {
       const parentAddress = await AztecAddress.random();
       await mockContractInstance(parentContractArtifact, parentAddress);
 
-      // Start as if 9 recursions have already happened. Won't enqueue that many calls!
-      const args = [/*startRecursionDepth=*/ 9];
+      // Only recurse once, so that we only enqueue 2 calls. #total-args should be low.
+      const args = [/*remainingRecursions=*/ 1];
       await runSimulator({
         msgSender: parentAddress,
         contractAddress: parentAddress,
@@ -897,7 +897,9 @@ describe('Private Execution test suite', () => {
       const parentAddress = await AztecAddress.random();
       await mockContractInstance(parentContractArtifact, parentAddress);
 
-      const args = [/*startRecursionDepth=*/ 0];
+      // 10 recursions (11 enqueued public calls) should overflow the total args limit
+      // since each call enqueues a call with max / 10 args (plus 1 each time for function selector)
+      const args = [/*remainingRecursions=*/ 10];
       await expect(
         runSimulator({
           msgSender: parentAddress,
