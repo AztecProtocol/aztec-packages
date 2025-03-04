@@ -14,7 +14,6 @@ abstract class ExternalCall extends Instruction {
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.UINT16,
-    OperandType.UINT16,
   ];
 
   constructor(
@@ -23,16 +22,15 @@ abstract class ExternalCall extends Instruction {
     private addrOffset: number,
     private argsOffset: number,
     private argsSizeOffset: number,
-    private successOffset: number,
   ) {
     super();
   }
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory;
-    const operands = [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset, this.successOffset];
+    const operands = [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset] = addressing.resolve(operands, memory);
+    const [gasOffset, addrOffset, argsOffset, argsSizeOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, gasOffset, gasOffset + 1);
     memory.checkTag(TypeTag.FIELD, addrOffset);
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
@@ -84,9 +82,6 @@ abstract class ExternalCall extends Instruction {
       };
     }
 
-    // Write our success flag into memory.
-    memory.set(successOffset, new Uint1(success ? 1 : 0));
-
     // Refund unused gas
     context.machineState.refundGas(nestedCallResults.gasLeft);
 
@@ -126,25 +121,25 @@ export class SuccessCopy extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8, // Indirect (8-bit)
-    OperandType.UINT16, // destOffset (16-bit)
+    OperandType.UINT16, // dstOffset (16-bit)
   ];
 
-  constructor(private indirect: number, private destOffset: number) {
+  constructor(private indirect: number, private dstOffset: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
 
-    const operands = [this.destOffset];
+    const operands = [this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [destOffset] = addressing.resolve(operands, memory);
+    const [dstOffset] = addressing.resolve(operands, memory);
 
     // Use the direct success tracking property
     const success = context.machineState.nestedCallSuccess;
 
     // Write the success flag to the provided memory location
-    memory.set(destOffset, new Uint1(success ? 1 : 0));
+    memory.set(dstOffset, new Uint1(success ? 1 : 0));
   }
 }
 

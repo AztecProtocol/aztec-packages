@@ -564,9 +564,9 @@ fn handle_external_call(
     inputs: &[ValueOrArray],
     opcode: AvmOpcode,
 ) {
-    if destinations.len() != 1 || inputs.len() != 4 {
+    if !destinations.is_empty() || inputs.len() != 4 {
         panic!(
-            "Transpiler expects ForeignCall (Static)Call to have 1 destinations and 4 inputs, got {} and {}.",
+            "Transpiler expects ForeignCall (Static)Call to have 0 destinations and 4 inputs, got {} and {}.",
             destinations.len(),
             inputs.len()
         );
@@ -596,10 +596,6 @@ fn handle_external_call(
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
 
-    let success_offset = match &destinations[0] {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("Call instruction's success destination should be a basic MemoryAddress",),
-    };
     avm_instrs.push(AvmInstruction {
         opcode,
         indirect: Some(
@@ -608,7 +604,6 @@ fn handle_external_call(
                 .direct_operand(address_offset)
                 .indirect_operand(args_offset_ptr)
                 .direct_operand(args_size_offset)
-                .direct_operand(success_offset)
                 .build(),
         ),
         operands: vec![
@@ -616,7 +611,6 @@ fn handle_external_call(
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: args_size_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: success_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1696,15 +1690,15 @@ fn handle_success_copy(
     assert!(inputs.is_empty());
     assert!(destinations.len() == 1);
 
-    let dest_offset = match destinations[0] {
+    let dst_offset = match destinations[0] {
         ValueOrArray::MemoryAddress(address) => address,
         _ => panic!("SuccessCopy destination should be a memory location"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SUCCESSCOPY,
-        indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build()),
-        operands: vec![AvmOperand::U16 { value: dest_offset.to_usize() as u16 }],
+        indirect: Some(AddressingModeBuilder::default().direct_operand(&dst_offset).build()),
+        operands: vec![AvmOperand::U16 { value: dst_offset.to_usize() as u16 }],
         ..Default::default()
     });
 }
