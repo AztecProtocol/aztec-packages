@@ -36,6 +36,10 @@ export function mockStorageReadWithMap(worldStateDB: WorldStateDB, mockedStorage
   );
 }
 
+export function mockGetBytecodeCommitment(worldStateDB: WorldStateDB, commitment: Fr) {
+  (worldStateDB as jest.Mocked<WorldStateDB>).getBytecodeCommitment.mockResolvedValue(commitment);
+}
+
 export function mockNoteHashExists(worldStateDB: WorldStateDB, _leafIndex: Fr, value?: Fr) {
   (worldStateDB as jest.Mocked<WorldStateDB>).getCommitmentValue.mockImplementation((index: bigint) => {
     if (index == _leafIndex.toBigInt()) {
@@ -47,7 +51,7 @@ export function mockNoteHashExists(worldStateDB: WorldStateDB, _leafIndex: Fr, v
   });
 }
 
-export function mockNullifierExists(worldStateDB: WorldStateDB, leafIndex: Fr, _value?: Fr) {
+export function mockGetNullifierIndex(worldStateDB: WorldStateDB, leafIndex: Fr, _ignoredValue?: Fr) {
   (worldStateDB as jest.Mocked<WorldStateDB>).getNullifierIndex.mockResolvedValue(leafIndex.toBigInt());
 }
 

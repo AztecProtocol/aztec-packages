@@ -1,9 +1,11 @@
 import { COUNTED_PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_CALL_REQUEST_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { FunctionSelector } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
@@ -32,6 +34,20 @@ export class PublicCallRequest {
     public isStaticCall: boolean,
     public argsHash: Fr,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        msgSender: AztecAddress.schema,
+        contractAddress: AztecAddress.schema,
+        functionSelector: FunctionSelector.schema,
+        isStaticCall: z.boolean(),
+        argsHash: schemas.Fr,
+      })
+      .transform(({ msgSender, contractAddress, functionSelector, isStaticCall, argsHash }) => {
+        return new PublicCallRequest(msgSender, contractAddress, functionSelector, isStaticCall, argsHash);
+      });
+  }
 
   getSize() {
     return this.isEmpty() ? 0 : this.toBuffer().length;

@@ -157,7 +157,7 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
+    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
       --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt

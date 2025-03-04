@@ -40,6 +40,8 @@ export class AvmMachineState {
   public nextPc: number = 0;
   /** return/revertdata of the last nested call. */
   public nestedReturndata: Fr[] = [];
+  /** Tracks whether the last external call was successful */
+  public nestedCallSuccess: boolean = false;
   /**
    * Used to track the call stack and revert data of nested calls.
    * This is used to provide a more detailed revert reason when a contract call reverts.

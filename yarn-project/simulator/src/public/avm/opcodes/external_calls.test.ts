@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector } from '@aztec/stdlib/abi';
+import { computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
@@ -14,14 +15,14 @@ import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {
-  mockGetBytecode,
+  mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockNullifierExists,
+  mockGetNullifierIndex,
   mockTraceFork,
 } from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
-import { Call, Return, Revert, StaticCall } from './external_calls.js';
+import { Call, Return, Revert, StaticCall, SuccessCopy } from './external_calls.js';
 import type { Instruction } from './instruction.js';
 import { CalldataCopy, Set } from './memory.js';
 import { SStore } from './storage.js';
@@ -44,20 +45,18 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Call.opcode, // opcode
-        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('12', 'hex'), // indirect (8 bit)
         ...Buffer.from('1234', 'hex'), // gasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
-        ...Buffer.from('f234', 'hex'), // successOffset
       ]);
       const inst = new Call(
-        /*indirect=*/ 0x1234,
+        /*indirect=*/ 0x12,
         /*gasOffset=*/ 0x1234,
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
       );
 
       expect(Call.deserialize(buf)).toEqual(inst);
@@ -74,7 +73,8 @@ describe('External Calls', () => {
       const args = [new Field(1), new Field(2), new Field(3)];
       const argsSize = args.length;
       const argsSizeOffset = 20;
-      const successOffset = 6;
+      // Define dst offset for SuccessCopy
+      const successDstOffset = 6;
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -84,10 +84,14 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset);
+      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
 
-      const successValue = context.machineState.memory.get(successOffset);
+      // Use SuccessCopy to get success
+      const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
+      await successCopyInstruction.execute(context);
+
+      const successValue = context.machineState.memory.get(successDstOffset);
       expect(successValue).toEqual(new Uint1(0n)); // failure, contract non-existent!
 
       const retValue = context.machineState.nestedReturndata;
@@ -109,7 +113,8 @@ describe('External Calls', () => {
       const args = [new Field(1), new Field(2), new Field(3)];
       const argsSize = args.length;
       const argsSizeOffset = 20;
-      const successOffset = 6;
+      // Define dst offset for SuccessCopy
+      const successDstOffset = 6;
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
@@ -120,16 +125,16 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
         ]),
       );
-      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
       const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
+      mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
-      mockNullifierExists(worldStateDB, contractInstance.address.toField());
+      mockGetNullifierIndex(worldStateDB, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -139,10 +144,14 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset);
+      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
 
-      const successValue = context.machineState.memory.get(successOffset);
+      // Use SuccessCopy to get success
+      const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
+      await successCopyInstruction.execute(context);
+
+      const successValue = context.machineState.memory.get(successDstOffset);
       expect(successValue).toEqual(new Uint1(1n));
 
       const retValue = context.machineState.nestedReturndata;
@@ -160,7 +169,8 @@ describe('External Calls', () => {
       const addr = new Fr(123456n);
       const argsSize = 0;
       const argsSizeOffset = 20;
-      const successOffset = 6;
+      // Define dst offset for SuccessCopy
+      const successDstOffset = 6;
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
@@ -172,17 +182,17 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
-      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
-      mockNullifierExists(worldStateDB, addr);
+      mockGetNullifierIndex(worldStateDB, addr);
 
       const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
+      mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
-      mockNullifierExists(worldStateDB, contractInstance.address.toField());
+      mockGetNullifierIndex(worldStateDB, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -191,17 +201,14 @@ describe('External Calls', () => {
       context.machineState.memory.set(2, new Field(addr));
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
 
-      const instruction = new Call(
-        /*indirect=*/ 0,
-        gasOffset,
-        addrOffset,
-        /*argsOffset=*/ 0,
-        argsSizeOffset,
-        successOffset,
-      );
+      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, /*argsOffset=*/ 0, argsSizeOffset);
       await instruction.execute(context);
 
-      const successValue = context.machineState.memory.get(successOffset);
+      // Use SuccessCopy to get success
+      const successCopyInstruction = new SuccessCopy(/*indirect=*/ 0, successDstOffset);
+      await successCopyInstruction.execute(context);
+
+      const successValue = context.machineState.memory.get(successDstOffset);
       expect(successValue).toEqual(new Uint1(1n));
 
       const retValues = context.machineState.nestedReturndata;
@@ -217,20 +224,18 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StaticCall.opcode, // opcode
-        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('12', 'hex'), // indirect (8 bit)
         ...Buffer.from('1234', 'hex'), // gasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
-        ...Buffer.from('f234', 'hex'), // successOffset
       ]);
       const inst = new StaticCall(
-        /*indirect=*/ 0x1234,
+        /*indirect=*/ 0x12,
         /*gasOffset=*/ 0x1234,
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
       );
 
       expect(StaticCall.deserialize(buf)).toEqual(inst);
@@ -246,8 +251,7 @@ describe('External Calls', () => {
       const args = [new Field(1n), new Field(2n), new Field(3n)];
 
       const argsSize = args.length;
-      const argsSizeOffset = 40;
-      const successOffset = 70;
+      const argsSizeOffset = 60;
 
       context.machineState.memory.setSlice(gasOffset, gas);
       context.machineState.memory.set(addrOffset, addr);
@@ -259,25 +263,18 @@ describe('External Calls', () => {
       ];
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
-      await mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
-      mockNullifierExists(worldStateDB, addr.toFr());
+      mockGetNullifierIndex(worldStateDB, addr.toFr());
 
       const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
+      mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
 
-      const instruction = new StaticCall(
-        /*indirect=*/ 0,
-        gasOffset,
-        addrOffset,
-        argsOffset,
-        argsSizeOffset,
-        successOffset,
-      );
+      const instruction = new StaticCall(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
       // Ideally we'd mock the nested call.
       expect(context.machineState.collectedRevertInfo?.recursiveRevertReason.message).toMatch(
@@ -347,6 +344,42 @@ describe('External Calls', () => {
       expect(context.machineState.getHalted()).toBe(true);
       expect(context.machineState.getReverted()).toBe(true);
       expect(context.machineState.getOutput()).toEqual(returnData.map(f => f.toFr()));
+    });
+  });
+
+  describe('SuccessCopy', () => {
+    it('Should (de)serialize correctly', () => {
+      const buf = Buffer.from([
+        SuccessCopy.opcode, // opcode
+        0x12, // indirect (8-bit)
+        ...Buffer.from('5678', 'hex'), // dstOffset (16-bit)
+      ]);
+      const inst = new SuccessCopy(/*indirect=*/ 0x12, /*dstOffset=*/ 0x5678);
+
+      expect(SuccessCopy.deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Should correctly copy success state for a successful call', async () => {
+      context.machineState.nestedCallSuccess = true;
+      const dstOffset = 0;
+
+      const instruction = new SuccessCopy(/*indirect=*/ 0, dstOffset);
+      await instruction.execute(context);
+
+      const successValue = context.machineState.memory.get(dstOffset);
+      expect(successValue).toEqual(new Uint1(1n));
+    });
+
+    it('Should correctly copy success state for a failed call', async () => {
+      context.machineState.nestedCallSuccess = false;
+      const dstOffset = 0;
+
+      const instruction = new SuccessCopy(/*indirect=*/ 0, dstOffset);
+      await instruction.execute(context);
+
+      const successValue = context.machineState.memory.get(dstOffset);
+      expect(successValue).toEqual(new Uint1(0n));
     });
   });
 });

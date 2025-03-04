@@ -9,6 +9,7 @@ import {
   createPXEClient,
   getContractClassFromArtifact,
   makeFetch,
+  sleep,
 } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
@@ -140,9 +141,34 @@ describe('e2e_deploy_contract deploy method', () => {
     await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
   }, 300_000);
 
-  it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
-    // TODO(@spalladino): Requires being able to read a nullifier on the same block it was emitted.
-  });
+  it.skip('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
+    await t.aztecNode.setConfig({ minTxsPerBlock: 2 });
+
+    const owner = wallet.getAddress();
+    logger.debug('Initializing deploy method');
+    const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
+    logger.debug('Creating request/calls to register and deploy contract');
+    const deploy = await deployMethod.request();
+    const deployTx = new BatchCall(wallet, deploy.calls);
+    logger.debug('Getting an instance of the not-yet-deployed contract to batch calls to');
+    const contract = await StatefulTestContract.at((await deployMethod.getInstance()).address, wallet);
+
+    logger.debug('Creating public call to run in same block as deployment');
+    const publicCall = contract.methods.increment_public_value(owner, 84);
+
+    // First send the deploy transaction
+    const deployTxPromise = deployTx.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+
+    // Wait a bit to ensure the deployment transaction gets processed first
+    await sleep(5000);
+
+    // Then send the public call transaction
+    const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+
+    logger.debug('Deploying a contract and calling a public function in the same block');
+    const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([deployTxPromise, publicCallTxPromise]);
+    expect(deployTxReceipt.blockNumber).toEqual(publicCallTxReceipt.blockNumber);
+  }, 300_000);
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {

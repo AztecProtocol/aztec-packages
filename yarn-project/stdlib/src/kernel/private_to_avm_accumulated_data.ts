@@ -7,15 +7,18 @@ import {
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
   FieldReader,
   type Tuple,
+  assertLength,
   serializeToBuffer,
   serializeToFields,
 } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import type { UInt32 } from '../types/shared.js';
@@ -26,6 +29,23 @@ export class PrivateToAvmAccumulatedData {
     public nullifiers: Tuple<Fr, typeof MAX_NULLIFIERS_PER_TX>,
     public l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        noteHashes: schemas.Fr.array().min(MAX_NOTE_HASHES_PER_TX).max(MAX_NOTE_HASHES_PER_TX),
+        nullifiers: schemas.Fr.array().min(MAX_NULLIFIERS_PER_TX).max(MAX_NULLIFIERS_PER_TX),
+        l2ToL1Msgs: ScopedL2ToL1Message.schema.array().min(MAX_L2_TO_L1_MSGS_PER_TX).max(MAX_L2_TO_L1_MSGS_PER_TX),
+      })
+      .transform(
+        ({ noteHashes, nullifiers, l2ToL1Msgs }) =>
+          new PrivateToAvmAccumulatedData(
+            assertLength(noteHashes, MAX_NOTE_HASHES_PER_TX),
+            assertLength(nullifiers, MAX_NULLIFIERS_PER_TX),
+            assertLength(l2ToL1Msgs, MAX_L2_TO_L1_MSGS_PER_TX),
+          ),
+      );
+  }
 
   getSize() {
     return (
@@ -103,6 +123,19 @@ export class PrivateToAvmAccumulatedData {
 
 export class PrivateToAvmAccumulatedDataArrayLengths {
   constructor(public noteHashes: UInt32, public nullifiers: UInt32, public l2ToL1Msgs: UInt32) {}
+
+  static get schema() {
+    return z
+      .object({
+        noteHashes: schemas.UInt32,
+        nullifiers: schemas.UInt32,
+        l2ToL1Msgs: schemas.UInt32,
+      })
+      .transform(
+        ({ noteHashes, nullifiers, l2ToL1Msgs }) =>
+          new PrivateToAvmAccumulatedDataArrayLengths(noteHashes, nullifiers, l2ToL1Msgs),
+      );
+  }
 
   getSize() {
     return 4 * 3;
