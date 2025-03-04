@@ -1,10 +1,12 @@
 import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { schemas } from '@aztec/foundation/schemas';
+import { BufferReader, FieldReader, type Tuple, assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { Gas, GasSettings } from '../gas/index.js';
@@ -16,7 +18,10 @@ import { PublicCallRequest } from '../kernel/public_call_request.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { AvmAccumulatedData } from './avm_accumulated_data.js';
+import { serializeWithMessagePack } from './message_pack.js';
 
+// Note: the {from,to}{Buffer,Fields,String} methods are needed by AvmProofData and PublicBaseRollupInputs.
+// At some point it might be worth writing Zod schemas for all dependent types and get rid of that.
 export class AvmCircuitPublicInputs {
   constructor(
     public globalVariables: GlobalVariables,
@@ -37,6 +42,69 @@ export class AvmCircuitPublicInputs {
     public transactionFee: Fr,
     public reverted: boolean,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        globalVariables: GlobalVariables.schema,
+        startTreeSnapshots: TreeSnapshots.schema,
+        startGasUsed: Gas.schema,
+        gasSettings: GasSettings.schema,
+        feePayer: AztecAddress.schema,
+        publicSetupCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
+        publicAppLogicCallRequests: PublicCallRequest.schema.array().max(MAX_ENQUEUED_CALLS_PER_TX),
+        publicTeardownCallRequest: PublicCallRequest.schema,
+        previousNonRevertibleAccumulatedDataArrayLengths: PrivateToAvmAccumulatedDataArrayLengths.schema,
+        previousRevertibleAccumulatedDataArrayLengths: PrivateToAvmAccumulatedDataArrayLengths.schema,
+        previousNonRevertibleAccumulatedData: PrivateToAvmAccumulatedData.schema,
+        previousRevertibleAccumulatedData: PrivateToAvmAccumulatedData.schema,
+        endTreeSnapshots: TreeSnapshots.schema,
+        endGasUsed: Gas.schema,
+        accumulatedData: AvmAccumulatedData.schema,
+        transactionFee: schemas.Fr,
+        reverted: z.boolean(),
+      })
+      .transform(
+        ({
+          globalVariables,
+          startTreeSnapshots,
+          startGasUsed,
+          gasSettings,
+          feePayer,
+          publicSetupCallRequests,
+          publicAppLogicCallRequests,
+          publicTeardownCallRequest,
+          previousNonRevertibleAccumulatedDataArrayLengths,
+          previousRevertibleAccumulatedDataArrayLengths,
+          previousNonRevertibleAccumulatedData,
+          previousRevertibleAccumulatedData,
+          endTreeSnapshots,
+          endGasUsed,
+          accumulatedData,
+          transactionFee,
+          reverted,
+        }) =>
+          new AvmCircuitPublicInputs(
+            globalVariables,
+            startTreeSnapshots,
+            startGasUsed,
+            gasSettings,
+            feePayer,
+            assertLength(publicSetupCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
+            assertLength(publicAppLogicCallRequests, MAX_ENQUEUED_CALLS_PER_TX),
+            publicTeardownCallRequest,
+            previousNonRevertibleAccumulatedDataArrayLengths,
+            previousRevertibleAccumulatedDataArrayLengths,
+            previousNonRevertibleAccumulatedData,
+            previousRevertibleAccumulatedData,
+            endTreeSnapshots,
+            endGasUsed,
+            accumulatedData,
+            transactionFee,
+            reverted,
+          ),
+      );
+  }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
@@ -134,6 +202,10 @@ export class AvmCircuitPublicInputs {
       Fr.zero(),
       false,
     );
+  }
+
+  public serializeWithMessagePack(): Buffer {
+    return serializeWithMessagePack(this);
   }
 
   [inspect.custom]() {

@@ -11,7 +11,12 @@ import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
 import type { AvmPersistableStateManager } from '../journal/journal.js';
-import { mockL1ToL2MessageExists, mockNoteHashCount, mockNoteHashExists, mockNullifierExists } from '../test_utils.js';
+import {
+  mockGetNullifierIndex,
+  mockL1ToL2MessageExists,
+  mockNoteHashCount,
+  mockNoteHashExists,
+} from '../test_utils.js';
 import {
   EmitNoteHash,
   EmitNullifier,
@@ -162,7 +167,7 @@ describe('Accrued Substate', () => {
         const addressOffset = 1;
 
         if (exists) {
-          mockNullifierExists(worldStateDB, leafIndex, value0);
+          mockGetNullifierIndex(worldStateDB, leafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
@@ -219,7 +224,7 @@ describe('Accrued Substate', () => {
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
-      mockNullifierExists(worldStateDB, leafIndex); // db will say that nullifier already exists
+      mockGetNullifierIndex(worldStateDB, leafIndex); // db will say that nullifier already exists
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(

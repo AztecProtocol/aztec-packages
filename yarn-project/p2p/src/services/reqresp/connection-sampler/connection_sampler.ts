@@ -170,7 +170,13 @@ export class ConnectionSampler {
    */
   async close(streamId: string): Promise<void> {
     try {
-      const { stream, peerId } = this.streams.get(streamId)!;
+      const streamAndPeerId = this.streams.get(streamId);
+      if (!streamAndPeerId) {
+        this.logger.warn(`Stream ${streamId} not found`);
+        return;
+      }
+
+      const { stream, peerId } = streamAndPeerId;
 
       const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 1) - 1;
       this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
@@ -184,7 +190,7 @@ export class ConnectionSampler {
 
       await stream?.close();
     } catch (error) {
-      this.logger.warn(`Failed to close connection to peer with stream id ${streamId}`);
+      this.logger.error(`Failed to close connection to peer with stream id ${streamId}`, error);
     } finally {
       this.streams.delete(streamId);
     }

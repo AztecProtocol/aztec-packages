@@ -103,7 +103,7 @@ export class PrivateExecutionResult {
     return z
       .object({
         entrypoint: PrivateCallExecutionResult.schema,
-        firstNullifier: Fr.schema,
+        firstNullifier: schemas.Fr,
       })
       .transform(PrivateExecutionResult.from);
   }

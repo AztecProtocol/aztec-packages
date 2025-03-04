@@ -15,7 +15,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup, Config, BlockLog} from "@aztec/core/Rollup.sol";
+import {Rollup, RollupConfig, GenesisState, BlockLog} from "@aztec/core/Rollup.sol";
 import {
   IRollup, SubmitEpochRootProofArgs, PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
@@ -133,12 +133,14 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       IFeeJuicePortal(address(fakeCanonical)),
       IRewardDistributor(address(fakeCanonical)),
       asset,
-      bytes32(0),
-      bytes32(0),
-      bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      bytes32(Constants.GENESIS_BLOCK_HASH),
       address(this),
-      Config({
+      GenesisState({
+        vkTreeRoot: bytes32(0),
+        protocolContractTreeRoot: bytes32(0),
+        genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+        genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH)
+      }),
+      RollupConfig({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,

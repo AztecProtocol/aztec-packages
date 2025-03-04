@@ -11,6 +11,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
 
+import type { ChildProcess } from 'child_process';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseEther, stringify } from 'viem/utils';
 
@@ -31,22 +32,29 @@ describe('spartan_upgrade_governance_proposer', () => {
   let pxe: PXE;
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
+  const forwardProcesses: ChildProcess[] = [];
+
+  afterAll(() => {
+    forwardProcesses.forEach(p => p.kill());
+  });
+
   beforeAll(async () => {
-    await startPortForward({
+    const { process: pxeProcess, port: pxePort } = await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
       namespace: config.NAMESPACE,
       containerPort: config.CONTAINER_PXE_PORT,
-      hostPort: config.HOST_PXE_PORT,
     });
-    await startPortForward({
+    forwardProcesses.push(pxeProcess);
+    const PXE_URL = `http://127.0.0.1:${pxePort}`;
+
+    const { process: ethProcess, port: ethPort } = await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
       namespace: config.NAMESPACE,
       containerPort: config.CONTAINER_ETHEREUM_PORT,
-      hostPort: config.HOST_ETHEREUM_PORT,
     });
-    ETHEREUM_HOSTS = [`http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`];
+    forwardProcesses.push(ethProcess);
+    ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
-    const PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
     nodeInfo = await pxe.getNodeInfo();
   });
