@@ -1,9 +1,9 @@
 import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
-import { type RollupCheatCodes } from '@aztec/aztec.js/ethereum';
+import type { RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import type { SequencerConfig } from '@aztec/sequencer-client';
 
-import { exec, execSync, spawn } from 'child_process';
+import { ChildProcess, exec, execSync, spawn } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
@@ -14,25 +14,36 @@ const execAsync = promisify(exec);
 
 const logger = createLogger('e2e:k8s-utils');
 
+const ethereumHostsSchema = z.string().refine(
+  str =>
+    str.split(',').every(url => {
+      try {
+        new URL(url.trim());
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  'ETHEREUM_HOSTS must be a comma-separated list of valid URLs',
+);
+
 const k8sLocalConfigSchema = z.object({
+  ETHEREUM_SLOT_DURATION: z.coerce.number().min(1, 'ETHEREUM_SLOT_DURATION env variable must be set'),
+  AZTEC_SLOT_DURATION: z.coerce.number().min(1, 'AZTEC_SLOT_DURATION env variable must be set'),
+  AZTEC_EPOCH_DURATION: z.coerce.number().min(1, 'AZTEC_EPOCH_DURATION env variable must be set'),
+  AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().min(1, 'AZTEC_PROOF_SUBMISSION_WINDOW env variable must be set'),
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
-  HOST_NODE_PORT: z.coerce.number().min(1, 'HOST_NODE_PORT env variable must be set'),
   CONTAINER_NODE_PORT: z.coerce.number().default(8080),
-  HOST_SEQUENCER_PORT: z.coerce.number().min(1, 'HOST_SEQUENCER_PORT env variable must be set'),
   CONTAINER_SEQUENCER_PORT: z.coerce.number().default(8080),
-  HOST_PROVER_NODE_PORT: z.coerce.number().min(1, 'HOST_PROVER_NODE_PORT env variable must be set'),
   CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
-  HOST_PXE_PORT: z.coerce.number().min(1, 'HOST_PXE_PORT env variable must be set'),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
-  HOST_ETHEREUM_PORT: z.coerce.number().min(1, 'HOST_ETHEREUM_PORT env variable must be set'),
   CONTAINER_ETHEREUM_PORT: z.coerce.number().default(8545),
-  HOST_METRICS_PORT: z.coerce.number().min(1, 'HOST_METRICS_PORT env variable must be set'),
   CONTAINER_METRICS_PORT: z.coerce.number().default(80),
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
   SPARTAN_DIR: z.string().min(1, 'SPARTAN_DIR env variable must be set'),
-  ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL').optional(),
+  ETHEREUM_HOSTS: ethereumHostsSchema.optional(),
   L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
   SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
@@ -47,7 +58,7 @@ const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
 const directConfigSchema = z.object({
   PXE_URL: z.string().url('PXE_URL must be a valid URL'),
   NODE_URL: z.string().url('NODE_URL must be a valid URL'),
-  ETHEREUM_HOST: z.string().url('ETHEREUM_HOST must be a valid URL'),
+  ETHEREUM_HOSTS: ethereumHostsSchema,
   K8S: z.literal('false'),
 });
 
@@ -84,49 +95,73 @@ export async function startPortForward({
   resource: string;
   namespace: string;
   containerPort: number;
-  hostPort: number;
-}) {
-  // check if kubectl is already forwarding this port
-  try {
-    const command = `ps aux | grep 'kubectl.*${hostPort}:${containerPort}' | grep -v grep | awk '{print $2}'`;
-    const { stdout: processId } = await execAsync(command);
-    if (processId) {
-      logger.info(`Restarting port forward for ${resource}:${hostPort}`);
-      // kill the existing port forward
-      await execAsync(`kill -9 ${processId}`);
-    }
-  } catch (e) {
-    logger.info(`No existing port forward found for ${resource}:${hostPort}`);
-  }
+  // If not provided, the port will be chosen automatically
+  hostPort?: number;
+}): Promise<{
+  process: ChildProcess;
+  port: number;
+}> {
+  const hostPortAsString = hostPort ? hostPort.toString() : '';
 
-  logger.info(`kubectl port-forward -n ${namespace} ${resource} ${hostPort}:${containerPort}`);
+  logger.info(`kubectl port-forward -n ${namespace} ${resource} ${hostPortAsString}:${containerPort}`);
 
-  const process = spawn('kubectl', ['port-forward', '-n', namespace, resource, `${hostPort}:${containerPort}`], {
-    detached: true,
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
+  const process = spawn(
+    'kubectl',
+    ['port-forward', '-n', namespace, resource, `${hostPortAsString}:${containerPort}`],
+    {
+      detached: true,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+
+  let isResolved = false;
+  const connected = new Promise<number>(resolve => {
+    process.stdout?.on('data', data => {
+      const str = data.toString() as string;
+      if (!isResolved && str.includes('Forwarding from')) {
+        isResolved = true;
+        logger.info(str);
+        const port = str.search(/:\d+/);
+        if (port === -1) {
+          throw new Error('Port not found in port forward output');
+        }
+        const portNumber = parseInt(str.slice(port + 1));
+        logger.info(`Port forward connected: ${portNumber}`);
+        logger.info(`Port forward connected: ${portNumber}`);
+        resolve(portNumber);
+      } else {
+        logger.silent(str);
+      }
+    });
+    process.stderr?.on('data', data => {
+      logger.info(data.toString());
+      // It's a strange thing:
+      // If we don't pipe stderr, then the port forwarding does not work.
+      // Log to silent because this doesn't actually report errors,
+      // just extremely verbose debug logs.
+      logger.silent(data.toString());
+    });
+    process.on('close', () => {
+      if (!isResolved) {
+        isResolved = true;
+        logger.warn('Port forward closed before connection established');
+        resolve(0);
+      }
+    });
+    process.on('error', error => {
+      logger.error(`Port forward error: ${error}`);
+      resolve(0);
+    });
+    process.on('exit', code => {
+      logger.info(`Port forward exited with code ${code}`);
+      resolve(0);
+    });
   });
 
-  process.stdout?.on('data', data => {
-    const str = data.toString();
-    if (str.includes('Starting port forward')) {
-      logger.info(str);
-    } else {
-      logger.silent(str);
-    }
-  });
-  process.stderr?.on('data', data => {
-    // It's a strange thing:
-    // If we don't pipe stderr, then the port forwarding does not work.
-    // Log to silent because this doesn't actually report errors,
-    // just extremely verbose debug logs.
-    logger.silent(data.toString());
-  });
+  const port = await connected;
 
-  // Wait a moment for the port forward to establish
-  await new Promise(resolve => setTimeout(resolve, 2000));
-
-  return process;
+  return { process, port };
 }
 
 export async function deleteResourceByName({
@@ -464,11 +499,17 @@ export async function enableValidatorDynamicBootNode(
 
 export async function runAlertCheck(config: EnvConfig, alerts: AlertConfig[], logger: Logger) {
   if (isK8sConfig(config)) {
+    const { process, port } = await startPortForward({
+      resource: `svc/metrics-grafana`,
+      namespace: 'metrics',
+      containerPort: config.CONTAINER_METRICS_PORT,
+    });
     const alertChecker = new AlertChecker(logger, {
-      grafanaEndpoint: `http://localhost:${config.HOST_METRICS_PORT}${config.METRICS_API_PATH}`,
+      grafanaEndpoint: `http://localhost:${port}${config.METRICS_API_PATH}`,
       grafanaCredentials: `admin:${config.GRAFANA_PASSWORD}`,
     });
     await alertChecker.runAlertCheck(alerts);
+    process.kill();
   } else {
     logger.info('Not running alert check in non-k8s environment');
   }
@@ -487,22 +528,21 @@ export async function getSequencers(namespace: string) {
 
 export async function updateK8sSequencersConfig(args: {
   containerPort: number;
-  hostPort: number;
   namespace: string;
   config: Partial<SequencerConfig>;
 }) {
-  const { containerPort, hostPort, namespace, config } = args;
+  const { containerPort, namespace, config } = args;
   const sequencers = await getSequencers(namespace);
   for (const sequencer of sequencers) {
-    await startPortForward({
+    const { process, port } = await startPortForward({
       resource: `pod/${sequencer}`,
       namespace,
       containerPort,
-      hostPort,
     });
 
-    const url = `http://localhost:${hostPort}`;
+    const url = `http://localhost:${port}`;
     await updateSequencerConfig(url, config);
+    process.kill();
   }
 }
 
@@ -510,11 +550,33 @@ export async function updateSequencersConfig(env: EnvConfig, config: Partial<Seq
   if (isK8sConfig(env)) {
     await updateK8sSequencersConfig({
       containerPort: env.CONTAINER_NODE_PORT,
-      hostPort: env.HOST_NODE_PORT,
       namespace: env.NAMESPACE,
       config,
     });
   } else {
     await updateSequencerConfig(env.NODE_URL, config);
   }
+}
+
+/**
+ * Rolls the Aztec pods in the given namespace.
+ * @param namespace - The namespace to roll the Aztec pods in.
+ * @dev - IMPORTANT: This function DOES NOT delete the underlying PVCs.
+ *        This means that the pods will be restarted with the same persistent storage.
+ *        This is useful for testing, but you should be aware of the implications.
+ */
+export async function rollAztecPods(namespace: string) {
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=boot-node' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-node' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-broker' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-agent' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=validator' });
+  await deleteResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=pxe' });
+  await sleep(10 * 1000);
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=boot-node' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-node' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-broker' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-agent' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=validator' });
+  await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=pxe' });
 }

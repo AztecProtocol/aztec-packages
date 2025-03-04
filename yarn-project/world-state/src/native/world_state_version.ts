@@ -1,5 +1,6 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+import { schemas } from '@aztec/foundation/schemas';
 
 import { readFile, writeFile } from 'fs/promises';
 import { z } from 'zod';
@@ -21,7 +22,7 @@ export class WorldStateVersion {
     return z
       .object({
         version: z.number(),
-        rollupAddress: EthAddress.schema,
+        rollupAddress: schemas.EthAddress,
       })
       .transform(({ version, rollupAddress }) => new WorldStateVersion(version, rollupAddress));
   }

@@ -1,4 +1,4 @@
-import { type Key, type Range } from './common.js';
+import type { Key, Range } from './common.js';
 
 /**
  * A set backed by a persistent store.

@@ -1,5 +1,5 @@
-import { getInitialTestAccounts } from "@aztec/accounts/testing";
-import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+import { getInitialTestAccounts } from "@aztec/accounts/testing/lazy";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
 import {
   AccountWalletWithSecretKey,
   createAztecNodeClient,
@@ -13,7 +13,7 @@ import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
 import { PXEService } from "@aztec/pxe/service";
 import { WASMSimulator } from "@aztec/simulator/client";
-import { BoxReactContractArtifact } from "../artifacts/BoxReact";
+import { LazyProtocolContractsProvider } from "@aztec/protocol-contracts/providers/lazy";
 
 export class PrivateEnv {
   pxe: PXEService;
@@ -49,6 +49,8 @@ export class PrivateEnv {
     const db = await KVPxeDatabase.create(store);
     const tips = new L2TipsStore(store, "pxe");
 
+    const protocolContractsProvider = new LazyProtocolContractsProvider();
+
     this.pxe = new PXEService(
       keyStore,
       aztecNode,
@@ -56,6 +58,7 @@ export class PrivateEnv {
       tips,
       proofCreator,
       simulationProvider,
+      protocolContractsProvider,
       config,
     );
     await this.pxe.init();
@@ -76,13 +79,3 @@ export class PrivateEnv {
 }
 
 export const deployerEnv = new PrivateEnv();
-
-const IGNORE_FUNCTIONS = [
-  "constructor",
-  "compute_note_hash_and_optionally_a_nullifier",
-  "process_log",
-  "sync_notes",
-];
-export const filteredInterface = BoxReactContractArtifact.functions.filter(
-  (f) => !IGNORE_FUNCTIONS.includes(f.name),
-);

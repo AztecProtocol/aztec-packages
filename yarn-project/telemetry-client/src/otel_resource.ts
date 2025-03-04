@@ -1,4 +1,3 @@
-import { GcpDetectorSync } from '@google-cloud/opentelemetry-resource-util';
 import {
   type IResource,
   detectResourcesSync,
@@ -8,18 +7,9 @@ import {
   serviceInstanceIdDetectorSync,
 } from '@opentelemetry/resources';
 
-import { aztecDetector } from './aztec_resource_detector.js';
-
 export function getOtelResource(): IResource {
   const resource = detectResourcesSync({
-    detectors: [
-      osDetectorSync,
-      envDetectorSync,
-      processDetectorSync,
-      serviceInstanceIdDetectorSync,
-      aztecDetector,
-      new GcpDetectorSync(),
-    ],
+    detectors: [osDetectorSync, envDetectorSync, processDetectorSync, serviceInstanceIdDetectorSync],
   });
 
   return resource;

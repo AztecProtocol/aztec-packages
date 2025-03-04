@@ -101,7 +101,7 @@ bb write_vk --scheme ultra_honk -b ./target/hello_world.json -o ./target/vk
 You can now use the verification key to generate a Solidity verifier contract:
 
 ```bash
-bb write_contract --scheme ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
+bb write_solidity_verifier --scheme ultra_honk -k ./target/vk -c $CRS_PATH -b ./target/hello_world.json -o ./target/Verifier.sol
 ```
 
 > [!CAUTION]

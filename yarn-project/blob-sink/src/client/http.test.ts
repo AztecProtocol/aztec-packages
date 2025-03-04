@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
 import http from 'http';
-import { type AddressInfo } from 'net';
+import type { AddressInfo } from 'net';
 
 import { BlobSinkServer } from '../server/server.js';
 import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
@@ -168,7 +168,7 @@ describe('HttpBlobSinkClient', () => {
 
       const client = new HttpBlobSinkClient({
         blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
       });
 
       const success = await client.sendBlobsToBlobSink('0x1234', [testEncodedBlob]);
@@ -188,7 +188,7 @@ describe('HttpBlobSinkClient', () => {
       await startConsensusHostServer();
 
       const client = new HttpBlobSinkClient({
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
       });
 
@@ -201,7 +201,7 @@ describe('HttpBlobSinkClient', () => {
       await startConsensusHostServer();
 
       const client = new HttpBlobSinkClient({
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
       });
 
@@ -215,7 +215,7 @@ describe('HttpBlobSinkClient', () => {
       await startConsensusHostServer();
 
       const client = new HttpBlobSinkClient({
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
       });
 

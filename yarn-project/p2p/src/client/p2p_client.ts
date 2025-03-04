@@ -1,19 +1,10 @@
-import {
-  type BlockAttestation,
-  type BlockProposal,
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  type L2BlockStreamEvent,
-  type L2Tips,
-  type P2PClientType,
-  type Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
-import { type P2PApi, type PeerInfo, type ProverCoordination } from '@aztec/circuit-types/interfaces/server';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import type { L2Block, L2BlockId, L2BlockSource, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
+import type { P2PApi, PeerInfo, ProverCoordination } from '@aztec/stdlib/interfaces/server';
+import type { BlockAttestation, BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,
@@ -23,12 +14,12 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type ENR } from '@chainsafe/enr';
+import type { ENR } from '@chainsafe/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type MemPools } from '../mem_pools/interface.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { MemPools } from '../mem_pools/interface.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
 import type { P2PService } from '../services/service.js';
 

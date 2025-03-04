@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 
-import { type ZodFor } from '../schemas/types.js';
+import type { ZodFor } from '../schemas/types.js';
 
 /**
  * Parses a json string and then feeds it to a zod schema.

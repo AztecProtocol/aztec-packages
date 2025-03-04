@@ -7,7 +7,9 @@
     "./test-helpers": "./dest/test-helpers/index.js",
     "./bootstrap": "./dest/bootstrap/bootstrap.js",
     "./config": "./dest/config.js",
-    "./msg_validators": "./dest/msg_validators/index.js"
+    "./msg_validators": "./dest/msg_validators/index.js",
+    "./enr": "./dest/enr/index.js",
+    "./types": "./dest/types/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -63,14 +65,13 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@chainsafe/discv5": "9.0.0",
     "@chainsafe/enr": "3.0.0",

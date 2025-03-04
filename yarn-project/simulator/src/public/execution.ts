@@ -1,23 +1,20 @@
-import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuit-types';
+import type { Fr } from '@aztec/foundation/fields';
 import {
+  type AvmExecutionHints,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
-  type Fr,
-  Gas,
-  type L2ToL1Message,
-  type NoteHash,
-  type Nullifier,
   PublicCallStackItemCompressed,
   type PublicDataUpdateRequest,
   PublicInnerCallRequest,
-  type PublicLog,
-  type ReadRequest,
   RevertCode,
-  type ScopedL2ToL1Message,
-  type TreeLeafReadRequest,
-} from '@aztec/circuits.js';
-import { type AvmExecutionHints } from '@aztec/circuits.js/avm';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+} from '@aztec/stdlib/avm';
+import type { SimulationError } from '@aztec/stdlib/errors';
+import { Gas } from '@aztec/stdlib/gas';
+import { computeVarArgsHash } from '@aztec/stdlib/hash';
+import type { NoteHash, Nullifier, ReadRequest, TreeLeafReadRequest } from '@aztec/stdlib/kernel';
+import type { PublicLog } from '@aztec/stdlib/logs';
+import type { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import type { PublicExecutionRequest } from '@aztec/stdlib/tx';
 
 export interface PublicSideEffects {
   /** The contract storage update requests performed. */

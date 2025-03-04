@@ -1,9 +1,9 @@
+import { pushTestData } from '@aztec/foundation/testing';
 import {
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelResetDimensions,
   privateKernelResetDimensionNames,
-} from '@aztec/circuits.js/kernel';
-import { pushTestData } from '@aztec/foundation/testing';
+} from '@aztec/stdlib/kernel';
 
 import {
   mapPrivateKernelCircuitPublicInputsToNoir,

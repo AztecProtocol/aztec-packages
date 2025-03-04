@@ -3,12 +3,12 @@
  * Rationale is that if it was good enough for them, then it should be good enough for us.
  * https://github.com/ChainSafe/lodestar
  */
-import { PeerErrorSeverity } from '@aztec/circuit-types';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type PeerScoring } from '../../peer-manager/peer_scoring.js';
-import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
+import type { PeerScoring } from '../../peer-manager/peer_scoring.js';
+import type { ReqRespSubProtocol, ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
 
 // Check for disconnected peers every 10 minutes

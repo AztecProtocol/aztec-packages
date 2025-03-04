@@ -2,7 +2,7 @@ import { type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { type ChildProcess } from 'child_process';
+import type { ChildProcess } from 'child_process';
 
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
@@ -14,17 +14,17 @@ const SLEEP_MS = 1000;
 
 describe('proving test', () => {
   let pxe: PXE;
-  let proc: ChildProcess | undefined;
+  const forwardProcesses: ChildProcess[] = [];
   beforeAll(async () => {
     let PXE_URL;
     if (isK8sConfig(config)) {
-      proc = await startPortForward({
+      const { process, port } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
-        hostPort: config.HOST_PXE_PORT,
       });
-      PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
+      forwardProcesses.push(process);
+      PXE_URL = `http://127.0.0.1:${port}`;
     } else {
       PXE_URL = config.PXE_URL;
     }
@@ -32,7 +32,7 @@ describe('proving test', () => {
   });
 
   afterAll(() => {
-    proc?.kill('SIGKILL');
+    forwardProcesses.forEach(p => p.kill());
   });
 
   it('advances the proven chain', async () => {

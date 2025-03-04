@@ -111,6 +111,43 @@ impl DefCollectorErrorKind {
             ) => unsupported_numeric_generic_type.ident.location(),
         }
     }
+
+    pub fn location(&self) -> Location {
+        match self {
+            DefCollectorErrorKind::Duplicate { first_def: ident, .. }
+            | DefCollectorErrorKind::UnresolvedModuleDecl { mod_name: ident, .. }
+            | DefCollectorErrorKind::CannotReexportItemWithLessVisibility {
+                item_name: ident,
+                ..
+            }
+            | DefCollectorErrorKind::MethodNotInTrait { impl_method: ident, .. }
+            | DefCollectorErrorKind::OverlappingModuleDecls { mod_name: ident, .. } => {
+                ident.location()
+            }
+            DefCollectorErrorKind::PathResolutionError(path_resolution_error) => {
+                path_resolution_error.location()
+            }
+            DefCollectorErrorKind::ImplIsStricterThanTrait {
+                trait_method_location: location,
+                ..
+            }
+            | DefCollectorErrorKind::TestOnAssociatedFunction { location }
+            | DefCollectorErrorKind::ExportOnAssociatedFunction { location }
+            | DefCollectorErrorKind::NonStructTypeInImpl { location }
+            | DefCollectorErrorKind::MutableReferenceInTraitImpl { location }
+            | DefCollectorErrorKind::OverlappingImpl { location, .. }
+            | DefCollectorErrorKind::ModuleAlreadyPartOfCrate { location, .. }
+            | DefCollectorErrorKind::ModuleOriginallyDefined { location, .. }
+            | DefCollectorErrorKind::TraitImplOrphaned { location }
+            | DefCollectorErrorKind::TraitMissingMethod { trait_impl_location: location, .. }
+            | DefCollectorErrorKind::ForeignImpl { location, .. } => *location,
+            DefCollectorErrorKind::NotATrait { not_a_trait_name: path }
+            | DefCollectorErrorKind::TraitNotFound { trait_path: path } => path.location,
+            DefCollectorErrorKind::UnsupportedNumericGenericType(
+                unsupported_numeric_generic_type,
+            ) => unsupported_numeric_generic_type.ident.location(),
+        }
+    }
 }
 
 impl<'a> From<&'a UnsupportedNumericGenericType> for Diagnostic {

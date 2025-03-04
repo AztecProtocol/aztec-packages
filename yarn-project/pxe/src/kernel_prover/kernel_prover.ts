@@ -1,49 +1,47 @@
-import {
-  type PrivateCallExecutionResult,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
-  collectEnqueuedPublicFunctionCalls,
-  collectNoteHashLeafIndexMap,
-  collectNoteHashNullifierCounterMap,
-  collectPublicTeardownFunctionCall,
-  getFinalMinRevertibleSideEffectCounter,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  AztecAddress,
-  ClientIvcProof,
-  Fr,
-  type PrivateLog,
-  type ScopedPrivateLogData,
-  type TxRequest,
-  VerificationKeyAsFields,
-  computeContractAddressFromInstance,
-} from '@aztec/circuits.js';
-import { hashVK } from '@aztec/circuits.js/hash';
+import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
+import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { assertLength } from '@aztec/foundation/serialize';
+import { pushTestData } from '@aztec/foundation/testing';
+import { Timer } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
+import { hashVK } from '@aztec/stdlib/hash';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelSimulateOutput,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
-} from '@aztec/circuits.js/kernel';
-import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
-import { createLogger } from '@aztec/foundation/log';
-import { assertLength } from '@aztec/foundation/serialize';
-import { pushTestData } from '@aztec/foundation/testing';
-import { Timer } from '@aztec/foundation/timer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+  type ScopedPrivateLogData,
+} from '@aztec/stdlib/kernel';
+import type { PrivateLog } from '@aztec/stdlib/logs';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import {
+  type PrivateCallExecutionResult,
+  type PrivateExecutionResult,
+  TxRequest,
+  collectEnqueuedPublicFunctionCalls,
+  collectNoteHashLeafIndexMap,
+  collectNoteHashNullifierCounterMap,
+  collectPublicTeardownFunctionCall,
+  getFinalMinRevertibleSideEffectCounter,
+} from '@aztec/stdlib/tx';
+import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import { type WitnessMap } from '@noir-lang/types';
+import type { WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import type { ProvingDataOracle } from './proving_data_oracle.js';
 
 // TODO(#10592): Temporary workaround to check that the private logs are correctly split into non-revertible set and revertible set.
 // This should be done in TailToPublicOutputValidator in private kernel tail.
@@ -93,7 +91,6 @@ export type ProvingConfig = {
   simulate: boolean;
   skipFeeEnforcement: boolean;
   profile: boolean;
-  dryRun: boolean;
 };
 
 /**
@@ -120,25 +117,20 @@ export class KernelProver {
    * @param txRequest - The authenticated transaction request object.
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @param profile - Set true to profile the gate count for each circuit
-   * @param dryRun - Set true to skip the IVC proof generation (only simulation is run). Useful for profiling gate count without proof gen.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    * TODO(#7368) this should be refactored to not recreate the ACIR bytecode now that it operates on a program stack
    */
   async prove(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig = {
+    { simulate, skipFeeEnforcement, profile }: ProvingConfig = {
       simulate: false,
       skipFeeEnforcement: false,
       profile: false,
-      dryRun: false,
     },
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    if (simulate && profile) {
-      throw new Error('Cannot simulate and profile at the same time');
-    }
-
-    simulate = simulate || this.fakeProofs;
+    const skipProofGeneration = this.fakeProofs || simulate;
+    const generateWitnesses = !skipProofGeneration || profile;
 
     const timer = new Timer();
 
@@ -154,7 +146,7 @@ export class KernelProver {
       const gateCount = (await this.proofCreator.computeGateCountForCircuit(bytecode, circuitName)) as number;
       gateCounts.push({ circuitName, gateCount });
 
-      this.log.info(`Tx ${txRequest.hash()}: bb gates for ${circuitName} - ${gateCount}`);
+      this.log.debug(`Gate count for ${circuitName} - ${gateCount}`);
     };
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
@@ -177,9 +169,9 @@ export class KernelProver {
         );
         while (resetBuilder.needsReset()) {
           const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-          output = simulate
-            ? await this.proofCreator.simulateReset(privateInputs)
-            : await this.proofCreator.generateResetOutput(privateInputs);
+          output = generateWitnesses
+            ? await this.proofCreator.generateResetOutput(privateInputs)
+            : await this.proofCreator.simulateReset(privateInputs);
           // TODO(#7368) consider refactoring this redundant bytecode pushing
           acirs.push(output.bytecode);
           witnessStack.push(output.outputWitness);
@@ -230,9 +222,9 @@ export class KernelProver {
 
         pushTestData('private-kernel-inputs-init', proofInput);
 
-        output = simulate
-          ? await this.proofCreator.simulateInit(proofInput)
-          : await this.proofCreator.generateInitOutput(proofInput);
+        output = generateWitnesses
+          ? await this.proofCreator.generateInitOutput(proofInput)
+          : await this.proofCreator.simulateInit(proofInput);
 
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
@@ -251,9 +243,9 @@ export class KernelProver {
 
         pushTestData('private-kernel-inputs-inner', proofInput);
 
-        output = simulate
-          ? await this.proofCreator.simulateInner(proofInput)
-          : await this.proofCreator.generateInnerOutput(proofInput);
+        output = generateWitnesses
+          ? await this.proofCreator.generateInnerOutput(proofInput)
+          : await this.proofCreator.simulateInner(proofInput);
 
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
@@ -273,9 +265,9 @@ export class KernelProver {
     );
     while (resetBuilder.needsReset()) {
       const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-      output = simulate
-        ? await this.proofCreator.simulateReset(privateInputs)
-        : await this.proofCreator.generateResetOutput(privateInputs);
+      output = generateWitnesses
+        ? await this.proofCreator.generateResetOutput(privateInputs)
+        : await this.proofCreator.simulateReset(privateInputs);
 
       acirs.push(output.bytecode);
       witnessStack.push(output.outputWitness);
@@ -292,7 +284,7 @@ export class KernelProver {
     }
 
     if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
-      if (!dryRun && !simulate) {
+      if (!skipProofGeneration) {
         throw new Error('Fee payment must be enforced when creating real proof.');
       }
       output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
@@ -314,9 +306,9 @@ export class KernelProver {
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 
-    const tailOutput = simulate
-      ? await this.proofCreator.simulateTail(privateInputs)
-      : await this.proofCreator.generateTailOutput(privateInputs);
+    const tailOutput = generateWitnesses
+      ? await this.proofCreator.generateTailOutput(privateInputs)
+      : await this.proofCreator.simulateTail(privateInputs);
     if (tailOutput.publicInputs.forPublic) {
       const privateLogs = privateInputs.previousKernel.publicInputs.end.privateLogs;
       const nonRevertiblePrivateLogs = tailOutput.publicInputs.forPublic.nonRevertibleAccumulatedData.privateLogs;
@@ -331,12 +323,12 @@ export class KernelProver {
       tailOutput.profileResult = { gateCounts };
     }
 
-    if (!simulate) {
+    if (generateWitnesses) {
       this.log.info(`Private kernel witness generation took ${timer.ms()}ms`);
     }
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
-    if (!dryRun && !simulate) {
+    if (!skipProofGeneration) {
       const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
       tailOutput.clientIvcProof = ivcProof;
     } else {

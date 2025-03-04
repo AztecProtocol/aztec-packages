@@ -91,12 +91,12 @@ last * (acc_ic - ic_byte) = 0;
 #[BITW_ACC_REL_C]
 (acc_ic - ic_byte - 256 * acc_ic') * (1 - last) = 0;
 
-#[LOOKUP_BITW_BYTE_LENGTHS]
+#[INTEGRAL_TAG_LENGTH]
 start {tag, ctr}
 in
 precomputed.sel_integral_tag {precomputed.clk, precomputed.integral_tag_length};
 
-#[LOOKUP_BITW_BYTE_OPERATIONS]
+#[BYTE_OPERATIONS]
 sel {op_id, ia_byte, ib_byte, ic_byte}
 in
 precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};
@@ -107,7 +107,7 @@ precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a,
 // Alternative implementation as potential speed-up
 // ################################################
 //
-// In vm1, we had an approach which requires one extra row per bitwise operation but 
+// In vm1, we had an approach which requires one extra row per bitwise operation but
 // had 2 less columns and #[BITW_CTR_DECREMENT] would have degree 0 and the degree 4 relation
 // #[BITW_LAST_FOR_CTR_ONE] is not present.
 // The main difference is that we decrement ctr down to zero (extra line) and impose an initialization
@@ -127,7 +127,7 @@ precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a,
 //              trace, then we could retrieve the result as a truncated trace of the larger.
 //
 // For instance, re-using example at the top, we consider the U16 and computation over
-// a = 0x5248 
+// a = 0x5248
 // b = 0xC684
 // c = 0x4200
 // Then, we should activate the start selector where ctr == 2, and the following rows

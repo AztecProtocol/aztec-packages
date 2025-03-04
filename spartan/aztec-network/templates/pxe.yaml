@@ -26,6 +26,8 @@ spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      {{- else }}
+      dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
         - name: config
@@ -95,8 +97,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: pxe
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -111,12 +111,10 @@ spec:
               value: "{{ .Values.aztec.realProofs }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}

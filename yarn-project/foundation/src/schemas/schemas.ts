@@ -7,7 +7,6 @@ import { Point } from '../fields/point.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
 import { bufferSchema, hexSchema } from './utils.js';
 
-/** Validation schemas for common types. Every schema must match its toJSON. */
 export const schemas = {
   /** Accepts a hex string. */
   EthAddress: EthAddress.schema,
@@ -60,3 +59,6 @@ export const schemas = {
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,
 };
+
+// These are needed to avoid errors such as: "The inferred type of 'YourClassSchema' cannot be named without a reference to..."
+export { EthAddress, Point, Fr, Fq };

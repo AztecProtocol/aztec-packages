@@ -26,7 +26,7 @@ describe('LmdbAztecCounter', () => {
   afterEach(async () => {
     await db.drop();
     await db.close();
-    await fs.rm(dir, { recursive: true, force: true });
+    await fs.rm(dir, { recursive: true, force: true, maxRetries: 3 });
   });
 
   forEach([

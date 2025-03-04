@@ -1,5 +1,6 @@
 use clap::Args;
 
+use nargo::PrintOutput;
 use nargo::constants::PROVER_INPUT_FILE;
 use nargo::workspace::Workspace;
 use nargo_toml::PackageSelection;

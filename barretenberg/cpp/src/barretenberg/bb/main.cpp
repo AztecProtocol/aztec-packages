@@ -29,6 +29,34 @@ void print_active_subcommands(const CLI::App& app, const std::string& prefix = "
     }
 }
 
+// Recursive helper to find the deepest parsed subcommand.
+CLI::App* find_deepest_subcommand(CLI::App* app)
+{
+    for (auto& sub : app->get_subcommands()) {
+        if (sub->parsed()) {
+            // Check recursively if this subcommand has a deeper parsed subcommand.
+            if (CLI::App* deeper = find_deepest_subcommand(sub); deeper != nullptr) {
+                return deeper;
+            }
+            return sub;
+        }
+    }
+    return nullptr;
+}
+
+// Helper function to print options for a given subcommand.
+void print_subcommand_options(const CLI::App* sub)
+{
+    for (const auto& opt : sub->get_options()) {
+        if (opt->count() > 0) { // Only print options that were set.
+            if (opt->results().size() > 1) {
+                vinfo("  Warning: the following option is called more than once");
+            }
+            vinfo("  ", opt->get_name(), ": ", opt->results()[0]);
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
@@ -58,13 +86,13 @@ int main(int argc, char* argv[])
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
-    flags.output_data_type = "bytes";
+    flags.output_format = "bytes";
     flags.crs_path = []() {
         char* home = std::getenv("HOME");
         std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
         return base / ".bb-crs";
     }();
-
+    flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
         return subcommand->add_option("--output_path, -o",
                                       _output_path,
@@ -81,9 +109,12 @@ int main(int argc, char* argv[])
     };
 
     const auto add_honk_recursion_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--honk_recursion",
-                                      flags.honk_recursion,
-                                      "Do some things relating to recursive verification, possibly IPA...");
+        return subcommand->add_option(
+            "--honk_recursion",
+            flags.honk_recursion,
+            "Instruct the prover that this circuit will be recursively verified with "
+            "UltraHonk (1) or with UltraRollupHonk (2). Ensures a pairing point accumulator "
+            "(and additionally an IPA claim when UltraRollupHonk) is added to the public inputs of the proof.");
     };
 
     const auto add_scheme_option = [&](CLI::App* subcommand) {
@@ -117,11 +148,11 @@ int main(int argc, char* argv[])
             ->check(CLI::IsMember({ "poseidon2", "keccak" }).name("is_member"));
     };
 
-    const auto add_output_data_option = [&](CLI::App* subcommand) {
+    const auto add_output_format_option = [&](CLI::App* subcommand) {
         return subcommand
             ->add_option(
-                "--output_data",
-                flags.output_data_type,
+                "--output_format",
+                flags.output_format,
                 "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
                 "header information for deserialization. If fields, output a string representation of an array of "
                 "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
@@ -129,12 +160,8 @@ int main(int argc, char* argv[])
             ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 
-    const auto add_output_content_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option("--output_content",
-                         flags.output_content_type,
-                         "The data to be written. Options are: a proof, a verification key, or both.")
-            ->check(CLI::IsMember({ "proof", "vk", "proof_and_vk" }).name("is_member"));
+    const auto add_write_vk_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--write_vk", flags.write_vk, "Write the provided circuit's verification key");
     };
 
     const auto add_input_type_option = [&](CLI::App* subcommand) {
@@ -142,15 +169,15 @@ int main(int argc, char* argv[])
             subcommand
                 ->add_option("--input_type",
                              flags.input_type,
-                             "Is the input a single circuit, a compile-time stack or a run-time stack?")
+                             "Specify the type of input circuit. Options are: single_circuit, compiletime_stack, "
+                             "runtime_stack")
                 ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"));
         return input_type_option;
     };
 
     const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--ipa_accumulation",
-                                    flags.ipa_accumulation,
-                                    "Does the protocol accumulate/aggregate IPA (Inner Product Argument) claims?");
+        return subcommand->add_flag(
+            "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
     };
 
     const auto add_zk_option = [&](CLI::App* subcommand) {
@@ -190,6 +217,12 @@ int main(int argc, char* argv[])
         return subcommand->add_flag("--debug_logging, -d", flags.debug, "Output debug logs to stderr.");
     };
 
+    const auto add_include_gates_per_opcode_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--include_gates_per_opcode",
+                                    flags.include_gates_per_opcode,
+                                    "Include gates_per_opcode in the output of the gates command.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -221,8 +254,11 @@ int main(int argc, char* argv[])
                                          "Construct a circuit from the given bytecode (in particular, expand black box "
                                          "functions) and return the gate count information.");
 
+    add_scheme_option(gates);
     add_verbose_flag(gates);
     add_bytecode_path_option(gates);
+    add_honk_recursion_option(gates);
+    add_include_gates_per_opcode_flag(gates);
 
     /***************************************************************************************************************
      * Subcommand: prove
@@ -238,8 +274,8 @@ int main(int argc, char* argv[])
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
-    add_output_data_option(prove);
-    add_output_content_option(prove)->default_val("proof");
+    add_output_format_option(prove);
+    add_write_vk_flag(prove);
     add_input_type_option(prove);
     add_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
@@ -264,7 +300,7 @@ int main(int argc, char* argv[])
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
-    add_output_data_option(write_vk);
+    add_output_format_option(write_vk);
     add_input_type_option(write_vk);
     add_crs_path_option(write_vk);
     add_init_kzg_accumulator_option(write_vk);
@@ -293,21 +329,21 @@ int main(int argc, char* argv[])
     add_recursive_flag(verify);
 
     /***************************************************************************************************************
-     * Subcommand: write_contract
+     * Subcommand: write_solidity_verifier
      ***************************************************************************************************************/
-    CLI::App* write_contract =
-        app.add_subcommand("write_contract",
-                           "Write a smart contract suitable for verifying proofs of circuit "
+    CLI::App* write_solidity_verifier =
+        app.add_subcommand("write_solidity_verifier",
+                           "Write a Solidity smart contract suitable for verifying proofs of circuit "
                            "satisfiability for the circuit with verification key at vk_path. Not all "
                            "hash types are implemented due to efficiency concerns.");
 
-    add_scheme_option(write_contract);
-    add_vk_path_option(write_contract);
-    add_output_path_option(write_contract, output_path);
+    add_scheme_option(write_solidity_verifier);
+    add_vk_path_option(write_solidity_verifier);
+    add_output_path_option(write_solidity_verifier, output_path);
 
-    add_verbose_flag(write_contract);
-    add_zk_option(write_contract);
-    add_crs_path_option(write_contract);
+    add_verbose_flag(write_solidity_verifier);
+    add_zk_option(write_solidity_verifier);
+    add_crs_path_option(write_solidity_verifier);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API
@@ -614,11 +650,13 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
-    print_active_subcommands(app);
-    vinfo(flags);
-
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
+
+    print_active_subcommands(app);
+    if (CLI::App* deepest = find_deepest_subcommand(&app)) {
+        print_subcommand_options(deepest);
+    }
 
     // prob this construction is too much
     const auto execute_command = [&](API& api) {
@@ -641,8 +679,8 @@ int main(int argc, char* argv[])
         if (verify->parsed()) {
             return api.verify(flags, proof_path, vk_path) ? 0 : 1;
         }
-        if (write_contract->parsed()) {
-            api.write_contract(flags, output_path, vk_path);
+        if (write_solidity_verifier->parsed()) {
+            api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
         }
         auto subcommands = app.get_subcommands();
@@ -660,7 +698,7 @@ int main(int argc, char* argv[])
         }
         // ULTRA PLONK
         else if (OLD_API_gates->parsed()) {
-            gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
+            gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
         } else if (OLD_API_prove->parsed()) {
             prove_ultra_plonk(bytecode_path, witness_path, plonk_prove_output_path, flags.recursive);
         } else if (OLD_API_prove_output_all->parsed()) {
@@ -710,9 +748,9 @@ int main(int argc, char* argv[])
         }
         // CLIENT IVC EXTRA COMMAND
         else if (OLD_API_gates_for_ivc->parsed()) {
-            gate_count_for_ivc(bytecode_path);
+            gate_count_for_ivc(bytecode_path, true);
         } else if (OLD_API_gates_mega_honk->parsed()) {
-            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion);
+            gate_count<MegaCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
         } else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
             write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
             return 0;
