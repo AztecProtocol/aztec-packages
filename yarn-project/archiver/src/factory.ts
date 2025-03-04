@@ -34,14 +34,31 @@ import { createArchiverClient } from './rpc/index.js';
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
   blobSinkClient: BlobSinkClientInterface,
-  opts: { blockUntilSync: boolean } = { blockUntilSync: true },
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
   const store = await createStore('archiver', config, createLogger('archiver:lmdb'));
   const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
   await registerProtocolContracts(archiverStore);
   await registerCommonContracts(archiverStore);
-  return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
+  return Archiver.create(config, archiverStore, { telemetry, blobSinkClient });
+}
+
+/**
+ * Creates a local archiver and blocks until it syncs from chain.
+ * @param config - The archiver configuration.
+ * @param blobSinkClient - The blob sink client.
+ * @param telemetry - The telemetry client.
+ * @returns The local archiver.
+ */
+export async function createArchiverAndSync(
+  config: ArchiverConfig & DataStoreConfig,
+  blobSinkClient: BlobSinkClientInterface,
+  blockUntilSynced: boolean,
+  telemetry: TelemetryClient = getTelemetryClient(),
+): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
+  const archiver = await createArchiver(config, blobSinkClient, telemetry);
+  await archiver.start(blockUntilSynced);
+  return archiver;
 }
 
 /**

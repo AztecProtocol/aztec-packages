@@ -155,7 +155,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       );
     }
 
-    const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
+    const archiver = await createArchiver(config, blobSinkClient, telemetry);
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
@@ -184,8 +184,14 @@ export class AztecNodeService implements AztecNode, Traceable {
 
     const slasherClient = createSlasherClient(config, archiver, telemetry);
 
+    await p2pClient.start();
     // start both and wait for them to sync from the block source
-    await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);
+
+    // Start the archiver after the p2p client, as it relies on the archiver's events
+    await archiver.start(/* blockUntilSync=*/ true);
+    await worldStateSynchronizer.start();
+
+    slasherClient.start();
     log.verbose(`All Aztec Node subsystems synced`);
 
     const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
