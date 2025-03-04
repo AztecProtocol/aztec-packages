@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 
 namespace bb {
@@ -17,10 +16,6 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
-    // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
-    // `multivariate_to_univariate_opening_claim`
-    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
-
   public:
     explicit ECCVMRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
@@ -34,15 +29,14 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
-
-    TranslationEvaluations_<FF> translation_evaluations;
-    FF translation_masking_term_eval;
+    // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
+    // `multivariate_to_univariate_opening_claim`
+    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
+    FF translation_masking_term_eval;
 
-    // Translation evaluations challenges. They are propagated to the TranslatorVerifier
+    // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;
     FF batching_challenge_v;
-
-    bool translation_masking_consistency_checked = false;
 };
 } // namespace bb

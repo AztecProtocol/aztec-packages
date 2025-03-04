@@ -240,8 +240,14 @@ ECCVMProof ECCVMProver::construct_proof()
  */
 void ECCVMProver::compute_translation_opening_claims()
 {
+    // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAProver<ECCVMFlavor>;
-    // Collect the polynomials and evaluations to be batched
+
+    // Initialize SmallSubgroupIPA structures
+    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
+
+    // Collect the polynomials to be batched
     RefArray translation_polynomials{ key->polynomials.transcript_op,
                                       key->polynomials.transcript_Px,
                                       key->polynomials.transcript_Py,

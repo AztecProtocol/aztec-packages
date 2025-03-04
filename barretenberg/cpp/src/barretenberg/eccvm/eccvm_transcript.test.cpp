@@ -183,7 +183,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
-        manifest_expected.add_entry(round, "Translation:batched_masking_term_commitment", frs_per_G);
+        manifest_expected.add_entry(round, "Translation:concatenated_masking_term_commitment", frs_per_G);
         manifest_expected.add_challenge(round, "Translation:evaluation_challenge_x");
 
         round++;

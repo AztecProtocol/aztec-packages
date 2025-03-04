@@ -1,6 +1,7 @@
 #include "./eccvm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -142,40 +143,63 @@ template <typename Flavor>
 void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     const std::vector<Commitment>& translation_commitments)
 {
+    TranslationEvaluations_<FF> translation_evaluations;
+
+    // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAVerifier<typename Flavor::Curve>;
 
-    std::array<Commitment, NUM_SMALL_IPA_EVALUATIONS> small_ipa_commitments{
-        transcript->template receive_from_prover<Commitment>("Translation:batched_masking_term_commitment")
-    };
+    // Initialize SmallSubgroupIPA structures
+    SmallSubgroupIPACommitments<Commitment> small_ipa_commitments;
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
+    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels = SmallIPA::evaluation_labels("Translation");
 
+    // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of `translation_polynomials`,
+    // Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
+    small_ipa_commitments.concatenated =
+        transcript->template receive_from_prover<Commitment>("Translation:concatenated_masking_term_commitment");
+
+    // Get a challenge to evaluate `translation_polynomials` as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
-    // Construct the array of evaluations to be batched, the evaluations being received from the prover
+    // Populate the translation evaluations  {`op(x)`, `Px(x)`, `Py(x)`, `z1(x)`, `z2(x)`} to be batched
     for (auto [eval, label] : zip_view(translation_evaluations.get_all(), translation_evaluations.labels)) {
         eval = transcript->template receive_from_prover<FF>(label);
     }
+
     // Get the batching challenge for commitments and evaluations
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
+    // Get the value ∑ mᵢ(x) ⋅ vⁱ
     translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
 
-    small_ipa_commitments[1] = transcript->template receive_from_prover<Commitment>("Translation:grand_sum_commitment");
-    small_ipa_commitments[2] = small_ipa_commitments[1];
-    small_ipa_commitments[3] = transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
+    // Receive commitments to the SmallSubgroupIPA witnesses that are computed once x and v are available
+    small_ipa_commitments.grand_sum =
+        transcript->template receive_from_prover<Commitment>("Translation:grand_sum_commitment");
+    small_ipa_commitments.quotient =
+        transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
 
-    FF small_ipa_evaluation_challenge =
+    // Get a challenge for the evaluations of the concatenated masking term G, grand sum A, its shift, and grand sum
+    // idenity qutient Q
+    const FF small_ipa_evaluation_challenge =
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
 
-    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels = SmallIPA::evaluation_labels("Translation");
+    // Compute {r, r * g, r , r}, where r = `small_ipa_evaluation_challenge`
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points =
         SmallIPA::evaluation_points(small_ipa_evaluation_challenge);
 
-    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
-
+    // Get the evaluations G(r), A(r), A(g*r), Q(r)
     for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
         small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);
-        opening_claims[idx] = { { evaluation_points[idx], small_ipa_evaluations[idx] }, small_ipa_commitments[idx] };
+        opening_claims[idx] = { { evaluation_points[idx], small_ipa_evaluations[idx] },
+                                small_ipa_commitments.get_all()[idx] };
     }
+
+    // Check Grand Sum Identity at r
+    SmallIPA::check_eccvm_evaluations_consistency(small_ipa_evaluations,
+                                                  small_ipa_evaluation_challenge,
+                                                  evaluation_challenge_x,
+                                                  batching_challenge_v,
+                                                  translation_masking_term_eval);
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     auto batched_translation_evaluation = translation_evaluations.get_all()[0];
@@ -189,15 +213,9 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     }
     const Commitment batched_commitment = Commitment::batch_mul(translation_commitments, batching_challenges);
 
+    // Place the claim to the array containing the SmallSubgroupIPA opening claims
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
-
-    translation_masking_consistency_checked =
-        SmallIPA::check_eccvm_evaluations_consistency(small_ipa_evaluations,
-                                                      small_ipa_evaluation_challenge,
-                                                      evaluation_challenge_x,
-                                                      batching_challenge_v,
-                                                      translation_masking_term_eval);
 };
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
