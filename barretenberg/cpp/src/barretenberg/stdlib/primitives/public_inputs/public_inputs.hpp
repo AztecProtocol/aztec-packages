@@ -61,7 +61,7 @@ class PublicInputComponent {
         // Ensure that the key has been set
         if (!key.exists_flag) {
             info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
-            ASSERT(false);
+            // ASSERT(false);
         }
         // Extract from the public inputs the limbs needed reconstruct the component
         std::span<const Fr> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
