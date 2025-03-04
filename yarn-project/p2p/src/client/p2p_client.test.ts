@@ -53,9 +53,8 @@ describe('In-Memory P2P Client', () => {
     await kvStore.close();
   });
 
-  const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
+  const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
-    blockSource.setProvenEpochNumber(provenEpochNumber);
     await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
   };
 

@@ -1454,8 +1454,8 @@ impl Type {
             Type::NamedGeneric(var, _) => var.kind(),
             Type::Constant(_, kind) => kind.clone(),
             Type::TypeVariable(var) => match &*var.borrow() {
-                TypeBinding::Bound(ref typ) => typ.kind(),
-                TypeBinding::Unbound(_, ref type_var_kind) => type_var_kind.clone(),
+                TypeBinding::Bound(typ) => typ.kind(),
+                TypeBinding::Unbound(_, type_var_kind) => type_var_kind.clone(),
             },
             Type::InfixExpr(lhs, _op, rhs, _) => lhs.infix_kind(rhs),
             Type::Alias(def, generics) => def.borrow().get_type(generics).kind(),
@@ -1651,8 +1651,8 @@ impl Type {
                         typ.try_bind_to_polymorphic_int(var, bindings, only_integer)
                     }
                     // Avoid infinitely recursive bindings
-                    TypeBinding::Unbound(ref id, _) if *id == target_id => Ok(()),
-                    TypeBinding::Unbound(ref new_target_id, Kind::IntegerOrField) => {
+                    TypeBinding::Unbound(id, _) if *id == target_id => Ok(()),
+                    TypeBinding::Unbound(new_target_id, Kind::IntegerOrField) => {
                         let type_var_kind = Kind::IntegerOrField;
                         if only_integer {
                             let var_clone = var.clone();
@@ -1675,7 +1675,7 @@ impl Type {
                         bindings.insert(target_id, (var.clone(), Kind::Integer, this.clone()));
                         Ok(())
                     }
-                    TypeBinding::Unbound(new_target_id, ref type_var_kind) => {
+                    TypeBinding::Unbound(new_target_id, type_var_kind) => {
                         let var_clone = var.clone();
                         // Bind to the most specific type variable kind
                         let clone_kind =
@@ -2913,7 +2913,7 @@ impl From<&Type> for PrintableType {
             Type::Error => unreachable!(),
             Type::Unit => PrintableType::Unit,
             Type::Constant(_, _) => unreachable!(),
-            Type::DataType(def, ref args) => {
+            Type::DataType(def, args) => {
                 let data_type = def.borrow();
                 let name = data_type.name.to_string();
 
