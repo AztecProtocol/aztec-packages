@@ -11,7 +11,6 @@ import {
   getContract,
 } from 'viem';
 
-import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1Clients, ViemPublicClient } from '../types.js';
 import { GovernanceContract } from './governance.js';
 import { RollupContract } from './rollup.js';
@@ -63,9 +62,10 @@ export class RegistryContract {
     return address;
   }
 
-  public async getGovernanceAddresses(): Promise<
-    Pick<L1ContractAddresses, 'governanceProposerAddress' | 'governanceAddress'>
-  > {
+  public async getGovernanceAddresses(): Promise<{
+    governanceAddress: EthAddress;
+    governanceProposerAddress: EthAddress;
+  }> {
     const governanceAddress = await this.registry.read.getGovernance();
     const governance = new GovernanceContract(governanceAddress, this.client, undefined);
     const governanceProposer = await governance.getProposer();
@@ -79,7 +79,7 @@ export class RegistryContract {
     client: ViemPublicClient,
     registryAddress: Hex | EthAddress,
     rollupVersion: number | bigint | 'canonical',
-  ): Promise<L1ContractAddresses> {
+  ) {
     const registry = new RegistryContract(client, registryAddress);
     const governanceAddresses = await registry.getGovernanceAddresses();
     const rollupAddress = await registry.getRollupAddress(rollupVersion);

@@ -6,24 +6,21 @@ import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
 import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
 
 import { getPublicClient } from '../client.js';
-import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
-import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
 import type { ViemPublicClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 
-export type L1RollupContractAddresses = Pick<
-  L1ContractAddresses,
-  | 'rollupAddress'
-  | 'inboxAddress'
-  | 'outboxAddress'
-  | 'feeJuicePortalAddress'
-  | 'feeJuiceAddress'
-  | 'stakingAssetAddress'
-  | 'rewardDistributorAddress'
-  | 'slashFactoryAddress'
->;
+export type L1RollupContractAddresses = {
+  rollupAddress: EthAddress;
+  inboxAddress: EthAddress;
+  outboxAddress: EthAddress;
+  feeJuicePortalAddress: EthAddress;
+  feeJuiceAddress: EthAddress;
+  stakingAssetAddress: EthAddress;
+  rewardDistributorAddress: EthAddress;
+  slashFactoryAddress: EthAddress;
+};
 
 export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
@@ -46,18 +43,19 @@ export class RollupContract {
     return BigInt(asString);
   }
 
-  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
-    const {
-      publicClient,
-      l1ContractAddresses: { rollupAddress },
-    } = deployL1ContractsValues;
+  static getFromL1ContractsValues({
+    publicClient,
+    rollupAddress,
+  }: {
+    publicClient: ViemPublicClient;
+    rollupAddress: EthAddress;
+  }) {
     return new RollupContract(publicClient, rollupAddress.toString());
   }
 
-  static getFromConfig(config: L1ReaderConfig) {
+  static getFromConfig(config: L1ReaderConfig, rollupAddress: EthAddress) {
     const client = getPublicClient(config);
-    const address = config.l1Contracts.rollupAddress.toString();
-    return new RollupContract(client, address);
+    return new RollupContract(client, rollupAddress);
   }
 
   constructor(public readonly client: ViemPublicClient, address: Hex | EthAddress) {
@@ -177,7 +175,7 @@ export class RollupContract {
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
   }
 
-  async getRollupAddresses(): Promise<L1RollupContractAddresses> {
+  async getRollupAddresses() {
     const [
       inboxAddress,
       outboxAddress,

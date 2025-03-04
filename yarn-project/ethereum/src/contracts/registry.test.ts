@@ -7,8 +7,12 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { createL1Clients, deployL1Contracts, deployRollupAndPeriphery } from '../deploy_l1_contracts.js';
-import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import {
+  type DeployL1ContractsReturnType,
+  createL1Clients,
+  deployL1Contracts,
+  deployRollupAndPeriphery,
+} from '../deploy_l1_contracts.js';
 import { defaultL1TxUtilsConfig } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
 import { createGovernanceProposal, executeGovernanceProposal } from '../test/upgrade_utils.js';
@@ -29,7 +33,7 @@ describe('Registry', () => {
   let publicClient: L1Clients['publicClient'];
   let walletClient: L1Clients['walletClient'];
   let registry: RegistryContract;
-  let deployedAddresses: L1ContractAddresses;
+  let deployedAddresses: Omit<DeployL1ContractsReturnType['l1ContractAddresses'], 'slashFactoryAddress'>;
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:registry');

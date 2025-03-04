@@ -59,7 +59,6 @@ import { isAnvilTestChain } from './chain.js';
 import type { L1ContractsConfig } from './config.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
-import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
 
@@ -80,7 +79,20 @@ export type DeployL1ContractsReturnType = {
   /**
    * The currently deployed l1 contract addresses
    */
-  l1ContractAddresses: L1ContractAddresses;
+  l1ContractAddresses: {
+    rollupAddress: EthAddress;
+    registryAddress: EthAddress;
+    inboxAddress: EthAddress;
+    outboxAddress: EthAddress;
+    feeJuiceAddress: EthAddress;
+    stakingAssetAddress: EthAddress;
+    feeJuicePortalAddress: EthAddress;
+    coinIssuerAddress: EthAddress;
+    rewardDistributorAddress: EthAddress;
+    governanceProposerAddress: EthAddress;
+    governanceAddress: EthAddress;
+    slashFactoryAddress: EthAddress;
+  };
 };
 
 export interface LinkReferences {
@@ -279,7 +291,10 @@ export const deploySlashFactory = async (deployer: L1Deployer, rollupAddress: He
 
 export const deployUpgradePayload = async (
   deployer: L1Deployer,
-  addresses: Pick<L1ContractAddresses, 'registryAddress' | 'rollupAddress'>,
+  addresses: {
+    registryAddress: EthAddress;
+    rollupAddress: EthAddress;
+  },
 ) => {
   const payloadAddress = await deployer.deploy(l1Artifacts.registerNewRollupVersionPayload, [
     addresses.registryAddress.toString(),
@@ -293,7 +308,11 @@ export const deployRollup = async (
   clients: L1Clients,
   deployer: L1Deployer,
   args: DeployL1ContractsArgs,
-  addresses: Pick<L1ContractAddresses, 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'>,
+  addresses: {
+    feeJuicePortalAddress: EthAddress;
+    rewardDistributorAddress: EthAddress;
+    stakingAssetAddress: EthAddress;
+  },
   logger: Logger,
 ): Promise<RollupContract> => {
   const rollupConfigArgs = {
