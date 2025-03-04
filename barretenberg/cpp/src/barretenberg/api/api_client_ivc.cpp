@@ -312,7 +312,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 
         auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
-        size_t circuit_size = builder.get_finalized_total_circuit_size();
+        size_t circuit_size = builder.num_gates;
 
         // Print the details of the gate types within the structured execution trace
         builder.blocks.set_fixed_block_sizes(trace_settings);

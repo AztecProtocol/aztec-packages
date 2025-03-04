@@ -473,9 +473,9 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** ou
         const acir_format::ProgramMetadata metadata{
             .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
         };
-        auto builder = acir_format::create_circuit(program, metadata);
+        auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
-        totals.push_back(static_cast<uint32_t>(builder.get_finalized_total_circuit_size()));
+        totals.push_back(static_cast<uint32_t>(builder.num_gates));
     }
     auto totalsBytes = to_buffer<false>(totals);
 
