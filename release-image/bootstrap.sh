@@ -16,7 +16,7 @@ case "$cmd" in
     ;;
   "release")
     echo_header "release-image release"
-    docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:${REF_NAME}-$(arch)
+    docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:${REF_NAME}-$(arch)
     do_or_dryrun docker push aztecprotocol/aztec:${REF_NAME}-$(arch)
 
     # If doing a release in CI, update the remote manifest if we're the arm build.

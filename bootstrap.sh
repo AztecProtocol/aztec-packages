@@ -255,8 +255,8 @@ function release {
     l1-contracts
     yarn-project
     boxes
-    playground
     aztec-up
+    playground
     docs
     release-image
   )
@@ -288,8 +288,8 @@ function release_commit {
     noir
     l1-contracts
     yarn-project
-    # Should publish at least one of our boxes to it's own repo.
-    #boxes
+    boxes
+    aztec-up
     playground
     docs
     release-image
