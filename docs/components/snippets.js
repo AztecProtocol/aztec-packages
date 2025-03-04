@@ -1,5 +1,13 @@
 import React from "react";
 
+export const CLI_Add_Test_Accounts = () => (
+  <p>
+    For convenience, the sandbox comes with 3 initial accounts that are
+    prefunded, helping bootstrap payment of any transaction. To use them, you
+    will need to add them to your pxe/wallet.
+  </p>
+);
+
 export const Why_Fees = () => (
   <p>
     Fees are an integral part of any protocol's design. Proper fee pricing

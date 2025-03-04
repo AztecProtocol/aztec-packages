@@ -89,8 +89,10 @@ export class FeeOpts implements IFeeOpts {
 
   static paymentMethodOption() {
     return new Option(
+      // docs:start:cli_payment_method
       '--payment <method=name,feePayer=string,asset=address,fpc=address,claimSecret=string,claimAmount=string,feeRecipient=string>',
       'Fee payment method and arguments. Valid methods are: fee_juice, fpc-public, fpc-private.',
+      // docs:end:cli_payment_method
     );
   }
 
