@@ -6,7 +6,7 @@ const CLIENT_IVC_PROOF_LENGTH = 172052;
 const CLIENT_IVC_VK_LENGTH = 2730;
 
 /**
- * TODO(https://github.com/AztecProtocol/aztec-packages/issues/7370) refactory this to
+ * TODO(https://github.com/AztecProtocol/aztec-packages/issues/7370) refactor this to
  * eventually we read all these VKs from the data tree instead of passing them
  */
 export class ClientIvcProof {

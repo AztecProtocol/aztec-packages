@@ -18,7 +18,7 @@ ContractClass ContractDB::get_contract_class(const ContractClassId& class_id) co
     return klass;
 }
 
-const TreeRoots& MerkleDB::get_tree_roots() const
+const TreeSnapshots& MerkleDB::get_tree_roots() const
 {
     // No event generated.
     return raw_merkle_db.get_tree_roots();
