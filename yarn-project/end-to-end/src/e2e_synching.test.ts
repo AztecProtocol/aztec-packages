@@ -33,7 +33,7 @@
  */
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
-import { createArchiver } from '@aztec/archiver';
+import { createArchiverAndSync } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
@@ -550,9 +550,7 @@ describe('e2e_synching', () => {
           const blobSinkClient = createBlobSinkClient({
             blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
           });
-          const archiver = await createArchiver(opts.config!, blobSinkClient, {
-            blockUntilSync: true,
-          });
+          const archiver = await createArchiverAndSync(opts.config!, blobSinkClient, /*blockUntilSync*/ true);
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
