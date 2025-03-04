@@ -40,10 +40,15 @@ export async function createPXEService(
   } as PXEServiceConfig;
 
   const keyStore = new KeyStore(
-    await createStore('pxe_key_store', configWithContracts, createLogger('pxe:keystore:lmdb')),
+    await createStore('pxe_key_store', KeyStore.SCHEMA_VERSION, configWithContracts, createLogger('pxe:keystore:lmdb')),
   );
 
-  const store = await createStore('pxe_data', configWithContracts, createLogger('pxe:data:lmdb'));
+  const store = await createStore(
+    'pxe_data',
+    KVPxeDatabase.SCHEMA_VERSION,
+    configWithContracts,
+    createLogger('pxe:data:lmdb'),
+  );
 
   const db = await KVPxeDatabase.create(store);
   const tips = new L2TipsStore(store, 'pxe');

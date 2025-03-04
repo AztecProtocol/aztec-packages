@@ -14,21 +14,21 @@ import { Fr } from '@aztec/foundation/fields';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { L2Block } from '@aztec/stdlib/block';
+import { DatabaseVersion, DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import { mkdtemp, rm } from 'fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateStatusSummary } from './message.js';
-import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
-import { WorldStateVersion } from './world_state_version.js';
+import { NativeWorldStateService } from './native_world_state.js';
 
 jest.setTimeout(60_000);
 
@@ -109,14 +109,14 @@ describe('NativeWorldState', () => {
       expect(status.summary.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
       // we open up the version file that was created and modify the version to be older
-      const fullPath = join(dataDir, 'world_state', WORLD_STATE_VERSION_FILE);
-      const storedWorldStateVersion = await WorldStateVersion.readVersion(fullPath);
+      const fullPath = join(dataDir, 'world_state', DatabaseVersionManager.VERSION_FILE);
+      const storedWorldStateVersion = DatabaseVersion.fromBuffer(await readFile(fullPath));
       expect(storedWorldStateVersion).toBeDefined();
-      const modifiedVersion = new WorldStateVersion(
-        storedWorldStateVersion!.version - 1,
+      const modifiedVersion = new DatabaseVersion(
+        storedWorldStateVersion!.schemaVersion - 1,
         storedWorldStateVersion!.rollupAddress,
       );
-      await modifiedVersion.writeVersionFile(fullPath);
+      await writeFile(fullPath, modifiedVersion.toBuffer());
 
       // Open the world state again and it should be empty
       ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);

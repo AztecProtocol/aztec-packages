@@ -41,7 +41,7 @@ export async function startArchiver(
   archiverConfig = { ...archiverConfig, ...config };
 
   const storeLog = createLogger('archiver:lmdb');
-  const store = await createStore('archiver', archiverConfig, storeLog);
+  const store = await createStore('archiver', KVArchiverDataStore.SCHEMA_VERSION, archiverConfig, storeLog);
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());

@@ -1,3 +1,4 @@
+import { type L1ContractAddresses, l1ContractAddressesMapping } from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -29,7 +30,8 @@ export const ProverBrokerConfig = z.object({
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
-  Pick<DataStoreConfig, 'dataStoreMapSizeKB' | 'dataDirectory'>;
+  Pick<DataStoreConfig, 'dataStoreMapSizeKB' | 'dataDirectory'> &
+  Pick<L1ContractAddresses, 'rollupAddress'>;
 
 export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> = {
   proverBrokerJobTimeoutMs: {
@@ -62,6 +64,7 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     description: 'The maximum number of epochs to keep results for',
     ...numberConfigHelper(1),
   },
+  rollupAddress: l1ContractAddressesMapping.rollupAddress,
   ...dataConfigMappings,
 };
 

@@ -46,7 +46,8 @@
     "./interfaces/server": "./dest/interfaces/server.js",
     "./epoch-helpers": "./dest/epoch-helpers/index.js",
     "./config": "./dest/config/index.js",
-    "./testing/jest": "./dest/tests/jest.js"
+    "./testing/jest": "./dest/tests/jest.js",
+    "./database-version": "./dest/database-version/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

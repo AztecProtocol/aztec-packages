@@ -20,6 +20,7 @@ import {
  * Used for managing keys. Can hold keys of multiple accounts.
  */
 export class KeyStore {
+  public static readonly SCHEMA_VERSION = 1;
   #keys: AztecAsyncMap<string, Buffer>;
 
   constructor(database: AztecAsyncKVStore) {

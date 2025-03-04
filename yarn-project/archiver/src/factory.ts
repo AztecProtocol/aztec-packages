@@ -37,7 +37,12 @@ export async function createArchiver(
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
-  const store = await createStore('archiver', config, createLogger('archiver:lmdb'));
+  const store = await createStore(
+    'archiver',
+    KVArchiverDataStore.SCHEMA_VERSION,
+    config,
+    createLogger('archiver:lmdb'),
+  );
   const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
   await registerProtocolContracts(archiverStore);
   await registerCommonContracts(archiverStore);

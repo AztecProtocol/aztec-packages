@@ -31,6 +31,8 @@ import { NullifierStore } from './nullifier_store.js';
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class KVArchiverDataStore implements ArchiverDataStore {
+  public static readonly SCHEMA_VERSION = 1;
+
   #blockStore: BlockStore;
   #logStore: LogStore;
   #nullifierStore: NullifierStore;
