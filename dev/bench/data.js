@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741122845346,
+  "lastUpdate": 1741127426083,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "5764343+charlielye@users.noreply.github.com",
-            "name": "Charlie Lye",
-            "username": "charlielye"
-          },
-          "committer": {
-            "email": "5764343+charlielye@users.noreply.github.com",
-            "name": "Charlie Lye",
-            "username": "charlielye"
-          },
-          "distinct": true,
-          "id": "fd5623ff6400e72f1c1d44a79e74b32cb75d3ced",
-          "message": "skip test-local as currently straight broken",
-          "timestamp": "2025-02-27T11:06:46Z",
-          "tree_id": "88c71c510d2c35ebb71fa90009c46f7de29d6633",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fd5623ff6400e72f1c1d44a79e74b32cb75d3ced"
-        },
-        "date": 1740655548700,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17866.746497999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15770.071739 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18498.92563600008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16011.8173 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3937.0831370000587,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3097.0220990000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54746.462700000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54746465000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11366.09799,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11366105000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1892177735,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1892177735 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 214794050,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 214794050 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 225709926,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 225709926 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a1550be5a662dddd2807d80ee21b6bafa111569c",
+          "message": "feat: sponsored fpc (#12324)\n\n- Create a `SponsoredFPC` contract to pay for fees unconditionally.\n  - Deployed by default in sandbox.\n  - Tested in `e2e_sandbox_example.test.ts`.\n- Export `ProtocolContractAddress` from `aztec.js`.\n- Add a new util `getFeeJuiceBalance(owner: AztecAddress, pxe: PXE)` in\n`aztec.js`.",
+          "timestamp": "2025-03-04T21:52:05Z",
+          "tree_id": "788d7e7fb5bab50215ea0fd711c25fe39f6e63e3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a1550be5a662dddd2807d80ee21b6bafa111569c"
+        },
+        "date": 1741127418027,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18369.12976900021,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16220.178124 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18908.744626999804,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16339.726948000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3954.0302440000232,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3089.927141 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55515.224662,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55515225000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9477.898304,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9477902000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1906135903,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1906135903 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 222061838,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 222061838 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
