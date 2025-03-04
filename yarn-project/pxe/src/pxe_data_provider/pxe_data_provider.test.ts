@@ -102,7 +102,7 @@ async function computeSiloedTagForIndex(
   return poseidon2Hash([contractAddress, tag]);
 }
 
-describe('Simulator oracle', () => {
+describe('PXE data provider', () => {
   let aztecNode: MockProxy<AztecNode>;
   let database: PxeDatabase;
   let contractDataProvider: ContractDataProvider;

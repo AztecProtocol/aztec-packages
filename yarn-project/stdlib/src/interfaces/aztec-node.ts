@@ -396,7 +396,7 @@ export interface AztecNode
    * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr>;
+  getPublicStorageAt(blockNumber: L2BlockNumber, contract: AztecAddress, slot: Fr): Promise<Fr>;
 
   /**
    * Returns the currently committed block header.

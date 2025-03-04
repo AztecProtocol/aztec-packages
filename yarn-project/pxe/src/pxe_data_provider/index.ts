@@ -49,7 +49,7 @@ import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
- * A data oracle that provides information needed for simulating a transaction.
+ * A data layer that provides and stores information needed for simulating/proving a transaction.
  */
 export class PXEDataProvider implements ExecutionDataProvider {
   constructor(
@@ -234,7 +234,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
   }
 
   public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    return await this.aztecNode.getPublicStorageAt(contract, slot, blockNumber);
+    return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
   }
 
   /**

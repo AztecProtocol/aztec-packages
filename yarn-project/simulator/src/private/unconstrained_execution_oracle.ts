@@ -16,8 +16,7 @@ import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { pickNotes } from './pick_notes.js';
 
 /**
- * The execution context for a client view tx simulation.
- * It only reads data from data sources. Nothing will be updated or created during this simulation.
+ * The oracle for an unconstrained function execution.
  */
 export class UnconstrainedExecutionOracle extends TypedOracle {
   constructor(

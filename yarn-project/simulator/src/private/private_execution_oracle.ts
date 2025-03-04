@@ -36,7 +36,7 @@ import type { SimulationProvider } from './providers/simulation_provider.js';
 import { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
 
 /**
- * The execution context for a client tx simulation.
+ * The execution oracle for the private part of a transaction.
  */
 export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
   /**
