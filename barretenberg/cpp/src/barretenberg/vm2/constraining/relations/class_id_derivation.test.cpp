@@ -54,12 +54,7 @@ ContractClass generate_contract_class()
 
 TEST(ClassIdDerivationConstrainingTest, EmptyRow)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-        { { C::precomputed_clk, 0 } },
-    });
-
-    check_relation<class_id_derivation_relation>(trace);
+    check_relation<class_id_derivation_relation>(testing::empty_trace());
 }
 
 TEST(ClassIdDerivationConstrainingTest, Basic)

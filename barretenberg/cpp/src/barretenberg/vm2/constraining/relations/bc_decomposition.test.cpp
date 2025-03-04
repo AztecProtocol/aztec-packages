@@ -34,11 +34,7 @@ void init_trace(TestTraceContainer& trace)
 
 TEST(BytecodeDecompositionConstrainingTest, EmptyRow)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
-    check_relation<bc_decomposition>(trace);
+    check_relation<bc_decomposition>(testing::empty_trace());
 }
 
 TEST(BytecodeDecompositionConstrainingTest, SingleBytecode)

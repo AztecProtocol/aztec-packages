@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/bitwise.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -23,11 +24,7 @@ using bitwise = bb::avm2::bitwise<FF>;
 
 TEST(BitwiseConstrainingTest, EmptyRow)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
-    check_relation<bitwise>(trace);
+    check_relation<bitwise>(testing::empty_trace());
 }
 
 // Testing a positive AND operation for each integral type (U1, U8, ... U128)
