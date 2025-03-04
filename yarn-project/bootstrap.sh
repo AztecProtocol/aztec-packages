@@ -48,12 +48,13 @@ function compile_all {
   # hack, after running prettier foundation may fail to resolve hash.js dependency.
   # it is only currently foundation, presumably because hash.js looks like a js file.
   rm -rf foundation/node_modules
-  compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
+  compile_project ::: constants foundation circuits.js builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
-    stdlib \
+    circuit-types \
+    circuits.js \
     ivc-integration \
     l1-artifacts \
     native \
@@ -68,7 +69,10 @@ function compile_all {
   cmds=(format)
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
+    cmds+=(
+      'yarn tsc -b --emitDeclarationOnly'
+      lint
+    )
   else
     # We just need the type declarations required for downstream consumers.
     cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
@@ -105,23 +109,12 @@ function test_cmds {
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
   done
 
-  # Enable real proofs in prover-client integration tests only on CI full
-  for test in prover-client/src/test/*.test.ts; do
-    if [ "$CI_FULL" -eq 1 ]; then
-      echo "$hash ISOLATE=1 LOG_LEVEL=verbose CPUS=16 MEM=96g yarn-project/scripts/run_test.sh $test"
-    else
-      echo "$hash FAKE_PROOFS=1 yarn-project/scripts/run_test.sh $test"
-    fi
-  done
-
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
-  # prover-client/src/test: Enable real proofs only on CI full.
   # prover-node|p2p|ethereum|aztec: Isolated using docker above.
   for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
-    [[ "$test" == prover-client/src/test/* ]] && continue
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
@@ -138,14 +131,13 @@ function test {
 
 function release_packages {
   echo "Computing packages to publish..."
-  local packages=$(get_projects topological | grep -v '^end-to-end$')
+  local packages=$(get_projects topological)
   local package_list=()
   for package in $packages; do
     (cd $package && deploy_npm $1 $2)
     local package_name=$(jq -r .name "$package/package.json")
     package_list+=("$package_name@$2")
   done
-  export DRY_RUN=0
   # Smoke test the deployed packages.
   local dir=$(mktemp -d)
   cd "$dir"

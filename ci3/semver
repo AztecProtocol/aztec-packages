@@ -3,15 +3,14 @@ use strict;
 use warnings;
 use feature 'say';
 
+# Written in perl as it is very portable and doesn't have the python versioning fiasco.
+# We allow one variant: a leading 'v' can be used (Aztec convention).
 # Usage:
 #   semver check <semver>
 #   semver <component> <semver>    # valid: major, minor, patch, prerelease, buildmetadata
 #   semver sort <semver1> [<semver2> ...]
 #   semver test
 
-# ---------------------------------------------------------------------------
-# MAIN DISPATCH
-# ---------------------------------------------------------------------------
 my $mode = shift @ARGV or die usage();
 
 if ($mode eq 'test') {
