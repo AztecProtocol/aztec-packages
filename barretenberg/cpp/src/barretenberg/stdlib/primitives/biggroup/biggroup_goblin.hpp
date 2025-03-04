@@ -29,8 +29,9 @@ namespace bb::stdlib::element_goblin {
  * @tparam Fr
  * @tparam NativeGroup
  */
-template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_element {
+template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_element {
   public:
+    using Builder = Builder_;
     using BaseField = Fq;
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup

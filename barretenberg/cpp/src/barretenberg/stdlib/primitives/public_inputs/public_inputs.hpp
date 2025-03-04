@@ -22,14 +22,14 @@ concept HasSetAndReconstruct =
 template <typename ComponentType>
     requires HasSetAndReconstruct<ComponentType>
 class PublicInputComponent {
+    using Builder = ComponentType::Builder;
+    using Fr = stdlib::field_t<Builder>;
+    using Key = PublicComponentKey;
+
     static constexpr uint32_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
 
   public:
-    using Key = PublicComponentKey;
-
-    // WORKTODO: maybe template this class on Builder?
-    using Fr = stdlib::field_t<MegaCircuitBuilder>;
-
+    // Set witness indices of the component to public; return key indicating location of the component in the pub inputs
     static Key set(const ComponentType& component)
     {
         Key key;
