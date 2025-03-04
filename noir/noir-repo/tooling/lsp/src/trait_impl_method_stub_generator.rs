@@ -447,7 +447,7 @@ impl<'a> TraitImplMethodStubGenerator<'a> {
             Kind::Any | Kind::Normal | Kind::Integer | Kind::IntegerOrField => {
                 self.string.push_str(&generic.name);
             }
-            Kind::Numeric(ref typ) => {
+            Kind::Numeric(typ) => {
                 self.string.push_str("let ");
                 self.string.push_str(&generic.name);
                 self.string.push_str(": ");
