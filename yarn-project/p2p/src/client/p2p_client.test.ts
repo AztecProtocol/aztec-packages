@@ -44,9 +44,8 @@ describe('In-Memory P2P Client', () => {
     client = new P2PClient(P2PClientType.Full, blockSource, mempools, p2pService);
   });
 
-  const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
+  const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
-    blockSource.setProvenEpochNumber(provenEpochNumber);
     await retryUntil(
       () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
       'synced',
