@@ -32,6 +32,12 @@ function check_toolchains {
       exit 1
     fi
   done
+  if ! yq --version | grep "version v4" > /dev/null; then
+    encourage_dev_container
+    echo "yq v4 not installed."
+    echo "Installation: https://github.com/mikefarah/yq/#install"
+    exit 1
+  fi
   # Check cmake version.
   local cmake_min_version="3.24"
   local cmake_installed_version=$(cmake --version | head -n1 | awk '{print $3}')
