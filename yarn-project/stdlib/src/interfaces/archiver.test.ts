@@ -78,11 +78,6 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1);
   });
 
-  it('getProvenL2EpochNumber', async () => {
-    const result = await context.client.getProvenL2EpochNumber();
-    expect(result).toBe(1);
-  });
-
   it('getBlock', async () => {
     const result = await context.client.getBlock(1);
     expect(result).toBeInstanceOf(L2Block);
@@ -270,9 +265,6 @@ class MockArchiver implements ArchiverApi {
   getProvenBlockNumber(): Promise<number> {
     return Promise.resolve(1);
   }
-  getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(1);
-  }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
@@ -310,6 +302,10 @@ class MockArchiver implements ArchiverApi {
       proven: { number: 1, hash: `0x01` },
       finalized: { number: 1, hash: `0x01` },
     });
+  }
+  getL2BlockHash(blockNumber: number): Promise<string | undefined> {
+    expect(blockNumber).toEqual(1);
+    return Promise.resolve(`0x01`);
   }
   findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
     expect(blockNumber).toEqual(1);

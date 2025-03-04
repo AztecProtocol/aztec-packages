@@ -21,7 +21,8 @@ set -x
 namespace="$1"
 values_file="${2:-default.yaml}"
 sepolia_deployment="${3:-false}"
-helm_instance="${4:-spartan}"
+mnemonic_file="${4:-"mnemonic.tmp"}"
+helm_instance="${5:-spartan}"
 
 # Default values for environment variables
 chaos_values="${CHAOS_VALUES:-}"
@@ -83,9 +84,7 @@ function generate_overrides {
 if [ "$sepolia_deployment" = "true" ]; then
   echo "Generating sepolia accounts..."
   set +x
-  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file")
-  # write the mnemonic to a file
-  echo "$L1_ACCOUNTS_MNEMONIC" >mnemonic.tmp
+  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file" "$mnemonic_file")
   set -x
 else
   echo "Generating devnet config..."

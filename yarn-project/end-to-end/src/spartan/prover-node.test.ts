@@ -1,6 +1,8 @@
 import { retryUntil } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 
+import type { ChildProcess } from 'child_process';
+
 import { AlertTriggeredError } from '../quality_of_service/alert_checker.js';
 import {
   applyProverBrokerKill,
@@ -53,13 +55,18 @@ const enqueuedRootRollupJobs = {
 };
 
 describe('prover node recovery', () => {
+  const forwardProcesses: ChildProcess[] = [];
   beforeAll(async () => {
-    await startPortForward({
+    const { process } = await startPortForward({
       resource: `svc/metrics-grafana`,
       namespace: 'metrics',
       containerPort: config.CONTAINER_METRICS_PORT,
-      hostPort: config.HOST_METRICS_PORT,
     });
+    forwardProcesses.push(process);
+  });
+
+  afterAll(() => {
+    forwardProcesses.forEach(p => p.kill());
   });
 
   it('should recover after a crash', async () => {

@@ -18,7 +18,15 @@ import {
 } from '@aztec/protocol-contracts/instance-deployer';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockId, L2BlockSource, L2Tips, NullifierWithBlockSource } from '@aztec/stdlib/block';
+import {
+  type InBlock,
+  type L2Block,
+  type L2BlockId,
+  type L2BlockSource,
+  L2BlockSourceEvents,
+  type L2Tips,
+  type NullifierWithBlockSource,
+} from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -32,6 +40,7 @@ import {
 } from '@aztec/stdlib/contract';
 import {
   type L1RollupConstants,
+  getEpochAtSlot,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
@@ -44,6 +53,7 @@ import type { InboxLeaf, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
+import { EventEmitter } from 'events';
 import groupBy from 'lodash.groupby';
 import { type GetContractReturnType, createPublicClient, fallback, getContract, http } from 'viem';
 
@@ -69,7 +79,7 @@ export type ArchiveSource = L2BlockSource &
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements ArchiveSource, Traceable {
+export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -105,6 +115,8 @@ export class Archiver implements ArchiveSource, Traceable {
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
   ) {
+    super();
+
     this.tracer = instrumentation.tracer;
     this.store = new ArchiverStoreHelper(dataStore);
 
@@ -299,6 +311,17 @@ export class Archiver implements ArchiveSource, Traceable {
     const canPrune = localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber));
 
     if (canPrune) {
+      const localPendingSlotNumber = await this.getL2SlotNumber();
+      const localPendingEpochNumber = getEpochAtSlot(localPendingSlotNumber, this.l1constants);
+
+      // Emit an event for listening services to react to the chain prune
+      this.emit(L2BlockSourceEvents.L2PruneDetected, {
+        type: L2BlockSourceEvents.L2PruneDetected,
+        blockNumber: localPendingBlockNumber,
+        slotNumber: localPendingSlotNumber,
+        epochNumber: localPendingEpochNumber,
+      });
+
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
       this.log.debug(
         `L2 prune from ${provenBlockNumber + 1n} to ${localPendingBlockNumber} will occur on next block submission.`,
@@ -365,14 +388,8 @@ export class Archiver implements ArchiveSource, Traceable {
     currentL1BlockNumber: bigint,
   ): Promise<{ provenBlockNumber: bigint }> {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
-    const [
-      provenBlockNumber,
-      provenArchive,
-      pendingBlockNumber,
-      pendingArchive,
-      archiveForLocalPendingBlockNumber,
-      provenEpochNumber,
-    ] = await this.rollup.read.status([localPendingBlockNumber], { blockNumber: currentL1BlockNumber });
+    const [provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber] =
+      await this.rollup.read.status([localPendingBlockNumber], { blockNumber: currentL1BlockNumber });
 
     const updateProvenBlock = async () => {
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
@@ -390,19 +407,11 @@ export class Archiver implements ArchiveSource, Traceable {
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        const [localProvenEpochNumber, localProvenBlockNumber] = await Promise.all([
-          this.store.getProvenL2EpochNumber(),
-          this.store.getProvenL2BlockNumber(),
-        ]);
-        if (
-          localProvenEpochNumber !== Number(provenEpochNumber) ||
-          localProvenBlockNumber !== Number(provenBlockNumber)
-        ) {
+        const localProvenBlockNumber = await this.store.getProvenL2BlockNumber();
+        if (localProvenBlockNumber !== Number(provenBlockNumber)) {
           await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
-          await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
-          this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
+          this.log.info(`Updated proven chain to block ${provenBlockNumber}`, {
             provenBlockNumber,
-            provenEpochNumber,
           });
         }
       }
@@ -760,10 +769,6 @@ export class Archiver implements ArchiveSource, Traceable {
     return this.store.getProvenL2BlockNumber();
   }
 
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return this.store.getProvenL2EpochNumber();
-  }
-
   /** Forcefully updates the last proven block number. Use for testing. */
   public setProvenBlockNumber(blockNumber: number): Promise<void> {
     return this.store.setProvenL2BlockNumber(blockNumber);
@@ -846,9 +851,18 @@ export class Archiver implements ArchiveSource, Traceable {
     const provenBlockHeaderHash = await provenBlockHeader?.hash();
     const finalizedBlockHeaderHash = await provenBlockHeader?.hash();
     return {
-      latest: { number: latestBlockNumber, hash: latestBlockHeaderHash?.toString() } as L2BlockId,
-      proven: { number: provenBlockNumber, hash: provenBlockHeaderHash?.toString() } as L2BlockId,
-      finalized: { number: provenBlockNumber, hash: finalizedBlockHeaderHash?.toString() } as L2BlockId,
+      latest: {
+        number: latestBlockNumber,
+        hash: latestBlockHeaderHash?.toString(),
+      } as L2BlockId,
+      proven: {
+        number: provenBlockNumber,
+        hash: provenBlockHeaderHash?.toString(),
+      } as L2BlockId,
+      finalized: {
+        number: provenBlockNumber,
+        hash: finalizedBlockHeaderHash?.toString(),
+      } as L2BlockId,
     };
   }
 }
@@ -1128,14 +1142,8 @@ class ArchiverStoreHelper
   getProvenL2BlockNumber(): Promise<number> {
     return this.store.getProvenL2BlockNumber();
   }
-  getProvenL2EpochNumber(): Promise<number | undefined> {
-    return this.store.getProvenL2EpochNumber();
-  }
   setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
     return this.store.setProvenL2BlockNumber(l2BlockNumber);
-  }
-  setProvenL2EpochNumber(l2EpochNumber: number): Promise<void> {
-    return this.store.setProvenL2EpochNumber(l2EpochNumber);
   }
   setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void> {
     return this.store.setBlockSynchedL1BlockNumber(l1BlockNumber);

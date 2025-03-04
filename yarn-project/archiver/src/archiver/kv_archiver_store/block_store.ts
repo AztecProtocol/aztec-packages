@@ -269,14 +269,6 @@ export class BlockStore {
     return this.#lastProvenL2Block.set(blockNumber);
   }
 
-  getProvenL2EpochNumber(): Promise<number | undefined> {
-    return this.#lastProvenL2Epoch.getAsync();
-  }
-
-  setProvenL2EpochNumber(epochNumber: number) {
-    return this.#lastProvenL2Epoch.set(epochNumber);
-  }
-
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'limit'>> {
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);
