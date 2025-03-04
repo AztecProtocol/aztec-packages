@@ -6,21 +6,23 @@ import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
 import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
 
 import { getPublicClient } from '../client.js';
+import type { FullyQualifiedL1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
 import type { ViemPublicClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 
-export type L1RollupContractAddresses = {
-  rollupAddress: EthAddress;
-  inboxAddress: EthAddress;
-  outboxAddress: EthAddress;
-  feeJuicePortalAddress: EthAddress;
-  feeJuiceAddress: EthAddress;
-  stakingAssetAddress: EthAddress;
-  rewardDistributorAddress: EthAddress;
-  slashFactoryAddress: EthAddress;
-};
+export type L1RollupContractAddresses = Pick<
+  FullyQualifiedL1ContractAddresses,
+  | 'rollupAddress'
+  | 'inboxAddress'
+  | 'outboxAddress'
+  | 'feeJuicePortalAddress'
+  | 'feeJuiceAddress'
+  | 'stakingAssetAddress'
+  | 'rewardDistributorAddress'
+  | 'slashFactoryAddress'
+>;
 
 export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
@@ -175,7 +177,7 @@ export class RollupContract {
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
   }
 
-  async getRollupAddresses() {
+  async getRollupAddresses(): Promise<L1RollupContractAddresses> {
     const [
       inboxAddress,
       outboxAddress,

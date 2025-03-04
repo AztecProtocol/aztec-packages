@@ -89,7 +89,10 @@ export class EpochsTestContext {
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
     this.l1Client = context.deployL1ContractsValues.publicClient;
-    this.rollup = RollupContract.getFromConfig(context.config);
+    this.rollup = RollupContract.getFromConfig(
+      context.config,
+      context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    );
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, this.logger).start();

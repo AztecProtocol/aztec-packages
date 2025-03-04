@@ -154,7 +154,10 @@ describe('e2e_cheat_codes', () => {
       }
 
       admin = wallet.getAddress();
-      rollup = RollupContract.getFromL1ContractsValues(deployL1ContractsValues);
+      rollup = RollupContract.getFromL1ContractsValues({
+        publicClient: deployL1ContractsValues.publicClient,
+        rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      });
       token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
     });
 

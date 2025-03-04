@@ -116,7 +116,10 @@ export class FeesTest {
     const context = await this.snapshotManager.setup();
     await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
 
-    const rollupContract = RollupContract.getFromConfig(context.aztecNodeConfig);
+    const rollupContract = RollupContract.getFromConfig(
+      context.aztecNodeConfig,
+      context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    );
     this.chainMonitor = new ChainMonitor(rollupContract, this.logger, 200).start();
 
     return this;
