@@ -112,7 +112,7 @@ impl UintNote {
     /// Each partial note should only be used once, since otherwise multiple notes would be linked together and known to
     /// belong to the same owner.
     ///
-    /// As part of the partial note cration process, a log will be sent to `recipient` from `sender` so that they can
+    /// As part of the partial note creation process, a log will be sent to `recipient` from `sender` so that they can
     /// discover the note. `recipient` will typically be the same as `owner`.
     pub fn partial(
         owner: AztecAddress,
@@ -307,7 +307,7 @@ mod test {
             partial_note.compute_note_completion_log(value)[0],
         );
 
-        // Then we exctract all fields except the first of both logs (i.e. the public log tag), and combine them to
+        // Then we extract all fields except the first of both logs (i.e. the public log tag), and combine them to
         // produce the note's packed representation. This requires that the members of the intermediate structs are in
         // the same order as in UintNote.
         let private_log_without_public_tag: [_; 2] = subarray(private_log_content.pack(), 1);

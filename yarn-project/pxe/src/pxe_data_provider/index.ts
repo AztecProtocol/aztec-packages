@@ -360,6 +360,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
       }),
     );
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
+    console.log('indexes for recipient', recipient, 'are', indexes);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 
@@ -441,6 +442,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
+    console.log(`Syncing tagged logs for ${contractAddress} at block ${maxBlockNumber} with scopes ${scopes}`);
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
@@ -499,20 +501,20 @@ export class PXEDataProvider implements ExecutionDataProvider {
         logsByTags.forEach((logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
             // Discard public logs
-            const filteredLogsbyTag = logsByTag.filter(l => !l.isFromPublic);
-            if (filteredLogsbyTag.length < logsByTag.length) {
+            const filteredLogsByTag = logsByTag.filter(l => !l.isFromPublic);
+            if (filteredLogsByTag.length < logsByTag.length) {
               this.log.warn(`Discarded ${logsByTag.filter(l => l.isFromPublic).length} public logs with matching tags`);
             }
 
             // The logs for the given tag exist so we store them for later processing
-            logsForRecipient.push(...filteredLogsbyTag);
+            logsForRecipient.push(...filteredLogsByTag);
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
 
-            this.log.debug(`Found ${filteredLogsbyTag.length} logs as recipient ${recipient}`, {
+            this.log.debug(`Found ${filteredLogsByTag.length} logs as recipient ${recipient}`, {
               recipient,
               secret: secretCorrespondingToLog.appTaggingSecret,
               contractName,
@@ -634,6 +636,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
+    console.log('Processing tagged logs');
     const decryptedLogs = await this.#decryptTaggedLogs(logs, recipient);
 
     // We've produced the full NoteDao, which we'd be able to simply insert into the database. However, this is
