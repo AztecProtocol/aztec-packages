@@ -868,6 +868,49 @@ describe('Private Execution test suite', () => {
 
       expect(result.entrypoint.enqueuedPublicFunctionCalls).toEqual([request]);
     });
+    it('should be ok for parent to enqueue calls with <= max total args', async () => {
+      // This function recurses and calls itself, so we need to mock retrieval of its own contract instance (parent)
+      // Recursions test that total args are enforced accross nested calls
+      const parentContractArtifact = structuredClone(ParentContractArtifact);
+      const parentFunctionArtifact = parentContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
+      expect(parentFunctionArtifact).toBeDefined();
+
+      const parentAddress = await AztecAddress.random();
+      await mockContractInstance(parentContractArtifact, parentAddress);
+
+      // Only recurse once, so that we only enqueue 2 calls. #total-args should be low.
+      const args = [/*remainingRecursions=*/ 1];
+      await runSimulator({
+        msgSender: parentAddress,
+        contractAddress: parentAddress,
+        artifact: ParentContractArtifact,
+        functionName: 'enqueue_call_to_child_with_many_args_and_recurse',
+        args,
+      });
+    });
+    it('(prevent footguns) should error if parent enqueues two public calls with too many TOTAL args', async () => {
+      // This function recurses and calls itself, so we need to mock retrieval of its own contract instance (parent)
+      // Recursions test that total args are enforced accross nested calls
+      const parentContractArtifact = structuredClone(ParentContractArtifact);
+      const parentFunctionArtifact = parentContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
+      expect(parentFunctionArtifact).toBeDefined();
+
+      const parentAddress = await AztecAddress.random();
+      await mockContractInstance(parentContractArtifact, parentAddress);
+
+      // 10 recursions (11 enqueued public calls) should overflow the total args limit
+      // since each call enqueues a call with max / 10 args (plus 1 each time for function selector)
+      const args = [/*remainingRecursions=*/ 10];
+      await expect(
+        runSimulator({
+          msgSender: parentAddress,
+          contractAddress: parentAddress,
+          artifact: ParentContractArtifact,
+          functionName: 'enqueue_call_to_child_with_many_args_and_recurse',
+          args,
+        }),
+      ).rejects.toThrow(/Too many total args to all enqueued public calls/);
+    });
   });
 
   describe('setting teardown function', () => {
