@@ -131,7 +131,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   })();
 
   const bananaFPC = await getBananaFPCAddress(initialAccounts);
-  const sponsoredFPC = await getSponsoredFPCAddress(initialAccounts);
+  const sponsoredFPC = await getSponsoredFPCAddress();
   const fundedAddresses = initialAccounts.length
     ? [...initialAccounts.map(a => a.address), bananaFPC, sponsoredFPC]
     : [];
@@ -186,7 +186,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
 
     const deployer = await getSchnorrWallet(pxe, initialAccounts[0].address, initialAccounts[0].signingKey);
     await setupBananaFPC(initialAccounts, deployer, userLog);
-    await setupSponsoredFPC(initialAccounts, deployer, userLog);
+    await setupSponsoredFPC(deployer, userLog);
   }
 
   const stop = async () => {
