@@ -467,7 +467,7 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
         generate_deserialize_from_fields(quote { self }, typ, quote { serialized }, 0, false);
     quote {
         impl Deserialize<$serialized_len> for $typ {
-            fn deserialize(serialized: [Field; $serialized_len]) -> Self {              
+            fn deserialize(serialized: [Field; $serialized_len]) -> Self {
                 $deserialized
             }
         }
