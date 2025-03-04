@@ -10,9 +10,11 @@
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_perm.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
+
 // Temporary imports, see comment in test.
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -38,12 +40,8 @@ using lookup_poseidon2_perm_relation = bb::avm2::lookup_poseidon2_hash_poseidon2
 
 TEST(Poseidon2ConstrainingTest, Poseidon2EmptyRow)
 {
-    auto trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-    });
-
-    check_relation<poseidon2_hash>(trace);
-    check_relation<poseidon2_perm>(trace);
+    check_relation<poseidon2_hash>(testing::empty_trace());
+    check_relation<poseidon2_perm>(testing::empty_trace());
 }
 
 // These tests imports a bunch of external code since hand-generating the poseidon2 trace is a bit laborious atm.

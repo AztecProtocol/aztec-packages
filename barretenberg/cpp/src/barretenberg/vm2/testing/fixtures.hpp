@@ -8,6 +8,8 @@
 namespace bb::avm2::testing {
 
 std::vector<FF> random_fields(size_t n);
+
+// WARNING: Cryptographically insecure randomness routine for testing purposes only.
 std::vector<uint8_t> random_bytes(size_t n);
 tracegen::TestTraceContainer empty_trace();
 
