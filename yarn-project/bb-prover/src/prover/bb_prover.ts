@@ -740,10 +740,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     assert(json.length - numPublicInputs == proofLength, 'Proof length mismatch');
 
-    const fieldsWithoutPublicInputs = json
-      .slice(0, 3)
-      .map(Fr.fromHexString)
-      .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
+    const fieldsWithoutPublicInputs = json.slice(numPublicInputs).map(Fr.fromHexString);
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

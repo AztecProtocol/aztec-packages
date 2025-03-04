@@ -87,10 +87,6 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
 
     offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
-    // first 3 things
-    builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
-    builder.assert_equal(builder.add_variable(public_inputs_size), proof_fields[1].witness_index);
-    builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), proof_fields[2].witness_index);
 
     // the inner public inputs
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
