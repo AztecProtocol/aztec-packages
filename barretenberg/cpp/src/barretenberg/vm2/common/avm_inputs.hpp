@@ -10,6 +10,9 @@
 
 namespace bb::avm2 {
 
+////////////////////////////////////////////////////////////////////////////
+// Hints
+////////////////////////////////////////////////////////////////////////////
 struct PublicKeysHint {
     AffinePoint masterNullifierPublicKey;
     AffinePoint masterIncomingViewingPublicKey;
@@ -59,58 +62,70 @@ struct ContractClassHint {
     MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode);
 };
 
-struct TreeRoots {
-    FF publicDataTree;
-    FF nullifierTree;
-    FF noteHashTree;
-    FF l1ToL2MessageTree;
+struct EnqueuedCallHint {
+    AztecAddress contractAddress;
+    std::vector<FF> calldata;
 
-    bool operator==(const TreeRoots& other) const = default;
+    bool operator==(const EnqueuedCallHint& other) const = default;
 
-    MSGPACK_FIELDS(publicDataTree, nullifierTree, noteHashTree, l1ToL2MessageTree);
+    MSGPACK_FIELDS(contractAddress, calldata);
 };
 
 struct ExecutionHints {
+    std::vector<EnqueuedCallHint> enqueuedCalls;
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
-    TreeRoots initialTreeRoots;
 
     bool operator==(const ExecutionHints& other) const = default;
 
-    MSGPACK_FIELDS(contractInstances, contractClasses, initialTreeRoots);
+    MSGPACK_FIELDS(enqueuedCalls, contractInstances, contractClasses);
 };
 
-struct PublicExecutionRequest {
-    AztecAddress contractAddress;
-    AztecAddress sender;
-    std::vector<FF> args;
-    bool isStatic;
+////////////////////////////////////////////////////////////////////////////
+// Public Inputs
+////////////////////////////////////////////////////////////////////////////
+struct AppendOnlyTreeSnapshot {
+    FF root;
+    uint32_t nextAvailableLeafIndex;
 
-    bool operator==(const PublicExecutionRequest& other) const = default;
+    bool operator==(const AppendOnlyTreeSnapshot& other) const = default;
 
-    MSGPACK_FIELDS(contractAddress, sender, args, isStatic);
+    MSGPACK_FIELDS(root, nextAvailableLeafIndex);
+};
+
+struct TreeSnapshots {
+    AppendOnlyTreeSnapshot l1ToL2MessageTree;
+    AppendOnlyTreeSnapshot noteHashTree;
+    AppendOnlyTreeSnapshot nullifierTree;
+    AppendOnlyTreeSnapshot publicDataTree;
+
+    bool operator==(const TreeSnapshots& other) const = default;
+
+    MSGPACK_FIELDS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
 };
 
 struct PublicInputs {
-    // Nothing yet.
-    std::vector<FF> dummy;
+    TreeSnapshots startTreeSnapshots;
+    bool reverted;
 
     static PublicInputs from(const std::vector<uint8_t>& data);
-    std::vector<std::vector<FF>> to_columns() const { return { dummy }; }
+    std::vector<std::vector<FF>> to_columns() const { return { { reverted } }; }
     bool operator==(const PublicInputs& other) const = default;
 
-    MSGPACK_FIELDS(dummy);
+    MSGPACK_FIELDS(startTreeSnapshots, reverted);
 };
 
+////////////////////////////////////////////////////////////////////////////
+// AVM Inputs
+////////////////////////////////////////////////////////////////////////////
 struct AvmProvingInputs {
-    std::vector<PublicExecutionRequest> enqueuedCalls;
     PublicInputs publicInputs;
     ExecutionHints hints;
 
     static AvmProvingInputs from(const std::vector<uint8_t>& data);
     bool operator==(const AvmProvingInputs& other) const = default;
 
-    MSGPACK_FIELDS(enqueuedCalls, publicInputs, hints);
+    MSGPACK_FIELDS(publicInputs, hints);
 };
 
 } // namespace bb::avm2

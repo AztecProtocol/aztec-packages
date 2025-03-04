@@ -131,6 +131,9 @@ tests:
   - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
     owners:
       - "U04TPBU26E8" # palla
+  - regex: "yarn-project/kv-store"
+    owners:
+      - "U05QWV669JB" # alex
 
   # kind tests
   - regex: "spartan/bootstrap.sh test-kind"

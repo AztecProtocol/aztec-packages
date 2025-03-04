@@ -59,3 +59,6 @@ export const schemas = {
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,
 };
+
+// These are needed to avoid errors such as: "The inferred type of 'YourClassSchema' cannot be named without a reference to..."
+export { EthAddress, Point, Fr, Fq };

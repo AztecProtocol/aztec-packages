@@ -6,6 +6,7 @@ use noirc_errors::Location;
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::{
+    Generics, Kind, ResolvedGeneric, Type, TypeBinding, TypeBindings, UnificationError,
     ast::{
         AsTraitPath, BinaryOpKind, GenericTypeArgs, Ident, IntegerBitSize, Path, PathKind,
         Signedness, UnaryOp, UnresolvedGeneric, UnresolvedGenerics, UnresolvedType,
@@ -13,11 +14,11 @@ use crate::{
     },
     hir::{
         def_collector::dc_crate::CompilationError,
-        def_map::{fully_qualified_module_path, ModuleDefId},
+        def_map::{ModuleDefId, fully_qualified_module_path},
         resolution::{errors::ResolverError, import::PathResolutionError},
         type_check::{
-            generics::{Generic, TraitGenerics},
             NoMatchingImplFoundError, Source, TypeCheckError,
+            generics::{Generic, TraitGenerics},
         },
     },
     hir_def::{
@@ -35,10 +36,9 @@ use crate::{
     },
     signed_field::SignedField,
     token::SecondaryAttribute,
-    Generics, Kind, ResolvedGeneric, Type, TypeBinding, TypeBindings, UnificationError,
 };
 
-use super::{lints, path_resolution::PathResolutionItem, Elaborator, UnsafeBlockStatus};
+use super::{Elaborator, UnsafeBlockStatus, lints, path_resolution::PathResolutionItem};
 
 pub const SELF_TYPE_NAME: &str = "Self";
 
