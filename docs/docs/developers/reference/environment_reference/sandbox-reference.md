@@ -63,11 +63,8 @@ P2P_NAT_ENABLED='false' # Whether to enable NAT from libp2p
 P2P_MAX_PEERS=100 # The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
 
 ## Aztec Contract Addresses ##
-# When running a standalone node, you need to have deployed Aztec contracts on your Ethereum host, then declare their addresses as env variables.
+# When running a standalone node, you need to have deployed Aztec contracts on your Ethereum host, then declare the registry contract address as env variable.
 REGISTRY_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
-INBOX_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
-OUTBOX_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
-ROLLUP_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
 
 ## Sequencer variables ##
 SEQ_PUBLISHER_PRIVATE_KEY=0x01234567890abcde01234567890abcde # Private key of an ethereum account that will be used by the sequencer to publish blocks.

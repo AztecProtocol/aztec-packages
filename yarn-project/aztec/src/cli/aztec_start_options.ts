@@ -116,46 +116,10 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   'L1 CONTRACT ADDRESSES': [
     {
-      flag: '--rollup-address <value>',
-      description: 'The deployed L1 rollup contract address',
-      defaultValue: undefined,
-      envVar: 'ROLLUP_CONTRACT_ADDRESS',
-    },
-    {
       flag: '--registry-address <value>',
       description: 'The deployed L1 registry contract address',
       defaultValue: undefined,
       envVar: 'REGISTRY_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--inbox-address <value>',
-      description: 'The deployed L1 -> L2 inbox contract address',
-      defaultValue: undefined,
-      envVar: 'INBOX_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--outbox-address <value>',
-      description: 'The deployed L2 -> L1 outbox contract address',
-      defaultValue: undefined,
-      envVar: 'OUTBOX_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--fee-juice-address <value>',
-      description: 'The deployed L1 Fee Juice contract address',
-      defaultValue: undefined,
-      envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--staking-asset-address <value>',
-      description: 'The deployed L1 Staking Asset contract address',
-      defaultValue: undefined,
-      envVar: 'STAKING_ASSET_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--fee-juice-portal-address <value>',
-      description: 'The deployed L1 Fee Juice portal contract address',
-      defaultValue: undefined,
-      envVar: 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS',
     },
   ],
   // We can't easily auto-generate node options as they're parts of modules defined below
