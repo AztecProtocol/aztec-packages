@@ -22,6 +22,13 @@ if [ "$version" == "$published_version" ]; then
   exit 0
 fi
 
+cp package.json package.json.deploy_bkup
+# Restore package.json as we write over it.
+function cleanup {
+  mv package.json.deploy_bkup package.json &>/dev/null || true
+}
+trap cleanup SIGINT SIGTERM EXIT
+
 $root/ci3/npm/release_prep_package_json $version
 
 # Publish.
