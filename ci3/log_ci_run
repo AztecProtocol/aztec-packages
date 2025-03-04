@@ -11,7 +11,7 @@ if [ -z "$key" ]; then
   msg=$(git log -1 --pretty=format:"%s")
   author="$(git log -1 --pretty=format:"%an")"
   name=$REF_NAME
-  [ "$(aws_get_meta_data instance-life-cycle)" == "spot"] && spot=true || spot=false
+  [ "$(aws_get_meta_data instance-life-cycle)" == "spot" ] && spot=true || spot=false
   # instance_type=$(aws_get_meta_data instance-type)
   if [[ "$name" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
     name=${BASH_REMATCH[1]}
