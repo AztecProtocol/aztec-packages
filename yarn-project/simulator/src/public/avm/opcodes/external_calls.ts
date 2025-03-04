@@ -9,8 +9,7 @@ abstract class ExternalCall extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
-    OperandType.UINT16, // Indirect
-    OperandType.UINT16,
+    OperandType.UINT8, // Indirect
     OperandType.UINT16,
     OperandType.UINT16,
     OperandType.UINT16,
@@ -23,16 +22,15 @@ abstract class ExternalCall extends Instruction {
     private addrOffset: number,
     private argsOffset: number,
     private argsSizeOffset: number,
-    private successOffset: number,
   ) {
     super();
   }
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory;
-    const operands = [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset, this.successOffset];
+    const operands = [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [gasOffset, addrOffset, argsOffset, argsSizeOffset, successOffset] = addressing.resolve(operands, memory);
+    const [gasOffset, addrOffset, argsOffset, argsSizeOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, gasOffset, gasOffset + 1);
     memory.checkTag(TypeTag.FIELD, addrOffset);
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
@@ -69,6 +67,9 @@ abstract class ExternalCall extends Instruction {
     const fullReturnData = nestedCallResults.output;
     context.machineState.nestedReturndata = fullReturnData;
 
+    // Track the success status directly
+    context.machineState.nestedCallSuccess = success;
+
     // If the nested call reverted, we try to save the reason and the revert data.
     // This will be used by the caller to try to reconstruct the call stack.
     // This is only a heuristic and may not always work. It is intended to work
@@ -80,9 +81,6 @@ abstract class ExternalCall extends Instruction {
         recursiveRevertReason: nestedCallResults.revertReason!,
       };
     }
-
-    // Write our success flag into memory.
-    memory.set(successOffset, new Uint1(success ? 1 : 0));
 
     // Refund unused gas
     context.machineState.refundGas(nestedCallResults.gasLeft);
@@ -113,6 +111,35 @@ export class StaticCall extends ExternalCall {
 
   public get type() {
     return StaticCall.type;
+  }
+}
+
+export class SuccessCopy extends Instruction {
+  static type: string = 'SUCCESSCOPY';
+  static readonly opcode: Opcode = Opcode.SUCCESSCOPY;
+  // Informs (de)serialization. See Instruction.deserialize.
+  static readonly wireFormat: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8, // Indirect (8-bit)
+    OperandType.UINT16, // dstOffset (16-bit)
+  ];
+
+  constructor(private indirect: number, private dstOffset: number) {
+    super();
+  }
+
+  public async execute(context: AvmContext): Promise<void> {
+    const memory = context.machineState.memory;
+
+    const operands = [this.dstOffset];
+    const addressing = Addressing.fromWire(this.indirect, operands.length);
+    const [dstOffset] = addressing.resolve(operands, memory);
+
+    // Use the direct success tracking property
+    const success = context.machineState.nestedCallSuccess;
+
+    // Write the success flag to the provided memory location
+    memory.set(dstOffset, new Uint1(success ? 1 : 0));
   }
 }
 
