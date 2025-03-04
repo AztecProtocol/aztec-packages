@@ -111,14 +111,6 @@ tests:
     owners:
       - "U03E5SYLY3Z" # lasse
 
-  # FAIL  src/test/bb_prover_parity.test.ts (34.059 s)
-  #  prover/bb_prover/parity
-  #    ✕ proves the parity circuits (30003 ms)
-  #
-  #  ● prover/bb_prover/parity › proves the parity circuits
-  #
-  #    thrown: "Exceeded timeout of 30000 ms for a test.
-  #    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
   - regex: "prover-client/src/test/bb_prover_parity.test.ts"
     owners:
       - "U04TPBU26E8" # palla
@@ -136,6 +128,12 @@ tests:
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
       - "U03E5SYLY3Z" # lasse
+  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
+    owners:
+      - "U04TPBU26E8" # palla
+  - regex: "yarn-project/kv-store"
+    owners:
+      - "U05QWV669JB" # alex
 
   # kind tests
   - regex: "spartan/bootstrap.sh test-kind"

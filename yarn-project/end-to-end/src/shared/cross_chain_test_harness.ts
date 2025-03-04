@@ -19,7 +19,7 @@ import {
   retryUntil,
 } from '@aztec/aztec.js';
 import type { L1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
-import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
+import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
@@ -44,7 +44,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   publicClient: ViemPublicClient,
   rollupRegistryAddress: EthAddress,
   owner: AztecAddress,
-  underlyingERC20Address?: EthAddress,
+  underlyingERC20Address: EthAddress,
 ): Promise<{
   /**
    * The L2 token contract instance.
@@ -67,22 +67,6 @@ export async function deployAndInitializeTokenAndBridgeContracts(
    */
   underlyingERC20: any;
 }> {
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
-      'Underlying',
-      'UND',
-      walletClient.account.address,
-    ]).then(({ address }) => address);
-  }
-  const underlyingERC20 = getContract({
-    address: underlyingERC20Address!.toString(),
-    abi: TestERC20Abi,
-    client: walletClient,
-  });
-
-  // allow anyone to mint
-  await underlyingERC20.write.setFreeForAll([true], {} as any);
-
   // deploy the token portal
   const { address: tokenPortalAddress } = await deployL1Contract(
     walletClient,
@@ -122,6 +106,12 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     {} as any,
   );
 
+  const underlyingERC20 = getContract({
+    address: underlyingERC20Address.toString(),
+    abi: TestERC20Abi,
+    client: walletClient,
+  });
+
   return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
 // docs:end:deployAndInitializeTokenAndBridgeContracts
@@ -138,7 +128,7 @@ export class CrossChainTestHarness {
     walletClient: ViemWalletClient,
     wallet: AccountWallet,
     logger: Logger,
-    underlyingERC20Address?: EthAddress,
+    underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;

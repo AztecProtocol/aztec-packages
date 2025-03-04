@@ -6,8 +6,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
-import type { TypedOracle } from '@aztec/simulator/client';
-import { HashedValuesCache } from '@aztec/simulator/server';
+import { HashedValuesCache, type TypedOracle } from '@aztec/simulator/client';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -715,7 +714,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
         );
@@ -745,7 +744,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
         );

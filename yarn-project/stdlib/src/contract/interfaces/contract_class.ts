@@ -151,6 +151,8 @@ export type ContractClassPublic = {
   unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[];
 } & Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
   Omit<ContractClass, 'privateFunctions'>;
+export type ContractClassWithCommitment = ContractClassPublic &
+  Pick<ContractClassCommitments, 'publicBytecodeCommitment'>;
 
 export const ContractClassPublicSchema = z
   .object({
