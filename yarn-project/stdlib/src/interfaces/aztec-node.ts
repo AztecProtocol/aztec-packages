@@ -573,7 +573,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
 
-  getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr, L2BlockNumberSchema).returns(schemas.Fr),
+  getPublicStorageAt: z.function().args(L2BlockNumberSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema.optional()),
 
