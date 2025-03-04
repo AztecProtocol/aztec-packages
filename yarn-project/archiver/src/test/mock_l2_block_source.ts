@@ -25,13 +25,16 @@ export class MockL2BlockSource extends EventEmitter implements L2BlockSourceEven
   private log = createLogger('archiver:mock_l2_block_source');
 
   public async createBlocks(numBlocks: number) {
+    const newBlocks = [];
     for (let i = 0; i < numBlocks; i++) {
       const blockNum = this.l2Blocks.length + 1;
       const block = await L2Block.random(blockNum);
       this.l2Blocks.push(block);
+      newBlocks.push(block);
     }
 
     this.log.verbose(`Created ${numBlocks} blocks in the mock L2 block source`);
+    this.emit(L2BlockSourceEvents.BlocksAdded, { blocks: newBlocks });
   }
 
   public addBlocks(blocks: L2Block[]) {

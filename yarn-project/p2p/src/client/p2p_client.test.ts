@@ -184,16 +184,31 @@ describe('In-Memory P2P Client', () => {
       await client.stop();
     });
 
-    // // TODO:
-    // // - whenever the p2p client starts, if it has any stale state within it, we should respond to archiver's sync events
-    // // - this means we need the p2p client to be running BEFORE the archiver starts syncing
-    // it("clears sync's stores on startup", async () => {
-    //   client = new P2PClient(P2PClientType.Full, blockSource, mempools, p2pService, {
-    //     keepProvenTxsInPoolFor: 10,
-    //   });
-    //   blockSource.setProvenBlockNumber(0);
-    //   await client.start();
-    // });
+    // P2P client must be running before the block source starts syncing
+    it('when the block source is syncing, the p2p client stays in sync', async () => {
+      blockSource = new MockL2BlockSource();
+      client = new P2PClient(P2PClientType.Full, blockSource, mempools, p2pService, {
+        keepProvenTxsInPoolFor: 10,
+      });
+
+      await client.start();
+
+      // On startup, the tips in the p2p client should be the same as the tips in the block source
+      expect(await blockSource.getProvenBlockNumber()).toEqual(client.getSyncedProvenBlockNum());
+      expect(await blockSource.getBlockNumber()).toEqual(client.getSyncedLatestBlockNum());
+
+      await blockSource.createBlocks(10);
+
+      // Wait for the p2p client to sync with the block source
+      await retryUntil(
+        async () => client.getSyncedLatestBlockNum() === (await blockSource.getBlockNumber()),
+        'synced',
+        10,
+        0.1,
+      );
+
+      expect(await blockSource.getProvenBlockNumber()).toEqual(client.getSyncedProvenBlockNum());
+    });
   });
 
   describe('Attestation pool pruning', () => {

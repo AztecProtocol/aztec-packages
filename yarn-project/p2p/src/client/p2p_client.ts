@@ -242,7 +242,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
   }
 
-  private getSyncedLatestBlockNum(): number {
+  public getSyncedLatestBlockNum(): number {
     return this.synchedLatestBlockNumber;
   }
 
