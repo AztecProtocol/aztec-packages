@@ -42,6 +42,7 @@ class Operand {
     Operand(const Operand& other);
     Operand(Operand&&) = default;
     Operand& operator=(const Operand& other);
+    bool operator==(const Operand& other) const;
 
     // Helpers for when we want to pass a value without casting.
     static Operand u8(uint8_t value) { return { value }; }
@@ -68,10 +69,11 @@ struct Instruction {
     WireOpCode opcode;
     uint16_t indirect;
     std::vector<Operand> operands;
-    uint8_t size_in_bytes;
 
     std::string to_string() const;
     std::vector<uint8_t> encode() const;
+
+    bool operator==(const Instruction& other) const = default;
 };
 
 /**

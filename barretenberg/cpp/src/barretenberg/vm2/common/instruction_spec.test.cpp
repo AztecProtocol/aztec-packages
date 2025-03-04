@@ -22,7 +22,7 @@ size_t compute_instruction_size(WireOpCode wire_opcode,
 
 // Test checking that the hardcoded size for each instruction specified in WIRE_INSTRUCTION_SPEC
 // is correct. This test would fail only when we change the wire format of an instruction.
-TEST(InstructionSpecTest, checkAllInstructionSizes)
+TEST(InstructionSpecTest, CheckAllInstructionSizes)
 {
     const auto& wire_format = simulation::testonly::get_instruction_wire_formats();
     const auto& operand_type_sizes = simulation::testonly::get_operand_type_sizes();

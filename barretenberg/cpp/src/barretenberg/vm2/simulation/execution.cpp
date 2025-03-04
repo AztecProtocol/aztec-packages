@@ -106,7 +106,7 @@ void Execution::execution_loop()
         try {
             auto pc = context.get_pc();
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
-            context.set_next_pc(pc + instruction.size_in_bytes);
+            context.set_next_pc(pc + WIRE_INSTRUCTION_SPEC.at(instruction.opcode).size_in_bytes);
             info("@", pc, " ", instruction.to_string());
 
             ExecutionOpCode opcode = instruction_info_db.map_wire_opcode_to_execution_opcode(instruction.opcode);
