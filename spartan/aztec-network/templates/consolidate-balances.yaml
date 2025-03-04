@@ -1,4 +1,4 @@
-{{- if .Values.ethereum.execution.externalHost }}
+{{- if .Values.ethereum.execution.externalHosts }}
 apiVersion: batch/v1
 kind: Job
 metadata:
