@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
-import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
+import { makeEnr, makeEnrs, makePeerIds } from '../test-helpers/make-enrs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
@@ -27,6 +27,7 @@ class WorkerClientManager {
   public processes: ChildProcess[] = [];
   public peerIdPrivateKeys: string[] = [];
   public peerEnrs: string[] = [];
+  public peerIds: string[] = [];
   public ports: number[] = [];
   private p2pConfig: Partial<P2PConfig>;
   private logger: Logger;
@@ -57,7 +58,7 @@ class WorkerClientManager {
   /**
    * Creates a client configuration object
    */
-  private createClientConfig(clientIndex: number, port: number, otherNodes: string[]) {
+  private createClientConfig(clientIndex: number, port: number, otherNodes: string[], trustedPeers?: string[]) {
     const { addr, listenAddr } = this.getAddresses(port);
 
     return {
@@ -69,6 +70,7 @@ class WorkerClientManager {
       tcpAnnounceAddress: addr,
       udpAnnounceAddress: addr,
       bootstrapNodes: [...otherNodes],
+      trustedPeers: trustedPeers ?? [],
       ...this.p2pConfig,
     };
   }
@@ -135,13 +137,13 @@ class WorkerClientManager {
    * @param numberOfClients - The number of clients to create
    * @returns The ENRs of the created clients
    */
-  async makeWorkerClients(numberOfClients: number) {
+  async makeWorkerClients(numberOfClients: number, trustedPeersNumber?: number) {
     try {
       this.messageReceivedByClient = new Array(numberOfClients).fill(0);
       this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
       this.ports = await getPorts(numberOfClients);
       this.peerEnrs = await makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
-
+      this.peerIds = await makePeerIds(this.peerIdPrivateKeys);
       this.processes = [];
       const readySignals: Promise<void>[] = [];
 
@@ -151,7 +153,9 @@ class WorkerClientManager {
         // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
         const otherNodes = this.peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
 
-        const config = this.createClientConfig(i, this.ports[i], otherNodes);
+        const trustedPeers = this.peerEnrs.filter((_, ind) => ind < Math.min(i, trustedPeersNumber ?? 0));
+
+        const config = this.createClientConfig(i, this.ports[i], otherNodes, trustedPeers);
         const [childProcess, readySignal] = this.spawnWorkerProcess(config, i);
 
         readySignals.push(readySignal);
@@ -239,21 +243,22 @@ class WorkerClientManager {
   /**
    * Terminate a single process with timeout and force kill if needed
    */
-  private terminateProcess(process: ChildProcess, index: number): Promise<void> {
+  public terminateProcess(process: ChildProcess, index: number): Promise<void> {
     if (!process || process.killed) {
       return Promise.resolve();
     }
 
     return new Promise<void>(resolve => {
-      // Set a timeout for the graceful exit
+      // Set a timeout to force kill if graceful shutdown takes too long
       const forceKillTimeout = setTimeout(() => {
-        this.logger.warn(`Process ${index} didn't exit gracefully, force killing...`);
+        this.logger.warn(`Process ${index} did not exit gracefully, force killing...`);
         try {
-          process.kill('SIGKILL'); // Force kill
-        } catch (e) {
-          this.logger.error(`Error force killing process ${index}:`, e);
+          process.kill('SIGKILL');
+        } catch (killError) {
+          this.logger.error(`Error force killing process ${index}:`, killError);
         }
-      }, 5000); // 5 second timeout for graceful exit
+        resolve();
+      }, 5000);
 
       // Listen for process exit
       process.once('exit', () => {
@@ -263,7 +268,13 @@ class WorkerClientManager {
 
       // Try to gracefully stop the process
       try {
-        process.send({ type: 'STOP' });
+        // Check if the process is still connected before sending a message
+        if (process.connected) {
+          process.send({ type: 'STOP' });
+        } else {
+          // If not connected, try to kill it directly
+          process.kill('SIGTERM');
+        }
       } catch (e) {
         // If sending the message fails, force kill immediately
         clearTimeout(forceKillTimeout);

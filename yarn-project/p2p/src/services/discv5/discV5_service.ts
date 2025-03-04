@@ -38,6 +38,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   public readonly bootstrapNodes: string[] = [];
   private bootstrapNodePeerIds: PeerId[] = [];
 
+  public readonly trustedPeers: string[] = [];
+  private trustedPeersPeerIds: PeerId[] = [];
+
   private startTime = 0;
 
   constructor(
@@ -47,8 +50,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     private logger = createLogger('p2p:discv5_service'),
   ) {
     super();
-    const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
+    const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes, trustedPeers } = config;
     this.bootstrapNodes = bootstrapNodes ?? [];
+    this.trustedPeers = trustedPeers ?? [];
+
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
@@ -124,19 +129,35 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       const bootstrapNodesEnrs = this.bootstrapNodes.map(enr => ENR.decodeTxt(enr));
       this.bootstrapNodePeerIds = await Promise.all(bootstrapNodesEnrs.map(enr => enr.peerId()));
       this.logger.info(`Adding ${this.bootstrapNodes} bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
-      for (const enr of bootstrapNodesEnrs) {
-        try {
-          if (this.config.bootstrapNodeEnrVersionCheck) {
-            const value = enr.kvs.get(AZTEC_ENR_KEY);
-            if (!value) {
-              throw new Error('ENR does not contain aztec key');
-            }
-            checkCompressedComponentVersion(Buffer.from(value).toString(), this.versions);
+      this.addPeersFromEnrs(bootstrapNodesEnrs);
+    }
+
+    // Add trusted peers ENRs
+    if (this.trustedPeers?.length) {
+      const trustedPeersEnrs = this.trustedPeers.map(enr => ENR.decodeTxt(enr));
+      this.trustedPeersPeerIds = await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()));
+      this.logger.info(`Adding ${this.trustedPeers} trusted peers ENRs: ${this.trustedPeers.join(', ')}`);
+      this.addPeersFromEnrs(trustedPeersEnrs);
+    }
+  }
+
+  public getTrustedPeersPeerIds(): PeerId[] {
+    return this.trustedPeersPeerIds;
+  }
+
+  private addPeersFromEnrs(enrs: ENR[]) {
+    for (const enr of enrs) {
+      try {
+        if (this.config.bootstrapNodeEnrVersionCheck) {
+          const value = enr.kvs.get(AZTEC_ENR_KEY);
+          if (!value) {
+            throw new Error('ENR does not contain aztec key');
           }
-          this.discv5.addEnr(enr);
-        } catch (e) {
-          this.logger.error(`Error adding bootratrap node ${enr.encodeTxt()}`, e);
+          checkCompressedComponentVersion(Buffer.from(value).toString(), this.versions);
         }
+        this.discv5.addEnr(enr);
+      } catch (e) {
+        this.logger.error(`Error adding trusted peer ${enr.encodeTxt()}`, e);
       }
     }
   }
@@ -178,6 +199,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   public isBootstrapPeer(peerId: PeerId): boolean {
     return this.bootstrapNodePeerIds.some(node => node.equals(peerId));
+  }
+
+  public isTrustedPeer(peerId: PeerId): boolean {
+    return this.trustedPeersPeerIds.some(node => node.equals(peerId));
   }
 
   public async stop(): Promise<void> {

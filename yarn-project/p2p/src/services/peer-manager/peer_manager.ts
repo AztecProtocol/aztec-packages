@@ -128,6 +128,10 @@ export class PeerManager {
     }
   }
 
+  private isTrustedPeer(peerId: PeerId): boolean {
+    return this.peerDiscoveryService.isTrustedPeer(peerId);
+  }
+
   /**
    * Handles a goodbye received from a peer.
    *
@@ -144,10 +148,15 @@ export class PeerManager {
   }
 
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
+    if (this.isTrustedPeer(peerId)) {
+      this.logger.debug(`Not penalizing trusted peer ${peerId.toString()}`);
+      return;
+    }
     this.peerScoring.penalizePeer(peerId, penalty);
   }
 
   public getPeerScore(peerId: string): number {
+    // TODO: If peer is trusted, return a high score
     return this.peerScoring.getScore(peerId);
   }
 
@@ -253,6 +262,10 @@ export class PeerManager {
     const connectedHealthyPeers: Connection[] = [];
 
     for (const peer of connections) {
+      if (this.isTrustedPeer(peer.remotePeer)) {
+        this.logger.debug(`Not pruning trusted peer ${peer.remotePeer.toString()}`);
+        continue;
+      }
       const score = this.peerScoring.getScoreState(peer.remotePeer.toString());
       switch (score) {
         case PeerScoreState.Banned:
@@ -434,7 +447,12 @@ export class PeerManager {
     }
 
     // Remove the oldest peers
-    for (const key of this.cachedPeers.keys()) {
+    for (const [key, value] of this.cachedPeers.entries()) {
+      if (this.isTrustedPeer(value.peerId)) {
+        this.logger.debug(`Not pruning trusted peer ${key}`);
+        continue;
+      }
+
       this.cachedPeers.delete(key);
       this.logger.trace(`Pruning peer ${key} from cache`);
       peersToDelete--;
