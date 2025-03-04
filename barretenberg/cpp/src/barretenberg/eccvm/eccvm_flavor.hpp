@@ -74,13 +74,13 @@ class ECCVMFlavor {
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
-    using Relations_ = std::tuple<ECCVMTranscriptRelation<FF>,
-                                  ECCVMPointTableRelation<FF>,
-                                  ECCVMWnafRelation<FF>,
-                                  ECCVMMSMRelation<FF>,
-                                  ECCVMSetRelation<FF>,
-                                  ECCVMLookupRelation<FF>,
-                                  ECCVMBoolsRelation<FF>>;
+    using Relations_ = std::tuple< // ECCVMTranscriptRelation<FF>,
+                                   // ECCVMPointTableRelation<FF>,
+                                   // ECCVMWnafRelation<FF>,
+                                   // ECCVMMSMRelation<FF>,
+        ECCVMSetRelation<FF>>;
+    // ECCVMLookupRelation<FF>,
+    // ECCVMBoolsRelation<FF>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
 
@@ -572,7 +572,7 @@ class ECCVMFlavor {
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
-            lagrange_last.at(lagrange_last.size() - 1) = 1;
+            lagrange_last.at(dyadic_num_rows - 1 - MASKING_OFFSET) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the

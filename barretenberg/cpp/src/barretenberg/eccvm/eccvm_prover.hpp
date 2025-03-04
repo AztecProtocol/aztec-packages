@@ -46,6 +46,7 @@ class ECCVMProver {
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
     void compute_translation_opening_claims();
+    void mask_witness_polynomial(Polynomial& polynomial);
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
