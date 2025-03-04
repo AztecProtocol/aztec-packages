@@ -1,6 +1,12 @@
 use dep::protocol_types::{
     address::AztecAddress, block_header::BlockHeader, constants::DEPLOYER_CONTRACT_ADDRESS,
-    hash::compute_siloed_nullifier,
+    hash::compute_siloed_nullifier, traits::ToField,
+};
+
+use crate::history::{
+    note_inclusion::ProveNoteInclusion,
+    nullifier_inclusion::ProveNullifierInclusion,
+    nullifier_non_inclusion::{ProveNoteNotNullified, ProveNullifierNonInclusion},
 };
 
 // This is tested in `noir-projects/noir-contracts/test_contract/src/test.nr because we cannot define a contract

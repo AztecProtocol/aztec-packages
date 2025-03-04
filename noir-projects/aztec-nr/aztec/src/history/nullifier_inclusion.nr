@@ -9,6 +9,7 @@ use crate::{
     },
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
 };
+use protocol_types::traits::Hash;
 
 mod test;
 

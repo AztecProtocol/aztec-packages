@@ -13,10 +13,7 @@ use dep::types::{
     address::AztecAddress,
     constants::DEFAULT_UPDATE_DELAY,
     contract_class_id::ContractClassId,
-    shared_mutable::{
-        compute_shared_mutable_block_horizon, scheduled_delay_change::ScheduledDelayChange,
-        scheduled_value_change::ScheduledValueChange, SharedMutableValues,
-    },
+    shared_mutable::{compute_shared_mutable_block_horizon, SharedMutableValues},
     traits::{is_empty, Packable},
     transaction::tx_request::TxRequest,
     utils::arrays::{

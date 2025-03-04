@@ -1,5 +1,7 @@
 use dep::aztec::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    traits::{Serialize, ToField},
 };
 use std::meta::derive;
 

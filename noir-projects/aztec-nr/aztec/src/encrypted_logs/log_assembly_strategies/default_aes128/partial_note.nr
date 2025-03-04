@@ -16,7 +16,7 @@ use crate::{
     oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
     utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
 };
-use dep::protocol_types::{address::{aztec_address::ToField, AztecAddress}, hash::poseidon2_hash};
+use dep::protocol_types::{address::AztecAddress, hash::poseidon2_hash, traits::ToField};
 use std::aes128::aes128_encrypt;
 
 pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(

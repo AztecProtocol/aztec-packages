@@ -5,6 +5,7 @@ use dep::aztec::{
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
 use dep::uint_note::uint_note::UintNote;
+use std::ops::Add;
 
 pub struct BalanceSet<Context> {
     pub set: PrivateSet<UintNote, Context>,

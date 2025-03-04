@@ -121,6 +121,7 @@ mod test {
         utils::with_hash::WithHash,
     };
     use dep::protocol_types::hash::poseidon2_hash;
+    use dep::protocol_types::traits::{Packable, ToField};
     use dep::std::{mem, test::OracleMock};
 
     global storage_slot: Field = 47;

@@ -1,5 +1,8 @@
-use dep::protocol_types::abis::validation_requests::{
-    key_validation_request::KEY_VALIDATION_REQUEST_LENGTH, KeyValidationRequest,
+use dep::protocol_types::{
+    abis::validation_requests::{
+        key_validation_request::KEY_VALIDATION_REQUEST_LENGTH, KeyValidationRequest,
+    },
+    traits::Deserialize,
 };
 
 #[oracle(getKeyValidationRequest)]

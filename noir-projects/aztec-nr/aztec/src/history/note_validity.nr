@@ -1,5 +1,6 @@
 use crate::{
     context::PrivateContext,
+    history::{note_inclusion::ProveNoteInclusion, nullifier_non_inclusion::ProveNoteNotNullified},
     note::{note_interface::NoteHash, retrieved_note::RetrievedNote},
 };
 

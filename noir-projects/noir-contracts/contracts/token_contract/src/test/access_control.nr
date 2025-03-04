@@ -1,5 +1,6 @@
 use crate::test::utils;
 use crate::Token;
+use aztec::protocol_types::traits::ToField;
 
 #[test]
 unconstrained fn access_control() {

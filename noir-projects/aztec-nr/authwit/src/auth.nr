@@ -7,6 +7,7 @@ use dep::aztec::protocol_types::{
         GENERATOR_INDEX__AUTHWIT_NULLIFIER, GENERATOR_INDEX__AUTHWIT_OUTER,
     },
     hash::poseidon2_hash_with_separator,
+    traits::ToField,
 };
 
 /**

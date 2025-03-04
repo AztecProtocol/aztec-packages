@@ -11,7 +11,7 @@ use crate::oracle;
 use crate::utils::comparison::compare;
 use dep::protocol_types::{
     constants::{GET_NOTES_ORACLE_RETURN_LENGTH, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
-    traits::Packable,
+    traits::{Packable, ToField},
 };
 
 pub use crate::note::constants::MAX_NOTES_PER_PAGE;

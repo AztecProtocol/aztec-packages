@@ -1,4 +1,3 @@
-use crate::utils::to_bytes::{arr_to_be_bytes_arr, str_to_be_bytes_arr};
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{
@@ -7,7 +6,7 @@ use dep::protocol_types::{
     },
     hash::{poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice, sha256_to_field},
     point::Point,
-    traits::Hash,
+    traits::{Hash, ToField},
 };
 
 pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};

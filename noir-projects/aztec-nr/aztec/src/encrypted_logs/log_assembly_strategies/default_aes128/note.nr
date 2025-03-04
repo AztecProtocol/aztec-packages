@@ -13,8 +13,10 @@ use crate::{
     utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
 };
 use dep::protocol_types::{
-    abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-    traits::Packable,
+    abis::note_hash::NoteHash,
+    address::AztecAddress,
+    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    traits::{Packable, ToField},
 };
 use std::aes128::aes128_encrypt;
 
@@ -482,6 +484,7 @@ where
 mod test {
     use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
     use dep::protocol_types::address::AztecAddress;
+    use dep::protocol_types::traits::FromField;
     use std::test::OracleMock;
 
     #[test]

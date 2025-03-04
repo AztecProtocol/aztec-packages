@@ -1,5 +1,6 @@
 use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
 
+use super::utils::AsStrQuote;
 use super::utils::get_storage_size;
 use super::utils::is_note;
 

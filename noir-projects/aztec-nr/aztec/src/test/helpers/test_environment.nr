@@ -12,7 +12,7 @@ use crate::oracle::{
     notes::notify_created_note,
 };
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
-use protocol_types::traits::Packable;
+use protocol_types::traits::{FromField, Packable, ToField};
 
 pub struct TestEnvironment {}
 

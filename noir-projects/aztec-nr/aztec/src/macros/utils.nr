@@ -89,12 +89,12 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $hasher_name.add($name as Field); }
     } else if typ.as_struct().is_some() {
-        quote { $hasher_name.add_multiple($name.serialize()); }
+        quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name)); }
     } else if typ.as_array().is_some() {
         let (element_type, _) = typ.as_array().unwrap();
         let serialized_name = f"{name}_serialized".quoted_contents();
         quote {
-           let $serialized_name = $name.map(|x: $element_type | x.serialize());
+           let $serialized_name = $name.map(|x: $element_type | dep::aztec::protocol_types::traits::Serialize::serialize(x));
             for i in 0..$name.len() {
                 $hasher_name.add_multiple($serialized_name[i]);
             }
@@ -190,7 +190,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote).to_field()
+        protocol_types::traits::ToField::to_field(protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -218,7 +218,7 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote).to_field()
+        protocol_types::traits::ToField::to_field(protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -273,6 +273,10 @@ pub(crate) comptime fn get_trait_impl_method(
     target_method: Quoted,
 ) -> TypedExpr {
     let trait_constraint = target_trait.as_trait_constraint();
-    typ.get_trait_impl(trait_constraint).unwrap().methods().filter(|m| m.name() == target_method)[0]
+    typ
+        .get_trait_impl(trait_constraint)
+        .expect(f"Could not find impl for {target_trait} for type {typ}")
+        .methods()
+        .filter(|m| m.name() == target_method)[0]
         .as_typed_expr()
 }

@@ -1,8 +1,9 @@
 use crate::{note::note_getter_options::PropertySelector, prelude::Point};
+use super::utils::AsStrQuote;
 use protocol_types::meta::{derive_packable_and_get_packed_len, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
-    hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
+    hash::{BuildHasherDefault, derive_generators, Hash, Hasher, poseidon2::Poseidon2Hasher},
     meta::{type_of, unquote},
 };
 
@@ -87,7 +88,7 @@ comptime fn generate_note_hash_trait_impl(s: StructDefinition) -> Quoted {
     quote {
         impl aztec::note::note_interface::NoteHash for $name {
             fn compute_note_hash(self, storage_slot: Field) -> Field {
-                let inputs = aztec::protocol_types::utils::arrays::array_concat(self.pack(), [storage_slot]);
+                let inputs = aztec::protocol_types::utils::arrays::array_concat(aztec::protocol_types::traits::Packable::pack(self), [storage_slot]);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
             }
 
@@ -525,6 +526,7 @@ comptime fn generate_setup_payload(
     s: StructDefinition,
     indexed_fixed_fields: [(Quoted, Type, u32)],
     indexed_nullable_fields: [(Quoted, Type, u32)],
+    note_type_id: Field,
 ) -> (Quoted, Quoted) {
     let name = s.name();
     let setup_payload_name = f"{name}SetupPayload".quoted_contents();
@@ -547,8 +549,12 @@ comptime fn generate_setup_payload(
 
     // Then the log plaintext ones
     let log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_plaintext: Quoted =
-        get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
+    let setup_log_plaintext: Quoted = get_setup_log_plaintext_body(
+        s,
+        log_plaintext_length,
+        indexed_nullable_fields,
+        note_type_id,
+    );
 
     // Then we compute values for `encrypt_log(...)` function.
     // First, the length of the items that are broken into bytes:
@@ -598,7 +604,7 @@ comptime fn generate_setup_payload(
 
         impl aztec::protocol_types::traits::Empty for $setup_payload_name {
             fn empty() -> Self {
-                Self { log_plaintext: [0; $log_plaintext_length], hiding_point: aztec::protocol_types::point::Point::empty() }
+                Self { log_plaintext: [0; $log_plaintext_length], hiding_point: aztec::protocol_types::traits::Empty::empty() }
             }
         }
     },
@@ -614,9 +620,8 @@ comptime fn get_setup_log_plaintext_body(
     s: StructDefinition,
     log_plaintext_length: u32,
     indexed_nullable_fields: [(Quoted, Type, u32)],
+    note_type_id: Field,
 ) -> Quoted {
-    let name = s.name();
-
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
     // to the generate_serialize_to_fields function but we omit the nullable fields.
     let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name);
@@ -636,7 +641,7 @@ comptime fn get_setup_log_plaintext_body(
         let mut log_plaintext: [u8; $log_plaintext_length] = [0; $log_plaintext_length];
 
         let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-        let note_type_id_bytes: [u8; 32] = $name::get_id().to_be_bytes();
+        let note_type_id_bytes: [u8; 32] = $note_type_id.to_be_bytes();
 
         for i in 0..32 {
             log_plaintext[i] = storage_slot_bytes[i];
@@ -885,7 +890,7 @@ comptime fn generate_finalization_payload(
 
         impl aztec::protocol_types::traits::Empty for $finalization_payload_name {
             fn empty() -> Self {
-                Self { context: &mut aztec::prelude::PublicContext::empty(), public_values: [0; $public_values_length], hiding_point_slot: 0, setup_log_slot: 0 }
+                Self { context: &mut aztec::protocol_types::traits::Empty::empty(), public_values: [0; $public_values_length], hiding_point_slot: 0, setup_log_slot: 0 }
             }
         }
     },
@@ -916,11 +921,11 @@ comptime fn generate_partial_note_impl(
     quote {
         impl aztec::note::note_interface::PartialNote<$setup_payload_name, $finalization_payload_name> for $name {
             fn setup_payload() -> $setup_payload_name {
-                $setup_payload_name::empty()
+                aztec::protocol_types::traits::Empty::empty()
             }
 
             fn finalization_payload() -> $finalization_payload_name {
-                $finalization_payload_name::empty()
+                aztec::protocol_types::traits::Empty::empty()
             }
         }
     }
@@ -996,11 +1001,15 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
-    let (setup_payload_impl, setup_payload_name) =
-        generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
+    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let (setup_payload_impl, setup_payload_name) = generate_setup_payload(
+        s,
+        indexed_fixed_fields,
+        indexed_nullable_fields,
+        note_type_id,
+    );
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let note_interface_impl = generate_note_interface(s, note_type_id);
     let note_hash_impl = generate_note_hash_trait_impl_for_partial_note(
         s,
         indexed_fixed_fields,

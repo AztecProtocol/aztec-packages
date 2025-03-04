@@ -403,7 +403,7 @@ mod tests {
             barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
         },
         blob_public_inputs::BlobCommitment,
-        config::{D, D_INV, ROOTS},
+        config::{D, D_INV},
     };
     use super::{__compute_partial_sums, __compute_sum};
     use bigint::{

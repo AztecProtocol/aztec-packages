@@ -12,7 +12,7 @@ comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
     quote {
         impl aztec::event::event_interface::EventInterface<$content_len> for $name {
             fn get_event_type_id() -> aztec::protocol_types::abis::event_selector::EventSelector {
-                aztec::protocol_types::abis::event_selector::EventSelector::from_field($event_type_id)
+                aztec::protocol_types::traits::FromField::from_field($event_type_id)
             }
 
             fn emit<Env>(self, _emit: fn[Env](Self) -> ()) {

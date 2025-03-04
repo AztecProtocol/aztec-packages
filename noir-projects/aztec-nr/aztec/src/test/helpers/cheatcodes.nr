@@ -3,7 +3,7 @@ use crate::test::helpers::utils::TestAccount;
 use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
-    public_keys::PublicKeys,
+    public_keys::PublicKeys, traits::Deserialize,
 };
 
 pub unconstrained fn reset() {
