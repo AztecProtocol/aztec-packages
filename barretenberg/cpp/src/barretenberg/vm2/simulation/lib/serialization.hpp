@@ -71,6 +71,7 @@ struct Instruction {
     uint8_t size_in_bytes;
 
     std::string to_string() const;
+    std::vector<uint8_t> encode() const;
 };
 
 /**

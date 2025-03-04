@@ -468,4 +468,56 @@ std::string Instruction::to_string() const
     return oss.str();
 }
 
+std::vector<uint8_t> Instruction::encode() const
+{
+    std::vector<uint8_t> output;
+    output.reserve(size_in_bytes);
+    output.emplace_back(static_cast<uint8_t>(opcode));
+    size_t operand_pos = 0;
+
+    for (const auto& operand_type : WireOpCode_WIRE_FORMAT.at(opcode)) {
+        switch (operand_type) {
+        case OperandType::INDIRECT8:
+            output.emplace_back(static_cast<uint8_t>(indirect));
+            break;
+        case OperandType::INDIRECT16: {
+            const auto indirect_vec = to_buffer(indirect);
+            output.insert(output.end(),
+                          std::make_move_iterator(indirect_vec.begin()),
+                          std::make_move_iterator(indirect_vec.end()));
+        } break;
+        case OperandType::TAG:
+        case OperandType::UINT8:
+            output.emplace_back(static_cast<uint8_t>(operands.at(operand_pos++)));
+            break;
+        case OperandType::UINT16: {
+            const auto operand_vec = to_buffer(static_cast<uint16_t>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        case OperandType::UINT32: {
+            const auto operand_vec = to_buffer(static_cast<uint32_t>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        case OperandType::UINT64: {
+            const auto operand_vec = to_buffer(static_cast<uint64_t>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        case OperandType::UINT128: {
+            const auto operand_vec = to_buffer(static_cast<uint128_t>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        case OperandType::FF: {
+            const auto operand_vec = to_buffer(static_cast<FF>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        }
+    }
+    return output;
+}
+
 } // namespace bb::avm2::simulation
