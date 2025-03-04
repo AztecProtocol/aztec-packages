@@ -8,7 +8,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
-import {bytesToG1ProofPoint, bytesToFr, logFr} from "./utils.sol";
+import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
 
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
@@ -38,16 +38,12 @@ library TranscriptLib {
         (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
             proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge
         );
-        logFr("previousChallenge after relation parameters", previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
-        logFr("previousChallenge after alphas", previousChallenge);
 
         (t.gateChallenges, previousChallenge) = generateGateChallenges(previousChallenge);
-        logFr("previousChallenge after gate challenges", previousChallenge);
 
         (t.sumCheckUChallenges, previousChallenge) = generateSumcheckChallenges(proof, previousChallenge);
-        logFr("previousChallenge after sumcheck challenges", previousChallenge);
 
         (t.rho, previousChallenge) = generateRhoChallenge(proof, previousChallenge);
 
@@ -56,7 +52,6 @@ library TranscriptLib {
         (t.shplonkNu, previousChallenge) = generateShplonkNuChallenge(proof, previousChallenge);
 
         (t.shplonkZ, previousChallenge) = generateShplonkZChallenge(proof, previousChallenge);
-        logFr("previousChallenge after shplonk challenges", previousChallenge);
 
         return t;
     }
