@@ -140,7 +140,7 @@ class TranslatorFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,

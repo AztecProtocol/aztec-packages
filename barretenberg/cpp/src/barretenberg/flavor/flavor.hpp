@@ -88,15 +88,15 @@
 namespace bb {
 
 /**
- * @brief Base class template containing circuit-specifying data.
+ * @brief Base class template for VericationKey containing circuit-specifying data.
  *
  */
-class PrecomputedEntitiesBase {
+template <typename FF> class VerificationKeyBase {
   public:
-    bool operator==(const PrecomputedEntitiesBase& other) const = default;
-    uint64_t circuit_size;
-    uint64_t log_circuit_size;
-    uint64_t num_public_inputs;
+    bool operator==(const VerificationKeyBase& other) const = default;
+    FF circuit_size;
+    FF log_circuit_size;
+    FF num_public_inputs;
 };
 // Specifies the regions of the execution trace containing non-trivial wire values
 struct ActiveRegionData {
@@ -168,7 +168,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
  * @tparam VerifierCommitmentKey The PCS verification key
  */
 template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
-class VerificationKey_ : public PrecomputedCommitments {
+class VerificationKey_ : public PrecomputedCommitments, public VerificationKeyBase<uint64_t> {
   public:
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;

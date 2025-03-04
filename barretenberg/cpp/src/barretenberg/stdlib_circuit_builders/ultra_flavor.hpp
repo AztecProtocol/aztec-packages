@@ -130,7 +130,7 @@ class UltraFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
         bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
