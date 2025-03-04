@@ -78,7 +78,6 @@ TYPED_TEST_SUITE(ShpleminiTest, TestSettings);
 TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
 {
     using Curve = typename TypeParam::Curve;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
@@ -166,8 +165,9 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     mock_claims.claim_batcher.compute_scalars_for_each_batch(
         inverted_vanishing_eval_pos, inverted_vanishing_eval_neg, shplonk_batching_challenge, gemini_eval_challenge);
 
-    ShpleminiVerifier::batch_multivariate_opening_claims(
-        mock_claims.claim_batcher, rho, commitments, scalars, verifier_batched_evaluation);
+    rho_power = Fr{ 1 };
+    mock_claims.claim_batcher.update_batch_mul_inputs_and_batched_evaluation(
+        commitments, scalars, verifier_batched_evaluation, rho, rho_power);
 
     // Final pairing check
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
@@ -224,8 +224,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         prover_commitments.emplace_back(commitment);
     }
 
-    auto [A_0_pos, A_0_neg] = GeminiProver::compute_partially_evaluated_batch_polynomials(
-        this->log_n, mock_claims.polynomial_batcher, gemini_eval_challenge);
+    auto [A_0_pos, A_0_neg] =
+        mock_claims.polynomial_batcher.compute_partially_evaluated_batch_polynomials(gemini_eval_challenge);
 
     const auto opening_claims = GeminiProver::construct_univariate_opening_claims(
         this->log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), gemini_eval_challenge);

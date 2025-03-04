@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include <optional>
 
 namespace bb {
@@ -26,14 +27,25 @@ template <typename Curve> struct ClaimBatcher_ {
         // scalar used for batching the claims, excluding the power of batching challenge \rho
         Fr scalar = 0;
     };
+    struct InterleavedBatch {
+        std::vector<RefVector<Commitment>> commitments_groups;
+        RefVector<Fr> evaluations;
+        std::vector<Fr> scalars_pos;
+        std::vector<Fr> scalars_neg;
+        Fr shplonk_denominator;
+    };
 
-    std::optional<Batch> unshifted;          // commitments and evaluations of unshifted polynomials
-    std::optional<Batch> shifted;            // commitments of to-be-shifted-by-1 polys, evals of their shifts
-    std::optional<Batch> right_shifted_by_k; // commitments of to-be-right-shifted-by-k polys, evals of their shifts
+    std::optional<Batch> unshifted;              // commitments and evaluations of unshifted polynomials
+    std::optional<Batch> shifted;                // commitments of to-be-shifted-by-1 polys, evals of their shifts
+    std::optional<Batch> right_shifted_by_k;     // commitments of to-be-right-shifted-by-k polys, evals of their shifts
+    std::optional<InterleavedBatch> interleaved; // commitments to groups of polynomials to be combined by interleaving
+                                                 // and evaluations of the resulting interleaved polynomials
 
     Batch get_unshifted() { return (unshifted) ? *unshifted : Batch{}; }
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
     Batch get_right_shifted_by_k() { return (right_shifted_by_k) ? *right_shifted_by_k : Batch{}; }
+    InterleavedBatch get_interleaved() { return (interleaved) ? *interleaved : InterleavedBatch{}; }
+    size_t get_groups_to_be_interleaved_size() { return (interleaved) ? interleaved->commitments_groups[0].size() : 0; }
 
     size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
@@ -67,7 +79,8 @@ template <typename Curve> struct ClaimBatcher_ {
     void compute_scalars_for_each_batch(const Fr& inverse_vanishing_eval_pos,
                                         const Fr& inverse_vanishing_eval_neg,
                                         const Fr& nu_challenge,
-                                        const Fr& r_challenge)
+                                        const Fr& r_challenge,
+                                        const Fr& interleaving_vanishing_eval = { 0 })
     {
         if (unshifted) {
             // (1/(z−r) + ν/(z+r))
@@ -83,8 +96,23 @@ template <typename Curve> struct ClaimBatcher_ {
             right_shifted_by_k->scalar = r_challenge.pow(k_shift_magnitude) *
                                          (inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg);
         }
-    }
 
+        if (interleaved) {
+            if (get_groups_to_be_interleaved_size() % 2 != 0) {
+                throw_or_abort("Interleaved groups size must be even");
+            }
+
+            Fr r_shift_pos = Fr(1);
+            Fr r_shift_neg = Fr(1);
+            interleaved->shplonk_denominator = interleaving_vanishing_eval;
+            for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
+                interleaved->scalars_pos.push_back(r_shift_pos);
+                interleaved->scalars_neg.push_back(r_shift_neg);
+                r_shift_pos *= r_challenge;
+                r_shift_neg *= (-r_challenge);
+            }
+        }
+    }
     /**
      * @brief Append the commitments and scalars from each batch of claims to the Shplemini batch mul input vectors;
      * update the batched evaluation and the running batching challenge (power of rho) in place.
@@ -99,7 +127,9 @@ template <typename Curve> struct ClaimBatcher_ {
                                                         std::vector<Fr>& scalars,
                                                         Fr& batched_evaluation,
                                                         const Fr& rho,
-                                                        Fr& rho_power)
+                                                        Fr& rho_power,
+                                                        Fr shplonk_batching_pos = { 0 },
+                                                        Fr shplonk_batching_neg = { 0 })
     {
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place
@@ -121,6 +151,24 @@ template <typename Curve> struct ClaimBatcher_ {
         }
         if (right_shifted_by_k) {
             aggregate_claim_data_and_update_batched_evaluation(*right_shifted_by_k, rho_power);
+        }
+        if (interleaved) {
+            if (get_groups_to_be_interleaved_size() % 2 != 0) {
+                throw_or_abort("Interleaved groups size must be even");
+            }
+
+            size_t group_idx = 0;
+            for (auto group : interleaved->commitments_groups) {
+                for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
+                    commitments.emplace_back(std::move(group[i]));
+                    scalars.emplace_back(-rho_power * interleaved->shplonk_denominator *
+                                         (shplonk_batching_pos * interleaved->scalars_pos[i] +
+                                          shplonk_batching_neg * interleaved->scalars_neg[i]));
+                }
+                batched_evaluation += interleaved->evaluations[group_idx] * rho_power;
+                rho_power *= rho;
+                group_idx++;
+            }
         }
     }
 };
