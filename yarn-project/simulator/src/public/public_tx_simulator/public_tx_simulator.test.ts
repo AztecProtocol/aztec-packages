@@ -38,7 +38,6 @@ import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/journal/journal.js';
-import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { WorldStateDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
@@ -983,14 +982,9 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    // Mock the writeSiloedNullifiersFromPrivate method to throw a NullifierCollisionError
-    (AvmPersistableStateManager.prototype as any).writeSiloedNullifiersFromPrivate = jest
-      .fn()
-      .mockImplementationOnce(() => {}) // Writing non-revertibles works
-      .mockImplementation(() => {
-        // Writing revertibles fails with a nullifier collision
-        throw new NullifierCollisionError('Nullifier collision');
-      });
+    const duplicateNullifier = new Fr(10000);
+    tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = duplicateNullifier;
+    tx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] = duplicateNullifier;
 
     // Simulate the transaction
     const txResult = await simulator.simulate(tx);
@@ -998,10 +992,11 @@ describe('public_tx_simulator', () => {
     // Verify that the transaction has app logic reverted code
     expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
 
-    // Verify that there are only 2 phases processed (setup and teardown)
-    expect(txResult.processedPhases.length).toBe(2);
-    expect(txResult.processedPhases[0].phase).toBe(TxExecutionPhase.SETUP);
-    expect(txResult.processedPhases[1].phase).toBe(TxExecutionPhase.TEARDOWN);
+    // Verify that there are only 2 phases processed (setup and teardown), since app logic is skipped
+    expect(txResult.processedPhases).toEqual([
+      expect.objectContaining({ phase: TxExecutionPhase.SETUP }),
+      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN }),
+    ]);
 
     // Verify that the SimulationError contains information about the nullifier collision
     const simulationError = txResult.revertReason as SimulationError;
