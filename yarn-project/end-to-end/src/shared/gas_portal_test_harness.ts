@@ -2,6 +2,7 @@ import {
   type AztecAddress,
   type AztecNode,
   EthAddress,
+  Fr,
   L1FeeJuicePortalManager,
   type L1TokenManager,
   type L2AmountClaim,
@@ -74,8 +75,8 @@ export class FeeJuicePortalTestingHarnessFactory {
  * shared between cross chain tests.
  */
 export class GasBridgingTestHarness implements IGasBridgingTestHarness {
-  private readonly l1TokenManager: L1TokenManager;
-  private readonly feeJuicePortalManager: L1FeeJuicePortalManager;
+  public readonly l1TokenManager: L1TokenManager;
+  public readonly feeJuicePortalManager: L1FeeJuicePortalManager;
 
   constructor(
     /** Aztec node */
@@ -142,6 +143,9 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
 
   async prepareTokensOnL1(bridgeAmount: bigint, owner: AztecAddress) {
     const claim = await this.sendTokensToPortalPublic(bridgeAmount, owner, true);
+
+    const isSynced = async () => await this.aztecNode.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
 
     // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
     await this.advanceL2Block();

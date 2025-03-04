@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 use crate::PrintOutput;
 
 use super::{
+    ForeignCallExecutor,
     layers::{self, Either, Layer, Layering},
     mocker::{DisabledMockForeignCallExecutor, MockForeignCallExecutor},
     print::PrintForeignCallExecutor,
-    ForeignCallExecutor,
 };
 
 #[cfg(feature = "rpc")]
