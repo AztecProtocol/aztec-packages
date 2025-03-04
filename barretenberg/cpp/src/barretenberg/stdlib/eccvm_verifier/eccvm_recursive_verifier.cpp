@@ -151,7 +151,7 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     // Initialize SmallSubgroupIPA structures
     SmallSubgroupIPACommitments<Commitment> small_ipa_commitments;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
-    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels = SmallIPA::evaluation_labels("Translation");
+    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels = SmallIPA::evaluation_labels("Translation:");
 
     // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of `translation_polynomials`,
     // Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
