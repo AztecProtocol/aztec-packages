@@ -34,6 +34,7 @@ class TranslatorVerifier {
                                                      const BF& batching_challenge_v,
                                                      const uint256_t& accumulated_result);
     bool verify_proof(const HonkProof& proof, const uint256_t& evaluation_input_x, const BF& batching_challenge_v);
-    bool verify_translation(const TranslationEvaluations& translation_evaluations);
+    bool verify_translation(const TranslationEvaluations& translation_evaluations,
+                            const BF& translation_masking_term_eval);
 };
 } // namespace bb

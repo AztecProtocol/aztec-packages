@@ -183,6 +183,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
+        manifest_expected.add_entry(round, "Translation:concatenated_masking_term_commitment", frs_per_G);
         manifest_expected.add_challenge(round, "Translation:evaluation_challenge_x");
 
         round++;
@@ -194,6 +195,16 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Translation:batching_challenge_v");
 
         round++;
+        manifest_expected.add_entry(round, "Translation:masking_term_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_commitment", frs_per_G);
+        manifest_expected.add_entry(round, "Translation:quotient_commitment", frs_per_G);
+        manifest_expected.add_challenge(round, "Translation:small_ipa_evaluation_challenge");
+
+        round++;
+        manifest_expected.add_entry(round, "Translation:concatenation_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_shift_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:quotient_eval", frs_per_Fr);
         manifest_expected.add_challenge(round, "Shplonk:nu");
 
         round++;

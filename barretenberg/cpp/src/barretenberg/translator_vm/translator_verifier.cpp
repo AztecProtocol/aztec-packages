@@ -142,7 +142,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     return verified && consistency_checked;
 }
 
-bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)
+bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations,
+                                            const BF& translation_masking_term_eval)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         const BF elt_0 = (static_cast<uint256_t>(arr[0]));
@@ -167,7 +168,7 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
         const BF& z1 = translation_evaluations.z1;
         const BF& z2 = translation_evaluations.z2;
 
-        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
+        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
         // multiply by x here to deal with shift
         return x * accumulated_result == eccvm_opening;
     };

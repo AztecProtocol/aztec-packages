@@ -151,7 +151,8 @@ template <typename Flavor>
 bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const TranslationEvaluations_<
         typename stdlib::bigfield<typename Flavor::CircuitBuilder, typename Flavor::Curve::BaseFieldNative::Params>,
-        typename Flavor::FF>& translation_evaluations)
+        typename Flavor::FF>& translation_evaluations,
+    const BF& translation_masking_term_eval)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         return BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
@@ -171,7 +172,7 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
         const BF& z1 = translation_evaluations.z1;
         const BF& z2 = translation_evaluations.z2;
 
-        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
+        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
         // multiply by x here to deal with shift
         eccvm_opening.assert_equal(x * accumulated_result);
         return (eccvm_opening.get_value() == (x * accumulated_result).get_value());
