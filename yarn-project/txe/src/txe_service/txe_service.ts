@@ -724,7 +724,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
   }
 
   async avmOpcodeStaticCall(
