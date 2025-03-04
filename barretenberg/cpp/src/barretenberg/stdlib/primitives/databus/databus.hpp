@@ -151,34 +151,30 @@ template <class Builder> class DataBusDepot {
      */
     void propagate_return_data_commitments(Builder& builder)
     {
-        PublicPoint app_return_data_public_point;
-        PublicPoint kernel_return_data_public_point;
-
         // Set default commitment value to be used in the absence of one or the other return_data commitment
-        CommitmentNative default_commitment_val = CommitmentNative::one() * FrNative(BusVector::DEFAULT_VALUE);
-        if (kernel_return_data_commitment_exists) {
-            kernel_return_data_public_point.set(kernel_return_data_commitment);
-        } else {
-            Commitment default_commitment(default_commitment_val);
-            default_commitment.convert_constant_to_fixed_witness(&builder);
-            kernel_return_data_public_point.set(default_commitment);
+        if (!kernel_return_data_commitment_exists) {
+            CommitmentNative DEFAULT_COMMITMENT_VALUE = CommitmentNative::one() * FrNative(BusVector::DEFAULT_VALUE);
+            kernel_return_data_commitment = Commitment(DEFAULT_COMMITMENT_VALUE);
+            kernel_return_data_commitment.convert_constant_to_fixed_witness(&builder);
+        }
+        if (!app_return_data_commitment_exists) {
+            CommitmentNative DEFAULT_COMMITMENT_VALUE = CommitmentNative::one() * FrNative(BusVector::DEFAULT_VALUE);
+            app_return_data_commitment = Commitment(DEFAULT_COMMITMENT_VALUE);
+            app_return_data_commitment.convert_constant_to_fixed_witness(&builder);
         }
 
-        if (app_return_data_commitment_exists) {
-            app_return_data_public_point.set(app_return_data_commitment);
-        } else {
-            Commitment default_commitment(default_commitment_val);
-            default_commitment.convert_constant_to_fixed_witness(&builder);
-            app_return_data_public_point.set(default_commitment);
-        }
+        // Set the return data commitments to public
+        PublicComponentKey kernel_return_data_public_point_key = PublicPoint::set(kernel_return_data_commitment);
+        PublicComponentKey app_return_data_public_point_key = PublicPoint::set(app_return_data_commitment);
+
         // Reset flags indicating existence of return data commitments
         kernel_return_data_commitment_exists = false;
         app_return_data_commitment_exists = false;
 
         // Set the public input component keys for the kernel and app return data commitments in the builder
         builder.databus_propagation_data.kernel_return_data_commitment_pub_input_key =
-            kernel_return_data_public_point.key();
-        builder.databus_propagation_data.app_return_data_commitment_pub_input_key = app_return_data_public_point.key();
+            kernel_return_data_public_point_key;
+        builder.databus_propagation_data.app_return_data_commitment_pub_input_key = app_return_data_public_point_key;
     }
 };
 

@@ -30,17 +30,12 @@ class PublicInputComponent {
     // WORKTODO: maybe template this class on Builder?
     using Fr = stdlib::field_t<MegaCircuitBuilder>;
 
-    PublicInputComponent() = default;
-    PublicInputComponent(const Key& key)
-        : key_(key)
-    {}
-
-    const Key& key() const { return key_; }
-
-    void set(const ComponentType& component)
+    static Key set(const ComponentType& component)
     {
-        key_.start_idx = component.set_public();
-        key_.exists_flag = true;
+        Key key;
+        key.start_idx = component.set_public();
+        key.exists_flag = true;
+        return key;
     }
 
     // Reconstruct the component from the public inputs and the key indicating its location
@@ -56,11 +51,6 @@ class PublicInputComponent {
         std::span<const Fr> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }
-
-  private:
-    Key key_;
-
-    bool key_exists() const { return key_.exists_flag; }
 };
 
 } // namespace bb::stdlib

@@ -44,18 +44,16 @@ TEST(PublicInputsTest, GoblinBigGroup)
         // Construct a stdlib point (e.g. representing a commitment received in the recursive verifier)
         G1 point = G1::from_witness(&builder, point_value);
 
-        // Construct a public object from the point
-        PublicPoint public_point;
-        public_point.set(point); // Set the witness indices of the point to public
+        // Construct a public object from the point; store the key used to reconstruct it from the public inputs
+        public_point_key = PublicPoint::set(point);
 
         // Add some more arbitrary public inputs
         builder.add_public_variable(FrNative::random_element());
 
-        // Store the public inputs from the builder and the key for reconstructing the public point
+        // Store the public inputs from the builder
         for (const auto& idx : builder.public_inputs) {
             public_inputs.push_back(builder.get_variable(idx));
         }
-        public_point_key = public_point.key();
     }
 
     // The second circuit reconstructs the public point from the public inputs and the public component key
