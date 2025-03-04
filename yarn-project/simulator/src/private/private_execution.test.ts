@@ -45,7 +45,6 @@ import {
   deriveStorageSlotInMap,
   siloNoteHash,
 } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -71,7 +70,7 @@ import { toFunctionSelector } from 'viem';
 
 import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 import { buildL1ToL2Message } from '../test/utils.js';
-import type { DBOracle } from './db_oracle.js';
+import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { WASMSimulator } from './providers/acvm_wasm.js';
 import { AcirSimulator } from './simulator.js';
 
@@ -80,8 +79,7 @@ jest.setTimeout(60_000);
 describe('Private Execution test suite', () => {
   const simulationProvider = new WASMSimulator();
 
-  let oracle: MockProxy<DBOracle>;
-  let node: MockProxy<AztecNode>;
+  let executionDataProvider: MockProxy<ExecutionDataProvider>;
   let acirSimulator: AcirSimulator;
 
   let header = BlockHeader.empty();
@@ -123,7 +121,7 @@ describe('Private Execution test suite', () => {
     contracts[address.toString()] = artifact;
     const contractClass = await getContractClassFromArtifact(artifact);
 
-    oracle.getContractInstance.calledWith(aztecAddressMatcher(address)).mockResolvedValue({
+    executionDataProvider.getContractInstance.calledWith(aztecAddressMatcher(address)).mockResolvedValue({
       currentContractClassId: contractClass.id,
       originalContractClassId: contractClass.id,
     } as ContractInstance);
@@ -235,34 +233,36 @@ describe('Private Execution test suite', () => {
 
   beforeEach(async () => {
     trees = {};
-    oracle = mock<DBOracle>();
+    executionDataProvider = mock<ExecutionDataProvider>();
     contracts = {};
-    oracle.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
-      if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-        return Promise.resolve(
-          new KeyValidationRequest(
-            ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-            await computeAppNullifierSecretKey(ownerNskM, contractAddress),
-          ),
-        );
-      }
-      if (pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
-        return Promise.resolve(
-          new KeyValidationRequest(
-            recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-            await computeAppNullifierSecretKey(recipientNskM, contractAddress),
-          ),
-        );
-      }
-      throw new Error(`Unknown master public key hash: ${pkMHash}`);
-    });
+    executionDataProvider.getKeyValidationRequest.mockImplementation(
+      async (pkMHash: Fr, contractAddress: AztecAddress) => {
+        if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+          return Promise.resolve(
+            new KeyValidationRequest(
+              ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+              await computeAppNullifierSecretKey(ownerNskM, contractAddress),
+            ),
+          );
+        }
+        if (pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+          return Promise.resolve(
+            new KeyValidationRequest(
+              recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+              await computeAppNullifierSecretKey(recipientNskM, contractAddress),
+            ),
+          );
+        }
+        throw new Error(`Unknown master public key hash: ${pkMHash}`);
+      },
+    );
 
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
-    oracle.getBlockHeader.mockResolvedValue(header);
+    executionDataProvider.getBlockHeader.mockResolvedValue(header);
 
-    oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
+    executionDataProvider.getCompleteAddress.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
         return Promise.resolve(ownerCompleteAddress);
       }
@@ -272,13 +272,13 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    oracle.getIndexedTaggingSecretAsSender.mockImplementation(
+    executionDataProvider.getIndexedTaggingSecretAsSender.mockImplementation(
       (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
         const secret = Fr.random();
         return Promise.resolve(new IndexedTaggingSecret(secret, 0));
       },
     );
-    oracle.getFunctionArtifact.mockImplementation(async (address, selector) => {
+    executionDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {
       const contract = contracts[address.toString()];
       if (!contract) {
         throw new Error(`Contract not found: ${address}`);
@@ -290,7 +290,7 @@ describe('Private Execution test suite', () => {
       return Promise.resolve(artifact);
     });
 
-    oracle.getFunctionArtifactByName.mockImplementation((address, name) => {
+    executionDataProvider.getFunctionArtifactByName.mockImplementation((address, name) => {
       const contract = contracts[address.toString()];
       if (!contract) {
         throw new Error(`Contract not found: ${address}`);
@@ -302,17 +302,18 @@ describe('Private Execution test suite', () => {
       return Promise.resolve(artifact);
     });
 
-    oracle.syncTaggedLogs.mockImplementation((_, __, ___) => Promise.resolve(new Map<string, TxScopedL2Log[]>()));
-    oracle.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
+    executionDataProvider.syncTaggedLogs.mockImplementation((_, __, ___) =>
+      Promise.resolve(new Map<string, TxScopedL2Log[]>()),
+    );
+    executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
-    node = mock<AztecNode>();
-    node.getPublicStorageAt.mockImplementation(
-      (_address: AztecAddress, _storageSlot: Fr, _blockNumber: L2BlockNumber) => {
+    executionDataProvider.getPublicStorageAt.mockImplementation(
+      (_blockNumber: L2BlockNumber, _address: AztecAddress, _storageSlot: Fr) => {
         return Promise.resolve(Fr.ZERO);
       },
     );
 
-    acirSimulator = new AcirSimulator(oracle, node, simulationProvider);
+    acirSimulator = new AcirSimulator(executionDataProvider, simulationProvider);
   });
 
   describe('no constructor', () => {
@@ -377,7 +378,7 @@ describe('Private Execution test suite', () => {
       const instance = await getContractInstanceFromDeployParams(StatefulTestContractArtifact, {
         constructorArgs: initArgs,
       });
-      oracle.getContractInstance.mockResolvedValue(instance);
+      executionDataProvider.getContractInstance.mockResolvedValue(instance);
       const executionResult = await runSimulator({
         args: initArgs,
         artifact: StatefulTestContractArtifact,
@@ -432,9 +433,9 @@ describe('Private Execution test suite', () => {
         buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
         buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
       ]);
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getNotes.mockResolvedValue(notes);
+      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
+      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
         const noteHash = await computeNoteHash(note, storageSlot);
@@ -484,9 +485,9 @@ describe('Private Execution test suite', () => {
       const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
 
       const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)]);
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getNotes.mockResolvedValue(notes);
+      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
+      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
         const noteHash = await computeNoteHash(note, storageSlot);
@@ -553,7 +554,7 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
       // First fetch of the function artifact is the parent contract
-      expect(oracle.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
+      expect(executionDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests[0].callContext).toEqual(
@@ -608,7 +609,7 @@ describe('Private Execution test suite', () => {
       });
 
       expect(result.returnValues).toEqual([argsHash]);
-      expect(oracle.getFunctionArtifact.mock.calls[1]).toEqual([testAddress, testCodeGenSelector]);
+      expect(executionDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([testAddress, testCodeGenSelector]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].returnValues).toEqual([argsHash]);
     });
@@ -659,11 +660,11 @@ describe('Private Execution test suite', () => {
 
       const mockOracles = async (updateHeader = true) => {
         const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
-        oracle.getL1ToL2MembershipWitness.mockImplementation(async () => {
+        executionDataProvider.getL1ToL2MembershipWitness.mockImplementation(async () => {
           return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
         if (updateHeader) {
-          oracle.getBlockHeader.mockResolvedValue(header);
+          executionDataProvider.getBlockHeader.mockResolvedValue(header);
         }
       };
 
@@ -713,7 +714,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -734,7 +735,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -754,7 +755,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -774,7 +775,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -795,7 +796,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -816,7 +817,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        oracle.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getBlockHeader.mockResolvedValue(header);
 
         await expect(
           runSimulator({
@@ -961,9 +962,9 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getNotes.mockResolvedValue([]);
+      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
+      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -1014,9 +1015,9 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in nested calls', async () => {
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getNotes.mockResolvedValue([]);
+      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
+      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -1086,9 +1087,9 @@ describe('Private Execution test suite', () => {
     });
 
     it('cant read a commitment that is inserted later in same call', async () => {
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getNotes.mockResolvedValue([]);
+      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
+      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -1112,7 +1113,7 @@ describe('Private Execution test suite', () => {
       const args = [completeAddress.address];
       const pubKey = completeAddress.publicKeys.masterIncomingViewingPublicKey;
 
-      oracle.getCompleteAddress.mockResolvedValue(completeAddress);
+      executionDataProvider.getCompleteAddress.mockResolvedValue(completeAddress);
       const { entrypoint: result } = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'get_master_incoming_viewing_public_key',
@@ -1125,9 +1126,9 @@ describe('Private Execution test suite', () => {
   describe('Get notes', () => {
     it('fails if returning no notes', async () => {
       const args = [2n, true];
-      oracle.syncTaggedLogs.mockResolvedValue(new Map());
-      oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getNotes.mockResolvedValue([]);
+      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
+      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.getNotes.mockResolvedValue([]);
 
       await expect(() =>
         runSimulator({ artifact: TestContractArtifact, functionName: 'call_get_notes', args }),
@@ -1204,8 +1205,8 @@ describe('Private Execution test suite', () => {
     beforeEach(() => {
       header = makeHeader();
 
-      oracle.getBlockHeader.mockClear();
-      oracle.getBlockHeader.mockResolvedValue(header);
+      executionDataProvider.getBlockHeader.mockClear();
+      executionDataProvider.getBlockHeader.mockResolvedValue(header);
     });
 
     it('Header is correctly set', async () => {

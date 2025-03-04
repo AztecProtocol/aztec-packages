@@ -15,8 +15,8 @@ import { TxEffect } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { PxeDatabase } from '../../database/interfaces/pxe_database.js';
 import { KVPxeDatabase } from '../../database/kv_pxe_database.js';
-import type { PxeDatabase } from '../../database/pxe_database.js';
 import type { PXEServiceConfig } from '../../index.js';
 import { PXEService } from '../pxe_service.js';
 import { pxeTestSuite } from './pxe_test_suite.js';

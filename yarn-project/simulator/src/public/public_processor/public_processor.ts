@@ -33,9 +33,9 @@ import {
 } from '@aztec/telemetry-client';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
-import { WorldStateDB } from './public_db_sources.js';
+import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
-import { PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -257,7 +257,7 @@ export class PublicProcessor implements Traceable {
             await checkpoint.revert();
             continue;
           } else {
-            this.log.trace(`Tx ${(await tx.getTxHash()).toString()} is valid post processing.`);
+            this.log.trace(`Tx ${txHash.toString()} is valid post processing.`);
           }
         }
 
@@ -265,6 +265,10 @@ export class PublicProcessor implements Traceable {
           // If there are no public calls, perform all tree insertions for side effects from private
           // When there are public calls, the PublicTxSimulator & AVM handle tree insertions.
           await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
+          // Add any contracts registered/deployed in this private-only tx to the block-level cache
+          // (add to tx-level cache and then commit to block-level cache)
+          await this.worldStateDB.addNewContracts(tx);
+          this.worldStateDB.commitContractsForTx();
         }
 
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
@@ -282,13 +286,15 @@ export class PublicProcessor implements Traceable {
           break;
         }
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage} ${err?.stack}`);
+        this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
 
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was reverted
         await checkpoint.commit();
+        // The tx-level contracts cache should not live on to the next tx
+        this.worldStateDB.clearContractsForTx();
       }
     }
 
@@ -296,7 +302,7 @@ export class PublicProcessor implements Traceable {
     const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
     this.metrics.recordAllTxs(totalPublicGas, rate);
 
-    this.log.info(`Processed ${result.length} successful txs and ${failed.length} txs in ${duration}s`, {
+    this.log.info(`Processed ${result.length} successful txs and ${failed.length} failed txs in ${duration}s`, {
       duration,
       rate,
       totalPublicGas,
@@ -478,7 +484,7 @@ export class PublicProcessor implements Traceable {
     }
 
     processedPhases.forEach(phase => {
-      if (phase.revertReason) {
+      if (phase.reverted) {
         this.metrics.recordRevertedPhase(phase.phase);
       } else {
         this.metrics.recordPhaseDuration(phase.phase, phase.durationMs);
