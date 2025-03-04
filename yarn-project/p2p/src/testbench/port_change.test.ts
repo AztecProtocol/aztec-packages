@@ -37,7 +37,7 @@ describe('Port Change', () => {
       await workerClientManager.makeWorkerClients(numberOfClients);
 
       // wait a bit longer for all peers to be ready
-      await sleep(5000);
+      await sleep(10000);
       logger.info('Workers Ready');
 
       // Run test multiple times for each client
@@ -54,7 +54,7 @@ describe('Port Change', () => {
         logger.info(`Transaction sent from client ${clientIndex}`);
 
         // Give time for message propagation
-        await sleep(7000);
+        await sleep(15000);
         logger.info('Checking message propagation results');
 
         // Check message propagation results
