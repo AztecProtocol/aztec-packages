@@ -81,25 +81,6 @@ pub unconstrained fn find_index_hint<T, let N: u32, Env>(
     index
 }
 
-// Helper function to find the index of the last element in an array that satisfies a given predicate, counting
-// from the end of the array.  If the element is not found, the function returns N as the index.
-// Useful for finding trailing zeroes in arrays which may have valid empty values.
-// e.g. removing trailing 0s from [1, 0, 2, 0, 0, 0] -> [1, 0, 2]
-pub unconstrained fn find_index_hint_from_end<T, let N: u32, Env>(
-    array: [T; N],
-    find: fn[Env](T) -> bool,
-) -> u32 {
-    let mut index = N;
-    for i in 0..N {
-        let j = N - i - 1;
-        // We check `index == N` to ensure that we only update the index if we haven't found a match yet.
-        if (index == N) & find(array[j]) {
-            index = j;
-        }
-    }
-    index
-}
-
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.
@@ -115,30 +96,6 @@ where
         } else {
             assert(seen_empty == false, "invalid array");
             length += 1;
-        }
-    }
-    length
-}
-
-// Routine which validates that zero values of an array form a contiguous region at the end, i.e.,
-// of the form: [*,*,*...,0,0,0,0] where * is any value (zeroes allowed).
-pub fn validate_trailing_zeroes<T, let N: u32>(array: [T; N]) -> u32
-where
-    T: Empty + Eq,
-{
-    // Safety: this value is constrained in the below loop.
-    let index = unsafe { find_index_hint_from_end(array, |elem: T| !is_empty(elem)) };
-    let length = if index == N { 0 } else { index + 1 };
-    // Check the elt just before length is non-zero:
-    if length != 0 {
-        assert(!is_empty(array[length - 1]), "invalid array");
-    }
-    // Check all beyond length are zero:
-    let mut check_zero = false;
-    for i in 0..N {
-        check_zero |= i == length;
-        if check_zero {
-            assert(is_empty(array[i]), "invalid array");
         }
     }
     length
@@ -252,6 +209,63 @@ where
     }
 }
 
+// Helper function to find the index of the last element in an array, allowing empty elements.
+// e.g. useful for removing trailing 0s from [1, 0, 2, 0, 0, 0] -> [1, 0, 2]
+// Nothing to do with validated arrays. Correctness constrained by padded_array_length.
+pub unconstrained fn find_last_value_index<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    let mut index = N;
+    for i in 0..N {
+        let j = N - i - 1;
+        // We check `index == N` to ensure that we only update the index if we haven't found a match yet.
+        if (index == N) & !is_empty(array[j]) {
+            index = j;
+        }
+    }
+    index
+}
+
+// Routine which returns the length of an array right padded by empty elements
+// of the form: [*,*,*...,0,0,0,0] where * is any value (zeroes allowed).
+// See smoke_validate_array_trailing for examples.
+// Nothing to do with validated arrays. Correctness constrained by padded_array_length.
+pub unconstrained fn unsafe_padded_array_length<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    let index = find_last_value_index(array);
+    if index == N {
+        0
+    } else {
+        index + 1
+    }
+}
+
+// Routine which validates that zero values of an array form a contiguous region at the end, i.e.,
+// of the form: [*,*,*...,0,0,0,0] where * is any value (zeroes allowed).
+pub fn padded_array_length<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    // Safety: this value is constrained in the below loop.
+    let length = unsafe { unsafe_padded_array_length(array) };
+    // Check the elt just before length is non-zero:
+    if length != 0 {
+        assert(!is_empty(array[length - 1]), "invalid right padded array");
+    }
+    // Check all beyond length are zero:
+    let mut check_zero = false;
+    for i in 0..N {
+        check_zero |= i == length;
+        if check_zero {
+            assert(is_empty(array[i]), "invalid right padded array");
+        }
+    }
+    length
+}
+
 #[test]
 fn smoke_validate_array() {
     let valid_array: [Field; 0] = [];
@@ -276,25 +290,25 @@ fn smoke_validate_array() {
 #[test]
 fn smoke_validate_array_trailing() {
     let valid_array: [Field; 0] = [];
-    assert(validate_trailing_zeroes(valid_array) == 0);
+    assert(padded_array_length(valid_array) == 0);
 
     let valid_array = [0];
-    assert(validate_trailing_zeroes(valid_array) == 0);
+    assert(padded_array_length(valid_array) == 0);
 
     let valid_array = [3];
-    assert(validate_trailing_zeroes(valid_array) == 1);
+    assert(padded_array_length(valid_array) == 1);
 
     let valid_array = [1, 0, 3];
-    assert(validate_trailing_zeroes(valid_array) == 3);
+    assert(padded_array_length(valid_array) == 3);
 
     let valid_array = [1, 0, 3, 0];
-    assert(validate_trailing_zeroes(valid_array) == 3);
+    assert(padded_array_length(valid_array) == 3);
 
     let valid_array = [1, 2, 3, 0, 0];
-    assert(validate_trailing_zeroes(valid_array) == 3);
+    assert(padded_array_length(valid_array) == 3);
 
     let valid_array = [0, 0, 3, 0, 0];
-    assert(validate_trailing_zeroes(valid_array) == 3);
+    assert(padded_array_length(valid_array) == 3);
 }
 
 #[test(should_fail_with = "invalid array")]
