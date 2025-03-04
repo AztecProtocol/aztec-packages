@@ -10,7 +10,7 @@ function test_cmds {
   local prefix="$hash $run_test_script"
 
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
+    echo "$hash timeout -v 1200s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
   else
     echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
   fi
@@ -62,6 +62,7 @@ function test_cmds {
   echo "$prefix simple e2e_fees/dapp_subscription"
   echo "$prefix simple e2e_fees/failures"
   echo "$prefix simple e2e_fees/fee_juice_payments"
+  echo "$prefix simple e2e_fees/fee_settings"
   echo "$prefix simple e2e_fees/gas_estimation"
   echo "$prefix simple e2e_fees/private_payments"
   echo "$prefix simple e2e_fees/public_payments"

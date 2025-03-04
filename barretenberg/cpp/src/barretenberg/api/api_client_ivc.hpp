@@ -25,9 +25,9 @@ class ClientIVCAPI : public API {
 
     void gates(const Flags& flags, const std::filesystem::path& bytecode_path) override;
 
-    void write_contract(const Flags& flags,
-                        const std::filesystem::path& output_path,
-                        const std::filesystem::path& vk_path) override;
+    void write_solidity_verifier(const Flags& flags,
+                                 const std::filesystem::path& output_path,
+                                 const std::filesystem::path& vk_path) override;
 
     void write_vk(const Flags& flags,
                   const std::filesystem::path& bytecode_path,
@@ -38,7 +38,7 @@ class ClientIVCAPI : public API {
                const std::filesystem::path& witness_path) override;
 };
 
-void gate_count_for_ivc(const std::string& bytecode_path);
+void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode);
 
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir);
 

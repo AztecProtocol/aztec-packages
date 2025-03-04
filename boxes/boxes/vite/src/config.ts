@@ -13,7 +13,6 @@ import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
 import { PXEService } from "@aztec/pxe/service";
 import { WASMSimulator } from "@aztec/simulator/client";
-import { BoxReactContractArtifact } from "../artifacts/BoxReact";
 import { LazyProtocolContractsProvider } from "@aztec/protocol-contracts/providers/lazy";
 
 export class PrivateEnv {
@@ -31,7 +30,7 @@ export class PrivateEnv {
     const simulationProvider = new WASMSimulator();
     const proofCreator = new BBWASMLazyPrivateKernelProver(
       simulationProvider,
-      16
+      16,
     );
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
@@ -42,7 +41,7 @@ export class PrivateEnv {
     const store = await createStore(
       "pxe_data",
       configWithContracts,
-      createLogger("pxe:data:idb")
+      createLogger("pxe:data:idb"),
     );
 
     const keyStore = new KeyStore(store);
@@ -60,7 +59,7 @@ export class PrivateEnv {
       proofCreator,
       simulationProvider,
       protocolContractsProvider,
-      config
+      config,
     );
     await this.pxe.init();
     const [accountData] = await getInitialTestAccounts();
@@ -68,7 +67,7 @@ export class PrivateEnv {
       this.pxe,
       accountData.secret,
       accountData.signingKey,
-      accountData.salt
+      accountData.salt,
     );
     await account.register();
     this.wallet = await account.getWallet();
@@ -80,8 +79,3 @@ export class PrivateEnv {
 }
 
 export const deployerEnv = new PrivateEnv();
-
-const IGNORE_FUNCTIONS = ["constructor", "process_log", "sync_notes"];
-export const filteredInterface = BoxReactContractArtifact.functions.filter(
-  (f) => !IGNORE_FUNCTIONS.includes(f.name)
-);

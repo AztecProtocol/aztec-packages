@@ -8,6 +8,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [aztec-nr] `TestEnvironment::block_number()` refactored
+
+The `block_number` function from `TestEnvironment` has been expanded upon with two extra functions, the first being `pending_block_number`, and the second being `committed_block_number`. `pending_block_number` now returns what `block_number` does. In other words, it returns the block number of the block we are currently building. `committed_block_number` returns the block number of the last committed block, i.e. the block number that gets used to execute the private part of transactions when your PXE is successfully synced to the tip of the chain.
+
+```diff
++    `TestEnvironment::pending_block_number()`
++    `TestEnvironment::committed_block_number()`
+```
+
 ### [aztec-nr] `compute_nullifier_without_context` renamed
 
 The `compute_nullifier_without_context` function from `NoteHash` (ex `NoteInterface`) is now called `compute_nullifier_unconstrained`, and instead of taking storage slot, contract address and nonce it takes a note hash for nullification (same as `compute_note_hash`). This makes writing this

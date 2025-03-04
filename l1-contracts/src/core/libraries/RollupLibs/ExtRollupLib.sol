@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingLib} from "./../staking/StakingLib.sol";
 import {ValidatorSelectionLib} from "./../ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
@@ -19,12 +19,10 @@ library ExtRollupLib {
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    // TODO(#9101): Extract blobs from beacon chain => remove below body input
-    bytes calldata _body,
     bytes calldata _blobInput,
     bool _checkBlob
   ) external {
-    ProposeLib.propose(_args, _signatures, _body, _blobInput, _checkBlob);
+    ProposeLib.propose(_args, _signatures, _blobInput, _checkBlob);
   }
 
   function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
@@ -38,7 +36,7 @@ library ExtRollupLib {
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
-    bytes32[7] calldata _args,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject

@@ -11,12 +11,12 @@ on:
       - "v*"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group: {}
 
 concurrency:
-  # On master or workflow_dispatch (checked via event_name) the group id is the unique run_id so we get parallel runs.
   # On PR's the group id is the ref_name so only 1 can run at a time.
   group: |
-    ci3-${{(github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.run_id || github.head_ref }}
+    ci3-${{ github.event_name == 'pull_request' && github.ref_name || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
       matrix:
         # Only run arm64 build with arm64-ci label or on master.
         # The way to do conditions here is to parse full strings as JSON.
-        settings:  >-
+        settings: >-
           ${{ fromJson(
             (contains(github.event.pull_request.labels.*.name, 'arm64-ci') || github.ref_name == 'master') &&
             '[{"arch":"amd64"},{"arch":"arm64"}]' ||
@@ -40,9 +40,6 @@ jobs:
       #############
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
@@ -76,6 +73,8 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           ./ci.sh ec2
 
@@ -84,7 +83,7 @@ jobs:
         run: |
           ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
           ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
-          ./ci3/cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+          # ./ci3/cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
 
       - name: Store barretenberg benchmark result
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
@@ -119,26 +118,26 @@ jobs:
           alert-comment-cc-users: "@philwindle @spalladino"
           max-items-in-chart: 50
 
-      - name: Store p2p benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
-        continue-on-error: true
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
-        with:
-          name: "P2P Testbench"
-          tool: "customSmallerIsBetter"
-          benchmark-data-dir-path: "dev/p2p-bench"
-          output-file-path: ./bench-out/p2p-bench.json
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          auto-push: true
-          alert-threshold: "105%"
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: "@Maddiaa0"
-          max-items-in-chart: 50
+      # - name: Store p2p benchmark result
+      #   if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+      #   continue-on-error: true
+      #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+      #   with:
+      #     name: "P2P Testbench"
+      #     tool: "customSmallerIsBetter"
+      #     benchmark-data-dir-path: "dev/p2p-bench"
+      #     output-file-path: ./bench-out/p2p-bench.json
+      #     github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      #     auto-push: true
+      #     alert-threshold: "105%"
+      #     comment-on-alert: true
+      #     fail-on-alert: false
+      #     alert-comment-cc-users: "@Maddiaa0"
+      #     max-items-in-chart: 50
 
   ci-grind:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'merge_group'
     strategy:
       matrix:
         number: [1, 2, 3, 4, 5]
@@ -149,15 +148,14 @@ jobs:
       #############
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
+
       #############
       # Run
       #############
@@ -170,14 +168,18 @@ jobs:
           INSTANCE_POSTFIX: ${{ matrix.number }}
           DRY_RUN: 1
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI_FULL: 1
         run: |
           ./ci.sh ec2-test
 
   # Necessary as github actions won't allow checks on matrix builds.
   merge-check:
     runs-on: ubuntu-20.04
-    needs: ci
     if: always()
+    needs:
+      - ci
+      - ci-grind
     steps:
       - name: Failing deploy
         if: ${{ contains(needs.*.result, 'failure') }}
@@ -198,7 +200,8 @@ jobs:
         run: |
           authors=$(git log -1 --pretty=format:'%an <%ae>')
           echo "authors=${authors}" >> $GITHUB_OUTPUT
-          title=$(git log -1 --pretty=format:'%s')
+          # Note, we have to make sure double quotes don't break our JSON.
+          title=$(git log -1 --pretty=format:'%s' | sed s/\"/\'/g)
           echo "commit_title=${title}" >> $GITHUB_OUTPUT
           failed_jobs=""
           [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
