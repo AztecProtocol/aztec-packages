@@ -146,7 +146,7 @@ pub fn compute_contract_class_log_hash(contract_class_log: ContractClassLog) -> 
     if length == 0 {
         0
     } else {
-        poseidon2_hash_subarray_variable(array, length)
+        poseidon2_hash(array)
     }
 }
 
@@ -253,12 +253,6 @@ where
 #[no_predicates]
 pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Field {
     let mut sponge = poseidon2_absorb_chunks(input, in_len, false);
-    sponge.squeeze()
-}
-
-#[no_predicates]
-pub fn poseidon2_hash_subarray_variable<let N: u32>(input: [Field; N], in_len: u32) -> Field {
-    let mut sponge = poseidon2_absorb_chunks(input, in_len, true);
     sponge.squeeze()
 }
 

@@ -13,7 +13,7 @@ pub contract ContractClassRegisterer {
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
         },
         contract_class_id::ContractClassId,
-        hash::poseidon2_hash_subarray_variable,
+        hash::poseidon2_hash,
         utils::arrays::{array_concat, unsafe_padded_array_length},
     };
 
@@ -209,22 +209,13 @@ pub contract ContractClassRegisterer {
         let contract_address = context.this_address();
         let counter = context.next_counter();
 
-        // The log preimage is too large for the hash to compile (16,200 fields, 518,400 bytes), so we do this via a
-        // specialized oracle.
-        // A malicious oracle cannot force us to use an incorrect bytecode:
-        // - Contract class -> we will commit to the packed bytecode (currently a TODO)
-        // - Private function -> we provide a membership proof
-        // - Unconstrained function -> we provide a membership proof
-        // However, the sequencer will be required to know a contract's preimage if it is called and the sequencer
-        // cannot prove non-registration. Therefore, it is possible that a malicious oracle might prevent sequencers
-        // from including transactions with calls to certain badly-broadcasted contracts.
-        // TODO(#8978): review correctness
         let log_to_emit: [Field; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS] =
             array_concat(log, [0; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS - N]);
         // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
         // Safety: The below length is constrained in the base rollup.
         let length = unsafe { unsafe_padded_array_length(log_to_emit) };
-        let log_hash = poseidon2_hash_subarray_variable(log_to_emit, length);
+        // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
+        let log_hash = poseidon2_hash(log_to_emit);
         // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
         unsafe {
             notify_created_contract_class_log(contract_address, log_to_emit, counter);
