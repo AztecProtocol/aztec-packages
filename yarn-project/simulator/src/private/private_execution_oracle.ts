@@ -342,11 +342,10 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
    * Emit a contract class log.
    * This fn exists because we only carry a poseidon hash through the kernels, and need to
    * keep the preimage in ts for later.
-   * We could also return the hash here if we must save extra gates.
    * @param log - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public override emitContractClassLog(log: ContractClassLog, counter: number) {
+  public override notifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
     this.log.verbose(
