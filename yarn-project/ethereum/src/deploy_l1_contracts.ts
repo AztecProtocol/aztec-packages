@@ -264,7 +264,14 @@ export const deployRollupAndPeriphery = async (
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
-  const deployer = new L1Deployer(clients.walletClient, clients.publicClient, args.salt, logger, txUtilsConfig);
+  const deployer = new L1Deployer(
+    clients.walletClient,
+    clients.publicClient,
+    args.salt,
+    args.fastMode,
+    logger,
+    txUtilsConfig,
+  );
 
   const addresses = await RegistryContract.collectAddresses(clients.publicClient, registryAddress, 'canonical');
 
@@ -436,15 +443,6 @@ export const deployL1Contracts = async (
   const clients = createL1Clients(rpcUrls, account, chain);
   const { walletClient, publicClient } = clients;
 
-  // Enable fast mode if requested
-  if (args.fastMode) {
-    logger.info('Fast mode enabled - transactions will be sent without waiting for receipts');
-    txUtilsConfig = {
-      ...txUtilsConfig,
-      debugMaxGasLimit: true, // Always use max gas limit to avoid simulation
-    };
-  }
-
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
 
@@ -468,7 +466,7 @@ export const deployL1Contracts = async (
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
   // Governance stuff
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, args.fastMode, logger, txUtilsConfig);
 
   const registryAddress = await deployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
@@ -714,19 +712,23 @@ class L1Deployer {
   private salt: Hex | undefined;
   private txHashes: Hex[] = [];
   public readonly l1TxUtils: L1TxUtils;
-  private fastMode: boolean = false;
 
   constructor(
     public readonly walletClient: ViemWalletClient,
     private publicClient: ViemPublicClient,
     maybeSalt: number | undefined,
+    private fastMode: boolean = false,
     private logger: Logger = createLogger('L1Deployer'),
     private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
-    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.logger, this.txUtilsConfig);
-    // TODO: clean up
-    this.fastMode = txUtilsConfig?.debugMaxGasLimit ?? false;
+    this.l1TxUtils = new L1TxUtils(
+      this.publicClient,
+      this.walletClient,
+      this.logger,
+      this.txUtilsConfig,
+      this.fastMode,
+    );
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
@@ -794,9 +796,7 @@ export async function deployL1Contract(
   let resultingAddress: Hex | null | undefined = undefined;
 
   if (!l1TxUtils) {
-    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      debugMaxGasLimit: fastMode, // Use max gas limit in fast mode
-    });
+    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger, undefined, fastMode);
   }
 
   if (libraries) {
@@ -862,7 +862,7 @@ export async function deployL1Contract(
     // Reth fails gas estimation if the deployed contract attempts to call a library that is not yet deployed,
     // so we wait for all library deployments to be mined before deploying the contract.
     // However, if we are in fast mode or using debugMaxGasLimit, we will skip simulation, so we can skip waiting.
-    if (libraryTxs.length > 0 && !fastMode && !l1TxUtils.config.debugMaxGasLimit) {
+    if (libraryTxs.length > 0 && !fastMode) {
       logger?.verbose(`Awaiting for linked libraries to be deployed`);
       await Promise.all(libraryTxs.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
     } else {

@@ -2,7 +2,6 @@ import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
-  booleanConfigHelper,
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
@@ -101,11 +100,6 @@ export interface L1TxUtilsConfig {
    * First attempt is done at 1s, second at 2s, third at 3s, etc.
    */
   txPropagationMaxQueryAttempts?: number;
-
-  /**
-   * If true, use a max gas limit for all transactions, only use in debug mode
-   */
-  debugMaxGasLimit?: boolean;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -169,11 +163,6 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_TX_PROPAGATION_MAX_QUERY_ATTEMPTS',
     ...numberConfigHelper(3),
   },
-  debugMaxGasLimit: {
-    description: 'If true, use a max gas limit for all transactions, only use in debug mode',
-    env: 'DEBUG_L1_MAX_GAS_LIMIT',
-    ...booleanConfigHelper(false),
-  },
 };
 
 export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtilsConfigMappings);
@@ -218,6 +207,7 @@ export class L1TxUtils {
     public walletClient: ViemWalletClient,
     protected logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
+    private debugMaxGasLimit: boolean = false,
   ) {
     this.config = {
       ...defaultL1TxUtilsConfig,
@@ -268,8 +258,7 @@ export class L1TxUtils {
       const account = this.walletClient.account;
       let gasLimit: bigint;
 
-      if (gasConfig.debugMaxGasLimit) {
-        this.logger.info('\n\nUsing max gas limit for L1 transaction');
+      if (this.debugMaxGasLimit) {
         gasLimit = LARGE_GAS_LIMIT;
       } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
