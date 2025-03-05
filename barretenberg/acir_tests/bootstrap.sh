@@ -21,29 +21,89 @@ function build {
   echo_header "acir_tests build"
 
   if ! cache_download $tests_tar; then
-    rm -rf acir_tests
-    denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
-    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
-    # Running these requires extra gluecode so they're skipped.
-    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
-    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
-    # TODO: Check if resolved. Move to .test_skip_patterns if not.
-    rm -rf acir_tests/regression_5045
-    # Don't compile these until we generate their inputs
-    rm -rf acir_tests/{verify_honk_proof,verify_rollup_honk_proof}
+    # rm -rf acir_tests
+    # denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
+    # cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
+    # # Running these requires extra gluecode so they're skipped.
+    # rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
+    # # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
+    # # TODO: Check if resolved. Move to .test_skip_patterns if not.
+    # rm -rf acir_tests/regression_5045
+    # # Don't compile these until we generate their inputs
+    # rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}
 
-    # COMPILE=2 only compiles the test.
-    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
+    # # COMPILE=2 only compiles the test.
+    # denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
-    cp -R ../../noir/noir-repo/test_programs/execution_success/{verify_honk_proof,verify_rollup_honk_proof} acir_tests
-    echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
+    cp -R ../../noir/noir-repo/test_programs/execution_success/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof} acir_tests
+    echo "Regenerating verify_honk_proof, double_verify_honk_proof, verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
-    (cd ./acir_tests/assert_statement && \
-      # TODO(https://github.com/AztecProtocol/barretenberg/issues/1253) Deprecate command and construct TOML (e.g., via yq or via conversion from a JSON)
-      $bb OLD_API write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
-      $bb OLD_API write_recursion_inputs_ultra_honk --ipa_accumulation -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+    cd ./acir_tests/assert_statement
 
-    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{verify_honk_proof,verify_rollup_honk_proof}"
+      outdir=$(mktemp -d)
+      trap "rm -rf $outdir" EXIT
+      local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
+
+      local prove_uh_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+      echo_stderr $prove_uh_cmd
+      dump_fail "$prove_uh_cmd"
+      vk_fields=$(cat $outdir/vk_fields.json)
+      proof_fields=$(cat $outdir/proof_fields.json)
+      num_inner_public_inputs=$(( 16#$(echo $vk_fields | jq -r '.[1] | ltrimstr("0x")') - 16 ))
+      echo "num_inner_public_inputs = $num_inner_public_inputs"
+
+      jq -nr \
+        --arg key_hash "$key_hash" \
+        --argjson vkf "$vk_fields" \
+        --argjson prooff "$proof_fields" \
+        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
+        '[
+          "key_hash = \($key_hash)",
+          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
+          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
+          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
+        ] | join("\n")' > ../verify_honk_proof/Prover.toml
+
+      jq -nr \
+        --arg key_hash "$key_hash" \
+        --argjson vkf "$vk_fields" \
+        --argjson prooff "$proof_fields" \
+        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
+        '[
+          "key_hash = \($key_hash)",
+          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
+          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
+          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]",
+          "proof_b = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]"
+        ] | join("\n")' > ../double_verify_honk_proof/Prover.toml
+
+
+      local prove_rollup_honk_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator --ipa_accumulation --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+      echo_stderr $prove_rollup_honk_cmd
+      dump_fail "$prove_rollup_honk_cmd"
+      vk_fields=$(cat $outdir/vk_fields.json)
+      proof_fields=$(cat $outdir/proof_fields.json)
+      num_inner_public_inputs=$(( 16#$(echo $vk_fields | jq -r '.[1] | ltrimstr("0x")') - 26 ))
+      echo "num_inner_public_inputs = $num_inner_public_inputs"
+
+      jq -nr \
+        --arg key_hash "$key_hash" \
+        --argjson vkf "$vk_fields" \
+        --argjson prooff "$proof_fields" \
+        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
+        '[
+          "key_hash = \($key_hash)",
+          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
+          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
+          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
+        ] | join("\n")' > ../verify_rollup_honk_proof/Prover.toml
+  cd ../..
+
+
+      # $bb OLD_API write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive
+      # $bb OLD_API write_recursion_inputs_ultra_honk --ipa_accumulation -b ./target/program.json -o ../verify_rollup_honk_proof --recursive
+
+    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}"
 
     cache_upload $tests_tar acir_tests
   fi
