@@ -84,11 +84,6 @@ on:
         required: false
         type: string
         default: "false"
-      ref:
-        description: The branch name to deploy from
-        required: false
-        type: string
-        default: "master"
       sepolia_deployment:
         description: "Whether to deploy on Sepolia network (default: false)"
         required: false
@@ -123,7 +118,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -174,8 +169,12 @@ jobs:
         run: |
           REPO=$(git rev-parse --show-toplevel)
           export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          export ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}
-          mnemonic=$(bash $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 5)
+          export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
+          echo "Preparing sepolia accounts..."
+          MNEMONIC_FILE=$(mktemp)
+          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 30 "$MNEMONIC_FILE"
+          mnemonic=$(cat "$MNEMONIC_FILE")
+          rm "$MNEMONIC_FILE"
           echo "::add-mask::$mnemonic"
           echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
 

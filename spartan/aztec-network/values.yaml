@@ -15,6 +15,9 @@ network:
   # This is only applicable to GKE deployments
   gke: false
 
+  # If true then configured bootnodes are considered non-gossiping peers
+  p2pBootstrapNodesAsFullPeers: true
+
 storage:
   localSsd: false
   dataStoreMapSize: "134217728" # 128 GB
@@ -44,6 +47,11 @@ images:
     pullPolicy: IfNotPresent
 
 aztec:
+  bootstrapENRs: ""
+  contracts:
+    registryAddress: ""
+    slashFactoryAddress: ""
+
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 32 # how many L2 slots in an epoch
   proofSubmissionWindow: 64 # in L2 slots, from the start of the epoch to be proven
@@ -64,6 +72,7 @@ aztec:
   botKeyIndexStart: 3000
 
 bootNode:
+  enabled: true
   peerIdPrivateKey: ""
   externalHost: ""
   replicas: 1

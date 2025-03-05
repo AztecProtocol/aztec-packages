@@ -128,16 +128,34 @@ tests:
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
       - "U03E5SYLY3Z" # lasse
+  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
+    owners:
+      - "U04TPBU26E8" # palla
+  - regex: "yarn-project/kv-store"
+    owners:
+      - "U05QWV669JB" # alex
 
   # kind tests
+
+  - regex: "spartan/bootstrap.sh test-kind-4epochs"
+    owners:
+      - "UBLTU1NJ3" # leila
+
+  - regex: "spartan/bootstrap.sh test-prod-deployment"
+    owners:
+      - "U06AY5G1NRK" # mitch
+
+  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    owners:
+      - "U06AY5G1NRK" # mitch
+
   - regex: "spartan/bootstrap.sh test-kind"
     owners:
-      - "UKUMA5J7K" # charlie
-      - "U04BM8H25NJ" # adam
+      - "U02G4KAD57Y" # phil
+      - "U06AY5G1NRK" # mitch
   - regex: "spartan/bootstrap.sh test-local"
     skip: true
     owners:
-      - "UKUMA5J7K" # charlie
       - "U04BM8H25NJ" # adam
 
   # Slack testing.

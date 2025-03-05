@@ -39,7 +39,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 
-struct Config {
+struct RollupConfig {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
@@ -47,6 +47,13 @@ struct Config {
   uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
+}
+
+struct GenesisState {
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  bytes32 genesisArchiveRoot;
+  bytes32 genesisBlockHash;
 }
 
 /**
@@ -84,13 +91,10 @@ contract RollupCore is
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
-    bytes32 _vkTreeRoot,
-    bytes32 _protocolContractTreeRoot,
-    bytes32 _genesisArchiveRoot,
-    bytes32 _genesisBlockHash,
-    address _ares,
-    Config memory _config
-  ) Ownable(_ares) {
+    address _governance,
+    GenesisState memory _genesisState,
+    RollupConfig memory _config
+  ) Ownable(_governance) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
 
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
@@ -108,8 +112,8 @@ contract RollupCore is
     rollupStore.config.rewardDistributor = _rewardDistributor;
 
     rollupStore.config.epochProofVerifier = new MockVerifier();
-    rollupStore.config.vkTreeRoot = _vkTreeRoot;
-    rollupStore.config.protocolContractTreeRoot = _protocolContractTreeRoot;
+    rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
+    rollupStore.config.protocolContractTreeRoot = _genesisState.protocolContractTreeRoot;
     rollupStore.config.version = 1;
 
     rollupStore.config.inbox =
@@ -126,8 +130,8 @@ contract RollupCore is
         congestionCost: 0,
         provingCost: 0
       }),
-      archive: _genesisArchiveRoot,
-      blockHash: _genesisBlockHash,
+      archive: _genesisState.genesisArchiveRoot,
+      blockHash: _genesisState.genesisBlockHash,
       slotNumber: Slot.wrap(0)
     });
     rollupStore.l1GasOracleValues = L1GasOracleValues({

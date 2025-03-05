@@ -10,6 +10,16 @@ import { createTXERpcServer } from '../index.js';
 async function main() {
   const { TXE_PORT = 8080 } = process.env;
 
+  process.on('SIGTERM', () => {
+    logger.info('Received SIGTERM.');
+    process.exit(0);
+  });
+
+  process.on('SIGINT', () => {
+    logger.info('Received SIGTERM.');
+    process.exit(0);
+  });
+
   const logger = createLogger('txe:service');
   logger.info(`Setting up TXE...`);
 

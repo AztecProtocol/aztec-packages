@@ -3,7 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 
@@ -25,20 +25,20 @@ TEST(AvmSimulationEccTest, Add)
 
     FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
-    AffinePoint p(p_x, p_y);
+    EmbeddedCurvePoint p(p_x, p_y, false);
 
     FF q_x("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
     FF q_y("0x0fe3016d64cfa8045609f375284b6b739b5fa282e4cbb75cc7f1687ecc7420e3");
-    AffinePoint q(q_x, q_y);
+    EmbeddedCurvePoint q(q_x, q_y, false);
 
-    AffinePoint result = ecc.add(p, q);
+    EmbeddedCurvePoint result = ecc.add(p, q);
 
     FF r_x("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6");
     FF r_y("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
 
-    EXPECT_EQ(result.x, r_x);
-    EXPECT_EQ(result.y, r_y);
-    EXPECT_EQ(result.is_point_at_infinity(), 0);
+    EXPECT_EQ(result.x(), r_x);
+    EXPECT_EQ(result.y(), r_y);
+    EXPECT_EQ(result.is_infinity(), 0);
 
     auto events = ecc_event_emitter.dump_events();
     EXPECT_EQ(events.size(), 1);
@@ -58,19 +58,19 @@ TEST(AvmSimulationEccTest, ScalarMul)
 
     FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
-    AffinePoint p(p_x, p_y);
+    EmbeddedCurvePoint p(p_x, p_y, false);
 
-    AffinePoint result = ecc.scalar_mul(p, scalar);
+    EmbeddedCurvePoint result = ecc.scalar_mul(p, scalar);
 
-    AffinePoint expected_result = p * Fq(scalar);
+    EmbeddedCurvePoint expected_result = p * Fq(scalar);
 
     EXPECT_EQ(result, expected_result);
 
     std::vector<ScalarMulIntermediateState> intermediate_states;
     intermediate_states.reserve(254);
 
-    AffinePoint res = AffinePoint::infinity();
-    AffinePoint temp = p;
+    EmbeddedCurvePoint res = EmbeddedCurvePoint::infinity();
+    EmbeddedCurvePoint temp = p;
     uint256_t scalar_value = scalar;
 
     for (size_t i = 0; i < 254; ++i) {

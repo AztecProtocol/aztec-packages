@@ -83,7 +83,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector

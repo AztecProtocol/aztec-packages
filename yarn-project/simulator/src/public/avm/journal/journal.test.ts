@@ -10,13 +10,13 @@ import type { PublicSideEffectTraceInterface } from '../../../public/side_effect
 import type { WorldStateDB } from '../../public_db_sources.js';
 import { initPersistableStateManager } from '../fixtures/index.js';
 import {
-  mockGetBytecode,
+  mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
+  mockGetNullifierIndex,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
   mockNoteHashExists,
-  mockNullifierExists,
   mockStorageRead,
 } from '../test_utils.js';
 import type { AvmPersistableStateManager } from './journal.js';
@@ -101,7 +101,7 @@ describe('journal', () => {
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
-      mockNullifierExists(worldStateDB, leafIndex, utxo);
+      mockGetNullifierIndex(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
       const siloedNullifier = await siloNullifier(address, utxo);
@@ -142,11 +142,12 @@ describe('journal', () => {
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
       const contractInstance = SerializableContractInstance.default();
-      mockNullifierExists(worldStateDB, leafIndex, utxo);
       mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+      mockGetNullifierIndex(worldStateDB, leafIndex, utxo); // From GetContractInstance via no-merkle-ops
       await persistableState.getContractInstance(address);
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
       expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ true, contractInstance);
+      expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
     });
     it('Can get undefined contract instance', async () => {
       await persistableState.getContractInstance(address);
@@ -161,32 +162,30 @@ describe('journal', () => {
       const bytecodeCommitment = await computePublicBytecodeCommitment(bytecode);
       const contractInstance = SerializableContractInstance.default();
       const contractClass = await makeContractClassPublic();
+      contractClass.packedBytecode = bytecode;
 
-      mockNullifierExists(worldStateDB, leafIndex, utxo);
+      mockGetNullifierIndex(worldStateDB, leafIndex);
       mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
       mockGetContractClass(worldStateDB, contractClass);
-      await mockGetBytecode(worldStateDB, bytecode);
-
-      const expectedContractClassPreimage = {
-        artifactHash: contractClass.artifactHash,
-        privateFunctionsRoot: contractClass.privateFunctionsRoot,
-        publicBytecodeCommitment: bytecodeCommitment,
-      };
+      mockGetBytecodeCommitment(worldStateDB, bytecodeCommitment);
 
       await persistableState.getBytecode(address);
-      expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
-      expect(trace.traceGetBytecode).toHaveBeenCalledWith(
-        address,
+      // From GetContractInstance.
+      expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
+      expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ true, contractInstance);
+      expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
+      // From GetContractClass.
+      expect(trace.traceGetContractClass).toHaveBeenCalledTimes(1);
+      expect(trace.traceGetContractClass).toHaveBeenCalledWith(
+        /*id=*/ contractInstance.currentContractClassId,
         /*exists=*/ true,
-        contractClass.packedBytecode,
-        contractInstance,
-        expectedContractClassPreimage,
+        { ...contractClass, publicBytecodeCommitment: bytecodeCommitment },
       );
     });
     it('Can get undefined bytecode', async () => {
       await persistableState.getBytecode(address);
-      expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
-      expect(trace.traceGetBytecode).toHaveBeenCalledWith(address, /*exists=*/ false);
+      expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
+      expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ false);
     });
   });
 

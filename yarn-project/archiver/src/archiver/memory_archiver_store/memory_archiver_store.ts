@@ -758,17 +758,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.lastProvenL2BlockNumber);
   }
 
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.lastProvenL2EpochNumber);
-  }
-
   public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
     this.lastProvenL2BlockNumber = l2BlockNumber;
-    return Promise.resolve();
-  }
-
-  public setProvenL2EpochNumber(l2EpochNumber: number): Promise<void> {
-    this.lastProvenL2EpochNumber = l2EpochNumber;
     return Promise.resolve();
   }
 
