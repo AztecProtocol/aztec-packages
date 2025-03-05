@@ -39,7 +39,7 @@ export const postBlobSidecarSchema = z.object({
   block_id: blockIdSchema,
   blobs: z.array(
     z.object({
-      index: z.number(),
+      index: z.number().int().nonnegative(),
       blob: z.object({
         type: z.string(),
         data: z.string(),
