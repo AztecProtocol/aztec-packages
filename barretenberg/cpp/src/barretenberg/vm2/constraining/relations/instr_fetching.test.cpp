@@ -124,5 +124,48 @@ TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
     check_relation<instr_fetching>(trace);
 }
 
+// Negative test about decomposition of operands. We mutate correct operand values in the trace.
+// This also covers wrong operands which are not "involved" by the instruction.
+// We perform this for a random instruction for opcodes:
+TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    std::vector<WireOpCode> opcodes = { WireOpCode::REVERT_16, WireOpCode::CAST_8, WireOpCode::TORADIXBE };
+    std::vector<size_t> sub_relations = {
+        instr_fetching::SR_INDIRECT_BYTES_DECOMPOSITION, instr_fetching::SR_OP1_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP2_BYTES_DECOMPOSITION,      instr_fetching::SR_OP3_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP4_BYTES_DECOMPOSITION,      instr_fetching::SR_OP5_BYTES_DECOMPOSITION,
+        instr_fetching::SR_OP6_BYTES_DECOMPOSITION,      instr_fetching::SR_OP7_BYTES_DECOMPOSITION,
+    };
+
+    const std::vector<C> operand_cols = {
+        C::instr_fetching_indirect, C::instr_fetching_op1, C::instr_fetching_op2, C::instr_fetching_op3,
+        C::instr_fetching_op4,      C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
+    };
+
+    for (const auto& opcode : opcodes) {
+        const auto instr = testing::random_instruction(opcode);
+        builder.process_instruction_fetching({ simulation::InstructionFetchingEvent{
+                                                 .bytecode_id = 1,
+                                                 .pc = 0,
+                                                 .instruction = instr,
+                                                 .bytecode = std::make_shared<std::vector<uint8_t>>(instr.encode()) } },
+                                             trace);
+        check_relation<instr_fetching>(trace);
+
+        EXPECT_EQ(trace.get_num_rows(), 1);
+
+        for (size_t i = 0; i < operand_cols.size(); i++) {
+            auto mutated_trace = trace;
+            const FF mutated_operand = trace.get(operand_cols.at(i), 0) + 1; // Mutate to value + 1
+            mutated_trace.set(operand_cols.at(i), 0, mutated_operand);
+            EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(mutated_trace, sub_relations.at(i)),
+                                      instr_fetching::get_subrelation_label(sub_relations.at(i)));
+        }
+    }
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
