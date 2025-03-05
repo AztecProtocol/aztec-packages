@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741203826695,
+  "lastUpdate": 1741205252817,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "443d615d99f2092bcf7012600db4883449d45b64",
-          "message": "fix(avm): Use standard form in ecadd trace (#12332)\n\nEcadd was using the standard form (x, y, inf) but was representing\ninfinity with (p+1/2, 0, true) instead of (0,0,true). This PR makes it\nso ecadd traces use the standard form.",
-          "timestamp": "2025-03-03T11:35:19+01:00",
-          "tree_id": "356e0861ee545fcfb6d69b9ee9c42842017570fc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/443d615d99f2092bcf7012600db4883449d45b64"
-        },
-        "date": 1741000172394,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18191.322044000117,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16086.717512 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18939.53822100002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16299.462155000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3987.5755370001116,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3179.5706900000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55381.350218,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55381351000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9377.538685000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9377540000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1921779381,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1921779381 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 226590225,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 226590225 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 213230961,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 213230961 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8932dd69bfd9579a3d350fa1557f5bee54616289",
+          "message": "chore: Fix MEMORY argument to yarn project test run (#12488)\n\n[Here](https://github.com/AztecProtocol/aztec-packages/pull/12283/files#diff-d4325b1e4d1032ba0c018e993395c3f8ceed45001f4ced5388977b2c90c26618)\nthe argument for setting max memory for a yarn project test was changed\nfrom MEM to MEMORY, which broke tests that dependend on it.\n\nThis PR rolls it back to MEM, for consistency with other scripts.",
+          "timestamp": "2025-03-05T19:31:26Z",
+          "tree_id": "0225e774dda11dda46090b3c7c95c9d274c44329",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8932dd69bfd9579a3d350fa1557f5bee54616289"
+        },
+        "date": 1741205245209,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18369.415395000033,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16101.081646 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18884.307804999935,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16526.288998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3980.6723690001036,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3197.5170560000006 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55492.315007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55492316000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10609.068629,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10609072000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1921019107,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1921019107 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 232539619,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 232539619 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
