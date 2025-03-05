@@ -3,6 +3,7 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsStore } from '@aztec/kv-store/stores';
 import type { ProtocolContractsProvider } from '@aztec/protocol-contracts';
@@ -15,20 +16,15 @@ import { TxEffect } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { PxeDatabase } from '../../database/interfaces/pxe_database.js';
-import { KVPxeDatabase } from '../../database/kv_pxe_database.js';
 import type { PXEServiceConfig } from '../../index.js';
 import { PXEService } from '../pxe_service.js';
 import { pxeTestSuite } from './pxe_test_suite.js';
 
 async function createPXEService(): Promise<PXE> {
   const kvStore = await openTmpStore('test');
-  const keyStore = new KeyStore(kvStore);
   const node = mock<AztecNode>();
-  const db = await KVPxeDatabase.create(kvStore);
   const simulationProvider = new WASMSimulator();
   const kernelProver = new BBWASMBundlePrivateKernelProver(simulationProvider);
-  const tips = new L2TipsStore(kvStore, 'pxe');
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const config: PXEServiceConfig = {
     l2StartingBlock: INITIAL_L2_BLOCK_NUM,
@@ -59,17 +55,14 @@ async function createPXEService(): Promise<PXE> {
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
-  return Promise.resolve(
-    new PXEService(keyStore, node, db, tips, kernelProver, simulationProvider, protocolContractsProvider, config),
-  );
+  return await PXEService.create(node, kvStore, kernelProver, simulationProvider, protocolContractsProvider, config);
 }
 
 pxeTestSuite('PXEService', createPXEService);
 
 describe('PXEService', () => {
-  let keyStore: KeyStore;
+  let kvStore: AztecAsyncKVStore;
   let node: MockProxy<AztecNode>;
-  let db: PxeDatabase;
   let simulationProvider: SimulationProvider;
   let kernelProver: PrivateKernelProver;
   let config: PXEServiceConfig;
@@ -77,11 +70,8 @@ describe('PXEService', () => {
   let protocolContractsProvider: ProtocolContractsProvider;
 
   beforeEach(async () => {
-    const kvStore = await openTmpStore('test');
-    keyStore = new KeyStore(kvStore);
+    kvStore = await openTmpStore('test');
     node = mock<AztecNode>();
-    tips = new L2TipsStore(kvStore, 'pxe');
-    db = await KVPxeDatabase.create(kvStore);
     simulationProvider = new WASMSimulator();
     kernelProver = new BBWASMBundlePrivateKernelProver(simulationProvider);
     protocolContractsProvider = new BundledProtocolContractsProvider();
@@ -103,11 +93,9 @@ describe('PXEService', () => {
 
     node.getTxEffect.mockResolvedValue(randomInBlock(settledTx));
 
-    const pxe = new PXEService(
-      keyStore,
+    const pxe = await PXEService.create(
       node,
-      db,
-      tips,
+      kvStore,
       kernelProver,
       simulationProvider,
       protocolContractsProvider,

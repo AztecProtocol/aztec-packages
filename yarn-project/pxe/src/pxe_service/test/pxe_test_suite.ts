@@ -81,7 +81,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
     it('refuses to register a contract with a class that has not been registered', async () => {
       const instance = await randomContractInstanceWithAddress();
-      await expect(pxe.registerContract({ instance })).rejects.toThrow(/Missing contract artifact/i);
+      await expect(pxe.registerContract({ instance })).rejects.toThrow(/DB has no contract class with id/i);
     });
 
     it('refuses to register a contract with an artifact with mismatching class id', async () => {
@@ -93,14 +93,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUnconstrained` here as it requires
     //       a larger setup and it's sufficiently tested in the e2e tests.
 
-    it('throws when getting public storage for non-existent contract', async () => {
-      const contract = await AztecAddress.random();
-      await expect(async () => await pxe.getPublicStorageAt(contract, new Fr(0n))).rejects.toThrow(
-        `Contract ${contract.toString()} is not deployed`,
-      );
-    });
-
-    // Note: Not testing `getContractData` and `getPublicLogs` here as these
+    // Note: Not testing `getContractData`, `getPublicLogs` and `getPublicStorageAt` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
 
     it('successfully gets a block number', async () => {

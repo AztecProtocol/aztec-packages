@@ -16,7 +16,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
-import { ContractDataProvider, PXEDataProvider, enrichPublicSimulationError } from '@aztec/pxe';
+import { ContractDataProvider, PXEOracleInterface, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionNoteCache,
   type HashedValuesCache,
@@ -100,7 +100,7 @@ export class TXE implements TypedOracle {
   private nestedCallReturndata: Fr[] = [];
 
   private contractDataProvider: ContractDataProvider;
-  private pxeDataProvider: PXEDataProvider;
+  private pxeOracleInterface: PXEOracleInterface;
   private viewDataOracle: UnconstrainedExecutionOracle;
 
   private publicDataWrites: PublicDataWrite[] = [];
@@ -138,7 +138,7 @@ export class TXE implements TypedOracle {
 
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
-    this.pxeDataProvider = new PXEDataProvider(
+    this.pxeOracleInterface = new PXEOracleInterface(
       txeDatabase,
       keyStore,
       this.node,
@@ -150,7 +150,7 @@ export class TXE implements TypedOracle {
       this.contractAddress,
       [] /* authWitnesses */,
       [] /* capsules */,
-      this.pxeDataProvider, // note: PXEDataProvider implements ExecutionDataProvider
+      this.pxeOracleInterface, // note: PXEOracleInterface implements ExecutionDataProvider
       /* log, */
       /* scopes, */
     );
@@ -527,7 +527,7 @@ export class TXE implements TypedOracle {
     const pendingNotes = this.noteCache.getNotes(this.contractAddress, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.contractAddress);
-    const dbNotes = await this.pxeDataProvider.getNotes(this.contractAddress, storageSlot, status);
+    const dbNotes = await this.pxeOracleInterface.getNotes(this.contractAddress, storageSlot, status);
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
@@ -1063,17 +1063,17 @@ export class TXE implements TypedOracle {
   }
 
   async syncNotes() {
-    const taggedLogsByRecipient = await this.pxeDataProvider.syncTaggedLogs(
+    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(
       this.contractAddress,
       await this.getBlockNumber(),
       undefined,
     );
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.pxeDataProvider.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+      await this.pxeOracleInterface.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
     }
 
-    await this.pxeDataProvider.removeNullifiedNotes(this.contractAddress);
+    await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
 
     return Promise.resolve();
   }
@@ -1092,7 +1092,7 @@ export class TXE implements TypedOracle {
   }
 
   async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
-    return await this.pxeDataProvider.getLogByTag(tag);
+    return await this.pxeOracleInterface.getLogByTag(tag);
   }
 
   // AVM oracles

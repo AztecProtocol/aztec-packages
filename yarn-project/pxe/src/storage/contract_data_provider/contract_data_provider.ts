@@ -1,18 +1,25 @@
 import type { Fr } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
 import type { MembershipWitness } from '@aztec/foundation/trees';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
   type FunctionArtifact,
   type FunctionDebugMetadata,
-  type FunctionSelector,
+  FunctionSelector,
+  FunctionType,
+  contractArtifactFromBuffer,
+  contractArtifactToBuffer,
   getFunctionDebugMetadata,
 } from '@aztec/stdlib/abi';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractClass, ContractInstance } from '@aztec/stdlib/contract';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  type ContractClass,
+  type ContractInstanceWithAddress,
+  SerializableContractInstance,
+} from '@aztec/stdlib/contract';
 
-import type { ContractArtifactDatabase } from '../database/interfaces/contract_artifact_db.js';
-import type { ContractInstanceDatabase } from '../database/interfaces/contract_instance_db.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**
@@ -24,17 +31,114 @@ import { PrivateFunctionsTree } from './private_functions_tree.js';
  */
 export class ContractDataProvider {
   /** Map from contract class id to private function tree. */
-  private contractClasses: Map<string, PrivateFunctionsTree> = new Map();
+  private contractClassesCache: Map<string, PrivateFunctionsTree> = new Map();
 
-  constructor(private db: ContractArtifactDatabase & ContractInstanceDatabase) {}
+  #contractArtifacts: AztecAsyncMap<string, Buffer>;
+  #contractInstances: AztecAsyncMap<string, Buffer>;
+
+  constructor(store: AztecAsyncKVStore) {
+    this.#contractArtifacts = store.openMap('contract_artifacts');
+    this.#contractInstances = store.openMap('contracts_instances');
+  }
+
+  // Setters
+
+  public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
+    const privateFunctions = contract.functions.filter(
+      functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE,
+    );
+
+    const privateSelectors = await Promise.all(
+      privateFunctions.map(async privateFunctionArtifact =>
+        (
+          await FunctionSelector.fromNameAndParameters(privateFunctionArtifact.name, privateFunctionArtifact.parameters)
+        ).toString(),
+      ),
+    );
+
+    if (privateSelectors.length !== new Set(privateSelectors).size) {
+      throw new Error('Repeated function selectors of private functions');
+    }
+
+    await this.#contractArtifacts.set(id.toString(), contractArtifactToBuffer(contract));
+  }
+
+  async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
+    await this.#contractInstances.set(
+      contract.address.toString(),
+      new SerializableContractInstance(contract).toBuffer(),
+    );
+  }
+
+  // Private getters
+
+  async #getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    const contract = await this.#contractInstances.getAsync(address.toString());
+    return contract && SerializableContractInstance.fromBuffer(contract).withAddress(address);
+  }
+
+  async #getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+    const contract = await this.#contractArtifacts.getAsync(id.toString());
+    // TODO(@spalladino): AztecAsyncMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
+    return contract && contractArtifactFromBuffer(Buffer.from(contract));
+  }
+
+  /**
+   * Retrieve or create a ContractTree instance based on the provided class id.
+   * If an existing tree with the same class id is found in the cache, it will be returned.
+   * Otherwise, a new ContractTree instance will be created using the contract data from the database
+   * and added to the cache before returning.
+   *
+   * @param classId - The class id of the contract for which the ContractTree is required.
+   * @returns A ContractTree instance associated with the specified contract address.
+   * @throws An Error if the contract is not found in the ContractDatabase.
+   */
+  private async getTreeForClassId(classId: Fr): Promise<PrivateFunctionsTree> {
+    if (!this.contractClassesCache.has(classId.toString())) {
+      const artifact = await this.#getContractArtifact(classId);
+      if (!artifact) {
+        throw new ContractClassNotFoundError(classId.toString());
+      }
+      const tree = await PrivateFunctionsTree.create(artifact);
+      this.contractClassesCache.set(classId.toString(), tree);
+    }
+    return this.contractClassesCache.get(classId.toString())!;
+  }
+
+  /**
+   * Retrieve or create a ContractTree instance based on the provided AztecAddress.
+   * If an existing tree with the same contract address is found in the cache, it will be returned.
+   * Otherwise, a new ContractTree instance will be created using the contract data from the database
+   * and added to the cache before returning.
+   *
+   * @param contractAddress - The AztecAddress of the contract for which the ContractTree is required.
+   * @returns A ContractTree instance associated with the specified contract address.
+   * @throws An Error if the contract is not found in the ContractDatabase.
+   */
+  private async getTreeForAddress(contractAddress: AztecAddress): Promise<PrivateFunctionsTree> {
+    const instance = await this.getContractInstance(contractAddress);
+    return this.getTreeForClassId(instance.currentContractClassId);
+  }
+
+  // Public getters
+
+  async getContractsAddresses(): Promise<AztecAddress[]> {
+    const keys = await toArray(this.#contractInstances.keysAsync());
+    return keys.map(AztecAddress.fromString);
+  }
 
   /** Returns a contract instance for a given address. Throws if not found. */
-  public async getContractInstance(contractAddress: AztecAddress): Promise<ContractInstance> {
-    const instance = await this.db.getContractInstance(contractAddress);
+  public async getContractInstance(contractAddress: AztecAddress): Promise<ContractInstanceWithAddress> {
+    const instance = await this.#getContractInstance(contractAddress);
     if (!instance) {
       throw new ContractNotFoundError(contractAddress.toString());
     }
     return instance;
+  }
+
+  public async getContractArtifact(contractClassId: Fr): Promise<ContractArtifact> {
+    const tree = await this.getTreeForClassId(contractClassId);
+    return tree.getArtifact();
   }
 
   /** Returns a contract class for a given class id. Throws if not found. */
@@ -43,9 +147,15 @@ export class ContractDataProvider {
     return tree.getContractClass();
   }
 
-  public async getContractArtifact(contractClassId: Fr): Promise<ContractArtifact> {
-    const tree = await this.getTreeForClassId(contractClassId);
-    return tree.getArtifact();
+  public async getContract(
+    address: AztecAddress,
+  ): Promise<(ContractInstanceWithAddress & ContractArtifact) | undefined> {
+    const instance = await this.getContractInstance(address);
+    const artifact = instance && (await this.getContractArtifact(instance?.currentContractClassId));
+    if (!instance || !artifact) {
+      return undefined;
+    }
+    return { ...instance, ...artifact };
   }
 
   /**
@@ -140,42 +250,5 @@ export class ContractDataProvider {
     const { name: contractName } = tree.getArtifact();
     const { name: functionName } = await tree.getFunctionArtifact(selector);
     return `${contractName}:${functionName}`;
-  }
-
-  /**
-   * Retrieve or create a ContractTree instance based on the provided class id.
-   * If an existing tree with the same class id is found in the cache, it will be returned.
-   * Otherwise, a new ContractTree instance will be created using the contract data from the database
-   * and added to the cache before returning.
-   *
-   * @param classId - The class id of the contract for which the ContractTree is required.
-   * @returns A ContractTree instance associated with the specified contract address.
-   * @throws An Error if the contract is not found in the ContractDatabase.
-   */
-  private async getTreeForClassId(classId: Fr): Promise<PrivateFunctionsTree> {
-    if (!this.contractClasses.has(classId.toString())) {
-      const artifact = await this.db.getContractArtifact(classId);
-      if (!artifact) {
-        throw new ContractClassNotFoundError(classId.toString());
-      }
-      const tree = await PrivateFunctionsTree.create(artifact);
-      this.contractClasses.set(classId.toString(), tree);
-    }
-    return this.contractClasses.get(classId.toString())!;
-  }
-
-  /**
-   * Retrieve or create a ContractTree instance based on the provided AztecAddress.
-   * If an existing tree with the same contract address is found in the cache, it will be returned.
-   * Otherwise, a new ContractTree instance will be created using the contract data from the database
-   * and added to the cache before returning.
-   *
-   * @param contractAddress - The AztecAddress of the contract for which the ContractTree is required.
-   * @returns A ContractTree instance associated with the specified contract address.
-   * @throws An Error if the contract is not found in the ContractDatabase.
-   */
-  private async getTreeForAddress(contractAddress: AztecAddress): Promise<PrivateFunctionsTree> {
-    const instance = await this.getContractInstance(contractAddress);
-    return this.getTreeForClassId(instance.currentContractClassId);
   }
 }

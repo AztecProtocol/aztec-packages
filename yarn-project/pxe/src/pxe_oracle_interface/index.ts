@@ -42,23 +42,33 @@ import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { ContractDataProvider } from '../contract_data_provider/index.js';
-import type { PxeDatabase } from '../database/index.js';
-import { NoteDao } from '../database/note_dao.js';
 import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
+import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import type { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
+import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
+import { NoteDao } from '../storage/note_data_provider/note_dao.js';
+import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
+import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
 /**
  * A data layer that provides and stores information needed for simulating/proving a transaction.
  */
-export class PXEDataProvider implements ExecutionDataProvider {
+export class PXEOracleInterface implements ExecutionDataProvider {
   constructor(
-    private db: PxeDatabase,
-    private keyStore: KeyStore,
     private aztecNode: AztecNode,
+    private keyStore: KeyStore,
     private simulationProvider: SimulationProvider,
     private contractDataProvider: ContractDataProvider,
-    private log = createLogger('pxe:pxe_data_provider'),
+    private noteDataProvider: NoteDataProvider,
+    private capsuleDataProvider: CapsuleDataProvider,
+    private syncDataProvider: SyncDataProvider,
+    private taggingDataProvider: TaggingDataProvider,
+    private addressDataProvider: AddressDataProvider,
+    private authWitnessDataProvider: AuthWitnessDataProvider,
+    private log = createLogger('pxe:pxe_data_manager'),
   ) {}
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
@@ -66,7 +76,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
   }
 
   async getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.db.getCompleteAddress(account);
+    const completeAddress = await this.addressDataProvider.getCompleteAddress(account);
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
@@ -77,7 +87,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
   }
 
   async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const instance = await this.db.getContractInstance(address);
+    const instance = await this.contractDataProvider.getContractInstance(address);
     if (!instance) {
       throw new Error(`No contract instance found for address ${address.toString()}`);
     }
@@ -85,7 +95,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
   }
 
   async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
-    const witness = await this.db.getAuthWitness(messageHash);
+    const witness = await this.authWitnessDataProvider.getAuthWitness(messageHash);
     if (!witness) {
       throw new Error(`Unknown auth witness for message hash ${messageHash.toString()}`);
     }
@@ -93,7 +103,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
-    const noteDaos = await this.db.getNotes({
+    const noteDaos = await this.noteDataProvider.getNotes({
       contractAddress,
       storageSlot,
       status,
@@ -244,7 +254,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
    * @returns A Promise that resolves to a BlockHeader object.
    */
   getBlockHeader(): Promise<BlockHeader> {
-    return this.db.getBlockHeader();
+    return this.syncDataProvider.getBlockHeader();
   }
 
   /**
@@ -282,7 +292,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
    * @returns The full list of the users contact addresses.
    */
   public getSenders(): Promise<AztecAddress[]> {
-    return this.db.getSenderAddresses();
+    return this.taggingDataProvider.getSenderAddresses();
   }
 
   /**
@@ -301,7 +311,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     await this.syncTaggedLogsAsSender(contractAddress, sender, recipient);
 
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    const [index] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
     return new IndexedTaggingSecret(appTaggingSecret, index);
   }
@@ -327,8 +337,8 @@ export class PXEDataProvider implements ExecutionDataProvider {
       contractAddress,
     });
 
-    const [index] = await this.db.getTaggingSecretsIndexesAsSender([secret]);
-    await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index + 1)]);
+    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([secret]);
+    await this.taggingDataProvider.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index + 1)]);
   }
 
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
@@ -358,16 +368,17 @@ export class PXEDataProvider implements ExecutionDataProvider {
 
     // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
     // (recipient = us, sender = us)
-    const senders = [...(await this.db.getSenderAddresses()), ...(await this.keyStore.getAccounts())].filter(
-      (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
-    );
+    const senders = [
+      ...(await this.taggingDataProvider.getSenderAddresses()),
+      ...(await this.keyStore.getAccounts()),
+    ].filter((address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)));
     const appTaggingSecrets = await Promise.all(
       senders.map(async contact => {
         const sharedSecret = await computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
         return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
       }),
     );
-    const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
+    const indexes = await this.taggingDataProvider.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 
@@ -384,7 +395,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     recipient: AztecAddress,
   ): Promise<void> {
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    const [oldIndex] = await this.db.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    const [oldIndex] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
 
     // This algorithm works such that:
     // 1. If we find minimum consecutive empty logs in a window of logs we set the index to the index of the last log
@@ -422,7 +433,9 @@ export class PXEDataProvider implements ExecutionDataProvider {
 
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     if (currentIndex !== oldIndex) {
-      await this.db.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(appTaggingSecret, currentIndex)]);
+      await this.taggingDataProvider.setTaggingSecretsIndexesAsSender([
+        new IndexedTaggingSecret(appTaggingSecret, currentIndex),
+      ]);
 
       this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
         sender,
@@ -591,7 +604,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
       );
 
       // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db.
-      await this.db.setTaggingSecretsIndexesAsRecipient(
+      await this.taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
         Object.entries(newLargestIndexMapToStore).map(
           ([appTaggingSecret, index]) => new IndexedTaggingSecret(Fr.fromHexString(appTaggingSecret), index),
         ),
@@ -632,7 +645,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
         excludedIndices.set(scopedLog.txHash.toString(), new Set());
       }
 
-      const note = await getOrderedNoteItems(this.db, payload);
+      const note = await getOrderedNoteItems(this.contractDataProvider, payload);
       const plaintext = [payload.storageSlot, payload.noteTypeId.toField(), ...note.items];
 
       decrypted.push({ plaintext, txHash: scopedLog.txHash, contractAddress: payload.contractAddress });
@@ -702,7 +715,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
       recipient,
     );
 
-    await this.db.addNotes([noteDao], recipient);
+    await this.noteDataProvider.addNotes([noteDao], recipient);
     this.log.verbose('Added note', {
       contract: noteDao.contractAddress,
       slot: noteDao.storageSlot,
@@ -751,7 +764,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
     for (const recipient of await this.keyStore.getAccounts()) {
-      const currentNotesForRecipient = await this.db.getNotes({ contractAddress, owner: recipient });
+      const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, owner: recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
       const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
 
@@ -763,7 +776,10 @@ export class PXEDataProvider implements ExecutionDataProvider {
         })
         .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-      const nullifiedNotes = await this.db.removeNullifiedNotes(foundNullifiers, await recipient.toAddressPoint());
+      const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(
+        foundNullifiers,
+        await recipient.toAddressPoint(),
+      );
       nullifiedNotes.forEach(noteDao => {
         this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,
@@ -801,7 +817,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     // note existence in said tree. Note that while this is technically a historical query, we perform it at the latest
     // locally synced block number which *should* be recent enough to be available. We avoid querying at 'latest' since
     // we want to avoid accidentally processing notes that only exist ahead in time of the locally synced state.
-    const syncedBlockNumber = await this.db.getBlockNumber();
+    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
     const uniqueNoteHashTreeIndex = (
       await this.aztecNode.findLeavesIndexes(syncedBlockNumber!, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash])
     )[0];
@@ -836,7 +852,7 @@ export class PXEDataProvider implements ExecutionDataProvider {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ) {
-    const artifact: FunctionArtifact | undefined = await new ContractDataProvider(this.db).getFunctionArtifactByName(
+    const artifact: FunctionArtifact | undefined = await this.contractDataProvider.getFunctionArtifactByName(
       contractAddress,
       'process_log',
     );
@@ -872,19 +888,19 @@ export class PXEDataProvider implements ExecutionDataProvider {
   }
 
   storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
-    return this.db.storeCapsule(contractAddress, slot, capsule);
+    return this.capsuleDataProvider.storeCapsule(contractAddress, slot, capsule);
   }
 
   loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
-    return this.db.loadCapsule(contractAddress, slot);
+    return this.capsuleDataProvider.loadCapsule(contractAddress, slot);
   }
 
   deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
-    return this.db.deleteCapsule(contractAddress, slot);
+    return this.capsuleDataProvider.deleteCapsule(contractAddress, slot);
   }
 
   copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    return this.db.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
+    return this.capsuleDataProvider.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
   }
 }
 
