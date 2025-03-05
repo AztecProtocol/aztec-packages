@@ -11,7 +11,7 @@ import {
   REGISTERER_CONTRACT_ADDRESS,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractAddresses, RegistryContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { type AllL1ContractAddresses, RegistryContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -250,7 +250,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    * Method to return the currently deployed L1 contract addresses.
    * @returns - The currently deployed L1 contract addresses.
    */
-  public async getL1ContractAddresses(): Promise<L1ContractAddresses> {
+  public async getL1ContractAddresses(): Promise<AllL1ContractAddresses> {
     const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = this.config;
     const chain = createEthereumChain(rpcUrls, chainId);
     const { publicClient } = createL1Clients(rpcUrls, publisherPrivateKey, chain.chainInfo);

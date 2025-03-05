@@ -4,7 +4,7 @@ import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-export const L1ContractsNames = [
+export const AllL1ContractsNames = [
   'rollupAddress',
   'registryAddress',
   'inboxAddress',
@@ -18,21 +18,36 @@ export const L1ContractsNames = [
   'stakingAssetAddress',
 ] as const;
 
-export type FullyQualifiedL1ContractAddresses = {
-  [K in (typeof L1ContractsNames)[number]]: EthAddress;
+export type AllL1ContractAddresses = {
+  [K in (typeof AllL1ContractsNames)[number]]: EthAddress;
 } & { slashFactoryAddress?: EthAddress | undefined };
 
+export const AllL1ContractAddressesSchema = z.object({
+  rollupAddress: schemas.EthAddress,
+  registryAddress: schemas.EthAddress,
+  inboxAddress: schemas.EthAddress,
+  outboxAddress: schemas.EthAddress,
+  feeJuiceAddress: schemas.EthAddress,
+  stakingAssetAddress: schemas.EthAddress,
+  feeJuicePortalAddress: schemas.EthAddress,
+  coinIssuerAddress: schemas.EthAddress,
+  rewardDistributorAddress: schemas.EthAddress,
+  governanceProposerAddress: schemas.EthAddress,
+  governanceAddress: schemas.EthAddress,
+  slashFactoryAddress: schemas.EthAddress.optional(),
+}) satisfies ZodFor<AllL1ContractAddresses>;
+
 /** Provides the directory of current L1 contract addresses */
-export type L1ContractAddresses = Pick<FullyQualifiedL1ContractAddresses, 'registryAddress' | 'slashFactoryAddress'>;
+export type CoreL1ContractAddresses = Pick<AllL1ContractAddresses, 'registryAddress' | 'slashFactoryAddress'>;
 
 export const L1ContractAddressesSchema = z.object({
   registryAddress: schemas.EthAddress,
   slashFactoryAddress: schemas.EthAddress.optional(),
-}) satisfies ZodFor<L1ContractAddresses>;
+}) satisfies ZodFor<CoreL1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
 
-export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses> = {
+export const l1ContractAddressesMapping: ConfigMappingsType<CoreL1ContractAddresses> = {
   registryAddress: {
     env: 'REGISTRY_CONTRACT_ADDRESS',
     description: 'The deployed L1 registry contract address.',

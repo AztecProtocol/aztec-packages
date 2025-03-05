@@ -1,6 +1,6 @@
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 
-import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
+import { type CoreL1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
 /** Configuration of the L1GlobalReader. */
 export interface L1ReaderConfig {
@@ -9,7 +9,7 @@ export interface L1ReaderConfig {
   /** The chain ID of the ethereum host. */
   l1ChainId: number;
   /** The deployed l1 contract addresses */
-  l1Contracts: L1ContractAddresses;
+  l1Contracts: CoreL1ContractAddresses;
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS: number;
 }

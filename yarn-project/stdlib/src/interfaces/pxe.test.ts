@@ -1,5 +1,5 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import { type AllL1ContractAddresses, AllL1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -486,8 +486,8 @@ class MockPXE implements PXE {
       protocolVersion: 1,
       enr: 'enr',
       l1ContractAddresses: Object.fromEntries(
-        L1ContractsNames.map(name => [name, EthAddress.random()]),
-      ) as L1ContractAddresses,
+        AllL1ContractsNames.map(name => [name, EthAddress.random()]),
+      ) as AllL1ContractAddresses,
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
     };
   }

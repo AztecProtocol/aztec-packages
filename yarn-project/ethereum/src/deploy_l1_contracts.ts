@@ -59,7 +59,7 @@ import { isAnvilTestChain } from './chain.js';
 import type { L1ContractsConfig } from './config.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
-import type { FullyQualifiedL1ContractAddresses } from './l1_contract_addresses.js';
+import type { AllL1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
 
@@ -80,7 +80,7 @@ export type DeployL1ContractsReturnType = {
   /**
    * The currently deployed l1 contract addresses
    */
-  l1ContractAddresses: FullyQualifiedL1ContractAddresses;
+  l1ContractAddresses: AllL1ContractAddresses;
 };
 
 export interface LinkReferences {

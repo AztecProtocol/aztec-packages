@@ -6,7 +6,7 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
 } from '@aztec/constants';
-import type { L1ContractAddresses } from '@aztec/ethereum';
+import type { AllL1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -478,7 +478,7 @@ export class TXENode implements AztecNode {
    * Method to fetch the currently deployed l1 contract addresses.
    * @returns The deployed contract addresses.
    */
-  getL1ContractAddresses(): Promise<L1ContractAddresses> {
+  getL1ContractAddresses(): Promise<AllL1ContractAddresses> {
     throw new Error('TXE Node method getL1ContractAddresses not implemented');
   }
 

@@ -1,6 +1,6 @@
 import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import {
-  type L1ContractAddresses,
+  type CoreL1ContractAddresses,
   type L1ContractsConfig,
   type L1ReaderConfig,
   l1ContractsConfigMappings,
@@ -36,7 +36,7 @@ export type ArchiverConfig = {
   viemPollingIntervalMS?: number;
 
   /** The deployed L1 contract addresses */
-  l1Contracts: L1ContractAddresses;
+  l1Contracts: CoreL1ContractAddresses;
 
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;

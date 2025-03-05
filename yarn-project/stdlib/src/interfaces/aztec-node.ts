@@ -5,7 +5,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
+import { type AllL1ContractAddresses, AllL1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -290,7 +290,7 @@ export interface AztecNode
    * Method to fetch the currently deployed l1 contract addresses.
    * @returns The deployed contract addresses.
    */
-  getL1ContractAddresses(): Promise<L1ContractAddresses>;
+  getL1ContractAddresses(): Promise<AllL1ContractAddresses>;
 
   /**
    * Method to fetch the protocol contract addresses.
@@ -542,7 +542,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getChainId: z.function().returns(z.number()),
 
-  getL1ContractAddresses: z.function().returns(L1ContractAddressesSchema),
+  getL1ContractAddresses: z.function().returns(AllL1ContractAddressesSchema),
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 

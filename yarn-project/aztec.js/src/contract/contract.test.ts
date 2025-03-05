@@ -1,4 +1,4 @@
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { AllL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -29,7 +29,7 @@ describe('Contract Class', () => {
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult' } as any as TxSimulationResult;
   const mockUnconstrainedResultValue = 1;
-  const l1Addresses: L1ContractAddresses = {
+  const l1Addresses: AllL1ContractAddresses = {
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),

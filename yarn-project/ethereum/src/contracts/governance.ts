@@ -11,13 +11,13 @@ import {
   getContract,
 } from 'viem';
 
-import type { FullyQualifiedL1ContractAddresses } from '../l1_contract_addresses.js';
+import type { AllL1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemPublicClient, ViemWalletClient } from '../types.js';
 import { GovernanceProposerContract } from './governance_proposer.js';
 
 export type L1GovernanceContractAddresses = Pick<
-  FullyQualifiedL1ContractAddresses,
+  AllL1ContractAddresses,
   'governanceAddress' | 'rollupAddress' | 'registryAddress' | 'governanceProposerAddress'
 >;
 

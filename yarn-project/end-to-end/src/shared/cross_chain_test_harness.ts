@@ -18,7 +18,7 @@ import {
   deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
-import type { L1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
+import type { CoreL1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -192,7 +192,7 @@ export class CrossChainTestHarness {
     public walletClient: ViemWalletClient,
 
     /** Deployment addresses for all L1 contracts */
-    public readonly l1ContractAddresses: L1ContractAddresses,
+    public readonly l1ContractAddresses: CoreL1ContractAddresses,
 
     /** Wallet of the owner. */
     public readonly ownerWallet: AccountWallet,

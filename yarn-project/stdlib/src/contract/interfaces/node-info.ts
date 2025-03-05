@@ -1,4 +1,4 @@
-import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
+import { type AllL1ContractAddresses, AllL1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -16,7 +16,7 @@ export interface NodeInfo {
   /** The node's ENR. */
   enr: string | undefined;
   /** The deployed l1 contract addresses */
-  l1ContractAddresses: L1ContractAddresses;
+  l1ContractAddresses: AllL1ContractAddresses;
   /** Protocol contract addresses */
   protocolContractAddresses: ProtocolContractAddresses;
 }
@@ -27,7 +27,7 @@ export const NodeInfoSchema: ZodFor<NodeInfo> = z
     l1ChainId: z.number(),
     protocolVersion: z.number(),
     enr: z.string().optional(),
-    l1ContractAddresses: L1ContractAddressesSchema,
+    l1ContractAddresses: AllL1ContractAddressesSchema,
     protocolContractAddresses: ProtocolContractAddressesSchema,
   })
   .transform(obj => ({ enr: undefined, ...obj }));
