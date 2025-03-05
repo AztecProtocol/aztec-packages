@@ -46,7 +46,7 @@ More information about the design/choices can be found in the fees section of th
 
 As part of a transaction the follow gas settings are available to be defined by the user.
 
-import { Gas_Settings_Components, Gas_Settings } from '/components/snippets';
+import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '/components/snippets';
 
 <Gas_Settings />
 
@@ -64,6 +64,10 @@ A fee payer will have bridged fee-juice from L1. On Aztec this fee asset is non-
 
 An account with fee-juice can pay for its transactions, including deployment of a new account.
 An account making a transaction can also refer to "fee-paying contracts" (FPCs) to pay for its transactions.
+
+### Teardown phase
+
+<Tx_Teardown_Phase />
 
 ### Operator rewards
 
