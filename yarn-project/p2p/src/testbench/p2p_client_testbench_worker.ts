@@ -140,11 +140,6 @@ process.on('message', async msg => {
             await client.sendTx(Tx.fromBuffer(Buffer.from(cmd.tx)));
             process.send!({ type: 'TX_SENT' });
             break;
-          case 'PEERS': {
-            const peers = await client.getPeers();
-            process.send!({ type: 'PEERS', peers });
-            break;
-          }
         }
       });
 

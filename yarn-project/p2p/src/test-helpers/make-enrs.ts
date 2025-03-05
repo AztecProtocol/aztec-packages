@@ -42,14 +42,3 @@ export async function makeEnr(p2pPrivateKey: string, port: number, config: Chain
 
   return enr.encodeTxt();
 }
-
-export async function makePeerIds(p2pPrivateKeys: string[]) {
-  const peerIds = await Promise.all(
-    p2pPrivateKeys.map(async pk => {
-      const peerId = await createLibP2PPeerIdFromPrivateKey(pk);
-      return peerId.toString();
-    }),
-  );
-
-  return peerIds;
-}
