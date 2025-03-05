@@ -74,11 +74,11 @@ class ECCVMFlavor {
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
-    using Relations_ = std::tuple< // ECCVMTranscriptRelation<FF>,
-                                   // ECCVMPointTableRelation<FF>,
-                                   // ECCVMWnafRelation<FF>,
-                                   // ECCVMMSMRelation<FF>,
-        ECCVMSetRelation<FF>>;
+    using Relations_ = std::tuple<ECCVMTranscriptRelation<FF>,
+                                  // ECCVMPointTableRelation<FF>,
+                                  // ECCVMWnafRelation<FF>,
+                                  // ECCVMMSMRelation<FF>,
+                                  ECCVMSetRelation<FF>>;
     // ECCVMLookupRelation<FF>,
     // ECCVMBoolsRelation<FF>>;
     using Relations = Relations_<FF>;

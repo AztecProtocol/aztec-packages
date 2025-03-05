@@ -315,7 +315,7 @@ void ECCVMProver::compute_translation_opening_claims()
 
 void ECCVMProver::mask_witness_polynomial(ECCVMFlavor::Polynomial& polynomial)
 {
-    const size_t circuit_size = polynomial.size();
+    const size_t circuit_size = key->circuit_size;
     for (size_t idx = 1; idx < MASKING_OFFSET; idx++) {
         polynomial.at(circuit_size - idx) = FF::random_element();
     }

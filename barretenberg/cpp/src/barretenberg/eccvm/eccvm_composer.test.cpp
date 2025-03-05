@@ -80,7 +80,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation>(
         pk->polynomials, relation_parameters, pk->circuit_size);
-    compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters);
+    compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters, pk->circuit_size - MASKING_OFFSET);
 
     // Generate gate challenges
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
