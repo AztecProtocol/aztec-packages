@@ -1,4 +1,5 @@
 use dep::aztec::hash::pedersen_hash;
+use std::ops::{Add, Sub};
 
 // Utility used to easily get a "id" for a private user that sits in the same
 // "space" as the public users.

@@ -78,19 +78,14 @@ export class ContractClassLog {
 
   getEmittedLength() {
     // This assumes that we cut trailing zeroes from the end of the log. In ts, these will always be added back.
-    // Does not include address and length prefix.
+    // Does not include address or length prefix.
+    // Note: Unlike public logs, address is not included here because it is not included in the log itself.
     return this.getEmittedFields().length;
   }
 
   getEmittedFields() {
-    let lastZeroIndex = 0;
-    for (let i = this.fields.length - 1; i >= 0; i--) {
-      if (!this.fields[i].isZero() && lastZeroIndex == 0) {
-        lastZeroIndex = i + 1;
-        break;
-      }
-    }
-    return this.fields.slice(0, lastZeroIndex);
+    const lastNonZeroIndex = this.fields.findLastIndex(f => !f.isZero());
+    return this.fields.slice(0, lastNonZeroIndex + 1);
   }
 
   setUnsiloedFirstField(field: Fr) {

@@ -178,6 +178,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
     -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
     -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+    -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
 "

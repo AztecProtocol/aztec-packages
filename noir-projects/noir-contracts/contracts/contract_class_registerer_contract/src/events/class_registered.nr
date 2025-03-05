@@ -4,6 +4,7 @@ use dep::aztec::protocol_types::{
     },
     contract_class_id::ContractClassId,
 };
+use dep::aztec::protocol_types::traits::ToField;
 
 pub struct ContractClassRegistered {
     contract_class_id: ContractClassId,

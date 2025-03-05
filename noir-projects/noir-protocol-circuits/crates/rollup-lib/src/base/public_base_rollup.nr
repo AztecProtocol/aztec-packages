@@ -181,9 +181,14 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
-            log::Log, nullifier_leaf_preimage::NullifierLeafPreimage,
-            public_data_write::PublicDataWrite, side_effect::OrderedValue, sponge_blob::SpongeBlob,
+            constant_rollup_data::ConstantRollupData,
+            contract_class_log::ContractClassLog,
+            gas::{get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
+            log::Log,
+            nullifier_leaf_preimage::NullifierLeafPreimage,
+            public_data_write::PublicDataWrite,
+            side_effect::OrderedValue,
+            sponge_blob::SpongeBlob,
             tree_snapshots::TreeSnapshots,
         },
         address::EthAddress,
@@ -193,7 +198,7 @@ mod tests {
             MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
             TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
@@ -206,7 +211,7 @@ mod tests {
             merkle_tree_utils::NonEmptyMerkleTree,
         },
         traits::{Empty, Hash, Serialize, ToField},
-        utils::{arrays::array_concat, field::field_from_bytes},
+        utils::{arrays::{array_concat, unsafe_padded_array_length}, field::field_from_bytes},
     };
 
     struct NullifierInsertion {
@@ -446,21 +451,6 @@ mod tests {
         let cc_log = [1, 2, 3];
         let PUB_DATA_SLOT = 25;
         let PUB_DATA_VALUE = 60;
-        let TOTAL_BLOB_FIELDS = 3 // revert code, tx hash and tx fee
-            + NUM_NOTES
-            + 1 // notes and prefix
-            + NUM_NULLIFIERS
-            + 1 // nullifiers and prefix
-            + NUM_MSGS
-            + 1 // L2 to L1 msgs and prefix
-            + NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS
-            + 1 // public logs and prefix
-            + NUM_CC_LOGS * (cc_log.len() + 2)
-            + 1 // contract class logs and prefix
-            + 2
-            + 1 // single public data update (2 fields) and prefix
-            + NUM_PRIV_EVENT_LOGS * PRIVATE_LOG_SIZE_IN_FIELDS
-            + 1; // private logs and prefix
         let tx_fee = 100_000;
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.transaction_fee = tx_fee;
@@ -482,32 +472,31 @@ mod tests {
         builder.public_data_writes.push((
             0, PublicDataTreeLeaf { slot: PUB_DATA_SLOT, value: PUB_DATA_VALUE },
         ));
-        builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
-        builder.avm_data.append_public_logs(NUM_PUB_LOGS);
+        for i in 0..NUM_PRIV_EVENT_LOGS {
+            // manually adding to test appending logs with trailing zeros
+            let fields = [i as Field, (i + 1) as Field, (i + 2) as Field];
+            builder.tube_data.add_private_log(
+                array_concat(
+                    fields,
+                    [0; PRIVATE_LOG_SIZE_IN_FIELDS - 3 /* = fields.len() */],
+                ),
+                0,
+            );
+        }
+        for i in 0..NUM_PUB_LOGS {
+            // manually adding to test appending logs with trailing zeros
+            let fields = [(2 * i) as Field, (2 * i + 1) as Field, (2 * i + 2) as Field];
+            builder.avm_data.add_public_log(array_concat(
+                fields,
+                [0; PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 3 /* = fields.len() */],
+            ));
+        }
         // Below will only work with NUM_CC_LOGS=1
         builder.append_contract_class_log(cc_log);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
 
         let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
-        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-        // revert code = 0
-        let total_blob_fields_bytes = (TOTAL_BLOB_FIELDS as Field).to_be_bytes::<2>();
-        reconstructed_tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [
-                    0,
-                    total_blob_fields_bytes[0],
-                    total_blob_fields_bytes[1],
-                    0,
-                    REVERT_CODE_PREFIX,
-                    0,
-                    0,
-                ],
-            ),
-            true,
-        );
         // tx hash
         reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
         // tx fee
@@ -554,31 +543,53 @@ mod tests {
         reconstructed_tx_effects[offset + 1] = PUB_DATA_VALUE;
         offset += 2;
         // private logs
-        let total_private_logs_len = NUM_PRIV_EVENT_LOGS * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let total_private_logs_len = get_emitted_private_logs_len(builder
+            .tube_data
+            .private_logs
+            .storage()
+            .map(|l| l.inner.log));
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
         reconstructed_tx_effects[offset] = private_logs_prefix;
         offset += 1;
         for i in 0..NUM_PRIV_EVENT_LOGS {
-            for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-                reconstructed_tx_effects[offset + i * PRIVATE_LOG_SIZE_IN_FIELDS + j] =
-                    builder.tube_data.private_logs.storage()[i].inner.log.fields[j];
+            let log = builder.tube_data.private_logs.storage()[i].inner.log.fields;
+            let log_len = unsafe_padded_array_length(log);
+            if log_len != 0 {
+                reconstructed_tx_effects[offset] = log_len as Field;
+                offset += 1;
+            }
+            for j in 0..log_len {
+                reconstructed_tx_effects[offset] = log[j];
+                offset += 1;
             }
         }
-        offset += total_private_logs_len;
         // public logs
-        let public_logs_prefix =
-            encode_blob_prefix(PUBLIC_LOGS_PREFIX, NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS);
+        let total_public_logs_len = builder
+            .avm_data
+            .public_logs
+            .storage()
+            .map(|l| unsafe_padded_array_length(l.serialize()))
+            .fold(0, |acc, len| acc + len + if len == 0 { 0 } else { 1 });
+        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, total_public_logs_len);
         reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
         for i in 0..NUM_PUB_LOGS {
             let log = builder.avm_data.public_logs.storage()[i].serialize();
-            for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
-                reconstructed_tx_effects[offset + i * PUBLIC_LOG_SIZE_IN_FIELDS + j] = log[j];
+            let log_len = unsafe_padded_array_length(log);
+            if log_len != 0 {
+                reconstructed_tx_effects[offset] = log_len as Field;
+                offset += 1;
+            }
+            for j in 0..log_len {
+                reconstructed_tx_effects[offset] = log[j];
+                offset += 1;
             }
         }
-        offset += NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS;
         // cc logs
-        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 2);
+        let total_contract_class_logs_len = get_emitted_contract_class_logs_len(builder
+            .tube_data
+            .contract_class_logs_hashes
+            .storage());
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
@@ -601,8 +612,16 @@ mod tests {
             }
         }
 
-        // Sanity check
-        assert(offset == TOTAL_BLOB_FIELDS);
+        // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
+        // revert code = 0
+        let length_bytes = (offset as Field).to_be_bytes::<2>();
+        reconstructed_tx_effects[0] = field_from_bytes(
+            array_concat(
+                TX_START_PREFIX.to_be_bytes::<8>(),
+                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, 0],
+            ),
+            true,
+        );
 
         let mut expected_sponge = outputs.start_sponge_blob;
         expected_sponge.absorb(reconstructed_tx_effects, offset);
