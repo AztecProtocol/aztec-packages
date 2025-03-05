@@ -39,7 +39,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.previous_kernel.verify();
         }
         // Generate output.
-        /// Safety: The output is validated below by TailToPublicOutputValidator.
+        // Safety: The output is validated below by TailToPublicOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
@@ -69,13 +69,13 @@ mod tests {
         address::{AztecAddress, EthAddress},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
-        traits::{Empty, FromField},
+        traits::FromField,
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, GENERATOR_INDEX__TSK_M,
-        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-        L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX,
+        PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -88,6 +88,7 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
             previous_kernel.set_protocol_nullifier();
+            previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
             previous_kernel.end_setup();
             previous_kernel.append_public_call_requests(1);
 
@@ -388,13 +389,15 @@ mod tests {
         let public_inputs = builder.execute();
 
         let num_private_logs = 3;
-        let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
-        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
+        let num_da_fields = 1 /* nullifier */
+            + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS
+            + 1 * 12 /* contract_class_logs */;
+        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD);
         let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
             + 1 * L2_GAS_PER_NULLIFIER
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG
-            + 12 * L2_GAS_PER_LOG_BYTE /* contract_class_logs */;
+            + 1 * L2_GAS_PER_CONTRACT_CLASS_LOG;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 
@@ -404,21 +407,6 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
         builder.failed();
-    }
-
-    #[test]
-    fn propagate_fee_payer() {
-        // Check that we carry forward if the fee payer is already set
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let fee_payer = AztecAddress::from_field(123);
-        builder.previous_kernel.fee_payer = fee_payer;
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, fee_payer);
-
-        // Check that the fee payer remains empty if unset
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 
     #[test]

@@ -1,4 +1,3 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,6 +7,7 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
@@ -29,11 +29,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * The number of blocks to fetch in a single batch.
    */
   blockRequestBatchSize: number;
-
-  /**
-   * DEBUG: Disable message validation - for testing purposes only
-   */
-  debugDisableMessageValidation: boolean;
 
   /**
    * DEBUG: Disable colocation penalty - for testing purposes only
@@ -82,6 +77,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** Whether to execute the version check in the bootstrap node ENR. */
   bootstrapNodeEnrVersionCheck: boolean;
+
+  /** Whether to consider any configured bootnodes as full peers, e.g. for transaction gossiping */
+  bootstrapNodesAsFullPeers: boolean;
 
   /**
    * Protocol identifier for transaction gossiping.
@@ -184,11 +182,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
   },
-  debugDisableMessageValidation: {
-    env: 'DEBUG_P2P_DISABLE_MESSAGE_VALIDATION',
-    description: 'DEBUG: Disable message validation - NEVER set to true in production',
-    ...booleanConfigHelper(false),
-  },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
     description: 'DEBUG: Disable colocation penalty - NEVER set to true in production',
@@ -237,6 +230,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
     description: 'Whether to check the version of the bootstrap node ENR.',
     ...booleanConfigHelper(),
+  },
+  bootstrapNodesAsFullPeers: {
+    env: 'P2P_BOOTSTRAP_NODES_AS_FULL_PEERS',
+    description: 'Whether to consider our configured bootnodes as full peers',
+    ...booleanConfigHelper(false),
   },
   transactionProtocol: {
     env: 'P2P_TX_PROTOCOL',
@@ -362,21 +360,22 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'maxPeerCount'> &
+export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'bootstrapNodes'> &
   Required<Pick<P2PConfig, 'udpListenAddress'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
-  ChainConfig;
+  Pick<ChainConfig, 'l1ChainId'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
   'peerIdPrivateKey',
-  'maxPeerCount',
   'udpListenAddress',
   'dataDirectory',
   'dataStoreMapSizeKB',
+  'bootstrapNodes',
+  'l1ChainId',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
-  { ...p2pConfigMappings, ...dataConfigMappings },
+  { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
   bootnodeConfigKeys,
 );

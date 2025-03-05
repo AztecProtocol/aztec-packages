@@ -1,6 +1,4 @@
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchronizer } from '@aztec/circuit-types';
-import { type AztecAddress, type ContractDataSource } from '@aztec/circuits.js';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   ForwarderContract,
@@ -14,18 +12,23 @@ import {
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider } from '@aztec/foundation/timer';
-import { type P2P } from '@aztec/p2p';
+import type { DateProvider } from '@aztec/foundation/timer';
+import type { P2P } from '@aztec/p2p';
 import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { type ValidatorClient } from '@aztec/validator-client';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { TelemetryClient } from '@aztec/telemetry-client';
+import type { ValidatorClient } from '@aztec/validator-client';
 
-import { type SequencerClientConfig } from '../config.js';
+import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
-import { type SlasherClient } from '../slasher/index.js';
+import type { SlasherClient } from '../slasher/index.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -74,10 +77,10 @@ export class SequencerClient {
       l1ToL2MessageSource,
       telemetry: telemetryClient,
     } = deps;
-    const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey } = config;
-    const chain = createEthereumChain(rpcUrl, chainId);
+    const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
+    const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
-    const { publicClient, walletClient } = createL1Clients(rpcUrl, publisherPrivateKey, chain.chainInfo);
+    const { publicClient, walletClient } = createL1Clients(rpcUrls, publisherPrivateKey, chain.chainInfo);
     const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(publicClient, walletClient, log, config);
     const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
@@ -110,7 +113,7 @@ export class SequencerClient {
       (await EpochCache.create(
         config.l1Contracts.rollupAddress,
         {
-          l1RpcUrl: rpcUrl,
+          l1RpcUrls: rpcUrls,
           l1ChainId: chainId,
           viemPollingIntervalMS: config.viemPollingIntervalMS,
           aztecSlotDuration: config.aztecSlotDuration,

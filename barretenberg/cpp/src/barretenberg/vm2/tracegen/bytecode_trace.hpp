@@ -7,7 +7,7 @@
 
 namespace bb::avm2::tracegen {
 
-constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 36;
+constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 37;
 
 class BytecodeTraceBuilder final {
   public:

@@ -11,13 +11,13 @@
       "path": "../blob-lib"
     },
     {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     },
     {
       "path": "../kv-store"

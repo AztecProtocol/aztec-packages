@@ -1,10 +1,15 @@
-import { Body, type InBlock, L2Block, L2BlockHash, type TxEffect, type TxHash, TxReceipt } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, type AztecAddress, BlockHeader, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Body, type InBlock, L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import { type L1Published, type L1PublishedData } from '../structs/published.js';
+import type { L1Published, L1PublishedData } from '../structs/published.js';
+
+export { type TxEffect, type TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -101,7 +106,8 @@ export class BlockStore {
         const block = await this.getBlock(blockNumber);
 
         if (block === undefined) {
-          throw new Error(`Cannot remove block ${blockNumber} from the store, we don't have it`);
+          this.#log.warn(`Cannot remove block ${blockNumber} from the store since we don't have it`);
+          continue;
         }
         await this.#blocks.delete(block.data.number);
         await Promise.all(block.data.body.txEffects.map(tx => this.#txIndex.delete(tx.txHash.toString())));
@@ -261,14 +267,6 @@ export class BlockStore {
 
   setProvenL2BlockNumber(blockNumber: number) {
     return this.#lastProvenL2Block.set(blockNumber);
-  }
-
-  getProvenL2EpochNumber(): Promise<number | undefined> {
-    return this.#lastProvenL2Epoch.getAsync();
-  }
-
-  setProvenL2EpochNumber(epochNumber: number) {
-    return this.#lastProvenL2Epoch.set(epochNumber);
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'limit'>> {

@@ -67,9 +67,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
     }
 
     RewardDistributor rewardDistributor = new RewardDistributor(token, registry, address(this));
-    rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, token, bytes32(0), bytes32(0), address(this)
-    );
+    rollup = new Rollup(new MockFeeJuicePortal(), rewardDistributor, token, address(this));
 
     token.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
     token.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);

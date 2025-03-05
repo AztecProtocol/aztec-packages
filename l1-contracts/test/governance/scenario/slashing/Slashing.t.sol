@@ -5,7 +5,7 @@ import {TestBase} from "@test/base/Base.sol";
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup, Config} from "@aztec/core/Rollup.sol";
+import {Rollup, RollupConfig, GenesisState} from "@aztec/core/Rollup.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
@@ -57,10 +57,14 @@ contract SlashingScenario is TestBase {
       _fpcJuicePortal: new MockFeeJuicePortal(),
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
-      _vkTreeRoot: bytes32(0),
-      _protocolContractTreeRoot: bytes32(0),
-      _ares: address(this),
-      _config: Config({
+      _governance: address(this),
+      _genesisState: GenesisState({
+        vkTreeRoot: bytes32(0),
+        protocolContractTreeRoot: bytes32(0),
+        genesisArchiveRoot: bytes32(0),
+        genesisBlockHash: bytes32(0)
+      }),
+      _config: RollupConfig({
         aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
         aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
         targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,

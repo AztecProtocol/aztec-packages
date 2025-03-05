@@ -1,22 +1,23 @@
-import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
+import type { Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact, type FunctionArtifact, type FunctionCall, getInitializer } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  AztecAddress,
   type ContractInstanceWithAddress,
-  type PublicKeys,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
-import { type Fr } from '@aztec/foundation/fields';
+} from '@aztec/stdlib/contract';
+import type { GasSettings } from '@aztec/stdlib/gas';
+import type { PublicKeys } from '@aztec/stdlib/keys';
+import type { Capsule, TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import { type Wallet } from '../account/index.js';
+import type { Wallet } from '../account/index.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
-import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
-import { type Contract } from './contract.js';
-import { type ContractBase } from './contract_base.js';
+import type { Contract } from './contract.js';
+import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
@@ -111,9 +112,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const calls = [...deployment.calls, ...bootstrap.calls];
     const authWitnesses = [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])];
     const hashedArguments = [...(deployment.hashedArguments ?? []), ...(bootstrap.hashedArguments ?? [])];
+    const capsules = [...(deployment.capsules ?? []), ...(bootstrap.capsules ?? [])];
     const { cancellable, nonce, fee: userFee } = options;
 
-    const request = { calls, authWitnesses, hashedArguments, cancellable, fee: userFee, nonce };
+    const request = { calls, authWitnesses, hashedArguments, capsules, cancellable, fee: userFee, nonce };
 
     const fee = await this.getFeeOptions(request);
     return { ...request, fee };
@@ -136,8 +138,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   protected async getDeploymentFunctionCalls(
     options: DeployOptions = {},
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>> {
     const calls: FunctionCall[] = [];
+    const capsules: Capsule[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
     const instance = await this.getInstance(options);
@@ -145,9 +148,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // Obtain contract class from artifact and check it matches the reported one by the instance.
     // TODO(@spalladino): We're unnecessarily calculating the contract class multiple times here.
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    if (!instance.contractClassId.equals(contractClass.id)) {
+    if (!instance.currentContractClassId.equals(contractClass.id)) {
       throw new Error(
-        `Contract class mismatch when deploying contract: got ${instance.contractClassId.toString()} from instance and ${contractClass.id.toString()} from artifact`,
+        `Contract class mismatch when deploying contract: got ${instance.currentContractClassId.toString()} from instance and ${contractClass.id.toString()} from artifact`,
       );
     }
 
@@ -163,6 +166,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         );
         const registerContractClassInteraction = await registerContractClass(this.wallet, this.artifact);
         calls.push(await registerContractClassInteraction.request());
+        capsules.push(...registerContractClassInteraction.getCapsules());
       }
     }
 
@@ -170,9 +174,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     if (!options.skipPublicDeployment) {
       const deploymentInteraction = await deployInstance(this.wallet, instance);
       calls.push(await deploymentInteraction.request());
+      capsules.push(...deploymentInteraction.getCapsules());
     }
 
-    return { calls };
+    return { calls, capsules };
   }
 
   /**
@@ -182,9 +187,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   protected async getInitializeFunctionCalls(
     options: DeployOptions,
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>> {
     const { address } = await this.getInstance(options);
     const calls: FunctionCall[] = [];
+    const capsules: Capsule[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
       const constructorCall = new ContractFunctionInteraction(
         this.wallet,
@@ -193,8 +199,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         this.args,
       );
       calls.push(await constructorCall.request());
+      capsules.push(...constructorCall.getCapsules());
     }
-    return { calls };
+    return { calls, capsules };
   }
 
   /**
@@ -246,7 +253,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * Estimates gas cost for this deployment operation.
    * @param options - Options.
    */
-  public override estimateGas(options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>) {
+  public override estimateGas(
+    options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>,
+  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     return super.estimateGas(options);
   }
 

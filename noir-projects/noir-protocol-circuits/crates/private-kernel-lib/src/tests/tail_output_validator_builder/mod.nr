@@ -43,7 +43,7 @@ impl TailOutputValidatorBuilder {
 
     pub fn get_hints(self) -> TailOutputHints {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        /// Safety: This is only used in tests.
+        // Safety: This is only used in tests.
         unsafe {
             generate_tail_output_hints(previous_kernel)
         }

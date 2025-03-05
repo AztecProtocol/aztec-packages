@@ -9,7 +9,25 @@ p="\033[35m" # Purple
 r="\033[0m"  # Reset
 bold="\033[1m"
 
-# Function to replace characters and add color
+export DOCKER_CLI_HINTS=false
+
+if [ ! -t 0 ]; then
+  NON_INTERACTIVE=1
+else
+  NON_INTERACTIVE=${NON_INTERACTIVE:-0}
+fi
+
+AZTEC_PATH=$HOME/.aztec
+BIN_PATH=${BIN_PATH:-$AZTEC_PATH/bin}
+
+# Define version if specified, otherwise set to "latest".
+VERSION=${VERSION:-"latest"}
+INSTALL_URI=${INSTALL_URI:-https://install.aztec.network}
+if [ "$VERSION" != "latest" ]; then
+  INSTALL_URI+="/$VERSION"
+fi
+
+# Add color to the AZTEC ascii art.
 function print_colored() {
   local b=$'\033[34m' # Blue
   local y=$'\033[33m' # Yellow
@@ -52,98 +70,25 @@ function title() {
   fi
 }
 
+# Print text in green.
 function info {
   echo -e "${g}$1${r}"
 }
 
+# Print text in yellow.
 function warn {
   echo -e "${y}$1${r}"
 }
 
-AZTEC_PATH=$HOME/.aztec
-BIN_PATH=${BIN_PATH:-$AZTEC_PATH/bin}
-
-# Define version if specified, otherwise set to "latest".
-VERSION=${VERSION:-"latest"}
-INSTALL_HOST=install.aztec.network.s3-website.eu-west-2.amazonaws.com
-
-[ -z "${NON_INTERACTIVE:-}" ] && title
-
-# Check if Docker is available.
-if ! command -v docker &>/dev/null; then
-  warn "Docker is not installed. Please install Docker and try again."
-  exit 1
-fi
-
-# Check if Docker is running.
-if ! docker info &>/dev/null; then
-  warn "Docker is not running. Please start Docker and try again."
-  exit 1
-fi
-
-if ! docker compose &>/dev/null && ! command -v docker-compose &>/dev/null; then
-  warn "WARNING: 'docker compose' not supported and docker-compose not found."
-  warn "Continuing installation, but aztec-sandbox will not work."
-fi
-
-# Create a "hidden" `$HOME/.aztec` dir, so as not to clutter the user's cwd.
-mkdir -p $AZTEC_PATH
-mkdir -p $BIN_PATH
-
-# Download containers from dockerhub. Tag them as latest.
-function pull_container {
-  docker pull aztecprotocol/$1:$VERSION
-
-  # If not latest, retag to be latest so it runs from scripts.
-  if [ $VERSION != "latest" ]; then
-    docker tag aztecprotocol/$1:$VERSION aztecprotocol/$1:latest
-  fi
-}
-
-export DOCKER_CLI_HINTS=false
-
-if [ -z "${SKIP_PULL:-}" ]; then
-  info "Pulling aztec version $VERSION..."
-  pull_container aztec-nargo
-  pull_container aztec
-  pull_container cli-wallet
-fi
-
-# Download the Docker Compose file. Used by aztec.
-function download_docker_compose {
-  local install_url
-  if [ "$VERSION" != "latest" ]; then
-    install_url="http://$INSTALL_HOST/$VERSION/docker-compose.${1}.yml"
-  else
-    install_url="http://$INSTALL_HOST/docker-compose.${1}.yml"
-  fi
-  curl -fsSL "$install_url" -o $AZTEC_PATH/docker-compose.${1}.yml
-  echo "Installed docker-compose.${1}.yml"
-}
-
-download_docker_compose "sandbox"
-download_docker_compose "test"
-
+# Copy a file from the install source path to the bin path and make it executable.
 function install_bin {
-  local install_url
-  if [ "$VERSION" != "latest" ]; then
-    install_url="http://$INSTALL_HOST/$VERSION/$1"
-  else
-    install_url="http://$INSTALL_HOST/$1"
-  fi
-  curl -fsSL "$install_url" -o "$BIN_PATH/$1"
-  chmod +x "$BIN_PATH/$1"
-  echo "Installed: $BIN_PATH/$1"
+  local dest="$BIN_PATH/$1"
+  curl -fsSL "$INSTALL_URI/$1" -o "$dest"
+  chmod +x "$dest"
+  echo "Installed: $dest"
 }
 
-info "Installing scripts in $BIN_PATH..."
-rm -f $BIN_PATH/aztec*
-install_bin .aztec-run
-install_bin aztec
-install_bin aztec-up
-install_bin aztec-nargo
-install_bin aztec-wallet
-
+# Updates appropriate shell script to ensure the bin path is in the PATH.
 function update_path_env_var {
   TARGET_DIR="${1}"
   # Check if the target directory is in the user's PATH.
@@ -164,7 +109,7 @@ function update_path_env_var {
       ;;
     esac
 
-    if [ -z "${NON_INTERACTIVE:-}" ]; then
+    if [ "$NON_INTERACTIVE" -eq 0 ]; then
       # Inform the user about the change and ask for confirmation
       warn "The directory $TARGET_DIR is not in your PATH."
       read -p "Add it to $SHELL_PROFILE to make the aztec binaries accessible? (y/n)" -n 1 -r
@@ -178,12 +123,46 @@ function update_path_env_var {
     # Add the target directory to the user's PATH in their profile.
     echo "export PATH=\"\$PATH:$TARGET_DIR\"" >>"$SHELL_PROFILE"
 
-    if [ -z "${NON_INTERACTIVE:-}" ]; then
+    if [ "$NON_INTERACTIVE" -eq 0 ] && [ "${NO_NEW_SHELL:-0}" -eq 0 ]; then
       info "Done! Starting fresh shell..."
-      $SHELL
+      exec $SHELL
     fi
   fi
 }
+
+# Show title if we're in a terminal.
+[ "$NON_INTERACTIVE" -eq 0 ] && title
+
+# Check if Docker is available.
+if ! command -v docker &>/dev/null; then
+  warn "Docker is not installed. Please install Docker and try again."
+  exit 1
+fi
+
+# Check if Docker is running.
+if ! docker info &>/dev/null; then
+  warn "Docker is not running. Please start Docker and try again."
+  exit 1
+fi
+
+# Pull the aztec container.
+if [ -z "${SKIP_PULL:-}" ]; then
+  info "Pulling aztec version $VERSION..."
+  docker pull aztecprotocol/aztec:$VERSION
+
+  # If not latest, retag to be latest so it runs from scripts.
+  if [ $VERSION != "latest" ]; then
+    docker tag aztecprotocol/aztec:$VERSION aztecprotocol/$1:latest
+  fi
+fi
+
+info "Installing scripts in $BIN_PATH..."
+rm -rf $BIN_PATH && mkdir -p $BIN_PATH
+install_bin .aztec-run
+install_bin aztec
+install_bin aztec-up
+install_bin aztec-nargo
+install_bin aztec-wallet
 
 update_path_env_var $BIN_PATH
 

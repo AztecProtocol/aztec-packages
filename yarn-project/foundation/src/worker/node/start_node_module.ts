@@ -1,7 +1,7 @@
 import { parentPort } from 'worker_threads';
 
 import { type DispatchMsg, NodeListener, TransportServer } from '../../transport/index.js';
-import { type WasmModule } from '../../wasm/wasm_module.js';
+import type { WasmModule } from '../../wasm/wasm_module.js';
 
 if (!parentPort) {
   throw new Error('InvalidWorker');

@@ -232,7 +232,7 @@ __metadata:
     pako: ^2.1.0
     tslib: ^2.4.0
   bin:
-    bb.js: ./dest/node/main.js
+    bb.js: dest/node/main.js
   languageName: node
   linkType: soft
 

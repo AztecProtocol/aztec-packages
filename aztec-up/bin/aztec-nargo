@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export SKIP_NET=1
-export SKIP_PORT_ASSIGNMENT=1
-export PATH=$PATH:$HOME/bin
-
-if [ "${1:-}" == "lsp" ]; then
-  docker run -i -v $HOME:$HOME -e HOME=$HOME aztecprotocol/aztec-nargo $@
-else
-  $(dirname $0)/.aztec-run aztecprotocol/aztec-nargo $@
+if [[ $PWD != ${HOME}* ]]; then
+  echo "Due to how we containerize our applications, we require your working directory to be somewhere within $HOME."
+  exit 1
 fi
+
+if [ -t 0 ]; then
+  if [ -t 1 ]; then
+    args="-ti"
+  else
+    args="-i"
+  fi
+fi
+
+docker run ${args:-} \
+  -v $HOME:$HOME \
+  -e HOME=$HOME \
+  --workdir="$PWD" \
+  --entrypoint /usr/src/aztec-nargo/compile_then_postprocess.sh \
+  aztecprotocol/aztec "$@"

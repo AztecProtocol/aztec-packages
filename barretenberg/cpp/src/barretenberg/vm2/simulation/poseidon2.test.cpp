@@ -14,7 +14,7 @@ using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::Field;
 
-TEST(AvmSimulationPoseidon2Test, Hash)
+TEST(Poseidon2SimulationTest, Hash)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
@@ -40,7 +40,7 @@ TEST(AvmSimulationPoseidon2Test, Hash)
                                            Field(&Poseidon2HashEvent::output, expected))));
 }
 
-TEST(AvmSimulationPoseidon2Test, Permutation)
+TEST(Poseidon2SimulationTest, Permutation)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
@@ -71,7 +71,7 @@ TEST(AvmSimulationPoseidon2Test, Permutation)
 }
 
 // This test may seem redundant, but since we kind of re-implement the Poseidon2 sponge function, it's good to have it.
-TEST(AvmSimulationPoseidon2Test, RandomHash)
+TEST(Poseidon2SimulationTest, RandomHash)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;

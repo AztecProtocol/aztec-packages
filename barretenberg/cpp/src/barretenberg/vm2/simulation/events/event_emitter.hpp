@@ -3,6 +3,8 @@
 #include <list>
 #include <vector>
 
+#include "barretenberg/vm2/common/set.hpp"
+
 namespace bb::avm2::simulation {
 
 template <typename Event> class EventEmitterInterface {
@@ -28,6 +30,29 @@ template <typename Event> class EventEmitter : public EventEmitterInterface<Even
 
   private:
     Container events;
+};
+
+// This is an EventEmitter that eagerly deduplicates events based on a provided key.
+template <typename Event> class DeduplicatingEventEmitter : public EventEmitter<Event> {
+  public:
+    virtual ~DeduplicatingEventEmitter() = default;
+
+    void emit(Event&& event) override
+    {
+        typename Event::Key key = event.get_key();
+        if (!elements_seen.contains(key)) {
+            elements_seen.insert(key);
+            EventEmitter<Event>::emit(std::move(event));
+        }
+    };
+    EventEmitter<Event>::Container dump_events() override
+    {
+        elements_seen.clear();
+        return EventEmitter<Event>::dump_events();
+    }
+
+  private:
+    unordered_flat_set<typename Event::Key> elements_seen;
 };
 
 // This is an event emmiter that offers stable references to the events.

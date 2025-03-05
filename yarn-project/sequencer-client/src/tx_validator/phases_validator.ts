@@ -1,14 +1,14 @@
+import { createLogger } from '@aztec/foundation/log';
+import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
-  type AllowedElement,
   type PublicExecutionRequest,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
   type TxValidator,
-} from '@aztec/circuit-types';
-import { type ContractDataSource } from '@aztec/circuits.js';
-import { createLogger } from '@aztec/foundation/log';
-import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+} from '@aztec/stdlib/tx';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
@@ -46,7 +46,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       return { result: 'valid' };
     } finally {
-      await this.contractDataSource.removeNewContracts(tx);
+      this.contractDataSource.clearContractsForTx();
     }
   }
 
@@ -78,14 +78,14 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       }
 
       if ('classId' in entry && !('selector' in entry)) {
-        if (contractClass.contractClassId.equals(entry.classId)) {
+        if (contractClass.currentContractClassId.equals(entry.classId)) {
           return true;
         }
       }
 
       if ('classId' in entry && 'selector' in entry) {
         if (
-          contractClass.contractClassId.equals(entry.classId) &&
+          contractClass.currentContractClassId.equals(entry.classId) &&
           (entry.selector === undefined || entry.selector.equals(functionSelector))
         ) {
           return true;

@@ -16,5 +16,6 @@ export {
   type IntentInnerHash,
 } from './authwit.js';
 export { waitForPXE } from './pxe.js';
-export { waitForNode, createAztecNodeClient, AztecNode } from './node.js';
+export { waitForNode, createAztecNodeClient, type AztecNode } from './node.js';
+export { getFeeJuiceBalance } from './fee_juice.js';
 export { readFieldCompressedString } from './field_compressed_string.js';

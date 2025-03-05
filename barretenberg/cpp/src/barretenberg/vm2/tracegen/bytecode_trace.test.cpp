@@ -22,7 +22,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(AvmTraceGenBytecodeTest, basicShortLength)
+TEST(BytecodeTraceGenTest, basicShortLength)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -100,7 +100,7 @@ TEST(AvmTraceGenBytecodeTest, basicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 1)));
 }
 
-TEST(AvmTraceGenBytecodeTest, basicLongerThanWindowSize)
+TEST(BytecodeTraceGenTest, basicLongerThanWindowSize)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -181,7 +181,7 @@ TEST(AvmTraceGenBytecodeTest, basicLongerThanWindowSize)
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 1)));
 }
 
-TEST(AvmTraceGenBytecodeTest, multipleEvents)
+TEST(BytecodeTraceGenTest, multipleEvents)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -245,6 +245,42 @@ TEST(AvmTraceGenBytecodeTest, multipleEvents)
             row_pos++;
         }
     }
+}
+
+TEST(BytecodeTraceGenTest, basicHashing)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    builder.process_hashing(
+        {
+            simulation::BytecodeHashingEvent{
+                .bytecode_id = 0,
+                .bytecode_length = 6,
+                .bytecode_fields = { 10, 20 },
+            },
+        },
+        trace);
+
+    // One extra empty row is prepended.
+    const auto rows = trace.as_rows();
+    EXPECT_THAT(rows.at(1),
+                AllOf(ROW_FIELD_EQ(R, bc_hashing_sel, 1),
+                      ROW_FIELD_EQ(R, bc_hashing_start, 1),
+                      ROW_FIELD_EQ(R, bc_hashing_latch, 0),
+                      ROW_FIELD_EQ(R, bc_hashing_bytecode_id, 0),
+                      ROW_FIELD_EQ(R, bc_hashing_pc_index, 0),
+                      ROW_FIELD_EQ(R, bc_hashing_packed_field, 10),
+                      ROW_FIELD_EQ(R, bc_hashing_incremental_hash, 6)));
+
+    // Latched row (note we leave out the resulting hash in this test)
+    EXPECT_THAT(rows.at(2),
+                AllOf(ROW_FIELD_EQ(R, bc_hashing_sel, 1),
+                      ROW_FIELD_EQ(R, bc_hashing_start, 0),
+                      ROW_FIELD_EQ(R, bc_hashing_latch, 1),
+                      ROW_FIELD_EQ(R, bc_hashing_bytecode_id, 0),
+                      ROW_FIELD_EQ(R, bc_hashing_pc_index, 31),
+                      ROW_FIELD_EQ(R, bc_hashing_packed_field, 20)));
 }
 
 } // namespace

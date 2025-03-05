@@ -1,6 +1,6 @@
 {{- if .Values.bot.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
@@ -34,6 +34,9 @@ spec:
       {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- else }}
+      dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
         - name: config
@@ -45,6 +48,30 @@ spec:
           emptyDir: {}
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
+        - name: get-private-key
+          image: {{ .Values.images.foundry.image }}
+          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              source /scripts/get-private-key.sh
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+          env:
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.botKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
         - name: wait-for-aztec-node
           image: "{{ .Values.images.curl.image }}"
           command:
@@ -79,6 +106,8 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
+              source /shared/config/keys.env
+              source /shared/config/otel-resource
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -97,8 +126,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: bot
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -133,12 +160,10 @@ spec:
               value: "{{ .Values.bot.stopIfUnhealthy }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}

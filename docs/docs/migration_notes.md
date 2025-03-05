@@ -6,7 +6,171 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.77.0
+
+### [aztec-nr] `TestEnvironment::block_number()` refactored
+
+The `block_number` function from `TestEnvironment` has been expanded upon with two extra functions, the first being `pending_block_number`, and the second being `committed_block_number`. `pending_block_number` now returns what `block_number` does. In other words, it returns the block number of the block we are currently building. `committed_block_number` returns the block number of the last committed block, i.e. the block number that gets used to execute the private part of transactions when your PXE is successfully synced to the tip of the chain.
+
+```diff
++    `TestEnvironment::pending_block_number()`
++    `TestEnvironment::committed_block_number()`
+```
+
+### [aztec-nr] `compute_nullifier_without_context` renamed
+
+The `compute_nullifier_without_context` function from `NoteHash` (ex `NoteInterface`) is now called `compute_nullifier_unconstrained`, and instead of taking storage slot, contract address and nonce it takes a note hash for nullification (same as `compute_note_hash`). This makes writing this
+function simpler:
+
+```diff
+-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, nonce: Field) -> Field {
+-       let note_hash_for_nullify = ...;
++    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
+        ...
+    }
+```
+
+### `U128` type replaced with native `u128`
+
+The `U128` type has been replaced with the native `u128` type. This means that you can no longer use the `U128` type in your code. Instead, you should use the `u128` type.
+Doing the changes is as straightforward as:
+
+```diff
+    #[public]
+    #[view]
+-    fn balance_of_public(owner: AztecAddress) -> U128 {
++    fn balance_of_public(owner: AztecAddress) -> u128 {
+        storage.public_balances.at(owner).read()
+    }
+```
+
+`UintNote` has also been updated to use the native `u128` type.
+
+### [aztec-nr] Removed `compute_note_hash_and_optionally_a_nullifer`
+
+This function is no longer mandatory for contracts, and the `#[aztec]` macro no longer injects it.
+
+### [PXE] Removed `addNote` and `addNullifiedNote`
+
+These functions have been removed from PXE and the base `Wallet` interface. If you need to deliver a note manually because its creation is not being broadcast in an encrypted log, then create an unconstrained contract function to process it and simulate execution of it. The `aztec::discovery::private_logs::do_process_log` function can be used to perform note discovery and add to it to PXE.
+
+See an example of how to handle a `TransparentNote`:
+
+```rust
+    unconstrained fn deliver_transparent_note(
+        contract_address: AztecAddress,
+        amount: Field,
+        secret_hash: Field,
+        tx_hash: Field,
+        unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+        first_nullifier_in_tx: Field,
+        recipient: AztecAddress,
+    ) {
+        // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
+        // [ storage_slot, note_type_id, ...packed_note ]
+        let note = TransparentNote::new(amount, secret_hash);
+        let log_plaintext = BoundedVec::from_array(array_concat(
+            [
+                MyContract::storage_layout().my_state_variable.slot,
+                TransparentNote::get_note_type_id(),
+            ],
+            note.pack(),
+        ));
+
+        do_process_log(
+            contract_address,
+            log_plaintext,
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx,
+            recipient,
+            _compute_note_hash_and_nullifier,
+        );
+    }
+```
+
+The note is then processed by calling this function:
+
+```typescript
+const txEffects = await wallet.getTxEffect(txHash);
+await contract.methods
+  .deliver_transparent_note(
+    contract.address,
+    new Fr(amount),
+    secretHash,
+    txHash.hash,
+    toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
+    txEffects!.data.nullifiers[0],
+    wallet.getAddress()
+  )
+  .simulate();
+```
+
+### Fee is mandatory
+
+All transactions must now pay fees. Previously, the default payment method was `NoFeePaymentMethod`; It has been changed to `FeeJuicePaymentMethod`, with the wallet owner as the fee payer.
+
+For example, the following code will still work:
+
+```
+await TokenContract.at(address, wallet).methods.transfer(recipient, 100n).send().wait();
+```
+
+However, the wallet owner must have enough fee juice to cover the transaction fee. Otherwise, the transaction will be rejected.
+
+The 3 test accounts deployed in the sandbox are pre-funded with 10 ^ 22 fee juice, allowing them to send transactions right away.
+
+In addition to the native fee juice, users can pay the transaction fees using tokens that have a corresponding FPC contract. The sandbox now includes `BananaCoin` and `BananaFPC`. Users can use a funded test account to mint banana coin for a new account. The new account can then start sending transactions and pay fees with banana coin.
+
+```typescript
+import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
+import {
+  getDeployedBananaCoinAddress,
+  getDeployedBananaFPCAddress,
+} from "@aztec/aztec";
+
+// Fetch the funded test accounts.
+const [fundedWallet] = await getDeployedTestAccountsWallets(pxe);
+
+// Create a new account.
+const secret = Fr.random();
+const signingKey = GrumpkinScalar.random();
+const alice = await getSchnorrAccount(pxe, secret, signingKey);
+const aliceWallet = await alice.getWallet();
+const aliceAddress = alice.getAddress();
+
+// Deploy the new account using the pre-funded test account.
+await alice.deploy({ deployWallet: fundedWallet }).wait();
+
+// Mint banana coin for the new account.
+const bananaCoinAddress = await getDeployedBananaCoinAddress(pxe);
+const bananaCoin = await TokenContract.at(bananaCoinAddress, fundedWallet);
+const mintAmount = 10n ** 20n;
+await bananaCoin.methods
+  .mint_to_private(fundedWallet.getAddress(), aliceAddress, mintAmount)
+  .send()
+  .wait();
+
+// Use the new account to send a tx and pay with banana coin.
+const transferAmount = 100n;
+const bananaFPCAddress = await getDeployedBananaFPCAddress(pxe);
+const paymentMethod = new PrivateFeePaymentMethod(
+  bananaFPCAddress,
+  aliceWallet
+);
+const receipt = await bananaCoin
+  .withWallet(aliceWallet)
+  .methods.transfer(recipient, transferAmount)
+  .send({ fee: { paymentMethod } })
+  .wait();
+const transactionFee = receipt.transactionFee!;
+
+// Check the new account's balance.
+const aliceBalance = await bananaCoin.methods
+  .balance_of_private(aliceAddress)
+  .simulate();
+expect(aliceBalance).toEqual(mintAmount - transferAmount - transactionFee);
+```
 
 ### The tree of protocol contract addresses is now an indexed tree
 
@@ -36,55 +200,159 @@ The new check an indexed tree allows is non-membership of addresses of non proto
 + );
 ```
 
-### [Aztec.nr] Changes to `NoteInterface`
-We are in a process of discontinuing `NoteHeader` from notes.
-This led us to do the following changes to `NoteInterface`:
+### [Aztec.nr] Changes to note interfaces and note macros
+
+In this releases we decided to do a large refactor of notes which resulted in the following changes:
+
+1. We removed `NoteHeader` and we've introduced a `RetrievedNote` struct that contains a note and the information originally stored in the `NoteHeader`.
+2. We removed the `pack_content` and `unpack_content` functions from the `NoteInterface`and made notes implement the standard `Packable` trait.
+3. We renamed the `NullifiableNote` trait to `NoteHash` and we've moved the `compute_note_hash` function to this trait from the `NoteInterface` trait.
+4. We renamed `NoteInterface` trait as `NoteType` and `get_note_type_id` function as `get_id`.
+5. The `#[note]` and `#[partial_note]` macros now generate both the `NoteType` and `NoteHash` traits.
+6. `#[custom_note_interface]` macro has been renamed to `#[custom_note]` and it now implements the `NoteInterface` trait.
+
+This led us to do the following changes to the interfaces:
 
 ```diff
-pub trait NullifiableNote {
-...
--    unconstrained fn compute_nullifier_without_context(self) -> Field;
-+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field;
+-pub trait NoteInterface<let N: u32> {
++pub trait NoteType {
+    fn get_id() -> Field;
+-    fn pack_content(self) -> [Field; N];
+-    fn unpack_content(fields: [Field; N]) -> Self;
+-    fn get_header(self) -> NoteHeader;
+-    fn set_header(&mut self, header: NoteHeader) -> ();
+-    fn compute_note_hash(self) -> Field;
 }
 
-pub trait NoteInterface<let N: u32> {
--    fn compute_note_hash(self) -> Field;
+pub trait NoteHash {
 +    fn compute_note_hash(self, storage_slot: Field) -> Field;
+
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field;
+
+-    unconstrained fn compute_nullifier_without_context(self) -> Field;
++    unconstrained fn fn compute_nullifier_without_context(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field;
 }
 ```
 
-If you are using `#[note]` or `#[partial_note(...)]` macros this should not affect you as these functions are auto-generated.
-If you use `#[note_custom_interface]` macro you will need to update your notes.
-These are the changes that needed to be done to our `EcdsaPublicKeyNote`:
+If you are using `#[note]` or `#[partial_note(...)]` macros you will need to delete the implementations of the `NullifiableNote` (now `NoteHash`) trait as it now gets auto-generated.
+Your note will also need to have an `owner` (a note struct field called owner) as its used in the auto-generated nullifier functions.
+
+If you need a custom implementation of the `NoteHash` interface use the `#[custom_note]` macro.
+
+If you used `#[note_custom_interface]` macro before you will need to update your notes by using the `#[custom_note]` macro and implementing the `compute_note_hash` function.
+If you have no need for a custom implementation of the `compute_note_hash` function copy the default one:
+
+```
+fn compute_note_hash(self, storage_slot: Field) -> Field {
+    let inputs = aztec::protocol_types::utils::arrays::array_concat(self.pack(), [storage_slot]);
+    aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+}
+```
+
+If you need to keep the custom implementation of the packing functionality, manually implement the `Packable` trait:
 
 ```diff
-+ use dep::aztec::protocol_types::utils::arrays::array_concat;
++ use dep::aztec::protocol_types::traits::Packable;
 
-impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
-...
--    fn compute_note_hash(self) -> Field {
-+    fn compute_note_hash(self, storage_slot: Field) -> Field {
--        poseidon2_hash_with_separator(self.pack_content(), GENERATOR_INDEX__NOTE_HASH)
-+        let inputs = array_concat(self.pack_content(), [storage_slot]);
-        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
++impl Packable<N> for YourNote {
++    fn pack(self) -> [Field; N] {
++        ...
++    }
++
++    fn unpack(fields: [Field; N]) -> Self {
++        ...
++    }
++}
+```
+
+If you don't provide a custom implementation of the `Packable` trait, a default one will be generated.
+
+### [Aztec.nr] Changes to state variables
+
+Since we've removed `NoteHeader` from notes we no longer need to modify the header in the notes when working with state variables.
+This means that we no longer need to be passing a mutable note reference which led to the following changes in the API.
+
+#### PrivateImmutable
+
+For `PrivateImmutable` the changes are fairly straightforward.
+Instead of passing in a mutable reference `&mut note` just pass in `note`.
+
+```diff
+impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
+-    pub fn initialize<let N: u32>(self, note: &mut Note) -> NoteEmission<Note>
++    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    where
+        Note: NoteInterface<N> + NullifiableNote,
+    {
+        ...
+    }
+}
+```
+
+#### PrivateSet
+
+For `PrivateSet` the changes are a bit more involved than the changes in `PrivateImmutable`.
+Instead of passing in a mutable reference `&mut note` to the `insert` function just pass in `note`.
+The `remove` function now takes in a `RetrievedNote<Note>` instead of a `Note` and the `get_notes` function
+now returns a vector `RetrievedNote`s instead of a vector `Note`s.
+Note getters now generally return `RetrievedNote`s so getting a hold of the `RetrievedNote` for removal should be straightforward.
+
+```diff
+impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext>
+where
+    Note: NoteInterface<N> + NullifiableNote + Eq,
+{
+-    pub fn insert(self, note: &mut Note) -> NoteEmission<Note> {
++    pub fn insert(self, note: Note) -> NoteEmission<Note> {
+        ...
+    }
+
+-    pub fn remove(self, note: Note) {
++    pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
+        ...
+    }
+
+    pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS>(
+        self,
+        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+-    ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
++    ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+        ...
     }
 }
 
-impl NullifiableNote for EcdsaPublicKeyNote {
-...
--    unconstrained fn compute_nullifier_without_context(self) -> Field {
--        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
-+    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
-+        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
-        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
-        let secret = get_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [
-            note_hash_for_nullify,
-            secret
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field
-        )
+- impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext>
+- where
+-    Note: NoteInterface<N> + NullifiableNote,
+- {
+-    pub fn insert_from_public(self, note: &mut Note) {
+-        create_note_hash_from_public(self.context, self.storage_slot, note);
+-    }
+- }
+```
+
+#### PrivateMutable
+
+For `PrivateMutable` the changes are similar to the changes in `PrivateImmutable`.
+
+```diff
+impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext>
+where
+    Note: NoteInterface<N> + NullifiableNote,
+{
+-    pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
++    pub fn initialize(self, note: Note) -> NoteEmission<Note> {
+        ...
+    }
+
+-    pub fn replace(self, new_note: &mut Note) -> NoteEmission<Note> {
++    pub fn replace(self, new_note: Note) -> NoteEmission<Note> {
+        ...
+    }
+
+-    pub fn initialize_or_replace(self, note: &mut Note) -> NoteEmission<Note> {
++    pub fn initialize_or_replace(self, note: Note) -> NoteEmission<Note> {
+        ...
     }
 }
 ```
@@ -364,6 +632,7 @@ For this reason we've decided to rename it:
 To reduce loading times, the package `@aztec/noir-contracts.js` no longer exposes all artifacts as its default export. Instead, it exposes a `ContractNames` variable with the list of all contract names available. To import a given artifact, use the corresponding export, such as `@aztec/noir-contracts.js/FPC`.
 
 ### Blobs
+
 We now publish the majority of DA in L1 blobs rather than calldata, with only contract class logs remaining as calldata. This replaces all code that touched the `txsEffectsHash`.
 In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash` to form a tree, we track tx effects by absorbing them into a sponge for blob data (hence the name: `spongeBlob`). This sponge is treated like the state trees in that we check each rollup circuit 'follows' the next:
 
@@ -373,6 +642,7 @@ In the rollup circuits, instead of hashing each child circuit's `txsEffectsHash`
 + let start_sponge_blob = left.start_sponge_blob;
 + let end_sponge_blob = right.end_sponge_blob;
 ```
+
 This sponge is used in the block root circuit to confirm that an injected array of all `txEffects` does match those rolled up so far in the `spongeBlob`. Then, the `txEffects` array is used to construct and prove opening of the polynomial representing the blob commitment on L1 (this is done efficiently thanks to the Barycentric formula).
 On L1, we publish the array as a blob and verify the above proof of opening. This confirms that the tx effects in the rollup circuit match the data in the blob:
 
@@ -380,6 +650,7 @@ On L1, we publish the array as a blob and verify the above proof of opening. Thi
 - bytes32 txsEffectsHash = TxsDecoder.decode(_body);
 + bytes32 blobHash = _validateBlob(blobInput);
 ```
+
 Where `blobInput` contains the proof of opening and evaluation calculated in the block root rollup circuit. It is then stored and used as a public input to verifying the epoch proof.
 
 ## 0.67.0

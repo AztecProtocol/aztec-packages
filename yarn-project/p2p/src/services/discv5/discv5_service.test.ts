@@ -1,8 +1,8 @@
-import { emptyChainConfig } from '@aztec/circuit-types/config';
 import { addLogNameHandler } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -41,9 +41,9 @@ describe('Discv5Service', () => {
   const baseConfig: BootnodeConfig = {
     udpAnnounceAddress: `127.0.0.1:${basePort + 100}`,
     udpListenAddress: `0.0.0.0:${basePort + 100}`,
-    maxPeerCount: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
+    bootstrapNodes: [],
     ...emptyChainConfig,
   };
 

@@ -3,14 +3,10 @@ telemetry:
 
 validator:
   replicas: 1
-  sequencer:
-    enforceFees: false # disabled until the bot can fund itself
   validator:
     disabled: false
 
 bootNode:
-  validator:
-    disabled: true
   resources:
     requests:
       memory: "5Gi"
@@ -21,7 +17,7 @@ proverAgent:
 
 bot:
   followChain: "PENDING"
-  feePaymentMethod: "none" # disabled until the bot can fund itself
+  feePaymentMethod: "fee_juice"
   enabled: true
   txIntervalSeconds: 30
 
@@ -33,8 +29,6 @@ images:
     pullPolicy: Always
 
 aztec:
-  slotDuration: 36
-  epochDuration: 32
   realProofs: false
   extraAccounts: 9
   extraAccountsStartIndex: 69

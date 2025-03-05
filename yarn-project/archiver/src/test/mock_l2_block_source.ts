@@ -1,17 +1,9 @@
-import {
-  type L1RollupConstants,
-  L2Block,
-  L2BlockHash,
-  type L2BlockSource,
-  type L2Tips,
-  type TxHash,
-  TxReceipt,
-  TxStatus,
-  getSlotRangeForEpoch,
-} from '@aztec/circuit-types';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
@@ -19,7 +11,6 @@ import { createLogger } from '@aztec/foundation/log';
 export class MockL2BlockSource implements L2BlockSource {
   protected l2Blocks: L2Block[] = [];
 
-  private provenEpochNumber: number = 0;
   private provenBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
@@ -48,10 +39,6 @@ export class MockL2BlockSource implements L2BlockSource {
     this.provenBlockNumber = provenBlockNumber;
   }
 
-  public setProvenEpochNumber(provenEpochNumber: number) {
-    this.provenEpochNumber = provenEpochNumber;
-  }
-
   /**
    * Method to fetch the rollup contract address at the base-layer.
    * @returns The rollup address.
@@ -78,10 +65,6 @@ export class MockL2BlockSource implements L2BlockSource {
 
   public getProvenBlockNumber(): Promise<number> {
     return Promise.resolve(this.provenBlockNumber);
-  }
-
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.provenEpochNumber);
   }
 
   /**
@@ -172,9 +155,18 @@ export class MockL2BlockSource implements L2BlockSource {
     const finalizedBlock = this.l2Blocks[finalized - 1];
 
     return {
-      latest: { number: latest, hash: (await latestBlock?.hash())?.toString() },
-      proven: { number: proven, hash: (await provenBlock?.hash())?.toString() },
-      finalized: { number: finalized, hash: (await finalizedBlock?.hash())?.toString() },
+      latest: {
+        number: latest,
+        hash: (await latestBlock?.hash())?.toString(),
+      },
+      proven: {
+        number: proven,
+        hash: (await provenBlock?.hash())?.toString(),
+      },
+      finalized: {
+        number: finalized,
+        hash: (await finalizedBlock?.hash())?.toString(),
+      },
     };
   }
 

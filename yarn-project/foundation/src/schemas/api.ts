@@ -1,6 +1,6 @@
-import { type z } from 'zod';
+import type { z } from 'zod';
 
-import { type ZodNullableOptional } from './utils.js';
+import type { ZodNullableOptional } from './utils.js';
 
 // Forces usage of ZodNullableOptional in parameters schemas so we properly accept nulls for optional parameters.
 type ZodParameterTypeFor<T> = undefined extends T

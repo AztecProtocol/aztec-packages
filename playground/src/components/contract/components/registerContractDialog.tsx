@@ -1,30 +1,23 @@
-import DialogTitle from "@mui/material/DialogTitle";
-import Dialog from "@mui/material/Dialog";
-import {
-  Contract,
-  AztecAddress,
-  ContractInstanceWithAddress,
-  ContractArtifact,
-} from "@aztec/aztec.js";
-import {
-  Button,
-  CircularProgress,
-  FormControl,
-  FormGroup,
-  TextField,
-  Typography,
-  css,
-} from "@mui/material";
-import { useContext, useState } from "react";
-import { AztecContext } from "../../../aztecEnv";
-import { GITHUB_TAG_PREFIX } from "../../../utils/constants";
+import DialogTitle from '@mui/material/DialogTitle';
+import Dialog from '@mui/material/Dialog';
+import { Contract, AztecAddress, type ContractInstanceWithAddress, type ContractArtifact } from '@aztec/aztec.js';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import FormControl from '@mui/material/FormControl';
+import FormGroup from '@mui/material/FormGroup';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import { css } from '@mui/styled-engine';
+import { useContext, useState } from 'react';
+import { AztecContext } from '../../../aztecEnv';
+import { GITHUB_TAG_PREFIX } from '../../../utils/constants';
 
 const creationForm = css({
-  display: "flex",
-  flexDirection: "column",
-  gap: "1rem",
-  padding: "1rem",
-  alignItems: "center",
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1rem',
+  padding: '1rem',
+  alignItems: 'center',
 });
 
 export function RegisterContractDialog({
@@ -36,8 +29,8 @@ export function RegisterContractDialog({
   contractArtifact: ContractArtifact;
   onClose: (contract?: ContractInstanceWithAddress, alias?: string) => void;
 }) {
-  const [alias, setAlias] = useState("");
-  const [address, setAddress] = useState("");
+  const [alias, setAlias] = useState('');
+  const [address, setAddress] = useState('');
   const [registering, setRegistering] = useState(false);
 
   const { wallet, node } = useContext(AztecContext);
@@ -51,29 +44,20 @@ export function RegisterContractDialog({
 
     const nodeInfo = await wallet.getNodeInfo();
     const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
-    if (
-      contractArtifact.aztecNrVersion &&
-      contractArtifact.aztecNrVersion !== expectedAztecNrVersion
-    ) {
+    if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
       throw new Error(
-        `Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}`
+        `Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}`,
       );
     }
 
-    const contractInstance = await node.getContract(
-      AztecAddress.fromString(address)
-    );
+    const contractInstance = await node.getContract(AztecAddress.fromString(address));
 
     await wallet.registerContract({
       instance: contractInstance,
       artifact: contractArtifact,
     });
 
-    const contract = await Contract.at(
-      AztecAddress.fromString(address),
-      contractArtifact,
-      wallet
-    );
+    const contract = await Contract.at(AztecAddress.fromString(address), contractArtifact, wallet);
 
     onClose(contract.instance, alias);
   };
@@ -89,14 +73,14 @@ export function RegisterContractDialog({
           </>
         ) : (
           <>
-            <FormGroup sx={{ display: "flex" }}>
+            <FormGroup sx={{ display: 'flex' }}>
               <FormControl>
                 <TextField
                   placeholder="Address"
                   value={address}
                   label="Address"
-                  sx={{ marginTop: "1rem" }}
-                  onChange={(event) => {
+                  sx={{ marginTop: '1rem' }}
+                  onChange={event => {
                     setAddress(event.target.value);
                   }}
                 />
@@ -106,14 +90,14 @@ export function RegisterContractDialog({
                   placeholder="Alias"
                   value={alias}
                   label="Alias"
-                  sx={{ marginTop: "1rem" }}
-                  onChange={(event) => {
+                  sx={{ marginTop: '1rem' }}
+                  onChange={event => {
                     setAlias(event.target.value);
                   }}
                 />
               </FormControl>
             </FormGroup>
-            <Button disabled={alias === ""} onClick={register}>
+            <Button disabled={alias === ''} onClick={register}>
               Register
             </Button>
             <Button color="error" onClick={handleClose}>

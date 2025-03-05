@@ -1,7 +1,7 @@
-import { type RollupContract } from '@aztec/ethereum/contracts';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type PublicClient } from 'viem';
+import type { PublicClient } from 'viem';
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
 export class ChainMonitor {
@@ -14,6 +14,10 @@ export class ChainMonitor {
   public l2BlockNumber!: number;
   /** Current L2 proven block number */
   public l2ProvenBlockNumber!: number;
+  /** L1 timestamp for the current L2 block */
+  public l2BlockTimestamp!: bigint;
+  /** L1 timestamp for the proven L2 block */
+  public l2ProvenBlockTimestamp!: bigint;
 
   constructor(
     private readonly rollup: RollupContract,
@@ -28,6 +32,7 @@ export class ChainMonitor {
       throw new Error('Chain monitor already started');
     }
     this.handle = setInterval(this.safeRun.bind(this), this.intervalMs);
+    return this;
   }
 
   stop() {
@@ -61,6 +66,7 @@ export class ChainMonitor {
       const epochNumber = await this.rollup.getEpochNumber(BigInt(newL2BlockNumber));
       msg += ` with new L2 block ${newL2BlockNumber} for epoch ${epochNumber}`;
       this.l2BlockNumber = newL2BlockNumber;
+      this.l2BlockTimestamp = timestamp;
     }
 
     const newL2ProvenBlockNumber = Number(await this.rollup.getProvenBlockNumber());
@@ -68,6 +74,7 @@ export class ChainMonitor {
       const epochNumber = await this.rollup.getEpochNumber(BigInt(newL2ProvenBlockNumber));
       msg += ` with proof up to L2 block ${newL2ProvenBlockNumber} for epoch ${epochNumber}`;
       this.l2ProvenBlockNumber = newL2ProvenBlockNumber;
+      this.l2ProvenBlockTimestamp = timestamp;
     }
 
     this.logger.info(msg, {

@@ -13,8 +13,6 @@ Note there are two independent WASM builds, one with threading enabled and one w
 memory flag is set within the WASM itself. If you're running in a context where you can't have shared memory, we want
 to fallback to single threaded performance.
 
-The following output is from `bench_acir_tests.sh` script.
-
 Table represents time in ms to build circuit and proof for each test on n threads.
 Ignores proving key construction.
 
@@ -147,3 +145,13 @@ To run the tests run `yarn test`.
 
 To run a continuous "stress test" run `yarn simple_test` to do 10 full pk/proof/vk iterations. This is useful for
 inspecting memory growth as we continuously use the library.
+
+## Debugging
+
+Got an unhelpful stack trace in wasm? Run:
+
+```
+NO_STRIP=1 ./script/build_wasm.sh
+```
+
+This will drop unstripped wasms into the dest folder. Run your test again to get a trace.

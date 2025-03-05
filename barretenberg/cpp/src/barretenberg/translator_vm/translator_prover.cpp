@@ -35,25 +35,20 @@ void TranslatorProver::execute_preamble_round()
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[1]) * SHIFTx2 +
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[1]) * SHIFTx3);
     transcript->send_to_verifier("circuit_size", circuit_size);
-    transcript->send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }
 
 /**
- * @brief Compute commitments to the first three wires
+ * @brief Compute commitments to wires and ordered range constraints.
  *
  */
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
-    // Commit to all wire polynomials, note that the wire polynomials have at most `mini_circuit_dyadic_size` non-zero
-    // values. Therefore we could commit to a subspan of that size.
+
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
-        // ECCVM/Translator/MegaZK
-        PolynomialSpan<FF> wire_span = wire;
-        transcript->send_to_verifier(
-            label, key->proving_key->commitment_key->commit(wire_span.subspan(0, key->mini_circuit_dyadic_size)));
+
+        transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(wire));
     }
 
     // The ordered range constraints are of full circuit size.
@@ -154,6 +149,7 @@ void TranslatorProver::execute_pcs_rounds()
                                                sumcheck_output.claimed_libra_evaluation,
                                                transcript,
                                                key->proving_key->commitment_key);
+    small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
     polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());

@@ -55,9 +55,11 @@
       "binaryDir": "build-darwin-arm64",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "/opt/osxcross/toolchain.cmake"
+        "CMAKE_TOOLCHAIN_FILE": "/opt/osxcross/toolchain.cmake",
+        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/arm64-apple-darwin23-ld"
       },
       "environment": {
+        "CXXFLAGS": "-Wno-deprecated-declarations",
         "OSXCROSS_HOST": "arm64-apple-darwin23",
         "OSXCROSS_TARGET_DIR": "/opt/osxcross",
         "OSXCROSS_TARGET": "darwin23",
@@ -69,7 +71,11 @@
       "displayName": "Apple amd64 Cross-compile",
       "inherits": "darwin-arm64",
       "binaryDir": "build-darwin-amd64",
+      "cacheVariables": {
+        "CMAKE_EXE_LINKER_FLAGS": "-fuse-ld=/opt/osxcross/bin/x86_64-apple-darwin23-ld"
+      },
       "environment": {
+        "CXXFLAGS": "-Wno-deprecated-declarations",
         "OSXCROSS_HOST": "x86_64-apple-darwin23"
       }
     },
@@ -193,7 +199,7 @@
     },
     {
       "name": "clang16-assert",
-      "binaryDir": "build-assert",
+      "binaryDir": "build",
       "displayName": "Build with Clang-16 using RelWithAssert",
       "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
       "inherits": "clang16",
@@ -337,7 +343,7 @@
       "name": "op-count",
       "displayName": "Release build with operation counts",
       "description": "Build with op counting",
-      "inherits": "clang16",
+      "inherits": "clang16-assert",
       "binaryDir": "build-op-count",
       "environment": {
         "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
@@ -347,7 +353,7 @@
       "name": "op-count-time",
       "displayName": "Release build with time and clock counts",
       "description": "Build with op counting",
-      "inherits": "clang16",
+      "inherits": "clang16-assert",
       "binaryDir": "build-op-count-time",
       "environment": {
         "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
@@ -632,7 +638,13 @@
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg", "wasi", "env"]
+      "targets": [
+        "barretenberg.wasm",
+        "barretenberg.wasm.gz",
+        "barretenberg",
+        "wasi",
+        "env"
+      ]
     },
     {
       "name": "wasm-threads-dbg",
@@ -653,7 +665,7 @@
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
     },
     {
       "name": "xray",
