@@ -23,12 +23,12 @@ cores=${CPUS:-$cores}
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
-    set +e
-    if [ "$NO_TERMINATE" -eq 0 ]; then
-      aws_terminate_instance $iid $sir
-    else
-      echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
-    fi
+  set +e
+  if [ "$NO_TERMINATE" -eq 0 ]; then
+    aws_terminate_instance $iid $sir
+  else
+    echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
+  fi
 }
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
@@ -94,6 +94,9 @@ container_script=$(cat <<EOF
   while [ -f started ]; do sleep 999; done
   touch started
   sudo chown aztec-dev:aztec-dev aztec-packages
+  # Set up preferred commit attribution (used during releases).
+  git config --global user.email "tech@aztecprotocol.com"
+  git config --global user.name "AztecBot"
   cd aztec-packages
   git config --global advice.detachedHead false
   git init . &>/dev/null
