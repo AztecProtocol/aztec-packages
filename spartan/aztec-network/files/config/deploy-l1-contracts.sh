@@ -29,7 +29,7 @@ fi
 for attempt in $(seq 1 $MAX_RETRIES); do
   # Construct base command
   base_cmd="DEBUG_L1_MAX_GAS_LIMIT=true LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts $TEST_ACCOUNTS_ARG --fast-mode"
-  # base_cmd="DEBUG_L1_MAX_GAS_LIMIT=true LOG_LEVEL=debug node --no-warnings /mnt/user-data/sean/docs/aztec-spare/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts $TEST_ACCOUNTS_ARG --fast-mode"
+  # base_cmd="DEBUG_L1_MAX_GAS_LIMIT=true LOG_LEVEL=debug node --no-warnings /mnt/user-data/sean/docs/aztec-spare/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts $TEST_ACCOUNTS_ARG --fast-mode --l1-chain-id $CHAIN_ID --salt $SALT"
 
   # Add account - use private key if set, otherwise use mnemonic
   if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
@@ -40,10 +40,10 @@ for attempt in $(seq 1 $MAX_RETRIES); do
 
   # Add validators if INIT_VALIDATORS is true
   if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
-    output=$(eval $base_cmd --validators $VALIDATOR_ADDRESSES --l1-chain-id $CHAIN_ID --salt $SALT) && break
-  else
-    output=$(eval $base_cmd --l1-chain-id $CHAIN_ID --salt $SALT) && break
+    base_cmd="$base_cmd --validators $VALIDATOR_ADDRESSES"
   fi
+
+  output=$(eval $base_cmd --l1-chain-id $CHAIN_ID --salt $SALT) && break
 
   echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
   sleep "$RETRY_DELAY"
