@@ -85,6 +85,8 @@ spec:
             - name: scripts
               mountPath: /scripts
           env:
+            - name: ACCELERATED_TEST_DEPLOYMENTS
+              value: "{{ .Values.ethereum.acceleratedTestDeployments }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
             - name: REGISTRY_CONTRACT_ADDRESS

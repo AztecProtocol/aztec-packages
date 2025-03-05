@@ -44,7 +44,7 @@ export async function deployAztecContracts(
   initialValidators: EthAddress[],
   genesisArchiveRoot: Fr,
   genesisBlockHash: Fr,
-  fastMode: boolean,
+  acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
@@ -71,7 +71,7 @@ export async function deployAztecContracts(
       genesisBlockHash,
       salt,
       initialValidators,
-      fastMode,
+      acceleratedTestDeployments,
       ...config,
     },
     config,
