@@ -5,6 +5,7 @@ import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 
 import { Argument, Command, Option } from 'commander';
 import { mkdirSync, readFileSync } from 'fs';
+import { homedir } from 'os';
 import { dirname, join, resolve } from 'path';
 
 import { injectCommands } from '../cmds/index.js';
@@ -15,7 +16,7 @@ import { PXEWrapper } from '../utils/pxe_wrapper.js';
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('wallet');
 
-const { WALLET_DATA_DIRECTORY = '~/.aztec/wallet', PXE_PROVER = 'none' } = process.env;
+const { WALLET_DATA_DIRECTORY = join(homedir(), '.aztec/wallet'), PXE_PROVER = 'none' } = process.env;
 
 function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
   program

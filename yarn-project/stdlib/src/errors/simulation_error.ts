@@ -57,8 +57,8 @@ export interface SourceCodeLocation {
 
 const SourceCodeLocationSchema = z.object({
   filePath: z.string(),
-  line: z.number(),
-  column: z.number(),
+  line: z.number().int().nonnegative(),
+  column: z.number().int().nonnegative(),
   fileSource: z.string(),
   locationText: z.string(),
 });

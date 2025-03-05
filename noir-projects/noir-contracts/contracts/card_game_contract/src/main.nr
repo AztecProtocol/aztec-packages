@@ -14,6 +14,8 @@ pub contract CardGame {
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
     use dep::aztec::macros::{functions::{internal, private, public}, storage::storage};
 
+    use dep::aztec::protocol_types::traits::{FromField, ToField};
+
     #[storage]
     struct Storage<Context> {
         collections: Map<AztecAddress, Deck<Context>, Context>,

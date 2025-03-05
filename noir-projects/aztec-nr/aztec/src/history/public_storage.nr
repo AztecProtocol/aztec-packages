@@ -5,6 +5,7 @@ use dep::protocol_types::{
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::oracle::get_public_data_witness::get_public_data_witness;
+use protocol_types::traits::{Hash, ToField};
 
 mod test;
 

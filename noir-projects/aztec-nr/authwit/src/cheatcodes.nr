@@ -2,7 +2,7 @@ use dep::aztec::{
     context::{call_interfaces::CallInterface, public_context::PublicContext},
     hash::hash_args,
     oracle::execution::{get_block_number, get_contract_address},
-    protocol_types::address::AztecAddress,
+    protocol_types::{address::AztecAddress, traits::ToField},
     test::helpers::cheatcodes,
 };
 
