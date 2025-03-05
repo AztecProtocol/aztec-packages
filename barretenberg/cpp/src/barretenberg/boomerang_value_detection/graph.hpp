@@ -9,35 +9,34 @@
 #include <utility>
 #include <vector>
 
-/*
- * this class describes arithmetic circuit as an undirected graph, where vertices are variables from circuit.
- * edges describe connections between variables through gates. We want to find variables that weren't properly
- * constrainted/some connections were missed using additional metrics, like in how much gate variable was and number of
- * connected components in the graph. if variable was in one connected component, it means that this variable wasn't
- * constrained properly. if number of connected components > 1, it means that there were missed some connections between
- * variables.
- */
-
 namespace cdg {
 
-/*
- * we add a new feature for static analyzer, now it contains gates where it found every variable. This may be helpful,
- * if we want to do functions that remove false-positive variables from the analyzer using selectors in the gate + some
- * additional knowledge about this variable, for example, tau or range tags. this info contains in unordered map with
- * key as std::pair<uint32_t, size_t>, where uint32_t -- real variable index and size_t -- index of UltraTraceBlock in
- * Reference Array with all TraceBlocks, that Ultra Circuit Builder contains inside. But there was a problem with
- * unordered map -- it doesn't have default hash function and function for checking equivalence for std::pair as a key,
- * so we had to implement it ourselves. We decided to choose approach based on function hash_combine from boost library
- * for C++, and it's not so difficult to hash 2 elements in pair and check their equivalence.
- */
 using UltraBlock = bb::UltraTraceBlock;
+/**
+ * We've added a new feature to the static analyzer that tracks which gates contain each variable.
+ * This is helpful for removing false-positive variables from the analyzer by using gate selectors
+ * combined with additional knowledge about variables (e.g., tau or range tags).
+ *
+ * This information is stored in an unordered map with keys of type std::pair<uint32_t, size_t>, where:
+ * - uint32_t represents the real variable index
+ * - size_t represents the index of the UltraTraceBlock in the reference array of TraceBlocks
+ *   contained within the Ultra Circuit Builder
+ *
+ * Since std::unordered_map doesn't provide default hash and equality functions for std::pair keys,
+ * we've implemented these ourselves. Our approach is based on the hash_combine function from the
+ * Boost library, which efficiently combines hashes of the two elements in the pair.
+ */
 using KeyPair = std::pair<uint32_t, size_t>;
 
 struct KeyHasher {
     size_t operator()(const KeyPair& pair) const
     {
         size_t combined_hash = 0;
-        auto hash_combiner = [](size_t lhs, size_t rhs) { return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2)); };
+        // Golden ratio constant (2^32 / phi) used in hash combining for better distribution
+        constexpr size_t HASH_COMBINE_CONSTANT = 0x9e3779b9;
+        auto hash_combiner = [](size_t lhs, size_t rhs) {
+            return lhs ^ (rhs + HASH_COMBINE_CONSTANT + (lhs << 6) + (lhs >> 2));
+        };
         combined_hash = hash_combiner(combined_hash, std::hash<uint32_t>()(pair.first));
         combined_hash = hash_combiner(combined_hash, std::hash<size_t>()(pair.second));
         return combined_hash;
@@ -51,6 +50,14 @@ struct KeyEquals {
     }
 };
 
+/*
+ * This class describes an arithmetic circuit as an undirected graph, where vertices are variables from the circuit.
+ * Edges describe connections between variables through gates. We want to find variables that weren't properly
+ * constrained or where some connections were missed using additional metrics, such as how many gates a variable appears
+ * in and the number of connected components in the graph. If a variable appears in only one gate, it means that this
+ * variable wasn't constrained properly. If the number of connected components > 1, it means that there were some missed
+ * connections between variables.
+ */
 template <typename FF> class Graph_ {
   public:
     Graph_() = default;

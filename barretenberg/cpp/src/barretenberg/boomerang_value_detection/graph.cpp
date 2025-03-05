@@ -83,64 +83,68 @@ inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connec
     std::vector<uint32_t> gate_variables;
     std::vector<uint32_t> minigate_variables;
     std::vector<std::vector<uint32_t>> all_gates_variables;
-    if (!q_arith.is_zero()) {
-        auto q_m = blk.q_m()[index];
-        auto q_1 = blk.q_1()[index];
-        auto q_2 = blk.q_2()[index];
-        auto q_3 = blk.q_3()[index];
-        auto q_4 = blk.q_4()[index];
+    if (q_arith.is_zero()) {
+        return {};
+    }
+    auto q_m = blk.q_m()[index];
+    auto q_1 = blk.q_1()[index];
+    auto q_2 = blk.q_2()[index];
+    auto q_3 = blk.q_3()[index];
+    auto q_4 = blk.q_4()[index];
 
-        uint32_t left_idx = blk.w_l()[index];
-        uint32_t right_idx = blk.w_r()[index];
-        uint32_t out_idx = blk.w_o()[index];
-        uint32_t fourth_idx = blk.w_4()[index];
-        if (q_m == 0 && q_1 == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_arith == 1) {
-            // this is fixed_witness gate. So, variable index contains in left wire. So, we have to take only it.
-            fixed_variables.insert(this->to_real(ultra_circuit_builder, left_idx));
-        } else if (q_m != 0 || q_1 != 1 || q_2 != 0 || q_3 != 0 || q_4 != 0) {
-            // this is not the gate for fix_witness, so we have to process this gate
-            if (q_m != 0) {
+    uint32_t left_idx = blk.w_l()[index];
+    uint32_t right_idx = blk.w_r()[index];
+    uint32_t out_idx = blk.w_o()[index];
+    uint32_t fourth_idx = blk.w_4()[index];
+    if (q_m.is_zero() && q_1 == 1 && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_arith == FF::one()) {
+        // this is fixed_witness gate. So, variable index contains in left wire. So, we have to take only it.
+        fixed_variables.insert(this->to_real(ultra_circuit_builder, left_idx));
+    } else if (!q_m.is_zero() || q_1 != FF::one() || !q_2.is_zero() || !q_3.is_zero() || !q_4.is_zero()) {
+        // this is not the gate for fix_witness, so we have to process this gate
+        if (!q_m.is_zero()) {
+            gate_variables.emplace_back(left_idx);
+            gate_variables.emplace_back(right_idx);
+        } else {
+            if (!q_1.is_zero()) {
                 gate_variables.emplace_back(left_idx);
+            }
+            if (!q_2.is_zero()) {
                 gate_variables.emplace_back(right_idx);
-            }
-            if (q_1 != 0) {
-                gate_variables.emplace_back(left_idx);
-            }
-            if (q_2 != 0) {
-                gate_variables.emplace_back(right_idx);
-            }
-            if (q_3 != 0) {
-                gate_variables.emplace_back(out_idx);
-            }
-            if (q_4 != 0) {
-                gate_variables.emplace_back(fourth_idx);
-            }
-            if (q_arith == 2) {
-                // We have to use w_4_shift from the next gate
-                // if and only if the current gate isn't last, cause we can't
-                // look into the next gate
-                if (index != blk.size() - 1) {
-                    gate_variables.emplace_back(blk.w_4()[index + 1]);
-                }
-            }
-            if (q_arith == 3) {
-                // In this gate mini gate is enabled, we have 2 equations:
-                // q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
-                // w_1 + w_4 - w_1_omega + q_m = 0
-                minigate_variables.insert(minigate_variables.end(), { left_idx, fourth_idx });
-                if (index != blk.size() - 1) {
-                    gate_variables.emplace_back(blk.w_4()[index + 1]);
-                    minigate_variables.emplace_back(blk.w_l()[index + 1]);
-                }
             }
         }
-        this->process_gate_variables(ultra_circuit_builder, gate_variables, index, block_idx);
-        this->process_gate_variables(ultra_circuit_builder, minigate_variables, index, block_idx);
-        all_gates_variables.emplace_back(gate_variables);
-        if (!minigate_variables.empty()) {
-            all_gates_variables.emplace_back(minigate_variables);
+
+        if (!q_3.is_zero()) {
+            gate_variables.emplace_back(out_idx);
+        }
+        if (!q_4.is_zero()) {
+            gate_variables.emplace_back(fourth_idx);
+        }
+        if (q_arith == FF(2)) {
+            // We have to use w_4_shift from the next gate
+            // if and only if the current gate isn't last, cause we can't
+            // look into the next gate
+            if (index != blk.size() - 1) {
+                gate_variables.emplace_back(blk.w_4()[index + 1]);
+            }
+        }
+        if (q_arith == FF(3)) {
+            // In this gate mini gate is enabled, we have 2 equations:
+            // q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
+            // w_1 + w_4 - w_1_omega + q_m = 0
+            minigate_variables.insert(minigate_variables.end(), { left_idx, fourth_idx });
+            if (index != blk.size() - 1) {
+                gate_variables.emplace_back(blk.w_4()[index + 1]);
+                minigate_variables.emplace_back(blk.w_l()[index + 1]);
+            }
         }
     }
+    this->process_gate_variables(ultra_circuit_builder, gate_variables, index, block_idx);
+    this->process_gate_variables(ultra_circuit_builder, minigate_variables, index, block_idx);
+    all_gates_variables.emplace_back(gate_variables);
+    if (!minigate_variables.empty()) {
+        all_gates_variables.emplace_back(minigate_variables);
+    }
+
     return all_gates_variables;
 }
 
@@ -161,8 +165,8 @@ inline std::vector<uint32_t> Graph_<FF>::get_elliptic_gate_connected_component(
 {
     std::vector<uint32_t> gate_variables = {};
     if (!blk.q_elliptic()[index].is_zero()) {
-        bool is_elliptic_add_gate = blk.q_1()[index] != 0 && blk.q_m()[index] == 0;
-        bool is_elliptic_dbl_gate = blk.q_1()[index] == 0 && blk.q_m()[index] == 1;
+        bool is_elliptic_add_gate = !blk.q_1()[index].is_zero() && blk.q_m()[index].is_zero();
+        bool is_elliptic_dbl_gate = blk.q_1()[index].is_zero() && blk.q_m()[index] == FF::one();
         auto right_idx = blk.w_r()[index];
         auto out_idx = blk.w_o()[index];
         gate_variables.emplace_back(right_idx);
@@ -241,16 +245,14 @@ inline std::vector<uint32_t> Graph_<FF>::get_plookup_gate_connected_component(
         gate_variables.emplace_back(right_idx);
         gate_variables.emplace_back(out_idx);
         if (index < block.size() - 1) {
-            if (q_2 != 0 || q_m != 0 || q_c != 0) {
-                if (q_2 != 0) {
-                    gate_variables.emplace_back(block.w_l()[index + 1]);
-                }
-                if (q_m != 0) {
-                    gate_variables.emplace_back(block.w_r()[index + 1]);
-                }
-                if (q_c != 0) {
-                    gate_variables.emplace_back(block.w_o()[index + 1]);
-                }
+            if (!q_2.is_zero()) {
+                gate_variables.emplace_back(block.w_l()[index + 1]);
+            }
+            if (!q_m.is_zero()) {
+                gate_variables.emplace_back(block.w_r()[index + 1]);
+            }
+            if (!q_c.is_zero()) {
+                gate_variables.emplace_back(block.w_o()[index + 1]);
             }
         }
         this->process_gate_variables(ultra_circuit_builder, gate_variables, index, blk_idx);
@@ -317,14 +319,14 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
         auto w_r = block.w_r()[index];
         auto w_o = block.w_o()[index];
         auto w_4 = block.w_4()[index];
-        if (q_3 == 1 && q_4 == 1) {
+        if (q_3 == FF::one() && q_4 == FF::one()) {
             // bigfield limb accumulation 1
             ASSERT(q_arith.is_zero());
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
                                       { w_l, w_r, w_o, w_4, block.w_l()[index + 1], block.w_r()[index + 1] });
             }
-        } else if (q_3 == 1 && q_m == 1) {
+        } else if (q_3 == FF::one() && q_m == FF::one()) {
             ASSERT(q_arith.is_zero());
             // bigfield limb accumulation 2
             if (index < block.size() - 1) {
@@ -336,21 +338,21 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                                         block.w_o()[index + 1],
                                         block.w_4()[index + 1] });
             }
-        } else if (q_2 == 1 && (q_3 == 1 || q_4 == 1 || q_m == 1)) {
+        } else if (q_2 == FF::one() && (q_3 == FF::one() || q_4 == FF::one() || q_m == FF::one())) {
             ASSERT(q_arith.is_zero());
             // bigfield product cases
             if (index < block.size() - 1) {
                 std::vector<uint32_t> limb_subproduct_vars = {
                     w_l, w_r, block.w_l()[index + 1], block.w_r()[index + 1]
                 };
-                if (q_3 == 1) {
+                if (q_3 == FF::one()) {
                     // bigfield product 1
                     ASSERT(q_4.is_zero() && q_m.is_zero());
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(), { w_o, w_4 });
                 }
-                if (q_4 == 1) {
+                if (q_4 == FF::one()) {
                     // bigfield product 2
                     ASSERT(q_3.is_zero() && q_m.is_zero());
                     std::vector<uint32_t> non_native_field_gate_2 = { w_l, w_4, w_r, w_o, block.w_o()[index + 1] };
@@ -360,7 +362,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                 }
-                if (q_m == 1) {
+                if (q_m == FF::one()) {
                     // bigfield product 3
                     ASSERT(q_4.is_zero() && q_3.is_zero());
                     gate_variables.insert(
@@ -369,7 +371,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                                           { w_4, block.w_o()[index + 1], block.w_4()[index + 1] });
                 }
             }
-        } else if (q_1 == 1 && q_4 == 1) {
+        } else if (q_1 == FF::one() && q_4 == FF::one()) {
             ASSERT(q_arith.is_zero());
             // ram timestamp check
             if (index < block.size() - 1) {
@@ -380,7 +382,7 @@ inline std::vector<uint32_t> Graph_<FF>::get_auxiliary_gate_connected_component(
                                         block.w_l()[index + 1],
                                         block.w_o()[index] });
             }
-        } else if (q_1 == 1 && q_2 == 1) {
+        } else if (q_1 == FF::one() && q_2 == FF::one()) {
             ASSERT(q_arith.is_zero());
             // rom constitency check
             if (index < block.size() - 1) {
@@ -444,7 +446,8 @@ inline std::vector<uint32_t> Graph_<FF>::get_rom_table_connected_component(
         auto vc2_witness = record.value_column2_witness; // state[1] from RomTranscript
         auto record_witness = record.record_witness;
 
-        if (q_1 == 1 && q_m == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_c == 0 && q_arith == 0) {
+        if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_c.is_zero() &&
+            q_arith.is_zero()) {
             // By default ROM read gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, vc1_witness, vc2_witness,
             // record_witness) So we can update all of them
             gate_variables.emplace_back(index_witness);
@@ -497,7 +500,8 @@ inline std::vector<uint32_t> Graph_<FF>::get_ram_table_connected_component(
         auto value_witness = record.value_witness;
         auto record_witness = record.record_witness;
 
-        if (q_1 == 1 && q_m == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_arith == 0 && (q_c == 0 || q_c == 1)) {
+        if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
+            q_arith.is_zero() && (q_c.is_zero() || q_c == FF::one())) {
             // By default RAM read/write gate uses variables (w_1, w_2, w_3, w_4) = (index_witness, timestamp_witness,
             // value_witness, record_witness) So we can update all of them
             gate_variables.emplace_back(index_witness);
@@ -566,22 +570,18 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
                 }
                 auto elliptic_gate_variables = get_elliptic_gate_connected_component(
                     ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-                // info("size of elliptic_gate == ", elliptic_gate_variables.size());
                 connect_all_variables_in_vector(
                     ultra_circuit_constructor, elliptic_gate_variables, /*is_sorted_variables=*/false);
                 auto lookup_gate_variables = get_plookup_gate_connected_component(
                     ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-                // info("size of lookup_gate == ", lookup_gate_variables.size());
                 connect_all_variables_in_vector(
                     ultra_circuit_constructor, lookup_gate_variables, /*is_sorted_variables=*/false);
                 auto poseidon2_gate_variables = get_poseido2s_gate_connected_component(
                     ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-                // info("size of poseidon2_gate == ", poseidon2_gate_variables.size());
                 connect_all_variables_in_vector(
                     ultra_circuit_constructor, poseidon2_gate_variables, /*is_sorted_variables=*/false);
                 auto aux_gate_variables = get_auxiliary_gate_connected_component(
                     ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-                // info("size of aux_gate == ", aux_gate_variables.size());
                 connect_all_variables_in_vector(
                     ultra_circuit_constructor, aux_gate_variables, /*is_sorted_variables=*/false);
                 if (arithmetic_gates_variables.empty() && elliptic_gate_variables.empty() &&
@@ -605,20 +605,20 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
     }
 
     const auto& rom_arrays = ultra_circuit_constructor.rom_arrays;
-    if (rom_arrays.size() > 0) {
-        for (size_t i = 0; i < rom_arrays.size(); i++) {
+    if (!rom_arrays.empty()) {
+        for (const auto& rom_array : rom_arrays) {
             std::vector<uint32_t> variable_indices =
-                this->get_rom_table_connected_component(ultra_circuit_constructor, rom_arrays[i]);
+                this->get_rom_table_connected_component(ultra_circuit_constructor, rom_array);
             this->connect_all_variables_in_vector(
                 ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
         }
     }
 
     const auto& ram_arrays = ultra_circuit_constructor.ram_arrays;
-    if (ram_arrays.size() > 0) {
-        for (size_t i = 0; i < ram_arrays.size(); i++) {
+    if (!ram_arrays.empty()) {
+        for (const auto& ram_array : ram_arrays) {
             std::vector<uint32_t> variable_indices =
-                this->get_ram_table_connected_component(ultra_circuit_constructor, ram_arrays[i]);
+                this->get_ram_table_connected_component(ultra_circuit_constructor, ram_array);
             this->connect_all_variables_in_vector(
                 ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
         }
@@ -951,7 +951,7 @@ inline void Graph_<FF>::remove_unnecessary_aes_plookup_variables(std::unordered_
         if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
             bool find_out = find_position(real_out_idx);
             auto q_c = lookup_block.q_c()[gate_index];
-            if (q_c == 0) {
+            if (q_c.is_zero()) {
                 if (find_out) {
                     variables_in_one_gate.erase(real_out_idx);
                 }
@@ -1003,7 +1003,7 @@ inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unorder
             auto q_c = lookup_block.q_c()[gate_index];
             bool find_out = find_position(real_out_idx);
             // bool find_right = find_position(real_right_idx);
-            if (q_c == 0) {
+            if (q_c.is_zero()) {
                 if (find_out) {
                     variables_in_one_gate.erase(real_out_idx);
                 }
@@ -1123,7 +1123,8 @@ template <typename FF> inline void Graph_<FF>::remove_record_witness_variables(b
             auto q_4 = block_data[blk_idx].q_4()[gate_idx];
             auto q_m = block_data[blk_idx].q_m()[gate_idx];
             auto q_arith = block_data[blk_idx].q_arith()[gate_idx];
-            if (q_1 == 1 && q_m == 1 && q_2 == 0 && q_3 == 0 && q_4 == 0 && q_arith == 0) {
+            if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
+                q_arith.is_zero()) {
                 // record witness can be in both ROM and RAM gates, so we can ignore q_c
                 // record witness is written as 4th variable in RAM/ROM read/write gate, so we can get 4th wire value
                 // and check it with our variable
