@@ -310,9 +310,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
     /**
      * @brief Set the witness indices representing the goblin element to public
-     * @details Even though the coordinates of a goblin element are represented using two field elements, we store them
-     * in the public inputs as if they were bigfield elements (where each coordinate is represented by four field
-     * elements). This uniformity is imposed for simplicity but could be reconsidered if desired.
+     * @details Even though the coordinates of a goblin element are goblin field elements which may be represented using
+     * two native field elements, we store them in the public inputs as if they were bigfield elements, each of which is
+     * represented by four native field elements. This uniformity is imposed for simplicity but could be reconsidered if
+     * desired.
      *
      * @return uint32_t The index into the public inputs array at which the representation of the goblin element starts
      */
