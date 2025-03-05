@@ -26,6 +26,7 @@ using bitwise = bb::avm2::bitwise<FF>;
 
 using tracegen::LookupIntoBitwise;
 using tracegen::LookupIntoIndexedByClk;
+using tracegen::PrecomputedTraceBuilder;
 using lookup_bitwise_byte_operations = bb::avm2::lookup_bitwise_byte_operations_relation<FF>;
 using lookup_bitwise_integral_tag_length = bb::avm2::lookup_bitwise_integral_tag_length_relation<FF>;
 
@@ -330,6 +331,7 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
 {
     TestTraceContainer trace;
     BitwiseTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
 
     builder.process(
         {
@@ -341,6 +343,10 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
             { .operation = BitwiseOperation::AND, .tag = MemoryTag::U8, .a = 85, .b = 175, .res = 5 },
         },
         trace);
+
+    precomputed_builder.process_misc(trace, 256 * 256 * 3);
+    precomputed_builder.process_bitwise(trace);
+
     LookupIntoBitwise<lookup_bitwise_byte_operations::Settings>().process(trace);
     LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length::Settings>().process(trace);
 
