@@ -109,8 +109,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     compute_translation_opening_claims(translation_commitments);
 
-    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
-
+    translation_masking_term_eval *= evaluation_challenge_x.pow(circuit_size - MASKING_OFFSET);
     opening_claims.back() = multivariate_to_univariate_opening_claim;
 
     // Construct and verify the combined opening claim
@@ -205,7 +204,7 @@ void ECCVMVerifier::compute_translation_opening_claims(
         batched_translation_evaluation += batching_scalar * translation_evaluations.get_all()[idx];
         batching_scalar *= batching_challenge_v;
     }
-
+    info("eccvm masked batched value : ", batched_translation_evaluation);
     // Place the claim to the array containing the SmallSubgroupIPA opening claims
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };

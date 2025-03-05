@@ -36,22 +36,26 @@ template <typename BF, typename FF = void> struct TranslationEvaluations_ {
 template <typename FF>
 static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x, FF& translation_masking_term_eval)
 {
-    static constexpr size_t log_masking_offset = numeric::get_msb(MASKING_OFFSET);
-    FF numerator{ 1 };
+    // static constexpr size_t log_masking_offset = numeric::get_msb(MASKING_OFFSET);
+    // FF numerator{ 1 };
 
-    for (size_t idx = 0; idx < log_masking_offset; idx++) {
-        numerator *= numerator.sqr();
-    }
+    // for (size_t idx = 0; idx < log_masking_offset; idx++) {
+    //     numerator *= numerator.sqr();
+    // }
 
-    const FF x_to_masking_offset = numerator;
+    // const FF x_to_masking_offset = numerator;
 
-    for (size_t idx = log_masking_offset; idx < CONST_ECCVM_LOG_N; idx++) {
-        numerator *= numerator.sqr();
-    }
+    // for (size_t idx = log_masking_offset; idx < CONST_ECCVM_LOG_N; idx++) {
+    //     numerator *= numerator.sqr();
+    // }
 
-    const FF denominator = evaluation_challenge_x * x_to_masking_offset;
+    // const FF denominator = evaluation_challenge_x * x_to_masking_offset;
 
-    translation_masking_term_eval *= numerator;
-    translation_masking_term_eval *= denominator.invert();
+    // translation_masking_term_eval *= numerator;
+    // translation_masking_term_eval *= denominator.invert();
+    static constexpr size_t circuit_size = 1UL << CONST_PROOF_SIZE_LOG_N;
+    size_t exponent = circuit_size - MASKING_OFFSET;
+    // info(numerator / denominator);
+    translation_masking_term_eval *= evaluation_challenge_x.pow(exponent);
 };
 } // namespace bb

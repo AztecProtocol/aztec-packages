@@ -169,6 +169,13 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
         const BF& z2 = translation_evaluations.z2;
 
         const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
+        info("translator eccvm masked opening ", (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)));
+
+        info("translator eccvm opening : ", eccvm_opening);
+
+        info("translator masking term eval :", translation_masking_term_eval);
+
+        info("translation accumulated result : ", x * accumulated_result);
         // multiply by x here to deal with shift
         return x * accumulated_result == eccvm_opening;
     };
