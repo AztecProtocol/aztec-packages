@@ -1,8 +1,8 @@
 #include "translator_proving_key.hpp"
 namespace bb {
 /**
- * @brief Construct a set of polynomials that are the result of interleaving a group of polynomials. Used in translator
- * to reduce the degree of the permutation relation.
+ * @brief Construct a set of polynomials that are the result of interleaving a group of polynomials into one. Used in
+ * translator to reduce the degree of the permutation relation.
  *
  * @details Multilinear PCS allow to provide openings for the resulting interleaved polynomials without having to commit
  * to them, using the commitments of polynomials in groups.
