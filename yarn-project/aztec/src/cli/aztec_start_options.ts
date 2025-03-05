@@ -57,6 +57,14 @@ export const universalOptions = ['l1RpcUrls', 'l1ChainId', 'l1Contracts', 'p2pEn
 
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
+  NETWORK: [
+    {
+      flag: '--network <value>',
+      description: 'Network to run Aztec on',
+      defaultValue: '',
+      envVar: 'NETWORK',
+    },
+  ],
   SANDBOX: [
     {
       flag: '--sandbox',
