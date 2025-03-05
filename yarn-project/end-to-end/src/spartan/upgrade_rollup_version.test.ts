@@ -287,7 +287,7 @@ describe('spartan_upgrade_rollup_version', () => {
       // Now delete all the pods, forcing them to restart on the new rollup
       await rollAztecPods(config.NAMESPACE);
 
-      // restart the port forward
+      // start a new port forward
       const { process: pxeProcess, port: pxePort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
