@@ -11,6 +11,8 @@ import { AztecAddress } from '../aztec-address/index.js';
 
 export class ContractClassLog {
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
+  // Keeps original first field pre-siloing. Only set by silo().
+  public unsiloedFirstField?: Fr | undefined;
 
   // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
   // public fields: Tuple<Fr, typeof CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS>
@@ -84,6 +86,28 @@ export class ContractClassLog {
   getEmittedFields() {
     const lastNonZeroIndex = this.fields.findLastIndex(f => !f.isZero());
     return this.fields.slice(0, lastNonZeroIndex + 1);
+  }
+
+  setUnsiloedFirstField(field: Fr) {
+    this.unsiloedFirstField = field;
+  }
+
+  toUnsiloed() {
+    if (this.unsiloedFirstField) {
+      return new ContractClassLog(this.contractAddress, [this.unsiloedFirstField].concat(this.fields.slice(1)));
+    } else {
+      return this;
+    }
+  }
+
+  async silo() {
+    const innerLog = this.clone();
+    if (innerLog.contractAddress.isZero()) {
+      return innerLog;
+    }
+    innerLog.setUnsiloedFirstField(innerLog.fields[0]);
+    innerLog.fields[0] = await poseidon2Hash([innerLog.contractAddress, innerLog.fields[0]]);
+    return innerLog;
   }
 
   async hash() {

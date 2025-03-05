@@ -115,7 +115,12 @@ while read -r REGION IP; do
     PRIVATE_KEY=$(cd scripts && ./generate_private_key.sh $TAG)
 
     # Check if the secret exists
+
+    # Disable exit on error temporarily
+    set +e
     EXISTING_SECRET=$(gcloud secrets describe "$SECRET_NAME" --format="value(name)" 2>/dev/null)
+    # Re-enable exit on error
+    set -e
 
     if [[ -z "$EXISTING_SECRET" ]]; then
         echo "Secret '${SECRET_NAME}' does not exist. Creating it now..."

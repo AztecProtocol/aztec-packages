@@ -85,7 +85,6 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
@@ -93,7 +92,6 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
       ),
     ];
     const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
@@ -117,7 +115,6 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
@@ -125,7 +122,6 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
       ),
     ];
 
@@ -172,7 +168,6 @@ describe('Bytecode Serialization', () => {
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
-        /*successOffset=*/ 0xf234,
       ),
     ];
 

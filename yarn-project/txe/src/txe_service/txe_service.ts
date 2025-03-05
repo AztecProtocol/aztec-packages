@@ -714,7 +714,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
         );
@@ -724,7 +724,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
   }
 
   async avmOpcodeStaticCall(
@@ -744,7 +744,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
         );
@@ -754,6 +754,11 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeSuccessCopy() {
+    const success = (this.typedOracle as TXE).avmOpcodeSuccessCopy();
+    return toForeignCallResult([toSingle(new Fr(success))]);
   }
 }

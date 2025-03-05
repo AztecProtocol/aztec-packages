@@ -1,4 +1,5 @@
 *
+!/.release-please-manifest.json
 !/avm-transpiler/target/release/avm-transpiler
 !/aztec-nargo/compile_then_postprocess.sh
 !/barretenberg/cpp/build/bin/bb

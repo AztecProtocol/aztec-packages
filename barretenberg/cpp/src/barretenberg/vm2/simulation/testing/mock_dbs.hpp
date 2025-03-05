@@ -19,7 +19,7 @@ class MockMerkleDB : public MerkleDBInterface {
     MockMerkleDB();
     ~MockMerkleDB() override;
 
-    MOCK_METHOD(const TreeRoots&, get_tree_roots, (), (const, override));
+    MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
 };
 
 } // namespace bb::avm2::simulation
