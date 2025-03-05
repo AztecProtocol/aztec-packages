@@ -69,18 +69,13 @@ export {
   GlobalVariables,
 } from '@aztec/stdlib/tx';
 export { Body, L2Block } from '@aztec/stdlib/block';
-export {
-  L1NotePayload,
-  LogId,
-  UnencryptedL2Log,
-  ContractClass2BlockL2Logs,
-  type LogFilter,
-  EncryptedLogPayload,
-} from '@aztec/stdlib/logs';
+export { L1NotePayload, LogId, type LogFilter, EncryptedLogPayload } from '@aztec/stdlib/logs';
 export { L1EventPayload, EventMetadata } from '@aztec/stdlib/event';
 export { L1ToL2Message, L2Actor, L1Actor } from '@aztec/stdlib/messaging';
 export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/stdlib/note';
 export { type PXE, EventType } from '@aztec/stdlib/interfaces/client';
+
+export { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.

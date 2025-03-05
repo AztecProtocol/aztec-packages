@@ -86,11 +86,11 @@ When an unconstrained function is called, it prompts the ACIR simulator to
 1. generate the execution environment
 2. execute the function within this environment
 
-To generate the environment, the simulator gets the blockheader from the [PXE database](../../concepts/pxe/index.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
+To generate the environment, the simulator gets the blockheader from the [PXE database](../../concepts/pxe/index.md#database) and passes it along with the contract address to `UnconstrainedExecutionOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 
-#include_code execute_unconstrained_function yarn-project/simulator/src/client/unconstrained_execution.ts typescript
+#include_code execute_unconstrained_function yarn-project/simulator/src/private/unconstrained_execution.ts typescript
 
 This:
 

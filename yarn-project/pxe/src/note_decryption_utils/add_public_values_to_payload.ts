@@ -2,7 +2,7 @@ import { ContractNotFoundError } from '@aztec/simulator/client';
 import type { L1NotePayload } from '@aztec/stdlib/logs';
 import { Note } from '@aztec/stdlib/note';
 
-import type { PxeDatabase } from '../database/pxe_database.js';
+import type { PxeDatabase } from '../database/interfaces/pxe_database.js';
 
 /**
  * Merges privately and publicly delivered note values.

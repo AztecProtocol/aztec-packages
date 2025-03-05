@@ -10,6 +10,8 @@ use crate::{
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
 };
 
+mod test;
+
 trait ProveNullifierInclusion {
     fn prove_nullifier_inclusion(header: BlockHeader, nullifier: Field);
 }

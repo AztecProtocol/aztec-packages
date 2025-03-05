@@ -24,13 +24,15 @@ import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { PxeDatabase } from './interfaces/pxe_database.js';
 import { NoteDao } from './note_dao.js';
-import type { PxeDatabase } from './pxe_database.js';
 
 /**
  * A PXE database backed by LMDB.
  */
 export class KVPxeDatabase implements PxeDatabase {
+  public static readonly SCHEMA_VERSION = 1;
+
   #synchronizedBlock: AztecAsyncSingleton<Buffer>;
   #completeAddresses: AztecAsyncArray<Buffer>;
   #completeAddressIndex: AztecAsyncMap<string, number>;

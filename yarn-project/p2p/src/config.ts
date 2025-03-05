@@ -78,6 +78,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /** Whether to execute the version check in the bootstrap node ENR. */
   bootstrapNodeEnrVersionCheck: boolean;
 
+  /** Whether to consider any configured bootnodes as full peers, e.g. for transaction gossiping */
+  bootstrapNodesAsFullPeers: boolean;
+
   /**
    * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
    */
@@ -223,6 +226,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Whether to check the version of the bootstrap node ENR.',
     ...booleanConfigHelper(),
   },
+  bootstrapNodesAsFullPeers: {
+    env: 'P2P_BOOTSTRAP_NODES_AS_FULL_PEERS',
+    description: 'Whether to consider our configured bootnodes as full peers',
+    ...booleanConfigHelper(false),
+  },
+  transactionProtocol: {
+    env: 'P2P_TX_PROTOCOL',
+    description: 'Protocol identifier for transaction gossiping.',
+    defaultValue: '/aztec/0.1.0',
+  },
   maxPeerCount: {
     env: 'P2P_MAX_PEERS',
     description: 'The maximum number of peers to connect to.',
@@ -342,21 +355,22 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'maxPeerCount'> &
+export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'bootstrapNodes'> &
   Required<Pick<P2PConfig, 'udpListenAddress'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
-  ChainConfig;
+  Pick<ChainConfig, 'l1ChainId'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
   'peerIdPrivateKey',
-  'maxPeerCount',
   'udpListenAddress',
   'dataDirectory',
   'dataStoreMapSizeKB',
+  'bootstrapNodes',
+  'l1ChainId',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
-  { ...p2pConfigMappings, ...dataConfigMappings },
+  { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
   bootnodeConfigKeys,
 );

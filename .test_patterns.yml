@@ -78,29 +78,6 @@ tests:
     owners:
       - "U04DT239VQU" # sean
 
-  # FAIL  ./flakey_e2e_inclusion_proofs_contract.test.ts
-  # ● e2e_inclusion_proofs_contract › contract inclusion › proves public deployment of a contract
-  #
-  #   Undefined argument value of type field
-  #
-  #     41 |   private encodeArgument(abiType: AbiType, arg: any, name?: string) {
-  #     42 |     if (arg === undefined || arg == null) {
-  #   > 43 |       throw new Error(`Undefined argument ${name ?? 'unnamed'} of type ${abiType.kind}`);
-  #        |             ^
-  #     44 |     }
-  #     45 |     switch (abiType.kind) {
-  #     46 |       case 'field':
-  #
-  #     at ArgumentEncoder.encodeArgument (../../stdlib/src/abi/encoder.ts:43:13)
-  #     at ArgumentEncoder.encode (../../stdlib/src/abi/encoder.ts:137:12)
-  #     at encodeArguments (../../stdlib/src/abi/encoder.ts:150:41)
-  #     at computeInitializationHash (../../stdlib/src/contract/contract_address.ts:75:20)
-  #     at getContractInstanceFromDeployParams (../../stdlib/src/contract/contract_instance.ts:124:9)
-  #     at Object.getContractInstanceFromDeployParams (flakey_e2e_inclusion_proofs_contract.test.ts:275:24)
-  - regex: "simple flakey_e2e_inclusion_proofs_contract"
-    owners:
-      - "UKUMA5J7K" # charlie
-
   - regex: "simple e2e_fees/private_payments"
     owners:
       - "U02G4KAD57Y" # phil
@@ -134,14 +111,6 @@ tests:
     owners:
       - "U03E5SYLY3Z" # lasse
 
-  # FAIL  src/test/bb_prover_parity.test.ts (34.059 s)
-  #  prover/bb_prover/parity
-  #    ✕ proves the parity circuits (30003 ms)
-  #
-  #  ● prover/bb_prover/parity › proves the parity circuits
-  #
-  #    thrown: "Exceeded timeout of 30000 ms for a test.
-  #    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
   - regex: "prover-client/src/test/bb_prover_parity.test.ts"
     owners:
       - "U04TPBU26E8" # palla
@@ -159,16 +128,34 @@ tests:
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
       - "U03E5SYLY3Z" # lasse
+  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
+    owners:
+      - "U04TPBU26E8" # palla
+  - regex: "yarn-project/kv-store"
+    owners:
+      - "U05QWV669JB" # alex
 
   # kind tests
+
+  - regex: "spartan/bootstrap.sh test-kind-4epochs"
+    owners:
+      - "UBLTU1NJ3" # leila
+
+  - regex: "spartan/bootstrap.sh test-prod-deployment"
+    owners:
+      - "U06AY5G1NRK" # mitch
+
+  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    owners:
+      - "U06AY5G1NRK" # mitch
+
   - regex: "spartan/bootstrap.sh test-kind"
     owners:
-      - "UKUMA5J7K" # charlie
-      - "U04BM8H25NJ" # adam
+      - "U02G4KAD57Y" # phil
+      - "U06AY5G1NRK" # mitch
   - regex: "spartan/bootstrap.sh test-local"
     skip: true
     owners:
-      - "UKUMA5J7K" # charlie
       - "U04BM8H25NJ" # adam
 
   # Slack testing.
