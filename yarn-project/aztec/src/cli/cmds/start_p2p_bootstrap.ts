@@ -19,7 +19,7 @@ export async function startP2PBootstrap(
   const config = extractRelevantOptions<BootnodeConfig>(options, bootnodeConfigMappings, 'p2p');
   userLog(`Starting P2P bootstrap node with config: ${jsonStringify(config)}`);
   const telemetryClient = initTelemetryClient(getTelemetryClientConfig());
-  const store = await createStore('p2p-bootstrap', config, createLogger('p2p:bootstrap:store'));
+  const store = await createStore('p2p-bootstrap', 1, config, createLogger('p2p:bootstrap:store'));
   const node = new BootstrapNode(store, telemetryClient);
   await node.start(config);
   signalHandlers.push(() => node.stop());
