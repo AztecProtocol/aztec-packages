@@ -48,7 +48,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     transcript->template receive_from_prover<FF>(domain_separator + "pub_inputs_offset");
 
     std::vector<FF> public_inputs;
-    for (size_t i = 0; i < static_cast<size_t>(public_input_size.get_value()); ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(static_cast<uint32_t>(public_input_size.get_value())); ++i) {
         public_inputs.emplace_back(
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i)));
     }
@@ -95,6 +95,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
     const FF public_input_delta = compute_public_input_delta<Flavor>(
         public_inputs,
         beta,

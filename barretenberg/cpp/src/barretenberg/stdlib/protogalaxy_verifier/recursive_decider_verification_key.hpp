@@ -122,8 +122,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         DeciderVerificationKey decider_vk(native_honk_vk);
         decider_vk.is_accumulator = is_accumulator;
 
-        decider_vk.public_inputs =
-            std::vector<NativeFF>(static_cast<size_t>(verification_key->num_public_inputs.get_value()));
+        decider_vk.public_inputs = std::vector<NativeFF>(
+            static_cast<size_t>(static_cast<uint32_t>(verification_key->num_public_inputs.get_value())));
         for (auto [public_input, inst_public_input] : zip_view(public_inputs, decider_vk.public_inputs)) {
             inst_public_input = public_input.get_value();
         }
