@@ -19,11 +19,11 @@ spec:
       restartPolicy: OnFailure
       {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
-      dnsPolicy: ClusterFirstWithHostNet
-      {{- else }}
-      dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
         - name: config
           emptyDir: {}
       containers:
@@ -32,12 +32,31 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
+            - name: scripts
+              mountPath: /scripts
           command:
             - /bin/bash
             - -c
             - |
-              export AZTEC_NODE_URL={{ include "aztec-network.bootNodeUrl" . }}
-              export PXE_URL={{ include "aztec-network.bootNodeUrl" . }}
+              # Install kubectl
+              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
+
+              # Set up kubeconfig using service account credentials
+              export KUBECONFIG=/tmp/kubeconfig
+              kubectl config set-cluster default --server=https://kubernetes.default.svc --certificate-authority=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              kubectl config set-credentials default --token=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              kubectl config set-context default --cluster=default --user=default
+              kubectl config use-context default
+
+              cp /scripts/setup-service-addresses.sh /tmp/setup-service-addresses.sh
+              chmod +x /tmp/setup-service-addresses.sh
+              /tmp/setup-service-addresses.sh
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              export AZTEC_NODE_URL=$BOOT_NODE_HOST
+              export PXE_URL=$BOOT_NODE_HOST
               until curl -s -X POST -H 'content-type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
                 $PXE_URL | grep -q '"enr:-'; do
