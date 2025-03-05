@@ -99,19 +99,6 @@ export interface PeerDiscoveryService extends EventEmitter {
   isBootstrapPeer(peerId: PeerId): boolean;
 
   /**
-   * Checks if the given peer is a trusted peer.
-   * @param peerId - The peer ID to check.
-   * @returns True if the peer is a trusted peer.
-   */
-  isTrustedPeer(peerId: PeerId): boolean;
-
-  /**
-   * Gets the trusted peers peer IDs.
-   * @returns The trusted peers peer IDs.
-   */
-  getTrustedPeersPeerIds(): PeerId[];
-
-  /**
    * Event emitted when a new peer is discovered.
    */
   on(event: 'peer:discovered', listener: (enr: ENR) => void): this;
@@ -122,6 +109,4 @@ export interface PeerDiscoveryService extends EventEmitter {
   getEnr(): ENR | undefined;
 
   bootstrapNodes: string[];
-
-  trustedPeers: string[];
 }

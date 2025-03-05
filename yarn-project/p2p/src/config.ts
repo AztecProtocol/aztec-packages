@@ -349,7 +349,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   trustedPeers: {
     env: 'P2P_TRUSTED_PEERS',
     parseEnv: (val: string) => val.split(','),
-    description: 'A list of trusted peers. Separated by commas.',
+    description: 'A list of trusted peers ENRs. Separated by commas.',
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

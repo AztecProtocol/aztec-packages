@@ -186,10 +186,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     return this.bootstrapNodePeerIds.some(node => node.equals(peerId));
   }
 
-  public isTrustedPeer(peerId: PeerId): boolean {
-    return this.trustedPeersPeerIds.some(node => node.equals(peerId));
-  }
-
   public async stop(): Promise<void> {
     await this.discv5.off(Discv5Event.DISCOVERED, this.onDiscovered);
     await this.discv5.off(Discv5Event.ENR_ADDED, this.onEnrAdded);

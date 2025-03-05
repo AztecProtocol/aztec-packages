@@ -3,7 +3,7 @@ import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import type { ENR } from '@chainsafe/enr';
+import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
@@ -41,6 +41,8 @@ export class PeerManager {
   private heartbeatCounter: number = 0;
   private displayPeerCountsPeerHeartbeat: number = 0;
   private timedOutPeers: Map<string, TimedOutPeer> = new Map();
+  private trustedPeers: Set<PeerId> = new Set();
+  private trustedPeersInitialized: boolean = false;
 
   private metrics: PeerManagerMetrics;
   private discoveredPeerHandler;
@@ -64,11 +66,27 @@ export class PeerManager {
     // Handle Discovered peers
     this.discoveredPeerHandler = (enr: ENR) =>
       this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e));
+
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.discoveredPeerHandler);
 
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
+  }
+
+  /**
+   * Initializes the trusted peers.
+   *
+   * This function is called when the peer manager is initialized.
+   */
+  async initializeTrustedPeers() {
+    let trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
+    await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
+      .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId)))
+      .finally(() => {
+        this.trustedPeersInitialized = true;
+      })
+      .catch(e => this.logger.error('Error initializing trusted peers', e));
   }
 
   get tracer() {
@@ -129,7 +147,11 @@ export class PeerManager {
   }
 
   private isTrustedPeer(peerId: PeerId): boolean {
-    return this.peerDiscoveryService.isTrustedPeer(peerId);
+    if (!this.trustedPeersInitialized) {
+      this.logger.warn('Trusted peers not initialized, returning false');
+      return false;
+    }
+    return this.trustedPeers.has(peerId);
   }
 
   /**
