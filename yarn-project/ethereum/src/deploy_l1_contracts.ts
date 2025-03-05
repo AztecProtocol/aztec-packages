@@ -42,7 +42,7 @@ import {
   concatHex,
   createPublicClient,
   createWalletClient,
-  encodeDeployData, // fallback,
+  encodeDeployData,
   getAddress,
   getContract,
   getContractAddress,
