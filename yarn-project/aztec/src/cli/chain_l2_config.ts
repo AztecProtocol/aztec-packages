@@ -43,18 +43,26 @@ export async function getL2ChainConfig(networkName: NetworkNames): Promise<L2Cha
   return undefined;
 }
 
+function enrichVar(envVar: string, value: string) {
+  // Don't override
+  if (process.env[envVar]) {
+    return;
+  }
+  process.env[envVar] = value;
+}
+
 export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   const config = await getL2ChainConfig(networkName);
   if (!config) {
     throw new Error(`Unknown network name: ${networkName}`);
   }
-  process.env['ETHEREUM_SLOT_DURATION'] = config.ethereumSlotDuration.toString();
-  process.env['AZTEC_SLOT_DURATION'] = config.aztecSlotDuration.toString();
-  process.env['AZTEC_EPOCH_DURATION'] = config.aztecEpochDuration.toString();
-  process.env['AZTEC_PROOF_SUBMISSION_WINDOW'] = config.aztecProofSubmissionWindow.toString();
-  process.env['P2P_BOOTSTRAP_NODES'] = config.p2pBootstrapNodes.join(',');
-  process.env['TEST_ACCOUNTS'] = config.testAccounts.toString();
-  process.env['P2P_ENABLED'] = config.p2pEnabled.toString();
-  process.env['L1_CHAIN_ID'] = config.l1ChainId.toString();
-  process.env['REGISTRY_CONTRACT_ADDRESS'] = config.registryAddress;
+  enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
+  enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
+  enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
+  enrichVar('AZTEC_PROOF_SUBMISSION_WINDOW', config.aztecProofSubmissionWindow.toString());
+  enrichVar('P2P_BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
+  enrichVar('TEST_ACCOUNTS', config.testAccounts.toString());
+  enrichVar('P2P_ENABLED', config.p2pEnabled.toString());
+  enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
+  enrichVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
 }
