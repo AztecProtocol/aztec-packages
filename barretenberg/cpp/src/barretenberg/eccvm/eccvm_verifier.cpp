@@ -72,7 +72,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {
-        info("eccvm sumcheck failed");
+        vinfo("eccvm sumcheck failed");
         return false;
     }
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector

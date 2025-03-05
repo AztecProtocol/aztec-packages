@@ -85,7 +85,6 @@ template <typename Transcript> class TranslationData {
     void compute_concatenated_polynomials(const RefVector<Polynomial>& transcript_polynomials)
     {
         const size_t circuit_size = transcript_polynomials[0].size();
-        info("circuit size? ", circuit_size);
 
         std::array<FF, SUBGROUP_SIZE> coeffs_lagrange_subgroup;
 
@@ -99,7 +98,6 @@ template <typename Transcript> class TranslationData {
                 size_t idx_to_populate = poly_idx * MASKING_OFFSET + idx;
                 coeffs_lagrange_subgroup[idx_to_populate] =
                     transcript_polynomials[poly_idx].at(circuit_size - MASKING_OFFSET + idx);
-                info("coef at idx ", idx_to_populate, "  ", coeffs_lagrange_subgroup[idx_to_populate]);
             }
         }
         concatenated_polynomial_lagrange = Polynomial(coeffs_lagrange_subgroup);
