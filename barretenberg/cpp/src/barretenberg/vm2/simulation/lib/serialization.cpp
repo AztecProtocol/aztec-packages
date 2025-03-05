@@ -94,6 +94,7 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
     // Execution Environment - Calldata
     { WireOpCode::CALLDATACOPY,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+    { WireOpCode::SUCCESSCOPY, { OperandType::INDIRECT8, OperandType::UINT16 } },
     { WireOpCode::RETURNDATASIZE, { OperandType::INDIRECT8, OperandType::UINT16 } },
     { WireOpCode::RETURNDATACOPY,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },

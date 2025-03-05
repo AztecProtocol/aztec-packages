@@ -37,7 +37,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import type { AvmPersistableStateManager } from '../avm/journal/journal.js';
+import { AvmPersistableStateManager } from '../avm/journal/journal.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { WorldStateDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
@@ -972,5 +972,34 @@ describe('public_tx_simulator', () => {
       );
       expect(txResult.revertCode).toEqual(RevertCode.OK);
     });
+  });
+
+  it('nullifier collision in insertRevertiblesFromPrivate skips app logic but executes teardown', async () => {
+    // Mock a transaction with all three phases
+    const tx = await mockTxWithPublicCalls({
+      numberOfSetupCalls: 1,
+      numberOfAppLogicCalls: 1,
+      hasPublicTeardownCall: true,
+    });
+
+    const duplicateNullifier = new Fr(10000);
+    tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = duplicateNullifier;
+    tx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] = duplicateNullifier;
+
+    // Simulate the transaction
+    const txResult = await simulator.simulate(tx);
+
+    // Verify that the transaction has app logic reverted code
+    expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+
+    // Verify that there are only 2 phases processed (setup and teardown), since app logic is skipped
+    expect(txResult.processedPhases).toEqual([
+      expect.objectContaining({ phase: TxExecutionPhase.SETUP }),
+      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN }),
+    ]);
+
+    // Verify that the SimulationError contains information about the nullifier collision
+    const simulationError = txResult.revertReason as SimulationError;
+    expect(simulationError.getOriginalMessage()).toContain('Nullifier collision');
   });
 });

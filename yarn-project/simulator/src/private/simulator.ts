@@ -80,6 +80,7 @@ export class AcirSimulator {
       noteCache,
       this.executionDataProvider,
       this.simulationProvider,
+      /*totalPublicArgsCount=*/ 0,
       startSideEffectCounter,
       undefined,
       scopes,
