@@ -1,6 +1,6 @@
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { PrivateFunctionsTree } from '@aztec/pxe';
+import { PrivateFunctionsTree } from '@aztec/pxe/server';
 import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {

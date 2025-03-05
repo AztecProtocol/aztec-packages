@@ -16,7 +16,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
-import { ContractDataProvider, PXEOracleInterface, enrichPublicSimulationError } from '@aztec/pxe';
+import { ContractDataProvider, PXEOracleInterface, enrichPublicSimulationError } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
   type HashedValuesCache,

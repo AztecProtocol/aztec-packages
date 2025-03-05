@@ -5,7 +5,7 @@ import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
-import { enrichPublicSimulationError } from '@aztec/pxe';
+import { enrichPublicSimulationError } from '@aztec/pxe/server';
 import { HashedValuesCache, type TypedOracle } from '@aztec/simulator/client';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
@@ -43,7 +43,7 @@ export class TXEService {
     const baseFork = await nativeWorldStateService.fork();
 
     const keyStore = new KeyStore(store);
-    const txeDatabase = new TXEDatabase(store);
+    const txeDatabase = new ContractData(store);
     // Register protocol contracts.
     const provider = new BundledProtocolContractsProvider();
     for (const name of protocolContractNames) {

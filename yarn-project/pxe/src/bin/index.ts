@@ -4,7 +4,7 @@ import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import { getPXEServiceConfig } from '../config/index.js';
 import { startPXEHttpServer } from '../pxe_http/index.js';
-import { createPXEService } from '../utils/create_pxe_service.js';
+import { createPXEService } from '../utils/server.js';
 
 const { PXE_PORT = 8080, AZTEC_NODE_URL = 'http://localhost:8079' } = process.env;
 
