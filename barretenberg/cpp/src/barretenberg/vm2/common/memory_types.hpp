@@ -6,6 +6,7 @@
 
 namespace bb::avm2 {
 
+// Keep in sync with NUM_MEMORY_TAGS if we modify this enum.
 enum class MemoryTag {
     FF,
     U1,
@@ -15,6 +16,8 @@ enum class MemoryTag {
     U64,
     U128,
 };
+
+constexpr uint8_t NUM_MEMORY_TAGS = static_cast<int>(MemoryTag::U128) + 1;
 
 using MemoryAddress = uint32_t;
 using MemoryValue = FF;

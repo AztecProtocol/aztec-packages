@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
