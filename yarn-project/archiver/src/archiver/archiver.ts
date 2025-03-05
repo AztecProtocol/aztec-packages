@@ -1,5 +1,5 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient, createEthereumChain, fallback } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -55,7 +55,7 @@ import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpa
 
 import { EventEmitter } from 'events';
 import groupBy from 'lodash.groupby';
-import { type GetContractReturnType, createPublicClient, fallback, getContract, http } from 'viem';
+import { type GetContractReturnType, createPublicClient, getContract, http } from 'viem';
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';

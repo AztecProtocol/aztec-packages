@@ -1,6 +1,7 @@
 import {
   EthCheatCodes,
   createEthereumChain,
+  fallback,
   getExpectedAddress,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
@@ -9,7 +10,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
+import { createPublicClient, createWalletClient, getContract, http } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 export interface RollupCommandArgs {

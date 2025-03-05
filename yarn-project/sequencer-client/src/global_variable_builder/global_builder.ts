@@ -3,6 +3,7 @@ import {
   type L1ReaderConfig,
   type ViemPublicClient,
   createEthereumChain,
+  fallback,
 } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -13,7 +14,7 @@ import { GasFees } from '@aztec/stdlib/gas';
 import type { GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
-import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
+import { type GetContractReturnType, createPublicClient, getAddress, getContract, http } from 'viem';
 
 /**
  * Simple global variables builder.

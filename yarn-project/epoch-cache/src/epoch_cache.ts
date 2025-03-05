@@ -1,4 +1,4 @@
-import { RollupContract, createEthereumChain } from '@aztec/ethereum';
+import { RollupContract, createEthereumChain, fallback } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -10,7 +10,7 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 
 import { EventEmitter } from 'node:events';
-import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';
+import { createPublicClient, encodeAbiParameters, http, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 

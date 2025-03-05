@@ -4,11 +4,12 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import type { Anvil } from '@viem/anvil';
-import { type Abi, createPublicClient, createWalletClient, fallback, http } from 'viem';
+import { type Abi, createPublicClient, createWalletClient, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
+import { fallback } from './fallback_transport.js';
 import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
@@ -48,12 +49,12 @@ describe('GasUtils', () => {
     const account = privateKeyToAccount(`0x${privKey}`);
 
     publicClient = createPublicClient({
-      transport: fallback([http(rpcUrl)]),
+      transport: fallback([...Array(1)].map(() => http(rpcUrl))),
       chain: foundry,
     });
 
     walletClient = createWalletClient({
-      transport: fallback([http(rpcUrl)]),
+      transport: fallback([...Array(1)].map(() => http(rpcUrl))),
       chain: foundry,
       account,
     });

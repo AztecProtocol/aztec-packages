@@ -1,9 +1,10 @@
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import { createPublicClient, fallback, http } from 'viem';
+import { createPublicClient, http } from 'viem';
 
 import { createEthereumChain } from './chain.js';
+import { fallback } from './fallback_transport.js';
 import type { ViemPublicClient } from './types.js';
 
 type Config = {

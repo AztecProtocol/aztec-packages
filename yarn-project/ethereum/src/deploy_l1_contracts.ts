@@ -42,8 +42,7 @@ import {
   concatHex,
   createPublicClient,
   createWalletClient,
-  encodeDeployData,
-  fallback,
+  encodeDeployData, // fallback,
   getAddress,
   getContract,
   getContractAddress,
@@ -59,6 +58,7 @@ import { isAnvilTestChain } from './chain.js';
 import type { L1ContractsConfig } from './config.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
+import { fallback } from './fallback_transport.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';

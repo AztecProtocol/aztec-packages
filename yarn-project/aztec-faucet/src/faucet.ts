@@ -1,4 +1,4 @@
-import { type ViemPublicClient, type ViemWalletClient, createEthereumChain } from '@aztec/ethereum';
+import { type ViemPublicClient, type ViemWalletClient, createEthereumChain, fallback } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
@@ -12,7 +12,6 @@ import {
   type WalletClient,
   createPublicClient,
   createWalletClient,
-  fallback,
   getContract,
   parseEther,
   http as viemHttp,

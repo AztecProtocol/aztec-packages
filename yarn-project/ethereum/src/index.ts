@@ -11,3 +11,4 @@ export * from './types.js';
 export * from './contracts/index.js';
 export * from './queries.js';
 export * from './client.js';
+export * from './fallback_transport.js';
