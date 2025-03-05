@@ -566,8 +566,9 @@ export class PXEDataProvider implements ExecutionDataProvider {
         secretsAndWindows = newSecretsAndWindows;
       }
 
-      // We filter the logs by block number and then we filter out the logs that have been seen.
+      // We filter the logs by block number.
       const filteredLogsByBlock = logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber);
+      // Now we filter out the logs that have been seen before and we tag the unseen logs as seen in the db.
       const filteredUnseenLogs = await this.db.updateSeenLogsAndGetUnseen(filteredLogsByBlock);
 
       logsMap.set(recipient.toString(), filteredUnseenLogs);

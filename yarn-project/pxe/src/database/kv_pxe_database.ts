@@ -648,18 +648,23 @@ export class KVPxeDatabase implements PxeDatabase {
   async updateSeenLogsAndGetUnseen(logs: TxScopedL2Log[]): Promise<TxScopedL2Log[]> {
     const unseenLogs: TxScopedL2Log[] = [];
 
-    for (const log of logs) {
-      // Create a hash of the log data and tx hash to uniquely identify it
-      const hash = sha256(log.toBuffer()).toString('hex');
+    // We wrap the database access in a transaction to ensure atomicity and prevent race conditions from other calls
+    // to `syncTaggedLogs` (which calls this method).
+    await this.db.transactionAsync(async () => {
+      for (const log of logs) {
+        // Create a hash of the log data and tx hash to uniquely identify it
+        const hash = sha256(log.toBuffer()).toString('hex');
 
-      // Check if we've seen this log before
-      const seen = await this.#seenLogHashes.hasAsync(hash);
-      if (!seen) {
-        // If we haven't seen it, add it to results and mark as seen
-        unseenLogs.push(log);
-        await this.#seenLogHashes.set(hash, true);
+        // Check if we've seen this log before
+        const seen = await this.#seenLogHashes.hasAsync(hash);
+        if (!seen) {
+          // If we haven't seen it, add it to results and mark as seen
+          unseenLogs.push(log);
+          await this.#seenLogHashes.set(hash, true);
+        }
       }
-    }
+    });
+
     return unseenLogs;
   }
 

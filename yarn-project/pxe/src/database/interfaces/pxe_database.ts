@@ -181,6 +181,10 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   /**
    * Iterates through logs, checks if the log is unseen, if it is, it adds it to the seen logs set stored in the db
    * and adds the logs to the returned logs array. Returns the unseen logs.
+   * @dev Note that all the database operations are wrapped in a transaction to ensure atomicity and prevent race
+   * conditions from other calls to `syncTaggedLogs` (which calls this method). This is important as the main goal
+   * of this method is to ensure that we do not process the same log twice (before this was introduced, we were having
+   * race conditions in tests).
    * @param logs - The logs to check for being unseen
    * @returns Unseen logs
    */
