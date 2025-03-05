@@ -116,7 +116,7 @@ export class ContractClassLog {
   }
 
   async hash() {
-    return await poseidon2Hash(this.getEmittedFields());
+    return await poseidon2Hash(this.fields);
   }
 
   static get schema() {
