@@ -19,6 +19,8 @@ pub contract DocsExample {
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{internal, private, public, view}, storage::{storage, storage_no_init}},
+        note::note_interface::NoteProperties,
+        protocol_types::traits::Hash,
     };
     use dep::aztec::prelude::{
         AztecAddress, Map, NoteViewerOptions, PrivateContext, PrivateImmutable, PrivateMutable,

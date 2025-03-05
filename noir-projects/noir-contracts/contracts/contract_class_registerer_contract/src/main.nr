@@ -33,6 +33,8 @@ pub contract ContractClassRegisterer {
         },
     };
 
+    use dep::aztec::protocol_types::traits::ToField;
+
     // docs:start:import_capsules
     use dep::aztec::oracle::capsules;
     // docs:end:import_capsules
