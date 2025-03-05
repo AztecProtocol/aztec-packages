@@ -268,7 +268,7 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         using FF = VerificationKey_::FF;
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
