@@ -17,8 +17,8 @@ concurrency:
   # If we are pushing a tag, we are doing a release - we should only ever have 1 of those at a time, globally!
   # On PR's the group id is the ref_name so only 1 can run at a time per PR.
   group: |
-    ci3-${{ startsWith(github.ref, 'refs/tags/v') && 'release' 
-                                                  || (github.event_name == 'pull_request' && github.ref_name 
+    ci3-${{ startsWith(github.ref, 'refs/tags/v') && 'release'
+                                                  || (github.event_name == 'pull_request' && github.ref_name
                                                                                           || github.run_id) }}
   cancel-in-progress: true
 
