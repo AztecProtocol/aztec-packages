@@ -360,7 +360,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
         auto reconstruct_fq_from_fr_limbs = [](const std::span<const Fr, FRS_PER_FQ>& limbs) {
             for (size_t i = 0; i < FRS_PER_FQ; ++i) {
-                // WORKTODO: do we need to range constrain here?
                 limbs[i].create_range_constraint(Fq::NUM_LIMB_BITS, "l" + std::to_string(i));
             }
             return Fq::construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);

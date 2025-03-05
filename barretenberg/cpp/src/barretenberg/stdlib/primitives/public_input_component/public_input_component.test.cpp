@@ -5,7 +5,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "public_inputs.hpp"
+#include "public_input_component.hpp"
 
 using namespace bb;
 

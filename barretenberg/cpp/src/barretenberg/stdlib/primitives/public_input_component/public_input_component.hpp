@@ -33,12 +33,13 @@ template <typename ComponentType>
     requires IsSerializableToAndFromPublicInputs<ComponentType>
 class PublicInputComponent {
     using Builder = ComponentType::Builder;
-    using Fr = stdlib::field_t<Builder>;
-    using Key = PublicComponentKey;
+    using Fr = stdlib::field_t<Builder>; // type for native field elements in the circuit (i.e. the type for "limbs")
 
     static constexpr uint32_t COMPONENT_SIZE = ComponentType::PUBLIC_INPUTS_SIZE;
 
   public:
+    using Key = PublicComponentKey;
+
     // Set witness indices of the component to public; return key indicating location of the component in the pub inputs
     static Key set(const ComponentType& component)
     {

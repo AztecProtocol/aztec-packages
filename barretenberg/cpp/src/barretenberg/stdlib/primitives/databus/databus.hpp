@@ -2,7 +2,7 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/public_inputs/public_inputs.hpp"
+#include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
 #include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
