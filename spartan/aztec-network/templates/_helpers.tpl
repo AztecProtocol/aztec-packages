@@ -65,7 +65,7 @@ http://{{ include "aztec-network.fullname" . }}-pxe.{{ .Release.Namespace }}:{{ 
 {{- end -}}
 
 {{- define "aztec-network.bootNodeUrl" -}}
-http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-network.fullname" . }}-boot-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.bootNode.service.nodePort }}
+http://{{ include "aztec-network.fullname" . }}-boot-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.bootNode.service.nodePort }}
 {{- end -}}
 
 {{- define "aztec-network.validatorUrl" -}}
@@ -104,9 +104,7 @@ P2P Setup Container
     - /bin/sh
     - -c
     - |
-      cp /scripts/setup-p2p-addresses.sh /tmp/setup-p2p-addresses.sh && \
-      chmod +x /tmp/setup-p2p-addresses.sh && \
-      /tmp/setup-p2p-addresses.sh
+      /scripts/setup-p2p-addresses.sh
   env:
     - name: NETWORK_PUBLIC
       value: "{{ .Values.network.public }}"
@@ -133,9 +131,7 @@ Service Address Setup Container
     - /bin/bash
     - -c
     - |
-      cp /scripts/setup-service-addresses.sh /tmp/setup-service-addresses.sh && \
-      chmod +x /tmp/setup-service-addresses.sh && \
-      /tmp/setup-service-addresses.sh
+      /scripts/setup-service-addresses.sh
   env:
     - name: NETWORK_PUBLIC
       value: "{{ .Values.network.public }}"
@@ -189,9 +185,7 @@ Sets up the OpenTelemetry resource attributes for a service
     - /bin/bash
     - -c
     - |
-      cp /scripts/setup-otel-resource.sh /tmp/setup-otel-resource.sh && \
-      chmod +x /tmp/setup-otel-resource.sh && \
-      /tmp/setup-otel-resource.sh
+      /scripts/setup-otel-resource.sh
   env:
     - name: POD_IP
       valueFrom:

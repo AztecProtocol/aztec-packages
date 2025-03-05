@@ -39,6 +39,7 @@ spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
@@ -72,14 +73,12 @@ spec:
             - /bin/bash
             - -c
             - |
-              cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh
-              chmod +x /tmp/deploy-l1-contracts.sh
               source /shared/config/service-addresses
               source /shared/config/validator-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
 
-              /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
+              /scripts/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
           volumeMounts:
             - name: scripts-output
               mountPath: /shared/contracts
@@ -258,6 +257,7 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: scripts-output
           emptyDir: {}
 ---

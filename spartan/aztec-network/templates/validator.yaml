@@ -40,6 +40,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
@@ -112,10 +113,7 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
-              source /shared/config/service-addresses && \
-              cp /scripts/configure-full-node-env.sh /tmp/configure-full-node-env.sh && \
-              chmod +x /tmp/configure-full-node-env.sh && \
-              /tmp/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
+              /scripts/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
@@ -269,6 +267,7 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: contracts-env
           emptyDir: {}
         - name: p2p-addresses

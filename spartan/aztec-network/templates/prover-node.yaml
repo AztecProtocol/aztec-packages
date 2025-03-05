@@ -38,6 +38,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
@@ -111,10 +112,8 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "cp /scripts/configure-prover-env.sh /tmp/configure-prover-env.sh && \
-               chmod +x /tmp/configure-prover-env.sh && \
-               source /shared/config/service-addresses && \
-               /tmp/configure-prover-env.sh ${BOOT_NODE_HOST}"
+            - "source /shared/config/service-addresses && \
+               /scripts/configure-prover-env.sh ${BOOT_NODE_HOST}"
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
@@ -257,6 +256,7 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: contracts-env
           emptyDir: {}
         - name: p2p-addresses

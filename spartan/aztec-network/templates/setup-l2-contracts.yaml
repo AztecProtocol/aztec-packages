@@ -24,9 +24,6 @@ spec:
       dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
-        - name: scripts
-          configMap:
-            name: {{ include "aztec-network.fullname" . }}-scripts
         - name: config
           emptyDir: {}
       containers:
@@ -35,14 +32,12 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
-            - name: scripts
-              mountPath: /scripts
           command:
             - /bin/bash
             - -c
             - |
-              export AZTEC_NODE_URL=${{ include "aztec-network.bootNodeUrl" . }}
-              export PXE_URL=${{ include "aztec-network.bootNodeUrl" . }}
+              export AZTEC_NODE_URL={{ include "aztec-network.bootNodeUrl" . }}
+              export PXE_URL={{ include "aztec-network.bootNodeUrl" . }}
               until curl -s -X POST -H 'content-type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
                 $PXE_URL | grep -q '"enr:-'; do
