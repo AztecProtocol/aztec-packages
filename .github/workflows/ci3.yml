@@ -14,9 +14,12 @@ on:
   merge_group: {}
 
 concurrency:
-  # On PR's the group id is the ref_name so only 1 can run at a time.
+  # If we are pushing a tag, we are doing a release - we should only ever have one of those at a time, globally!
+  # On PR's the group id is the ref_name so only 1 can run at a time per PR.
   group: |
-    ci3-${{ github.event_name == 'pull_request' && github.ref_name || github.run_id }}
+    ci3-${{ startsWith(github.ref, 'refs/tags/') && 'release' 
+                                                 || (github.event_name == 'pull_request' && github.ref_name 
+                                                                                         || github.run_id) }}
   cancel-in-progress: true
 
 jobs:
