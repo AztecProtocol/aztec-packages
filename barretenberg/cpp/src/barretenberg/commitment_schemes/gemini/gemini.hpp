@@ -451,7 +451,7 @@ template <typename Curve> class GeminiVerifier_ {
 
         // ( [A₀₊], r, A₀₊(r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_pos }, C0_r_pos });
-        // ( [A₀₋], -r, A₀(-r) )
+        // ( [A₀₋], -r, A₀-(-r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, C0_r_neg });
         for (size_t l = 0; l < num_variables - 1; ++l) {
             // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
@@ -484,6 +484,7 @@ template <typename Curve> class GeminiVerifier_ {
     {
         std::vector<Fr> gemini_evaluations;
         gemini_evaluations.reserve(CONST_PROOF_SIZE_LOG_N);
+
         for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
             const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
@@ -523,7 +524,7 @@ template <typename Curve> class GeminiVerifier_ {
     {
         std::vector<Fr> evals(fold_polynomial_evals.begin(), fold_polynomial_evals.end());
 
-        // Add the contribution of P-((-r)ˢ), which is 0 if there are no interleaved polynomials
+        // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
         evals[0] += p_neg;
 
         // Solve the sequence of linear equations
