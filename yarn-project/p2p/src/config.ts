@@ -231,11 +231,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Whether to consider our configured bootnodes as full peers',
     ...booleanConfigHelper(false),
   },
-  transactionProtocol: {
-    env: 'P2P_TX_PROTOCOL',
-    description: 'Protocol identifier for transaction gossiping.',
-    defaultValue: '/aztec/0.1.0',
-  },
   maxPeerCount: {
     env: 'P2P_MAX_PEERS',
     description: 'The maximum number of peers to connect to.',
