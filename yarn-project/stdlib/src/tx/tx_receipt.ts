@@ -56,7 +56,7 @@ export class TxReceipt {
         status: z.nativeEnum(TxStatus),
         error: z.string(),
         blockHash: L2BlockHash.schema.optional(),
-        blockNumber: z.number().optional(),
+        blockNumber: z.number().int().nonnegative().optional(),
         transactionFee: schemas.BigInt.optional(),
         debugInfo: DebugInfoSchema.optional(),
       })

@@ -31,6 +31,8 @@ import { NoteDao } from './note_dao.js';
  * A PXE database backed by LMDB.
  */
 export class KVPxeDatabase implements PxeDatabase {
+  public static readonly SCHEMA_VERSION = 1;
+
   #synchronizedBlock: AztecAsyncSingleton<Buffer>;
   #completeAddresses: AztecAsyncArray<Buffer>;
   #completeAddressIndex: AztecAsyncMap<string, number>;
