@@ -114,7 +114,8 @@ template <typename Curve> struct ClaimBatcher_ {
         }
     }
     /**
-     * @brief Append the commitments and scalars from each batch of claims to the Shplemini batch mul input vectors;
+     * @brief Append the commitments and scalars from each batch of claims to the Shplemini, vectors which subsequently
+     * will be inputs to the batch mul;
      * update the batched evaluation and the running batching challenge (power of rho) in place.
      *
      * @param commitments commitment inputs to the single Shplemini batch mul
@@ -122,6 +123,8 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param batched_evaluation running batched evaluation of the committed multilinear polynomials
      * @param rho multivariate batching challenge \rho
      * @param rho_power current power of \rho used in the batching scalar
+     * @param shplonk_batching_pos and @param shplonk_batching_neg consecutive powers of the Shplonk batching
+     * challenge ν for the interleaved contributions
      */
     void update_batch_mul_inputs_and_batched_evaluation(std::vector<Commitment>& commitments,
                                                         std::vector<Fr>& scalars,
@@ -142,14 +145,18 @@ template <typename Curve> struct ClaimBatcher_ {
             }
         };
 
-        // Incorporate the claim data from each batch of claims that is present
+        // Incorporate the claim data from each batch of claims that is present in the vectors of commitments and
+        // scalars for the batch mul
         if (unshifted) {
+            // i-th Unshifted commitment will be multiplied by ρ^i and (1/(z−r) + ν/(z+r))
             aggregate_claim_data_and_update_batched_evaluation(*unshifted, rho_power);
         }
         if (shifted) {
+            // i-th shifted commitments will be multiplied by p^{k+i} and r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
             aggregate_claim_data_and_update_batched_evaluation(*shifted, rho_power);
         }
         if (right_shifted_by_k) {
+            // i-th right-shifted-by-k commitments will be multiplied by ρ^{k+m+i} and r^k ⋅ (1/(z−r) + ν/(z+r))
             aggregate_claim_data_and_update_batched_evaluation(*right_shifted_by_k, rho_power);
         }
         if (interleaved) {
@@ -160,6 +167,9 @@ template <typename Curve> struct ClaimBatcher_ {
             size_t group_idx = 0;
             for (auto group : interleaved->commitments_groups) {
                 for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
+                    // The j-th commitment in group i is multiplied by ρ^{k+m+i} and ν^{n+1} \cdot r^j + ν^{n+2} ⋅(-r)^j
+                    //  where k is the number of unshifted, m is number of shifted and n is the log_circuit_size
+                    //  (assuming to right-shifted-by-k commitments in this example)
                     commitments.emplace_back(std::move(group[i]));
                     scalars.emplace_back(-rho_power * interleaved->shplonk_denominator *
                                          (shplonk_batching_pos * interleaved->scalars_pos[i] +

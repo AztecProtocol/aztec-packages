@@ -204,7 +204,6 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-
     MockClaimGenerator mock_claims(n,
                                    /*num_polynomials*/ 4,
                                    /*num_to_be_shifted*/ 2,

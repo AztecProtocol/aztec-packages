@@ -278,12 +278,12 @@ template <typename Curve> class GeminiProver_ {
             return { A_0_pos, A_0_neg };
         };
         /**
-         * @brief Compute the partially evaluated interleaved polynomials P₊(X, r) and P₋(X, -r)
+         * @brief Compute the partially evaluated polynomials P₊(X, r) and P₋(X, -r)
          *
-         * @details If the interleaved polynomials are set A₀(r) = A₀₊(r) + P₊(r^s) and A₀(-r) = A₀₋(-r) + P₋(r^s)
-         * where s is the size of the interleaved group assumed even.
-         * This function computes P₊(X) = ∑ r^i Pᵢ(X) and P₋(X) = ∑ (-r)^i Pᵢ(X) where Pᵢ(X) is the i-th polynomial in
-         * the batched group.
+         * @details If the interleaved polynomials are set, the full partially evaluated identites A₀(r) and  A₀(-r)
+         * contain the contributions of P₊(r^s) and  P₋(r^s) respectively where s is the size of the interleaved group
+         * assumed even. This function computes P₊(X) = ∑ r^i Pᵢ(X) and P₋(X) = ∑ (-r)^i Pᵢ(X) where Pᵢ(X) is the i-th
+         * polynomial in the batched group.
          * @param r_challenge partial evaluation challenge
          * @return std::pair<Polynomial, Polynomial> {P₊, P₋}
          */
@@ -390,7 +390,7 @@ template <typename Curve> class GeminiVerifier_ {
         const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, CONST_PROOF_SIZE_LOG_N);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
-        std::vector<Fr> evaluations = get_gemini_evaluations(transcript);
+        const std::vector<Fr> evaluations = get_gemini_evaluations(transcript);
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to A₀₊
         // C₀_r_neg = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to  A₀₋
@@ -441,20 +441,18 @@ template <typename Curve> class GeminiVerifier_ {
         if (has_interleaved) {
             p_pos = transcript->template receive_from_prover<Fr>("Gemini:P_0_pos");
             p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
-            // Complete the evaluation of A₀(-r) = A₀₋(-r) + P((-r)^s)
-            evaluations[0] += p_neg;
         }
 
         // Compute the full of evaluation A₀(r) = A₀₊(r) + P₊(r^s)
         Fr full_a_0_pos = compute_gemini_batched_univariate_evaluation(
-            num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations);
+            num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
         fold_polynomial_opening_claims.reserve(num_variables + 1);
 
         // ( [A₀₊], r, A₀₊(r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_pos }, C0_r_pos });
-        // ( [A₀₋], -r, A₀(-r) )
-        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] - p_neg }, C0_r_neg });
+        // ( [A₀₋], -r, A₀-(-r) )
+        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, C0_r_neg });
         for (size_t l = 0; l < num_variables - 1; ++l) {
             // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
             fold_polynomial_opening_claims.emplace_back(
@@ -486,6 +484,7 @@ template <typename Curve> class GeminiVerifier_ {
     {
         std::vector<Fr> gemini_evaluations;
         gemini_evaluations.reserve(CONST_PROOF_SIZE_LOG_N);
+
         for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
             const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
@@ -496,12 +495,14 @@ template <typename Curve> class GeminiVerifier_ {
     /**
      * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
      *
-     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where
-     * \f$ k \f$ is the number of "unshifted" commitments.
+     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
+     * k \f$ is the number of "unshifted" commitments.
      *
-     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum
-     * \rho^{i+k} g_i(\vec{u}) \f$. The folding property ensures that \f{align}{ A_\ell\left(r^{2^\ell}\right) = (1
-     * - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) + A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
+     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum \rho^{i+k}
+     * g_i(\vec{u}) \f$. The folding property ensures that
+     * \f{align}{
+     * A_\ell\left(r^{2^\ell}\right) = (1 - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) +
+     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
      * + u_{\ell-1} \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) -
      * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2r^{2^{\ell-1}}}
      * \f}
@@ -518,9 +519,13 @@ template <typename Curve> class GeminiVerifier_ {
         Fr& batched_eval_accumulator,
         std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
         std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
-        std::span<const Fr> fold_polynomial_evals)
+        std::span<const Fr> fold_polynomial_evals,
+        Fr p_neg = Fr(0))
     {
-        const auto& evals = fold_polynomial_evals;
+        std::vector<Fr> evals(fold_polynomial_evals.begin(), fold_polynomial_evals.end());
+
+        // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
+        evals[0] += p_neg;
 
         // Solve the sequence of linear equations
         for (size_t l = CONST_PROOF_SIZE_LOG_N; l != 0; --l) {
