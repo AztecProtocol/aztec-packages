@@ -45,8 +45,8 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     {
         size_t max_log_circuit_size{ 0 };
         for (auto key : _data) {
-            max_log_circuit_size =
-                std::max(max_log_circuit_size, static_cast<size_t>(key->verification_key->log_circuit_size));
+            max_log_circuit_size = std::max(max_log_circuit_size,
+                                            static_cast<size_t>(key->verification_key->log_circuit_size.get_value()));
         }
         return max_log_circuit_size;
     }

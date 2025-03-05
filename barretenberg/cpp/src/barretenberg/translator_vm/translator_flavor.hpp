@@ -142,6 +142,7 @@ class TranslatorFlavor {
      */
     template <typename DataType_> class PrecomputedEntities {
       public:
+        bool operator==(const PrecomputedEntities& other) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               ordered_extra_range_constraints_numerator, // column 0

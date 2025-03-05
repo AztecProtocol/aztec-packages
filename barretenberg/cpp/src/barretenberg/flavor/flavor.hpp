@@ -176,7 +176,7 @@ class VerificationKey_ : public PrecomputedCommitments, public VerificationKeyBa
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    bool contains_pairing_point_accumulator = false;
+    FF_ contains_pairing_point_accumulator = false;
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
 
     bool operator==(const VerificationKey_&) const = default;

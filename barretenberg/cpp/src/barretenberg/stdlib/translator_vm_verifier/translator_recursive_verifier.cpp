@@ -76,7 +76,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     CommitmentLabels commitment_labels;
 
     const FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
+    if (static_cast<uint32_t>(circuit_size.get_value()) != static_cast<uint32_t>(key->circuit_size.get_value())) {
         throw_or_abort(
             "TranslatorRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
