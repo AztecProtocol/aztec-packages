@@ -213,6 +213,7 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::CALLDATACOPY) } },
     { WireOpCode::SUCCESSCOPY,
       { .exec_opcode = ExecutionOpCode::SUCCESSCOPY,
+        .size_in_bytes = 4,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::SUCCESSCOPY) } },
     { WireOpCode::RETURNDATASIZE,
       { .exec_opcode = ExecutionOpCode::RETURNDATASIZE,
