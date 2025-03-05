@@ -104,6 +104,9 @@ std::ostream& operator<<(std::ostream& os, const WireOpCode& op)
     case WireOpCode::CALLDATACOPY:
         os << "CALLDATACOPY";
         break;
+    case WireOpCode::SUCCESSCOPY:
+        os << "SUCCESSCOPY";
+        break;
     case WireOpCode::RETURNDATASIZE:
         os << "RETURNDATASIZE";
         break;
@@ -269,6 +272,9 @@ std::ostream& operator<<(std::ostream& os, const ExecutionOpCode& op)
         break;
     case ExecutionOpCode::CALLDATACOPY:
         os << "CALLDATACOPY";
+        break;
+    case ExecutionOpCode::SUCCESSCOPY:
+        os << "SUCCESSCOPY";
         break;
     case ExecutionOpCode::RETURNDATASIZE:
         os << "RETURNDATASIZE";

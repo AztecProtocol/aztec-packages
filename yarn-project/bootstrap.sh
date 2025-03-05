@@ -102,7 +102,13 @@ function test_cmds {
   local hash=$(hash)
   # These need isolation due to network stack usage (p2p, anvil, etc).
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
-    echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+    if [[ ! "$test" =~ testbench ]]; then
+      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+    else
+      # Testbench runs require more memory and CPU.
+      echo "$hash ISOLATE=1 CPUS=18 MEMORY=12g yarn-project/scripts/run_test.sh $test"
+    fi
+
   done
 
   # Enable real proofs in prover-client integration tests only on CI full
@@ -149,14 +155,18 @@ function release_packages {
   local dir=$(mktemp -d)
   cd "$dir"
   do_or_dryrun npm init -y
-  do_or_dryrun npm i "${package_list[@]}"
+  # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
+  # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
+  for package in "${packages_list[@]}"; do
+    do_or_dryrun npm install $package
+  done
   rm -rf "$dir"
 }
 
 function release {
   echo_header "yarn-project release"
   # WORKTODO latest is only on master, otherwise use ref name
-  release_packages latest ${REF_NAME#v}
+  release_packages $(dist_tag) ${REF_NAME#v}
 }
 
 function release_commit {

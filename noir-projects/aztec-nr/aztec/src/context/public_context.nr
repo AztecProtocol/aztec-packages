@@ -85,7 +85,10 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> [Field] {
         let args = args.push_front(function_selector.to_field());
-        let success = call(gas_for_call(gas_opts), contract_address, args);
+
+        call(gas_for_call(gas_opts), contract_address, args);
+        // Use success_copy to determine whether the call succeeded
+        let success = success_copy();
 
         let result_data = returndata_copy(0, returndata_size());
         if !success {
@@ -103,7 +106,10 @@ impl PublicContext {
         gas_opts: GasOpts,
     ) -> [Field] {
         let args = args.push_front(function_selector.to_field());
-        let success = call_static(gas_for_call(gas_opts), contract_address, args);
+
+        call_static(gas_for_call(gas_opts), contract_address, args);
+        // Use success_copy to determine whether the call succeeded
+        let success = success_copy();
 
         let result_data = returndata_copy(0, returndata_size());
         if !success {
@@ -304,15 +310,21 @@ unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> 
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
     send_l2_to_l1_msg_opcode(recipient, content)
 }
-unconstrained fn call(gas: [Field; 2], address: AztecAddress, args: [Field]) -> bool {
+unconstrained fn call(gas: [Field; 2], address: AztecAddress, args: [Field]) {
     call_opcode(gas, address, args)
 }
-unconstrained fn call_static(gas: [Field; 2], address: AztecAddress, args: [Field]) -> bool {
+
+unconstrained fn call_static(gas: [Field; 2], address: AztecAddress, args: [Field]) {
     call_static_opcode(gas, address, args)
 }
 
 pub unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
     calldata_copy_opcode(cdoffset, copy_size)
+}
+
+// `success_copy` is placed immediately after the CALL opcode to get the success value
+unconstrained fn success_copy() -> bool {
+    success_copy_opcode()
 }
 
 unconstrained fn returndata_size() -> u32 {
@@ -432,14 +444,17 @@ unconstrained fn call_opcode(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
-) -> bool {}
+) {}
 
 #[oracle(avmOpcodeStaticCall)]
 unconstrained fn call_static_opcode(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
     address: AztecAddress,
     args: [Field],
-) -> bool {}
+) {}
+
+#[oracle(avmOpcodeSuccessCopy)]
+unconstrained fn success_copy_opcode() -> bool {}
 
 #[oracle(avmOpcodeStorageRead)]
 unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}

@@ -296,6 +296,7 @@ export const AVM_SHR_BASE_L2_GAS = 27;
 export const AVM_CAST_BASE_L2_GAS = 18;
 export const AVM_GETENVVAR_BASE_L2_GAS = 9;
 export const AVM_CALLDATACOPY_BASE_L2_GAS = 24;
+export const AVM_SUCCESSCOPY_BASE_L2_GAS = 24;
 export const AVM_RETURNDATASIZE_BASE_L2_GAS = 9;
 export const AVM_RETURNDATACOPY_BASE_L2_GAS = 24;
 export const AVM_JUMP_BASE_L2_GAS = 3;
