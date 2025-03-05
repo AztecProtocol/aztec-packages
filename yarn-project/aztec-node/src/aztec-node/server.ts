@@ -11,7 +11,13 @@ import {
   REGISTERER_CONTRACT_ADDRESS,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type AllL1ContractAddresses, RegistryContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import {
+  type AllL1ContractAddresses,
+  RegistryContract,
+  createEthereumChain,
+  createL1Clients,
+  getPublicClient,
+} from '@aztec/ethereum';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -155,7 +161,14 @@ export class AztecNodeService implements AztecNode, Traceable {
       );
     }
 
-    const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
+    const client = getPublicClient(config);
+    const l1Addresses = await RegistryContract.collectAddresses(
+      client,
+      config.l1Contracts.registryAddress,
+      'canonical',
+    );
+
+    const archiver = await createArchiver(config, l1Addresses, blobSinkClient, { blockUntilSync: true }, telemetry);
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
@@ -169,7 +182,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       log.warn(`Aztec node is accepting fake proofs`);
     }
 
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const epochCache = await EpochCache.create(l1Addresses.rollupAddress, config, { dateProvider });
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(

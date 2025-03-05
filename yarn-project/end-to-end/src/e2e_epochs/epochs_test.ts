@@ -139,6 +139,7 @@ export class EpochsTestContext {
       createAndSyncProverNode(
         proverNodePrivateKey,
         { ...this.context.config, proverId: Fr.fromString(suffix) },
+        this.context.deployL1ContractsValues,
         this.context.aztecNode,
         join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
       ),
@@ -151,11 +152,14 @@ export class EpochsTestContext {
     this.logger.warn('Creating and syncing a node without a validator...');
     const suffix = (this.nodes.length + 1).toString();
     const node = await withLogNameSuffix(suffix, () =>
-      AztecNodeService.createAndSync({
-        ...this.context.config,
-        disableValidator: true,
-        dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-      }),
+      AztecNodeService.createAndSync(
+        {
+          ...this.context.config,
+          disableValidator: true,
+          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+        },
+        this.context.deployL1ContractsValues.l1ContractAddresses,
+      ),
     );
     this.nodes.push(node);
     return node;

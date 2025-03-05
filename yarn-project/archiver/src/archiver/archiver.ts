@@ -142,6 +142,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
    */
   public static async createAndSync(
     config: ArchiverConfig,
+    l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     archiverStore: ArchiverDataStore,
     deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
     blockUntilSynced = true,
@@ -168,7 +169,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
     const archiver = new Archiver(
       publicClient,
-      config.l1Contracts,
+      l1Addresses,
       archiverStore,
       {
         pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,

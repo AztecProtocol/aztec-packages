@@ -1,7 +1,14 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import {
+  L1TxUtils,
+  RegistryContract,
+  RollupContract,
+  createEthereumChain,
+  createL1Clients,
+  getPublicClient,
+} from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createProverClient } from '@aztec/prover-client';
@@ -37,7 +44,10 @@ export async function createProverNode(
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
   const log = deps.log ?? createLogger('prover-node');
-  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry));
+  const client = getPublicClient(config);
+  const l1Addresses = await RegistryContract.collectAddresses(client, config.l1Contracts.registryAddress, 'canonical');
+  const archiver =
+    deps.archiver ?? (await createArchiver(config, l1Addresses, blobSinkClient, { blockUntilSync: true }, telemetry));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };

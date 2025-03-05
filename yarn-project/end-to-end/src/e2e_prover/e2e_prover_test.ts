@@ -265,6 +265,7 @@ export class FullProverTest {
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
+      this.context.deployL1ContractsValues.l1ContractAddresses,
       blobSinkClient,
       { blockUntilSync: true },
     );

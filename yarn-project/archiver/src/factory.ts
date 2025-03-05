@@ -1,4 +1,5 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -33,6 +34,7 @@ import { createArchiverClient } from './rpc/index.js';
  */
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
+  l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
   blobSinkClient: BlobSinkClientInterface,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
   telemetry: TelemetryClient = getTelemetryClient(),
@@ -41,7 +43,7 @@ export async function createArchiver(
   const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
   await registerProtocolContracts(archiverStore);
   await registerCommonContracts(archiverStore);
-  return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
+  return Archiver.createAndSync(config, l1Addresses, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
 }
 
 /**

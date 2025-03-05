@@ -495,6 +495,7 @@ export async function setup(
   const blobSinkClient = createBlobSinkClient(config);
   const aztecNode = await AztecNodeService.createAndSync(
     config,
+    deployL1ContractsValues.l1ContractAddresses,
     {
       dateProvider,
       blobSinkClient,
@@ -516,6 +517,7 @@ export async function setup(
     proverNode = await createAndSyncProverNode(
       proverNodePrivateKeyHex,
       config,
+      deployL1ContractsValues,
       aztecNode,
       path.join(directoryToCleanup, randomBytes(8).toString('hex')),
     );
@@ -746,6 +748,7 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: number, 
 export async function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
+  deployL1ContractsValues: DeployL1ContractsReturnType,
   aztecNode: AztecNode,
   dataDirectory: string,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
@@ -761,7 +764,7 @@ export async function createAndSyncProverNode(
   const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
-  const archiver = await createArchiver(archiverConfig, blobSinkClient, {
+  const archiver = await createArchiver(archiverConfig, deployL1ContractsValues.l1ContractAddresses, blobSinkClient, {
     blockUntilSync: true,
   });
 
