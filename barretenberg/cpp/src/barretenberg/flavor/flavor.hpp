@@ -91,12 +91,13 @@ namespace bb {
  * @brief Base class template for VericationKey containing circuit-specifying data.
  *
  */
-template <typename FF> class VerificationKeyBase {
+template <typename FF_> class VerificationKeyBase {
   public:
     bool operator==(const VerificationKeyBase& other) const = default;
-    FF circuit_size;
-    FF log_circuit_size;
-    FF num_public_inputs;
+    FF_ circuit_size;
+    FF_ log_circuit_size;
+    FF_ num_public_inputs;
+    FF_ pub_inputs_offset = 0;
 };
 // Specifies the regions of the execution trace containing non-trivial wire values
 struct ActiveRegionData {
@@ -164,18 +165,19 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
 /**
  * @brief Base verification key class.
  *
+ * @tparam FF_, the type that we will represent our VK metadata (circuit_size, log_circuit_size, num_public_inputs,
+ * pub_inputs_offset). It will either be uint64_t or a stdlib field type.
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  * @tparam VerifierCommitmentKey The PCS verification key
  */
-template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
-class VerificationKey_ : public PrecomputedCommitments, public VerificationKeyBase<uint64_t> {
+template <typename FF_, typename PrecomputedCommitments, typename VerifierCommitmentKey>
+class VerificationKey_ : public PrecomputedCommitments, public VerificationKeyBase<FF_> {
   public:
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     bool contains_pairing_point_accumulator = false;
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
-    uint64_t pub_inputs_offset = 0;
 
     bool operator==(const VerificationKey_&) const = default;
     VerificationKey_() = default;

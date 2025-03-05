@@ -93,7 +93,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public VerificationKey_<FF, TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {

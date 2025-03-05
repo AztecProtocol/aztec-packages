@@ -87,7 +87,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public VerificationKey_<FF, ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
         {

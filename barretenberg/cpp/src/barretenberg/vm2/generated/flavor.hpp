@@ -175,7 +175,7 @@ class AvmFlavor {
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
         CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
-    template <typename DataType> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType> class PrecomputedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
         DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_PRECOMPUTED_ENTITIES)
@@ -250,6 +250,8 @@ class AvmFlavor {
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
 
         size_t circuit_size;
+        size_t log_circuit_size;
+        size_t num_public_inputs;
         bb::EvaluationDomain<FF> evaluation_domain;
         std::shared_ptr<CommitmentKey> commitment_key;
 
