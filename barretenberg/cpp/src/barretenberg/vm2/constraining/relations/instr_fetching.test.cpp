@@ -13,6 +13,8 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -85,9 +87,9 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
     check_relation<instr_fetching>(trace);
 }
 
-// Positive test for each opcode. We assume that decode instruction is working correctly.
-// It works as long as the relations are not constraining the correct range for TAG nor indirect.
-TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
+// Helper routine generating a vector of instruction fetching events for each
+// opcode. Note that operands of type TAG might fall outside of their valid range.
+std::vector<simulation::InstructionFetchingEvent> gen_instr_events_each_opcode()
 {
     std::vector<uint8_t> bytecode;
     std::vector<uint32_t> pc_positions;
@@ -106,9 +108,6 @@ TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
 
     const auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
 
-    TestTraceContainer trace;
-    BytecodeTraceBuilder builder;
-
     std::vector<simulation::InstructionFetchingEvent> instr_events;
     instr_events.reserve(num_opcodes);
 
@@ -117,16 +116,26 @@ TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
         instr_events.emplace_back(simulation::InstructionFetchingEvent{
             .bytecode_id = 1, .pc = pc_positions.at(i), .instruction = instr, .bytecode = bytecode_ptr });
     }
+    return instr_events;
+}
 
-    builder.process_instruction_fetching(instr_events, trace);
+// Positive test for each opcode. We assume that decode instruction is working correctly.
+// It works as long as the relations are not constraining the correct range for TAG nor indirect.
+TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
 
+    builder.process_instruction_fetching(gen_instr_events_each_opcode(), trace);
+
+    constexpr auto num_opcodes = static_cast<size_t>(WireOpCode::LAST_OPCODE_SENTINEL);
     EXPECT_EQ(trace.get_num_rows(), num_opcodes);
     check_relation<instr_fetching>(trace);
 }
 
 // Negative test about decomposition of operands. We mutate correct operand values in the trace.
 // This also covers wrong operands which are not "involved" by the instruction.
-// We perform this for a random instruction for opcodes:
+// We perform this for a random instruction for opcodes: REVERT_16, CAST_8, TORADIXBE
 TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
 {
     TestTraceContainer trace;
@@ -165,6 +174,51 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
                                       instr_fetching::get_subrelation_label(sub_relations.at(i)));
         }
     }
+}
+
+// Positive test for interaction with instruction spec table using same events as for the test
+// EachOpcodeWithTraceGen, i.e., one event/row is generated per wire opcode.
+// It works as long as the relations are not constraining the correct range for TAG nor indirect.
+TEST(InstrFetchingConstrainingTest, WireInstructionSpecInteractions)
+{
+    using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
+
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+
+    tracegen::PrecomputedTraceBuilder precomputed_builder;
+    precomputed_builder.process_wire_instruction_spec(trace);
+    bytecode_builder.process_instruction_fetching(gen_instr_events_each_opcode(), trace);
+    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
+
+    tracegen::LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+
+    check_relation<instr_fetching>(trace);
+    check_interaction<wire_instr_spec_lookup>(trace);
+}
+
+// Positive test for the interaction with bytecode decomposition table.
+// One event/row is generated per wire opcode (same as for test WireInstructionSpecInteractions).
+// It works as long as the relations are not constraining the correct range for TAG nor indirect.
+TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
+{
+    using bc_decomposition_lookup = lookup_instr_fetching_bytes_from_bc_dec_relation<FF>;
+
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+
+    const auto instr_fetch_events = gen_instr_events_each_opcode();
+    bytecode_builder.process_instruction_fetching(instr_fetch_events, trace);
+    bytecode_builder.process_decomposition({ simulation::BytecodeDecompositionEvent{
+                                               .bytecode_id = instr_fetch_events.at(0).bytecode_id,
+                                               .bytecode = instr_fetch_events.at(0).bytecode,
+                                           } },
+                                           trace);
+
+    tracegen::LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(trace);
+
+    check_relation<instr_fetching>(trace);
+    check_interaction<bc_decomposition_lookup>(trace);
 }
 
 } // namespace
