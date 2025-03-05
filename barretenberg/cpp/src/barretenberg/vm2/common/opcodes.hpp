@@ -42,6 +42,7 @@ enum class WireOpCode {
     GETENVVAR_16,
     // Execution Environment - Calldata
     CALLDATACOPY,
+    SUCCESSCOPY,
     RETURNDATASIZE,
     RETURNDATACOPY,
 
@@ -120,6 +121,7 @@ enum class ExecutionOpCode {
     CAST,
     GETENVVAR,
     CALLDATACOPY,
+    SUCCESSCOPY,
     RETURNDATASIZE,
     RETURNDATACOPY,
     JUMP,

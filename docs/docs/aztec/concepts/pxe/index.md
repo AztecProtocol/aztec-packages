@@ -1,6 +1,6 @@
 ---
 title: Private Execution Environment (PXE)
-sidebar_position: 6
+sidebar_position: 7
 tags: [PXE]
 keywords: [pxe, private execution environment]
 importance: 1

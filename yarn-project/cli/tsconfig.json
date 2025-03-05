@@ -22,6 +22,9 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../p2p"
+    },
+    {
       "path": "../stdlib"
     },
     {

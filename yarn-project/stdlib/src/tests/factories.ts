@@ -58,7 +58,7 @@ import {
   AvmAppendTreeHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
-  AvmContractBytecodeHints,
+  AvmContractClassHint,
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
@@ -1209,11 +1209,11 @@ function makeContractClassPrivateFunction(seed = 0): PrivateFunction {
   };
 }
 
-export function makeArray<T extends Bufferable>(length: number, fn: (i: number) => T, offset = 0) {
+export function makeArray<T>(length: number, fn: (i: number) => T, offset = 0) {
   return Array.from({ length }, (_: any, i: number) => fn(i + offset));
 }
 
-export function makeArrayAsync<T extends Bufferable>(length: number, fn: (i: number) => Promise<T>, offset = 0) {
+export function makeArrayAsync<T>(length: number, fn: (i: number) => Promise<T>, offset = 0) {
   return Promise.all(
     Array(length)
       .fill(0)
@@ -1229,15 +1229,11 @@ export async function makeVectorAsync<T extends Bufferable>(length: number, fn: 
   return new Vector(await makeArrayAsync(length, fn, offset));
 }
 
-export function makeMap<T extends Bufferable>(size: number, fn: (i: number) => [string, T], offset = 0) {
+export function makeMap<T>(size: number, fn: (i: number) => [string, T], offset = 0) {
   return new Map(makeArray(size, i => fn(i + offset)));
 }
 
-export async function makeMapAsync<T extends Bufferable>(
-  size: number,
-  fn: (i: number) => Promise<[string, T]>,
-  offset = 0,
-) {
+export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[string, T]>, offset = 0) {
   return new Map(await makeArrayAsync(size, i => fn(i + offset)));
 }
 
@@ -1283,33 +1279,6 @@ export async function makeContractInstanceFromClassId(
     initializationHash,
     publicKeys,
   }).withAddress(address);
-}
-
-export async function makeAvmBytecodeHints(seed = 0): Promise<AvmContractBytecodeHints> {
-  const { artifactHash, privateFunctionsRoot, packedBytecode, id } = await makeContractClassPublic(seed);
-  const instance = await makeContractInstanceFromClassId(id, seed + 0x1000);
-
-  const avmHintInstance = new AvmContractInstanceHint(
-    instance.address,
-    true,
-    instance.salt,
-    instance.deployer,
-    instance.currentContractClassId,
-    instance.originalContractClassId,
-    instance.initializationHash,
-    instance.publicKeys,
-    makeAvmNullifierReadTreeHints(seed + 0x2000),
-    makeAvmPublicDataReadTreeHints(seed + 0x3000),
-    makeArray(4, i => new Fr(i), seed + 0x4000),
-  );
-
-  const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
-
-  return new AvmContractBytecodeHints(packedBytecode, avmHintInstance, {
-    artifactHash,
-    privateFunctionsRoot,
-    publicBytecodeCommitment,
-  });
 }
 
 export function makeAvmTreeHints(seed = 0): AvmAppendTreeHint {
@@ -1380,17 +1349,32 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
       new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
       new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
     ),
-    makeAvmNullifierReadTreeHints(seed + 0x1000),
     makeAvmPublicDataReadTreeHints(seed + 0x2000),
     makeArray(4, i => new Fr(i), seed + 0x3000),
   );
 }
 
+/* Makes arbitrary AvmContractClassHint.
+ * @param seed - The seed to use for generating the state reference.
+ * @returns AvmContractClassHint.
+ */
+export async function makeAvmContractClassHint(seed = 0): Promise<AvmContractClassHint> {
+  const bytecode = makeBytes(32, seed + 0x5);
+  return new AvmContractClassHint(
+    new Fr(seed),
+    true /* exists */,
+    new Fr(seed + 0x2),
+    new Fr(seed + 0x3),
+    await computePublicBytecodeCommitment(bytecode),
+    bytecode,
+  );
+}
+
 export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
-  return AvmEnqueuedCallHint.from({
-    contractAddress: new AztecAddress(new Fr(seed)),
-    calldata: makeVector((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
-  });
+  return new AvmEnqueuedCallHint(
+    new AztecAddress(new Fr(seed)),
+    makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+  );
 }
 
 /**
@@ -1406,26 +1390,32 @@ export async function makeAvmExecutionHints(
   const lengthSeedMod = 10;
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
-  return AvmExecutionHints.from({
-    enqueuedCalls: makeVector(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
-    contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
-    contractBytecodeHints: await makeMapAsync(
-      baseLength + 6,
-      async i => {
-        const h = await makeAvmBytecodeHints(i);
-        return [h.contractInstanceHint.address.toString(), h];
-      },
-      seed + 0x4900,
-    ),
-    publicDataReads: makeVector(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
-    publicDataWrites: makeVector(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
-    nullifierReads: makeVector(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),
-    nullifierWrites: makeVector(baseLength + 10, makeAvmNullifierInsertionTreeHints, seed + 0x4c00),
-    noteHashReads: makeVector(baseLength + 11, makeAvmTreeHints, seed + 0x4d00),
-    noteHashWrites: makeVector(baseLength + 12, makeAvmTreeHints, seed + 0x4e00),
-    l1ToL2MessageReads: makeVector(baseLength + 13, makeAvmTreeHints, seed + 0x4f00),
+  const fields = {
+    enqueuedCalls: makeArray(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
+    contractInstances: makeArray(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
+    contractClasses: await makeArrayAsync(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
+    publicDataReads: makeArray(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
+    publicDataWrites: makeArray(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
+    nullifierReads: makeArray(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),
+    nullifierWrites: makeArray(baseLength + 10, makeAvmNullifierInsertionTreeHints, seed + 0x4c00),
+    noteHashReads: makeArray(baseLength + 11, makeAvmTreeHints, seed + 0x4d00),
+    noteHashWrites: makeArray(baseLength + 12, makeAvmTreeHints, seed + 0x4e00),
+    l1ToL2MessageReads: makeArray(baseLength + 13, makeAvmTreeHints, seed + 0x4f00),
     ...overrides,
-  });
+  };
+
+  return new AvmExecutionHints(
+    fields.enqueuedCalls,
+    fields.contractInstances,
+    fields.contractClasses,
+    fields.publicDataReads,
+    fields.publicDataWrites,
+    fields.nullifierReads,
+    fields.nullifierWrites,
+    fields.noteHashReads,
+    fields.noteHashWrites,
+    fields.l1ToL2MessageReads,
+  );
 }
 
 /**
@@ -1437,13 +1427,15 @@ export async function makeAvmCircuitInputs(
   seed = 0,
   overrides: Partial<FieldsOf<AvmCircuitInputs>> = {},
 ): Promise<AvmCircuitInputs> {
-  return AvmCircuitInputs.from({
+  const fields = {
     functionName: `function${seed}`,
     calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     avmHints: await makeAvmExecutionHints(seed + 0x3000),
     publicInputs: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,
-  });
+  };
+
+  return new AvmCircuitInputs(fields.functionName, fields.calldata, fields.avmHints, fields.publicInputs);
 }
 
 /**
@@ -1544,8 +1536,7 @@ export async function makeBloatedProcessedTx({
       seed + 0x2000,
     );
 
-    const avmCircuitInputs = new AvmCircuitInputs('', [], AvmExecutionHints.empty(), avmOutput);
-
+    const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
     const gasUsed = {
       totalGas: Gas.empty(),
       teardownGas: Gas.empty(),

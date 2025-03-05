@@ -1,4 +1,4 @@
-use compiler::{compile, CompiledProcedure};
+use compiler::{CompiledProcedure, compile};
 use msm::MSM_ASSEMBLY;
 use parser::parse;
 

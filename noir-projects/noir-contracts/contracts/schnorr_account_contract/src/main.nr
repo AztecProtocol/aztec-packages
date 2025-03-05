@@ -44,6 +44,7 @@ pub contract SchnorrAccount {
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
+    // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[private]
     #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {

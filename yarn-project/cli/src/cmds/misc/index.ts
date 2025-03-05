@@ -1,8 +1,9 @@
 import type { LogFn } from '@aztec/foundation/log';
+import { printENR } from '@aztec/p2p/enr';
 
 import type { Command } from 'commander';
 
-import { prettyPrintJSON } from '../../utils/commands.js';
+import { l1ChainIdOption, prettyPrintJSON } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn) {
   program
@@ -27,6 +28,27 @@ export function injectCommands(program: Command, log: LogFn) {
     .action(async () => {
       const { generateP2PPrivateKey } = await import('./generate_p2p_private_key.js');
       await generateP2PPrivateKey(log);
+    });
+
+  program
+    .command('generate-bootnode-enr')
+    .summary('Generates the encoded ENR record for a bootnode.')
+    .description('Generates the encoded ENR record for a bootnode.')
+    .argument('<privateKey>', 'The peer id private key of the bootnode')
+    .argument('<udpAnnounceAddress>', 'The bootnode UDP announce address')
+    .addOption(l1ChainIdOption)
+    .action(async (privateKey: string, udpAnnounceAddress: string, options) => {
+      const { generateEncodedBootnodeENR } = await import('./generate_bootnode_enr.js');
+      await generateEncodedBootnodeENR(privateKey, udpAnnounceAddress, options.l1ChainId, log);
+    });
+
+  program
+    .command('decode-enr')
+    .summary('Decodes an ENR record')
+    .description('Decodes and ENR record')
+    .argument('<enr>', 'The encoded ENR string')
+    .action(async (enr: string) => {
+      await printENR(enr, log);
     });
 
   program
