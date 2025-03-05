@@ -4,9 +4,14 @@
 #include <cstdint>
 namespace bb::stdlib {
 
-// A concept defining requirements for types that can be represented as a PublicInputComponent
+/**
+ * @brief A concept defining requirements for types that are to be serialized to and from the public inputs of a circuit
+ * via the PublicInputComponent class.
+ *
+ * @tparam ComponentType The type of the object to be serialized
+ */
 template <typename ComponentType>
-concept HasSetAndReconstruct =
+concept IsSerializableToAndFromPublicInputs =
     requires(ComponentType component, std::vector<stdlib::field_t<MegaCircuitBuilder>> public_inputs) {
         { // A method to set the limbs of the object to public and return the index of the first limb in public inputs
             component.set_public()
@@ -19,8 +24,13 @@ concept HasSetAndReconstruct =
         } -> std::convertible_to<size_t>;
     };
 
+/**
+ * @brief A wrapper class for serializing objects to and from the public inputs of a circuit
+ *
+ * @tparam ComponentType A type that satisfies the IsSerializableToAndFromPublicInputs concept
+ */
 template <typename ComponentType>
-    requires HasSetAndReconstruct<ComponentType>
+    requires IsSerializableToAndFromPublicInputs<ComponentType>
 class PublicInputComponent {
     using Builder = ComponentType::Builder;
     using Fr = stdlib::field_t<Builder>;
@@ -41,13 +51,14 @@ class PublicInputComponent {
     // Reconstruct the component from the public inputs and the key indicating its location
     static ComponentType reconstruct(const std::vector<Fr>& public_inputs, const Key& key)
     {
-        // WORKTODO: figure out what to do with this check
         // Ensure that the key has been set
         if (!key.exists_flag) {
-            info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1284): determine when/whether a check of this
+            // form is needed: info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
             // ASSERT(false);
         }
-        // Extract from the public inputs the limbs needed reconstruct the component
+
+        // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it
         std::span<const Fr> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }
