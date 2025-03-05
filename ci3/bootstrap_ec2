@@ -94,6 +94,9 @@ container_script=$(cat <<EOF
   while [ -f started ]; do sleep 999; done
   touch started
   sudo chown aztec-dev:aztec-dev aztec-packages
+  # Set up preferred commit attribution (used during releases).
+  git config --global user.email "tech@aztecprotocol.com"
+  git config --global user.name "AztecBot"
   cd aztec-packages
   git config --global advice.detachedHead false
   git init . &>/dev/null

@@ -71,9 +71,9 @@ import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import type { PxeDatabase } from '../database/index.js';
 import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
 import {
-  PrivateKernelOrchestrator,
-  type PrivateKernelOrchestratorConfig,
-} from '../private_kernel/private_kernel_orchestrator.js';
+  PrivateKernelSequencer,
+  type PrivateKernelSequencerConfig,
+} from '../private_kernel/private_kernel_sequencer.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -730,13 +730,13 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    config: PrivateKernelOrchestratorConfig,
+    config: PrivateKernelSequencerConfig,
   ): Promise<PrivateKernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const block = privateExecutionResult.getSimulationBlockNumber();
     const kernelOracle = new PrivateKernelOracleImpl(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelProver = new PrivateKernelOrchestrator(kernelOracle, proofCreator, !this.proverEnabled);
+    const kernelSequencer = new PrivateKernelSequencer(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel prover (${JSON.stringify(config)})...`);
-    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
+    return await kernelSequencer.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
   async #isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {

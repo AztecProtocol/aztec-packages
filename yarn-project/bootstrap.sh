@@ -150,7 +150,7 @@ function release_packages {
   local dir=$(mktemp -d)
   cd "$dir"
   do_or_dryrun npm init -y
-  do_or_dryrun npm i "${package_list[@]}"
+  do_or_dryrun npm install "${package_list[@]}"
   rm -rf "$dir"
 }
 
