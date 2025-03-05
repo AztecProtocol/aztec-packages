@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741205586399,
+  "lastUpdate": 1741208697381,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5ac7a370a9db2ccc7e216b4401794951e5863237",
-          "message": "feat: initial playground bootstrap (#12339)\n\nInitial version of a bootstrap script for playground. Just builds it,\nbut includes bundle size limits now that all artifacts have been\nextracted completely from the build via lazy loading.\n\nAll things being equal (no changes to libraries, vite itself or\nplayground code), it will allow us to notice and analyze changes in\n`aztec.js`/`pxe` packages (and its dependencies) that blow up bundle\nsizes.\n\nIt also changes the structure of the playground so it doesn't lazy load\nthe main component (better UX) in favor of a worst-case scenario (first\nmeaningful content print). This could be improved if\nhttps://github.com/drwpow/vite-plugin-bundlesize/issues/4 gets merged.",
-          "timestamp": "2025-03-03T12:43:35+01:00",
-          "tree_id": "625e1324ec56bd79185a18122318a6a8ae15dfc4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5ac7a370a9db2ccc7e216b4401794951e5863237"
-        },
-        "date": 1741004307567,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18180.19262200005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15969.323334 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18932.646095999873,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16297.444027999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3911.828149999792,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3142.9384609999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55579.308437,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55579309000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9527.712418000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9527723000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1896447948,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1896447948 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 211296714,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 211296714 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 221839013,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 221839013 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "01c9795b96df2f18d9ca60d35f7ec2d2f66396cd",
+          "message": "fix: release flow (#12501)",
+          "timestamp": "2025-03-05T20:51:35Z",
+          "tree_id": "96da42a945521807b7d79e156367a44de5648234",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/01c9795b96df2f18d9ca60d35f7ec2d2f66396cd"
+        },
+        "date": 1741208689069,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18039.597761999972,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15921.821073000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18650.57441099998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16179.880503 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3916.2067769999567,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3088.2144860000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54803.65087,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54803650000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10373.775163,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10373778000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1896775800,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1896775800 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213141836,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213141836 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
