@@ -7,7 +7,6 @@ ADDRESS=${2:-"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"} # first addr in junk 
 L1_CHAIN_ID=${3:-1337}
 
 image=$(kubectl get pod $NAMESPACE-aztec-network-boot-node-0 -n $NAMESPACE -o jsonpath="{.spec.containers[*].image}")
-tag=$(echo $image | cut -d ':' -f 2)
 
 echo $image
 
@@ -82,7 +81,7 @@ echo "Registry: $registry"
 export L1_CHAIN_ID=$L1_CHAIN_ID
 export ETHEREUM_HOSTS="http://localhost:$eth_port"
 $(git rev-parse --show-toplevel)/spartan/scripts/upgrade_rollup_with_lock.sh \
-    --aztec-docker-tag $tag \
+    --aztec-docker-image $image \
     --registry $registry \
     --address $ADDRESS \
     --deposit-amount 200000000000000000000000 \

@@ -40,6 +40,10 @@ jobs:
         with:
           install_components: gke-gcloud-auth-plugin
 
+      - name: Install GKE Auth Plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet
+
       - name: Configure kubectl with GKE cluster
         run: |
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
@@ -47,15 +51,6 @@ jobs:
       - name: Run test
         run: |
 
-          # Find 3 free ports between 9000 and 10000
-          FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 3)
-
-          # Extract the free ports from the list
-          PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
-          ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
-          METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
-
-          export GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
 
           gcloud config set project ${{ env.PROJECT_ID }}
 
