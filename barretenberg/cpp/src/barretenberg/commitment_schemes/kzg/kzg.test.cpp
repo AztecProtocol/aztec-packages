@@ -210,10 +210,9 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
                                    /*num_to_be_shifted*/ 2,
                                    /*num_to_be_right_shifted_by_k*/ 0,
                                    mle_opening_point,
-                                   ck);
-
-    auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
-        generate_concatenation_inputs<Curve>(mle_opening_point, /*num_concatenated=*/3, /*concatenation_index=*/2, ck);
+                                   ck,
+                                   3,
+                                   2);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -222,13 +221,8 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    const auto prover_opening_claims = GeminiProver::prove(n,
-                                                           mock_claims.polynomial_batcher,
-                                                           mle_opening_point,
-                                                           ck,
-                                                           prover_transcript,
-                                                           RefVector(concatenated_polynomials),
-                                                           to_vector_of_ref_vectors(concatenation_groups));
+    const auto prover_opening_claims =
+        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
@@ -245,21 +239,18 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    const auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                       mock_claims.claim_batcher,
-                                                       mle_opening_point,
-                                                       vk->get_g1_identity(),
-                                                       verifier_transcript,
-                                                       /* repeated commitments= */ {},
-                                                       /* has zk = */ {},
-                                                       nullptr,
-                                                       /* libra commitments = */ {},
-                                                       /* libra evaluations = */ {},
-                                                       {},
-                                                       {},
-                                                       to_vector_of_ref_vectors(concatenation_groups_commitments),
-                                                       RefVector(c_evaluations));
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
+                                                                                    mock_claims.claim_batcher,
+                                                                                    mle_opening_point,
+                                                                                    vk->get_g1_identity(),
+                                                                                    verifier_transcript,
+                                                                                    /* repeated commitments= */ {},
+                                                                                    /* has zk = */ {},
+                                                                                    nullptr,
+                                                                                    /* libra commitments = */ {},
+                                                                                    /* libra evaluations = */ {},
+                                                                                    {},
+                                                                                    {});
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 

@@ -76,7 +76,7 @@ class TranslatorProvingKey {
         // We construct concatenated versions of range constraint polynomials, where several polynomials are
         // concatenated
         // into one. These polynomials are not commited to.
-        compute_concatenated_polynomials();
+        compute_concatenated_polynomials_by_interleaving();
 
         // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to
         // bridge
