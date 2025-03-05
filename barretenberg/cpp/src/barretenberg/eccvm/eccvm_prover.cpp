@@ -141,6 +141,8 @@ void ECCVMProver::execute_pcs_rounds()
                                                sumcheck_output.claimed_libra_evaluation,
                                                transcript,
                                                key->commitment_key);
+    small_subgroup_ipa_prover.prove();
+
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
     PolynomialBatcher polynomial_batcher(key->circuit_size);

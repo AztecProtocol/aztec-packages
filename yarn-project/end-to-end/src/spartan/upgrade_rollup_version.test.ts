@@ -18,6 +18,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
+import type { ChildProcess } from 'child_process';
 import omit from 'lodash.omit';
 import { getContract } from 'viem';
 import { stringify } from 'viem/utils';
@@ -36,22 +37,29 @@ describe('spartan_upgrade_rollup_version', () => {
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
   let originalL1ContractAddresses: L1ContractAddresses;
+  const forwardProcesses: ChildProcess[] = [];
+
+  afterAll(() => {
+    forwardProcesses.forEach(p => p.kill());
+  });
+
   beforeAll(async () => {
-    await startPortForward({
+    const { process: pxeProcess, port: pxePort } = await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
       namespace: config.NAMESPACE,
       containerPort: config.CONTAINER_PXE_PORT,
-      hostPort: config.HOST_PXE_PORT,
     });
-    await startPortForward({
+    forwardProcesses.push(pxeProcess);
+    const PXE_URL = `http://127.0.0.1:${pxePort}`;
+
+    const { process: ethProcess, port: ethPort } = await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
       namespace: config.NAMESPACE,
       containerPort: config.CONTAINER_ETHEREUM_PORT,
-      hostPort: config.HOST_ETHEREUM_PORT,
     });
-    ETHEREUM_HOSTS = [`http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`];
+    forwardProcesses.push(ethProcess);
+    ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
-    const PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
     nodeInfo = await pxe.getNodeInfo();
     originalL1ContractAddresses = omit(nodeInfo.l1ContractAddresses, 'slashFactoryAddress');
@@ -279,13 +287,15 @@ describe('spartan_upgrade_rollup_version', () => {
       // Now delete all the pods, forcing them to restart on the new rollup
       await rollAztecPods(config.NAMESPACE);
 
-      // restart the port forward
-      await startPortForward({
+      // start a new port forward
+      const { process: pxeProcess, port: pxePort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
-        hostPort: config.HOST_PXE_PORT,
       });
+      forwardProcesses.push(pxeProcess);
+      const PXE_URL = `http://127.0.0.1:${pxePort}`;
+      pxe = await createCompatibleClient(PXE_URL, debugLogger);
 
       const newNodeInfo = await pxe.getNodeInfo();
       expect(newNodeInfo.l1ContractAddresses.rollupAddress).toEqual(newCanonicalAddresses.rollupAddress);

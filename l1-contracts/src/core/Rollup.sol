@@ -19,7 +19,8 @@ import {EpochProofLib} from "./libraries/RollupLibs/EpochProofLib.sol";
 import {ValidatorSelectionLib} from "./libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {
   RollupCore,
-  Config,
+  RollupConfig,
+  GenesisState,
   IRewardDistributor,
   IFeeJuicePortal,
   IERC20,
@@ -61,22 +62,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IFeeJuicePortal _fpcJuicePortal,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
-    bytes32 _vkTreeRoot,
-    bytes32 _protocolContractTreeRoot,
-    bytes32 _genesisArchiveRoot,
-    bytes32 _genesisBlockHash,
-    address _ares,
-    Config memory _config
+    address _governance,
+    GenesisState memory _genesisState,
+    RollupConfig memory _config
   )
     RollupCore(
       _fpcJuicePortal,
       _rewardDistributor,
       _stakingAsset,
-      _vkTreeRoot,
-      _protocolContractTreeRoot,
-      _genesisArchiveRoot,
-      _genesisBlockHash,
-      _ares,
+      _governance,
+      _genesisState,
       _config
     )
   {}
