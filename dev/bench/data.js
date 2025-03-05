@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741192923641,
+  "lastUpdate": 1741192982917,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "saleel@aztecprotocol.com",
-            "name": "saleel",
-            "username": "saleel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d583b09373c21ca34dac96e0f4bb102c48f3f1e1",
-          "message": "feat: add include_gates_per_opcode flag for gates command (#12328)\n\n`gates_per_opcode` in JSON output of `bb gates` command is not useful\napart from the usage in flamegraph.\nThis PR moves it under a flag - cleaner output for external users.\n\n\nTodo: [Noir\ndocs](https://github.com/noir-lang/noir/blob/master/docs/docs/tooling/profiler.md#generate-a-backend-gates-flamegraph)\nneeds to be updated once bb is released",
-          "timestamp": "2025-02-28T18:30:10Z",
-          "tree_id": "9fd9c87560aacdb452f9924dc53b3dbe3484eea2",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d583b09373c21ca34dac96e0f4bb102c48f3f1e1"
-        },
-        "date": 1740769624719,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18353.995720000057,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16119.411632999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18670.340733999867,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16533.251466 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3914.379697999948,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3109.0360809999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55233.23407900001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55233235000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9953.331647,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9953337000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1887623533,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1887623533 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 212338548,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 212338548 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 222200650,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 222200650 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7a307e7348d6a03fc8c25ebd587c924ad370fdeb",
+          "message": "feat: track if spot and sanitise merge queue name (#12432)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
+          "timestamp": "2025-03-05T16:08:05Z",
+          "tree_id": "c2021321a0f8503258fc016a1fb1d6fabe262026",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7a307e7348d6a03fc8c25ebd587c924ad370fdeb"
+        },
+        "date": 1741192974280,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18264.887159999944,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16099.314505999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18750.59051799985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16293.052408999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3880.929208000225,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3082.502516 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55294.147250999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55294146000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9550.00404,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9550008000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1942831515,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1942831515 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 216297312,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 216297312 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
