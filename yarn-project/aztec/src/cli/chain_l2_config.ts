@@ -46,7 +46,7 @@ export async function getL2ChainConfig(networkName: NetworkNames): Promise<L2Cha
 export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   const config = await getL2ChainConfig(networkName);
   if (!config) {
-    return;
+    throw new Error(`Unknown network name: ${networkName}`);
   }
   process.env['ETHEREUM_SLOT_DURATION'] = config.ethereumSlotDuration.toString();
   process.env['AZTEC_SLOT_DURATION'] = config.aztecSlotDuration.toString();
