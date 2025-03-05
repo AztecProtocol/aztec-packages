@@ -43,12 +43,14 @@ namespace {
 struct ProvingSettings {
     template <typename E> using DefaultEventEmitter = EventEmitter<E>;
     template <typename E> using DefaultDeduplicatingEventEmitter = DeduplicatingEventEmitter<E>;
+    template <typename E> using DefaultStableEventEmitter = StableEventEmitter<E>;
 };
 
 // Configuration for fast simulation.
 struct FastSettings {
     template <typename E> using DefaultEventEmitter = NoopEventEmitter<E>;
     template <typename E> using DefaultDeduplicatingEventEmitter = NoopEventEmitter<E>;
+    template <typename E> using DefaultStableEventEmitter = NoopStableEventEmitter<E>;
 };
 
 } // namespace
@@ -74,6 +76,9 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
     typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
 
+    typename S::template DefaultStableEventEmitter<ContextEvent> context_event_emitter;
+    typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_event_emitter;
+
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
 
     AddressDerivation address_derivation(address_derivation_emitter);
@@ -92,13 +97,14 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ContextProvider context_provider(bytecode_manager, memory_emitter);
+    ContextProvider context_provider(
+        bytecode_manager, memory_emitter, context_event_emitter, context_stack_event_emitter);
 
     Alu alu(alu_emitter);
     InstructionInfoDB instruction_info_db;
     Addressing addressing(instruction_info_db, addressing_emitter);
     ContextStack context_stack;
-    Execution execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_emitter);
+    Execution execution(alu, addressing, context_provider, instruction_info_db, execution_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
     ToRadix to_radix(to_radix_emitter);

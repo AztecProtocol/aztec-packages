@@ -33,41 +33,86 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
 }
 
 // TODO: This will need to happen in its own gadget in any case.
+// TODO: Add more params for call
 void Execution::call(ContextInterface& context, MemoryAddress addr)
 {
     auto& memory = context.get_memory();
 
     const auto [contract_address, _] = memory.get(addr);
-    std::vector<FF> calldata = {};
+    context.reserve_context_event();
 
-    auto nested_context = context_provider.make(contract_address,
-                                                /*msg_sender=*/context.get_address(),
-                                                /*calldata=*/calldata,
-                                                /*is_static=*/false);
-    context_stack.push(std::move(nested_context));
+    // Create new context.
+    auto nested_ctx = context_provider.make_nested_ctx(context,
+                                                       contract_address,
+                                                       /*msg_sender=*/context.get_address(),
+                                                       /*calldata_offset=*/0,
+                                                       /*calldata_size=*/0,
+                                                       /*is_static=*/false);
+    execution_result = execute_internal(*nested_ctx);
+
+    context.get_last_context_event()->nested_ctx_success = execution_result.success;
+    context.set_nested_ctx_success(execution_result.success);
+    context.absorb_child_context(std::move(nested_ctx));
+
+    // The current context will be updated with the return data info
+}
+
+void Execution::cd_copy(ContextInterface& context,
+                        MemoryAddress cd_offset_addr,
+                        MemoryAddress copy_size_addr,
+                        [[maybe_unused]] MemoryAddress dst_addr)
+{
+    [[maybe_unused]] auto& memory = context.get_memory();
+    const auto [cd_offset, addr_tag] = memory.get(cd_offset_addr);
+    const auto [copy_size, copy_tag] = memory.get(copy_size_addr);
+
+    // Hmm in nested: this will trigger as many memory events as the length of calldata specified by the call opcode
+    // In reality we want to only write a slice of the calldata to the memory
+    // slice_length = (calldata_offset + cd_offset_addr)...(calldata_offset + cd_offset_addr + copy_size_addr)
+    // Validation to check: copy_size < calldata_size
+    // Chop up the calldata, get_calldata may create memory events in the parent context OR a lookup to public inputs
+    [[maybe_unused]] auto calldata =
+        context.get_calldata(static_cast<uint32_t>(cd_offset), static_cast<uint32_t>(copy_size));
+
+    // Write the modified calldata back to the current context
+    // memory.set_slice(dst_addr, calldata);
 }
 
 // TODO: This will need to happen in its own gadget in any case.
-void Execution::ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset)
+void Execution::ret([[maybe_unused]] ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset)
+{
+    execution_result = {
+        .returndata_src_addr = ret_offset,
+        .returndata_size_addr = ret_size_offset,
+        .success = true,
+    };
+
+    context.halt();
+}
+
+void Execution::rd_size(ContextInterface& context, MemoryAddress dst_offset)
+{
+    // Writes the stored returndata size to the memory at dst_offset
+    auto& memory = context.get_memory();
+    // This memory read actually needs to be child_memory_ctx
+    auto rd_size = memory.get(dst_offset).value;
+    // This memory write is correct (i.e. the current ctx)
+    memory.set(dst_offset, rd_size, MemoryTag::U32);
+}
+
+void Execution::rd_copy(ContextInterface& context,
+                        MemoryAddress rd_offset_addr,
+                        MemoryAddress copy_size_addr,
+                        [[maybe_unused]] MemoryAddress dst_offset)
 {
     auto& memory = context.get_memory();
+    const auto [rd_offset, addr_tag] = memory.get(rd_offset_addr);
+    const auto [copy_size, size_tag] = memory.get(copy_size_addr);
 
-    // TODO: check tags and types (only for size, the return data is converted to FF).
-    uint32_t size = static_cast<uint32_t>(memory.get(ret_size_offset).value);
-    auto [values, _] = memory.get_slice(ret_offset, size);
-
-    context_stack.pop();
-    std::vector returndata(values.begin(), values.end());
-    if (!context_stack.empty()) {
-        auto& context = context_stack.current();
-        // TODO: We'll need more than just the return data. E.g., the space id, address and size.
-        context.set_nested_returndata(std::move(returndata));
-    } else {
-        top_level_result = {
-            .returndata = std::move(returndata),
-            .success = true,
-        };
-    }
+    // See cd_copy comment
+    [[maybe_unused]] auto returndata =
+        context.get_returndata(static_cast<uint32_t>(rd_offset), static_cast<uint32_t>(copy_size));
+    // memory.set_slice(dst_offset, returndata);
 }
 
 void Execution::jump(ContextInterface& context, uint32_t loc)
@@ -91,16 +136,22 @@ ExecutionResult Execution::execute(AztecAddress contract_address,
                                    AztecAddress msg_sender,
                                    bool is_static)
 {
-    auto context = context_provider.make(contract_address, msg_sender, calldata, is_static);
-    context_stack.push(std::move(context));
-    execution_loop();
-    return std::move(top_level_result);
+    // This is a top-level call
+    auto context = context_provider.make_enqueued_call_ctx(contract_address, msg_sender, calldata, is_static);
+    execute_internal(*context);
+    return std::move(execution_result); // We might want to do unconstrained memory read here to get the return data
 }
 
-void Execution::execution_loop()
+// This is for a nested call only
+ExecutionResult Execution::execute_internal(ContextInterface& context)
 {
-    while (!context_stack.empty()) {
-        auto& context = context_stack.current();
+    execution_loop(context);
+    return std::move(execution_result);
+}
+
+void Execution::execution_loop(ContextInterface& context)
+{
+    while (!context.is_halted()) {
 
         // This try-catch is here to ignore any unhandled opcodes.
         try {
@@ -113,8 +164,6 @@ void Execution::execution_loop()
             const ExecInstructionSpec& spec = instruction_info_db.get(opcode); // Unused for now.
             std::vector<Operand> resolved_operands = addressing.resolve(instruction, context.get_memory());
 
-            dispatch_opcode(opcode, resolved_operands);
-
             events.emit({ .pc = pc,
                           .bytecode_id = context.get_bytecode_manager().get_bytecode_id(),
                           .wire_instruction = std::move(instruction),
@@ -122,7 +171,12 @@ void Execution::execution_loop()
                           .opcode = opcode,
                           .resolved_operands = std::move(resolved_operands) });
 
+            dispatch_opcode(opcode, resolved_operands);
+
+            context.emit_current_context();
+
             context.set_pc(context.get_next_pc());
+
         } catch (const std::exception& e) {
             info("Error: ", e.what());
             // Bah, we are done.
@@ -173,7 +227,7 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
     auto operand_indices = std::make_index_sequence<sizeof...(Ts)>{};
     using types = std::tuple<Ts...>;
     [f, this, &resolved_operands]<std::size_t... Is>(std::index_sequence<Is...>) {
-        (this->*f)(context_stack.current(), static_cast<std::tuple_element_t<Is, types>>(resolved_operands[Is])...);
+        (this->*f)(*current_context, static_cast<std::tuple_element_t<Is, types>>(resolved_operands[Is])...);
     }(operand_indices);
 }
 

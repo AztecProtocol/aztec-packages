@@ -59,13 +59,24 @@ template <typename Event> class DeduplicatingEventEmitter : public EventEmitter<
 // It lets you access the last event that was emitted.
 // Note: this is currently unused but it might be needed for the execution trace (calls).
 // Reconsider its existence in a while.
-template <typename Event> class StableEventEmitter : public EventEmitterInterface<Event> {
+
+template <typename Event> class StableEventEmitterInterface {
+  public:
+    using Container = std::list<Event>;
+
+    virtual ~StableEventEmitterInterface() = default;
+    virtual void emit(Event&& event) = 0;
+    virtual Event& last() = 0;
+    virtual std::vector<Event> dump_events() = 0;
+};
+
+template <typename Event> class StableEventEmitter : public StableEventEmitterInterface<Event> {
   public:
     using Container = std::list<Event>;
 
     virtual ~StableEventEmitter() = default;
     void emit(Event&& event) override { events.push_back(std::move(event)); };
-    Event& last() { return events.back(); }
+    Event& last() override { return events.back(); }
 
     const Container& get_events() const { return events; }
     std::vector<Event> dump_events() override
@@ -87,6 +98,21 @@ template <typename Event> class NoopEventEmitter : public EventEmitterInterface<
 
     void emit(Event&&) override{};
     Container dump_events() override { return {}; }
+};
+
+template <typename Event> class NoopStableEventEmitter : public StableEventEmitterInterface<Event> {
+  public:
+    using Container = std::list<Event>;
+
+    virtual ~NoopStableEventEmitter() = default;
+
+    void emit(Event&&) override{};
+    Event& last() override
+    {
+        static Event dummy;
+        return dummy;
+    }
+    std::vector<Event> dump_events() override { return {}; }
 };
 
 } // namespace bb::avm2::simulation

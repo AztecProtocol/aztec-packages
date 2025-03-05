@@ -17,7 +17,7 @@ void TxExecution::simulate(const Tx& tx)
              " was a ",
              result.success ? "success" : "failure",
              " and it returned ",
-             result.returndata.size(),
+             // result.returndata.size(),
              " elements.");
     }
 }
