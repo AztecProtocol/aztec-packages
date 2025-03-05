@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741128823894,
+  "lastUpdate": 1741139315438,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mvezenov@gmail.com",
-            "name": "Maxim Vezenov",
-            "username": "vezenovm"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ed3249904bf113ff2818499eff15069a5192c455",
-          "message": "fix(aztec-nr): Use mutable ref when mutating variable in closure (#12311)\n\nPost https://github.com/noir-lang/noir/pull/7488 aztec-nr is going to\nfail to compile as we now explicitly error when attempting to use a\ncapture mutably (lambda captures are meant to be entirely immutable).\nThe current code only worked because it was done at comptime.",
-          "timestamp": "2025-02-27T13:29:23Z",
-          "tree_id": "66e68fc5570f89932425f42620c86cc7b3b815ac",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ed3249904bf113ff2818499eff15069a5192c455"
-        },
-        "date": 1740665206187,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18330.625191999843,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16158.300750000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18840.65656300004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16430.807674 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3994.051480000053,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3193.1216780000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55007.640242999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55007640000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9571.853281000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9571861000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1902591005,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1902591005 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 215236958,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 215236958 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 218820818,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 218820818 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "518e7b9a3a148c7a856c3d5ee24d64aa4e1453af",
+          "message": "fix: mass tag push scenario (#12464)\n\nAfter mass-deleting some tags (which is generally not recommended, but I\nthought I'd clean up recent work if possible) I realized that this could\ncause someone to mass re-push the tags, as git doesn't delete them\nlocally after a pull.\n\nInstead, if we are on a git tag starting with 'v', assume we are doing a\nrelease and only allow one to go through.\n\nPS: I recommend this setting if doing manual releases:\n\n```\ngit config fetch.pruneTags true\n```",
+          "timestamp": "2025-03-04T20:17:50-05:00",
+          "tree_id": "49027dbcee8c1795f1daa705a70e1d1881b22701",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/518e7b9a3a148c7a856c3d5ee24d64aa4e1453af"
+        },
+        "date": 1741139308260,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18013.557726999807,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15890.925299 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18586.551727999904,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16163.357683 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3840.0458429998707,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3089.607527 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54981.726484000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54981726000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11069.249169,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11069253000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1896390369,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1896390369 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 220484537,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 220484537 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
