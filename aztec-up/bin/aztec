@@ -73,7 +73,6 @@ case ${1:-} in
       "
     elif [ "${2:-}" == "--testnet" ]; then
       export P2P_ENABLED=true
-      export P2P_GOSSIPSUB_FLOOD_PUBLISH=true
       export L1_CHAIN_ID=11155111
       export ETHEREUM_SLOT_DURATION=12
       export AZTEC_SLOT_DURATION=36
