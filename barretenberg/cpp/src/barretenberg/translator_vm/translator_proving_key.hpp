@@ -73,21 +73,19 @@ class TranslatorProvingKey {
         // maximum range constraint compute_extra_range_constraint_numerator();
         compute_extra_range_constraint_numerator();
 
-        // We construct concatenated versions of range constraint polynomials, where several polynomials are
-        // concatenated
-        // into one. These polynomials are not commited to.
+        // Creates the polynomials resulting from interleaving each group of range constraints into one polynomial.
+        // These are not commited to.
         compute_interleaved_polynomials();
 
-        // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to
-        // bridge
-        // the range from 0 to maximum range defined by the range constraint.
+        // We also contruct ordered polynomials, which have the same values as interleaved ones + enough values to
+        // bridge the range from 0 to maximum range defined by the range constraint.
         compute_translator_range_constraint_ordered_polynomials();
     };
 
     inline void compute_dyadic_circuit_size()
     {
 
-        // The actual circuit size is several times bigger than the trace in the circuit, because we use concatenation
+        // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
         // to bring the degree of relations down, while extending the length.
         dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
     }

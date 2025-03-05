@@ -41,7 +41,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     prover_polynomials.lagrange_first.at(0) = 1;
     prover_polynomials.lagrange_last.at(full_circuit_size - 1) = 1;
 
-    // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
+    // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
         for (size_t i = polynomial.start_index(); i < polynomial.size(); i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
@@ -53,7 +53,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
             fill_polynomial_with_random_14_bit_values(poly);
         }
     }
-    // Compute concatenated polynomials (4 polynomials produced from other constraint polynomials by concatenation)
+    // Compute interleaved polynomials (4 polynomials produced from other constraint polynomials by interleaving)
     key.compute_interleaved_polynomials();
 
     // Compute ordered range constraint polynomials that go in the denominator of the grand product polynomial
@@ -312,7 +312,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
             limb_5 = uint256_t(input).slice(MICRO_LIMB_WIDTH * 5, MICRO_LIMB_WIDTH * 6);
         };
 
-    // Put random values in all the non-concatenated constraint polynomials used to range constrain the values
+    // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
         // P.x
         prover_polynomials.x_lo_y_hi.at(i) =

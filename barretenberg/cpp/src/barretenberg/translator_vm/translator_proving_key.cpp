@@ -7,8 +7,11 @@ namespace bb {
  * @details Multilinear PCS allow to provide openings for the resulting interleaved polynomials without having to commit
  * to them, using the commitments of polynomials in groups.
  *
- * If we have f(x₁,x₂)={0, 1, 0, 1} and g(x₁,x₂)={1, 0, 0, 1} then
- * h(x₁ ,x₂ ,x₃ )=interleave(f(x₁,x₂),g(x₁,x₂))={0, 1, 1, 0, 0, 0, 1, 1}
+ * If we have:
+ * f(x₁, x₂) = {a₁, a₂, a₃, a₄}
+ * g(x₁, x₂) = {b₁, b₂, b₃, b₄}
+ * then:
+ * h(x₁, x₂, x₃) = interleave(f(x₁, x₂), g(x₁, x₂)) = {a₁, b₁, a₂, b₂, a₃, b₃, a₄, b₄}
  *
  * Since we commit to multilinear polynomials with KZG, which treats evaluations as monomial coefficients, in univariate
  * form h(x)=f(x) + x⋅g(x⁴)
