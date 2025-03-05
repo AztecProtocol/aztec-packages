@@ -216,7 +216,7 @@ export class L1TxUtils {
   constructor(
     public publicClient: ViemPublicClient,
     public walletClient: ViemWalletClient,
-    protected readonly logger: Logger = createLogger('L1TxUtils'),
+    protected logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
   ) {
     this.config = {
@@ -274,7 +274,6 @@ export class L1TxUtils {
       } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
-        this.logger.info('\n\nEstimating gas for L1 transaction');
         gasLimit = await this.estimateGas(account, request);
       }
 
@@ -302,7 +301,7 @@ export class L1TxUtils {
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
         });
       }
-      this.logger.verbose(`Sent L1 transaction ${txHash}`, {
+      this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
         gasLimit,
         maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
         maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
@@ -312,7 +311,9 @@ export class L1TxUtils {
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
       const viemError = formatViemError(err);
-      this.logger.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
+      this.logger?.error(`Failed to send L1 transaction`, viemError.message, {
+        metaMessages: viemError.metaMessages,
+      });
       throw viemError;
     }
   }
