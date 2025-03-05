@@ -61,7 +61,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--network <value>',
       description: 'Network to run Aztec on',
-      defaultValue: '',
+      defaultValue: undefined,
       envVar: 'NETWORK',
     },
   ],
