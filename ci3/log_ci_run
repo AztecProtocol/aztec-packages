@@ -12,10 +12,6 @@ if [ -z "$key" ]; then
   author="$(git log -1 --pretty=format:"%an")"
   name=$REF_NAME
   [ "$(aws_get_meta_data instance-life-cycle)" == "spot" ] && spot=true || spot=false
-  # instance_type=$(aws_get_meta_data instance-type)
-  if [[ "$name" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
-    name=${BASH_REMATCH[1]}
-  fi
 
   json=$(jq -c -j -n \
       --argjson timestamp "$key" \
