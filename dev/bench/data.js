@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741199717834,
+  "lastUpdate": 1741200705641,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9d2e96b123116e2474f3aa08eaf4630b2dfae5ad",
-          "message": "fix: Wait for L1 to L2 msg sync before claiming (#12386)\n\nIn order to claim an L1 to L2 msg on L2, we need to wait 2 L2 blocks to\nbe mined _after the archiver has synced the msg_. We were waiting 2 L2\nblocks since the message was sent L1, so if this happened right before\nthe end of an L2 slot, the archiver would not get to sync it in time, so\nwaiting for 2 blocks meant we only waited for **one** block after it got\nsynced.\n\nThis adds a wait for the msg to be synced in the node before waiting for\nthe two L2 blocks. The code that waited for the L2 blocks was repeated\nin three different places, and I didnt attempt to refactor it here, so\nthe fix is also repeated three times.\n\nFixes #12366",
-          "timestamp": "2025-02-28T18:18:43-03:00",
-          "tree_id": "c422b07af5b756304cd709d0407533ae7201ef17",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9d2e96b123116e2474f3aa08eaf4630b2dfae5ad"
-        },
-        "date": 1740779433646,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18142.659761999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15988.668214000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18657.13638400007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16368.149578999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3842.780656000059,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3101.3220859999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55205.423163,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55205423000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11324.551264,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11324555000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1903064907,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1903064907 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 224998209,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 224998209 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3598,6 +3526,78 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
             "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztec-labs.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aaef150f70197c9c59fafc06bd54eb7415185541",
+          "message": "chore: parallelise interleaving and remove mentions of concatenation (#12373)\n\nIn this PR:\n* rename all mentions of concatenation to interleaving and remove the\nfunctions doing concatenation or toy interleaving, remove redundant\ntests related to the toy interleaving\n* parallelise the function constructing the interleaved polynomials from\ngroups (running the ClientIVC benchmark now shows no decrease in\nperformance)",
+          "timestamp": "2025-03-05T18:11:00Z",
+          "tree_id": "65e19cb4c57dbcf9a35cafa04c73ac3fb3bdae2c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/aaef150f70197c9c59fafc06bd54eb7415185541"
+        },
+        "date": 1741200698231,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18375.856698000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16074.999987999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18880.77298500002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16489.99323 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3946.281467999597,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3168.8245930000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55228.775245000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55228775000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9941.434894,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9941436000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1910214844,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1910214844 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 218805327,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 218805327 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
