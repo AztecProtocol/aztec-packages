@@ -22,6 +22,7 @@ namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::BytecodeTraceBuilder;
+using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -138,7 +139,6 @@ TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
 // We perform this for a random instruction for opcodes: REVERT_16, CAST_8, TORADIXBE
 TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
 {
-    TestTraceContainer trace;
     BytecodeTraceBuilder builder;
 
     std::vector<WireOpCode> opcodes = { WireOpCode::REVERT_16, WireOpCode::CAST_8, WireOpCode::TORADIXBE };
@@ -155,6 +155,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
     };
 
     for (const auto& opcode : opcodes) {
+        TestTraceContainer trace;
         const auto instr = testing::random_instruction(opcode);
         builder.process_instruction_fetching({ simulation::InstructionFetchingEvent{
                                                  .bytecode_id = 1,
@@ -186,7 +187,7 @@ TEST(InstrFetchingConstrainingTest, WireInstructionSpecInteractions)
     TestTraceContainer trace;
     BytecodeTraceBuilder bytecode_builder;
 
-    tracegen::PrecomputedTraceBuilder precomputed_builder;
+    PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_wire_instruction_spec(trace);
     bytecode_builder.process_instruction_fetching(gen_instr_events_each_opcode(), trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
@@ -219,6 +220,111 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
 
     check_relation<instr_fetching>(trace);
     check_interaction<bc_decomposition_lookup>(trace);
+}
+
+// Negative interaction test with some values not matching the instruction spec table.
+TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions)
+{
+    using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
+
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    // Some arbitrary chosen opcodes. We limit to one as this unit test is costly.
+    // Test works if the following vector is extended to other opcodes though.
+    std::vector<WireOpCode> opcodes = { WireOpCode::CALLDATACOPY };
+
+    for (const auto& opcode : opcodes) {
+        TestTraceContainer trace;
+        const auto instr = testing::random_instruction(opcode);
+        bytecode_builder.process_instruction_fetching(
+            { simulation::InstructionFetchingEvent{ .bytecode_id = 1,
+                                                    .pc = 0,
+                                                    .instruction = instr,
+                                                    .bytecode =
+                                                        std::make_shared<std::vector<uint8_t>>(instr.encode()) } },
+            trace);
+        precomputed_builder.process_wire_instruction_spec(trace);
+        precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
+
+        tracegen::LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+        check_interaction<wire_instr_spec_lookup>(trace);
+
+        const std::vector<C> mutated_cols = {
+            C::instr_fetching_exec_opcode,  C::instr_fetching_instr_size_in_bytes, C::instr_fetching_sel_op_dc_0,
+            C::instr_fetching_sel_op_dc_1,  C::instr_fetching_sel_op_dc_2,         C::instr_fetching_sel_op_dc_3,
+            C::instr_fetching_sel_op_dc_4,  C::instr_fetching_sel_op_dc_5,         C::instr_fetching_sel_op_dc_6,
+            C::instr_fetching_sel_op_dc_7,  C::instr_fetching_sel_op_dc_8,         C::instr_fetching_sel_op_dc_9,
+            C::instr_fetching_sel_op_dc_10, C::instr_fetching_sel_op_dc_11,        C::instr_fetching_sel_op_dc_12,
+            C::instr_fetching_sel_op_dc_13, C::instr_fetching_sel_op_dc_14,        C::instr_fetching_sel_op_dc_15,
+            C::instr_fetching_sel_op_dc_16, C::instr_fetching_sel_op_dc_17,
+        };
+
+        // Mutate execution opcode
+        for (const auto& col : mutated_cols) {
+            auto mutated_trace = trace;
+            const FF mutated_value = trace.get(col, 0) + 1; // Mutate to value + 1
+            mutated_trace.set(col, 0, mutated_value);
+            EXPECT_THROW_WITH_MESSAGE(check_interaction<wire_instr_spec_lookup>(mutated_trace),
+                                      "Relation.*WIRE_INSTRUCTION_INFO.* ACCUMULATION.* is non-zero");
+        }
+    }
+}
+
+// Negative interaction test with some values not matching the bytecode decomposition table.
+TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
+{
+    using bc_decomposition_lookup = lookup_instr_fetching_bytes_from_bc_dec_relation<FF>;
+
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+
+    // Some arbitrary chosen opcodes. We limit to one as this unit test is costly.
+    // Test works if the following vector is extended to other opcodes though.
+    std::vector<WireOpCode> opcodes = { WireOpCode::STATICCALL };
+
+    for (const auto& opcode : opcodes) {
+        TestTraceContainer trace;
+        const auto instr = testing::random_instruction(opcode);
+        auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(instr.encode());
+        bytecode_builder.process_instruction_fetching({ simulation::InstructionFetchingEvent{
+                                                          .bytecode_id = 1,
+                                                          .pc = 0,
+                                                          .instruction = instr,
+                                                          .bytecode = bytecode_ptr,
+                                                      } },
+                                                      trace);
+        bytecode_builder.process_decomposition({ simulation::BytecodeDecompositionEvent{
+                                                   .bytecode_id = 1,
+                                                   .bytecode = bytecode_ptr,
+                                               } },
+                                               trace);
+
+        tracegen::LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(trace);
+        check_interaction<bc_decomposition_lookup>(trace);
+
+        const std::vector<C> mutated_cols = {
+            C::instr_fetching_pc,   C::instr_fetching_bytecode_id, C::instr_fetching_bd0,  C::instr_fetching_bd1,
+            C::instr_fetching_bd2,  C::instr_fetching_bd3,         C::instr_fetching_bd4,  C::instr_fetching_bd5,
+            C::instr_fetching_bd6,  C::instr_fetching_bd7,         C::instr_fetching_bd8,  C::instr_fetching_bd9,
+            C::instr_fetching_bd10, C::instr_fetching_bd11,        C::instr_fetching_bd12, C::instr_fetching_bd13,
+            C::instr_fetching_bd14, C::instr_fetching_bd15,        C::instr_fetching_bd16, C::instr_fetching_bd17,
+            C::instr_fetching_bd18, C::instr_fetching_bd19,        C::instr_fetching_bd20, C::instr_fetching_bd21,
+            C::instr_fetching_bd22, C::instr_fetching_bd23,        C::instr_fetching_bd24, C::instr_fetching_bd25,
+            C::instr_fetching_bd26, C::instr_fetching_bd27,        C::instr_fetching_bd28, C::instr_fetching_bd29,
+            C::instr_fetching_bd30, C::instr_fetching_bd31,        C::instr_fetching_bd32, C::instr_fetching_bd33,
+            C::instr_fetching_bd34, C::instr_fetching_bd35,        C::instr_fetching_bd36,
+        };
+
+        // Mutate execution opcode
+        for (const auto& col : mutated_cols) {
+            auto mutated_trace = trace;
+            const FF mutated_value = trace.get(col, 0) + 1; // Mutate to value + 1
+            mutated_trace.set(col, 0, mutated_value);
+            EXPECT_THROW_WITH_MESSAGE(check_interaction<bc_decomposition_lookup>(mutated_trace),
+                                      "Relation.*BYTES_FROM_BC_DEC.* ACCUMULATION.* is non-zero");
+        }
+    }
 }
 
 } // namespace
