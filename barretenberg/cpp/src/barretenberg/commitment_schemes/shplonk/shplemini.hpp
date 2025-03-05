@@ -488,7 +488,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * number of scalar multiplications required during the verification.
      *
      * More specifically, the Shplemini verifier receives two or three groups of commitments: get_unshifted() and
-     * get_to_be_shifted() in the case of Ultra, Mega, and ECCVM Flavors; andget_unshifted_without_interleaved(),
+     * get_to_be_shifted() in the case of Ultra, Mega, and ECCVM Flavors; and get_unshifted_without_interleaved(),
      * get_to_be_shifted(), and get_groups_to_be_interleaved() in the case of the TranslatorFlavor. The commitments are
      * then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a vector
      * of scalars. The ranges with repeated commitments belong to the Flavors. This method iterates over these ranges
