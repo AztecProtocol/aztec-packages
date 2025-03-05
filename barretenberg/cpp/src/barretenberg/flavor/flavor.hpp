@@ -87,18 +87,6 @@
 
 namespace bb {
 
-/**
- * @brief Base class template for VericationKey containing circuit-specifying data.
- *
- */
-template <typename FF_> class VerificationKeyBase {
-  public:
-    bool operator==(const VerificationKeyBase& other) const = default;
-    FF_ circuit_size;
-    FF_ log_circuit_size;
-    FF_ num_public_inputs;
-    FF_ pub_inputs_offset = 0;
-};
 // Specifies the regions of the execution trace containing non-trivial wire values
 struct ActiveRegionData {
     void add_range(const size_t start, const size_t end)
@@ -171,12 +159,16 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
  * @tparam VerifierCommitmentKey The PCS verification key
  */
 template <typename FF_, typename PrecomputedCommitments, typename VerifierCommitmentKey>
-class VerificationKey_ : public PrecomputedCommitments, public VerificationKeyBase<FF_> {
+class VerificationKey_ : public PrecomputedCommitments {
   public:
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    FF_ contains_pairing_point_accumulator = false;
+    FF_ circuit_size;
+    FF_ log_circuit_size;
+    FF_ num_public_inputs;
+    FF_ pub_inputs_offset = 0;
+    bool contains_pairing_point_accumulator = false;
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
 
     bool operator==(const VerificationKey_&) const = default;

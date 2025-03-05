@@ -107,8 +107,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                                                    ? std::make_shared<VerifierCommitmentKey>()
                                                    : verification_key->pcs_verification_key;
         native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(verification_key->pub_inputs_offset.get_value());
-        native_honk_vk->contains_pairing_point_accumulator =
-            static_cast<bool>(verification_key->contains_pairing_point_accumulator.get_value());
+        native_honk_vk->contains_pairing_point_accumulator = verification_key->contains_pairing_point_accumulator;
         native_honk_vk->pairing_point_accumulator_public_input_indices =
             verification_key->pairing_point_accumulator_public_input_indices;
         if constexpr (IsMegaFlavor<Flavor>) {
