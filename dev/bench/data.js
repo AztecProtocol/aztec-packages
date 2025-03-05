@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741195092214,
+  "lastUpdate": 1741197396329,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0a03c7a09ae13dacb10411693f656bbeeb3477db",
-          "message": "chore: always verify clientivc (#12310)\n\nThis prevents confusion around why the rollup would fail to verify an\nIVC proof. The cost is around 100ms and worth it at least until things\nare very stable, as this sanity checks issues with our proving.",
-          "timestamp": "2025-02-28T18:58:42Z",
-          "tree_id": "834568445cd5a5a4d0c96ed3a8f0d7b67c02e909",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0a03c7a09ae13dacb10411693f656bbeeb3477db"
-        },
-        "date": 1740771892366,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18237.985586999912,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16154.040843 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18802.66592399994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16543.972029 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3959.0097529999184,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3137.748681 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55288.970914,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55288971000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11136.93087,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11136933000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1908414237,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1908414237 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 224385843,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 224385843 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3598,6 +3526,78 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
             "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c7dc5492c431ad6052a92d7de265f2a2e59af728",
+          "message": "feat: Combine group polynomials in translator by interleaving rather than concatenation (#12343)\n\nTo facilitate making the translator ZK, we change the strategy of\ncombining the range constraint polynomials in translator (defined over\nthe `mini_circuit_size`) by interleaving rather than concatenation. This\nway, when blinding the polynomials, all the randomness will be located\nat the end. This PR changes the PCS protocol to handle interleaved\npolynomials and ensures the Translator polynomials are constructed by\ninterleaving (synchronously for now). The changes were integrated in the\nClaimBatcher and PolynomialBatcher\n\nSummary of changes required in the Gemini protocol.\nWith interleaving, the full batched polynomial is defined as A(X) = F(X)\n+ G(X)/X + P(X^s) where s is the size of the group of polynomials to be\ninterleaved, assumed even. Before, the concatenated component was\npartially evaluated as part of A_0+ and A_0-. Now we construct A_0+ and\nA_0- only from the batched shifted and batched unshifted components and\nseparate polynomials P+ and P- for the interleaved components and send\ntwo new opening claims for the evaluation of P+ and P- at r^s: (P+, r^s,\nP(r^s)) and (P-, r^s, P-(r^s). This way we can correctly reconstruct\nA(r) = A_0+(r) + P+(r^s) and A(-r) = A_0-(-r) + P_(r^s). The protocol\nenforces s has to be even so that (-r)^s = r^s",
+          "timestamp": "2025-03-05T17:14:51Z",
+          "tree_id": "3394b389579ff7c28819214ffcee0556e015fa22",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c7dc5492c431ad6052a92d7de265f2a2e59af728"
+        },
+        "date": 1741197388970,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18484.309483999823,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16378.714089 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18793.145228999947,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16372.345899999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3927.019540999936,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3142.067745 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55822.353125999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55822350000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11282.148501999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11282152000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1923768787,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1923768787 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 215499850,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 215499850 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
