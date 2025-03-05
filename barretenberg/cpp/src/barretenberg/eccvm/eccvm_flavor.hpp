@@ -75,12 +75,12 @@ class ECCVMFlavor {
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>
     using Relations_ = std::tuple<ECCVMTranscriptRelation<FF>,
-                                  // ECCVMPointTableRelation<FF>,
-                                  // ECCVMWnafRelation<FF>,
-                                  // ECCVMMSMRelation<FF>,
-                                  ECCVMSetRelation<FF>>;
-    // ECCVMLookupRelation<FF>,
-    // ECCVMBoolsRelation<FF>>;
+                                  ECCVMPointTableRelation<FF>,
+                                  ECCVMWnafRelation<FF>,
+                                  ECCVMMSMRelation<FF>,
+                                  ECCVMSetRelation<FF>,
+                                  ECCVMLookupRelation<FF>,
+                                  ECCVMBoolsRelation<FF>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
 
@@ -629,13 +629,13 @@ class ECCVMFlavor {
             // values must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column
             // values that are all zero (issue #2217)
             if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
-                for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+                for (size_t i = transcript_rows.size(); i < dyadic_num_rows - MASKING_OFFSET; ++i) {
                     transcript_accumulator_empty.set_if_valid_index(i, 1);
                 }
             }
             // in addition, unless the accumulator is reset, it contains the value from the previous row so this
             // must be propagated
-            for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+            for (size_t i = transcript_rows.size(); i < dyadic_num_rows - MASKING_OFFSET; ++i) {
                 transcript_accumulator_x.set_if_valid_index(i, transcript_accumulator_x[i - 1]);
                 transcript_accumulator_y.set_if_valid_index(i, transcript_accumulator_y[i - 1]);
             }

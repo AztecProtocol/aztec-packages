@@ -47,10 +47,14 @@ void ECCVMProver::execute_preamble_round()
  */
 void ECCVMProver::execute_wire_commitments_round()
 {
+    // We mask the last MASKING_OFFSET coefficients of each wire polynomial. To commit to the masked wires when
+    // `real_size` < `circuit_size`, we use `commit_structured` that ignores 0 coefficients between the real size and
+    // the last MASKING_OFFSET wire entries.
     const size_t circuit_size = key->circuit_size;
-    const size_t masking_start = circuit_size - 1 - MASKING_OFFSET - 2;
-    std::vector<std::pair<size_t, size_t>> active_ranges{ { 0, key->real_size - 1 },
-                                                          { masking_start, circuit_size - 1 } };
+    const size_t masking_start = circuit_size - MASKING_OFFSET;
+    std::vector<std::pair<size_t, size_t>> active_ranges{ { 1, key->real_size + 1 },
+                                                          { masking_start, circuit_size + 1 } };
+
     // Commit to wires whose length is bounded by the real size of the ECCVM
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
                                               commitment_labels.get_wires_without_accumulators())) {
@@ -58,12 +62,13 @@ void ECCVMProver::execute_wire_commitments_round()
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
         // ECCVM/Translator/MegaZK
         // PolynomialSpan<FF> wire_span = wire;
-        transcript->send_to_verifier(label, key->commitment_key->commit(wire));
+        transcript->send_to_verifier(label, key->commitment_key->commit_structured(wire, active_ranges));
     }
 
     // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
     for (const auto& [wire, label] :
          zip_view(key->polynomials.get_accumulators(), commitment_labels.get_accumulators())) {
+        mask_witness_polynomial(wire);
         transcript->send_to_verifier(label, key->commitment_key->commit(wire));
     }
 }
@@ -90,6 +95,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<typename Flavor::FF, typename Flavor::LookupRelation>(
         key->polynomials, relation_parameters, key->circuit_size - MASKING_OFFSET);
+    mask_witness_polynomial(key->polynomials.lookup_inverses);
     transcript->send_to_verifier(commitment_labels.lookup_inverses,
                                  key->commitment_key->commit(key->polynomials.lookup_inverses));
 }
@@ -102,6 +108,7 @@ void ECCVMProver::execute_grand_product_computation_round()
 {
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, key->circuit_size - MASKING_OFFSET);
+    mask_witness_polynomial(key->polynomials.z_perm);
 
     transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }
