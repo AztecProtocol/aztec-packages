@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741188529536,
+  "lastUpdate": 1741188549481,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a301f72494f7ba97e4e8cbc5b03795e2a144b95c",
-          "message": "feat: add historical library tests and remove old inclusion proof contract / related tests (#12215)\n\nAdding txe tests to the historical apis, and removing inclusion proofs\ncontract with corresponding (flaky) e2e test\n\n---------\n\nCo-authored-by: Jan Beneš <janbenes1234@gmail.com>",
-          "timestamp": "2025-02-28T03:44:07+09:00",
-          "tree_id": "af66c14a8dbb109a663725f6e8179d06bb05c283",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a301f72494f7ba97e4e8cbc5b03795e2a144b95c"
-        },
-        "date": 1740684104494,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18316.923787999942,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16078.906003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18673.907032999978,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16451.053546999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3949.4590720000815,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3173.9207450000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55042.11381499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55042117000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10461.254940000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10461263000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1916752954,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1916752954 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 213265579,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 213265579 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 212826846,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 212826846 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rahul.kothari.201@gmail.com",
+            "name": "Rahul Kothari",
+            "username": "rahul-kothari"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e83556b2d7cf0f51095c1f3dd6d9be37dc088cba",
+          "message": "chore: Update migration_notes.md (#12484)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
+          "timestamp": "2025-03-05T14:56:32Z",
+          "tree_id": "1086973e55aa0a2fc299d6c692bf6e6214d44602",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e83556b2d7cf0f51095c1f3dd6d9be37dc088cba"
+        },
+        "date": 1741188542364,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18134.41762499997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16043.879504999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18602.856753999957,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16269.049112 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3886.152331999938,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3050.883212000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54995.874563,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54995873000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10114.878202,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10114881000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1899956624,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1899956624 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 225459567,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 225459567 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
