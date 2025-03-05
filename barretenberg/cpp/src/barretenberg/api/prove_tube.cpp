@@ -44,8 +44,7 @@ void prove_tube(const std::string& output_path)
     num_inner_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
 
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
-        builder->add_public_variable(proof.mega_proof[i + offset]);
+        builder->add_public_variable(proof.mega_proof[i]);
     }
     ClientIVCRecursiveVerifier verifier{ builder, vk };
 

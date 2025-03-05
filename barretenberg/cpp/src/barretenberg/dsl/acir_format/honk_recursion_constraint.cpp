@@ -86,7 +86,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
+    offset = 0; // Reset offset for parsing proof fields
 
     // the inner public inputs
     for (size_t i = 0; i < num_inner_public_inputs; i++) {

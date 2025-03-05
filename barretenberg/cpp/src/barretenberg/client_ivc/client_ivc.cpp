@@ -259,13 +259,11 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     // circuit. So, these have to be preserved as public inputs to the hiding circuit (and, subsequently, as public
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
-    auto num_public_inputs =
-        static_cast<uint32_t>(static_cast<uint256_t>(verification_queue[0].honk_verification_key->num_public_inputs));
+    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(honk_vk->num_public_inputs));
     num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE;      // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     for (size_t i = 0; i < num_public_inputs; i++) {
-        size_t offset = HONK_PROOF_PUBLIC_INPUT_OFFSET;
-        builder.add_public_variable(fold_proof[i + offset]);
+        builder.add_public_variable(fold_proof[i]);
     }
 
     process_recursive_merge_verification_queue(builder);

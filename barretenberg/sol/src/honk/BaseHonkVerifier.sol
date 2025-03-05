@@ -63,12 +63,12 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
-        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, 1);
+        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, /*pubInputsOffset=*/1);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         t.relationParameters.publicInputsDelta =
-            computePublicInputDelta(publicInputs, t.relationParameters.beta, t.relationParameters.gamma, 1);
+            computePublicInputDelta(publicInputs, t.relationParameters.beta, t.relationParameters.gamma, /*pubInputsOffset=*/1);
 
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);

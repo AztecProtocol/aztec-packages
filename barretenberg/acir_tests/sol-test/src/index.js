@@ -170,10 +170,8 @@ const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // Compute the number of public inputs, not accounted  for in the constant NUMBER_OF_FIELDS_IN_PROOF
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
-  let publicInputsOffset = 0;
-
   for (let i = 0; i < numPublicInputs; i++) {
-    publicInputs.push(proofAsFields[publicInputsOffset + i]);
+    publicInputs.push(proofAsFields[i]);
   }
   return [numPublicInputs, publicInputs];
 };
