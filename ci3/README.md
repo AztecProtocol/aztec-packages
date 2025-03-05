@@ -68,7 +68,7 @@ Tools are provieded for the following themes.
 6. **General Utilities**
    - **`source_bootstrap`, `source_refname`, `source_color`**: Shared environment, color-coded logging, or version detection.
    - **`echo_header`**: Prints a heading for better log readability.
-   - **ci3/source** is the central include-script for Aztec’s build system, automatically configuring Bash strict mode, setting up your $$PATH to include all ci3 utilities (e.g. caching, parallel test commands), and providing helper functions and color-coded logging. Simply add source $$(git rev-parse --show-toplevel)/ci3/source at the top of any project script to inherit a robust, preconfigured environment.
+   - **ci3/source** is the central include-script for Aztec’s build system, automatically configuring Bash strict mode, setting up your PATH to include all ci3 utilities (e.g. caching, parallel test commands), and providing helper functions and color-coded logging. Simply add source (git rev-parse --show-toplevel)/ci3/source at the top of any project script to inherit a robust, preconfigured environment.
 
 ### Usage Flow
 
