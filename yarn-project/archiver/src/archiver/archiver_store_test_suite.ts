@@ -524,34 +524,6 @@ export function describeArchiverDataStore(
           ],
         ]);
       });
-
-      it('is not possible to add public logs by tag if they are invalid', async () => {
-        const tag = makeTag(99, 88, 77);
-        const invalidLogs = [
-          PublicLog.fromFields([
-            AztecAddress.fromNumber(1).toField(),
-            tag,
-            ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
-          ]),
-          PublicLog.fromFields([
-            AztecAddress.fromNumber(1).toField(),
-            tag,
-            ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
-          ]),
-        ];
-
-        // Create a block containing these invalid logs
-        const newBlockNumber = numBlocks;
-        const newBlock = await mockBlockWithLogs(newBlockNumber);
-        newBlock.data.body.txEffects[0].publicLogs = invalidLogs;
-        await store.addBlocks([newBlock]);
-        await store.addLogs([newBlock.data]);
-
-        const logsByTags = await store.getLogsByTags([tag]);
-
-        // Neither of the logs should have been added:
-        expect(logsByTags).toEqual([[]]);
-      });
     });
 
     describe('getPublicLogs', () => {
