@@ -45,7 +45,26 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
 
     FF circuit_size = transcript->template receive_from_prover<FF>(domain_separator + "circuit_size");
     FF public_input_size = transcript->template receive_from_prover<FF>(domain_separator + "public_input_size");
-    transcript->template receive_from_prover<FF>(domain_separator + "pub_inputs_offset");
+    FF pub_inputs_offset = transcript->template receive_from_prover<FF>(domain_separator + "pub_inputs_offset");
+
+    if (static_cast<uint32_t>(circuit_size.get_value()) !=
+        static_cast<uint32_t>(verification_key->verification_key->circuit_size.get_value())) {
+        throw_or_abort("OinkRecursiveVerifier::verify: proof circuit size does not match verification key");
+    }
+    if (static_cast<uint32_t>(public_input_size.get_value()) !=
+        static_cast<uint32_t>(verification_key->verification_key->num_public_inputs.get_value())) {
+        const std::string message =
+            "OinkRecursiveVerifier::verify: proof public input size (" +
+            std::to_string(static_cast<uint32_t>(public_input_size.get_value())) +
+            ") does not match verification key public input size (" +
+            std::to_string(static_cast<uint32_t>(verification_key->verification_key->num_public_inputs.get_value())) +
+            ")";
+        throw_or_abort(message);
+    }
+    if (static_cast<uint32_t>(pub_inputs_offset.get_value()) !=
+        static_cast<uint32_t>(verification_key->verification_key->pub_inputs_offset.get_value())) {
+        throw_or_abort("OinkRecursiveVerifier::verify: proof public input offset does not match verification key");
+    }
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < static_cast<size_t>(static_cast<uint32_t>(public_input_size.get_value())); ++i) {
