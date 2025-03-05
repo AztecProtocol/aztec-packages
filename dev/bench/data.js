@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741188455338,
+  "lastUpdate": 1741188472735,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "01b535cd08e1ebf6013d17f315eba8b2dc77ca8c",
-          "message": "chore: delete proof verifier (#12327)\n\n## Overview\n\nNo longer used",
-          "timestamp": "2025-02-27T12:20:26-05:00",
-          "tree_id": "768d7b8140bab593041c0320234e95fcaffed22f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/01b535cd08e1ebf6013d17f315eba8b2dc77ca8c"
-        },
-        "date": 1740679086036,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18127.841511000042,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16019.904981 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18726.024791999862,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16349.011328999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3926.8199529999492,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3132.8231480000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55122.558227,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55122559000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10977.931411,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10977939000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1919578780,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1919578780 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 213281869,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 213281869 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 214586499,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214586499 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "miranda@aztecprotocol.com",
+            "name": "Miranda Wood",
+            "username": "MirandaWood"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "28b7f8456210a9bc5e9d0deead80469337bda36d",
+          "message": "chore: contract class log refactor follow up (#12402)\n\nCloses #12325\n\n- [x] ~Move the hashing of the contract class log to the oracle (as it\nwas previously when we used sha hashing), since we constrain its\ncorrectness in the base rollup.~ (We don't want this!)\n- [x] Rename oracle methods? (I don't know much about oracle best\npractices)\n- [x] Move validate_and_silo_contract_class_log functionality and\npossibly rename.\n- [x] Remove the blob check in data_retrieval now that we have no\ncalldata.\n\n---\nEDIT:\n- [x] Return to full log hash\n\nIn the original PR, I changed the log hash from being defined as the\nhash of emitted fields (i.e. without the padded zeros up to\n`CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS`) to save some computation in\nts. In the circuit it's around the same gates.\n\nHowever @sirasistant pointed out that this leads to an attack vector.\nThe length is not constrained in the registerer so a user can claim a\nlength shorter than the real bytecode:\n\n- Private only hashes the shorter length\n- Base rollup receives the shorter preimage\n- Hashes match\n- We publish incomplete bytecode\n\nThis attack would also be protected against if we constrained the\nlength. However that adds a few thousand extra gates to the registerer,\nwhereas hashing the whole log keeps the gates the same.",
+          "timestamp": "2025-03-05T14:21:22Z",
+          "tree_id": "8d189ae5b421df99951bc8369ef7eda2d3ea4b94",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/28b7f8456210a9bc5e9d0deead80469337bda36d"
+        },
+        "date": 1741188465165,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18185.480850999964,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15997.609864000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18535.204995000186,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16248.201185999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3936.074205000068,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3089.9540750000006 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54870.624906,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54870624000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10268.018194,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10268020000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1900926990,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1900926990 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213892449,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 213892449 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
