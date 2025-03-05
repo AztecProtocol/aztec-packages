@@ -41,9 +41,7 @@ spec:
       {{- end }}
       terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
-        {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
 
         # Generate the validator addresses; used in the deploy-l1-contracts step
         - name: generate-validator-addresses
@@ -133,7 +131,7 @@ spec:
             - -c
             - |
               source /shared/contracts/contracts.env && \
-              source /shared/p2p/p2p-addresses && \
+              source /shared/config/p2p-addresses && \
               source /shared/config/service-addresses && \
               source /shared/config/otel-resource && \
               env && \
@@ -153,8 +151,6 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
-            - name: p2p-addresses
-              mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
             - name: boot-node-data
@@ -242,8 +238,6 @@ spec:
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
       volumes:
-        - name: p2p-addresses
-          emptyDir: {}
         - name: config
           emptyDir: {}
       {{- if .Values.storage.localSsd }}
@@ -287,7 +281,7 @@ spec:
     # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
     {{- if not .Values.network.public }}
     - port: {{ .Values.bootNode.service.p2pTcpPort }}
-      name: p2p-tpc
+      name: p2p-tcp
     - port: {{ .Values.bootNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
