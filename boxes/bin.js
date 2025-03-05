@@ -13,7 +13,7 @@ const getLatestStable = async () => {
   const { data } = await axios.get(
     `https://api.github.com/repos/AztecProtocol/aztec-packages/releases`
   );
-  return data[0].tag_name.split("-v")[1];
+  return data[0].tag_name.replace(/^v/, "");
 };
 
 program
