@@ -148,15 +148,6 @@ get_node_info() {
   L1_CHAIN_ID=$(echo $result | jq -r '.l1ChainId')
   BOOTSTRAP_NODES=$(echo $result | jq -r '.enr')
   REGISTRY_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.registryAddress')
-  GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.governanceProposerAddress')
-  FEE_JUICE_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuiceAddress')
-  ROLLUP_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.rollupAddress')
-  REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.rewardDistributorAddress')
-  GOVERNANCE_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.governanceAddress')
-  COIN_ISSUER_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.coinIssuerAddress')
-  FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuicePortalAddress')
-  INBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.inboxAddress')
-  OUTBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.outboxAddress')
 
   echo -e "${GREEN}Node info fetched successfully${NC}"
   return 0
@@ -293,15 +284,6 @@ AZTEC_EPOCH_DURATION=32
 AZTEC_PROOF_SUBMISSION_WINDOW=64
 BOOTSTRAP_NODES=${BOOTSTRAP_NODES}
 REGISTRY_CONTRACT_ADDRESS=${REGISTRY_CONTRACT_ADDRESS}
-GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=${GOVERNANCE_PROPOSER_CONTRACT_ADDRESS}
-FEE_JUICE_CONTRACT_ADDRESS=${FEE_JUICE_CONTRACT_ADDRESS}
-ROLLUP_CONTRACT_ADDRESS=${ROLLUP_CONTRACT_ADDRESS}
-REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=${REWARD_DISTRIBUTOR_CONTRACT_ADDRESS}
-GOVERNANCE_CONTRACT_ADDRESS=${GOVERNANCE_CONTRACT_ADDRESS}
-COIN_ISSUER_CONTRACT_ADDRESS=${COIN_ISSUER_CONTRACT_ADDRESS}
-FEE_JUICE_PORTAL_CONTRACT_ADDRESS=${FEE_JUICE_PORTAL_CONTRACT_ADDRESS}
-INBOX_CONTRACT_ADDRESS=${INBOX_CONTRACT_ADDRESS}
-OUTBOX_CONTRACT_ADDRESS=${OUTBOX_CONTRACT_ADDRESS}
 P2P_UDP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 P2P_TCP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 DATA_DIRECTORY=/var/lib/aztec

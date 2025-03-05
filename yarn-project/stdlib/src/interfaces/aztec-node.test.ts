@@ -5,7 +5,11 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import {
+  type AllL1ContractAddresses,
+  AllL1ContractsNames,
+  type CoreL1ContractAddresses,
+} from '@aztec/ethereum/l1-contract-addresses';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -184,8 +188,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual({
       ...(await handler.getNodeInfo()),
       l1ContractAddresses: Object.fromEntries(
-        L1ContractsNames.map(name => [name, expect.any(EthAddress)]),
-      ) as L1ContractAddresses,
+        AllL1ContractsNames.map(name => [name, expect.any(EthAddress)]),
+      ) as CoreL1ContractAddresses,
       protocolContractAddresses: Object.fromEntries(
         ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)]),
       ) as ProtocolContractAddresses,
@@ -215,7 +219,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getL1ContractAddresses', async () => {
     const response = await context.client.getL1ContractAddresses();
-    expect(response).toEqual(Object.fromEntries(L1ContractsNames.map(name => [name, expect.any(EthAddress)])));
+    expect(response).toEqual(Object.fromEntries(AllL1ContractsNames.map(name => [name, expect.any(EthAddress)])));
   });
 
   it('getProtocolContractAddresses', async () => {
@@ -491,8 +495,8 @@ class MockAztecNode implements AztecNode {
       protocolVersion: 1,
       enr: 'enr',
       l1ContractAddresses: Object.fromEntries(
-        L1ContractsNames.map(name => [name, EthAddress.random()]),
-      ) as L1ContractAddresses,
+        AllL1ContractsNames.map(name => [name, EthAddress.random()]),
+      ) as AllL1ContractAddresses,
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
     };
   }
@@ -513,9 +517,9 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(1);
   }
   @memoize
-  getL1ContractAddresses(): Promise<L1ContractAddresses> {
+  getL1ContractAddresses(): Promise<AllL1ContractAddresses> {
     return Promise.resolve(
-      Object.fromEntries(L1ContractsNames.map(name => [name, EthAddress.random()])) as L1ContractAddresses,
+      Object.fromEntries(AllL1ContractsNames.map(name => [name, EthAddress.random()])) as AllL1ContractAddresses,
     );
   }
   @memoize

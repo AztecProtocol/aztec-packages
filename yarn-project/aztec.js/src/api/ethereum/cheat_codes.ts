@@ -1,6 +1,5 @@
-import type { ViemPublicClient } from '@aztec/ethereum';
+import type { AllL1ContractAddresses, ViemPublicClient } from '@aztec/ethereum';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -17,7 +16,7 @@ export class RollupCheatCodes {
 
   private logger = createLogger('aztecjs:cheat_codes');
 
-  constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<L1ContractAddresses, 'rollupAddress'>) {
+  constructor(private ethCheatCodes: EthCheatCodes, addresses: Pick<AllL1ContractAddresses, 'rollupAddress'>) {
     this.client = createPublicClient({
       chain: foundry,
       transport: fallback(ethCheatCodes.rpcUrls.map(url => http(url))),

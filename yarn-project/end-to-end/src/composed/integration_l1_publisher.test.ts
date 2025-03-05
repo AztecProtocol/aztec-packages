@@ -5,8 +5,8 @@ import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  type CoreL1ContractAddresses,
   GovernanceProposerContract,
-  type L1ContractAddresses,
   RollupContract,
   SlashingProposerContract,
   type ViemPublicClient,
@@ -75,7 +75,7 @@ jest.setTimeout(1000000);
 describe('L1Publisher integration', () => {
   let publicClient: ViemPublicClient;
   let walletClient: ViemWalletClient;
-  let l1ContractAddresses: L1ContractAddresses;
+  let l1ContractAddresses: CoreL1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
 
   let rollupAddress: Address;

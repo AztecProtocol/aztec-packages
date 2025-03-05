@@ -74,32 +74,12 @@ done || {
 echo "$output"
 
 # Extract contract addresses using grep and regex
-ROLLUP_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Rollup Address: \K0x[a-fA-F0-9]{40}')
 REGISTRY_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Registry Address: \K0x[a-fA-F0-9]{40}')
-INBOX_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'L1 -> L2 Inbox Address: \K0x[a-fA-F0-9]{40}')
-OUTBOX_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'L2 -> L1 Outbox Address: \K0x[a-fA-F0-9]{40}')
-FEE_JUICE_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9]{40}')
-STAKING_ASSET_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Staking Asset Address: \K0x[a-fA-F0-9]{40}')
-FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
-COIN_ISSUER_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'CoinIssuer Address: \K0x[a-fA-F0-9]{40}')
-REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
-GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
-GOVERNANCE_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
 SLASH_FACTORY_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'SlashFactory Address: \K0x[a-fA-F0-9]{40}')
 
 # Save contract addresses to state/l1-contracts.env
 cat <<EOCONFIG >$(git rev-parse --show-toplevel)/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
-export ROLLUP_CONTRACT_ADDRESS=$ROLLUP_CONTRACT_ADDRESS
 export REGISTRY_CONTRACT_ADDRESS=$REGISTRY_CONTRACT_ADDRESS
-export INBOX_CONTRACT_ADDRESS=$INBOX_CONTRACT_ADDRESS
-export OUTBOX_CONTRACT_ADDRESS=$OUTBOX_CONTRACT_ADDRESS
-export FEE_JUICE_CONTRACT_ADDRESS=$FEE_JUICE_CONTRACT_ADDRESS
-export STAKING_ASSET_CONTRACT_ADDRESS=$STAKING_ASSET_CONTRACT_ADDRESS
-export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$FEE_JUICE_PORTAL_CONTRACT_ADDRESS
-export COIN_ISSUER_CONTRACT_ADDRESS=$COIN_ISSUER_CONTRACT_ADDRESS
-export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$REWARD_DISTRIBUTOR_CONTRACT_ADDRESS
-export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$GOVERNANCE_PROPOSER_CONTRACT_ADDRESS
-export GOVERNANCE_CONTRACT_ADDRESS=$GOVERNANCE_CONTRACT_ADDRESS
 export SLASH_FACTORY_CONTRACT_ADDRESS=$SLASH_FACTORY_CONTRACT_ADDRESS
 EOCONFIG
 

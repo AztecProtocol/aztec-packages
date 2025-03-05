@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts';
 import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
@@ -5,7 +6,6 @@ import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
 import { type GetContractReturnType, type PrivateKeyAccount, getContract } from 'viem';
 
 import { EthCheatCodes } from '../eth_cheat_codes.js';
-import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1Clients } from '../types.js';
 
 export async function executeGovernanceProposal(
@@ -56,7 +56,10 @@ export async function executeGovernanceProposal(
 
 export async function createGovernanceProposal(
   payloadAddress: `0x${string}`,
-  addresses: L1ContractAddresses,
+  addresses: {
+    feeJuiceAddress: EthAddress;
+    governanceAddress: EthAddress;
+  },
   privateKey: PrivateKeyAccount,
   publicClient: L1Clients['publicClient'],
   logger: Logger,

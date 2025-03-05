@@ -89,7 +89,10 @@ export class EpochsTestContext {
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
     this.l1Client = context.deployL1ContractsValues.publicClient;
-    this.rollup = RollupContract.getFromConfig(context.config);
+    this.rollup = RollupContract.getFromConfig(
+      context.config,
+      context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    );
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, this.logger).start();
@@ -136,6 +139,7 @@ export class EpochsTestContext {
       createAndSyncProverNode(
         proverNodePrivateKey,
         { ...this.context.config, proverId: Fr.fromString(suffix) },
+        this.context.deployL1ContractsValues,
         this.context.aztecNode,
         join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
       ),
@@ -148,11 +152,14 @@ export class EpochsTestContext {
     this.logger.warn('Creating and syncing a node without a validator...');
     const suffix = (this.nodes.length + 1).toString();
     const node = await withLogNameSuffix(suffix, () =>
-      AztecNodeService.createAndSync({
-        ...this.context.config,
-        disableValidator: true,
-        dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-      }),
+      AztecNodeService.createAndSync(
+        {
+          ...this.context.config,
+          disableValidator: true,
+          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+        },
+        this.context.deployL1ContractsValues.l1ContractAddresses,
+      ),
     );
     this.nodes.push(node);
     return node;

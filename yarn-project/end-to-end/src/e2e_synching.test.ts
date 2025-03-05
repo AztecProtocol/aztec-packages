@@ -410,7 +410,7 @@ describe('e2e_synching', () => {
     const rollupContract = new RollupContract(deployL1ContractsValues.publicClient, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
       deployL1ContractsValues.publicClient,
-      config.l1Contracts.governanceProposerAddress.toString(),
+      deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new SlashingProposerContract(
@@ -479,7 +479,10 @@ describe('e2e_synching', () => {
           async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
-            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableValidator: true });
+            const freshNode = await AztecNodeService.createAndSync(
+              { ...opts.config!, disableValidator: true },
+              opts.deployL1ContractsValues!.l1ContractAddresses,
+            );
             const syncTime = timer.s();
 
             const blockNumber = await freshNode.getBlockNumber();
@@ -525,7 +528,10 @@ describe('e2e_synching', () => {
             );
             await watcher.start();
 
-            const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+            const aztecNode = await AztecNodeService.createAndSync(
+              opts.config!,
+              opts.deployL1ContractsValues!.l1ContractAddresses,
+            );
             const sequencer = aztecNode.getSequencer();
 
             const { pxe } = await setupPXEService(aztecNode!);
@@ -549,9 +555,14 @@ describe('e2e_synching', () => {
           const blobSinkClient = createBlobSinkClient({
             blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
           });
-          const archiver = await createArchiver(opts.config!, blobSinkClient, {
-            blockUntilSync: true,
-          });
+          const archiver = await createArchiver(
+            opts.config!,
+            opts.deployL1ContractsValues!.l1ContractAddresses,
+            blobSinkClient,
+            {
+              blockUntilSync: true,
+            },
+          );
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
@@ -641,7 +652,10 @@ describe('e2e_synching', () => {
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
           await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+          const aztecNode = await AztecNodeService.createAndSync(
+            opts.config!,
+            opts.deployL1ContractsValues!.l1ContractAddresses,
+          );
           const sequencer = aztecNode.getSequencer();
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
@@ -722,7 +736,10 @@ describe('e2e_synching', () => {
           await watcher.start();
 
           // The sync here could likely be avoided by using the node we just synched.
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+          const aztecNode = await AztecNodeService.createAndSync(
+            opts.config!,
+            opts.deployL1ContractsValues!.l1ContractAddresses,
+          );
           const sequencer = aztecNode.getSequencer();
 
           const { pxe } = await setupPXEService(aztecNode!);

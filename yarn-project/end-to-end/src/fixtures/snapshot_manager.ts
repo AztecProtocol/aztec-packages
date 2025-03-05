@@ -405,6 +405,7 @@ async function setupFromFresh(
   const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
+    deployL1ContractsValues.l1ContractAddresses,
     { telemetry, dateProvider },
     { prefilledPublicData },
   );
@@ -415,6 +416,7 @@ async function setupFromFresh(
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
+      deployL1ContractsValues,
       aztecNode,
       path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       prefilledPublicData,
@@ -431,6 +433,7 @@ async function setupFromFresh(
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
     writeFileSync(`${statePath}/accounts.json`, JSON.stringify(initialFundedAccounts, resolver));
+    writeFileSync(`${statePath}/deploy_l1_contracts_values.json`, JSON.stringify(deployL1ContractsValues, resolver));
   }
 
   return {
@@ -470,6 +473,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   );
   aztecNodeConfig.dataDirectory = statePath;
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+  const deployL1ContractsValues = JSON.parse(
+    readFileSync(`${statePath}/deploy_l1_contracts_values.json`, 'utf-8'),
+    reviver,
+  );
 
   const initialFundedAccounts: InitialAccountData[] =
     JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];
@@ -520,6 +527,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
+    deployL1ContractsValues.l1ContractAddresses,
     { telemetry, dateProvider },
     { prefilledPublicData },
   );
@@ -532,6 +540,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     proverNode = await createAndSyncProverNode(
       proverNodePrivateKeyHex,
       aztecNodeConfig,
+      deployL1ContractsValues,
       aztecNode,
       path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       prefilledPublicData,
@@ -556,7 +565,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     deployL1ContractsValues: {
       walletClient,
       publicClient,
-      l1ContractAddresses: aztecNodeConfig.l1Contracts,
+      l1ContractAddresses: deployL1ContractsValues.l1ContractAddresses,
     },
     watcher,
     cheatCodes,

@@ -1,8 +1,8 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type NodeInfo, type PXE, createCompatibleClient, retryUntil, sleep } from '@aztec/aztec.js';
 import {
+  type CoreL1ContractAddresses,
   GovernanceProposerContract,
-  type L1ContractAddresses,
   L1TxUtils,
   RegistryContract,
   RollupContract,
@@ -36,7 +36,7 @@ describe('spartan_upgrade_rollup_version', () => {
   let pxe: PXE;
   let nodeInfo: NodeInfo;
   let ETHEREUM_HOSTS: string[];
-  let originalL1ContractAddresses: L1ContractAddresses;
+  let originalL1ContractAddresses: CoreL1ContractAddresses;
   const forwardProcesses: ChildProcess[] = [];
 
   afterAll(() => {

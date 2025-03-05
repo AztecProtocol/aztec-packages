@@ -1,5 +1,5 @@
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { AllL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { AztecCheatCodes } from '../utils/aztec_cheatcodes.js';
@@ -28,7 +28,13 @@ export class CheatCodes {
     return new CheatCodes(ethCheatCodes, aztecCheatCodes, rollupCheatCodes);
   }
 
-  static createRollup(rpcUrls: string[], addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
+  /**
+   * Creates a new RollupCheatCodes instance.
+   * @param rpcUrls - The RPC URLs.
+   * @param addresses - The addresses of the contracts.
+   * @returns A new RollupCheatCodes instance.
+   */
+  static createRollup(rpcUrls: string[], addresses: Pick<AllL1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
     const ethCheatCodes = new EthCheatCodes(rpcUrls);
     return new RollupCheatCodes(ethCheatCodes, addresses);
   }
