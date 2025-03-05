@@ -71,9 +71,9 @@ import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import type { PxeDatabase } from '../database/index.js';
 import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
 import {
-  PrivateKernelSequencer,
   type PrivateKernelSequencerConfig,
-} from '../private_kernel/private_kernel_sequencer.js';
+  PrivateKernelTraceProver,
+} from '../private_kernel/private_kernel_trace_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -734,7 +734,7 @@ export class PXEService implements PXE {
   ): Promise<PrivateKernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const block = privateExecutionResult.getSimulationBlockNumber();
     const kernelOracle = new PrivateKernelOracleImpl(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelSequencer = new PrivateKernelSequencer(kernelOracle, proofCreator, !this.proverEnabled);
+    const kernelSequencer = new PrivateKernelTraceProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel prover (${JSON.stringify(config)})...`);
     return await kernelSequencer.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
