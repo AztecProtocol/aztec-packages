@@ -320,7 +320,8 @@ pub comptime fn generate_serialize_to_fields(
     if !omit.any(|to_omit| to_omit == name) {
         // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
         let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
-        let packable_constraint = quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+        let packable_constraint =
+            quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
 
         if (should_pack & typ.implements(packable_constraint)) {
             // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
