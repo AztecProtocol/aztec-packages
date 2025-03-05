@@ -111,7 +111,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     // If running Gemini for the Translator VM polynomials, A₀(r) = A₀₊(r) + P₊(rˢ) and A₀(-r) = A₀₋(-r) + P₋(rˢ)
     // where s is the size of the interleaved group assumed even. The prover sends P₊(rˢ) and P₋(rˢ) to the verifier
-    // so it can reconstruct the evaluation of A₀(r)
+    // so it can reconstruct the evaluation of A₀(r) and A₀(-r) respectively
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1282)
     if (polynomial_batcher.has_interleaved()) {
         auto [P_pos, P_neg] = polynomial_batcher.compute_partially_evaluated_interleaved_polynomial(r_challenge);
         Fr r_pow = r_challenge.pow(polynomial_batcher.get_group_size());
@@ -224,10 +225,10 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construc
 
     // Compute evaluation of partially evaluated batch polynomial (positive) A₀₊(r)
     Fr a_0_pos = A_0_pos.evaluate(r_challenge);
-    claims.emplace_back(Claim{ A_0_pos, { r_challenge, a_0_pos } });
+    claims.emplace_back(Claim{ std::move(A_0_pos), { r_challenge, a_0_pos } });
     // Compute evaluation of partially evaluated batch polynomial (negative) A₀₋(-r)
     Fr a_0_neg = A_0_neg.evaluate(-r_challenge);
-    claims.emplace_back(Claim{ A_0_neg, { -r_challenge, a_0_neg } });
+    claims.emplace_back(Claim{ std::move(A_0_neg), { -r_challenge, a_0_neg } });
 
     // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, ..., m-1
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r_challenge, log_n);
