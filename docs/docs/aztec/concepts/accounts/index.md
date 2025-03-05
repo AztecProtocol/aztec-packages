@@ -94,7 +94,9 @@ Account contracts are tightly coupled to the wallet software that users use to i
 
 ### Account initialization
 
-When a user wants to interact with the network's public state, as their first action, they need to deploy their account contract (analogous to setting up a wallet with a seed phrase in an EOA). However, if a transaction is fully private, to send this transaction, it's enough to initialize the account contract (deployment is not needed). By initalization TBA
+When a user wants to interact with the network's **public** state, as their first action, they need to deploy their account contract (analogous to setting up a wallet with a seed phrase in an EOA). 
+
+However, if a transaction is fully **private**, to send this transaction, it's enough to initialize the account contract (deployment is not needed). The default state for any given address is to be uninitialized, meaning its [constructor](../../../developers/tutorials/codealong/contract_tutorials/nft_contract.md#initializer) has not been called. The contract is initialized when its constructor has been invoked, and the constructor has emitted the instance's Initialization Nullifier.
 
 When sitting on the receiving end, account deployment is not required. The user address can be deterministically derived from their encryption public key and the account contract they intend to deploy. So that the funds can be sent to an account that hasn't been deployed yet.
 
