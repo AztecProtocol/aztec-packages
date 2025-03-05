@@ -52,8 +52,9 @@ void ECCVMProver::execute_wire_commitments_round()
     // the last MASKING_OFFSET wire entries.
     const size_t circuit_size = key->circuit_size;
     const size_t masking_start = circuit_size - MASKING_OFFSET;
-    std::vector<std::pair<size_t, size_t>> active_ranges{ { 1, key->real_size + 1 },
-                                                          { masking_start, circuit_size + 1 } };
+
+    auto commit_type =
+        (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
 
     // Commit to wires whose length is bounded by the real size of the ECCVM
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
@@ -61,8 +62,12 @@ void ECCVMProver::execute_wire_commitments_round()
         mask_witness_polynomial(wire);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
         // ECCVM/Translator/MegaZK
-        // PolynomialSpan<FF> wire_span = wire;
-        transcript->send_to_verifier(label, key->commitment_key->commit_structured(wire, active_ranges));
+
+        size_t start = circuit_size == wire.size() ? 0 : 1;
+        std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
+                                                              { masking_start, circuit_size } };
+        auto struct_comm = key->commitment_key->commit_with_type(wire, commit_type, active_ranges);
+        transcript->send_to_verifier(label, struct_comm);
     }
 
     // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
@@ -283,16 +288,6 @@ void ECCVMProver::compute_translation_opening_claims()
     // Get another challenge to batch the evaluations of the transcript polynomials
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
-    FF result{ 0 };
-    for (size_t idx = key->circuit_size - MASKING_OFFSET - 1; idx < key->circuit_size; idx++) {
-        result += translation_polynomials[0].at(idx) * evaluation_challenge_x.pow(idx);
-        result += translation_polynomials[1].at(idx) * batching_challenge_v * evaluation_challenge_x.pow(idx);
-        result += translation_polynomials[2].at(idx) * batching_challenge_v.pow(2) * evaluation_challenge_x.pow(idx);
-        result += translation_polynomials[3].at(idx) * batching_challenge_v.pow(3) * evaluation_challenge_x.pow(idx);
-        result += translation_polynomials[4].at(idx) * batching_challenge_v.pow(4) * evaluation_challenge_x.pow(idx);
-    }
-    info("prover correct ipa result ", result);
-
     SmallIPA translation_masking_term_prover(
         translation_data, evaluation_challenge_x, batching_challenge_v, transcript, key->commitment_key);
     translation_masking_term_prover.prove();
@@ -307,7 +302,6 @@ void ECCVMProver::compute_translation_opening_claims()
     evaluation_labels = translation_masking_term_prover.evaluation_labels();
     // 2. Compute the evaluations of witness polynomials at corresponding points, send them to the verifier, and create
     // the opening claims
-    FF corrected_result{ 0 };
     for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
         auto witness_poly = translation_masking_term_prover.get_witness_polynomials()[idx];
         const FF evaluation = witness_poly.evaluate(evaluation_points[idx]);
@@ -325,10 +319,6 @@ void ECCVMProver::compute_translation_opening_claims()
         batched_translation_evaluation += eval * batching_scalar;
         batching_scalar *= batching_challenge_v;
     }
-
-    info("prover batched : ", batched_translation_evaluation);
-
-    info("prover diff ", batched_translation_evaluation - result);
 
     // Add the batched claim to the array of SmallSubgroupIPA opening claims.
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { batched_translation_univariate,
