@@ -115,7 +115,7 @@ container_script=$(cat <<EOF
 
   export NPM_TOKEN=${NPM_TOKEN:-}
   if [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
-    echo ${DOCKERHUB_PASSWORD:-} | docker login -u aztecprotocolci --password-stdin
+    echo ${DOCKERHUB_PASSWORD:-} | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
   fi
   echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL DRY_RUN=${DRY_RUN:-0}"
   if semver check "$REF_NAME"; then
