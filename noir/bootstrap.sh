@@ -179,10 +179,6 @@ function release {
   release_packages $(dist_tag) ${REF_NAME#v}
 }
 
-function release_commit {
-  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -194,7 +190,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  test_cmds|build_native|build_packages|format|test|release|release_commit|test_example)
+  test_cmds|build_native|build_packages|format|test|release|test_example)
     $cmd "$@"
     ;;
   "hash")
