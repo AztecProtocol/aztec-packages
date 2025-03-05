@@ -5,7 +5,7 @@ use crate::abis::{
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
     abis::{
-        contract_class_log::ContractClassLog, private_log::PrivateLog,
+        contract_class_log::ContractClassLog, log_hash::ScopedLogHash, private_log::PrivateLog,
         public_data_write::PublicDataWrite, public_log::PublicLog, sponge_blob::SpongeBlob,
     },
     constants::{
@@ -18,7 +18,7 @@ use dep::types::{
         PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
         TX_START_PREFIX,
     },
-    hash::accumulate_sha256,
+    hash::{accumulate_sha256, compute_contract_class_log_hash},
     merkle_tree::VariableMerkleTree,
     traits::{Empty, Serialize, ToField},
     utils::arrays::{array_length, array_merge, padded_array_length, unsafe_padded_array_length},
@@ -130,6 +130,24 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
     let non_empty_items = array_length(l2_to_l1_msgs);
     let merkle_tree = VariableMerkleTree::new_sha(l2_to_l1_msgs, non_empty_items);
     merkle_tree.get_root()
+}
+
+pub fn validate_contract_class_log(log: ContractClassLog, log_hash: ScopedLogHash) {
+    // Validate address
+    assert_eq(
+        log_hash.contract_address,
+        log.contract_address,
+        "mismatched contract class log address",
+    );
+    // Validate length
+    let length = padded_array_length(log.log.fields);
+    assert_eq(log_hash.log_hash.length, length, "mismatched contract class log length");
+    // Validate hash
+    assert_eq(
+        log_hash.log_hash.value,
+        compute_contract_class_log_hash(log),
+        "mismatched contract class log hash",
+    );
 }
 
 /**
