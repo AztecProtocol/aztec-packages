@@ -146,12 +146,28 @@ export class PeerManager {
     }
   }
 
+  /**
+   * Checks if a peer is trusted.
+   * @param peerId - The peer ID.
+   * @returns True if the peer is trusted, false otherwise.
+   * Note: This function will return false and log a warning if the trusted peers are not initialized.
+   */
   private isTrustedPeer(peerId: PeerId): boolean {
     if (!this.trustedPeersInitialized) {
       this.logger.warn('Trusted peers not initialized, returning false');
       return false;
     }
     return this.trustedPeers.has(peerId);
+  }
+
+  /**
+   * Adds a peer to the trusted peers set.
+   * @param peerId - The peer ID to add to trusted peers.
+   */
+  public addTrustedPeer(peerId: PeerId): void {
+    this.trustedPeers.add(peerId);
+    this.trustedPeersInitialized = true;
+    this.logger.verbose(`Added trusted peer ${peerId.toString()}`);
   }
 
   /**
@@ -170,15 +186,10 @@ export class PeerManager {
   }
 
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
-    if (this.isTrustedPeer(peerId)) {
-      this.logger.debug(`Not penalizing trusted peer ${peerId.toString()}`);
-      return;
-    }
     this.peerScoring.penalizePeer(peerId, penalty);
   }
 
   public getPeerScore(peerId: string): number {
-    // TODO: If peer is trusted, return a high score
     return this.peerScoring.getScore(peerId);
   }
 
@@ -311,18 +322,36 @@ export class PeerManager {
    */
   private prioritizePeers(connections: Connection[]): Connection[] {
     if (connections.length > this.config.maxPeerCount) {
-      // Sort the peer scores from lowest to highest
-      const prioritizedConnections = connections.sort((connectionA, connectionB) => {
+      // First, separate trusted peers from regular peers
+      const trustedConnections: Connection[] = [];
+      const regularConnections: Connection[] = [];
+
+      for (const conn of connections) {
+        if (this.isTrustedPeer(conn.remotePeer)) {
+          trustedConnections.push(conn);
+          this.logger.debug(`Not prioritizing trusted peer ${conn.remotePeer.toString()}`);
+        } else {
+          regularConnections.push(conn);
+        }
+      }
+
+      // Sort the regular peer scores from highest to lowest
+      const prioritizedRegularConnections = regularConnections.sort((connectionA, connectionB) => {
         const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
         const connectionScoreB = this.peerScoring.getScore(connectionB.remotePeer.toString());
         return connectionScoreB - connectionScoreA;
       });
 
-      // Disconnect from the lowest scoring connections.
-      for (const conn of prioritizedConnections.slice(this.config.maxPeerCount)) {
+      // Calculate how many regular peers we can keep
+      const regularPeersToKeep = Math.max(0, this.config.maxPeerCount - trustedConnections.length);
+
+      // Disconnect from the lowest scoring regular connections that exceed our limit
+      for (const conn of prioritizedRegularConnections.slice(regularPeersToKeep)) {
         void this.goodbyeAndDisconnectPeer(conn.remotePeer, GoodByeReason.MAX_PEERS);
       }
-      return prioritizedConnections.slice(0, this.config.maxPeerCount);
+
+      // Return trusted connections plus the highest scoring regular connections up to the max peer count
+      return [...trustedConnections, ...prioritizedRegularConnections.slice(0, regularPeersToKeep)];
     } else {
       return connections;
     }

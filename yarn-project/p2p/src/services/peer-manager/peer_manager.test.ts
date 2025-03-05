@@ -5,6 +5,7 @@ import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ENR, SignableENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
+import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
 
@@ -448,6 +449,285 @@ describe('PeerManager', () => {
 
       // Verify that goodbyes were sent to all peers
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('trusted peers', () => {
+    it('should not prune trusted peers', async () => {
+      const peerId = await createSecp256k1PeerId();
+      peerManager.addTrustedPeer(peerId);
+
+      // Penalize the peer to give it a low score
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      expect(peerManager.getPeerScore(peerId.toString())).toBeLessThan(0);
+
+      // Mock connections to include the trusted peer
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: peerId },
+      ]);
+
+      // Trigger heartbeat which should call pruneUnhealthyPeers
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      // Verify that hangUp was not called for the trusted peer
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalled();
+    });
+
+    it('should prune untrusted peers and not trusted peers', async () => {
+      const untrustedPeerId = await createSecp256k1PeerId();
+      const trustedPeerId = await createSecp256k1PeerId();
+
+      peerManager.addTrustedPeer(trustedPeerId);
+
+      // Penalize the untrusted peer to give it a low score
+      peerManager.penalizePeer(untrustedPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(untrustedPeerId, PeerErrorSeverity.LowToleranceError);
+
+      // Penalize the trusted peer to give it a low score
+      peerManager.penalizePeer(trustedPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(trustedPeerId, PeerErrorSeverity.LowToleranceError);
+
+      // Mock connections to include both peers
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: untrustedPeerId },
+        { remotePeer: trustedPeerId },
+      ]);
+
+      // Trigger heartbeat which should call pruneUnhealthyPeers
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      // Verify that hangUp was called only for the untrusted peer, not the trusted peer
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(untrustedPeerId);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(trustedPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not disconnect trusted peers with low scores', async () => {
+      // Create a trusted peer and a regular peer
+      const trustedPeerId = await createSecp256k1PeerId();
+      const regularPeerId = await createSecp256k1PeerId();
+
+      // Add the trusted peer
+      peerManager.addTrustedPeer(trustedPeerId);
+
+      // Mock connections to include both peers
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: trustedPeerId },
+        { remotePeer: regularPeerId },
+      ]);
+
+      // Penalize both peers to give them low scores
+      peerManager.penalizePeer(trustedPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(trustedPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
+
+      // Trigger heartbeat which should call pruneUnhealthyPeers
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      // Verify that hangUp was called only for the regular peer, not the trusted peer
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(trustedPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not remove trusted peers from the cache during pruning', async () => {
+      // Create a trusted peer and multiple regular peers
+      const trustedPeerId = await createSecp256k1PeerId();
+
+      // Add the trusted peer
+      peerManager.addTrustedPeer(trustedPeerId);
+
+      // Create a mock cached peer for the trusted peer
+      const trustedEnr = await createMockENR();
+      const trustedCachedPeer = {
+        peerId: trustedPeerId,
+        enr: trustedEnr,
+        multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+        dialAttempts: 0,
+        addedUnixMs: Date.now() - 1000, // Added 1 second ago
+      };
+
+      // Access the private cachedPeers map using type assertion
+      const cachedPeersMap = (peerManager as any).cachedPeers;
+      cachedPeersMap.set(trustedPeerId.toString(), trustedCachedPeer);
+
+      // Add many regular peers to the cache to trigger pruning
+      for (let i = 0; i < 101; i++) { // More than MAX_CACHED_PEERS (100)
+        const regularPeerId = await createSecp256k1PeerId();
+        const regularEnr = await createMockENR();
+        const regularCachedPeer = {
+          peerId: regularPeerId,
+          enr: regularEnr,
+          multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+          dialAttempts: 0,
+          addedUnixMs: Date.now(),
+        };
+        cachedPeersMap.set(regularPeerId.toString(), regularCachedPeer);
+      }
+
+      // Trigger pruning of cached peers
+      (peerManager as any).pruneCachedPeers();
+
+      // Verify that the trusted peer is still in the cache
+      expect(cachedPeersMap.has(trustedPeerId.toString())).toBe(true);
+
+      // Verify that the cache size is at most MAX_CACHED_PEERS (100)
+      expect(cachedPeersMap.size).toBeLessThanOrEqual(100);
+    });
+
+    it('should not remove trusted peers from the cache even when all peers are trusted', async () => {
+      // Create multiple trusted peers exceeding the MAX_CACHED_PEERS limit
+      const trustedPeerIds: PeerId[] = [];
+      const cachedPeersMap = (peerManager as any).cachedPeers;
+
+      // Clear the cache first
+      cachedPeersMap.clear();
+
+      // Create and add 110 trusted peers (exceeding the MAX_CACHED_PEERS limit of 100)
+      for (let i = 0; i < 110; i++) {
+        const trustedPeerId = await createSecp256k1PeerId();
+        trustedPeerIds.push(trustedPeerId);
+        peerManager.addTrustedPeer(trustedPeerId);
+
+        // Create a mock cached peer for each trusted peer
+        const trustedEnr = await createMockENR();
+        const trustedCachedPeer = {
+          peerId: trustedPeerId,
+          enr: trustedEnr,
+          multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+          dialAttempts: 0,
+          addedUnixMs: Date.now() - (i * 100), // Stagger the addition times
+        };
+
+        cachedPeersMap.set(trustedPeerId.toString(), trustedCachedPeer);
+      }
+
+      // Verify that we have 110 peers in the cache before pruning
+      expect(cachedPeersMap.size).toBe(110);
+
+      // Trigger pruning of cached peers
+      (peerManager as any).pruneCachedPeers();
+
+      // Verify that all trusted peers are still in the cache (no pruning occurred)
+      for (const trustedPeerId of trustedPeerIds) {
+        expect(cachedPeersMap.has(trustedPeerId.toString())).toBe(true);
+      }
+
+      // Verify that the cache size is still 110 (all trusted peers are kept)
+      expect(cachedPeersMap.size).toBe(110);
+    });
+
+    it('should return false from isTrustedPeer when trusted peers are not initialized', async () => {
+      // Create a new PeerManager instance without initializing trusted peers
+      const newPeerManager = new PeerManager(
+        mockLibP2PNode,
+        mockPeerDiscoveryService,
+        getP2PDefaultConfig(),
+        getTelemetryClient(),
+        createLogger('test'),
+        peerScoring,
+        mockReqResp,
+      );
+
+      // Create a peer ID
+      const peerId = await createSecp256k1PeerId();
+
+      // Access the private isTrustedPeer method using type assertion
+      const isTrustedPeer = (newPeerManager as any).isTrustedPeer.bind(newPeerManager);
+
+      // Verify that isTrustedPeer returns false when trusted peers are not initialized
+      expect(isTrustedPeer(peerId)).toBe(false);
+    });
+
+    it('should not disconnect trusted peers when max peer count is reached', async () => {
+      // Set the maxPeerCount to 3 in the mock peer manager
+      peerManager = new PeerManager(
+        mockLibP2PNode,
+        mockPeerDiscoveryService,
+        {
+          ...getP2PDefaultConfig(),
+          maxPeerCount: 3,
+        },
+        getTelemetryClient(),
+        createLogger('test'),
+        peerScoring,
+        mockReqResp,
+      );
+
+      // Create 2 trusted peers and 3 regular peers (total 5 peers, exceeding maxPeerCount of 3)
+      const trustedPeerId1 = await createSecp256k1PeerId();
+      const trustedPeerId2 = await createSecp256k1PeerId();
+      const regularPeerId1 = await createSecp256k1PeerId();
+      const regularPeerId2 = await createSecp256k1PeerId();
+      const regularPeerId3 = await createSecp256k1PeerId();
+
+      // Add the trusted peers
+      peerManager.addTrustedPeer(trustedPeerId1);
+      peerManager.addTrustedPeer(trustedPeerId2);
+
+      // Add the regular peers
+      mockLibP2PNode.getPeers.mockReturnValue([regularPeerId1, regularPeerId2, regularPeerId3, trustedPeerId1, trustedPeerId2]);
+
+      // Give different scores to the regular peers
+      peerScoring.updateScore(regularPeerId1.toString(), 100); // Higher score
+      peerScoring.updateScore(regularPeerId2.toString(), 50); // Medium score
+      // Leave regularPeerId3 with default score (lowest)
+
+      // Penalize the trusted peers to give them a low score
+      peerManager.penalizePeer(trustedPeerId1, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(trustedPeerId2, PeerErrorSeverity.LowToleranceError);
+
+      // Mock connections to include all peers
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: trustedPeerId1 },
+        { remotePeer: trustedPeerId2 },
+        { remotePeer: regularPeerId1 },
+        { remotePeer: regularPeerId2 },
+        { remotePeer: regularPeerId3 },
+      ]);
+
+      // Mock the pruneUnhealthyPeers method to return the connections unchanged
+      // This ensures prioritizePeers gets the correct connections
+      jest.spyOn(peerManager as any, 'pruneUnhealthyPeers').mockImplementation((connections) => connections);
+
+      // Mock the pruneDuplicatePeers method to return the connections unchanged
+      jest.spyOn(peerManager as any, 'pruneDuplicatePeers').mockImplementation((connections) => connections);
+
+      // Trigger heartbeat which should call prioritizePeers
+      peerManager.heartbeat();
+
+      // Wait for async operations to complete
+      await sleep(100);
+
+      // Verify that hangUp was called for the lowest scoring regular peers
+      // Since we have 2 trusted peers and maxPeerCount is 3, we can only keep 1 regular peer
+      // So regularPeerId2 and regularPeerId3 should be disconnected
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId2);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId3);
+
+      // Verify that hangUp was not called for the trusted peers and the highest scoring regular peer
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(trustedPeerId1);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(trustedPeerId2);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(regularPeerId1);
+
+      // Verify that goodbye messages were sent to the disconnected peers
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        regularPeerId2,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.MAX_PEERS]),
+      );
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledWith(
+        regularPeerId3,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.MAX_PEERS]),
+      );
     });
   });
 

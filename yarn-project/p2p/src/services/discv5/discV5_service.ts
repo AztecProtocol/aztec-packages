@@ -48,7 +48,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     private logger = createLogger('p2p:discv5_service'),
   ) {
     super();
-    const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes, trustedPeers } = config;
+    const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
     this.bootstrapNodes = bootstrapNodes ?? [];
     this.bootstrapNodeEnrs = this.bootstrapNodes.map(x => ENR.decodeTxt(x));
     // create ENR from PeerId
