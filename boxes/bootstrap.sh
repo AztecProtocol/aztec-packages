@@ -52,21 +52,17 @@ function release_git_push {
   local branch_name=$1
   local tag_name=$2
   local version=$3
-  local mirrored_repo_url="git@github.com:AztecProtocol/aztec-starter-vanilla.git"
+  local mirrored_repo_url="https://github.com/AztecProtocol/l1-contracts.git"
 
   cd boxes/vanilla
   rm -rf release-out && mkdir release-out
   git archive HEAD | tar -x -C release-out
   cd release-out
 
-  # Update the package version in package.json.
-  tmp=$(mktemp)
-  jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+  $root/ci3/npm/release_prep_package_json $version
 
-  # Update each dependent @aztec package version in package.json.
-  for pkg in $(jq --raw-output "(.dependencies // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
-    jq --arg v $version ".dependencies[\"$pkg\"] = \$v" package.json >$tmp && mv $tmp package.json
-  done
+  # CI needs to authenticate from GITHUB_TOKEN.
+  gh auth setup-git &>/dev/null || true
 
   git init &>/dev/null
   git remote add origin "$mirrored_repo_url" &>/dev/null
@@ -85,22 +81,16 @@ function release_git_push {
   fi
 
   if git rev-parse "$tag_name" >/dev/null 2>&1; then
-    echo "Tag $tag_name already exists. Skipping tag creation."
+    echo "Tag $tag_name already exists. Skipping release."
   else
     git add .
     git commit -m "Release $tag_name." >/dev/null
     git tag -a "$tag_name" -m "Release $tag_name."
     do_or_dryrun git push origin "$branch_name" --quiet
     do_or_dryrun git push origin --quiet --force "$tag_name" --tags
+
+    echo "Release complete ($tag_name) on branch $branch_name."
   fi
-
-  # CI needs to authenticate from GITHUB_TOKEN.
-  gh auth setup-git &>/dev/null || true
-
-  do_or_dryrun git push origin "$branch_name" --quiet
-  do_or_dryrun git push origin --quiet --force "$tag_name" --tags
-
-  echo "Release complete ($tag_name) on branch $branch_name."
 }
 
 function release {

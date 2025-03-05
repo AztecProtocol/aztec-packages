@@ -21,6 +21,7 @@ use dep::protocol_types::{
     abis::{
         call_context::CallContext,
         function_selector::FunctionSelector,
+        gas_settings::GasSettings,
         log::Log,
         log_hash::LogHash,
         max_block_number::MaxBlockNumber,
@@ -127,6 +128,10 @@ impl PrivateContext {
 
     pub fn version(self) -> Field {
         self.inputs.tx_context.version
+    }
+
+    pub fn gas_settings(self) -> GasSettings {
+        self.inputs.tx_context.gas_settings
     }
 
     pub fn selector(self) -> FunctionSelector {

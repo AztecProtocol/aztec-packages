@@ -17,8 +17,7 @@ import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import type { ContractDataOracle } from '../contract_data_oracle/index.js';
-import type { PrivateKernelOracle } from './private_kernel_oracle.js';
+import type { ContractDataProvider } from '../contract_data_provider/index.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.
@@ -28,7 +27,7 @@ import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   constructor(
-    private contractDataOracle: ContractDataOracle,
+    private contractDataProvider: ContractDataProvider,
     private keyStore: KeyStore,
     private node: AztecNode,
     private blockNumber: L2BlockNumber = 'latest',
@@ -36,7 +35,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
-    const instance = await this.contractDataOracle.getContractInstance(address);
+    const instance = await this.contractDataProvider.getContractInstance(address);
     return {
       saltedInitializationHash: await computeSaltedInitializationHash(instance),
       ...instance,
@@ -44,12 +43,12 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   }
 
   public async getContractClassIdPreimage(contractClassId: Fr) {
-    const contractClass = await this.contractDataOracle.getContractClass(contractClassId);
+    const contractClass = await this.contractDataProvider.getContractClass(contractClassId);
     return computeContractClassIdPreimage(contractClass);
   }
 
   public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
-    return await this.contractDataOracle.getFunctionMembershipWitness(contractClassId, selector);
+    return await this.contractDataProvider.getFunctionMembershipWitness(contractClassId, selector);
   }
 
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
@@ -83,7 +82,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
-    return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+    return this.contractDataProvider.getDebugFunctionName(contractAddress, selector);
   }
 
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
@@ -102,7 +101,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
     }
 
     const readStorage = (storageSlot: Fr) =>
-      this.node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, this.blockNumber);
+      this.node.getPublicStorageAt(this.blockNumber, ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
     const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
 
     return new UpdatedClassIdHints(

@@ -39,7 +39,7 @@ trap on_exit EXIT
 mkdir -p $tmp_dir
 
 # Set common flags for parallel.
-export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G}"
+export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
 
 # This computes a vk and adds it to the input function json if it's private, else returns same input.
 # stdin has the function json.

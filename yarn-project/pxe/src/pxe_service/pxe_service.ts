@@ -10,7 +10,7 @@ import {
   type ProtocolContractsProvider,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -45,7 +45,7 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import { type PrivateKernelProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { PrivateKernelTailCircuitPublicInputs, type PrivateKernelTraceProofOutput } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
@@ -67,14 +67,13 @@ import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
+import { ContractDataProvider } from '../contract_data_provider/index.js';
 import type { PxeDatabase } from '../database/index.js';
 import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
 import {
-  type PrivateKernelSequencerConfig,
   PrivateKernelTraceProver,
+  type PrivateKernelTraceProverConfig,
 } from '../private_kernel/private_kernel_trace_prover.js';
-import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 
@@ -83,7 +82,8 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
  */
 export class PXEService implements PXE {
   private synchronizer: Synchronizer;
-  private contractDataOracle: ContractDataOracle;
+  private contractDataProvider: ContractDataProvider;
+  private pxeDataProvider: PXEDataProvider;
   private simulator: AcirSimulator;
   private log: Logger;
   private packageVersion: string;
@@ -95,7 +95,7 @@ export class PXEService implements PXE {
     private db: PxeDatabase,
     tipsStore: L2TipsStore,
     private proofCreator: PrivateKernelProver,
-    private simulationProvider: SimulationProvider,
+    simulationProvider: SimulationProvider,
     private protocolContractsProvider: ProtocolContractsProvider,
     config: PXEServiceConfig,
     loggerOrSuffix?: string | Logger,
@@ -105,8 +105,16 @@ export class PXEService implements PXE {
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
         : loggerOrSuffix;
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, loggerOrSuffix);
-    this.contractDataOracle = new ContractDataOracle(db);
-    this.simulator = getAcirSimulator(db, node, keyStore, this.simulationProvider, this.contractDataOracle);
+    this.contractDataProvider = new ContractDataProvider(db);
+    this.pxeDataProvider = new PXEDataProvider(
+      db,
+      keyStore,
+      node,
+      simulationProvider,
+      this.contractDataProvider,
+      this.log,
+    );
+    this.simulator = new AcirSimulator(this.pxeDataProvider, simulationProvider);
     this.packageVersion = getPackageInfo().version;
     this.proverEnabled = !!config.proverEnabled;
   }
@@ -299,7 +307,7 @@ export class PXEService implements PXE {
     const currentClassId = await readCurrentClassId(
       contractAddress,
       currentInstance,
-      this.node,
+      this.pxeDataProvider,
       header.globalVariables.blockNumber.toNumber(),
     );
     if (!contractClass.id.equals(currentClassId)) {
@@ -328,7 +336,7 @@ export class PXEService implements PXE {
     if (!(await this.getContractInstance(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
-    return await this.node.getPublicStorageAt(contract, slot, 'latest');
+    return await this.node.getPublicStorageAt('latest', contract, slot);
   }
 
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
@@ -393,7 +401,6 @@ export class PXEService implements PXE {
         simulate: false,
         skipFeeEnforcement: false,
         profile: false,
-        dryRun: false,
       });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
@@ -433,7 +440,6 @@ export class PXEService implements PXE {
         simulate: !profile,
         skipFeeEnforcement,
         profile,
-        dryRun: true,
       });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -665,7 +671,7 @@ export class PXEService implements PXE {
 
   /**
    * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
-   * The simulation parameters are fetched using ContractDataOracle and executed using AcirSimulator.
+   * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
@@ -707,7 +713,7 @@ export class PXEService implements PXE {
     } catch (err) {
       if (err instanceof SimulationError) {
         try {
-          await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+          await enrichPublicSimulationError(err, this.contractDataProvider, this.db, this.log);
         } catch (enrichErr) {
           this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
         }
@@ -730,13 +736,13 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    config: PrivateKernelSequencerConfig,
-  ): Promise<PrivateKernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+    config: PrivateKernelTraceProverConfig,
+  ): Promise<PrivateKernelTraceProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const block = privateExecutionResult.getSimulationBlockNumber();
-    const kernelOracle = new PrivateKernelOracleImpl(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelSequencer = new PrivateKernelTraceProver(kernelOracle, proofCreator, !this.proverEnabled);
+    const kernelOracle = new PrivateKernelOracleImpl(this.contractDataProvider, this.keyStore, this.node, block);
+    const kernelTraceProver = new PrivateKernelTraceProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel prover (${JSON.stringify(config)})...`);
-    return await kernelSequencer.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
+    return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
   async #isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {

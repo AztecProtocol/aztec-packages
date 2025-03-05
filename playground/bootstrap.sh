@@ -28,7 +28,12 @@ function test_cmds {
 
 function release {
   echo_header "playground release"
-  do_or_dryrun yarn netlify deploy --site aztec-playground --prod
+  if [ $(dist_tag) != "latest" ]; then
+    # TODO attach to github release
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --dir=dist
+  else
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod --dir=dist
+  fi
 }
 
 case "$cmd" in

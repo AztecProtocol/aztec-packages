@@ -1,6 +1,10 @@
 export { AcirSimulator } from './simulator.js';
-export { ViewDataOracle } from './view_data_oracle.js';
-export { type DBOracle, ContractClassNotFoundError, ContractNotFoundError } from './db_oracle.js';
+export { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
+export {
+  type ExecutionDataProvider,
+  ContractClassNotFoundError,
+  ContractNotFoundError,
+} from './execution_data_provider.js';
 export * from './pick_notes.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
 export { extractPrivateCircuitPublicInputs, readCurrentClassId } from './private_execution.js';

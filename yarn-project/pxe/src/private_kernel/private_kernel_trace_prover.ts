@@ -17,10 +17,10 @@ import {
   PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelProofOutput,
   type PrivateKernelSimulateOutput,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
+  type PrivateKernelTraceProofOutput,
   PrivateVerificationKeyHints,
   type ScopedPrivateLogData,
 } from '@aztec/stdlib/kernel';
@@ -88,11 +88,10 @@ const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPubl
   bytecode: Buffer.from([]),
 };
 
-export interface PrivateKernelSequencerConfig {
+export interface PrivateKernelTraceProverConfig {
   simulate: boolean;
   skipFeeEnforcement: boolean;
   profile: boolean;
-  dryRun: boolean;
 }
 
 /** Represents either a private kernel circuit or one of our application function circuits. They are interleaved with one another.
@@ -127,24 +126,20 @@ export class PrivateKernelTraceProver {
    * @param txRequest - The authenticated transaction request object.
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @param profile - Set true to profile the gate count for each circuit
-   * @param dryRun - Set true to skip the IVC proof generation (only simulation is run). Useful for profiling gate count without proof gen.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    * TODO(#7368) this should be refactored to not recreate the ACIR bytecode now that it operates on a program stack
    */
   async proveWithKernels(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: PrivateKernelSequencerConfig = {
+    { simulate, skipFeeEnforcement, profile }: PrivateKernelTraceProverConfig = {
       simulate: false,
       skipFeeEnforcement: false,
       profile: false,
-      dryRun: false,
     },
-  ): Promise<PrivateKernelProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    if (simulate && profile) {
-      throw new Error('Cannot simulate and profile at the same time');
-    }
-    simulate = simulate || this.fakeProofs;
+  ): Promise<PrivateKernelTraceProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const skipProofGeneration = this.fakeProofs || simulate;
+    const generateWitnesses = !skipProofGeneration || profile;
 
     const timer = new Timer();
 
@@ -224,9 +219,9 @@ export class PrivateKernelTraceProver {
 
         pushTestData('private-kernel-inputs-init', proofInput);
 
-        output = simulate
-          ? await this.proofCreator.simulateInit(proofInput)
-          : await this.proofCreator.generateInitOutput(proofInput);
+        output = generateWitnesses
+          ? await this.proofCreator.generateInitOutput(proofInput)
+          : await this.proofCreator.simulateInit(proofInput);
 
         trace.push({
           functionName: 'private_kernel_init',
@@ -245,9 +240,9 @@ export class PrivateKernelTraceProver {
 
         pushTestData('private-kernel-inputs-inner', proofInput);
 
-        output = simulate
-          ? await this.proofCreator.simulateInner(proofInput)
-          : await this.proofCreator.generateInnerOutput(proofInput);
+        output = generateWitnesses
+          ? await this.proofCreator.generateInnerOutput(proofInput)
+          : await this.proofCreator.simulateInner(proofInput);
 
         trace.push({
           functionName: 'private_kernel_inner',
@@ -267,9 +262,9 @@ export class PrivateKernelTraceProver {
     );
     while (resetBuilder.needsReset()) {
       const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-      output = simulate
-        ? await this.proofCreator.simulateReset(privateInputs)
-        : await this.proofCreator.generateResetOutput(privateInputs);
+      output = generateWitnesses
+        ? await this.proofCreator.generateResetOutput(privateInputs)
+        : await this.proofCreator.simulateReset(privateInputs);
 
       trace.push({
         functionName: 'private_kernel_reset',
@@ -286,7 +281,7 @@ export class PrivateKernelTraceProver {
     }
 
     if (output.publicInputs.feePayer.isZero() && skipFeeEnforcement) {
-      if (!dryRun && !simulate) {
+      if (!skipProofGeneration) {
         throw new Error('Fee payment must be enforced when creating real proof.');
       }
       output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
@@ -308,9 +303,9 @@ export class PrivateKernelTraceProver {
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 
-    const tailOutput = simulate
-      ? await this.proofCreator.simulateTail(privateInputs)
-      : await this.proofCreator.generateTailOutput(privateInputs);
+    const tailOutput = generateWitnesses
+      ? await this.proofCreator.generateTailOutput(privateInputs)
+      : await this.proofCreator.simulateTail(privateInputs);
     if (tailOutput.publicInputs.forPublic) {
       const privateLogs = privateInputs.previousKernel.publicInputs.end.privateLogs;
       const nonRevertiblePrivateLogs = tailOutput.publicInputs.forPublic.nonRevertibleAccumulatedData.privateLogs;
@@ -332,13 +327,13 @@ export class PrivateKernelTraceProver {
       }
     }
 
-    if (!simulate) {
+    if (generateWitnesses) {
       this.log.info(`Private kernel witness generation took ${timer.ms()}ms`);
     }
 
     let clientIvcProof: ClientIvcProof;
     // TODO(#7368) how do we 'bincode' encode these inputs?
-    if (!dryRun && !simulate) {
+    if (!skipProofGeneration) {
       clientIvcProof = await this.proofCreator.createClientIvcProof(
         trace.map(e => e.bytecode),
         trace.map(e => e.witness),

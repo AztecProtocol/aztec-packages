@@ -7,6 +7,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -460,13 +461,21 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** ou
     std::vector<uint32_t> totals;
 
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-    const acir_format::ProgramMetadata metadata{ ivc };
     for (auto& bincode : acirs) {
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0) };
-        auto builder = acir_format::create_circuit(program, metadata);
+        const acir_format::AcirFormat constraint_system =
+            acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
+
+        // Create an acir program from the constraint system
+        acir_format::AcirProgram program{ constraint_system };
+
+        // Extract ivc recursion constraints and define metadata
+        const auto& ivc_constraints = constraint_system.ivc_recursion_constraints;
+        const acir_format::ProgramMetadata metadata{
+            .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+        };
+        auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
-        totals.push_back(static_cast<uint32_t>(builder.get_finalized_total_circuit_size()));
+        totals.push_back(static_cast<uint32_t>(builder.num_gates));
     }
     auto totalsBytes = to_buffer<false>(totals);
 

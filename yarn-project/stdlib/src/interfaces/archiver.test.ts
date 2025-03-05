@@ -78,11 +78,6 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1);
   });
 
-  it('getProvenL2EpochNumber', async () => {
-    const result = await context.client.getProvenL2EpochNumber();
-    expect(result).toBe(1);
-  });
-
   it('getBlock', async () => {
     const result = await context.client.getBlock(1);
     expect(result).toBeInstanceOf(L2Block);
@@ -268,9 +263,6 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve(1);
   }
   getProvenBlockNumber(): Promise<number> {
-    return Promise.resolve(1);
-  }
-  getProvenL2EpochNumber(): Promise<number | undefined> {
     return Promise.resolve(1);
   }
   getBlock(number: number): Promise<L2Block | undefined> {

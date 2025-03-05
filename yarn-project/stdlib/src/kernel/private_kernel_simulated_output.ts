@@ -21,7 +21,7 @@ export interface PrivateKernelSimulateOutput<
 }
 
 /** Represents the output of proven PrivateKernelSimulateOutput.*/
-export interface PrivateKernelProofOutput<
+export interface PrivateKernelTraceProofOutput<
   PublicInputsType extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
 > {
   /** The public inputs used by the proof generation process. */

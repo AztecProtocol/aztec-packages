@@ -119,7 +119,8 @@ describe('prover/orchestrator/public-functions', () => {
     ): Promise<Tx> {
       const setupCallSeed = (i: number) => i * txSeed;
       const appCallSeed = (i: number) => (i + numberOfNonRevertiblePublicCallRequests) * txSeed;
-      //const teardownCallSeed =  (numberOfNonRevertiblePublicCallRequests + numberOfRevertiblePublicCallRequests) * txSeed;
+      const teardownCallSeed =
+        (numberOfNonRevertiblePublicCallRequests + numberOfRevertiblePublicCallRequests) * txSeed;
 
       const setupCalls = Array.from({ length: numberOfNonRevertiblePublicCallRequests }, (_, i) =>
         createMintCall(/*seed=*/ setupCallSeed(i)),
@@ -131,8 +132,7 @@ describe('prover/orchestrator/public-functions', () => {
         /*sender=*/ admin,
         /*setupCalls=*/ setupCalls,
         /*appCalls=*/ appCalls,
-        // TODO(dbanks12): Teardown breaks!
-        ///*teardownCall=*/ createMintCall(/*seed=*/ teardownCallSeed),
+        /*teardownCall=*/ createMintCall(/*seed=*/ teardownCallSeed),
       );
     }
   });
