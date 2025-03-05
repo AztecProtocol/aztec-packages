@@ -38,9 +38,13 @@ describe('spartan_upgrade_rollup_version', () => {
   let ETHEREUM_HOSTS: string[];
   let originalL1ContractAddresses: L1ContractAddresses;
   const forwardProcesses: ChildProcess[] = [];
+  let pxeForwardProcess: ChildProcess;
 
   afterAll(() => {
     forwardProcesses.forEach(p => p.kill());
+    if (pxeForwardProcess) {
+      pxeForwardProcess.kill();
+    }
   });
 
   beforeAll(async () => {
@@ -49,7 +53,7 @@ describe('spartan_upgrade_rollup_version', () => {
       namespace: config.NAMESPACE,
       containerPort: config.CONTAINER_PXE_PORT,
     });
-    forwardProcesses.push(pxeProcess);
+    pxeForwardProcess = pxeProcess;
     const PXE_URL = `http://127.0.0.1:${pxePort}`;
 
     const { process: ethProcess, port: ethPort } = await startPortForward({
@@ -288,12 +292,13 @@ describe('spartan_upgrade_rollup_version', () => {
       await rollAztecPods(config.NAMESPACE);
 
       // restart the port forward
+      pxeForwardProcess.kill();
       const { process: pxeProcess } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
       });
-      forwardProcesses.push(pxeProcess);
+      pxeForwardProcess = pxeProcess;
 
       const newNodeInfo = await pxe.getNodeInfo();
       expect(newNodeInfo.l1ContractAddresses.rollupAddress).toEqual(newCanonicalAddresses.rollupAddress);
