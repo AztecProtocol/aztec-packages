@@ -43,7 +43,6 @@ spec:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
 
-
         - name: wait-for-services
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -108,18 +107,6 @@ spec:
             - name: SLASH_FACTORY_CONTRACT_ADDRESS
               value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
 
-        - name: wait-for-ethereum
-          {{- include "aztec-network.image" . | nindent 10 }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              source /shared/config/service-addresses
-              cat /shared/config/service-addresses
-              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
-          volumeMounts:
-            - name: config
-              mountPath: /shared/config
       containers:
         - name: full-node
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -127,10 +114,11 @@ spec:
             - /bin/bash
             - -c
             - |
-              source /shared/contracts/contracts.env && \
-              source /shared/p2p/p2p-addresses && \
-              source /shared/config/service-addresses && \
-              env && \
+              source /shared/contracts/contracts.env
+              source /shared/p2p/p2p-addresses
+              source /shared/config/service-addresses
+              env
+
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --pxe
           startupProbe:
             httpGet:

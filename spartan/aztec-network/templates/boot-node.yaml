@@ -66,18 +66,6 @@ spec:
             - name: NUMBER_OF_VALIDATORS
               value: {{ .Values.validator.replicas | quote }}
 
-        - name: wait-for-ethereum
-          {{- include "aztec-network.image" . | nindent 10 }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              source /shared/config/service-addresses
-              cat /shared/config/service-addresses
-              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
-          volumeMounts:
-            - name: config
-              mountPath: /shared/config
         - name: deploy-l1-contracts
           {{- include "aztec-network.image" . | nindent 10 }}
           command:

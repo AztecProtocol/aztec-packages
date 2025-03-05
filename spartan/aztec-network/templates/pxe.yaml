@@ -39,7 +39,8 @@ spec:
           emptyDir: {}
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-        - name: wait-for-boot-node
+
+        - name: wait-for-host
           image: {{ .Values.images.curl.image }}
           command:
             - /bin/sh
@@ -47,26 +48,23 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              until curl --head --silent ${BOOT_NODE_HOST}/status; do
+
+              {{- if .Values.network.public }}
+              # If the network is public, we need to use the boot node URL
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- else }}
+              # If the network is not public, we can use the validator URL
+              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              {{- end }}
+
+              until curl --head --silent ${AZTEC_NODE_URL}/status; do
                 echo "Waiting for boot node..."
                 sleep 5
               done
           volumeMounts:
             - name: config
               mountPath: /shared/config
-        {{- if not .Values.network.public }}
-        # We only need to wait for the validator service if the network is not public
-        - name: wait-for-validator-service
-          image: {{ .Values.images.curl.image }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              until curl --head --silent {{ include "aztec-network.validatorUrl" . }}/status; do
-                echo "Waiting for validator service..."
-                sleep 5
-              done
-        {{- end }}
+
       containers:
         - name: pxe
           {{- include "aztec-network.image" . | nindent 10 }}
