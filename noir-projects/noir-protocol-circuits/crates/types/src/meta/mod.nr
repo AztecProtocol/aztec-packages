@@ -320,7 +320,7 @@ pub comptime fn generate_serialize_to_fields(
     if !omit.any(|to_omit| to_omit == name) {
         // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
         let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
-        let packable_constraint = quote { Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+        let packable_constraint = quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
 
         if (should_pack & typ.implements(packable_constraint)) {
             // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
@@ -332,12 +332,7 @@ pub comptime fn generate_serialize_to_fields(
             let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
 
             // We add the individual fields to the fields array
-            let pack_method = get_trait_impl_method(
-                typ,
-                quote { Packable<$maybe_packed_len_typ> },
-                quote { pack},
-            );
-            let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
+            let packed_struct = quote { let $packed_struct_name = $name.pack() };
             for i in 0..packed_len {
                 fields = fields.push_back(quote { $packed_struct_name[$i] });
             }
