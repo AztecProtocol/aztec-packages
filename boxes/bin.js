@@ -74,10 +74,10 @@ program
     global.latestStable = await getLatestStable();
     global.version = version || global.latestStable;
 
-    // if the user has set a semver version (matches the regex), fetch that tag (i.e. aztec-packages-v0.23.0)
+    // if the user has set a semver version (matches the regex), fetch that tag (i.e. v0.23.0)
     // otherwise use the version as the tag
     global.tag = global.version.match(/^\d+\.\d+\.\d+$/)
-      ? `aztec-packages-v${global.version}`
+      ? `v${global.version}`
       : global.version;
 
     global.debug(`Version: ${global.version}`);

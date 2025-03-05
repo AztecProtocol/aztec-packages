@@ -15,7 +15,7 @@ async function getVersions() {
         fs.readFileSync(aztecVersionPath).toString()
       )["."];
       versions = {
-        aztec: `aztec-packages-v${aztecVersion}`,
+        aztec: `v${aztecVersion}`,
         aztec_short: aztecVersion,
       };
     } catch (err) {

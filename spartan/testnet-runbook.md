@@ -28,7 +28,7 @@ Additionally, the following NPM packages are published:
 
 - BB.js
 - l1-contracts
-- yarn-project (see [publish_npm.sh](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.63.0/yarn-project/publish_npm.sh))
+- yarn-project (see [publish_npm.sh](https://github.com/AztecProtocol/aztec-packages/blob/v0.63.0/yarn-project/publish_npm.sh))
 
 The following Docker containers are also published:
 
