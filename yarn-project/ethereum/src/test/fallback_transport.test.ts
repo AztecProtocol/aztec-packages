@@ -10,7 +10,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { EthCheatCodes } from '../eth_cheat_codes.js';
 import { fallback } from '../fallback_transport.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { startAnvil } from './start_anvil.js';
@@ -22,8 +21,6 @@ describe('fallback_transport', () => {
   let client: ExtendedViemWalletClient;
   let publicClient1: PublicClient;
   let publicClient2: PublicClient;
-  let cheatCodes1: EthCheatCodes;
-  let cheatCodes2: EthCheatCodes;
   let anvil1: Anvil;
   let anvil2: Anvil;
 
@@ -49,8 +46,6 @@ describe('fallback_transport', () => {
       transport: http(rpcUrl2),
       chain: foundry,
     });
-    cheatCodes1 = new EthCheatCodes([rpcUrl1]);
-    cheatCodes2 = new EthCheatCodes([rpcUrl2]);
   });
 
   afterAll(async () => {
