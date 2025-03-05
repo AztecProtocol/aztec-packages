@@ -179,10 +179,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     const bootstrapNodes = peerDiscoveryService.bootstrapNodes;
 
-    // // If trusted peers are provided, also provide them to the p2p service
-    // if (peerDiscoveryService.trustedPeers.length > 0) {
-    //   bootstrapNodes.push(...peerDiscoveryService.trustedPeers);
-    // }
+    // If trusted peers are provided, also provide them to the p2p service
+    bootstrapNodes.push(...config.trustedPeers);
 
     // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
