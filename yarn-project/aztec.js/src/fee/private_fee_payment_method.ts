@@ -1,11 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type FunctionCall } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
 import type { Wallet } from '../account/wallet.js';
-import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { SignerlessWallet } from '../wallet/signerless_wallet.js';
+import { FPCContract, TokenContract } from './contracts/index.js';
 import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
@@ -40,37 +40,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     if (!this.assetPromise) {
       // We use signer-less wallet because this function could be triggered before the associated account is deployed.
       const signerlessWallet = new SignerlessWallet(this.wallet);
-
-      const interaction = new ContractFunctionInteraction(
-        signerlessWallet,
-        this.paymentContract,
-        {
-          name: 'get_accepted_asset',
-          functionType: FunctionType.PRIVATE,
-          isInternal: false,
-          isStatic: false,
-          parameters: [],
-          returnTypes: [
-            {
-              kind: 'struct',
-              path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
-              fields: [
-                {
-                  name: 'inner',
-                  type: {
-                    kind: 'field',
-                  },
-                },
-              ],
-            },
-          ],
-          errorTypes: {},
-          isInitializer: false,
-        },
-        [],
-      );
-
-      this.assetPromise = interaction.simulate();
+      const fpc = FPCContract.at(this.paymentContract, signerlessWallet);
+      this.assetPromise = fpc.then((contract: FPCContract) => contract.methods.get_accepted_asset().simulate());
     }
     return this.assetPromise!;
   }
@@ -87,32 +58,20 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
   async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit
     // (maxFee) to be in token denomination.
-    const maxFee = this.setMaxFeeToOne ? Fr.ONE : gasSettings.getFeeLimit();
+    const maxFee = this.setMaxFeeToOne ? 1n : gasSettings.getFeeLimit().toBigInt();
     const nonce = Fr.random();
 
-    await this.wallet.createAuthWit({
-      caller: this.paymentContract,
-      action: {
-        name: 'transfer_to_public',
-        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
-        selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),u128,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        to: await this.getAsset(),
-        returnTypes: [],
-      },
-    });
+    // Add authwit such that the FPC can transfer our balance of fee token to itself.
+    {
+      const feeToken = await TokenContract.at(await this.getAsset(), this.wallet);
+      const action = feeToken.methods.transfer_to_public(this.wallet.getAddress(), this.paymentContract, maxFee, nonce);
 
-    return [
-      {
-        name: 'fee_entrypoint_private',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_private(u128,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [maxFee, nonce],
-        returnTypes: [],
-      },
-    ];
+      const witness = await this.wallet.createAuthWit({ caller: this.paymentContract, action });
+      await this.wallet.addAuthWitness(witness);
+    }
+
+    const fpc = await FPCContract.at(this.paymentContract, this.wallet);
+    const action = fpc.methods.fee_entrypoint_private(maxFee, nonce);
+    return [await action.request()];
   }
 }

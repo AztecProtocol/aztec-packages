@@ -3,14 +3,12 @@ import {
   type AztecAddress,
   Fr,
   type FunctionCall,
-  FunctionSelector,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
-import { FunctionType } from '@aztec/stdlib/abi';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { type TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
@@ -325,40 +323,31 @@ describe('e2e_fees failures', () => {
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
   override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
-    const maxFee = gasSettings.getFeeLimit();
+    const maxFee = gasSettings.getFeeLimit().toBigInt();
     const nonce = Fr.random();
 
-    const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
+    const tooMuchFee = maxFee * 2n;
 
-    const asset = await this.getAsset();
+    // Add authwit such that the FPC can transfer our balance of fee token to itself
+    const feeToken = await TokenContract.at(await this.getAsset(), this.wallet);
+    const tokenAction = feeToken.methods.transfer_in_public(
+      this.wallet.getAddress(),
+      this.paymentContract,
+      maxFee,
+      nonce,
+    );
 
-    const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
+    const witness = await this.wallet.setPublicAuthWit(
       {
         caller: this.paymentContract,
-        action: {
-          name: 'transfer_in_public',
-          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
-          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
-          type: FunctionType.PUBLIC,
-          isStatic: false,
-          to: asset,
-          returnTypes: [],
-        },
+        action: await tokenAction.request(),
       },
       true,
     );
 
-    return [
-      await setPublicAuthWitInteraction.request(),
-      {
-        name: 'fee_entrypoint_public',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [tooMuchFee, nonce],
-        returnTypes: [],
-      },
-    ];
+    const fpc = await FPCContract.at(this.paymentContract, this.wallet);
+    const fpcAction = fpc.methods.fee_entrypoint_public(tooMuchFee, nonce);
+
+    return [await witness.request(), await fpcAction.request()];
   }
 }

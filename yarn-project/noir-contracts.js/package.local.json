@@ -1,8 +1,8 @@
 {
   "scripts": {
-    "build": "yarn clean && yarn generate",
-    "generate": "yarn generate:noir-contracts",
-    "generate:noir-contracts": "./scripts/generate-types.sh",
+    "build": "yarn clean && yarn generate && yarn copy:fee:contracts",
+    "generate": "./scripts/generate-types.sh",
+    "copy:fee:contracts": "./scripts/copy-fee-contracts.sh",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src ./codegenCache.json"
   },
   "files": ["dest", "src", "artifacts", "!*.test.*"]

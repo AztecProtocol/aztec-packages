@@ -70,6 +70,7 @@ describe('GasTxValidator', () => {
 
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
     mockBalance(feeLimit - 1n);
+    // TODO(benesjan): update this to not have hardcoded signature
     const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
     await patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
@@ -91,6 +92,7 @@ describe('GasTxValidator', () => {
 
   it('rejects txs if fee payer claims balance outside setup', async () => {
     mockBalance(feeLimit - 1n);
+    // TODO(benesjan): update this to not have hardcoded signature
     await patchRevertibleFn(tx, 0, {
       selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)'),
       args: [payer.toField(), new Fr(1n)],
