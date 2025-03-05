@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741192982917,
+  "lastUpdate": 1741195092214,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e31f0f4a463f16901e63aad844f150e7c89365c8",
-          "message": "chore: Increase timeout for prover full (#12379)",
-          "timestamp": "2025-02-28T18:49:49Z",
-          "tree_id": "867d7c9f9beaa854f276deff9bdd7a1ea3df7b64",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e31f0f4a463f16901e63aad844f150e7c89365c8"
-        },
-        "date": 1740770675263,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18210.031165999906,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16082.486762000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18686.146706000043,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16276.852501000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3948.7047889997484,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3158.6834809999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55304.101214999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55304101000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11257.793598,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11257796000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1885726675,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1885726675 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 218546338,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 218546338 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 216297312,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 216297312 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "miranda@aztecprotocol.com",
+            "name": "Miranda Wood",
+            "username": "MirandaWood"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b6871ce5487f7ab1cc27cf8777fa238028f2dc10",
+          "message": "feat: tightly pack logs inside blobs (#11752)\n\nThis PR removes trailing zeroes from logs appended to the blobs to save\non field space.\ne.g. before this PR, a public log would be appended like:\n```rust\n[1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n```\nbut now is appended as:\n```rust\n[1, 2, 3]\n```\nwith a length prefix.\nIn ts, we add back the trailing zeroes when constructing tx effects from\nthe blob, so if they are required there should be no issue.\nAlso, in some logs there are valid zeroes inside the log. The method\ndoes not remove these. e.g. a public log like:\n```rust\n[1, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n```\nis appended as:\n```rust\n[1, 0, 3]\n```\nthen reconstructed to the original log once in ts.",
+          "timestamp": "2025-03-05T16:41:24Z",
+          "tree_id": "8b902567ded2d8645c08792a667de1c1856bd848",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b6871ce5487f7ab1cc27cf8777fa238028f2dc10"
+        },
+        "date": 1741195084902,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18310.558331000037,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16201.020712999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18907.178333999807,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16361.319737000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3951.323004999722,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3140.8121120000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55501.222697000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55501227000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11469.875582,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11469877000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1926191800,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1926191800 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 223513178,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 223513178 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
