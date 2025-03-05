@@ -98,7 +98,7 @@ When a user wants to interact with the network's **public** state, as their firs
 
 However, if a transaction is fully **private**, to send this transaction, it's enough to initialize the account contract (deployment is not needed). The default state for any given address is to be uninitialized, meaning its [constructor](../../../developers/tutorials/codealong/contract_tutorials/nft_contract.md#initializer) has not been called. The contract is initialized when its constructor has been invoked, and the constructor has emitted the instance's Initialization Nullifier.
 
-When sitting on the receiving end, account deployment and initialization is not required. The user address can be deterministically derived from their encryption public key and the account contract they intend to deploy. So that the funds can be sent to an account that hasn't been deployed yet.
+When sitting on the receiving end, account deployment and initialization are not required. The user address can be deterministically derived from their encryption public key and the account contract they intend to deploy. So that the funds can be sent to an account that hasn't been deployed yet.
 
 Users will need to pay transaction fees in order to deploy their account contract. This can be done by sending fee juice to their account contract address (which can be derived deterministically, as mentioned above), so that the account has funds to pay for its own deployment. Alternatively, the fee can be paid for by another account, using [fee abstraction](#fee-abstraction).
 
