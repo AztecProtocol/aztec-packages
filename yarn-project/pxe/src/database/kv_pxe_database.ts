@@ -212,10 +212,12 @@ export class KVPxeDatabase implements PxeDatabase {
       for (const dao of notes) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
 
-        // Check if note already exists in #notes and skip if it does
-        const existingNote = await this.#notes.getAsync(noteIndex);
-        if (existingNote) {
-          this.#logger.warn(`Note with index ${noteIndex} already exists in active notes. Skipping re-addition...`);
+        // Check if note exists under this scope and skip if it does
+        const existingScopes = await toArray(this.#notesToScope.getValuesAsync(noteIndex));
+        if (existingScopes.includes(scope.toString())) {
+          this.#logger.warn(
+            `Note with index ${noteIndex} already exists in active notes under scope ${scope}. Skipping re-addition...`,
+          );
           continue;
         }
 
