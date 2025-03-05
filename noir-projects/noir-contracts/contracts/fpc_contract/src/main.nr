@@ -98,7 +98,7 @@ pub contract FPC {
         // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
         context.set_public_teardown_function(
             context.this_address(),
-            comptime { FunctionSelector::from_signature("complete_refund((Field),Field,u128)") },
+            comptime { FunctionSelector::from_signature("complete_refund((Field),(Field),u128)") },
             array_concat(
                 array_concat(accepted_asset.serialize(), partial_note.serialize()),
                 max_fee.serialize(),
