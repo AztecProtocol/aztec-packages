@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741166826993,
+  "lastUpdate": 1741170275735,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8181149877386eca54ee7a8b578a68ccb0c9585e",
-          "message": "fix: make block number in txe make sense (#11807)\n\nRight now `env.block_number()` returns the block number that is\ncurrently being built, as per an arbitrary choice when creating the TXe.\n\nBut this has a strange side effect of the current block (from the\nheader) and `env.block_number()` not matching up. The current header has\n`env.block_number() - 1` because the current header reflects the state\nof the last committed block.\n\nBefore this mattered less because we couldn't do historical proofs, and\nbecause we had less of a notion of \"correctness\" in blocks but now due\nto the changes this makes sense to change.\n\n---------\n\nCo-authored-by: benesjan <janbenes1234@gmail.com>",
-          "timestamp": "2025-02-28T00:56:52+09:00",
-          "tree_id": "a0f65e9c893095731465799cf250fd107b397440",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8181149877386eca54ee7a8b578a68ccb0c9585e"
-        },
-        "date": 1740674081232,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18267.676931000096,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16197.836061 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18783.73483900009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16513.480575 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3955.0182509997285,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3178.1439890000006 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55000.963178,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55000964000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9752.227081,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9752233000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1942346365,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1942346365 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 213344019,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 213344019 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 213781947,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 213781947 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "miranda@aztecprotocol.com",
+            "name": "Miranda Wood",
+            "username": "MirandaWood"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3d8cb7d1fde0382ef93c45cf09e34bc16c100d1",
+          "message": "fix: provide unsiloed cc log to rollup (#12448)\n\nHave no idea how this was passing - the incorrect contract class log\npreimages were always being provided to the base rollup circuits\n(whoops). Bit of a janky fix to avoid carrying around an extra field per\nlog on the processed tx/ in block builders.\nShould fix broken 4 epochs test",
+          "timestamp": "2025-03-05T09:54:03Z",
+          "tree_id": "3177333026591e939a4f4c475066409cdb0f76f5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e3d8cb7d1fde0382ef93c45cf09e34bc16c100d1"
+        },
+        "date": 1741170267731,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18185.247892999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15902.771241000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18755.6857510001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16297.771827999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3924.5166600001085,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3080.063633 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55262.637575,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55262638000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9767.232886,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9767239000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1973142555,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1973142555 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 219381141,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 219381141 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
