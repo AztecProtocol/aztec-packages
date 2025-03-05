@@ -18,6 +18,7 @@ import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import type { ContractDataProvider } from '../contract_data_provider/index.js';
+import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.

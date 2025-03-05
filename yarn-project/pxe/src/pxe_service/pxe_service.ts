@@ -74,6 +74,7 @@ import {
   PrivateKernelTraceProver,
   type PrivateKernelTraceProverConfig,
 } from '../private_kernel/private_kernel_trace_prover.js';
+import { PXEDataProvider } from '../pxe_data_provider/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 
