@@ -115,12 +115,10 @@ fn tail_to_public_output_composer_succeeds() {
         [public_call_requests[4], public_call_requests[3], public_call_requests[2]],
     );
 
-    // Safety: this is a test
-    let total_num_private_log_fields = unsafe { get_emitted_private_logs_len(data.private_logs) };
+    let total_num_private_log_fields = get_emitted_private_logs_len(data.private_logs);
 
-    // Safety: this is a test
     let total_num_contract_class_log_fields =
-        unsafe { get_emitted_contract_class_logs_len(data.contract_class_logs_hashes) };
+        get_emitted_contract_class_logs_len(data.contract_class_logs_hashes);
 
     // Gas: non-revertible
     let mut num_note_hashes = 4;

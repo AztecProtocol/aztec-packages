@@ -40,18 +40,14 @@ fn meter_gas_used_everything_succeeds() {
     computed_l2_gas += 1 * L2_GAS_PER_L2_TO_L1_MSG;
 
     builder.append_private_logs(3);
-    // Safety: this is a test
-    let total_num_private_log_fields = unsafe {
-        get_emitted_private_logs_len(builder.private_logs.storage().map(|l| l.inner.log))
-    };
+    let total_num_private_log_fields =
+        get_emitted_private_logs_len(builder.private_logs.storage().map(|l| l.inner.log));
     metered_da_bytes += total_num_private_log_fields * DA_BYTES_PER_FIELD;
     computed_l2_gas += 3 * L2_GAS_PER_PRIVATE_LOG;
 
     builder.add_contract_class_log_hash(3001, 51);
-    // Safety: this is a test
-    let total_num_cc_log_fields = unsafe {
-        get_emitted_contract_class_logs_len(builder.contract_class_logs_hashes.storage())
-    };
+    let total_num_cc_log_fields =
+        get_emitted_contract_class_logs_len(builder.contract_class_logs_hashes.storage());
     metered_da_bytes += total_num_cc_log_fields * DA_BYTES_PER_FIELD;
     computed_l2_gas += 1 * L2_GAS_PER_CONTRACT_CLASS_LOG;
 

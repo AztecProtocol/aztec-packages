@@ -79,22 +79,16 @@ fn meter_gas_used_everything_succeeds() {
         teardown_gas_limits,
     );
 
-    // Safety: this is a test
-    let total_num_private_log_fields = unsafe {
-        get_emitted_private_logs_len(array_merge(
-            non_revertible_builder.private_logs.storage(),
-            revertible_builder.private_logs.storage(),
-        )
-            .map(|l| l.inner.log))
-    };
+    let total_num_private_log_fields = get_emitted_private_logs_len(array_merge(
+        non_revertible_builder.private_logs.storage(),
+        revertible_builder.private_logs.storage(),
+    )
+        .map(|l| l.inner.log));
 
-    // Safety: this is a test
-    let total_num_cc_log_fields = unsafe {
-        get_emitted_contract_class_logs_len(array_merge(
-            non_revertible_builder.contract_class_logs_hashes.storage(),
-            revertible_builder.contract_class_logs_hashes.storage(),
-        ))
-    };
+    let total_num_cc_log_fields = get_emitted_contract_class_logs_len(array_merge(
+        non_revertible_builder.contract_class_logs_hashes.storage(),
+        revertible_builder.contract_class_logs_hashes.storage(),
+    ));
 
     let total_num_side_effects = 4 + 3 + 1;
     let total_log_bytes = total_num_private_log_fields * DA_BYTES_PER_FIELD // private_logs
