@@ -56,7 +56,7 @@ function show_status_until_pxe_ready {
 show_status_until_pxe_ready &
 
 function cleanup {
-  trap - SIGTERM && kill $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill $(jobs -p) &>/dev/null && rm "$mnemonic_file" || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
@@ -84,7 +84,8 @@ function generate_overrides {
 if [ "$sepolia_deployment" = "true" ]; then
   echo "Generating sepolia accounts..."
   set +x
-  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file" "$mnemonic_file")
+  ./prepare_sepolia_accounts.sh "$values_file" 1 "$mnemonic_file"
+  L1_ACCOUNTS_MNEMONIC=$(cat "$mnemonic_file")
   set -x
 else
   echo "Generating devnet config..."
@@ -104,19 +105,21 @@ helm_set_args=(
 # If this is a sepolia run, we need to write some values
 if [ "$sepolia_deployment" = "true" ]; then
   set +x
+  # Escape commas in the EXTERNAL_ETHEREUM_HOSTS value
+  ESCAPED_HOSTS=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | sed 's/,/\\,/g')
   helm_set_args+=(
-    --set ethereum.execution.externalHosts="$EXTERNAL_ETHEREUM_HOSTS"
-    --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
-    --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
-    --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
+    --set "ethereum.execution.externalHosts=$ESCAPED_HOSTS"
+    --set "ethereum.beacon.externalHost=$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
+    --set "aztec.l1DeploymentMnemonic=$L1_ACCOUNTS_MNEMONIC"
+    --set "ethereum.deployL1ContractsPrivateKey=$L1_DEPLOYMENT_PRIVATE_KEY"
   )
 
   if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKey="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
+    helm_set_args+=(--set "ethereum.beacon.apiKey=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
   fi
 
   if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
+    helm_set_args+=(--set "ethereum.beacon.apiKeyHeader=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
   fi
   set -x
 fi
