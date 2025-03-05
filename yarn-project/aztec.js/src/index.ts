@@ -75,6 +75,8 @@ export { L1ToL2Message, L2Actor, L1Actor } from '@aztec/stdlib/messaging';
 export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/stdlib/note';
 export { type PXE, EventType } from '@aztec/stdlib/interfaces/client';
 
+export { ProtocolContractAddress } from '@aztec/protocol-contracts';
+
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.

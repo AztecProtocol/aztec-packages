@@ -44,6 +44,7 @@ import {
   Shr,
   StaticCall,
   Sub,
+  SuccessCopy,
   ToRadixBE,
   Xor,
 } from '../opcodes/index.js';
@@ -95,6 +96,7 @@ export const INSTRUCTION_SET = new Map<Opcode, InstructionDeserializer>([
   // Execution Environment
   [Opcode.GETENVVAR_16, GetEnvVar.as(GetEnvVar.wireFormat16).deserialize],
   [CalldataCopy.opcode, Instruction.deserialize.bind(CalldataCopy)],
+  [SuccessCopy.opcode, Instruction.deserialize.bind(SuccessCopy)],
   [Opcode.RETURNDATASIZE, Instruction.deserialize.bind(ReturndataSize)],
   [Opcode.RETURNDATACOPY, Instruction.deserialize.bind(ReturndataCopy)],
 
