@@ -19,10 +19,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TEST_DOCKER_IMAGE: ${{ inputs.aztec_e2e_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
       TEST: ${{ inputs.test }}
-      CHART_PATH: ./spartan/aztec-network
       CLUSTER_NAME: ${{ inputs.cluster }}
       REGION: us-west1-a
       PROJECT_ID: testnet-440309
@@ -61,27 +59,4 @@ jobs:
 
           gcloud config set project ${{ env.PROJECT_ID }}
 
-          GCLOUD_CONFIG_DIR=$(gcloud info --format='value(config. paths. global_config_dir)')
-
-          echo "gcloud config dir: [$GCLOUD_CONFIG_DIR]"
-
-          docker run --rm --network=host \
-            -v ~/.kube:/root/.kube \
-            -v $GCLOUD_CONFIG_DIR:/root/.config/gcloud \
-            -e K8S=gcloud \
-            -e CLUSTER_NAME=${{ env.CLUSTER_NAME }} \
-            -e REGION=${{ env.REGION }} \
-            -e INSTANCE_NAME=${{ env.NAMESPACE }} \
-            -e SPARTAN_DIR="/usr/src/spartan" \
-            -e NAMESPACE=${{ env.NAMESPACE }} \
-            -e HOST_PXE_PORT=$PXE_PORT \
-            -e CONTAINER_PXE_PORT=8081 \
-            -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
-            -e CONTAINER_ETHEREUM_PORT=8545 \
-            -e HOST_METRICS_PORT=$METRICS_PORT \
-            -e CONTAINER_METRICS_PORT=80 \
-            -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
-            -e DEBUG="aztec:*" \
-            -e LOG_JSON=1 \
-            -e LOG_LEVEL=debug \
-            ${{ env.TEST_DOCKER_IMAGE }} ${{ env.TEST }}
+          ./spartan/tests/upgrade.sh ${{ env.NAMESPACE }}
