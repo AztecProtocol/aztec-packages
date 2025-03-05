@@ -25,7 +25,7 @@ class TranslatorProvingKey {
 
     TranslatorProvingKey(size_t mini_circuit_dyadic_size)
         : mini_circuit_dyadic_size(mini_circuit_dyadic_size)
-        , dyadic_circuit_size(mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE)
+        , dyadic_circuit_size(mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE)
         , proving_key(std::make_shared<ProvingKey>(dyadic_circuit_size))
 
     {
@@ -73,23 +73,21 @@ class TranslatorProvingKey {
         // maximum range constraint compute_extra_range_constraint_numerator();
         compute_extra_range_constraint_numerator();
 
-        // We construct concatenated versions of range constraint polynomials, where several polynomials are
-        // concatenated
-        // into one. These polynomials are not commited to.
-        compute_concatenated_polynomials_by_interleaving();
+        // Creates the polynomials resulting from interleaving each group of range constraints into one polynomial.
+        // These are not commited to.
+        compute_interleaved_polynomials();
 
-        // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to
-        // bridge
-        // the range from 0 to maximum range defined by the range constraint.
+        // We also contruct ordered polynomials, which have the same values as interleaved ones + enough values to
+        // bridge the range from 0 to maximum range defined by the range constraint.
         compute_translator_range_constraint_ordered_polynomials();
     };
 
     inline void compute_dyadic_circuit_size()
     {
 
-        // The actual circuit size is several times bigger than the trace in the circuit, because we use concatenation
+        // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
         // to bring the degree of relations down, while extending the length.
-        dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
+        dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
     }
 
     inline void compute_mini_circuit_dyadic_size(const Circuit& circuit)
@@ -107,11 +105,8 @@ class TranslatorProvingKey {
 
     void compute_extra_range_constraint_numerator();
 
-    void compute_concatenated_polynomials();
-
     void compute_translator_range_constraint_ordered_polynomials();
 
-    void compute_concatenated_polynomials_by_interleaving();
-    static void interleave(const RefVector<Polynomial>&, Polynomial&);
+    void compute_interleaved_polynomials();
 };
 } // namespace bb

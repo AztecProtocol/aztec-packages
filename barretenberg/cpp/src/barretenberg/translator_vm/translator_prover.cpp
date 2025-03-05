@@ -152,10 +152,10 @@ void TranslatorProver::execute_pcs_rounds()
     small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
-    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());
+    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_interleaved());
     polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
-    polynomial_batcher.set_interleaved(key->proving_key->polynomials.get_concatenated(),
-                                       key->proving_key->polynomials.get_groups_to_be_concatenated());
+    polynomial_batcher.set_interleaved(key->proving_key->polynomials.get_interleaved(),
+                                       key->proving_key->polynomials.get_groups_to_be_interleaved());
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
