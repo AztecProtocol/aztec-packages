@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741202467419,
+  "lastUpdate": 1741203536204,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "68168980+just-mitch@users.noreply.github.com",
-            "name": "just-mitch",
-            "username": "just-mitch"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f25023895c6c5baab27aadf0c5e38c3b848c8973",
-          "message": "feat: prod network deployments (#12358)\n\nAdds support in the aztec-network chart to make use of external boot\nnodes and ethereum nodes while only deploying:\n- validators\n- prover infra\n- pxe\n\nThis change enables rolling upgrades by allowing nodes to connect to\nexisting boot nodes and contract addresses rather than requiring a full\ndeployment.\n\nKey changes:\n\n- Adds configuration options for external boot node host and contract\naddresses\n- Adds logic to skip waiting for services when registry address and\nbootstrap nodes are already set\n- Reduces required contract addresses to only those needed for node\noperation\n- Adds new slim.yaml configuration for minimal deployments\n- Adds test script to validate rolling upgrade scenarios",
-          "timestamp": "2025-03-01T01:48:52Z",
-          "tree_id": "7e0ba7a2511b94bcdf43eb93480df148382a00af",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f25023895c6c5baab27aadf0c5e38c3b848c8973"
-        },
-        "date": 1740795577295,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18432.989824000062,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16529.580986999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18806.803460999843,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16462.327586 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3893.4896550001667,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3125.7152859999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55431.216828,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55431217000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10096.504494,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10096508000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1942898351,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1942898351 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 212011729,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 212011729 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 211532938,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 211532938 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3b981f9217f9b859bdfbcdba2f5c080392c98da6",
+          "message": "chore: fix a bunch of trait import issues (#12431)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
+          "timestamp": "2025-03-05T19:05:04Z",
+          "tree_id": "edb8f27088b11d75033c36c5b7069466b7cfcd78",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3b981f9217f9b859bdfbcdba2f5c080392c98da6"
+        },
+        "date": 1741203528767,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18327.026243999855,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16124.392135 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18681.443285000114,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16244.653399 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3878.8610250001057,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3089.8239439999998 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55236.77291600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55236774000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10069.38365,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10069386000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1909020292,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1909020292 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 219302052,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 219302052 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
