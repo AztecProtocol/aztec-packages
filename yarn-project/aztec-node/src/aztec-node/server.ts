@@ -147,7 +147,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     const log = deps.logger ?? createLogger('node');
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
-    const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
+    const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
       throw new Error(
@@ -182,7 +182,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       telemetry,
     );
 
-    const slasherClient = await createSlasherClient(config, archiver, telemetry);
+    const slasherClient = createSlasherClient(config, archiver, telemetry);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);
@@ -814,7 +814,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    * @param blockNumber - The block number at which to get the data or 'latest'.
    * @returns Storage value at the given contract slot.
    */
-  public async getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr> {
+  public async getPublicStorageAt(blockNumber: L2BlockNumber, contract: AztecAddress, slot: Fr): Promise<Fr> {
     const committedDb = await this.#getWorldState(blockNumber);
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
 

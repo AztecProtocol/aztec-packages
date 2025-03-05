@@ -49,6 +49,7 @@ import {
   MetadataTxValidator,
   TxProofValidator,
 } from '../../msg_validators/tx_validator/index.js';
+import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
@@ -60,7 +61,6 @@ import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
-import { GossipSubEvent } from '../types.js';
 
 interface MessageValidator {
   validator: {
@@ -216,7 +216,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0,
-        maxConnections: maxPeerCount,
 
         maxParallelDials: 100,
         dialTimeout: 30_000,
@@ -633,9 +632,13 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   public async propagate<T extends Gossipable>(message: T) {
     const p2pMessageIdentifier = await message.p2pMessageIdentifier();
     this.logger.trace(`Message ${p2pMessageIdentifier} queued`, { p2pMessageIdentifier });
-    void this.jobQueue.put(async () => {
-      await this.sendToPeers(message);
-    });
+    void this.jobQueue
+      .put(async () => {
+        await this.sendToPeers(message);
+      })
+      .catch(error => {
+        this.logger.error(`Error propagating message ${p2pMessageIdentifier}`, { error });
+      });
   }
 
   /**

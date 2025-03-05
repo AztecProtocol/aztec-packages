@@ -199,7 +199,13 @@ fn get_lookup_side<F: FieldElement>(
     def: &SelectedExpressions<AlgebraicExpression<F>>,
 ) -> LookupSide {
     let get_name = |expr: &AlgebraicExpression<F>| match expr {
-        AlgebraicExpression::Reference(a_ref) => sanitize_name(&a_ref.name),
+        AlgebraicExpression::Reference(a_ref) => {
+            let mut name = a_ref.name.clone();
+            if a_ref.next {
+                name = format!("{}_shift", name);
+            }
+            sanitize_name(&name)
+        }
         _ => panic!("Expected reference"),
     };
 

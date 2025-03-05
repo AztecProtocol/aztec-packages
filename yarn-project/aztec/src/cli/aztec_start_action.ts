@@ -13,7 +13,7 @@ import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
-import { createSandbox } from '../sandbox.js';
+import { createSandbox } from '../sandbox/index.js';
 import { github, splash } from '../splash.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
@@ -36,7 +36,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     const { node, pxe, stop } = await createSandbox(
       {
         l1Mnemonic: options.l1Mnemonic,
-        l1RpcUrl: options.l1RpcUrl,
+        l1RpcUrls: options.l1RpcUrls,
         l1Salt: nodeOptions.deployAztecContractsSalt,
         noPXE: sandboxOptions.noPXE,
         testAccounts: sandboxOptions.testAccounts,
@@ -56,9 +56,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
       ({ config } = await startNode(options, signalHandlers, services, userLog));
-    } else if (options.proofVerifier) {
-      const { startProofVerifier } = await import('./cmds/start_proof_verifier.js');
-      await startProofVerifier(options, signalHandlers, userLog);
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);

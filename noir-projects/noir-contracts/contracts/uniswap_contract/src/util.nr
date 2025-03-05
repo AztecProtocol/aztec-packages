@@ -6,10 +6,10 @@ use dep::aztec::protocol_types::hash::sha256_to_field;
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected
 pub fn compute_swap_public_content_hash(
     input_asset_bridge_portal_address: EthAddress,
-    input_amount: U128,
+    input_amount: u128,
     uniswap_fee_tier: Field,
     output_asset_bridge_portal_address: EthAddress,
-    minimum_output_amount: U128,
+    minimum_output_amount: u128,
     aztec_recipient: AztecAddress,
     secret_hash_for_L1_to_l2_message: Field,
     caller_on_L1: EthAddress,
@@ -62,10 +62,10 @@ pub fn compute_swap_public_content_hash(
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected
 pub fn compute_swap_private_content_hash(
     input_asset_bridge_portal_address: EthAddress,
-    input_amount: U128,
+    input_amount: u128,
     uniswap_fee_tier: Field,
     output_asset_bridge_portal_address: EthAddress,
-    minimum_output_amount: U128,
+    minimum_output_amount: u128,
     secret_hash_for_L1_to_l2_message: Field,
     caller_on_L1: EthAddress,
 ) -> Field {

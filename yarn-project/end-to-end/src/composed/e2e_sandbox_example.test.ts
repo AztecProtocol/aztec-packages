@@ -54,7 +54,12 @@ end-to-end-1  |       at Object.<anonymous> (composed/e2e_sandbox_example.test.t
 // docs:start:imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { getDeployedBananaCoinAddress, getDeployedBananaFPCAddress } from '@aztec/aztec';
+import {
+  SponsoredFeePaymentMethod,
+  getDeployedBananaCoinAddress,
+  getDeployedBananaFPCAddress,
+  getDeployedSponsoredFPCAddress,
+} from '@aztec/aztec';
 import {
   Fr,
   GrumpkinScalar,
@@ -62,6 +67,7 @@ import {
   PrivateFeePaymentMethod,
   createLogger,
   createPXEClient,
+  getFeeJuiceBalance,
   waitForPXE,
 } from '@aztec/aztec.js';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -216,13 +222,10 @@ describe('e2e_sandbox_example', () => {
     // Create 2 accounts and wallets to go with each
     logger.info(`Creating accounts using schnorr signers...`);
     const accounts = await createSchnorrAccounts(2, pxe);
-    const aliceWallet = await accounts[0].getWallet();
+    const [aliceWallet, bobWallet] = await Promise.all(accounts.map(a => a.getWallet()));
+    const [alice, bob] = (await Promise.all(accounts.map(a => a.getCompleteAddress()))).map(a => a.address);
 
     ////////////// VERIFY THE ACCOUNTS WERE CREATED SUCCESSFULLY //////////////
-
-    const [alice, bob] = (await Promise.all(accounts.map(x => x.getCompleteAddress()))).map(x => x.address);
-
-    // Verify that the accounts were deployed
     const registeredAccounts = (await pxe.getRegisteredAccounts()).map(x => x.address);
     for (const [account, name] of [
       [alice, 'Alice'],
@@ -240,30 +243,57 @@ describe('e2e_sandbox_example', () => {
     expect(registeredAccounts.find(acc => acc.equals(alice))).toBeTruthy();
     expect(registeredAccounts.find(acc => acc.equals(bob))).toBeTruthy();
 
-    ////////////// FUND THE NEW ACCOUNT WITH BANANA COIN //////////////
+    ////////////// FUND A NEW ACCOUNT WITH BANANA COIN //////////////
     const bananaCoinAddress = await getDeployedBananaCoinAddress(pxe);
     const bananaCoin = await TokenContract.at(bananaCoinAddress, fundedWallet);
     const mintAmount = 10n ** 20n;
     await bananaCoin.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
 
-    ////////////// USE THE NEW ACCOUNT TO SEND A TX AND PAID WITH BANANA COIN //////////////
-    const transferAmount = 100n;
+    ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY WITH BANANA COIN //////////////
+    const amountTransferToBob = 100n;
     const bananaFPCAddress = await getDeployedBananaFPCAddress(pxe);
     const paymentMethod = new PrivateFeePaymentMethod(bananaFPCAddress, aliceWallet);
-    const receipt = await bananaCoin
+    const receiptForAlice = await bananaCoin
       .withWallet(aliceWallet)
-      .methods.transfer(bob, transferAmount)
+      .methods.transfer(bob, amountTransferToBob)
       .send({ fee: { paymentMethod } })
       .wait();
-    logger.info(`Transaction fee: ${receipt.transactionFee}`);
+    const transactionFee = receiptForAlice.transactionFee!;
+    logger.info(`Transaction fee: ${transactionFee}`);
 
     // Check the balances
     const aliceBalance = await bananaCoin.methods.balance_of_private(alice).simulate();
     logger.info(`Alice's balance: ${aliceBalance}`);
-    expect(aliceBalance).toEqual(mintAmount - receipt.transactionFee! - transferAmount);
+    expect(aliceBalance).toEqual(mintAmount - transactionFee - amountTransferToBob);
 
     const bobBalance = await bananaCoin.methods.balance_of_private(bob).simulate();
     logger.info(`Bob's balance: ${bobBalance}`);
-    expect(bobBalance).toEqual(transferAmount);
+    expect(bobBalance).toEqual(amountTransferToBob);
+
+    ////////////// USE A NEW ACCOUNT TO SEND A TX AND PAY VIA SPONSORED FPC //////////////
+    const amountTransferToAlice = 48n;
+
+    const sponsoredFPC = await getDeployedSponsoredFPCAddress(pxe);
+    const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC);
+    // The payment method can also be initialized as follows:
+    // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+    const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, pxe);
+
+    const receiptForBob = await bananaCoin
+      .withWallet(bobWallet)
+      .methods.transfer(alice, amountTransferToAlice)
+      .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
+      .wait();
+
+    // Check the balances
+    const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate();
+    logger.info(`Alice's new balance: ${aliceNewBalance}`);
+    expect(aliceNewBalance).toEqual(aliceBalance + amountTransferToAlice);
+
+    const bobNewBalance = await bananaCoin.methods.balance_of_private(bob).simulate();
+    logger.info(`Bob's new balance: ${bobNewBalance}`);
+    expect(bobNewBalance).toEqual(bobBalance - amountTransferToAlice);
+
+    expect(await getFeeJuiceBalance(sponsoredFPC, pxe)).toEqual(initialFPCFeeJuice - receiptForBob.transactionFee!);
   });
 });

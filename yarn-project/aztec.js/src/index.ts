@@ -26,12 +26,9 @@ export { NoteSelector } from '@aztec/stdlib/abi';
 
 export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
 
-export { type AuthWitnessProvider } from './account/index.js';
+export { type DeployAccountOptions } from './account_manager/index.js';
 
-export { type AccountContract, getAccountContractAddress } from './account/index.js';
-export { AccountManager, type DeployAccountOptions } from './account_manager/index.js';
-
-export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from './wallet/index.js';
+export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet } from './wallet/index.js';
 
 export { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -72,18 +69,13 @@ export {
   GlobalVariables,
 } from '@aztec/stdlib/tx';
 export { Body, L2Block } from '@aztec/stdlib/block';
-export {
-  L1NotePayload,
-  LogId,
-  UnencryptedL2Log,
-  ContractClass2BlockL2Logs,
-  type LogFilter,
-  EncryptedLogPayload,
-} from '@aztec/stdlib/logs';
+export { L1NotePayload, LogId, type LogFilter, EncryptedLogPayload } from '@aztec/stdlib/logs';
 export { L1EventPayload, EventMetadata } from '@aztec/stdlib/event';
 export { L1ToL2Message, L2Actor, L1Actor } from '@aztec/stdlib/messaging';
 export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/stdlib/note';
 export { type PXE, EventType } from '@aztec/stdlib/interfaces/client';
+
+export { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
@@ -103,6 +95,7 @@ export { fileURLToPath } from '@aztec/foundation/url';
 // Here you *can* do `export *` as the granular api defacto exports things explicitly.
 // This entire index file will be deprecated at some point after we're satisfied.
 export * from './api/abi.js';
+export * from './api/account.js';
 export * from './api/addresses.js';
 export * from './api/cheat_codes.js';
 export * from './api/ethereum/index.js';

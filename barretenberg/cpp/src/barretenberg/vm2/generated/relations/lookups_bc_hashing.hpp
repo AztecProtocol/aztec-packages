@@ -31,12 +31,16 @@ class lookup_bc_hashing_get_packed_field_settings {
     static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel_packed;
     static constexpr Column COUNTS = Column::lookup_bc_hashing_get_packed_field_counts;
     static constexpr Column INVERSES = Column::lookup_bc_hashing_get_packed_field_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::bc_hashing_pc_index,
-                                                                           Column::bc_hashing_bytecode_id,
-                                                                           Column::bc_hashing_packed_field };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::bc_decomposition_pc,
-                                                                           Column::bc_decomposition_id,
-                                                                           Column::bc_decomposition_packed_field };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_hashing_pc_index,
+        ColumnAndShifts::bc_hashing_bytecode_id,
+        ColumnAndShifts::bc_hashing_packed_field
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_pc,
+        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_packed_field
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -122,12 +126,16 @@ class lookup_bc_hashing_iv_is_len_settings {
     static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel_packed;
     static constexpr Column COUNTS = Column::lookup_bc_hashing_iv_is_len_counts;
     static constexpr Column INVERSES = Column::lookup_bc_hashing_iv_is_len_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::bc_hashing_pc_index,
-                                                                           Column::bc_hashing_bytecode_id,
-                                                                           Column::bc_hashing_incremental_hash };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::bc_decomposition_pc,
-                                                                           Column::bc_decomposition_id,
-                                                                           Column::bc_decomposition_bytes_remaining };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_hashing_pc_index,
+        ColumnAndShifts::bc_hashing_bytecode_id,
+        ColumnAndShifts::bc_hashing_incremental_hash
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_pc,
+        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_bytes_remaining
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -212,12 +220,16 @@ class lookup_bc_hashing_poseidon2_hash_settings {
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
     static constexpr Column COUNTS = Column::lookup_bc_hashing_poseidon2_hash_counts;
     static constexpr Column INVERSES = Column::lookup_bc_hashing_poseidon2_hash_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::bc_hashing_packed_field,
-                                                                           Column::bc_hashing_incremental_hash,
-                                                                           Column::bc_hashing_output_hash };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::poseidon2_hash_input_0,
-                                                                           Column::poseidon2_hash_input_1,
-                                                                           Column::poseidon2_hash_output };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_hashing_packed_field,
+        ColumnAndShifts::bc_hashing_incremental_hash,
+        ColumnAndShifts::bc_hashing_output_hash
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_output
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {

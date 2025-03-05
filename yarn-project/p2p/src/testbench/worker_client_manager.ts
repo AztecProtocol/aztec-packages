@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../test-helpers/get-ports.js';
-import { makeEnr, makeEnrs, makePeerIds } from '../test-helpers/make-enrs.js';
+import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testbench_worker.js');
@@ -27,7 +27,6 @@ class WorkerClientManager {
   public processes: ChildProcess[] = [];
   public peerIdPrivateKeys: string[] = [];
   public peerEnrs: string[] = [];
-  public peerIds: string[] = [];
   public ports: number[] = [];
   private p2pConfig: Partial<P2PConfig>;
   private logger: Logger;
@@ -58,7 +57,7 @@ class WorkerClientManager {
   /**
    * Creates a client configuration object
    */
-  private createClientConfig(clientIndex: number, port: number, otherNodes: string[], trustedPeers?: string[]) {
+  private createClientConfig(clientIndex: number, port: number, otherNodes: string[]) {
     const { addr, listenAddr } = this.getAddresses(port);
 
     return {
@@ -70,7 +69,6 @@ class WorkerClientManager {
       tcpAnnounceAddress: addr,
       udpAnnounceAddress: addr,
       bootstrapNodes: [...otherNodes],
-      trustedPeers: trustedPeers ?? [],
       ...this.p2pConfig,
     };
   }
@@ -103,7 +101,7 @@ class WorkerClientManager {
       // Set a timeout to avoid hanging indefinitely
       const timeout = setTimeout(() => {
         reject(new Error(`Timeout waiting for worker ${clientIndex} to be ready`));
-      }, 15000); // 15 second timeout
+      }, 30000); // 30 second timeout
 
       childProcess.once('message', (msg: any) => {
         clearTimeout(timeout);
@@ -137,13 +135,13 @@ class WorkerClientManager {
    * @param numberOfClients - The number of clients to create
    * @returns The ENRs of the created clients
    */
-  async makeWorkerClients(numberOfClients: number, trustedPeersNumber?: number) {
+  async makeWorkerClients(numberOfClients: number) {
     try {
       this.messageReceivedByClient = new Array(numberOfClients).fill(0);
       this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
       this.ports = await getPorts(numberOfClients);
       this.peerEnrs = await makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
-      this.peerIds = await makePeerIds(this.peerIdPrivateKeys);
+
       this.processes = [];
       const readySignals: Promise<void>[] = [];
 
@@ -153,9 +151,7 @@ class WorkerClientManager {
         // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
         const otherNodes = this.peerEnrs.filter((_, ind) => ind < Math.min(i, 10));
 
-        const trustedPeers = this.peerEnrs.filter((_, ind) => ind < Math.min(i, trustedPeersNumber ?? 0));
-
-        const config = this.createClientConfig(i, this.ports[i], otherNodes, trustedPeers);
+        const config = this.createClientConfig(i, this.ports[i], otherNodes);
         const [childProcess, readySignal] = this.spawnWorkerProcess(config, i);
 
         readySignals.push(readySignal);
@@ -163,7 +159,7 @@ class WorkerClientManager {
       }
 
       // Wait for peers to all connect with each other
-      await sleep(4000);
+      await sleep(10000);
 
       // Wait for all peers to be booted up with timeout
       await Promise.race([
@@ -205,7 +201,7 @@ class WorkerClientManager {
       this.processes[clientIndex].send({ type: 'STOP' });
 
       // Wait for the process to be ready with a timeout
-      await sleep(1000);
+      await sleep(10000);
 
       this.logger.info(`Changing port for client ${clientIndex} to ${newPort}`);
 
@@ -229,7 +225,7 @@ class WorkerClientManager {
       await Promise.race([
         readySignal,
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout waiting for client ${clientIndex} to be ready`)), 15000),
+          setTimeout(() => reject(new Error(`Timeout waiting for client ${clientIndex} to be ready`)), 30000),
         ),
       ]);
     } catch (error) {
@@ -243,22 +239,21 @@ class WorkerClientManager {
   /**
    * Terminate a single process with timeout and force kill if needed
    */
-  public terminateProcess(process: ChildProcess, index: number): Promise<void> {
+  private terminateProcess(process: ChildProcess, index: number): Promise<void> {
     if (!process || process.killed) {
       return Promise.resolve();
     }
 
     return new Promise<void>(resolve => {
-      // Set a timeout to force kill if graceful shutdown takes too long
+      // Set a timeout for the graceful exit
       const forceKillTimeout = setTimeout(() => {
-        this.logger.warn(`Process ${index} did not exit gracefully, force killing...`);
+        this.logger.warn(`Process ${index} didn't exit gracefully, force killing...`);
         try {
-          process.kill('SIGKILL');
-        } catch (killError) {
-          this.logger.error(`Error force killing process ${index}:`, killError);
+          process.kill('SIGKILL'); // Force kill
+        } catch (e) {
+          this.logger.error(`Error force killing process ${index}:`, e);
         }
-        resolve();
-      }, 5000);
+      }, 10000); // 10 second timeout for graceful exit
 
       // Listen for process exit
       process.once('exit', () => {
@@ -268,13 +263,7 @@ class WorkerClientManager {
 
       // Try to gracefully stop the process
       try {
-        // Check if the process is still connected before sending a message
-        if (process.connected) {
-          process.send({ type: 'STOP' });
-        } else {
-          // If not connected, try to kill it directly
-          process.kill('SIGTERM');
-        }
+        process.send({ type: 'STOP' });
       } catch (e) {
         // If sending the message fails, force kill immediately
         clearTimeout(forceKillTimeout);
@@ -314,7 +303,7 @@ class WorkerClientManager {
               }
             });
             resolve();
-          }, 10000); // 10 second timeout for all processes
+          }, 30000); // 30 second timeout for all processes
         }),
       ]);
     } catch (error) {

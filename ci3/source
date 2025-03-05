@@ -10,7 +10,8 @@ export root=${root:-$(git rev-parse --show-toplevel)}
 export ci3="$root/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
-[ "${CI:-0}" == "true" ] && CI=1
+[ -z "${CI:-}" ] && export CI=0
+[ "$CI" == "true" ] && export CI=1
 
 source $ci3/source_options
 source $ci3/source_stdlib

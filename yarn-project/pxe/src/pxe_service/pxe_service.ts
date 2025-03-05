@@ -5,9 +5,12 @@ import { Timer } from '@aztec/foundation/timer';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import type { L2TipsStore } from '@aztec/kv-store/stores';
-import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+import {
+  ProtocolContractAddress,
+  type ProtocolContractsProvider,
+  protocolContractNames,
+} from '@aztec/protocol-contracts';
+import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -64,11 +67,11 @@ import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
+import { ContractDataProvider } from '../contract_data_provider/index.js';
 import type { PxeDatabase } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
-import { getAcirSimulator } from '../simulator/index.js';
+import { PXEDataProvider } from '../pxe_data_provider/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 
@@ -77,7 +80,8 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
  */
 export class PXEService implements PXE {
   private synchronizer: Synchronizer;
-  private contractDataOracle: ContractDataOracle;
+  private contractDataProvider: ContractDataProvider;
+  private pxeDataProvider: PXEDataProvider;
   private simulator: AcirSimulator;
   private log: Logger;
   private packageVersion: string;
@@ -89,7 +93,8 @@ export class PXEService implements PXE {
     private db: PxeDatabase,
     tipsStore: L2TipsStore,
     private proofCreator: PrivateKernelProver,
-    private simulationProvider: SimulationProvider,
+    simulationProvider: SimulationProvider,
+    private protocolContractsProvider: ProtocolContractsProvider,
     config: PXEServiceConfig,
     loggerOrSuffix?: string | Logger,
   ) {
@@ -98,8 +103,16 @@ export class PXEService implements PXE {
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
         : loggerOrSuffix;
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, loggerOrSuffix);
-    this.contractDataOracle = new ContractDataOracle(db);
-    this.simulator = getAcirSimulator(db, node, keyStore, this.simulationProvider, this.contractDataOracle);
+    this.contractDataProvider = new ContractDataProvider(db);
+    this.pxeDataProvider = new PXEDataProvider(
+      db,
+      keyStore,
+      node,
+      simulationProvider,
+      this.contractDataProvider,
+      this.log,
+    );
+    this.simulator = new AcirSimulator(this.pxeDataProvider, simulationProvider);
     this.packageVersion = getPackageInfo().version;
     this.proverEnabled = !!config.proverEnabled;
   }
@@ -292,7 +305,7 @@ export class PXEService implements PXE {
     const currentClassId = await readCurrentClassId(
       contractAddress,
       currentInstance,
-      this.node,
+      this.pxeDataProvider,
       header.globalVariables.blockNumber.toNumber(),
     );
     if (!contractClass.id.equals(currentClassId)) {
@@ -321,7 +334,7 @@ export class PXEService implements PXE {
     if (!(await this.getContractInstance(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
-    return await this.node.getPublicStorageAt(contract, slot, 'latest');
+    return await this.node.getPublicStorageAt('latest', contract, slot);
   }
 
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
@@ -386,7 +399,6 @@ export class PXEService implements PXE {
         simulate: false,
         skipFeeEnforcement: false,
         profile: false,
-        dryRun: false,
       });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
@@ -426,7 +438,6 @@ export class PXEService implements PXE {
         simulate: !profile,
         skipFeeEnforcement,
         profile,
-        dryRun: true,
       });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -609,7 +620,8 @@ export class PXEService implements PXE {
   async #registerProtocolContracts() {
     const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
+      const { address, contractClass, instance, artifact } =
+        await this.protocolContractsProvider.getProtocolContractArtifact(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
       registered[name] = address.toString();
@@ -657,7 +669,7 @@ export class PXEService implements PXE {
 
   /**
    * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
-   * The simulation parameters are fetched using ContractDataOracle and executed using AcirSimulator.
+   * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
@@ -699,7 +711,7 @@ export class PXEService implements PXE {
     } catch (err) {
       if (err instanceof SimulationError) {
         try {
-          await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+          await enrichPublicSimulationError(err, this.contractDataProvider, this.db, this.log);
         } catch (enrichErr) {
           this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
         }
@@ -722,19 +734,18 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig,
+    { simulate, skipFeeEnforcement, profile }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
     const block =
       privateExecutionResult.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
+    const kernelOracle = new KernelOracle(this.contractDataProvider, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
-    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
+    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile})...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
       simulate,
       skipFeeEnforcement,
       profile,
-      dryRun,
     });
   }
 

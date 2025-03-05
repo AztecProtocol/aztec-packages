@@ -1,11 +1,7 @@
-use acvm::{acir::brillig::MemoryAddress, AcirField, FieldElement};
+use acvm::{AcirField, FieldElement, acir::brillig::MemoryAddress};
 
 fn get_msb(n: u128) -> usize {
-    if n == 0 {
-        0
-    } else {
-        128 - n.leading_zeros() as usize
-    }
+    if n == 0 { 0 } else { 128 - n.leading_zeros() as usize }
 }
 
 pub trait BitsQueryable {

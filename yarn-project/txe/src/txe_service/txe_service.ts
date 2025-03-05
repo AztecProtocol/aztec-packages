@@ -4,10 +4,9 @@ import type { Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
+import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
-import type { TypedOracle } from '@aztec/simulator/client';
-import { HashedValuesCache } from '@aztec/simulator/server';
+import { HashedValuesCache, type TypedOracle } from '@aztec/simulator/client';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -46,8 +45,9 @@ export class TXEService {
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
+    const provider = new BundledProtocolContractsProvider();
     for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
+      const { contractClass, instance, artifact } = await provider.getProtocolContractArtifact(name);
       await txeDatabase.addContractArtifact(contractClass.id, artifact);
       await txeDatabase.addContractInstance(instance);
     }
@@ -714,7 +714,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
         );
@@ -724,7 +724,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
   }
 
   async avmOpcodeStaticCall(
@@ -744,7 +744,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           (this.typedOracle as TXE).getTXEDatabase(),
           this.logger,
         );
@@ -754,6 +754,11 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeSuccessCopy() {
+    const success = (this.typedOracle as TXE).avmOpcodeSuccessCopy();
+    return toForeignCallResult([toSingle(new Fr(success))]);
   }
 }

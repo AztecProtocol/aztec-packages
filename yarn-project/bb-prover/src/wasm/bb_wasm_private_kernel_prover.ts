@@ -26,7 +26,7 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     this.log.info(`Generating ClientIVC proof...`);
     const backend = new AztecClientBackend(
       acirs.map(acir => ungzip(acir)),
-      { threads: this.threads },
+      { threads: this.threads, logger: this.log.verbose, wasmPath: process.env.BB_WASM_PATH },
     );
 
     const [proof, vk] = await backend.prove(witnessStack.map(witnessMap => ungzip(serializeWitness(witnessMap))));
@@ -38,5 +38,18 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
       vkSize: vk.length,
     });
     return new ClientIvcProof(Buffer.from(proof), Buffer.from(vk));
+  }
+
+  public override async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+    const backend = new AztecClientBackend([ungzip(_bytecode)], {
+      threads: this.threads,
+      logger: this.log.verbose,
+      wasmPath: process.env.BB_WASM_PATH,
+    });
+
+    const gateCount = await backend.gates();
+    await backend.destroy();
+
+    return gateCount[0];
   }
 }
