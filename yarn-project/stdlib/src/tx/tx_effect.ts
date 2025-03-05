@@ -355,6 +355,7 @@ export class TxEffect {
     }
     if (this.privateLogs.length) {
       const totalLogLen = this.privateLogs.reduce(
+        // +1 for length prefix
         (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
         0,
       );
@@ -363,6 +364,7 @@ export class TxEffect {
     }
     if (this.publicLogs.length) {
       const totalLogLen = this.publicLogs.reduce(
+        // +1 for length prefix
         (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
         0,
       );
@@ -371,6 +373,7 @@ export class TxEffect {
     }
     if (this.contractClassLogs.length) {
       const totalLogLen = this.contractClassLogs.reduce(
+        // +2 for length prefix and contract address
         (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 2),
         0,
       );

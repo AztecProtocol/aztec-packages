@@ -237,7 +237,7 @@ export class Tx extends Gossipable {
       nullifierCount: this.data.getNonEmptyNullifiers().length,
       privateLogCount: this.data.getNonEmptyPrivateLogs().length,
       classRegisteredCount: this.data.getNonEmptyContractClassLogsHashes().length,
-      contractClassLogSize: this.data.getNonEmptyContractClassLogsLength(),
+      contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
       proofSize: this.clientIvcProof.clientIvcProofBuffer.length,
       size: this.toBuffer().length,
@@ -271,8 +271,8 @@ export class Tx extends Gossipable {
     return (
       this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
       this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
-      this.data.getNonEmptyPrivateLogsLength() * Fr.SIZE_IN_BYTES +
-      this.data.getNonEmptyContractClassLogsLength() * Fr.SIZE_IN_BYTES
+      this.data.getEmittedPrivateLogsLength() * Fr.SIZE_IN_BYTES +
+      this.data.getEmittedContractClassLogsLength() * Fr.SIZE_IN_BYTES
     );
   }
 

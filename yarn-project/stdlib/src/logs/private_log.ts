@@ -49,14 +49,8 @@ export class PrivateLog {
   }
 
   getEmittedFields() {
-    let lastZeroIndex = 0;
-    for (let i = this.fields.length - 1; i >= 0; i--) {
-      if (!this.fields[i].isZero() && lastZeroIndex == 0) {
-        lastZeroIndex = i + 1;
-        break;
-      }
-    }
-    return this.fields.slice(0, lastZeroIndex);
+    const lastNonZeroIndex = this.fields.findLastIndex(f => !f.isZero());
+    return this.fields.slice(0, lastNonZeroIndex + 1);
   }
 
   static get schema() {

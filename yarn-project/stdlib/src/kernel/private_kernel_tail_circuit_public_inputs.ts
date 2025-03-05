@@ -253,11 +253,11 @@ export class PrivateKernelTailCircuitPublicInputs {
     return contractClassLogsHashes.filter(h => !h.isEmpty());
   }
 
-  getNonEmptyContractClassLogsLength() {
+  getEmittedContractClassLogsLength() {
     return this.getNonEmptyContractClassLogsHashes().reduce((total, log) => total + log.logHash.length, 0);
   }
 
-  getNonEmptyPrivateLogsLength() {
+  getEmittedPrivateLogsLength() {
     return this.getNonEmptyPrivateLogs().reduce((total, log) => total + log.getEmittedLength(), 0);
   }
 
