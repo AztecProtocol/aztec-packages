@@ -79,7 +79,7 @@ This can present confusion when opening older contracts (and dependencies) writt
 aztec-up
 ```
 
-To set `VERSION` for a particular git tag, eg for [aztec-package-v**0.35.0**](https://github.com/AztecProtocol/aztec-packages/tree/v0.35.0)
+To set `VERSION` for a particular git tag, eg for [v**0.77.0**](https://github.com/AztecProtocol/aztec-packages/tree/v0.77.0)
 
 ```shell
 VERSION=0.35.0 aztec-up
