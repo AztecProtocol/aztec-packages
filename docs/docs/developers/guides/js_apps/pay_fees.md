@@ -22,6 +22,10 @@ Processing this transaction first claims bridged fee juice then is paid for from
 
 A fee paying contract (FPC) is created and nominates a token that it accepts to then pay for txs in fee juice. So a user doesn't need to hold fee juice, they only need the token that the FPC accepts.
 
+### Sponsored Fee Paying Contract
+
+A contract that will pay for a number of transactions without requiring payment. Which is helpful for bootstrapping development.
+
 ## Bridging fee-juice
 
 To first get fee juice into an account it needs to be bridged from L1.
