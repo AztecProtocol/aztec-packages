@@ -644,7 +644,7 @@ export const uniswapL1L2TestSuite = (
             ownerEthAddress,
           )
           .prove(),
-      ).rejects.toThrow(`Authorization not found for message hash ${expectedMessageHash.toString()}`);
+      ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
 
     it("can't swap if user passes a token different to what the bridge tracks", async () => {
