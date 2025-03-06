@@ -7,6 +7,7 @@ cd $(dirname $0)/
 VERSION=$1
 
 TEMP_DIR=$(mktemp -d)
+trap 'rm -rf $TEMP_DIR' EXIT
 
 BB_PATH=$TEMP_DIR ./bbup -v $VERSION
 
@@ -16,5 +17,3 @@ if ! grep "$VERSION" <<< $($TEMP_DIR/bb --version) > /dev/null; then
     echo "Found: $SEEN_VERSION"
     exit 1
 fi
-
-rm -rf $TEMP_DIR

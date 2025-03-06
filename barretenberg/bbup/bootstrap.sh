@@ -13,7 +13,7 @@ function test_cmds {
   local test_versions=("0.72.1" "0.77.1")
 
   for version in ${test_versions[@]}; do
-    echo -e "$hash barretenberg/bbup/test_install.sh $version"
+    echo -e "$hash barretenberg/bbup/run_test.sh $version"
   done
 }
 
