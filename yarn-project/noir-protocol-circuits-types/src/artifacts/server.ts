@@ -1,4 +1,4 @@
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import BaseParityJson from '../../artifacts/parity_base.json' assert { type: 'json' };
 import RootParityJson from '../../artifacts/parity_root.json' assert { type: 'json' };
@@ -41,3 +41,17 @@ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, Noi
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
 };
+
+export function getServerCircuitArtifact(name: ServerProtocolArtifact): NoirCompiledCircuitWithName {
+  return {
+    ...ServerCircuitArtifacts[name],
+    name,
+  };
+}
+
+export function getSimulatedServerCircuitArtifact(name: ServerProtocolArtifact): NoirCompiledCircuitWithName {
+  return {
+    ...SimulatedServerCircuitArtifacts[name],
+    name,
+  };
+}
