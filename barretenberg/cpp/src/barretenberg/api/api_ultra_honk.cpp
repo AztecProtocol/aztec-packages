@@ -29,7 +29,7 @@ Circuit _compute_circuit(const std::string& bytecode_path,
         honk_recursion = 2;
     }
 
-    // TODO: Don't init grumpkin crs when unnecessary.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     const acir_format::ProgramMetadata metadata{ .recursive = init_kzg_accumulator, .honk_recursion = honk_recursion };
