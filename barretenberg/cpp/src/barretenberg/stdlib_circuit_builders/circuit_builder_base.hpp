@@ -8,6 +8,7 @@
 #include <utility>
 
 #include <unordered_map>
+#include <unordered_set>
 
 namespace bb {
 static constexpr uint32_t DUMMY_TAG = 0;

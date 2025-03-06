@@ -874,6 +874,10 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     lo.set_origin_tag(in.get_origin_tag());
     hi.set_origin_tag(in.get_origin_tag());
 
+    if constexpr (IS_ULTRA) {
+        Builder *ctx = in.get_context();
+        ctx->safe_variables.insert(in.witness_index); 
+    }
     cycle_scalar result{ lo, hi, NUM_BITS, skip_primality_test, true };
     return result;
 }

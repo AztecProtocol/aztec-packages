@@ -330,6 +330,13 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     std::vector<fr> ipa_proof;
 
+    /**
+     * @brief Sometimes static analyzer shows variables that not dangerous, but we don't have a possibility to remove
+     * them in tests using auxiliary functions for filtering, because it found them deep inside functions. But we can store
+     * these variables in unordered_set inside Circuit Builder and then remove them from variables_in_one_gate 
+     */
+    std::unordered_set<uint32_t> safe_variables;
+
     void populate_public_inputs_block();
 
     void process_non_native_field_multiplications();
