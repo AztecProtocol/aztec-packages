@@ -22,7 +22,7 @@ import inquirer from 'inquirer';
 
 import type { WalletDB } from '../storage/wallet_db.js';
 import { type AccountType, addScopeToWallet, createOrRetrieveAccount, getWalletWithScopes } from '../utils/accounts.js';
-import { FeeOpts } from '../utils/options/fees.js';
+import { FeeOpts, FeeOptsWithFeePayer } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
   aliasedAddressParser,
@@ -100,7 +100,7 @@ export function injectCommands(
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
 
-  addOptions(createAccountCommand, FeeOpts.getOptions()).action(async (_options, command) => {
+  addOptions(createAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
     const { createAccount } = await import('./create_account.js');
     const options = command.optsWithGlobals();
     const { type, secretKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias, json } = options;
@@ -129,7 +129,7 @@ export function injectCommands(
       skipInitialization,
       publicDeploy,
       wait,
-      await FeeOpts.fromCli(options, client, log, db),
+      await FeeOptsWithFeePayer.fromCli(options, client, log, db),
       json,
       debugLogger,
       log,
@@ -150,7 +150,7 @@ export function injectCommands(
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
 
-  addOptions(deployAccountCommand, FeeOpts.getOptions()).action(async (_options, command) => {
+  addOptions(deployAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
     const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
     const { rpcUrl, wait, from: parsedFromAddress, json } = options;
@@ -158,7 +158,14 @@ export function injectCommands(
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db);
 
-    await deployAccount(account, wait, await FeeOpts.fromCli(options, client, log, db), json, debugLogger, log);
+    await deployAccount(
+      account,
+      wait,
+      await FeeOptsWithFeePayer.fromCli(options, client, log, db),
+      json,
+      debugLogger,
+      log,
+    );
   });
 
   const deployCommand = program
@@ -572,7 +579,7 @@ export function injectCommands(
         throw new Error('Transaction data not found in the database, cannot reuse nonce');
       }
 
-      const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet);
+      const paymentMethod = await parsePaymentMethod(payment, false, log, db)(wallet);
 
       await cancelTx(wallet, txData, paymentMethod, increasedFees, maxFeesPerGas, log);
     });

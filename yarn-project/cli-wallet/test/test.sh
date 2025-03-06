@@ -19,7 +19,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -r|--remote-pxe)
       REMOTE_PXE="1"
-      shift 3
+      shift
       ;;
     -*|--*)
       echo "Unknown option $1"

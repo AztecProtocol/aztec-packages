@@ -14,8 +14,6 @@ use color_eyre::eyre;
 
 use crate::errors::CliError;
 
-mod fs;
-
 mod check_cmd;
 mod compile_cmd;
 mod dap_cmd;
@@ -213,7 +211,10 @@ where
 /// Lock the (selected) packages in the workspace.
 /// The lock taken can be shared for commands that only read the artifacts,
 /// or exclusive for the ones that (might) write artifacts as well.
-fn lock_workspace(workspace: &Workspace, exclusive: bool) -> Result<Vec<impl Drop>, CliError> {
+fn lock_workspace(
+    workspace: &Workspace,
+    exclusive: bool,
+) -> Result<Vec<impl Drop + use<>>, CliError> {
     struct LockedFile(File);
 
     impl Drop for LockedFile {

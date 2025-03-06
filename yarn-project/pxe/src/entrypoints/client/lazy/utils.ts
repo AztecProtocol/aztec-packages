@@ -1,9 +1,9 @@
 import { BBWASMLazyPrivateKernelProver } from '@aztec/bb-prover/wasm/lazy';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { WASMSimulator } from '@aztec/simulator/client';
-import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEServiceConfig } from '../../../config/index.js';
 import { PXEService } from '../../../pxe_service/pxe_service.js';

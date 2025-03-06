@@ -110,6 +110,7 @@ export class TXE implements TypedOracle {
   private isStaticCall = false;
   // Return/revert data of the latest nested call.
   private nestedCallReturndata: Fr[] = [];
+  private nestedCallSuccess: boolean = false;
 
   private pxeOracleInterface: PXEOracleInterface;
 
@@ -795,7 +796,7 @@ export class TXE implements TypedOracle {
     return new Fr(this.blockNumber + 6969);
   }
 
-  emitContractClassLog(_log: ContractClassLog, _counter: number): Fr {
+  notifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): Fr {
     throw new Error('Method not implemented.');
   }
 
@@ -1132,6 +1133,7 @@ export class TXE implements TypedOracle {
     const executionResult = await this.executePublicFunction(args, callContext);
     // Save return/revert data for later.
     this.nestedCallReturndata = executionResult.processedPhases[0]!.returnValues[0].values!;
+    this.nestedCallSuccess = executionResult.revertCode.isOK();
 
     // Apply side effects
     if (executionResult.revertCode.isOK()) {
@@ -1152,6 +1154,10 @@ export class TXE implements TypedOracle {
     this.setMsgSender(currentMessageSender);
 
     return executionResult;
+  }
+
+  avmOpcodeSuccessCopy(): boolean {
+    return this.nestedCallSuccess;
   }
 
   avmOpcodeReturndataSize(): number {

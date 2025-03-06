@@ -528,6 +528,7 @@ fn handle_foreign_call(
         "avmOpcodeL1ToL2MsgExists" => handle_l1_to_l2_msg_exists(avm_instrs, destinations, inputs),
         "avmOpcodeSendL2ToL1Msg" => handle_send_l2_to_l1_msg(avm_instrs, destinations, inputs),
         "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
+        "avmOpcodeSuccessCopy" => handle_success_copy(avm_instrs, destinations, inputs),
         "avmOpcodeReturndataSize" => handle_returndata_size(avm_instrs, destinations, inputs),
         "avmOpcodeReturndataCopy" => handle_returndata_copy(avm_instrs, destinations, inputs),
         "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
@@ -556,16 +557,16 @@ fn handle_foreign_call(
 //     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
 //     address: AztecAddress,
 //     args: [Field],
-// ) -> bool {}
+// ) {}
 fn handle_external_call(
     avm_instrs: &mut Vec<AvmInstruction>,
     destinations: &[ValueOrArray],
     inputs: &[ValueOrArray],
     opcode: AvmOpcode,
 ) {
-    if destinations.len() != 1 || inputs.len() != 4 {
+    if !destinations.is_empty() || inputs.len() != 4 {
         panic!(
-            "Transpiler expects ForeignCall (Static)Call to have 1 destinations and 4 inputs, got {} and {}.",
+            "Transpiler expects ForeignCall (Static)Call to have 0 destinations and 4 inputs, got {} and {}.",
             destinations.len(),
             inputs.len()
         );
@@ -595,10 +596,6 @@ fn handle_external_call(
         _ => panic!("Call instruction's args input should be a HeapVector input"),
     };
 
-    let success_offset = match &destinations[0] {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("Call instruction's success destination should be a basic MemoryAddress",),
-    };
     avm_instrs.push(AvmInstruction {
         opcode,
         indirect: Some(
@@ -607,7 +604,6 @@ fn handle_external_call(
                 .direct_operand(address_offset)
                 .indirect_operand(args_offset_ptr)
                 .direct_operand(args_size_offset)
-                .direct_operand(success_offset)
                 .build(),
         ),
         operands: vec![
@@ -615,7 +611,6 @@ fn handle_external_call(
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: args_size_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: success_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1685,4 +1680,32 @@ fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
         BitSize::Integer(IntegerBitSize::U128) => AvmTypeTag::UINT128,
         BitSize::Field => AvmTypeTag::FIELD,
     }
+}
+
+/// #[oracle(avmOpcodeSuccessCopy)]
+/// unconstrained fn success_copy_opcode() -> bool {}
+fn handle_success_copy(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
+) {
+    if destinations.len() != 1 || !inputs.is_empty() {
+        panic!(
+            "Transpiler expects SuccessCopy to have 1 destination and 0 inputs, got {} and {}.",
+            destinations.len(),
+            inputs.len()
+        );
+    }
+
+    let dst_offset = match destinations[0] {
+        ValueOrArray::MemoryAddress(address) => address,
+        _ => panic!("SuccessCopy destination should be a memory location"),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::SUCCESSCOPY,
+        indirect: Some(AddressingModeBuilder::default().direct_operand(&dst_offset).build()),
+        operands: vec![AvmOperand::U16 { value: dst_offset.to_usize() as u16 }],
+        ..Default::default()
+    });
 }
