@@ -1,7 +1,7 @@
 import type { AccountManager, Fr } from '@aztec/aztec.js';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import type { LogFn } from '@aztec/foundation/log';
-import type { PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe/server';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';

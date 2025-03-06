@@ -36,6 +36,6 @@ This would leak privacy.
 
 ## Further reading
 
-- [What is `#[note]` actually doing? + functions such as serialize() and deserialize()](../../../../../aztec/smart_contracts/functions//attributes.md#implementing-notes-note)
+- [What is `#[note]` actually doing? + functions such as serialize() and deserialize()](../../../../../aztec/smart_contracts/functions/attributes.md#implementing-notes)
 - [Macros reference](../../../../reference/smart_contract_reference/macros.md)
 - [Keys, including npk_m_hash (nullifier public key master)](../../../../../aztec/concepts/accounts/keys.md)

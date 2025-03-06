@@ -15,7 +15,7 @@ function build {
   echo_header "avm-transpiler build"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
-    denoise "cargo build --release"
+    denoise "cargo build --release --locked"
     denoise "cargo fmt --check"
     denoise "cargo clippy"
     cache_upload $artifact target/release/avm-transpiler

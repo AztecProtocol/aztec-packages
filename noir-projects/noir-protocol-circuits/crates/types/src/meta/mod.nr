@@ -16,9 +16,11 @@ comptime fn get_trait_impl_method(
     target_method: Quoted,
 ) -> TypedExpr {
     let trait_constraint = target_trait.as_trait_constraint();
-    typ.get_trait_impl(trait_constraint).expect(f"Type does not implement trait").methods().filter(
-        |m| m.name() == target_method,
-    )[0]
+    typ
+        .get_trait_impl(trait_constraint)
+        .expect(f"Could not find impl for {target_trait} for type {typ}")
+        .methods()
+        .filter(|m| m.name() == target_method)[0]
         .as_typed_expr()
 }
 
@@ -318,7 +320,8 @@ pub comptime fn generate_serialize_to_fields(
     if !omit.any(|to_omit| to_omit == name) {
         // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
         let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
-        let packable_constraint = quote { Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+        let packable_constraint =
+            quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
 
         if (should_pack & typ.implements(packable_constraint)) {
             // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
