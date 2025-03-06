@@ -6,6 +6,7 @@
 
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -206,6 +207,39 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
         trace.set(C::precomputed_exec_opcode,
                   static_cast<uint32_t>(wire_opcode),
                   static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
+    }
+}
+
+void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
+{
+    using C = Column;
+
+    trace.reserve_column(C::precomputed_sel_to_radix_safe_limbs, P_LIMBS_PER_RADIX.size());
+    trace.reserve_column(C::precomputed_to_radix_safe_limbs, P_LIMBS_PER_RADIX.size());
+
+    for (uint32_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
+        size_t decomposition_len = P_LIMBS_PER_RADIX[i].size();
+        if (decomposition_len > 0) {
+            trace.set(C::precomputed_sel_to_radix_safe_limbs, i, 1);
+            trace.set(C::precomputed_to_radix_safe_limbs, i, decomposition_len - 1);
+        }
+    }
+}
+
+void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& trace)
+{
+    using C = Column;
+
+    uint32_t row = 0;
+    for (uint32_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
+        size_t decomposition_len = P_LIMBS_PER_RADIX[i].size();
+        for (uint32_t j = 0; j < decomposition_len; ++j) {
+            trace.set(C::precomputed_sel_p_decomposition, row, 1);
+            trace.set(C::precomputed_p_decomposition_radix, row, i);
+            trace.set(C::precomputed_p_decomposition_limb_index, row, j);
+            trace.set(C::precomputed_p_decomposition_limb, row, P_LIMBS_PER_RADIX[i][j]);
+            row++;
+        }
     }
 }
 

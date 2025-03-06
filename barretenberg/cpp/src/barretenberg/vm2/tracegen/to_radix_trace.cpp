@@ -1,4 +1,5 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 
@@ -6,27 +7,10 @@
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/ecc.hpp"
-#include "barretenberg/vm2/tracegen/to_radix.hpp"
+#include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include <cassert>
 
 namespace bb::avm2::tracegen {
-
-namespace {
-uint32_t compute_safe_limbs(uint32_t radix)
-{
-    FF exponent = 1;
-    uint32_t safe_limbs = 0;
-    while (true) {
-        FF new_exponent = exponent * radix;
-        if (static_cast<uint256_t>(new_exponent) < static_cast<uint256_t>(exponent)) {
-            // Wrapped around
-            return safe_limbs;
-        }
-        safe_limbs++;
-        exponent = new_exponent;
-    }
-}
-} // namespace
 
 void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simulation::ToRadixEvent>::Container& events,
                                   TraceContainer& trace)
@@ -37,14 +21,25 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
     for (const auto& event : events) {
         FF value = event.value;
         uint32_t radix = event.radix;
-        uint32_t safe_limbs = compute_safe_limbs(radix);
+        uint32_t safe_limbs = static_cast<uint32_t>(P_LIMBS_PER_RADIX[radix].size()) - 1;
+
         FF acc = 0;
         FF exponent = 1;
         bool found = false;
+        bool acc_under_p = false;
 
         for (uint32_t i = 0; i < event.limbs.size(); ++i) {
+            bool is_padding = i >= P_LIMBS_PER_RADIX[radix].size();
             uint8_t limb = event.limbs[i];
-            bool is_unsafe_limb = i >= safe_limbs;
+            uint8_t p_limb = is_padding ? 0 : P_LIMBS_PER_RADIX[radix][i];
+
+            if (limb != p_limb) {
+                acc_under_p = limb < p_limb;
+            }
+            FF limb_p_diff = limb == p_limb ? 0 : limb > p_limb ? limb - p_limb - 1 : p_limb - limb - 1;
+
+            bool is_unsafe_limb = i == safe_limbs;
+            FF safety_diff_inverse = is_unsafe_limb ? FF(0) : (FF(i) - FF(safe_limbs)).invert();
 
             acc += exponent * limb;
 
@@ -52,30 +47,36 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
             found = rem == 0;
             FF rem_inverse = found ? 0 : rem.invert();
 
-            uint32_t limb_index_safe_limbs_comparison_hint = is_unsafe_limb ? i - safe_limbs : safe_limbs - 1 - i;
-
             bool end = i == (event.limbs.size() - 1);
 
             assert(!end || found);
+            assert(!is_unsafe_limb || acc_under_p);
 
             trace.set(row,
-                      { { { C::to_radix_sel, 1 },
+                      { {
+                          { C::to_radix_sel, 1 },
                           { C::to_radix_value, value },
                           { C::to_radix_radix, radix },
-                          { C::to_radix_limb, limb },
                           { C::to_radix_limb_index, i },
-                          { C::to_radix_acc, acc },
-                          { C::to_radix_exponent, exponent },
-                          { C::to_radix_found, found },
-                          { C::to_radix_safe_limbs, safe_limbs },
-                          { C::to_radix_is_unsafe_limb, is_unsafe_limb },
+                          { C::to_radix_limb, limb },
                           { C::to_radix_start, i == 0 },
                           { C::to_radix_end, end },
                           { C::to_radix_not_end, !end },
+                          { C::to_radix_exponent, exponent },
+                          { C::to_radix_not_padding_limb, !is_padding },
+                          { C::to_radix_acc, acc },
+                          { C::to_radix_found, found },
                           { C::to_radix_limb_radix_diff, radix - 1 - limb },
                           { C::to_radix_rem_inverse, rem_inverse },
-                          { C::to_radix_limb_index_safe_limbs_comparison_hint, limb_index_safe_limbs_comparison_hint },
-                          { C::to_radix_assert_gt_lookup, !end && !found && safe_limbs == (i + 1) } } });
+                          { C::to_radix_safe_limbs, safe_limbs },
+                          { C::to_radix_is_unsafe_limb, is_unsafe_limb },
+                          { C::to_radix_safety_diff_inverse, safety_diff_inverse },
+                          { C::to_radix_p_limb, p_limb },
+                          { C::to_radix_acc_under_p, acc_under_p },
+                          { C::to_radix_limb_lt_p, limb < p_limb },
+                          { C::to_radix_limb_eq_p, limb == p_limb },
+                          { C::to_radix_limb_p_diff, limb_p_diff },
+                      } });
 
             row++;
             if (is_unsafe_limb) {

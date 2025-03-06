@@ -36,6 +36,7 @@
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
+#include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2 {
@@ -68,6 +69,10 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_integral_tag_length(trace));
             AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",
                            precomputed_builder.process_wire_instruction_spec(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/to_radix_safe_limbs",
+                           precomputed_builder.process_to_radix_safe_limbs(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
+                           precomputed_builder.process_to_radix_p_decompositions(trace));
         },
     };
 }
@@ -228,7 +233,13 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AVM_TRACK_TIME("tracegen/poseidon2_permutation",
                                    poseidon2_builder.process_permutation(events.poseidon2_permutation, trace));
                     clear_events(events.poseidon2_permutation);
-                } });
+                },
+                [&]() {
+                    ToRadixTraceBuilder to_radix_builder;
+                    AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
+                    clear_events(events.to_radix);
+                },
+            });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
 
@@ -271,8 +282,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>(),
             // To radix
             std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_range_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_gt_safe_limbs_range_settings>>());
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
