@@ -11,18 +11,19 @@ namespace bb::stdlib {
  * @tparam ComponentType The type of the object to be serialized
  */
 template <typename ComponentType>
-concept IsSerializableToAndFromPublicInputs =
-    requires(ComponentType component, std::span<stdlib::field_t<typename ComponentType::Builder>> public_inputs) {
-        { // A method to set the limbs of the object to public and return the index of the first limb in public inputs
-            component.set_public()
-        } -> std::same_as<uint32_t>;
-        { // A method to reconstruct the object from the limbs stored in public inputs
-            ComponentType::reconstruct_from_public(public_inputs)
-        } -> std::same_as<ComponentType>;
-        { // A constant defining the number of limbs needed to represent the object in the public inputs
-            ComponentType::PUBLIC_INPUTS_SIZE
-        } -> std::convertible_to<size_t>;
-    };
+concept IsSerializableToAndFromPublicInputs = requires(
+    ComponentType component,
+    std::span<stdlib::field_t<typename ComponentType::Builder>, ComponentType::PUBLIC_INPUTS_SIZE> public_inputs) {
+    { // A method to set the limbs of the object to public and return the index of the first limb in public inputs
+        component.set_public()
+    } -> std::same_as<uint32_t>;
+    { // A method to reconstruct the object from the limbs stored in public inputs
+        ComponentType::reconstruct_from_public(public_inputs)
+    } -> std::same_as<ComponentType>;
+    { // A constant defining the number of limbs needed to represent the object in the public inputs
+        ComponentType::PUBLIC_INPUTS_SIZE
+    } -> std::convertible_to<size_t>;
+};
 
 /**
  * @brief A wrapper class for serializing objects to and from the public inputs of a circuit
