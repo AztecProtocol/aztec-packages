@@ -7,9 +7,7 @@ contract Updatable {
     use aztec::prelude::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::{
-        constants::DEPLOYER_CONTRACT_ADDRESS,
-        contract_class_id::ContractClassId,
-        traits::{Hash, Serialize},
+        constants::DEPLOYER_CONTRACT_ADDRESS, contract_class_id::ContractClassId,
     };
     use contract_instance_deployer::ContractInstanceDeployer;
     use value_note::value_note::ValueNote;
