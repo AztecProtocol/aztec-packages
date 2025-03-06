@@ -9,7 +9,6 @@ contract Updatable {
     use aztec::protocol_types::{
         constants::DEPLOYER_CONTRACT_ADDRESS,
         contract_class_id::ContractClassId,
-        traits::{Hash, Serialize},
     };
     use contract_instance_deployer::ContractInstanceDeployer;
     use value_note::value_note::ValueNote;

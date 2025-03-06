@@ -12,7 +12,8 @@ pub contract StaticChild {
         utils::comparison::Comparator,
     };
     use dep::value_note::value_note::ValueNote;
-
+    use aztec::note::note_interface::NoteProperties;
+    
     #[storage]
     struct Storage<Context> {
         current_value: PublicMutable<Field, Context>,
