@@ -36,14 +36,16 @@ template <typename BF, typename FF = void> struct TranslationEvaluations_ {
  * ECCVMVerifier needs to multiply it by \f$ x^N \f$.
  */
 template <typename FF>
-static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x,
-                                                FF& translation_masking_term_eval,
-                                                const size_t circuit_size)
+static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x, FF& translation_masking_term_eval)
 {
-    FF x_to_circuit_size = evaluation_challenge_x.pow(circuit_size);
+    // This method is only invoked within Goblin, which runs ECCVM with a fixed size.
+    static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
+
+    FF x_to_circuit_size = evaluation_challenge_x.pow(ECCVM_FIXED_SIZE);
 
     // Compute X^{MASKING_OFFSET}
     const FF x_to_masking_offset = evaluation_challenge_x.pow(MASKING_OFFSET);
+
     // Update `translation_masking_term_eval`
     translation_masking_term_eval *= x_to_circuit_size;
     translation_masking_term_eval *= x_to_masking_offset.invert();
