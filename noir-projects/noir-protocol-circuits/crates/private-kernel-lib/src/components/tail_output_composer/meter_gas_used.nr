@@ -1,12 +1,11 @@
 use dep::types::{
     abis::{
         accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
-        gas::Gas, log_hash::ScopedLogHash,
+        gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
     },
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     utils::arrays::array_length,
 };
@@ -28,15 +27,14 @@ pub fn meter_gas_used(data: PrivateToRollupAccumulatedData) -> Gas {
     metered_l2_gas += num_l2_to_l1_msgs * L2_GAS_PER_L2_TO_L1_MSG;
 
     let num_private_logs = array_length(data.private_logs);
-    metered_da_fields += num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+    let total_num_private_log_fields = get_emitted_private_logs_len(data.private_logs);
+    metered_da_fields += total_num_private_log_fields;
     metered_l2_gas += num_private_logs * L2_GAS_PER_PRIVATE_LOG;
 
     let num_contract_class_logs = array_length(data.contract_class_logs_hashes);
-    let contract_class_log_emitted_fields = data.contract_class_logs_hashes.fold(
-        0,
-        // NOTE: log_size is constrained to be correct in the base rollup
-        |len, l: ScopedLogHash| len + l.log_hash.length,
-    );
+    // We use log_hash.length below, then constrain the .lengths in the base rollup.
+    let contract_class_log_emitted_fields =
+        get_emitted_contract_class_logs_len(data.contract_class_logs_hashes);
     metered_da_fields += contract_class_log_emitted_fields;
     metered_l2_gas += num_contract_class_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;
 

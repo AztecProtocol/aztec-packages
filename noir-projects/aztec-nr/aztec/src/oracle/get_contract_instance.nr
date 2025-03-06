@@ -1,6 +1,9 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::CONTRACT_INSTANCE_LENGTH, contract_class_id::ContractClassId,
+    address::AztecAddress,
+    constants::CONTRACT_INSTANCE_LENGTH,
+    contract_class_id::ContractClassId,
     contract_instance::ContractInstance,
+    traits::{Deserialize, FromField},
 };
 
 // NOTE: this is for use in private only

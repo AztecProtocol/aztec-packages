@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/bitwise.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
@@ -33,11 +34,7 @@ using lookup_bitwise_integral_tag_length = bb::avm2::lookup_bitwise_integral_tag
 
 TEST(BitwiseConstrainingTest, EmptyRow)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
-    check_relation<bitwise>(trace);
+    check_relation<bitwise>(testing::empty_trace());
 }
 
 // Testing a positive AND operation for each integral type (U1, U8, ... U128)

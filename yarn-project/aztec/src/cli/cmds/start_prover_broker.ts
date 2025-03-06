@@ -10,6 +10,7 @@ import { getProverNodeBrokerConfigFromEnv } from '@aztec/prover-node';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
+import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions } from '../util.js';
 
 export async function startProverBroker(
@@ -27,6 +28,14 @@ export async function startProverBroker(
     ...getProverNodeBrokerConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverBrokerConfig>(options, proverBrokerConfigMappings, 'proverBroker'), // override with command line options
   };
+
+  if (!config.l1Contracts.registryAddress || config.l1Contracts.registryAddress.isZero()) {
+    throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
+  }
+
+  const { addresses } = await getL1Config(config.l1Contracts.registryAddress, config.l1RpcUrls, config.l1ChainId);
+
+  config.l1Contracts = addresses;
 
   const client = initTelemetryClient(getTelemetryClientConfig());
   const broker = await createAndStartProvingBroker(config, client);

@@ -1,6 +1,6 @@
 ---
 title: Fees
-sidebar_position: 0
+sidebar_position: 4
 tags: [fees]
 ---
 
@@ -18,7 +18,7 @@ This is done via multiple variables and calculations explained in detail in the 
 
 Familiar terms from Ethereum mainnet as referred to on the Aztec network:
 
-| Mainnet     | Aztec              | Description |
+| Ethereum Mainnet | Aztec              | Description |
 | ----------- | ------------------ | - |
 | gas         | mana               | indication of effort in transaction operations |
 | fee per gas | fee-juice per mana | cost per unit of effort |
@@ -46,7 +46,7 @@ More information about the design/choices can be found in the fees section of th
 
 As part of a transaction the follow gas settings are available to be defined by the user.
 
-import { Gas_Settings } from '/components/snippets';
+import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '/components/snippets';
 
 <Gas_Settings />
 
@@ -54,13 +54,25 @@ These are:
 
 #include_code gas_settings_vars yarn-project/stdlib/src/gas/gas_settings.ts javascript
 
+<Gas_Settings_Components />
 
 ## Fee payment
 
 A fee payer will have bridged fee-juice from L1. On Aztec this fee asset is non-transferrable, and only deducted by the protocol to pay for fees.
 
-The calculated fee-juice of a transaction is deducted from the fee payer (nominated account or fee-paying contract), these are pooled together each transaction, block, and epoch.
-Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to those that contributed to the epoch.
+### Payment methods
+
+An account with fee-juice can pay for its transactions, including deployment of a new account.
+An account making a transaction can also refer to "fee-paying contracts" (FPCs) to pay for its transactions.
+
+### Teardown phase
+
+<Tx_Teardown_Phase />
+
+### Operator rewards
+
+The calculated fee-juice of a transaction is deducted from the fee payer (nominated account or fee-paying contract), then pooled together each transaction, block, and epoch.
+Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to provers and block validators/sequencers that contributed to the epoch.
 
 The fees section of the protocol specification explains this distribution of fee-juice between proposers and provers.
 
@@ -68,4 +80,4 @@ The fees section of the protocol specification explains this distribution of fee
 
 More comprehensive technical details for implementers will be available from the updated protocol specifications soon.
 
-For a guide on how to pay fees programmatically, see [here](../../developers/guides/js_apps/pay_fees).
+For a guide showing ways to pay fees programmatically, see [here](../../developers/guides/js_apps/pay_fees).
