@@ -228,7 +228,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
     tracegen::ToRadixTraceBuilder to_radix_builder;
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
-    precomputed_builder.process_misc(trace, 254);
+    precomputed_builder.process_misc(trace, 257);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
@@ -262,8 +262,8 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     tracegen::ToRadixTraceBuilder to_radix_builder;
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
-    // There are a total of 10736 values in the decomposition of p trace, and this is the last radix
-    precomputed_builder.process_misc(trace, 11000);
+
+    precomputed_builder.process_misc(trace, 257);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
