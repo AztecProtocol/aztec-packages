@@ -3,6 +3,7 @@ network:
   public: false
 
 aztec:
+  setupL2Contracts: true
   realProofs: false
 
 telemetry:
