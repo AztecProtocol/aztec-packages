@@ -213,14 +213,10 @@ export class UltraHonkBackend {
 
     // Write VK to get the VK
     const writeVKUltraHonk = options?.keccak
-      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
-      : this.api.acirProveUltraHonk.bind(this.api);
+      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
 
-    const vk = await writeVKUltraHonk(
-      this.acirUncompressedBytecode,
-      this.circuitOptions.recursive,
-      gunzip(compressedWitness),
-    );
+    const vk = await writeVKUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
 
     const vkAsStrings = deflattenFields(vk.slice(serializedBufferSize));
     const numPublicInputs = Number(vkAsStrings[1]);
@@ -261,15 +257,12 @@ export class UltraHonkBackend {
     );
 
     // Write VK to get the VK
+    // Write VK to get the VK
     const writeVKUltraHonk = options?.keccak
-      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
-      : this.api.acirProveUltraHonk.bind(this.api);
+      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
 
-    const vk = await writeVKUltraHonk(
-      this.acirUncompressedBytecode,
-      this.circuitOptions.recursive,
-      gunzip(compressedWitness),
-    );
+    const vk = await writeVKUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
 
     // proofWithPublicInputs starts with a four-byte size
     const numSerdeHeaderBytes = 4;
