@@ -22,7 +22,7 @@ export type ContractInstanceUpdateWithAddress = ContractInstanceUpdate & { addre
 export const ContractInstanceUpdateSchema = z.object({
   prevContractClassId: schemas.Fr,
   newContractClassId: schemas.Fr,
-  blockOfChange: z.number(),
+  blockOfChange: z.number().int().nonnegative(),
 }) satisfies ZodFor<ContractInstanceUpdate>;
 
 export const ContractInstanceUpdateWithAddressSchema = ContractInstanceUpdateSchema.and(

@@ -57,7 +57,7 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     auto bytecode_ptr = it->second;
     const auto& bytecode = *bytecode_ptr;
     // TODO: catch errors etc.
-    Instruction instruction = decode_instruction(bytecode, pc);
+    Instruction instruction = deserialize_instruction(bytecode, pc);
 
     // The event will be deduplicated internally.
     fetching_events.emit(

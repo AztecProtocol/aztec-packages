@@ -11,7 +11,7 @@ async function getDataStoreConfig(config?: BlobSinkConfig): Promise<AztecAsyncKV
   if (!config?.dataStoreConfig) {
     return undefined;
   }
-  return await createStore('blob-sink', config.dataStoreConfig);
+  return await createStore('blob-sink', 1, config.dataStoreConfig);
 }
 
 /**

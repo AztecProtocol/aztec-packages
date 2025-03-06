@@ -16,7 +16,10 @@ import { mockTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, MaxBlockNumber } from '@aztec/stdlib/tx';
 
+import { readFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
@@ -201,6 +204,18 @@ describe('aztec node', () => {
       });
       // Tx with max block number >= current block number should be valid
       expect(await node.isValidTx(validMaxBlockNumberMetadata)).toEqual({ result: 'valid' });
+    });
+  });
+
+  describe('Node Info', () => {
+    it('returns the correct node version', async () => {
+      const releasePleaseVersionFile = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.release-please-manifest.json'),
+      ).toString();
+      const releasePleaseVersion = JSON.parse(releasePleaseVersionFile)['.'];
+
+      const nodeInfo = await node.getNodeInfo();
+      expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
     });
   });
 

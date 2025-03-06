@@ -60,7 +60,6 @@ function refresh {
   height=$(tput lines)
   width=$(tput cols)
   if [ "$SECONDS" -ge 5 ]; then
-    # result="$(redis-cli --raw ZREVRANGE ci-run $offset $((offset + height - 3)))"
     result=$(redis_cli --eval $ci3/lua/set-filter.lua ci-run , \
       $offset $((offset + height - 1)) $filter_property $filter_string)
     SECONDS=0
@@ -69,7 +68,7 @@ function refresh {
   if [ -z "$result" ]; then
     echo -n "\nNothing to see here..."
   else
-    echo -e "$result" | render
+    echo -e "$result" | head -n $((height - 1)) | render
   fi
   # Clear remainder.
   echo -e -n "\e[J"

@@ -34,9 +34,9 @@ function release {
   echo_header "playground release"
   if [ $(dist_tag) != "latest" ]; then
     # TODO attach to github release
-    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --dir=dist
+    do_or_dryrun yarn netlify deploy --site aztec-playground --dir=dist
   else
-    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod --dir=dist
+    do_or_dryrun yarn netlify deploy --site aztec-playground --prod --dir=dist
   fi
 }
 
