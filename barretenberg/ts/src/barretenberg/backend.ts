@@ -211,9 +211,19 @@ export class UltraHonkBackend {
       gunzip(compressedWitness),
     );
 
-    const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
+    // Write VK to get the VK
+    const writeVKUltraHonk = options?.keccak
+      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+      : this.api.acirProveUltraHonk.bind(this.api);
 
-    const numPublicInputs = Number(proofAsStrings[1]);
+    const vk = await writeVKUltraHonk(
+      this.acirUncompressedBytecode,
+      this.circuitOptions.recursive,
+      gunzip(compressedWitness),
+    );
+
+    const vkAsStrings = deflattenFields(vk.slice(serializedBufferSize));
+    const numPublicInputs = Number(vkAsStrings[1]);
 
     // Account for the serialized buffer size at start
     // Get the part before and after the public inputs
