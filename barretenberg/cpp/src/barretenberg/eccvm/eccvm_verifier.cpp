@@ -108,8 +108,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                                                     commitments.transcript_z2 };
 
     compute_translation_opening_claims(translation_commitments);
-
-    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - MASKING_OFFSET}
+    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval, circuit_size);
 
     opening_claims.back() = multivariate_to_univariate_opening_claim;
 
@@ -173,15 +173,15 @@ void ECCVMVerifier::compute_translation_opening_claims(
         transcript->template receive_from_prover<Commitment>("Translation:quotient_commitment");
 
     // Get a challenge for the evaluations of the concatenated masking term G, grand sum A, its shift, and grand sum
-    // idenity qutient Q
+    // identity quotient Q
     const FF small_ipa_evaluation_challenge =
         transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
 
-    // Compute {r, r * g, r , r}, where r = `small_ipa_evaluation_challenge`
+    // Compute {r, r * g, r, r}, where r = `small_ipa_evaluation_challenge`
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points =
         SmallIPA::evaluation_points(small_ipa_evaluation_challenge);
 
-    // Get the evaluations G(r), A(r), A(g*r), Q(r)
+    // Get the evaluations G(r), A(g * r), A(r), Q(r)
     for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
         small_ipa_evaluations[idx] = transcript->template receive_from_prover<FF>(labels[idx]);
         opening_claims[idx] = { { evaluation_points[idx], small_ipa_evaluations[idx] },
