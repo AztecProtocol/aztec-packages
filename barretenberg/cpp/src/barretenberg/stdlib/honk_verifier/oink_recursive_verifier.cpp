@@ -43,9 +43,9 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    FF circuit_size = verification_key->verification_key->circuit_size;
-    FF public_input_size = verification_key->verification_key->num_public_inputs;
-    FF pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
+    FF circuit_size = FF::from_witness(builder, verification_key->verification_key->circuit_size);
+    FF public_input_size = FF::from_witness(builder, verification_key->verification_key->num_public_inputs);
+    FF pub_inputs_offset = FF::from_witness(builder, verification_key->verification_key->pub_inputs_offset);
     transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
     transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
     transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
