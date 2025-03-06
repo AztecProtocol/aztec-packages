@@ -258,7 +258,7 @@ template <typename Fr> class Polynomial {
 
     /**
      * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
-     * commitment to a polynomial doesn't leak information about the coefficients in the context of zero
+     * commitment and evaluation of a polynomial don't leak information about the coefficients in the context of zero
      * knowledge.
      */
     void mask()
