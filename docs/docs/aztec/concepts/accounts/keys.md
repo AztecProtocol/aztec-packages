@@ -1,4 +1,4 @@
----
+ ---
 title: Keys
 tags: [accounts, keys]
 ---
@@ -26,13 +26,29 @@ To spend a note, the user computes a nullifier corresponding to this note. A nul
 
 Address keys are used for account [address derivation](../accounts/index.md).
 
-Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. `pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract:
+<Image img={require("/img/Address_derivation.png")} />
 
+Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`.
+
+`pre_address` can be thought of as a hash of all account’s key pairs and functions in the account contract.
+
+In particular,
 ```
-partial_address := poseidon2(contract_class_id, salted_initialization_hash)
-public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)
 pre_address := poseidon2(public_keys_hash, partial_address)
+public_keys_hash := poseidon2(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)
+partial_address := poseidon2(contract_class_id, salted_initialization_hash)
+contract_class_id := poseidon2(artifact_hash, fn_tree_root, public bytecode commitment)
+salted_initialization_hash := poseidon2(deployer_address, salt, constructor_hash)
 ```
+
+where
+- `artifact_hash` – hashes data from the Contract Artifact file that contains the data needed to interact with a specific contract, including its name, functions that can be executed, and the interface and code of those functions.
+- `fn_tree_root` – hashes pairs of verification keys and function selector (`fn_selector`) of each private function in the contract.
+- `fn_selector` – the first four bytes of the hashed `function signature` where the last one is a string consisting of the function's name followed by the data types of its parameters.
+– `public bytecode commitment` – takes contract's code as an input and returns short commitment.
+- `deployer_address` – account address of the one deploying the contract.
+- `salt` – a user-specified 32-byte value that adds uniqueness to the deployment.
+- `constructor_hash` – hashes `constructor_fn_selector` and `constructor_args` where the last one means public inputs of the contract.
 
 :::note
 Under the current design Aztec protocol does not use `Ovpk` (outgoing viewing key) and `Tpk` (tagging key). However, formally they still exist and can be used by developers for some non-trivial design choices if needed.
