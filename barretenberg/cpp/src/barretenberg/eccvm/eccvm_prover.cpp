@@ -231,7 +231,7 @@ ECCVMProof ECCVMProver::construct_proof()
  * where \f$ x \f$ is an artifact of our implementation of shiftable polynomials.
  *
  * This check gets trickier when the witness wires in ECCVM are masked. Namely, we randomize the last \f$
- * \text{MASKING_OFFSET} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} - 1 -
+ * \text{MASKING_OFFSET} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
  * \text{MASKING_OFFSET}\f$. Denote
  * \f{align}{ \widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X). \f}
  *
@@ -242,7 +242,7 @@ ECCVMProof ECCVMProver::construct_proof()
  * \f{align}{ x\cdot A = \sum_i (\widetilde{T}_i - X^N \cdot m_i(X)) v^i =\sum_i \widetilde{T}_i v^i - X^N \cdot \sum_i
  * m_i(X) v^i \f}
  *
- * The prover could send the evals of \f$ \widetilde{T}_i \f$$ without revealing witness information. Moreover, the
+ * The prover could send the evals of \f$ \widetilde{T}_i \f$ without revealing witness information. Moreover, the
  * prover could prove the evaluation \f$ x^N \cdot \sum m_i(x) v^i \f$ using SmallSubgroupIPA argument. Namely, before
  * obtaining \f$ x \f$ and \f$ v \f$, the prover sends a commitment to the polynomial \f$ \widetilde{M} = M + Z_H \cdot
  * R\f$, where the coefficients of \f$ M \f$ are given by the concatenation \f{align}{ M = (m_0||m_1||m_2||m_3||m_4 ||

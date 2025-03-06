@@ -120,7 +120,9 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
                                                               commitments.transcript_z2 };
     // Reduce the univariate evaluations claims to a single claim to be batched by Shplonk
     compute_translation_opening_claims(translation_commitments);
-    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - MASKING_OFFSET}
+    shift_translation_masking_term_eval(
+        evaluation_challenge_x, translation_masking_term_eval, static_cast<size_t>(circuit_size_bf.get_value()));
 
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 

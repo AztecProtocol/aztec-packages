@@ -8,8 +8,10 @@ namespace bb {
 /**
  * @brief Stores the evaluations from ECCVM, checked against the translator evaluations as a final step of translator.
  *
- * @tparam BF The base field of the curve, translation evaluations are represented in the base field.
- * @tparam FF The scalar field of the curve, used in Goblin to help convert the proof into a buffer for ACIR.
+ * @tparam BF The base field of BN254, translation evaluations are represented in the base field.
+ * @tparam FF The scalar field of BN254, used in Goblin to help convert the proof into a buffer for ACIR. Note that this
+ * struct is also used by ECCVMVerifiers, where the second template parameter is not required, hence we set it to `void`
+ * by default.
  */
 template <typename BF, typename FF = void> struct TranslationEvaluations_ {
     BF op, Px, Py, z1, z2;
@@ -27,28 +29,22 @@ template <typename BF, typename FF = void> struct TranslationEvaluations_ {
 
 /**
  * @brief Efficiently compute \f$ \text{translation_masking_term_eval} \cdot x^{N}\f$, where \f$ N =
- * 2^{\text{CONST_ECCVM_LOG_N}} - 1 - \text{MASKING_OFFSET}  \f$.
+ * 2^{\text{CONST_ECCVM_LOG_N}}  - \text{MASKING_OFFSET}  \f$.
  * @details As described in \ref ECCVMProver::compute_translation_opening_claims(), Translator's
  * `accumulated_result` \f$ A \f$ satisfies \f{align}{ x\cdot A = \sum_i \widetilde{T}_i v^i - X^N \cdot
- * \text{translation_masking_term_eval} \f} Therefore, before propagating the `translation_masking_term_eval`,
- * ECCVMVerifier needs to multiply it by \f$ x^ N \f$.
+ * \text{translation_masking_term_eval}. \f} Therefore, before propagating the `translation_masking_term_eval`,
+ * ECCVMVerifier needs to multiply it by \f$ x^N \f$.
  */
 template <typename FF>
-static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x, FF& translation_masking_term_eval)
+static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x,
+                                                FF& translation_masking_term_eval,
+                                                const size_t circuit_size)
 {
-    static constexpr size_t log_masking_offset = numeric::get_msb(MASKING_OFFSET);
-    FF x_to_circuit_size = evaluation_challenge_x;
+    FF x_to_circuit_size = evaluation_challenge_x.pow(circuit_size);
 
-    for (size_t idx = 0; idx < log_masking_offset; idx++) {
-        x_to_circuit_size = x_to_circuit_size.sqr();
-    }
-
-    const FF x_to_masking_offset = x_to_circuit_size;
-
-    for (size_t idx = log_masking_offset; idx < CONST_ECCVM_LOG_N; idx++) {
-        x_to_circuit_size = x_to_circuit_size.sqr();
-    }
-
+    // Compute X^{MASKING_OFFSET}
+    const FF x_to_masking_offset = evaluation_challenge_x.pow(MASKING_OFFSET);
+    // Update `translation_masking_term_eval`
     translation_masking_term_eval *= x_to_circuit_size;
     translation_masking_term_eval *= x_to_masking_offset.invert();
 };

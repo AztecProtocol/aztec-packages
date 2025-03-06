@@ -20,7 +20,7 @@ inline std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> get_evaluation_labels(
 };
 
 /**
- * @brief The verification of Grand Sum Identity requires the evaluations G(r), A(r), A(g * r), Q(r). Shared by Prover
+ * @brief The verification of Grand Sum Identity requires the evaluations G(r), A(g * r), A(r), Q(r). Shared by Prover
  * and Verifier.
  */
 template <typename FF>
@@ -41,7 +41,7 @@ template <typename Commitment> struct SmallSubgroupIPACommitments {
     // The grand sum commitment is returned twice since we are opening the corresponding polynomial at 2 points.
     RefArray<Commitment, NUM_SMALL_IPA_EVALUATIONS> get_all()
     {
-        return { concatenated, grand_sum, grand_sum, quotient };
+        return { concatenated, grand_sum, grand_sum, quotient }; // {[G], [A], [A], [Q]}
     };
 };
 } // namespace bb
