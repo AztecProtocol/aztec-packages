@@ -12,7 +12,7 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup, Config} from "@aztec/core/Rollup.sol";
+import {Rollup, RollupConfig, GenesisState} from "@aztec/core/Rollup.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -102,12 +102,14 @@ contract ValidatorSelectionTest is DecoderBase {
       _fpcJuicePortal: new MockFeeJuicePortal(),
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
-      _vkTreeRoot: bytes32(0),
-      _protocolContractTreeRoot: bytes32(0),
-      _genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      _genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
-      _ares: address(this),
-      _config: Config({
+      _governance: address(this),
+      _genesisState: GenesisState({
+        vkTreeRoot: bytes32(0),
+        protocolContractTreeRoot: bytes32(0),
+        genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+        genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH)
+      }),
+      _config: RollupConfig({
         aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
         aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
         targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,

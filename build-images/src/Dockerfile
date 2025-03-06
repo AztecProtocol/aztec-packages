@@ -150,7 +150,7 @@ ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
-    rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
+    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
     chmod -R a+w /opt/rust
 
 # Install corepack and yarn.
@@ -216,6 +216,7 @@ RUN apt update && \
         psmisc \
         python3-blessed \
         redis-tools \
+        rsync \
         software-properties-common \
         ssh \
         strace \

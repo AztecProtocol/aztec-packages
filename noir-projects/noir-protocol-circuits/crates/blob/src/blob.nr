@@ -152,8 +152,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
         let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
         // Safety: This sum is checked by the following `F::evaluate_quadratic_expression` calls.
-        let partial_sums: [F; FIELDS_PER_BLOB / 8] =
-            unsafe { __compute_partial_sums(fracs, ROOTS) };
+        let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe { __compute_partial_sums(fracs) };
 
         // We split off the first term to check the initial sum
 
@@ -237,7 +236,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
         // Safety: We're running under the condition that `std::runtime::is_unconstrained()` is true.
         unsafe {
-            __compute_sum(fracs, ROOTS)
+            __compute_sum(fracs)
         }
     };
 
@@ -335,10 +334,7 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
 }
 
 // TODO: Clean me
-unconstrained fn __compute_partial_sums(
-    fracs: [F; FIELDS_PER_BLOB],
-    unconstrained_roots: [F; FIELDS_PER_BLOB],
-) -> [F; FIELDS_PER_BLOB / 8] {
+unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB / 8] {
     let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
@@ -352,7 +348,7 @@ unconstrained fn __compute_partial_sums(
     let mut partial_sum: F = F::zero();
     for i in 0..8 {
         // y_k * ( omega^k / (z - omega^k) )
-        let summand = unconstrained_roots[i].__mul(fracs[i]);
+        let summand = ROOTS[i].__mul(fracs[i]);
 
         // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
         partial_sum = partial_sum.__add(summand);
@@ -371,7 +367,7 @@ unconstrained fn __compute_partial_sums(
         for j in 0..8 {
             let k = i * 8 + j;
             // y_k * ( omega^k / (z - omega^k) )
-            let summand = unconstrained_roots[k].__mul(fracs[k]);
+            let summand = ROOTS[k].__mul(fracs[k]);
             // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
             partial_sum = partial_sum.__add(summand);
         }
@@ -381,10 +377,7 @@ unconstrained fn __compute_partial_sums(
     partial_sums
 }
 
-unconstrained fn __compute_sum(
-    fracs: [F; FIELDS_PER_BLOB],
-    unconstrained_roots: [F; FIELDS_PER_BLOB],
-) -> F {
+unconstrained fn __compute_sum(fracs: [F; FIELDS_PER_BLOB]) -> F {
     // Seeking:
     //                    ___d-1
     //                    \            omega^i
@@ -395,7 +388,7 @@ unconstrained fn __compute_sum(
     let mut sum: F = F::zero();
     for i in 0..FIELDS_PER_BLOB {
         // y_k * ( omega^k / (z - omega^k) )
-        let summand = unconstrained_roots[i].__mul(fracs[i]);
+        let summand = ROOTS[i].__mul(fracs[i]);
 
         // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
         sum = sum.__add(summand);
@@ -410,7 +403,7 @@ mod tests {
             barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
         },
         blob_public_inputs::BlobCommitment,
-        config::{D, D_INV, ROOTS},
+        config::{D, D_INV},
     };
     use super::{__compute_partial_sums, __compute_sum};
     use bigint::{
@@ -658,8 +651,8 @@ mod tests {
         }
         // Safety: this is a test
         unsafe {
-            let partial_sums = __compute_partial_sums(fields, ROOTS);
-            let sum = __compute_sum(fields, ROOTS);
+            let partial_sums = __compute_partial_sums(fields);
+            let sum = __compute_sum(fields);
 
             assert_eq(partial_sums[FIELDS_PER_BLOB / 8 - 1], sum);
         }

@@ -227,7 +227,11 @@ export class BotFactory {
 
     const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
     const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
-    this.log.info('Created a claim for L1 fee juice.');
+
+    const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+
+    this.log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
 
     // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
     await this.advanceL2Block();

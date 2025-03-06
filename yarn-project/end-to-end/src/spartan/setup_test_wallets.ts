@@ -5,6 +5,7 @@ import {
   type AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethodWithClaim,
+  Fr,
   L1FeeJuicePortalManager,
   type PXE,
   createAztecNodeClient,
@@ -109,8 +110,11 @@ async function bridgeL1FeeJuice(
 
   const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
-  log.info('Created a claim for L1 fee juice.');
 
+  const isSynced = async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
+  await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
+
+  log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
   return claim;
 }
 

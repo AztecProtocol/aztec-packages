@@ -68,6 +68,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript->load_proof(stdlib_proof);
@@ -76,7 +77,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     CommitmentLabels commitment_labels;
 
     const FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
+    if (static_cast<uint32_t>(circuit_size.get_value()) != static_cast<uint32_t>(key->circuit_size.get_value())) {
         throw_or_abort(
             "TranslatorRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
@@ -103,6 +104,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
@@ -116,15 +118,17 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Execute Shplemini
     bool consistency_checked = true;
     ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted_without_concatenated(),
-                                 sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+        .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
+                                 sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() },
+        .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
+                                         .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
@@ -136,11 +140,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation,
-                                               {},
-                                               {},
-                                               commitments.get_groups_to_be_concatenated(),
-                                               sumcheck_output.claimed_evaluations.get_concatenated());
+                                               sumcheck_output.claimed_libra_evaluation);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 

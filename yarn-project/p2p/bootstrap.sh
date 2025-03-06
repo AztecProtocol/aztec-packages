@@ -8,9 +8,10 @@ hash=$(../bootstrap.sh hash)
 function bench {
   mkdir -p bench-out
 
-  for config in ./testbench/configurations/*.json; do
-    config_name=${config##*/}
-    ./testbench/run_testbench.sh $config_name ./bench-out/$config_name
+  bench_allowed_configs=("degree-1-strict.json" "normal-degree-100-nodes.json")
+
+  for config in "${bench_allowed_configs[@]}"; do
+    ./testbench/run_testbench.sh $config ./bench-out/$config
   done
   ./testbench/consolidate_benchmarks.sh
 

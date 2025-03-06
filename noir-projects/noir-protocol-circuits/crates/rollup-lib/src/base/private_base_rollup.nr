@@ -13,25 +13,21 @@ use crate::{
         },
         state_diff_hints::PrivateBaseStateDiffHints,
     },
-    components::{append_tx_effects_for_blob, compute_kernel_out_hash},
+    components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
 use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        constant_rollup_data::ConstantRollupData,
-        contract_class_log::{ContractClassLog, validate_and_silo_contract_class_log},
-        public_data_write::PublicDataWrite,
-        public_log::PublicLog,
-        sponge_blob::SpongeBlob,
-        tube::PrivateTubeData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
+        contract_class_log::ContractClassLog, public_data_write::PublicDataWrite,
+        public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
-    hash::silo_l2_to_l1_message,
+    hash::{silo_contract_class_log, silo_l2_to_l1_message},
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
@@ -120,13 +116,15 @@ impl PrivateBaseRollupInputs {
         let mut siloed_contract_class_logs =
             [ContractClassLog::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX];
         for i in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
-            siloed_contract_class_logs[i] = validate_and_silo_contract_class_log(
+            validate_contract_class_log(
                 self.contract_class_logs_preimages[i],
                 self.tube_data.public_inputs.end.contract_class_logs_hashes[i],
             );
+            siloed_contract_class_logs[i] =
+                silo_contract_class_log(self.contract_class_logs_preimages[i]);
         }
 
-        // These lengths have been constrained in validate_and_silo_contract_class_log to be correct.
+        // These lengths have been constrained above to be correct.
         let contract_class_logs_lengths =
             self.tube_data.public_inputs.end.contract_class_logs_hashes.map(|l| l.log_hash.length);
 
@@ -233,11 +231,16 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
-            gas::Gas, gas_fees::GasFees,
-            kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs, log::Log,
-            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-            side_effect::OrderedValue, sponge_blob::SpongeBlob,
+            constant_rollup_data::ConstantRollupData,
+            contract_class_log::ContractClassLog,
+            gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
+            gas_fees::GasFees,
+            kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
+            log::Log,
+            nullifier_leaf_preimage::NullifierLeafPreimage,
+            public_data_write::PublicDataWrite,
+            side_effect::OrderedValue,
+            sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -252,7 +255,7 @@ mod tests {
             TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        hash::{poseidon2_hash_subarray_variable, silo_contract_class_log, silo_l2_to_l1_message},
+        hash::{poseidon2_hash, silo_contract_class_log, silo_l2_to_l1_message},
         merkle_tree::MembershipWitness,
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         partial_state_reference::PartialStateReference,
@@ -263,7 +266,7 @@ mod tests {
         },
         traits::{Empty, FromField, Hash, ToField},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple, unsafe_padded_array_length},
             field::{field_from_bytes, full_field_less_than},
         },
     };
@@ -533,7 +536,7 @@ mod tests {
                 log: Log { fields: padded_log_fields },
             };
             self.contract_class_logs_preimages.push(log);
-            let log_hash = poseidon2_hash_subarray_variable(padded_log_fields, N);
+            let log_hash = poseidon2_hash(padded_log_fields);
             self.tube_data.add_contract_class_log_hash(log_hash, N);
         }
 
@@ -941,7 +944,18 @@ mod tests {
             );
         }
         builder.tube_data.append_l2_to_l1_msgs(NUM_MSGS);
-        builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
+        for i in 0..NUM_PRIV_EVENT_LOGS {
+            // manually adding to test appending logs with trailing zeros
+            let fields = [i as Field, (i + 1) as Field, (i + 2) as Field];
+            builder.tube_data.add_private_log(
+                array_concat(
+                    fields,
+                    [0; PRIVATE_LOG_SIZE_IN_FIELDS - 3 /* = fields.len() */],
+                ),
+                0,
+            );
+        }
+        // builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         // Below will only work with NUM_CC_LOGS=1
         let cc_log = [1, 2, 3];
         builder.append_contract_class_log(cc_log);
@@ -995,19 +1009,31 @@ mod tests {
         reconstructed_tx_effects[offset + 1] = fee_write.value;
         offset += 2;
         // private logs
-        let total_private_logs_len = (NUM_NOTES + NUM_PRIV_EVENT_LOGS) * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let total_private_logs_len = get_emitted_private_logs_len(builder
+            .tube_data
+            .private_logs
+            .storage()
+            .map(|l| l.inner.log));
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
         reconstructed_tx_effects[offset] = private_logs_prefix;
         offset += 1;
         for i in 0..NUM_NOTES + NUM_PRIV_EVENT_LOGS {
-            for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-                reconstructed_tx_effects[offset + i * PRIVATE_LOG_SIZE_IN_FIELDS + j] =
-                    builder.tube_data.private_logs.storage()[i].inner.log.fields[j];
+            let log = builder.tube_data.private_logs.storage()[i].inner.log.fields;
+            let log_len = unsafe_padded_array_length(log);
+            if log_len != 0 {
+                reconstructed_tx_effects[offset] = log_len as Field;
+                offset += 1;
+            }
+            for j in 0..log_len {
+                reconstructed_tx_effects[offset] = log[j];
+                offset += 1;
             }
         }
-        offset += total_private_logs_len;
         // cc logs
-        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 2);
+        let total_contract_class_logs_len = get_emitted_contract_class_logs_len(builder
+            .tube_data
+            .contract_class_logs_hashes
+            .storage());
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;

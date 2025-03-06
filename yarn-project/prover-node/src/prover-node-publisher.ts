@@ -106,6 +106,12 @@ export class ProverNodePublisher {
         return false;
       }
 
+      try {
+        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+      } catch (err) {
+        this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
+      }
+
       // Tx was mined successfully
       if (txReceipt.status) {
         const tx = await this.l1TxUtils.getTransactionStats(txReceipt.transactionHash);

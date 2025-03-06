@@ -2,9 +2,11 @@ import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
+import type { PXEServiceConfig } from '@aztec/pxe/config';
 
 import { Argument, Command, Option } from 'commander';
 import { mkdirSync, readFileSync } from 'fs';
+import { homedir } from 'os';
 import { dirname, join, resolve } from 'path';
 
 import { injectCommands } from '../cmds/index.js';
@@ -15,7 +17,7 @@ import { PXEWrapper } from '../utils/pxe_wrapper.js';
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('wallet');
 
-const { WALLET_DATA_DIRECTORY = '~/.aztec/wallet', PXE_PROVER = 'none' } = process.env;
+const { WALLET_DATA_DIRECTORY = join(homedir(), '.aztec/wallet'), PXE_PROVER = 'none' } = process.env;
 
 function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
   program
@@ -93,18 +95,22 @@ async function main() {
       if (!remotePxe) {
         debugLogger.info('Using local PXE service');
 
+        const proverEnabled = prover !== 'none';
+
         const bbBinaryPath =
           prover === 'native'
             ? resolve(dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/cpp/build/bin/bb')
             : undefined;
         const bbWorkingDirectory = dataDir + '/bb';
-        const proverEnabled = prover !== 'none';
-
         mkdirSync(bbWorkingDirectory, { recursive: true });
 
-        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), {
-          ...(proverEnabled && { proverEnabled, bbBinaryPath, bbWorkingDirectory }), // only override if we're profiling
-        });
+        const overridePXEConfig: Partial<PXEServiceConfig> = {
+          proverEnabled,
+          bbBinaryPath: prover === 'native' ? bbBinaryPath : undefined,
+          bbWorkingDirectory: prover === 'native' ? bbWorkingDirectory : undefined,
+        };
+
+        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), overridePXEConfig);
       }
       await db.init(await openStoreAt(dataDir));
     });

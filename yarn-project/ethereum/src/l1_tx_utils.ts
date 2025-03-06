@@ -60,10 +60,6 @@ export interface L1TxUtilsConfig {
    */
   maxGwei?: bigint;
   /**
-   * Minimum gas price in gwei
-   */
-  minGwei?: bigint;
-  /**
    * Maximum blob fee per gas in gwei
    */
   maxBlobGwei?: bigint;
@@ -107,11 +103,6 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: 'How much to increase calculated gas limit by (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
     ...numberConfigHelper(20),
-  },
-  minGwei: {
-    description: 'Minimum gas price in gwei',
-    env: 'L1_GAS_PRICE_MIN',
-    ...bigintConfigHelper(1n),
   },
   maxGwei: {
     description: 'Maximum gas price in gwei',
@@ -225,6 +216,12 @@ export class L1TxUtils {
 
   public getSenderAddress() {
     return this.walletClient.account.address;
+  }
+
+  public getSenderBalance(): Promise<bigint> {
+    return this.publicClient.getBalance({
+      address: this.getSenderAddress(),
+    });
   }
 
   public getBlock() {

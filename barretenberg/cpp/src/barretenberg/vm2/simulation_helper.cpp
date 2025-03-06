@@ -79,7 +79,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     AddressDerivation address_derivation(address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(inputs.hints);
-    HintedRawMerkleDB raw_merkle_db(inputs.hints);
+    HintedRawMerkleDB raw_merkle_db(inputs.hints, inputs.publicInputs.startTreeSnapshots);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
     MerkleDB merkle_db(raw_merkle_db);
 
@@ -104,7 +104,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ToRadix to_radix(to_radix_emitter);
     Ecc ecc_add(to_radix, ecc_add_emitter, scalar_mul_emitter);
 
-    tx_execution.simulate({ .enqueued_calls = inputs.enqueuedCalls });
+    tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
 
     return { execution_emitter.dump_events(),
              alu_emitter.dump_events(),

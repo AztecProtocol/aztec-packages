@@ -19,6 +19,14 @@ impl SignedField {
         Self { field: field.into(), is_negative: true }
     }
 
+    pub fn zero() -> SignedField {
+        Self { field: FieldElement::zero(), is_negative: false }
+    }
+
+    pub fn one() -> SignedField {
+        Self { field: FieldElement::one(), is_negative: false }
+    }
+
     /// Convert a signed integer to a SignedField, carefully handling
     /// INT_MIN in the process. Note that to convert an unsigned integer
     /// you can call `SignedField::positive`.
@@ -88,11 +96,7 @@ impl std::ops::Neg for SignedField {
 impl Ord for SignedField {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         if self.is_negative != other.is_negative {
-            if self.is_negative {
-                std::cmp::Ordering::Less
-            } else {
-                std::cmp::Ordering::Greater
-            }
+            if self.is_negative { std::cmp::Ordering::Less } else { std::cmp::Ordering::Greater }
         } else if self.is_negative {
             // Negative comparisons should be reversed so that -2 < -1
             other.field.cmp(&self.field)
@@ -116,11 +120,7 @@ impl From<FieldElement> for SignedField {
 
 impl From<SignedField> for FieldElement {
     fn from(value: SignedField) -> Self {
-        if value.is_negative {
-            -value.field
-        } else {
-            value.field
-        }
+        if value.is_negative { -value.field } else { value.field }
     }
 }
 
@@ -130,6 +130,30 @@ impl std::fmt::Display for SignedField {
             write!(f, "-")?;
         }
         write!(f, "{}", self.field)
+    }
+}
+
+impl rangemap::StepLite for SignedField {
+    fn add_one(&self) -> Self {
+        if self.is_negative {
+            if self.field.is_one() {
+                Self::new(FieldElement::zero(), false)
+            } else {
+                Self::new(self.field - FieldElement::one(), self.is_negative)
+            }
+        } else {
+            Self::new(self.field + FieldElement::one(), self.is_negative)
+        }
+    }
+
+    fn sub_one(&self) -> Self {
+        if self.is_negative {
+            Self::new(self.field + FieldElement::one(), self.is_negative)
+        } else if self.field.is_zero() {
+            Self::new(FieldElement::one(), true)
+        } else {
+            Self::new(self.field - FieldElement::one(), self.is_negative)
+        }
     }
 }
 

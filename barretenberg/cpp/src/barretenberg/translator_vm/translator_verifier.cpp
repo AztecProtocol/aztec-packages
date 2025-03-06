@@ -56,6 +56,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
@@ -110,15 +111,17 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
         return false;
     }
 
-    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Execute Shplemini
     bool consistency_checked = false;
     ClaimBatcher claim_batcher{
-        .unshifted = ClaimBatch{ commitments.get_unshifted_without_concatenated(),
-                                 sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated() },
-        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
+        .unshifted = ClaimBatch{ commitments.get_unshifted_without_interleaved(),
+                                 sumcheck_output.claimed_evaluations.get_unshifted_without_interleaved() },
+        .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() },
+        .interleaved = InterleavedBatch{ .commitments_groups = commitments.get_groups_to_be_interleaved(),
+                                         .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
@@ -130,11 +133,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation,
-                                               {},
-                                               {},
-                                               commitments.get_groups_to_be_concatenated(),
-                                               sumcheck_output.claimed_evaluations.get_concatenated());
+                                               sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
