@@ -462,9 +462,7 @@ describe('PeerManager', () => {
       expect(peerManager.getPeerScore(peerId.toString())).toBeLessThan(0);
 
       // Mock connections to include the trusted peer
-      mockLibP2PNode.getConnections.mockReturnValue([
-        { remotePeer: peerId },
-      ]);
+      mockLibP2PNode.getConnections.mockReturnValue([{ remotePeer: peerId }]);
 
       // Trigger heartbeat which should call pruneUnhealthyPeers
       peerManager.heartbeat();
@@ -490,10 +488,7 @@ describe('PeerManager', () => {
       peerManager.penalizePeer(trustedPeerId, PeerErrorSeverity.LowToleranceError);
 
       // Mock connections to include both peers
-      mockLibP2PNode.getConnections.mockReturnValue([
-        { remotePeer: untrustedPeerId },
-        { remotePeer: trustedPeerId },
-      ]);
+      mockLibP2PNode.getConnections.mockReturnValue([{ remotePeer: untrustedPeerId }, { remotePeer: trustedPeerId }]);
 
       // Trigger heartbeat which should call pruneUnhealthyPeers
       peerManager.heartbeat();
@@ -515,10 +510,7 @@ describe('PeerManager', () => {
       peerManager.addTrustedPeer(trustedPeerId);
 
       // Mock connections to include both peers
-      mockLibP2PNode.getConnections.mockReturnValue([
-        { remotePeer: trustedPeerId },
-        { remotePeer: regularPeerId },
-      ]);
+      mockLibP2PNode.getConnections.mockReturnValue([{ remotePeer: trustedPeerId }, { remotePeer: regularPeerId }]);
 
       // Penalize both peers to give them low scores
       peerManager.penalizePeer(trustedPeerId, PeerErrorSeverity.LowToleranceError);
@@ -559,7 +551,8 @@ describe('PeerManager', () => {
       cachedPeersMap.set(trustedPeerId.toString(), trustedCachedPeer);
 
       // Add many regular peers to the cache to trigger pruning
-      for (let i = 0; i < 101; i++) { // More than MAX_CACHED_PEERS (100)
+      for (let i = 0; i < 101; i++) {
+        // More than MAX_CACHED_PEERS (100)
         const regularPeerId = await createSecp256k1PeerId();
         const regularEnr = await createMockENR();
         const regularCachedPeer = {
@@ -603,7 +596,7 @@ describe('PeerManager', () => {
           enr: trustedEnr,
           multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
           dialAttempts: 0,
-          addedUnixMs: Date.now() - (i * 100), // Stagger the addition times
+          addedUnixMs: Date.now() - i * 100, // Stagger the addition times
         };
 
         cachedPeersMap.set(trustedPeerId.toString(), trustedCachedPeer);
@@ -673,7 +666,13 @@ describe('PeerManager', () => {
       peerManager.addTrustedPeer(trustedPeerId2);
 
       // Add the regular peers
-      mockLibP2PNode.getPeers.mockReturnValue([regularPeerId1, regularPeerId2, regularPeerId3, trustedPeerId1, trustedPeerId2]);
+      mockLibP2PNode.getPeers.mockReturnValue([
+        regularPeerId1,
+        regularPeerId2,
+        regularPeerId3,
+        trustedPeerId1,
+        trustedPeerId2,
+      ]);
 
       // Give different scores to the regular peers
       peerScoring.updateScore(regularPeerId1.toString(), 100); // Higher score
@@ -695,10 +694,10 @@ describe('PeerManager', () => {
 
       // Mock the pruneUnhealthyPeers method to return the connections unchanged
       // This ensures prioritizePeers gets the correct connections
-      jest.spyOn(peerManager as any, 'pruneUnhealthyPeers').mockImplementation((connections) => connections);
+      jest.spyOn(peerManager as any, 'pruneUnhealthyPeers').mockImplementation(connections => connections);
 
       // Mock the pruneDuplicatePeers method to return the connections unchanged
-      jest.spyOn(peerManager as any, 'pruneDuplicatePeers').mockImplementation((connections) => connections);
+      jest.spyOn(peerManager as any, 'pruneDuplicatePeers').mockImplementation(connections => connections);
 
       // Trigger heartbeat which should call prioritizePeers
       peerManager.heartbeat();

@@ -80,7 +80,7 @@ export class PeerManager {
    * This function is called when the peer manager is initialized.
    */
   async initializeTrustedPeers() {
-    let trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
+    const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
     await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
       .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId)))
       .finally(() => {
@@ -232,10 +232,12 @@ export class PeerManager {
   private discover() {
     const connections = this.libP2PNode.getConnections();
 
-    const healthyConnections = this.prioritizePeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections)));
+    const healthyConnections = this.prioritizePeers(
+      this.onlyNotTrustedPeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections))),
+    );
 
     // Calculate how many connections we're looking to make
-    const peersToConnect = this.config.maxPeerCount - healthyConnections.length;
+    const peersToConnect = this.config.maxPeerCount - healthyConnections.length - this.trustedPeers.size;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
     this.logger[logLevel](`Connected to ${healthyConnections.length} peers`, {
@@ -290,6 +292,10 @@ export class PeerManager {
     }
   }
 
+  private onlyNotTrustedPeers(connections: Connection[]): Connection[] {
+    return connections.filter(conn => !this.isTrustedPeer(conn.remotePeer));
+  }
+
   private pruneUnhealthyPeers(connections: Connection[]): Connection[] {
     const connectedHealthyPeers: Connection[] = [];
 
@@ -321,37 +327,24 @@ export class PeerManager {
    * @returns The pruned list of connections.
    */
   private prioritizePeers(connections: Connection[]): Connection[] {
-    if (connections.length > this.config.maxPeerCount) {
-      // First, separate trusted peers from regular peers
-      const trustedConnections: Connection[] = [];
-      const regularConnections: Connection[] = [];
-
-      for (const conn of connections) {
-        if (this.isTrustedPeer(conn.remotePeer)) {
-          trustedConnections.push(conn);
-          this.logger.debug(`Not prioritizing trusted peer ${conn.remotePeer.toString()}`);
-        } else {
-          regularConnections.push(conn);
-        }
-      }
-
+    if (connections.length > this.config.maxPeerCount - this.trustedPeers.size) {
       // Sort the regular peer scores from highest to lowest
-      const prioritizedRegularConnections = regularConnections.sort((connectionA, connectionB) => {
+      const prioritizedConnections = connections.sort((connectionA, connectionB) => {
         const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
         const connectionScoreB = this.peerScoring.getScore(connectionB.remotePeer.toString());
         return connectionScoreB - connectionScoreA;
       });
 
       // Calculate how many regular peers we can keep
-      const regularPeersToKeep = Math.max(0, this.config.maxPeerCount - trustedConnections.length);
+      const peersToKeep = Math.max(0, this.config.maxPeerCount - this.trustedPeers.size);
 
       // Disconnect from the lowest scoring regular connections that exceed our limit
-      for (const conn of prioritizedRegularConnections.slice(regularPeersToKeep)) {
+      for (const conn of prioritizedConnections.slice(peersToKeep)) {
         void this.goodbyeAndDisconnectPeer(conn.remotePeer, GoodByeReason.MAX_PEERS);
       }
 
       // Return trusted connections plus the highest scoring regular connections up to the max peer count
-      return [...trustedConnections, ...prioritizedRegularConnections.slice(0, regularPeersToKeep)];
+      return prioritizedConnections.slice(0, peersToKeep);
     } else {
       return connections;
     }
