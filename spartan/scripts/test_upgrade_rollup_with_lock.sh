@@ -1,22 +1,16 @@
 #!/bin/bash
 
+# This script is used to test the upgrade rollup with lock.
+# The point of the test is primarily to ensure that the CLI is not broken, and the upgrade works.
+
 set -eu
 
 NAMESPACE=$1
 ADDRESS=${2:-"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"} # first addr in junk mnemonic
 L1_CHAIN_ID=${3:-1337}
 
-image=$(kubectl get pod $NAMESPACE-aztec-network-boot-node-0 -n $NAMESPACE -o jsonpath="{.spec.containers[*].image}")
-
-echo $image
-
-# pull the image if it's not already pulled
-if ! docker images $image --format "{{.Repository}}:{{.Tag}}" | grep -q $image; then
-    docker pull $image
-fi
-
-AZTEC_BIN="/usr/src/yarn-project/aztec/dest/bin/index.js"
-EXE="docker run --rm --network=host  $image $AZTEC_BIN"
+AZTEC_BIN=$(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js
+EXE="node --no-warnings $AZTEC_BIN"
 
 # Create temporary files for port-forwarding output
 boot_tmpfile=$(mktemp)
@@ -81,9 +75,8 @@ echo "Registry: $registry"
 export L1_CHAIN_ID=$L1_CHAIN_ID
 export ETHEREUM_HOSTS="http://localhost:$eth_port"
 $(git rev-parse --show-toplevel)/spartan/scripts/upgrade_rollup_with_lock.sh \
-    --aztec-docker-image $image \
+    --aztec-bin $AZTEC_BIN \
     --registry $registry \
     --address $ADDRESS \
     --deposit-amount 200000000000000000000000 \
     --mint
-
