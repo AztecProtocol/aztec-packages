@@ -46,12 +46,12 @@ class ECCVMProver {
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
     void compute_translation_opening_claims();
-    void mask_witness_polynomial(Polynomial& polynomial);
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
     bool fixed_size;
+    size_t unmasked_witness_size;
 
     // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`

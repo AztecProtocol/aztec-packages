@@ -51,7 +51,7 @@ void ECCVMProver::execute_wire_commitments_round()
     // `real_size` < `circuit_size`, we use `commit_structured` that ignores 0 coefficients between the real size and
     // the last MASKING_OFFSET wire entries.
     const size_t circuit_size = key->circuit_size;
-    const size_t masking_start = circuit_size - MASKING_OFFSET;
+    unmasked_witness_size = circuit_size - MASKING_OFFSET;
 
     auto commit_type =
         (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
@@ -59,13 +59,13 @@ void ECCVMProver::execute_wire_commitments_round()
     // Commit to wires whose length is bounded by the real size of the ECCVM
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
                                               commitment_labels.get_wires_without_accumulators())) {
-        mask_witness_polynomial(wire);
+        wire.mask();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
         // ECCVM/Translator/MegaZK
 
         size_t start = circuit_size == wire.size() ? 0 : 1;
         std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
-                                                              { masking_start, circuit_size } };
+                                                              { unmasked_witness_size, circuit_size } };
         auto struct_comm = key->commitment_key->commit_with_type(wire, commit_type, active_ranges);
         transcript->send_to_verifier(label, struct_comm);
     }
@@ -73,7 +73,7 @@ void ECCVMProver::execute_wire_commitments_round()
     // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
     for (const auto& [wire, label] :
          zip_view(key->polynomials.get_accumulators(), commitment_labels.get_accumulators())) {
-        mask_witness_polynomial(wire);
+        wire.mask();
         transcript->send_to_verifier(label, key->commitment_key->commit(wire));
     }
 }
@@ -99,8 +99,8 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<typename Flavor::FF, typename Flavor::LookupRelation>(
-        key->polynomials, relation_parameters, key->circuit_size - MASKING_OFFSET);
-    mask_witness_polynomial(key->polynomials.lookup_inverses);
+        key->polynomials, relation_parameters, unmasked_witness_size);
+    key->polynomials.lookup_inverses.mask();
     transcript->send_to_verifier(commitment_labels.lookup_inverses,
                                  key->commitment_key->commit(key->polynomials.lookup_inverses));
 }
@@ -112,8 +112,8 @@ void ECCVMProver::execute_log_derivative_commitments_round()
 void ECCVMProver::execute_grand_product_computation_round()
 {
     // Compute permutation grand product and their commitments
-    compute_grand_products<Flavor>(key->polynomials, relation_parameters, key->circuit_size - MASKING_OFFSET);
-    mask_witness_polynomial(key->polynomials.z_perm);
+    compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
+    key->polynomials.z_perm.mask();
 
     transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
 }
@@ -324,13 +324,4 @@ void ECCVMProver::compute_translation_opening_claims()
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { batched_translation_univariate,
                                                   { evaluation_challenge_x, batched_translation_evaluation } };
 }
-
-void ECCVMProver::mask_witness_polynomial(ECCVMFlavor::Polynomial& polynomial)
-{
-    const size_t circuit_size = key->circuit_size;
-    for (size_t idx = 1; idx < MASKING_OFFSET; idx++) {
-        polynomial.at(circuit_size - idx) = FF::random_element();
-    }
-}
-
 } // namespace bb
