@@ -142,8 +142,7 @@ template <class Builder> class DataBusDepot {
      * kernel to verify and thus neither receives a previous kernel return data commitment nor a calldata input
      * corresponding to a previous kernel. The commitment to the "empty" calldata will take a default value and thus we
      * set the same value for the missing return data so that the consistency check will be satisfied.
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): Resolve issues around default commitment value
-     * and bool_t "existence" type flags.
+     *
      * @note The ordering of the kernel/app return data commitments within the public inputs is arbitrary but must be
      * consistent across all kernels in order for the corresponding conistency check constraints to be consistent.
      *
@@ -151,6 +150,9 @@ template <class Builder> class DataBusDepot {
      */
     void propagate_return_data_commitments(Builder& builder)
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): Resolve issues around default commitment
+        // value and bool_t "existence" type flags.
+
         // Set default commitment value to be used in the absence of one or the other return_data commitment
         if (!kernel_return_data_commitment_exists) {
             CommitmentNative DEFAULT_COMMITMENT_VALUE = CommitmentNative::one() * FrNative(BusVector::DEFAULT_VALUE);
@@ -163,18 +165,15 @@ template <class Builder> class DataBusDepot {
             app_return_data_commitment.convert_constant_to_fixed_witness(&builder);
         }
 
-        // Set the return data commitments to public
-        PublicComponentKey kernel_return_data_public_point_key = PublicPoint::set(kernel_return_data_commitment);
-        PublicComponentKey app_return_data_public_point_key = PublicPoint::set(app_return_data_commitment);
+        // Set the return data commitments to public and store the corresponding public input keys in the builder
+        builder.databus_propagation_data.kernel_return_data_commitment_pub_input_key =
+            PublicPoint::set(kernel_return_data_commitment);
+        builder.databus_propagation_data.app_return_data_commitment_pub_input_key =
+            PublicPoint::set(app_return_data_commitment);
 
         // Reset flags indicating existence of return data commitments
         kernel_return_data_commitment_exists = false;
         app_return_data_commitment_exists = false;
-
-        // Set the public input component keys for the kernel and app return data commitments in the builder
-        builder.databus_propagation_data.kernel_return_data_commitment_pub_input_key =
-            kernel_return_data_public_point_key;
-        builder.databus_propagation_data.app_return_data_commitment_pub_input_key = app_return_data_public_point_key;
     }
 };
 
