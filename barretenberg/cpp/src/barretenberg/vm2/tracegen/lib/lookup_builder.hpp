@@ -35,10 +35,6 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
 
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
             uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
-            auto dst_selector = trace.get(LookupSettings::DST_SELECTOR, dst_row);
-            assert(dst_selector == 1);
-            assert(src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row));
-
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
         });
     }

@@ -230,11 +230,6 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
 {
     using C = Column;
 
-    trace.reserve_column(C::precomputed_sel_p_decomposition, 10736);
-    trace.reserve_column(C::precomputed_p_decomposition_radix, 10736);
-    trace.reserve_column(C::precomputed_p_decomposition_limb_index, 10736);
-    trace.reserve_column(C::precomputed_p_decomposition_limb, 10736);
-
     uint32_t row = 0;
     for (uint32_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
         size_t decomposition_len = P_LIMBS_PER_RADIX[i].size();
@@ -246,8 +241,6 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
             row++;
         }
     }
-
-    std::cout << "last row is" << row << std::endl;
 }
 
 } // namespace bb::avm2::tracegen

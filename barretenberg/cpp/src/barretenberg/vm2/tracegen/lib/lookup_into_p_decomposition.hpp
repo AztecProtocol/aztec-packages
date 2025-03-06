@@ -21,8 +21,6 @@ template <typename LookupSettings> class LookupIntoPDecomposition : public BaseL
 
         row += static_cast<uint32_t>(limb_index);
 
-        std::cout << "looking up row: " << row << " for radix " << radix_integer << std::endl;
-
         return row;
     }
 };
