@@ -113,7 +113,7 @@ EOF
 [ "$CI" -eq 0 ] && fail
 
 # Get list of owners of this failed test.
-owners=$(yq e -r '.tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern)) | .owners[]' .test_patterns.yml | sort -u)
+owners=$(yq e -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern)) | .owners[]' .test_patterns.yml | sort -u)
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then
