@@ -690,7 +690,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return;
   }
 
-  // Called when notes are delivered, usually as a result to a call to the process_log contract function
   public async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
@@ -701,23 +700,95 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     txHash: Fr,
     recipient: AztecAddress,
   ): Promise<void> {
-    const noteDao = await this.produceNoteDao(
+    // We are going to store the new note in the NoteDataProvider, which will let us later return it via `getNotes`.
+    // There's two things we need to check before we do this however:
+    //  - we must make sure the note does actually exist in the note hash tree
+    //  - we need to check if the note has already been nullified
+    //
+    // Failing to do either of the above would result in circuits getting either non-existent notes and failing to
+    // produce inclusion proofs for them, or getting nullified notes and producing duplicate nullifiers, both of which
+    // are catastrophic failure modes.
+    //
+    // Note that adding a note and removing it is *not* equivalent to never adding it in the first place. A nullifier
+    // emitted in a block that comes after note creation might result in the note being de-nullified by a chain reorg,
+    // so we must store both the note hash and nullifier block information.
+
+    // We avoid making node queries at 'latest' since we don't want to process notes or nullifiers that only exist ahead
+    // in time of the locally synced state.
+    // Note that while this technically results in historical queries, we perform it at the latest locally synced block
+    // number which *should* be recent enough to be available, even for non-archive nodes.
+    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+    if (syncedBlockNumber === undefined) {
+      throw new Error(`Attempted to deliver a note with an unsynchronized PXE - this should never happen`);
+    }
+
+    // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
+    // of other contracts, which would constitute a security breach.
+    const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
+
+    // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
+    // note existence in said tree.
+    const [uniqueNoteHashTreeIndex] = await this.aztecNode.findLeavesIndexes(
+      syncedBlockNumber,
+      MerkleTreeId.NOTE_HASH_TREE,
+      [uniqueNoteHash],
+    );
+    if (uniqueNoteHashTreeIndex === undefined) {
+      throw new Error(
+        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
+      );
+    }
+
+    // TODO (#12550): findLeavesIndexes should probably return an InBlock, same as findNullifiersIndexesWithBlock. This
+    // would save us from having to then query the tx receipt in order to get the block hash and number. Note regardless
+    // that we're not validating that the note was indeed created in this tx (which would require inspecting the tx
+    // effects), so maybe what we really want is an InTx.
+    const txReceipt = await this.aztecNode.getTxReceipt(new TxHash(txHash));
+    if (txReceipt === undefined) {
+      throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
+    }
+
+    // TODO(#12549): does it make sense to store the recipient's address point instead of just its address?
+    const recipientAddressPoint = await recipient.toAddressPoint();
+    const noteDao = new NoteDao(
+      new Note(content),
       contractAddress,
       storageSlot,
       nonce,
-      content,
       noteHash,
-      nullifier,
-      txHash,
-      recipient,
+      siloedNullifier,
+      new TxHash(txHash),
+      txReceipt.blockNumber!,
+      txReceipt.blockHash!.toString(),
+      uniqueNoteHashTreeIndex,
+      recipientAddressPoint,
+      NoteSelector.empty(), // TODO(#12013): remove
     );
 
     await this.noteDataProvider.addNotes([noteDao], recipient);
     this.log.verbose('Added note', {
       contract: noteDao.contractAddress,
       slot: noteDao.storageSlot,
-      nullifier: noteDao.siloedNullifier.toString,
+      noteHash: noteDao.noteHash,
+      nullifier: noteDao.siloedNullifier.toString(),
     });
+
+    const [nullifierIndex] = await this.aztecNode.findNullifiersIndexesWithBlock(syncedBlockNumber, [siloedNullifier]);
+    if (nullifierIndex !== undefined) {
+      const { data: _, ...blockHashAndNum } = nullifierIndex;
+      await this.noteDataProvider.removeNullifiedNotes(
+        [{ data: siloedNullifier, ...blockHashAndNum }],
+        recipientAddressPoint,
+      );
+
+      this.log.verbose(`Removed just-added note`, {
+        contract: contractAddress,
+        slot: storageSlot,
+        noteHash: noteHash,
+        nullifier: siloedNullifier.toString(),
+      });
+    }
   }
 
   public async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
