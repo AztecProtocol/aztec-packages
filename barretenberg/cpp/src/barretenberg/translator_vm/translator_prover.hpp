@@ -33,6 +33,7 @@ class TranslatorProver {
     BB_PROFILE void execute_grand_product_computation_round();
     BB_PROFILE void execute_relation_check_rounds();
     BB_PROFILE void execute_pcs_rounds();
+    void commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label);
     HonkProof export_proof();
     HonkProof construct_proof();
 

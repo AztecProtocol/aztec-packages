@@ -8,8 +8,10 @@
 #include <sys/types.h>
 #include <vector>
 
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/full_row.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -17,12 +19,12 @@
 namespace bb::avm2::tracegen {
 namespace {
 
-using testing::Field;
+using ::testing::Field;
 
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(BytecodeTraceGenTest, basicShortLength)
+TEST(BytecodeTraceGenTest, BasicShortLength)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -100,7 +102,7 @@ TEST(BytecodeTraceGenTest, basicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 1)));
 }
 
-TEST(BytecodeTraceGenTest, basicLongerThanWindowSize)
+TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -181,7 +183,7 @@ TEST(BytecodeTraceGenTest, basicLongerThanWindowSize)
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 1)));
 }
 
-TEST(BytecodeTraceGenTest, multipleEvents)
+TEST(BytecodeTraceGenTest, MultipleEvents)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -247,7 +249,7 @@ TEST(BytecodeTraceGenTest, multipleEvents)
     }
 }
 
-TEST(BytecodeTraceGenTest, basicHashing)
+TEST(BytecodeTraceGenTest, BasicHashing)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
@@ -281,6 +283,104 @@ TEST(BytecodeTraceGenTest, basicHashing)
                       ROW_FIELD_EQ(R, bc_hashing_bytecode_id, 0),
                       ROW_FIELD_EQ(R, bc_hashing_pc_index, 31),
                       ROW_FIELD_EQ(R, bc_hashing_packed_field, 20)));
+}
+
+// We build a random InstructionFetchingEvent for each wire opcode.
+// We then verify that the bytes (bd0, bd1, ...) correspond to the serialized instruction.
+TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
+{
+    using simulation::Instruction;
+    using simulation::InstructionFetchingEvent;
+    using C = Column;
+
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    constexpr std::array<C, 37> bd_columns = {
+        C::instr_fetching_bd0,  C::instr_fetching_bd1,  C::instr_fetching_bd2,  C::instr_fetching_bd3,
+        C::instr_fetching_bd4,  C::instr_fetching_bd5,  C::instr_fetching_bd6,  C::instr_fetching_bd7,
+        C::instr_fetching_bd8,  C::instr_fetching_bd9,  C::instr_fetching_bd10, C::instr_fetching_bd11,
+        C::instr_fetching_bd12, C::instr_fetching_bd13, C::instr_fetching_bd14, C::instr_fetching_bd15,
+        C::instr_fetching_bd16, C::instr_fetching_bd17, C::instr_fetching_bd18, C::instr_fetching_bd19,
+        C::instr_fetching_bd20, C::instr_fetching_bd21, C::instr_fetching_bd22, C::instr_fetching_bd23,
+        C::instr_fetching_bd24, C::instr_fetching_bd25, C::instr_fetching_bd26, C::instr_fetching_bd27,
+        C::instr_fetching_bd28, C::instr_fetching_bd29, C::instr_fetching_bd30, C::instr_fetching_bd31,
+        C::instr_fetching_bd32, C::instr_fetching_bd33, C::instr_fetching_bd34, C::instr_fetching_bd35,
+        C::instr_fetching_bd36,
+    };
+
+    constexpr std::array<C, 7> operand_columns = {
+        C::instr_fetching_op1, C::instr_fetching_op2, C::instr_fetching_op3, C::instr_fetching_op4,
+        C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
+    };
+
+    constexpr auto num_opcodes = static_cast<size_t>(WireOpCode::LAST_OPCODE_SENTINEL);
+
+    std::vector<InstructionFetchingEvent> events;
+    events.reserve(num_opcodes);
+    std::vector<Instruction> instructions;
+    instructions.reserve(num_opcodes);
+    std::vector<uint32_t> pcs;
+    pcs.reserve(num_opcodes);
+    std::vector<uint8_t> bytecode;
+    bytecode.reserve(1024); // Rough estimate
+
+    uint32_t pc = 0;
+    for (size_t i = 0; i < num_opcodes; i++) {
+        const auto w_opcode = static_cast<WireOpCode>(i);
+        const auto instr = testing::random_instruction(w_opcode);
+        const auto instr_encoded = instr.serialize();
+        instructions.emplace_back(instr);
+        pcs.emplace_back(pc);
+        pc += instr_encoded.size();
+        bytecode.insert(bytecode.end(),
+                        std::make_move_iterator(instr_encoded.begin()),
+                        std::make_move_iterator(instr_encoded.end()));
+    }
+
+    auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
+    for (size_t i = 0; i < num_opcodes; i++) {
+        events.emplace_back(InstructionFetchingEvent{
+            .bytecode_id = 1,
+            .pc = pcs.at(i),
+            .instruction = instructions.at(i),
+            .bytecode = bytecode_ptr,
+        });
+    }
+
+    builder.process_instruction_fetching(events, trace);
+
+    for (uint32_t i = 0; i < num_opcodes; i++) {
+        const auto instr = instructions.at(i);
+        const auto instr_encoded = instr.serialize();
+        const auto w_opcode = static_cast<WireOpCode>(i);
+
+        // Check size_in_bytes column
+        const auto expected_size_in_bytes = WIRE_INSTRUCTION_SPEC.at(w_opcode).size_in_bytes;
+        ASSERT_EQ(instr_encoded.size(), expected_size_in_bytes);
+        EXPECT_EQ(FF(expected_size_in_bytes), trace.get(C::instr_fetching_instr_size_in_bytes, i));
+
+        // Inspect each byte
+        for (size_t j = 0; j < static_cast<size_t>(expected_size_in_bytes); j++) {
+            EXPECT_EQ(FF(instr_encoded.at(j)), trace.get(bd_columns.at(j), i));
+        }
+
+        // Check exection opcode
+        EXPECT_EQ(FF(static_cast<uint8_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode)),
+                  trace.get(C::instr_fetching_exec_opcode, i));
+
+        // Check indirect
+        EXPECT_EQ(FF(instr.indirect), trace.get(C::instr_fetching_indirect, i));
+
+        // Check PCs
+        EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i));
+
+        // Check operands
+        size_t operand_idx = 0;
+        for (const auto& operand : instr.operands) {
+            EXPECT_EQ(FF(operand), trace.get(operand_columns.at(operand_idx++), i));
+        }
+    }
 }
 
 } // namespace
