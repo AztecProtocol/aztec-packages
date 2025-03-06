@@ -105,7 +105,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Build
 {
     field_t x(_context, Group::one.x);
     field_t y(_context, Group::one.y);
-    return cycle_group<Builder>(x, y, false);
+    return cycle_group<Builder>(x, y, /*is_infinity=*/false, /*is_standard=*/true);
 }
 
 /**
@@ -257,12 +257,14 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
+    // TODO(alex): possible optimization: set the point at infinity coordinates to (0: 1) 
+    // and check whether it's in it's standard form here
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
 
     // This case breaks the following `create_ecc_dbl_gate`
     // Since we allow witness coordinates and constant `is_infinity`
     if (this->is_point_at_infinity().is_constant() && this->is_point_at_infinity().get_value()) {
-        modified_y = field_t::from_witness_index(context, context->put_constant_variable(1));
+        return *this;
     }
 
     cycle_group result;
@@ -345,6 +347,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(
  * @brief Will evaluate ECC point addition over `*this` and `other`.
  *        Incomplete addition formula edge cases are *NOT* checked!
  *        Only use this method if you know the x-coordinates of the operands cannot collide
+ *        and none of the operands is a point at infinity
  *        Ultra version that uses ecc group gate
  *
  * @tparam Builder
@@ -415,6 +418,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
  * @brief will evaluate ECC point subtraction over `*this` and `other`.
  *        Incomplete addition formula edge cases are *NOT* checked!
  *        Only use this method if you know the x-coordinates of the operands cannot collide
+ *        and none of the operands is a point at infinity
  *
  * @tparam Builder
  * @param other

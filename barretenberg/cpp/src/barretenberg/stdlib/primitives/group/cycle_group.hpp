@@ -209,8 +209,6 @@ template <typename Builder> class cycle_group {
     bool_t is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_t& is_infinity)
     {
-        // I am not sure that it handles all the cases
-        // when we can bump into non standard case
         if (is_infinity.is_constant() && is_infinity.get_value()) {
             this->x = 0;
             this->y = 0;
@@ -317,6 +315,6 @@ template <typename Builder> class cycle_group {
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
 {
-    return os << v.get_value();
+    return os << "{ " << v.x << ", " << v.y << " }";
 }
 } // namespace bb::stdlib
