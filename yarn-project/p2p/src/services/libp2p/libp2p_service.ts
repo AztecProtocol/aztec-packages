@@ -137,7 +137,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
-      this.logger.warn(
+      this.logger.debug(
         `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber.toNumber()} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageIdentifier() },
       );
