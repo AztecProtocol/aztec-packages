@@ -25,7 +25,7 @@ function build {
     denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
-    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
+    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
     # TODO: Check if resolved. Move to .test_skip_patterns if not.
     rm -rf acir_tests/regression_5045
