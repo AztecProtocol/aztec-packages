@@ -80,7 +80,7 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { type AztecNodeConfig, getPackageInfo } from './config.js';
+import { type AztecNodeConfig, getPackageVersion } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 
 /**
@@ -109,10 +109,11 @@ export class AztecNodeService implements AztecNode, Traceable {
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
   ) {
-    this.packageVersion = getPackageInfo().version;
+    this.packageVersion = getPackageVersion();
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
 
+    this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
   }
 
