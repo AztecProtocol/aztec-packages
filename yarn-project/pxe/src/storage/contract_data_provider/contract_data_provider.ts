@@ -20,6 +20,7 @@ import {
   SerializableContractInstance,
 } from '@aztec/stdlib/contract';
 
+import type { DataProvider } from '../data_provider.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**
@@ -29,7 +30,7 @@ import { PrivateFunctionsTree } from './private_functions_tree.js';
  * to efficiently serve the requested data. It interacts with the ContractDatabase and AztecNode to fetch
  * the required information and facilitate cryptographic proof generation.
  */
-export class ContractDataProvider {
+export class ContractDataProvider implements DataProvider {
   /** Map from contract class id to private function tree. */
   private contractClassesCache: Map<string, PrivateFunctionsTree> = new Map();
 
@@ -250,5 +251,11 @@ export class ContractDataProvider {
     const { name: contractName } = tree.getArtifact();
     const { name: functionName } = await tree.getFunctionArtifact(selector);
     return `${contractName}:${functionName}`;
+  }
+
+  public async getSize() {
+    return (await toArray(this.#contractInstances.valuesAsync()))
+      .concat(await toArray(this.#contractArtifacts.valuesAsync()))
+      .reduce((sum, value) => sum + value.length, 0);
   }
 }

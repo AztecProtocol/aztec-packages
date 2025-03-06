@@ -4,7 +4,6 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2TipsStore } from '@aztec/kv-store/stores';
 import type { ProtocolContractsProvider } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';

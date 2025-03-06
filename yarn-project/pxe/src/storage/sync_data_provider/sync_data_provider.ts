@@ -1,7 +1,9 @@
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-export class SyncDataProvider {
+import type { DataProvider } from '../data_provider.js';
+
+export class SyncDataProvider implements DataProvider {
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
 
@@ -30,5 +32,9 @@ export class SyncDataProvider {
     }
 
     return BlockHeader.fromBuffer(headerBuffer);
+  }
+
+  async getSize(): Promise<number> {
+    return (await this.#synchronizedHeader.getAsync())?.length ?? 0;
   }
 }

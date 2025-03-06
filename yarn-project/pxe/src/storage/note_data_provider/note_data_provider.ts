@@ -7,9 +7,10 @@ import type { InBlock } from '@aztec/stdlib/block';
 import type { PublicKey } from '@aztec/stdlib/keys';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 
+import type { DataProvider } from '../data_provider.js';
 import { NoteDao } from './note_dao.js';
 
-export class NoteDataProvider {
+export class NoteDataProvider implements DataProvider {
   #store: AztecAsyncKVStore;
 
   #notes: AztecAsyncMap<string, Buffer>;
@@ -350,5 +351,9 @@ export class NoteDataProvider {
     await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
     await this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
     await this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
+  }
+
+  async getSize() {
+    return (await this.getNotes({})).reduce((sum, note) => sum + note.getSize(), 0);
   }
 }

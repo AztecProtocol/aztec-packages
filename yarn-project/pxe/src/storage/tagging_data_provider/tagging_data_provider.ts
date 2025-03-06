@@ -83,4 +83,10 @@ export class TaggingDataProvider {
 
     return true;
   }
+
+  async getSize() {
+    const addressesCount = (await toArray(this.#addressBook.keysAsync())).length;
+    // All keys are addresses
+    return 3 * addressesCount * AztecAddress.SIZE_IN_BYTES;
+  }
 }

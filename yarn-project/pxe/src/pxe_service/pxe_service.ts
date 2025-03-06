@@ -1,5 +1,6 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, type Point } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { SiblingPath } from '@aztec/foundation/trees';
@@ -25,12 +26,12 @@ import {
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block } from '@aztec/stdlib/block';
-import type {
+import {
   CompleteAddress,
-  ContractClassWithId,
-  ContractInstanceWithAddress,
-  NodeInfo,
-  PartialAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  type PartialAddress,
 } from '@aztec/stdlib/contract';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -51,6 +52,7 @@ import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   PrivateExecutionResult,
   PrivateSimulationResult,
@@ -186,8 +188,18 @@ export class PXEService implements PXE {
   }
 
   /** Returns an estimate of the db size in bytes. */
-  public estimateDbSize() {
-    return 0;
+  public async estimateDbSize() {
+    const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
+    const dbSizes = await Promise.all([
+      this.addressDataProvider.getSize(),
+      this.authWitnessDataProvider.getSize(),
+      this.capsuleDataProvider.getSize(),
+      this.contractDataProvider.getSize(),
+      this.noteDataProvider.getSize(),
+      this.syncDataProvider.getSize(),
+      this.taggingDataProvider.getSize(),
+    ]);
+    return [...dbSizes, treeRootsSize].reduce((sum, size) => sum + size, 0);
   }
 
   public addAuthWitness(witness: AuthWitness) {

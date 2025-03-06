@@ -1,7 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 
-export class AuthWitnessDataProvider {
+import type { DataProvider } from '../data_provider.js';
+
+export class AuthWitnessDataProvider implements DataProvider {
   #store: AztecAsyncKVStore;
   #authWitnesses: AztecAsyncMap<string, Buffer[]>;
 
@@ -20,5 +23,12 @@ export class AuthWitnessDataProvider {
   async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     const witness = await this.#authWitnesses.getAsync(messageHash.toString());
     return witness?.map(w => Fr.fromBuffer(w));
+  }
+
+  async getSize(): Promise<number> {
+    return (await toArray(this.#authWitnesses.valuesAsync())).reduce(
+      (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
+      0,
+    );
   }
 }
