@@ -73,16 +73,11 @@ template <class Builder> class DataBusDepot {
     using FrNative = typename Curve::ScalarFieldNative;
     using PublicPoint = stdlib::PublicInputComponent<Commitment>;
 
-    using RecursiveFlavor = MegaRecursiveFlavor_<Builder>;
-    using RecursiveDeciderVerificationKeys =
-        bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
-    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
-
-    static constexpr size_t NUM_FR_LIMBS_PER_FQ = Fq::NUM_LIMBS;
-    static constexpr size_t NUM_FR_LIMBS_PER_COMMITMENT = NUM_FR_LIMBS_PER_FQ * 2;
-
+    // Storage for the return data commitments to be propagated via the public inputs
     Commitment app_return_data_commitment;
     Commitment kernel_return_data_commitment;
+
+    // Existence flags indicating whether each return data commitment has been set to be propagated
     bool app_return_data_commitment_exists = false;
     bool kernel_return_data_commitment_exists = false;
 
