@@ -5,7 +5,7 @@
 
 namespace bb::avm2 {
 namespace {
-using simulation::decode_instruction;
+using simulation::deserialize_instruction;
 using simulation::Instruction;
 using simulation::Operand;
 
@@ -15,7 +15,7 @@ TEST(SerializationTest, Not8RoundTrip)
     const Instruction instr = { .opcode = WireOpCode::NOT_8,
                                 .indirect = 5,
                                 .operands = { Operand::u8(123), Operand::u8(45) } };
-    const auto decoded = decode_instruction(instr.encode(), 0);
+    const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -25,7 +25,7 @@ TEST(SerializationTest, Add16RoundTrip)
     const Instruction instr = { .opcode = WireOpCode::ADD_16,
                                 .indirect = 3,
                                 .operands = { Operand::u16(1000), Operand::u16(1001), Operand::u16(1002) } };
-    const auto decoded = decode_instruction(instr.encode(), 0);
+    const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -35,7 +35,7 @@ TEST(SerializationTest, Jumpi32RoundTrip)
     const Instruction instr = { .opcode = WireOpCode::JUMPI_32,
                                 .indirect = 7,
                                 .operands = { Operand::u16(12345), Operand::u32(678901234) } };
-    const auto decoded = decode_instruction(instr.encode(), 0);
+    const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -49,7 +49,7 @@ TEST(SerializationTest, Set64RoundTrip)
         .indirect = 2,
         .operands = { Operand::u16(1002), Operand::u8(static_cast<uint8_t>(MemoryTag::U64)), Operand::u64(value_64) }
     };
-    const auto decoded = decode_instruction(instr.encode(), 0);
+    const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -63,7 +63,7 @@ TEST(SerializationTest, Set128RoundTrip)
         .indirect = 2,
         .operands = { Operand::u16(1002), Operand::u8(static_cast<uint8_t>(MemoryTag::U128)), Operand::u128(value_128) }
     };
-    const auto decoded = decode_instruction(instr.encode(), 0);
+    const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 
@@ -77,7 +77,7 @@ TEST(SerializationTest, SetFFRoundTrip)
         .indirect = 2,
         .operands = { Operand::u16(1002), Operand::u8(static_cast<uint8_t>(MemoryTag::FF)), Operand::ff(large_ff) }
     };
-    const auto decoded = decode_instruction(instr.encode(), 0);
+    const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
 }
 

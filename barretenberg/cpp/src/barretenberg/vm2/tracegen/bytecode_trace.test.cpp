@@ -296,7 +296,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
 
-    const std::vector<C> bd_columns = {
+    constexpr std::array<C, 37> bd_columns = {
         C::instr_fetching_bd0,  C::instr_fetching_bd1,  C::instr_fetching_bd2,  C::instr_fetching_bd3,
         C::instr_fetching_bd4,  C::instr_fetching_bd5,  C::instr_fetching_bd6,  C::instr_fetching_bd7,
         C::instr_fetching_bd8,  C::instr_fetching_bd9,  C::instr_fetching_bd10, C::instr_fetching_bd11,
@@ -309,7 +309,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         C::instr_fetching_bd36,
     };
 
-    const std::vector<C> operand_columns = {
+    constexpr std::array<C, 7> operand_columns = {
         C::instr_fetching_op1, C::instr_fetching_op2, C::instr_fetching_op3, C::instr_fetching_op4,
         C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
     };
@@ -329,7 +329,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
     for (size_t i = 0; i < num_opcodes; i++) {
         const auto w_opcode = static_cast<WireOpCode>(i);
         const auto instr = testing::random_instruction(w_opcode);
-        const auto instr_encoded = instr.encode();
+        const auto instr_encoded = instr.serialize();
         instructions.emplace_back(instr);
         pcs.emplace_back(pc);
         pc += instr_encoded.size();
@@ -352,7 +352,7 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
 
     for (uint32_t i = 0; i < num_opcodes; i++) {
         const auto instr = instructions.at(i);
-        const auto instr_encoded = instr.encode();
+        const auto instr_encoded = instr.serialize();
         const auto w_opcode = static_cast<WireOpCode>(i);
 
         // Check size_in_bytes column

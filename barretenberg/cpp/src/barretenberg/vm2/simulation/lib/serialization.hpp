@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -72,7 +71,8 @@ struct Instruction {
     std::vector<Operand> operands;
 
     std::string to_string() const;
-    std::vector<uint8_t> encode() const;
+    // Serialize the instruction according to the specification from OPCODE_WIRE_FORMAT.
+    std::vector<uint8_t> serialize() const;
 
     bool operator==(const Instruction& other) const = default;
 };
@@ -87,6 +87,6 @@ struct Instruction {
  * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
  * @return The instruction
  */
-Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos);
+Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
 
 } // namespace bb::avm2::simulation

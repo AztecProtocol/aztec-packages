@@ -31,7 +31,7 @@ TEST(InstructionSpecTest, CheckAllInstructionSizes)
         const auto wire_opcode = static_cast<WireOpCode>(i);
         const auto computed_size = compute_instruction_size(wire_opcode, wire_format, operand_type_sizes);
         EXPECT_EQ(WIRE_INSTRUCTION_SPEC.at(wire_opcode).size_in_bytes, computed_size)
-            << format("Incorrect size_in_bytes field for ", wire_opcode, " in WIRE_INSTRUCTION_SPEC.");
+            << "Incorrect size_in_bytes field for " << wire_opcode << " in WIRE_INSTRUCTION_SPEC.";
     }
 }
 

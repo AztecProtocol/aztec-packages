@@ -28,6 +28,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using instr_fetching = bb::avm2::instr_fetching<FF>;
 using simulation::Instruction;
+using simulation::InstructionFetchingEvent;
 using simulation::Operand;
 using testing::random_bytes;
 
@@ -47,7 +48,7 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
         .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
     };
 
-    std::vector<uint8_t> bytecode = add_8_instruction.encode();
+    std::vector<uint8_t> bytecode = add_8_instruction.serialize();
 
     builder.process_instruction_fetching({ { .bytecode_id = 1,
                                              .pc = 0,
@@ -77,7 +78,7 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
                       Operand::u16(0x127f) },
     };
 
-    std::vector<uint8_t> bytecode = ecadd_instruction.encode();
+    std::vector<uint8_t> bytecode = ecadd_instruction.serialize();
     builder.process_instruction_fetching({ { .bytecode_id = 1,
                                              .pc = 0,
                                              .instruction = ecadd_instruction,
@@ -89,33 +90,33 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
 }
 
 // Helper routine generating a vector of instruction fetching events for each
-// opcode. Note that operands of type TAG might fall outside of their valid range.
-std::vector<simulation::InstructionFetchingEvent> gen_instr_events_each_opcode()
+// opcode.
+std::vector<InstructionFetchingEvent> gen_instr_events_each_opcode()
 {
     std::vector<uint8_t> bytecode;
-    std::vector<uint32_t> pc_positions;
+    std::vector<Instruction> instructions;
     constexpr auto num_opcodes = static_cast<size_t>(WireOpCode::LAST_OPCODE_SENTINEL);
-    pc_positions.reserve(num_opcodes);
+    instructions.reserve(num_opcodes);
+    std::array<uint32_t, num_opcodes> pc_positions;
 
     for (size_t i = 0; i < num_opcodes; i++) {
-        pc_positions.emplace_back(static_cast<uint32_t>(bytecode.size()));
-        bytecode.emplace_back(i);
-        const auto instruction_bytes =
-            random_bytes(WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(i)).size_in_bytes - 1);
+        pc_positions.at(i) = static_cast<uint32_t>(bytecode.size());
+        const auto instr = testing::random_instruction(static_cast<WireOpCode>(i));
+        instructions.emplace_back(instr);
+        const auto instruction_bytes = instr.serialize();
         bytecode.insert(bytecode.end(),
                         std::make_move_iterator(instruction_bytes.begin()),
                         std::make_move_iterator(instruction_bytes.end()));
     }
 
-    const auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
+    const auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(std::move(bytecode));
+    // Always use *bytecode_ptr from now on instead of bytecode as this one was moved.
 
-    std::vector<simulation::InstructionFetchingEvent> instr_events;
+    std::vector<InstructionFetchingEvent> instr_events;
     instr_events.reserve(num_opcodes);
-
     for (size_t i = 0; i < num_opcodes; i++) {
-        const auto instr = simulation::decode_instruction(bytecode, pc_positions.at(i));
-        instr_events.emplace_back(simulation::InstructionFetchingEvent{
-            .bytecode_id = 1, .pc = pc_positions.at(i), .instruction = instr, .bytecode = bytecode_ptr });
+        instr_events.emplace_back(InstructionFetchingEvent{
+            .bytecode_id = 1, .pc = pc_positions.at(i), .instruction = instructions.at(i), .bytecode = bytecode_ptr });
     }
     return instr_events;
 }
@@ -149,7 +150,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
         instr_fetching::SR_OP6_BYTES_DECOMPOSITION,      instr_fetching::SR_OP7_BYTES_DECOMPOSITION,
     };
 
-    const std::vector<C> operand_cols = {
+    constexpr std::array<C, 8> operand_cols = {
         C::instr_fetching_indirect, C::instr_fetching_op1, C::instr_fetching_op2, C::instr_fetching_op3,
         C::instr_fetching_op4,      C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
     };
@@ -157,12 +158,12 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
     for (const auto& opcode : opcodes) {
         TestTraceContainer trace;
         const auto instr = testing::random_instruction(opcode);
-        builder.process_instruction_fetching({ simulation::InstructionFetchingEvent{
-                                                 .bytecode_id = 1,
-                                                 .pc = 0,
-                                                 .instruction = instr,
-                                                 .bytecode = std::make_shared<std::vector<uint8_t>>(instr.encode()) } },
-                                             trace);
+        builder.process_instruction_fetching(
+            { { .bytecode_id = 1,
+                .pc = 0,
+                .instruction = instr,
+                .bytecode = std::make_shared<std::vector<uint8_t>>(instr.serialize()) } },
+            trace);
         check_relation<instr_fetching>(trace);
 
         EXPECT_EQ(trace.get_num_rows(), 1);
@@ -210,7 +211,7 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
 
     const auto instr_fetch_events = gen_instr_events_each_opcode();
     bytecode_builder.process_instruction_fetching(instr_fetch_events, trace);
-    bytecode_builder.process_decomposition({ simulation::BytecodeDecompositionEvent{
+    bytecode_builder.process_decomposition({ {
                                                .bytecode_id = instr_fetch_events.at(0).bytecode_id,
                                                .bytecode = instr_fetch_events.at(0).bytecode,
                                            } },
@@ -226,6 +227,7 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
 TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions)
 {
     using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
+    using tracegen::LookupIntoIndexedByClk;
 
     BytecodeTraceBuilder bytecode_builder;
     PrecomputedTraceBuilder precomputed_builder;
@@ -238,19 +240,20 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
         TestTraceContainer trace;
         const auto instr = testing::random_instruction(opcode);
         bytecode_builder.process_instruction_fetching(
-            { simulation::InstructionFetchingEvent{ .bytecode_id = 1,
-                                                    .pc = 0,
-                                                    .instruction = instr,
-                                                    .bytecode =
-                                                        std::make_shared<std::vector<uint8_t>>(instr.encode()) } },
+            { { .bytecode_id = 1,
+                .pc = 0,
+                .instruction = instr,
+                .bytecode = std::make_shared<std::vector<uint8_t>>(instr.serialize()) } },
             trace);
         precomputed_builder.process_wire_instruction_spec(trace);
         precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-        tracegen::LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+        LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+
+        ASSERT_EQ(trace.get(C::lookup_instr_fetching_wire_instruction_info_counts, static_cast<uint32_t>(opcode)), 1);
         check_interaction<wire_instr_spec_lookup>(trace);
 
-        const std::vector<C> mutated_cols = {
+        constexpr std::array<C, 20> mutated_cols = {
             C::instr_fetching_exec_opcode,  C::instr_fetching_instr_size_in_bytes, C::instr_fetching_sel_op_dc_0,
             C::instr_fetching_sel_op_dc_1,  C::instr_fetching_sel_op_dc_2,         C::instr_fetching_sel_op_dc_3,
             C::instr_fetching_sel_op_dc_4,  C::instr_fetching_sel_op_dc_5,         C::instr_fetching_sel_op_dc_6,
@@ -265,6 +268,11 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
             auto mutated_trace = trace;
             const FF mutated_value = trace.get(col, 0) + 1; // Mutate to value + 1
             mutated_trace.set(col, 0, mutated_value);
+
+            // We do not need to re-run LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+            // because we never mutate the indexing column for this lookup (clk) and for this lookup
+            // find_in_dst only uses column C::instr_fetching_bd0 mapped to (clk). So, the counts are still valid.
+
             EXPECT_THROW_WITH_MESSAGE(check_interaction<wire_instr_spec_lookup>(mutated_trace),
                                       "Relation.*WIRE_INSTRUCTION_INFO.* ACCUMULATION.* is non-zero");
         }
@@ -275,6 +283,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
 TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
 {
     using bc_decomposition_lookup = lookup_instr_fetching_bytes_from_bc_dec_relation<FF>;
+    using tracegen::LookupIntoDynamicTableSequential;
 
     TestTraceContainer trace;
     BytecodeTraceBuilder bytecode_builder;
@@ -286,24 +295,25 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
     for (const auto& opcode : opcodes) {
         TestTraceContainer trace;
         const auto instr = testing::random_instruction(opcode);
-        auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(instr.encode());
-        bytecode_builder.process_instruction_fetching({ simulation::InstructionFetchingEvent{
+        auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(instr.serialize());
+        bytecode_builder.process_instruction_fetching({ {
                                                           .bytecode_id = 1,
                                                           .pc = 0,
                                                           .instruction = instr,
                                                           .bytecode = bytecode_ptr,
                                                       } },
                                                       trace);
-        bytecode_builder.process_decomposition({ simulation::BytecodeDecompositionEvent{
+        bytecode_builder.process_decomposition({ {
                                                    .bytecode_id = 1,
                                                    .bytecode = bytecode_ptr,
                                                } },
                                                trace);
 
-        tracegen::LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(trace);
-        check_interaction<bc_decomposition_lookup>(trace);
+        auto valid_trace = trace; // Keep original trace before lookup processing
+        LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(valid_trace);
+        check_interaction<bc_decomposition_lookup>(valid_trace);
 
-        const std::vector<C> mutated_cols = {
+        constexpr std::array<C, 39> mutated_cols = {
             C::instr_fetching_pc,   C::instr_fetching_bytecode_id, C::instr_fetching_bd0,  C::instr_fetching_bd1,
             C::instr_fetching_bd2,  C::instr_fetching_bd3,         C::instr_fetching_bd4,  C::instr_fetching_bd5,
             C::instr_fetching_bd6,  C::instr_fetching_bd7,         C::instr_fetching_bd8,  C::instr_fetching_bd9,
@@ -321,6 +331,13 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
             auto mutated_trace = trace;
             const FF mutated_value = trace.get(col, 0) + 1; // Mutate to value + 1
             mutated_trace.set(col, 0, mutated_value);
+
+            // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this even
+            // though we know it will fail.
+            EXPECT_THROW_WITH_MESSAGE(
+                LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(mutated_trace),
+                "Failed.*BYTES_FROM_BC_DEC. Could not find tuple in destination.");
+
             EXPECT_THROW_WITH_MESSAGE(check_interaction<bc_decomposition_lookup>(mutated_trace),
                                       "Relation.*BYTES_FROM_BC_DEC.* ACCUMULATION.* is non-zero");
         }

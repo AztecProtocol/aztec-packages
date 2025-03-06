@@ -8,6 +8,13 @@ using bb::avm2::tracegen::TestTraceContainer;
 
 namespace bb::avm2::testing {
 
+using simulation::Instruction;
+using simulation::Operand;
+using simulation::OperandType;
+
+// If MemoryTag enum changes, this value might need to be adjusted.
+constexpr uint8_t NUM_MEMORY_TAGS = static_cast<int>(MemoryTag::U128) + 1;
+
 std::vector<FF> random_fields(size_t n)
 {
     std::vector<FF> fields;
@@ -67,8 +74,12 @@ Operand random_operand(OperandType operand_type)
         return Operand::u128(operand_u128);
     }
     case OperandType::FF:
-        return Operand::ff(random_fields(1).at(0));
+        return Operand::ff(FF::random_element());
     }
+
+    // Need this for gcc compilation even though we fully handle the switch cases.
+    // We never reach this point.
+    __builtin_unreachable();
 }
 
 Instruction random_instruction(WireOpCode w_opcode)
@@ -93,7 +104,7 @@ Instruction random_instruction(WireOpCode w_opcode)
     return Instruction{
         .opcode = w_opcode,
         .indirect = indirect,
-        .operands = operands,
+        .operands = std::move(operands),
     };
 }
 

@@ -227,6 +227,10 @@ Operand& Operand::operator=(const Operand& other)
 
 bool Operand::operator==(const Operand& other) const
 {
+    if (this == &other) {
+        return true;
+    }
+
     if (value.index() != other.value.index()) {
         return false;
     }
@@ -348,7 +352,7 @@ std::string Operand::to_string() const
     __builtin_unreachable();
 }
 
-Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos)
+Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
 {
     const auto bytecode_length = bytecode.size();
 
@@ -486,7 +490,7 @@ std::string Instruction::to_string() const
     return oss.str();
 }
 
-std::vector<uint8_t> Instruction::encode() const
+std::vector<uint8_t> Instruction::serialize() const
 {
     std::vector<uint8_t> output;
     output.reserve(WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes);
