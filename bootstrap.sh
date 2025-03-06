@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Usage: ./bootstrap.sh <full|fast|check|clean>"
+# Usage: ./bootstrap.sh <full|fast|check|clean|clean-hooks>"
 #   full: Bootstrap the repo from scratch.
 #   fast: Bootstrap the repo using CI cache where possible to save time building.
 #   check: Check required toolchains and versions are installed.
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
+#   clean-hooks: Clean the repo but preserve git hooks.
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
@@ -299,25 +300,67 @@ function release_commit {
   done
 }
 
+function clean_repo {
+  local preserve_hooks=$1
+
+  echo "WARNING: This will erase *all* untracked files, including submodules."
+  if [ "$preserve_hooks" != "true" ]; then
+    echo "This will also erase git hooks."
+  fi
+  echo -n "Continue? [y/n] "
+  read user_input
+  if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
+    echo "Exiting without cleaning"
+    exit 1
+  fi
+
+  # Backup hooks if needed
+  if [ "$preserve_hooks" == "true" ]; then
+    echo "Backing up git hooks..."
+    mkdir -p /tmp/aztec-hooks-backup
+    cp -r .git/hooks/* /tmp/aztec-hooks-backup/ 2>/dev/null || true
+  fi
+
+  # Remove submodules.
+  rm -rf .git/modules/*
+  for submodule in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
+    rm -rf $submodule
+  done
+
+  # Remove hooks if not preserving them
+  if [ "$preserve_hooks" != "true" ]; then
+    rm -rf .git/hooks/*
+  fi
+
+  # Remove all untracked files, directories, nested repos, and .gitignore files.
+  git clean -ffdx
+
+  # Restore hooks if needed
+  if [ "$preserve_hooks" == "true" ]; then
+    echo "Restoring git hooks..."
+    mkdir -p .git/hooks
+    cp -r /tmp/aztec-hooks-backup/* .git/hooks/ 2>/dev/null || true
+    rm -rf /tmp/aztec-hooks-backup
+  fi
+
+  # Reinitialize submodules to ensure proper setup for next bootstrap
+  echo "Reinitializing submodules..."
+  git submodule update --init --recursive
+
+  # Ensure corepack is enabled for yarn
+  echo "Ensuring corepack is enabled..."
+  corepack enable
+
+  echo -e "${green}Repository cleaned successfully.${reset}"
+  echo -e "${yellow}Note: You may need to run bootstrap.sh twice after cleaning to complete the setup.${reset}"
+}
+
 case "$cmd" in
   "clean")
-    echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
-    echo -n "Continue? [y/n] "
-    read user_input
-    if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
-      echo "Exiting without cleaning"
-      exit 1
-    fi
-
-    # Remove hooks and submodules.
-    rm -rf .git/hooks/*
-    rm -rf .git/modules/*
-    for submodule in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
-      rm -rf $submodule
-    done
-
-    # Remove all untracked files, directories, nested repos, and .gitignore files.
-    git clean -ffdx
+    clean_repo "false"
+  ;;
+  "clean-hooks")
+    clean_repo "true"
   ;;
   "check")
     check_toolchains
@@ -343,7 +386,7 @@ case "$cmd" in
     ;;
   *)
     echo "Unknown command: $cmd"
-    echo "usage: $0 <clean|check|fast|full|test_cmds|test|ci|release>"
+    echo "usage: $0 <clean|clean-hooks|check|fast|full|test_cmds|test|ci|release>"
     exit 1
   ;;
 esac
