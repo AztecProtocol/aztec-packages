@@ -26,8 +26,10 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
-    auto sumcheck = Sumcheck(
-        static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): fix log_circuit_size usage in stdlib cases.
+    auto sumcheck = Sumcheck(static_cast<uint32_t>(accumulator->verification_key->log_circuit_size.get_value()),
+                             transcript,
+                             accumulator->target_sum);
 
     SumcheckOutput<Flavor> output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
