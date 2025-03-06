@@ -3,7 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-hash=hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
+hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
 
 function build {
   echo_header "playground build"
