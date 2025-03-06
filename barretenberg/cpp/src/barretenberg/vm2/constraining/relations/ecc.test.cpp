@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
+#include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
@@ -31,6 +32,7 @@ using simulation::ScalarMulEvent;
 using simulation::ToRadixEvent;
 using lookup_scalar_mul_double_relation = bb::avm2::lookup_scalar_mul_double_relation<FF>;
 using lookup_scalar_mul_add_relation = bb::avm2::lookup_scalar_mul_add_relation<FF>;
+using lookup_scalar_mul_to_radix_relation = bb::avm2::lookup_scalar_mul_to_radix_relation<FF>;
 using tracegen::LookupIntoDynamicTableGeneric;
 
 // Known good points for P and Q
@@ -544,7 +546,7 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
     check_relation<scalar_mul>(trace);
 }
 
-TEST(ScalarMulConstrainingTest, MulAddInteractions)
+TEST(ScalarMulConstrainingTest, MulInteractions)
 {
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
@@ -561,16 +563,20 @@ TEST(ScalarMulConstrainingTest, MulAddInteractions)
     });
 
     tracegen::EccTraceBuilder builder;
+    tracegen::ToRadixTraceBuilder to_radix_builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+    to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_relation::Settings>().process(trace);
 
     check_relation<scalar_mul>(trace);
     check_relation<ecc>(trace);
     check_interaction<lookup_scalar_mul_double_relation>(trace);
     check_interaction<lookup_scalar_mul_add_relation>(trace);
+    check_interaction<lookup_scalar_mul_to_radix_relation>(trace);
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
