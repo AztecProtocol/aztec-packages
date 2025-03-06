@@ -12,7 +12,7 @@ namespace bb::stdlib {
  */
 template <typename ComponentType>
 concept IsSerializableToAndFromPublicInputs =
-    requires(ComponentType component, std::vector<stdlib::field_t<MegaCircuitBuilder>> public_inputs) {
+    requires(ComponentType component, std::span<stdlib::field_t<typename ComponentType::Builder>> public_inputs) {
         { // A method to set the limbs of the object to public and return the index of the first limb in public inputs
             component.set_public()
         } -> std::same_as<uint32_t>;
@@ -60,7 +60,7 @@ class PublicInputComponent {
         }
 
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it
-        std::span<const Fr> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
+        std::span<const Fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }
 };

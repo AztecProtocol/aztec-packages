@@ -326,14 +326,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     }
 
     /**
-     * @brief Reconstruct a goblin element from its representation as limbs as stored in the public inputs
+     * @brief Reconstruct a goblin element from its representation as limbs stored in the public inputs
      * @details For consistency with biggroup, a goblin element is represented in the public inputs using eight field
      * elements (even though it could be represented using only four).
      *
      * @param limbs
      * @return goblin_element
      */
-    static goblin_element reconstruct_from_public(const std::span<const Fr>& limbs)
+    static goblin_element reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
         const size_t FRS_PER_FQ = Fq::PUBLIC_INPUTS_SIZE;
         std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
