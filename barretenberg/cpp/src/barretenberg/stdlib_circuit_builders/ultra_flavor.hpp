@@ -4,6 +4,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
+#include "barretenberg/numeric/bitop/division.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -508,7 +509,7 @@ class UltraFlavor {
         {
             PROFILE_THIS_NAME("PartiallyEvaluatedMultivariates constructor");
             for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
-                poly = Polynomial((full_poly.end_index() + 1) / 2, circuit_size / 2);
+                poly = Polynomial(numeric::div_ceil<size_t>(full_poly.end_index(), 2), circuit_size / 2);
             }
         }
     };
