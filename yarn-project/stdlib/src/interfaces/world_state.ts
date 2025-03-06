@@ -76,9 +76,9 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
 }
 
 export const WorldStateSyncStatusSchema = z.object({
-  finalisedBlockNumber: z.number(),
-  latestBlockNumber: z.number(),
+  finalisedBlockNumber: z.number().int().nonnegative(),
+  latestBlockNumber: z.number().int().nonnegative(),
   latestBlockHash: z.string(),
-  oldestHistoricBlockNumber: z.number(),
+  oldestHistoricBlockNumber: z.number().int().nonnegative(),
   treesAreSynched: z.boolean(),
 }) satisfies z.ZodType<WorldStateSyncStatus>;

@@ -102,7 +102,7 @@ const config = {
               fs.readFileSync(aztecVersionPath).toString()
             )["."];
             return {
-              "aztec-packages": `aztec-packages-v${aztecVersion}`,
+              "aztec-packages": `v${aztecVersion}`,
             };
           } catch (err) {
             throw new Error(

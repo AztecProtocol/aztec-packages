@@ -11,6 +11,15 @@ import type { ZodFor } from '../schemas/types.js';
 export function jsonParseWithSchema<T>(json: string, schema: ZodFor<T>): Promise<T> {
   return schema.parseAsync(JSON.parse(json));
 }
+/**
+ * Parses a json string and then feeds it to a zod schema.
+ * @param json - JSON string.
+ * @param schema - Zod schema.
+ * @returns Result of parsing json with schema.
+ */
+export function jsonParseWithSchemaSync<T>(json: string, schema: ZodFor<T>): T {
+  return schema.parse(JSON.parse(json));
+}
 
 /**
  * JSON.stringify helper that stringifies bigints, buffers, maps, and sets.

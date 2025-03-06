@@ -68,7 +68,6 @@ describe('GasUtils', () => {
     gasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
-      minGwei: 1n,
       maxAttempts: 3,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
@@ -196,7 +195,6 @@ describe('GasUtils', () => {
     const baselineGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 0,
       maxGwei: 500n,
-      minGwei: 10n, // Increased minimum gas price
       maxAttempts: 5,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
@@ -216,7 +214,6 @@ describe('GasUtils', () => {
     const bufferedGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
-      minGwei: 1n,
       maxAttempts: 3,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
