@@ -93,7 +93,7 @@ function build {
     # files to yarn immutablePatterns, so if they are also changed, this step will fail.
     denoise "retry yarn install --immutable"
   else
-    denoise "yarn install"
+    denoise "yarn install --no-immutable"
   fi
   denoise "compile_all"
   echo -e "${green}Yarn project successfully built!${reset}"
