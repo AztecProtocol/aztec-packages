@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741279757163,
+  "lastUpdate": 1741281857652,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "edb20f68ec47dfc833403fd3cd36555f3ab1dad1",
-          "message": "chore: calculate available memory for noir-projects/bootstrap.sh memsuspend (#12419)\n\n## Overview\n\nFixes hanging in devboxes\n\n\nsee:\nhttps://github.com/AztecProtocol/aztec-packages/pull/12400#issuecomment-2694816001\n\n---------\n\nCo-authored-by: ludamad <domuradical@gmail.com>\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2025-03-03T12:41:57-05:00",
-          "tree_id": "cd579e8ba464c79d3474025bdb81d2ec072c88f3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/edb20f68ec47dfc833403fd3cd36555f3ab1dad1"
-        },
-        "date": 1741026085460,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18317.22147900018,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16196.263246 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18868.564718000016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16354.910872000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4005.035388000124,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3245.9105769999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56032.981856,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56032982000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9745.669614,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9745672000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1903716093,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1903716093 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 215300597,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 215300597 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 211547031,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 211547031 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2185.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a69f41609f7ff49204807b58d3889ba3968a4ea8",
+          "message": "chore: Cleaner PXE (#12515)\n\n![image](https://github.com/user-attachments/assets/87ca774b-7a4d-466d-9ca2-eea877592b45)",
+          "timestamp": "2025-03-06T16:45:58Z",
+          "tree_id": "f3653434e0b4222f89ac9d9ebf82cca16fa23431",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a69f41609f7ff49204807b58d3889ba3968a4ea8"
+        },
+        "date": 1741281849688,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18440.21738399988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16228.841124000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18771.350307000146,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16225.445934 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3902.9926130001513,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3132.439669 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55651.144147000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55651143000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11528.764418,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11528776000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1909809842,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1909809842 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 231274195,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 231274195 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
