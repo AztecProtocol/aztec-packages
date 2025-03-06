@@ -51,7 +51,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
      * circuits.
      */
     class VerificationKey
-        : public VerificationKey_<UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         bool contains_ipa_claim;                                // needs to be a circuit constant
         IPAClaimPubInputIndices ipa_claim_public_input_indices; // needs to be a circuit constant
@@ -74,10 +74,11 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             , ipa_claim_public_input_indices(native_key->ipa_claim_public_input_indices)
         {
             this->pcs_verification_key = native_key->pcs_verification_key;
-            this->circuit_size = native_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = native_key->num_public_inputs;
-            this->pub_inputs_offset = native_key->pub_inputs_offset;
+            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
+            this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
+            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
             this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
             this->pairing_point_accumulator_public_input_indices =
                 native_key->pairing_point_accumulator_public_input_indices;
@@ -100,9 +101,9 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
 
             size_t num_frs_read = 0;
 
-            this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->contains_pairing_point_accumulator =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {

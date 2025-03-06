@@ -106,7 +106,7 @@ function test_cmds {
       echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     else
       # Testbench runs require more memory and CPU.
-      echo "$hash ISOLATE=1 CPUS=18 MEMORY=12g yarn-project/scripts/run_test.sh $test"
+      echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
     fi
 
   done

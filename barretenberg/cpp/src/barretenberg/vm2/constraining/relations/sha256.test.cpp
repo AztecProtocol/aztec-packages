@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/generated/relations/sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
@@ -44,11 +45,7 @@ using lookup_sha256_round_relation = bb::avm2::lookup_sha256_round_constant_rela
 
 TEST(Sha256ConstrainingTest, EmptyRow)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_clk, 1 } },
-    });
-
-    check_relation<sha256>(trace);
+    check_relation<sha256>(testing::empty_trace());
 }
 
 // This test imports a bunch of external code since hand-generating the sha256 trace is a bit laborious atm.

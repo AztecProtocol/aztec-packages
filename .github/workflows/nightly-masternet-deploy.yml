@@ -1,3 +1,4 @@
+# TOOD(#10775): see 'releases'. We want to move away from this and use a bootstrap-oriented flow with our nightly releases.
 name: Nightly masternet deploy
 on:
   schedule:

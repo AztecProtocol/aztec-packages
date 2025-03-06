@@ -29,7 +29,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerBatchSize: 1,
       proverBrokerBatchIntervalMs: 10,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
-      rollupAddress: EthAddress.random(),
+      l1Contracts: {
+        rollupAddress: EthAddress.random(),
+      } as any,
+      l1RpcUrls: [],
+      l1ChainId: 42,
+      viemPollingIntervalMS: 100,
     };
     db = await KVBrokerDatabase.new(config);
   });
@@ -304,7 +309,10 @@ describe('ProvingBrokerPersistedDatabase', () => {
     // Now create another instance
     const secondDb = await KVBrokerDatabase.new({
       ...config,
-      rollupAddress: EthAddress.random(),
+      l1Contracts: {
+        ...config.l1Contracts,
+        rollupAddress: EthAddress.random(),
+      },
     });
 
     // db should be empty
@@ -328,7 +336,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
         proverBrokerBatchSize: batchSize,
         proverBrokerBatchIntervalMs: 10,
         proverBrokerMaxEpochsToKeepResultsFor: 1,
-        rollupAddress: EthAddress.random(),
+        l1Contracts: {
+          rollupAddress: EthAddress.random(),
+        } as any,
+        l1RpcUrls: [],
+        l1ChainId: 42,
+        viemPollingIntervalMS: 100,
       };
       db = await KVBrokerDatabase.new(config);
       commitSpy = jest.spyOn(db, 'commitWrites');

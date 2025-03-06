@@ -1,0 +1,26 @@
+name: release-please
+
+# Trigger on merges to 'master' branch
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+env:
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  release-please:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Release Please
+        id: release
+        uses: google-github-actions/release-please-action@v3
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          command: manifest
+          default-branch: ${{ env.BRANCH_NAME }}
