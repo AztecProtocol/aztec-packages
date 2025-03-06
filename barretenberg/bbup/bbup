@@ -64,7 +64,11 @@ install_bb() {
 
     # Convert architecture names
     if [ "$architecture" = "arm64" ]; then
-        architecture="aarch64"
+        if version_gte "$version" "0.77.0"; then
+            architecture="arm64"
+        else
+            architecture="aarch64"
+        fi
     elif [ "$architecture" = "x86_64" ]; then
         if version_gte "$version" "0.77.0"; then
             architecture="amd64"
