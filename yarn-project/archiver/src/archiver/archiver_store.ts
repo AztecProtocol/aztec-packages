@@ -1,30 +1,21 @@
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  type LogFilter,
-  type TxEffect,
-  type TxHash,
-  type TxReceipt,
-  type TxScopedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type Fr,
-  type PrivateLog,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type {
+  ContractClassPublic,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/stdlib/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { InboxLeaf } from '@aztec/stdlib/messaging';
+import { BlockHeader, type TxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
-import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published } from './structs/published.js';
+import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { L1Published } from './structs/published.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
@@ -184,22 +175,10 @@ export interface ArchiverDataStore {
   getProvenL2BlockNumber(): Promise<number>;
 
   /**
-   * Gets the number of the latest proven L2 epoch.
-   * @returns The number of the latest proven L2 epoch.
-   */
-  getProvenL2EpochNumber(): Promise<number | undefined>;
-
-  /**
    * Stores the number of the latest proven L2 block processed.
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
   setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
-
-  /**
-   * Stores the number of the latest proven L2 epoch.
-   * @param l2EpochNumber - The number of the latest proven L2 epoch.
-   */
-  setProvenL2EpochNumber(l2EpochNumber: number): Promise<void>;
 
   /**
    * Stores the l1 block number that blocks have been synched until

@@ -37,6 +37,7 @@ function build_and_preview {
 # If we're an AMD64 CI run and have a PR, do a preview release.
 function release_preview {
   if [ -z "${NETLIFY_SITE_ID:-}" ] || [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
+    echo "No netlify credentials available, skipping release preview."
     return
   fi
 
@@ -70,11 +71,15 @@ function release_preview {
 
 function release {
   echo_header "docs release"
-  if [ ${DRY_RUN:-0} = 1 ]; then
-    echo "Dry run, doing docs preview:"
-    yarn netlify deploy --site aztec-docs-dev
+
+  # If we download cached docs, we may not have netlify CLI in node_modules. Install in case.
+  yarn install
+
+  if [ $(dist_tag) != "latest" ]; then
+    # TODO attach to github release
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev
   else
-    yarn netlify deploy --site aztec-docs-dev --prod
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
   fi
 }
 
@@ -86,7 +91,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"full")
+  ""|"full"|"fast")
     build_and_preview
     ;;
   "hash")

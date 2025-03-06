@@ -2,14 +2,14 @@
 // and https://github.com/noir-lang/noir/issues/7192
 
 #[oracle(noOp)]
-fn no_op_oracle<T>(value: T) {}
+unconstrained fn no_op_oracle<T>(value: T) {}
 
 unconstrained fn no_op_oracle_wrapper<T>(value: T) {
     no_op_oracle(value);
 }
 
 pub fn no_op<T>(value: T) {
-    /// Safety: This is a no op
+    // Safety: This is a no op
     unsafe {
         no_op_oracle_wrapper(value);
     }

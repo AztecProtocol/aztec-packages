@@ -2,20 +2,24 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
+  AztecAddress,
+  type AztecNode,
   BatchCall,
   type DeployMethod,
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   L1FeeJuicePortalManager,
+  type PXE,
   createLogger,
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
@@ -92,18 +96,16 @@ export class BotFactory {
 
       const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
 
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
+      const wallet = await account.getWallet();
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
       const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      if (this.config.flushSetupTransactions) {
-        this.log.verbose('Flushing transactions');
-        await this.node!.flushTxs();
-      }
+      await this.tryFlushTxs();
       this.log.verbose('Waiting for account deployment to settle');
       await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
       this.log.info(`Account deployed at ${address}`);
-      return account.getWallet();
+      return wallet;
     }
   }
 
@@ -158,10 +160,7 @@ export class BotFactory {
       const sentTx = deploy.send(deployOpts);
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      if (this.config.flushSetupTransactions) {
-        this.log.verbose('Flushing transactions');
-        await this.node!.flushTxs();
-      }
+      await this.tryFlushTxs();
       this.log.verbose('Waiting for token setup to settle');
       return sentTx.deployed({ timeout: this.config.txMinedWaitSeconds });
     }
@@ -187,7 +186,7 @@ export class BotFactory {
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
-      const from = sender; // we are setting from to sender here because of TODO(#9887)
+      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
           ? await token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
@@ -205,20 +204,17 @@ export class BotFactory {
     const sentTx = new BatchCall(token.wallet, calls).send();
     const txHash = await sentTx.getTxHash();
     this.log.info(`Sent tx with hash ${txHash.toString()}`);
-    if (this.config.flushSetupTransactions) {
-      this.log.verbose('Flushing transactions');
-      await this.node!.flushTxs();
-    }
+    await this.tryFlushTxs();
     this.log.verbose('Waiting for token mint to settle');
     await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
   }
 
   private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint) {
-    const l1RpcUrl = this.config.l1RpcUrl;
-    if (!l1RpcUrl) {
+    const l1RpcUrls = this.config.l1RpcUrls;
+    if (!l1RpcUrls?.length) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
     }
-    const mnemonicOrPrivateKey = this.config.l1Mnemonic || this.config.l1PrivateKey;
+    const mnemonicOrPrivateKey = this.config.l1PrivateKey || this.config.l1Mnemonic;
     if (!mnemonicOrPrivateKey) {
       throw new Error(
         'Either a mnemonic or private key of an L1 account is required to bridge the fee juice to fund the deployment of the account.',
@@ -226,12 +222,16 @@ export class BotFactory {
     }
 
     const { l1ChainId } = await this.pxe.getNodeInfo();
-    const chain = createEthereumChain(l1RpcUrl, l1ChainId);
-    const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
+    const chain = createEthereumChain(l1RpcUrls, l1ChainId);
+    const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
     const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
     const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
-    this.log.info('Created a claim for L1 fee juice.');
+
+    const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+
+    this.log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
 
     // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
     await this.advanceL2Block();
@@ -242,7 +242,18 @@ export class BotFactory {
 
   private async advanceL2Block() {
     const initialBlockNumber = await this.node!.getBlockNumber();
-    await this.node!.flushTxs();
+    await this.tryFlushTxs();
     await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
+  }
+
+  private async tryFlushTxs() {
+    if (this.config.flushSetupTransactions) {
+      this.log.verbose('Flushing transactions');
+      try {
+        await this.node!.flushTxs();
+      } catch (err) {
+        this.log.error(`Failed to flush transactions: ${err}`);
+      }
+    }
   }
 }

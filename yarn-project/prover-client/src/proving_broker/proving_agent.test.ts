@@ -1,29 +1,26 @@
+import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { AbortError } from '@aztec/foundation/error';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { ProvingError } from '@aztec/stdlib/errors';
 import {
   type ProofUri,
-  ProvingError,
   type ProvingJob,
   type ProvingJobConsumer,
   type ProvingJobId,
   type ProvingJobInputs,
-  ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
-import {
-  type ParityPublicInputs,
-  RECURSIVE_PROOF_LENGTH,
-  VerificationKeyData,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { AbortError } from '@aztec/foundation/error';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
+} from '@aztec/stdlib/interfaces/server';
+import type { ParityPublicInputs } from '@aztec/stdlib/parity';
+import { ProvingRequestType, makeRecursiveProof } from '@aztec/stdlib/proofs';
+import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
 
 import { MockProver } from '../test/mock_prover.js';
-import { type ProofStore } from './proof_store/index.js';
+import type { ProofStore } from './proof_store/index.js';
 import { ProvingAgent } from './proving_agent.js';
 
 describe('ProvingAgent', () => {

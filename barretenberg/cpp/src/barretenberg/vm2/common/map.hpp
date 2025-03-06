@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/common/ankerl_map.hpp"
+#include "barretenberg/vm2/common/ankerl_dense.hpp"
 
 namespace bb::avm2 {
 

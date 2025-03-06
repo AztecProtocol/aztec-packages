@@ -20,24 +20,30 @@
 // Relations
 #include "relations/alu.hpp"
 #include "relations/bc_decomposition.hpp"
+#include "relations/bc_hashing.hpp"
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
+#include "relations/class_id_derivation.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/range_check.hpp"
+#include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_bc_decomposition.hpp"
+#include "relations/lookups_bc_hashing.hpp"
+#include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
-#include "relations/lookups_execution.hpp"
+#include "relations/lookups_class_id_derivation.hpp"
+#include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
+#include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
-#include "relations/perms_execution.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -79,13 +85,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 16;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 698;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 83;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 38;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 772;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 102;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 797;
+    static constexpr size_t NUM_ALL_ENTITIES = 912;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -93,14 +99,17 @@ class AvmFlavor {
         // Relations
         avm2::alu<FF_>,
         avm2::bc_decomposition<FF_>,
+        avm2::bc_hashing<FF_>,
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
+        avm2::class_id_derivation<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
+        avm2::scalar_mul<FF_>,
         avm2::sha256<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
@@ -109,26 +118,34 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
-        lookup_bitw_byte_lengths_relation<FF_>,
-        lookup_bitw_byte_operations_relation<FF_>,
-        lookup_bytecode_bytes_are_bytes_relation<FF_>,
-        lookup_bytecode_remaining_abs_diff_u16_relation<FF_>,
-        lookup_bytecode_to_read_unary_relation<FF_>,
-        lookup_dummy_dynamic_relation<FF_>,
-        lookup_dummy_precomputed_relation<FF_>,
-        lookup_pos2_perm_relation<FF_>,
-        lookup_rng_chk_diff_relation<FF_>,
-        lookup_rng_chk_is_r0_16_bit_relation<FF_>,
-        lookup_rng_chk_is_r1_16_bit_relation<FF_>,
-        lookup_rng_chk_is_r2_16_bit_relation<FF_>,
-        lookup_rng_chk_is_r3_16_bit_relation<FF_>,
-        lookup_rng_chk_is_r4_16_bit_relation<FF_>,
-        lookup_rng_chk_is_r5_16_bit_relation<FF_>,
-        lookup_rng_chk_is_r6_16_bit_relation<FF_>,
-        lookup_rng_chk_is_r7_16_bit_relation<FF_>,
-        lookup_rng_chk_pow_2_relation<FF_>,
-        lookup_sha256_round_constant_relation<FF_>,
-        perm_dummy_dynamic_relation<FF_>>;
+        lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
+        lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
+        lookup_bc_decomposition_bytes_to_read_as_unary_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_relation<FF_>,
+        lookup_bc_hashing_iv_is_len_relation<FF_>,
+        lookup_bc_hashing_poseidon2_hash_relation<FF_>,
+        lookup_bc_retrieval_bytecode_hash_is_correct_relation<FF_>,
+        lookup_bc_retrieval_class_id_derivation_relation<FF_>,
+        lookup_bitwise_byte_operations_relation<FF_>,
+        lookup_bitwise_integral_tag_length_relation<FF_>,
+        lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
+        lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
+        lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
+        lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
+        lookup_range_check_dyn_diff_is_u16_relation<FF_>,
+        lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
+        lookup_range_check_r0_is_u16_relation<FF_>,
+        lookup_range_check_r1_is_u16_relation<FF_>,
+        lookup_range_check_r2_is_u16_relation<FF_>,
+        lookup_range_check_r3_is_u16_relation<FF_>,
+        lookup_range_check_r4_is_u16_relation<FF_>,
+        lookup_range_check_r5_is_u16_relation<FF_>,
+        lookup_range_check_r6_is_u16_relation<FF_>,
+        lookup_range_check_r7_is_u16_relation<FF_>,
+        lookup_scalar_mul_add_relation<FF_>,
+        lookup_scalar_mul_double_relation<FF_>,
+        lookup_sha256_round_constant_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
 
@@ -158,7 +175,7 @@ class AvmFlavor {
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
         CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
-    template <typename DataType> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType> class PrecomputedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
         DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_PRECOMPUTED_ENTITIES)
@@ -233,6 +250,8 @@ class AvmFlavor {
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
 
         size_t circuit_size;
+        size_t log_circuit_size;
+        size_t num_public_inputs;
         bb::EvaluationDomain<FF> evaluation_domain;
         std::shared_ptr<CommitmentKey> commitment_key;
 
@@ -249,7 +268,7 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         using FF = VerificationKey_::FF;
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
@@ -380,17 +399,39 @@ class AvmFlavor {
             this->precomputed_bitwise_op_id = verification_key->precomputed_bitwise_op_id;
             this->precomputed_bitwise_output = verification_key->precomputed_bitwise_output;
             this->precomputed_clk = verification_key->precomputed_clk;
+            this->precomputed_exec_opcode = verification_key->precomputed_exec_opcode;
             this->precomputed_first_row = verification_key->precomputed_first_row;
+            this->precomputed_instr_size_in_bytes = verification_key->precomputed_instr_size_in_bytes;
             this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
             this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
+            this->precomputed_sel_op_dc_0 = verification_key->precomputed_sel_op_dc_0;
+            this->precomputed_sel_op_dc_1 = verification_key->precomputed_sel_op_dc_1;
+            this->precomputed_sel_op_dc_10 = verification_key->precomputed_sel_op_dc_10;
+            this->precomputed_sel_op_dc_11 = verification_key->precomputed_sel_op_dc_11;
+            this->precomputed_sel_op_dc_12 = verification_key->precomputed_sel_op_dc_12;
+            this->precomputed_sel_op_dc_13 = verification_key->precomputed_sel_op_dc_13;
+            this->precomputed_sel_op_dc_14 = verification_key->precomputed_sel_op_dc_14;
+            this->precomputed_sel_op_dc_15 = verification_key->precomputed_sel_op_dc_15;
+            this->precomputed_sel_op_dc_16 = verification_key->precomputed_sel_op_dc_16;
+            this->precomputed_sel_op_dc_17 = verification_key->precomputed_sel_op_dc_17;
+            this->precomputed_sel_op_dc_2 = verification_key->precomputed_sel_op_dc_2;
+            this->precomputed_sel_op_dc_3 = verification_key->precomputed_sel_op_dc_3;
+            this->precomputed_sel_op_dc_4 = verification_key->precomputed_sel_op_dc_4;
+            this->precomputed_sel_op_dc_5 = verification_key->precomputed_sel_op_dc_5;
+            this->precomputed_sel_op_dc_6 = verification_key->precomputed_sel_op_dc_6;
+            this->precomputed_sel_op_dc_7 = verification_key->precomputed_sel_op_dc_7;
+            this->precomputed_sel_op_dc_8 = verification_key->precomputed_sel_op_dc_8;
+            this->precomputed_sel_op_dc_9 = verification_key->precomputed_sel_op_dc_9;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
+            this->precomputed_sel_range_wire_opcode = verification_key->precomputed_sel_range_wire_opcode;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =
                 verification_key->precomputed_sha256_compression_round_constant;
+            this->precomputed_zero = verification_key->precomputed_zero;
         }
     };
 

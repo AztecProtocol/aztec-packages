@@ -24,8 +24,8 @@ contract Updatable {
     #[private]
     fn initialize(initial_value: Field) {
         let owner = context.msg_sender();
-        let mut new_value = ValueNote::new(initial_value, owner);
-        storage.private_value.initialize(&mut new_value).emit(encode_and_encrypt_note(
+        let new_value = ValueNote::new(initial_value, owner);
+        storage.private_value.initialize(new_value).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             owner,

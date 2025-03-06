@@ -34,10 +34,7 @@
       "path": "../bot"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../entrypoints"
@@ -88,10 +85,10 @@
       "path": "../simulator"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     },
     {
       "path": "../validator-client"

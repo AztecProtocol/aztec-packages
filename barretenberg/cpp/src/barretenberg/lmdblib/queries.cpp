@@ -23,7 +23,14 @@ void put_value(
     // The database has been configured to allow duplicate keys, but we don't permit duplicate key/value pairs
     // If we create a duplicate it will not insert it
     unsigned int flags = duplicatesPermitted ? MDB_NODUPDATA : 0U;
-    call_lmdb_func("mdb_put", mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, flags);
+    auto code = call_lmdb_func_with_return(mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, flags);
+    if (code == MDB_KEYEXIST && duplicatesPermitted) {
+        return;
+    }
+
+    if (code != MDB_SUCCESS) {
+        throw_error("mdb_put", code);
+    }
 }
 
 void put_value(Key& key,

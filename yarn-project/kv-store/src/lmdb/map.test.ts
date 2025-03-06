@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 
-import { type AztecMapWithSize, type AztecMultiMapWithSize } from '../interfaces/map.js';
+import type { AztecMapWithSize, AztecMultiMapWithSize } from '../interfaces/map.js';
 import { describeAztecMap } from '../interfaces/map_test_suite.js';
 import { openTmpStore } from './index.js';
 

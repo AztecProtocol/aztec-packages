@@ -43,6 +43,7 @@ spec:
       initContainers:
         {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
 
         # Get the private key from the mnemonic - based on the pod replica index
         - name: get-private-key
@@ -75,6 +76,13 @@ spec:
             - /bin/bash
             - -c
             - |
+              # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
+              if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
+                echo "Registry address and bootstrap nodes already set, skipping wait for services"
+                echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
+                exit 0
+              fi
+
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
@@ -105,9 +113,9 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses && \
-              cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && \
-              chmod +x /tmp/configure-validator-env.sh && \
-              /tmp/configure-validator-env.sh "$(cat /shared/pxe/pxe_url)"
+              cp /scripts/configure-full-node-env.sh /tmp/configure-full-node-env.sh && \
+              chmod +x /tmp/configure-full-node-env.sh && \
+              /tmp/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
@@ -117,6 +125,15 @@ spec:
               mountPath: /scripts
             - name: config
               mountPath: /shared/config
+          env:
+            - name: P2P_ENABLED
+              value: "{{ .Values.validator.p2p.enabled }}"
+            - name: BOOTSTRAP_NODES
+              value: "{{ .Values.aztec.bootstrapENRs }}"
+            - name: REGISTRY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
+            - name: SLASH_FACTORY_CONTRACT_ADDRESS
+              value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
       containers:
         - name: validator
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -129,6 +146,7 @@ spec:
               source /shared/p2p/p2p-addresses && \
               source /shared/config/service-addresses && \
               source /shared/config/keys.env && \
+              source /shared/config/otel-resource && \
               env && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer
           startupProbe:
@@ -165,8 +183,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: validator
             - name: POD_IP
               valueFrom:
                 fieldRef:
@@ -185,6 +201,8 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
+            - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
+              value: "{{ .Values.validator.p2p.floodPublish }}"
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
             - name: VALIDATOR_REEXECUTE
@@ -199,8 +217,6 @@ spec:
               value: "{{ .Values.validator.sequencer.enforceTimeTable }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -233,10 +249,12 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
+            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
+              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
@@ -290,6 +308,23 @@ spec:
     - port: {{ .Values.validator.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
+    - port: {{ .Values.validator.service.nodePort }}
+      name: node
+      protocol: TCP
+---
+# If we want to send traffic to any validator, then we need a LoadBalancer service on top of a headless service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-validator-lb
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+    app: validator
+spec:
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: validator
+  ports:
     - port: {{ .Values.validator.service.nodePort }}
       name: node
       protocol: TCP

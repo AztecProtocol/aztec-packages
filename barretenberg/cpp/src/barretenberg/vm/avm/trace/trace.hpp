@@ -214,11 +214,6 @@ class AvmTraceBuilder {
                        uint32_t rhs_y_offset,
                        uint32_t rhs_is_inf_offset,
                        uint32_t output_offset);
-    AvmError op_variable_msm(uint8_t indirect,
-                             uint32_t points_offset,
-                             uint32_t scalars_offset,
-                             uint32_t output_offset,
-                             uint32_t point_length_offset);
     // Conversions
     AvmError op_to_radix_be(uint16_t indirect,
                             uint32_t src_offset,

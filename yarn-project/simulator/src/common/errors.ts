@@ -1,14 +1,14 @@
+import type { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/stdlib/abi';
 import {
   type FailingFunction,
   type NoirCallStack,
   SimulationError,
   type SourceCodeLocation,
-} from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
-import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
-import { jsonStringify } from '@aztec/foundation/json-rpc';
+} from '@aztec/stdlib/errors';
 
-import { type RawAssertionPayload } from '@noir-lang/acvm_js';
+import type { RawAssertionPayload } from '@noir-lang/acvm_js';
 import { abiDecodeError } from '@noir-lang/noirc_abi';
 
 /**

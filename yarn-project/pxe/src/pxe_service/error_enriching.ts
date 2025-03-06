@@ -1,12 +1,13 @@
-import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js/constants';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/client';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 
-import { type ContractDataOracle, type PxeDatabase } from '../index.js';
+import { ContractDataProvider } from '../contract_data_provider/index.js';
+import type { PxeDatabase } from '../database/interfaces/pxe_database.js';
 
 /**
  * Adds contract and function names to a simulation error, if they
@@ -57,7 +58,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
 
 export async function enrichPublicSimulationError(
   err: SimulationError,
-  contractDataOracle: ContractDataOracle,
+  contractDataProvider: ContractDataProvider,
   db: PxeDatabase,
   logger: Logger,
 ) {
@@ -68,7 +69,7 @@ export async function enrichPublicSimulationError(
   // no matter what the call stack selector points to (since we've modified it to point to the target function).
   // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
 
-  const artifact = await contractDataOracle.getFunctionArtifact(
+  const artifact = await contractDataProvider.getFunctionArtifact(
     originalFailingFunction.contractAddress,
     FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
   );
@@ -77,7 +78,7 @@ export async function enrichPublicSimulationError(
     err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
   }
 
-  const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
+  const debugInfo = await contractDataProvider.getFunctionDebugMetadata(
     originalFailingFunction.contractAddress,
     FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
   );

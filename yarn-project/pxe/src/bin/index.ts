@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
-import { createAztecNodeClient } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import { getPXEServiceConfig } from '../config/index.js';
 import { startPXEHttpServer } from '../pxe_http/index.js';

@@ -1,9 +1,8 @@
-import { Blob } from '@aztec/blob-lib';
-import { Fr } from '@aztec/circuits.js';
-import { BlockBlobPublicInputs, SpongeBlob } from '@aztec/circuits.js/blobs';
+import { Blob, BlockBlobPublicInputs, SpongeBlob } from '@aztec/blob-lib';
+import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
-import { type ForeignCallInput, type ForeignCallOutput } from '@noir-lang/acvm_js';
+import type { ForeignCallInput, ForeignCallOutput } from '@noir-lang/acvm_js';
 import { strict as assert } from 'assert';
 
 function fromACVMField(field: string): Fr {

@@ -32,10 +32,10 @@ Nevertheless, the concept of a storage slot is very useful when writing applicat
 
 If we include the storage slot, as part of the note whose commitment is stored in the note hashes tree, we can _logically link_ all the notes that make up the storage slot. For the case of a balance, we can say that the balance is the sum of all the notes that have the same storage slot - in the same way that your physical wallet balance is the sum of all the physical notes in your wallet.
 
-Similarly to how we siloed the public storage slots, we can silo our private storage by hashing the logical storage slot together with the note content.
+Similarly to how we siloed the public storage slots, we can silo our private storage by hashing the packed note together with the logical storage slot.
 
 ```rust
-note_hash = H(logical_storage_slot, note_content_hash);
+note_hash = H([...packed_note, logical_storage_slot]);
 ```
 
 Note hash siloing is done in the application circuit, since it is not necessary for security of the network (but only the application).

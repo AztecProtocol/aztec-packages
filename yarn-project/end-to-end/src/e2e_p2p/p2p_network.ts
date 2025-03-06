@@ -1,17 +1,17 @@
 import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { ChainMonitor } from '@aztec/aztec.js/ethereum';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
-import { type BootstrapNode } from '@aztec/p2p';
-import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/test-helpers';
+import type { BootstrapNode } from '@aztec/p2p/bootstrap';
+import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -38,6 +38,11 @@ const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f2067060
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
+export const SHORTENED_BLOCK_TIME_CONFIG = {
+  aztecSlotDuration: 12,
+  ethereumSlotDuration: 4,
+};
+
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
   private baseAccount;
@@ -51,13 +56,13 @@ export class P2PNetworkTest {
   public proposerPrivateKeys: `0x${string}`[] = [];
   public peerIdPrivateKeys: string[] = [];
 
-  public bootstrapNodeEnr: string = '';
-
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
   public spamContract?: SpamContract;
+
+  public bootstrapNode?: BootstrapNode;
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
@@ -65,13 +70,12 @@ export class P2PNetworkTest {
 
   constructor(
     testName: string,
-    public bootstrapNode: BootstrapNode,
+    public bootstrapNodeEnr: string,
     public bootNodePort: number,
     private numberOfNodes: number,
     initialValidatorConfig: AztecNodeConfig,
     // If set enable metrics collection
-    metricsPort?: number,
-    assumeProvenThrough?: number,
+    private metricsPort?: number,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -81,23 +85,26 @@ export class P2PNetworkTest {
     this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
-    this.bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
-
     this.snapshotManager = createSnapshotManager(
       `e2e_p2p_network/${testName}`,
       process.env.E2E_DATA_PATH,
       {
         ...initialValidatorConfig,
-        ethereumSlotDuration: l1ContractsConfig.ethereumSlotDuration,
+        ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
+        aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+        aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
+        aztecProofSubmissionWindow:
+          initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 1,
       },
       {
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+        ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
+        aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
-        assumeProvenThrough: assumeProvenThrough ?? Number.MAX_SAFE_INTEGER,
         initialValidators: [],
       },
     );
@@ -109,35 +116,24 @@ export class P2PNetworkTest {
     basePort,
     metricsPort,
     initialConfig,
-    assumeProvenThrough,
   }: {
     testName: string;
     numberOfNodes: number;
     basePort?: number;
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
-    assumeProvenThrough?: number;
   }) {
     const port = basePort || (await getPort());
 
-    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
-    const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
-    const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
+    const bootstrapNodeENR = await getBootstrapNodeEnr(BOOTSTRAP_NODE_PRIVATE_KEY, port);
+    const bootstrapNodeEnr = bootstrapNodeENR.encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig(
       (initialConfig ?? {}) as AztecNodeConfig,
       bootstrapNodeEnr,
     );
 
-    return new P2PNetworkTest(
-      testName,
-      bootstrapNode,
-      port,
-      numberOfNodes,
-      initialValidatorConfig,
-      metricsPort,
-      assumeProvenThrough,
-    );
+    return new P2PNetworkTest(testName, bootstrapNodeEnr, port, numberOfNodes, initialValidatorConfig, metricsPort);
   }
 
   get fundedAccount() {
@@ -174,6 +170,18 @@ export class P2PNetworkTest {
   }
 
   async applyBaseSnapshots() {
+    await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
+      const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
+      this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
+        BOOTSTRAP_NODE_PRIVATE_KEY,
+        this.bootNodePort,
+        telemetry,
+        aztecNodeConfig,
+      );
+      // Overwrite enr with updated info
+      this.bootstrapNodeEnr = this.bootstrapNode.getENR().encodeTxt();
+    });
+
     await this.snapshotManager.snapshot(
       'add-validators',
       async ({ deployL1ContractsValues, aztecNodeConfig, dateProvider }) => {
@@ -232,7 +240,7 @@ export class P2PNetworkTest {
 
         const slotsInEpoch = await rollup.read.getEpochDuration();
         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
+        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
         try {
           await cheatCodes.warp(Number(timestamp));
         } catch (err) {
@@ -325,15 +333,13 @@ export class P2PNetworkTest {
       {
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
-        minGwei: 1n,
         maxAttempts: 3,
         checkIntervalMs: 100,
         stallTimeMs: 1000,
       },
     );
 
-    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues));
-    this.monitor.start();
+    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues)).start();
   }
 
   async stopNodes(nodes: AztecNodeService[]) {
@@ -351,7 +357,7 @@ export class P2PNetworkTest {
 
   async teardown() {
     this.monitor.stop();
-    await this.bootstrapNode.stop();
+    await this.bootstrapNode?.stop();
     await this.snapshotManager.teardown();
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);

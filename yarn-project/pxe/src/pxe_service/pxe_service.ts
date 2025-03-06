@@ -1,27 +1,59 @@
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import { Fr, type Point } from '@aztec/foundation/fields';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
+import type { SiblingPath } from '@aztec/foundation/trees';
+import type { KeyStore } from '@aztec/key-store';
+import type { L2TipsStore } from '@aztec/kv-store/stores';
 import {
-  type AuthWitness,
-  type AztecNode,
-  EventMetadata,
-  type EventMetadataDefinition,
-  type ExtendedNote,
-  type FunctionCall,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  L1EventPayload,
-  type L2Block,
-  type LogFilter,
-  MerkleTreeId,
-  type NotesFilter,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-  type PrivateKernelProver,
-  type PrivateKernelSimulateOutput,
+  ProtocolContractAddress,
+  type ProtocolContractsProvider,
+  protocolContractNames,
+} from '@aztec/protocol-contracts';
+import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+import {
+  type AbiDecoded,
+  type ContractArtifact,
+  EventSelector,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  decodeFunctionSignature,
+  encodeArguments,
+} from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type {
+  CompleteAddress,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  NodeInfo,
+  PartialAddress,
+} from '@aztec/stdlib/contract';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { SimulationError } from '@aztec/stdlib/errors';
+import { EventMetadata, L1EventPayload } from '@aztec/stdlib/event';
+import type { GasFees } from '@aztec/stdlib/gas';
+import { siloNullifier } from '@aztec/stdlib/hash';
+import type {
+  AztecNode,
+  EventMetadataDefinition,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  PXE,
+  PXEInfo,
+  PrivateKernelProver,
+} from '@aztec/stdlib/interfaces/client';
+import { type PrivateKernelSimulateOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { computeAddressSecret } from '@aztec/stdlib/keys';
+import type { LogFilter } from '@aztec/stdlib/logs';
+import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import {
+  PrivateExecutionResult,
   PrivateSimulationResult,
   type PublicSimulationOutput,
-  type SiblingPath,
-  SimulationError,
   type Tx,
   type TxEffect,
   type TxExecutionRequest,
@@ -29,51 +61,17 @@ import {
   TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
-  UniqueNote,
-  getNonNullifiedL1ToL2MessageWitness,
-} from '@aztec/circuit-types';
-import type {
-  CompleteAddress,
-  ContractClassWithId,
-  ContractInstanceWithAddress,
-  GasFees,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NodeInfo,
-  PartialAddress,
-  PrivateKernelTailCircuitPublicInputs,
-} from '@aztec/circuits.js';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js/contract';
-import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { computeAddressSecret } from '@aztec/circuits.js/keys';
-import {
-  type AbiDecoded,
-  type ContractArtifact,
-  EventSelector,
-  FunctionSelector,
-  FunctionType,
-  decodeFunctionSignature,
-  encodeArguments,
-} from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, type Point } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
-import { type KeyStore } from '@aztec/key-store';
-import { type L2TipsStore } from '@aztec/kv-store/stores';
-import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+} from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
 
-import { type PXEServiceConfig } from '../config/index.js';
+import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/index.js';
-import { NoteDao } from '../database/note_dao.js';
+import { ContractDataProvider } from '../contract_data_provider/index.js';
+import type { PxeDatabase } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
-import { getAcirSimulator } from '../simulator/index.js';
+import { PXEDataProvider } from '../pxe_data_provider/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 
@@ -82,7 +80,8 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
  */
 export class PXEService implements PXE {
   private synchronizer: Synchronizer;
-  private contractDataOracle: ContractDataOracle;
+  private contractDataProvider: ContractDataProvider;
+  private pxeDataProvider: PXEDataProvider;
   private simulator: AcirSimulator;
   private log: Logger;
   private packageVersion: string;
@@ -94,7 +93,8 @@ export class PXEService implements PXE {
     private db: PxeDatabase,
     tipsStore: L2TipsStore,
     private proofCreator: PrivateKernelProver,
-    private simulationProvider: SimulationProvider,
+    simulationProvider: SimulationProvider,
+    private protocolContractsProvider: ProtocolContractsProvider,
     config: PXEServiceConfig,
     loggerOrSuffix?: string | Logger,
   ) {
@@ -103,8 +103,16 @@ export class PXEService implements PXE {
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
         : loggerOrSuffix;
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, loggerOrSuffix);
-    this.contractDataOracle = new ContractDataOracle(db);
-    this.simulator = getAcirSimulator(db, node, keyStore, this.simulationProvider, this.contractDataOracle);
+    this.contractDataProvider = new ContractDataProvider(db);
+    this.pxeDataProvider = new PXEDataProvider(
+      db,
+      keyStore,
+      node,
+      simulationProvider,
+      this.contractDataProvider,
+      this.log,
+    );
+    this.simulator = new AcirSimulator(this.pxeDataProvider, simulationProvider);
     this.packageVersion = getPackageInfo().version;
     this.proverEnabled = !!config.proverEnabled;
   }
@@ -297,7 +305,7 @@ export class PXEService implements PXE {
     const currentClassId = await readCurrentClassId(
       contractAddress,
       currentInstance,
-      this.node,
+      this.pxeDataProvider,
       header.globalVariables.blockNumber.toNumber(),
     );
     if (!contractClass.id.equals(currentClassId)) {
@@ -326,7 +334,7 @@ export class PXEService implements PXE {
     if (!(await this.getContractInstance(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
-    return await this.node.getPublicStorageAt(contract, slot, 'latest');
+    return await this.node.getPublicStorageAt('latest', contract, slot);
   }
 
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
@@ -370,142 +378,6 @@ export class PXEService implements PXE {
     return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
   }
 
-  public async addNote(note: ExtendedNote, scope?: AztecAddress) {
-    const owner = await this.db.getCompleteAddress(note.owner);
-    if (!owner) {
-      throw new Error(`Unknown account: ${note.owner.toString()}`);
-    }
-
-    const { data: nonces, l2BlockNumber, l2BlockHash } = await this.#getNoteNonces(note);
-    if (nonces.length === 0) {
-      throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
-    }
-
-    for (const nonce of nonces) {
-      const { noteHash, uniqueNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        true,
-        note.note,
-      );
-
-      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]);
-      if (index === undefined) {
-        throw new Error('Note does not exist.');
-      }
-
-      const siloedNullifier = await siloNullifier(note.contractAddress, innerNullifier!);
-      const [nullifierIndex] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [
-        siloedNullifier,
-      ]);
-      if (nullifierIndex !== undefined) {
-        throw new Error('The note has been destroyed.');
-      }
-
-      await this.db.addNote(
-        new NoteDao(
-          note.note,
-          note.contractAddress,
-          note.storageSlot,
-          nonce,
-          noteHash,
-          siloedNullifier,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
-          index,
-          await owner.address.toAddressPoint(),
-          note.noteTypeId,
-        ),
-        scope,
-      );
-    }
-  }
-
-  public async addNullifiedNote(note: ExtendedNote) {
-    const { data: nonces, l2BlockHash, l2BlockNumber } = await this.#getNoteNonces(note);
-    if (nonces.length === 0) {
-      throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
-    }
-
-    for (const nonce of nonces) {
-      const { noteHash, uniqueNoteHash, innerNullifier } = await this.simulator.computeNoteHashAndOptionallyANullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        false,
-        note.note,
-      );
-
-      if (!innerNullifier.equals(Fr.ZERO)) {
-        throw new Error('Unexpectedly received non-zero nullifier.');
-      }
-
-      const [index] = await this.node.findLeavesIndexes('latest', MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]);
-      if (index === undefined) {
-        throw new Error('Note does not exist.');
-      }
-
-      await this.db.addNullifiedNote(
-        new NoteDao(
-          note.note,
-          note.contractAddress,
-          note.storageSlot,
-          nonce,
-          noteHash,
-          Fr.ZERO, // We are not able to derive
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
-          index,
-          await note.owner.toAddressPoint(),
-          note.noteTypeId,
-        ),
-      );
-    }
-  }
-
-  /**
-   * Finds the nonce(s) for a given note.
-   * @param note - The note to find the nonces for.
-   * @returns The nonces of the note.
-   * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
-   */
-  async #getNoteNonces(note: ExtendedNote): Promise<InBlock<Fr[]>> {
-    const tx = await this.node.getTxEffect(note.txHash);
-    if (!tx) {
-      throw new Error(`Unknown tx: ${note.txHash}`);
-    }
-
-    const nonces: Fr[] = [];
-    const firstNullifier = tx.data.nullifiers[0];
-    const hashes = tx.data.noteHashes;
-    for (let i = 0; i < hashes.length; ++i) {
-      const hash = hashes[i];
-      if (hash.equals(Fr.ZERO)) {
-        break;
-      }
-
-      const nonce = await computeNoteHashNonce(firstNullifier, i);
-      const { uniqueNoteHash } = await this.simulator.computeNoteHashAndOptionallyANullifier(
-        note.contractAddress,
-        nonce,
-        note.storageSlot,
-        note.noteTypeId,
-        false,
-        note.note,
-      );
-      if (hash.equals(uniqueNoteHash)) {
-        nonces.push(nonce);
-      }
-    }
-
-    return { l2BlockHash: tx.l2BlockHash, l2BlockNumber: tx.l2BlockNumber, data: nonces };
-  }
-
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
     // If a negative block number is provided the current block number is fetched.
     if (blockNumber < 0) {
@@ -527,7 +399,6 @@ export class PXEService implements PXE {
         simulate: false,
         skipFeeEnforcement: false,
         profile: false,
-        dryRun: false,
       });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
@@ -567,7 +438,6 @@ export class PXEService implements PXE {
         simulate: !profile,
         skipFeeEnforcement,
         profile,
-        dryRun: true,
       });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -750,7 +620,8 @@ export class PXEService implements PXE {
   async #registerProtocolContracts() {
     const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
+      const { address, contractClass, instance, artifact } =
+        await this.protocolContractsProvider.getProtocolContractArtifact(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
       registered[name] = address.toString();
@@ -798,7 +669,7 @@ export class PXEService implements PXE {
 
   /**
    * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
-   * The simulation parameters are fetched using ContractDataOracle and executed using AcirSimulator.
+   * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
@@ -840,7 +711,7 @@ export class PXEService implements PXE {
     } catch (err) {
       if (err instanceof SimulationError) {
         try {
-          await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+          await enrichPublicSimulationError(err, this.contractDataProvider, this.db, this.log);
         } catch (enrichErr) {
           this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
         }
@@ -863,19 +734,18 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig,
+    { simulate, skipFeeEnforcement, profile }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
     const block =
       privateExecutionResult.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
+    const kernelOracle = new KernelOracle(this.contractDataProvider, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
-    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
+    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile})...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
       simulate,
       skipFeeEnforcement,
       profile,
-      dryRun,
     });
   }
 

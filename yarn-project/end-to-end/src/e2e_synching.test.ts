@@ -47,9 +47,6 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-// eslint-disable-next-line no-restricted-imports
-import { L2Block, tryStop } from '@aztec/circuit-types';
-import { type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
@@ -58,13 +55,17 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe';
 import { SequencerPublisher } from '@aztec/sequencer-client';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2Block } from '@aztec/stdlib/block';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
@@ -322,11 +323,10 @@ describe('e2e_synching', () => {
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
       // We require that at least 200 eth blocks have passed from the START_TIME before we see the first L2 block
       // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
-      const { teardown, pxe, sequencer, aztecNode, wallet, initialFundedAccounts } = await setup(1, {
+      const { teardown, pxe, sequencer, aztecNode, wallet, initialFundedAccounts, cheatCodes } = await setup(1, {
         salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
-        assumeProvenThrough: 10 + variant.blockCount,
         numberOfInitialFundedAccounts: variant.txCount + 1,
       });
       variant.setPXE(pxe as PXEService);
@@ -351,6 +351,7 @@ describe('e2e_synching', () => {
         if (txs) {
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
         }
+        await cheatCodes.rollup.markAsProven();
       }
 
       const blocks = await aztecNode.getBlocks(1, await aztecNode.getBlockNumber());
@@ -364,7 +365,7 @@ describe('e2e_synching', () => {
   const testTheVariant = async (
     variant: TestVariant,
     alternativeSync: (opts: Partial<EndToEndContext>, variant: TestVariant) => Promise<void>,
-    assumeProvenThrough: number = Number.MAX_SAFE_INTEGER,
+    provenThrough: number = Number.MAX_SAFE_INTEGER,
   ) => {
     if (AZTEC_GENERATE_TEST_DATA) {
       return;
@@ -386,7 +387,6 @@ describe('e2e_synching', () => {
       salt: SALT,
       l1StartTime: START_TIME,
       skipProtocolContracts: true,
-      assumeProvenThrough,
       numberOfInitialFundedAccounts: 10,
     });
 
@@ -423,8 +423,7 @@ describe('e2e_synching', () => {
     });
     const publisher = new SequencerPublisher(
       {
-        l1RpcUrl: config.l1RpcUrl,
-        requiredConfirmations: 1,
+        l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
@@ -457,6 +456,8 @@ describe('e2e_synching', () => {
       }
       // If it breaks here, first place you should look is the pruning.
       await publisher.enqueueProposeL2Block(block);
+
+      await cheatCodes.rollup.markAsProven(provenThrough);
     }
 
     await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe, initialFundedAccounts }, variant);
@@ -558,8 +559,8 @@ describe('e2e_synching', () => {
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
           // We prune the last token and schnorr contract
-          const assumeProvenThrough = pendingBlockNumber - 2n;
-          await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
+          const provenThrough = pendingBlockNumber - 2n;
+          await opts.cheatCodes!.rollup.markAsProven(provenThrough);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
@@ -567,7 +568,7 @@ describe('e2e_synching', () => {
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
-          expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(assumeProvenThrough));
+          expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(provenThrough));
           const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
           const txHash = blockTip.body.txEffects[0].txHash;
 
@@ -587,7 +588,7 @@ describe('e2e_synching', () => {
 
           // We need to sleep a bit to make sure that we have caught the prune and deleted blocks.
           await sleep(3000);
-          expect(await archiver.getBlockNumber()).toBe(Number(assumeProvenThrough));
+          expect(await archiver.getBlockNumber()).toBe(Number(provenThrough));
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
@@ -609,11 +610,9 @@ describe('e2e_synching', () => {
           );
 
           // Check world state reverted as well
-          expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
-          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(assumeProvenThrough));
-          const archiverLatestBlockHash = await archiver
-            .getBlockHeader(Number(assumeProvenThrough))
-            .then(b => b?.hash());
+          expect(await worldState.getLatestBlockNumber()).toEqual(Number(provenThrough));
+          const worldStateLatestBlockHash = await worldState.getL2BlockHash(Number(provenThrough));
+          const archiverLatestBlockHash = await archiver.getBlockHeader(Number(provenThrough)).then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
           await tryStop(archiver);
@@ -640,7 +639,7 @@ describe('e2e_synching', () => {
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
-          await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
@@ -705,7 +704,7 @@ describe('e2e_synching', () => {
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
-          await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+          await opts.cheatCodes!.rollup.markAsProven(pendingBlockNumber - BigInt(variant.blockCount) / 2n);
 
           const timeliness = (await rollup.read.getEpochDuration()) * 2n;
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);

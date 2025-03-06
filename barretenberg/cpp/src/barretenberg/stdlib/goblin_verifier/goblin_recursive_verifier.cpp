@@ -18,7 +18,9 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     TranslatorVerifier translator_verifier{ builder,
                                             verification_keys.translator_verification_key,
                                             eccvm_verifier.transcript };
-    translator_verifier.verify_proof(proof.translator_proof);
+
+    translator_verifier.verify_proof(
+        proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
     // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
     // In reality the Goblin Proof is going to already be a stdlib proof and this conversion is not going to happen here
@@ -32,7 +34,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
                                 TranslatorBF::from_witness(builder, native_translation_evaluations.z2)
 
         };
-    translator_verifier.verify_translation(translation_evaluations);
+    translator_verifier.verify_translation(translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 
     MergeVerifier merge_verifier{ builder };
     merge_verifier.verify_proof(proof.merge_proof);

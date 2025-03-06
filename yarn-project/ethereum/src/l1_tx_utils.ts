@@ -5,7 +5,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -15,22 +15,19 @@ import {
   type Address,
   type BaseError,
   type BlockOverrides,
-  type Chain,
   type ContractFunctionExecutionError,
   type GetTransactionReturnType,
   type Hex,
-  type HttpTransport,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
   type StateOverride,
   type TransactionReceipt,
-  type WalletClient,
   formatGwei,
   getContractError,
   hexToBytes,
 } from 'viem';
 
-import { type L1Clients } from './deploy_l1_contracts.js';
+import type { ViemPublicClient, ViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -62,10 +59,6 @@ export interface L1TxUtilsConfig {
    * Maximum gas price in gwei
    */
   maxGwei?: bigint;
-  /**
-   * Minimum gas price in gwei
-   */
-  minGwei?: bigint;
   /**
    * Maximum blob fee per gas in gwei
    */
@@ -111,11 +104,6 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
     ...numberConfigHelper(20),
   },
-  minGwei: {
-    description: 'Minimum gas price in gwei',
-    env: 'L1_GAS_PRICE_MIN',
-    ...bigintConfigHelper(1n),
-  },
   maxGwei: {
     description: 'Maximum gas price in gwei',
     env: 'L1_GAS_PRICE_MAX',
@@ -149,7 +137,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   checkIntervalMs: {
     description: 'How often to check tx status',
     env: 'L1_TX_MONITOR_CHECK_INTERVAL_MS',
-    ...numberConfigHelper(10_000),
+    ...numberConfigHelper(1_000),
   },
   stallTimeMs: {
     description: 'How long before considering tx stalled',
@@ -206,8 +194,8 @@ export class L1TxUtils {
   private interrupted = false;
 
   constructor(
-    public publicClient: L1Clients['publicClient'],
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    public publicClient: ViemPublicClient,
+    public walletClient: ViemWalletClient,
     protected readonly logger?: Logger,
     config?: Partial<L1TxUtilsConfig>,
   ) {
@@ -228,6 +216,12 @@ export class L1TxUtils {
 
   public getSenderAddress() {
     return this.walletClient.account.address;
+  }
+
+  public getSenderBalance(): Promise<bigint> {
+    return this.publicClient.getBalance({
+      address: this.getSenderAddress(),
+    });
   }
 
   public getBlock() {

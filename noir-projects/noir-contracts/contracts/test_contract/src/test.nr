@@ -1,15 +1,21 @@
 use crate::Test;
 use crate::test_note::TestNote;
-use dep::uint_note::uint_note::UintNote;
-use dep::value_note::value_note::ValueNote;
+use dep::aztec::{prelude::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use address_note::address_note::AddressNote;
+use aztec::history::contract_inclusion::{
+    ProveContractDeployment, ProveContractInitialization, ProveContractNonDeployment,
+    ProveContractNonInitialization,
+};
+use aztec::note::note_interface::NoteType;
+use value_note::value_note::ValueNote;
 
 #[test]
 unconstrained fn test_note_type_id() {
     // The order in which the note types are sorted seems arbitrary and an implementation detail of Noir,
     // but the important thing is that they are sequential and start from 0.
-    assert_eq(UintNote::get_note_type_id(), 0, "UintNote type id should be 0");
-    assert_eq(ValueNote::get_note_type_id(), 1, "ValueNote type id should be 1");
-    assert_eq(TestNote::get_note_type_id(), 2, "TestNote type id should be 2");
+    assert_eq(AddressNote::get_id(), 0, "AddressNote type id should be 0");
+    assert_eq(ValueNote::get_id(), 1, "ValueNote type id should be 1");
+    assert_eq(TestNote::get_id(), 2, "TestNote type id should be 2");
 }
 
 #[test]
@@ -24,7 +30,7 @@ unconstrained fn test_storage_slot_allocation() {
     // struct Storage<Context> {
     //     example_constant: PrivateImmutable<TestNote, Context>,
     //     example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
-    //     example_set: PrivateSet<TestNote, Context>,
+    //     example_set: PrivateSet<AddressNote, Context>,
     //     example_struct: PrivateImmutable<ExampleStruct, Context>,
     //     example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
     //     example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
@@ -38,7 +44,7 @@ unconstrained fn test_storage_slot_allocation() {
     // The first slot is always 1.
     let mut expected_slot = 1;
     assert_eq(Test::storage_layout().example_constant.slot, expected_slot);
-    // Even though example_constant holds TestNote, which packs to a length larger than 1, notes always reserve a
+    // Even though example_constant holds AddressNote, which packs to a length larger than 1, notes always reserve a
     // single slot.
     expected_slot += 1;
 
@@ -61,11 +67,116 @@ unconstrained fn test_storage_slot_allocation() {
 }
 
 fn get_shared_mutable_num_slots() -> Field {
-    let scheduled_delay_packed_len = 1; // There is 1 ScheduledDelayChange stored in storage and it fits into 1 slot.
-    let example_struct_packed_len = 5; // ExampleStruct packs to 5 slots.
-    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
-    let scheduled_value_change_packed_len = (example_struct_packed_len * 2 + 1);
-    let with_hash_additional_slots = 1; // Wrapping the values in WithHash adds 1 slot.
+    // ExampleStruct packs to 5 slots.
+    let example_struct_packed_len = 5;
 
-    scheduled_delay_packed_len + scheduled_value_change_packed_len + with_hash_additional_slots
+    // ScheduledDelayChange and block_of_change of ScheduledValueChange are stored in a single slot.
+    let sdc_and_block_of_change_of_svc_packed_len = 1;
+
+    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
+    let value_change_and_delay_change_packed_len =
+        example_struct_packed_len * 2 + sdc_and_block_of_change_of_svc_packed_len;
+
+    // Wrapping the values in WithHash adds 1 slot.
+    let with_hash_additional_slots = 1;
+
+    value_change_and_delay_change_packed_len + with_hash_additional_slots
+}
+
+global CONTRACT_DEPLOYED_AT: u32 = 3;
+
+// In env.deploy_self("Test").with_private_initializer(initializer); it first deploys the contract, then advances a block, then calls the initializer.
+global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
+
+pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
+    // Setup env, generate keys
+    let mut env = TestEnvironment::new();
+    let owner = env.create_account(1);
+    env.impersonate(owner);
+
+    // TODO(#12276): This is here because we are testing historical proofs, and we cannot get a valid block_header at 1 due to a bug in world state.
+    env.advance_block_by(1);
+
+    // We sanity check that we are building block 3, thus block 3 is where the contract will be deployed.
+    assert_eq(env.pending_block_number(), CONTRACT_DEPLOYED_AT);
+
+    // Deploy contract and initialize
+    let initializer = Test::interface().initialize();
+    let test_contract = env.deploy_self("Test").with_private_initializer(initializer);
+    let contract_address = test_contract.to_address();
+
+    env.advance_block_by(1);
+
+    (&mut env, contract_address, owner)
+}
+
+// These tests need to be here instead of a saner place like aztec-nr/aztec/src/history/contract_inclusion/test.nr
+// because we are unable to define nor deploy a contract from that location and currently do not have plans to change that.
+
+// In these tests we deploy a contract and can prove whether it has been deployed / initialized at specific blocks.
+#[test]
+unconstrained fn contract_historical_proofs_happy_path() {
+    let (env, contract_address) = setup();
+
+    let context_at_block_before_deployment = env.private_at(CONTRACT_DEPLOYED_AT - 1);
+    let context_at_block_of_deployment = env.private_at(CONTRACT_DEPLOYED_AT);
+
+    let context_at_block_before_initialization = env.private_at(CONTRACT_INITIALIZED_AT - 1);
+    let context_at_block_of_initialization = env.private_at(CONTRACT_INITIALIZED_AT);
+
+    // We prove that the contract had not been deployed nor initialized at the block before deployment
+    context_at_block_before_deployment.historical_header.prove_contract_non_deployment(
+        contract_address,
+    );
+    context_at_block_before_initialization.historical_header.prove_contract_non_initialization(
+        contract_address,
+    );
+
+    // And we prove that the contract has been been deployed and initialized at the block after deployment
+    context_at_block_of_deployment.historical_header.prove_contract_deployment(contract_address);
+    context_at_block_of_initialization.historical_header.prove_contract_initialization(
+        contract_address,
+    );
+}
+
+// In this test, we fail to prove contract deployment at the block before it was deployed. This checks for inclusion
+// of the deployment nullifier in state.
+#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
+unconstrained fn proving_contract_deployment_fails() {
+    let (env, contract_address) = setup();
+
+    let context = env.private_at(CONTRACT_DEPLOYED_AT - 1);
+
+    context.historical_header.prove_contract_deployment(contract_address);
+}
+
+// In this test, we fail to prove contract initialization at the block before it was deployed. This checks for inclusion
+// of the initialization nullifier in state.
+#[test(should_fail_with = "Nullifier membership witness not found at block 3.")]
+unconstrained fn proving_contract_initialization_fails() {
+    let (env, contract_address) = setup();
+
+    let context = env.private_at(CONTRACT_INITIALIZED_AT - 1);
+
+    context.historical_header.prove_contract_initialization(contract_address);
+}
+
+// In this test, we fail to prove contract non-deployment at the block of its deployment.
+#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+unconstrained fn proving_contract_non_deployment_fails() {
+    let (env, contract_address) = setup();
+
+    let context = env.private_at(CONTRACT_DEPLOYED_AT);
+
+    context.historical_header.prove_contract_non_deployment(contract_address);
+}
+
+// In this test, we fail to prove contract non-initialization at the block of its deployment.
+#[test(should_fail_with = "Proving nullifier non-inclusion failed")]
+unconstrained fn proving_contract_non_initialization_fails() {
+    let (env, contract_address) = setup();
+
+    let context = env.private_at(CONTRACT_INITIALIZED_AT);
+
+    context.historical_header.prove_contract_non_initialization(contract_address);
 }

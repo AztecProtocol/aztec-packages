@@ -43,33 +43,33 @@ trap 'echo "Sending kill to pid $sandbox_pid"; kill $sandbox_pid &>/dev/null; wa
 while ! curl -fs localhost:8080/status &>/dev/null; do sleep 1; done
 
 # Execute wallet commands as per: https://docs.aztec.network/guides/getting_started
-aztec-wallet create-account -a my-wallet
+aztec-wallet import-test-accounts
 
 # Deploying a contract.
 aztec-wallet deploy TokenContractArtifact \
-  --from accounts:my-wallet \
-  --args accounts:my-wallet TestToken TST 18 -a testtoken
+  --from accounts:test0 \
+  --args accounts:test0 TestToken TST 18 -a testtoken
 
 # Minting public tokens.
 aztec-wallet send mint_to_public \
-  --from accounts:my-wallet \
+  --from accounts:test0 \
   --contract-address contracts:testtoken \
-  --args accounts:my-wallet 100
+  --args accounts:test0 100
 aztec-wallet simulate balance_of_public \
-  --from my-wallet \
+  --from test0 \
   --contract-address testtoken \
-  --args accounts:my-wallet | grep 100n
+  --args accounts:test0 | grep 100n
 
 # Hybrid state and private functions.
 aztec-wallet send transfer_to_private \
-  --from accounts:my-wallet \
+  --from accounts:test0 \
   --contract-address testtoken \
-  --args accounts:my-wallet 25
+  --args accounts:test0 25
 aztec-wallet simulate balance_of_public \
-  --from my-wallet \
+  --from test0 \
   --contract-address testtoken \
-  --args accounts:my-wallet
+  --args accounts:test0
 aztec-wallet simulate balance_of_private \
-  --from my-wallet \
+  --from test0 \
   --contract-address testtoken \
-  --args accounts:my-wallet | grep 25n
+  --args accounts:test0 | grep 25n

@@ -48,22 +48,19 @@ function compile_all {
   # hack, after running prettier foundation may fail to resolve hash.js dependency.
   # it is only currently foundation, presumably because hash.js looks like a js file.
   rm -rf foundation/node_modules
-  compile_project ::: foundation circuits.js types builder ethereum l1-artifacts
+  compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
-    circuit-types \
-    circuits.js \
+    stdlib \
     ivc-integration \
-    kv-store \
     l1-artifacts \
     native \
     noir-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
-    pxe \
-    types
+    pxe
   cat joblog.txt
 
   get_projects | compile_project
@@ -71,10 +68,7 @@ function compile_all {
   cmds=(format)
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=(
-      'yarn tsc -b --emitDeclarationOnly'
-      lint
-    )
+    cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
   else
     # We just need the type declarations required for downstream consumers.
     cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
@@ -93,8 +87,10 @@ function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
   if [ "${CI:-0}" = 1 ]; then
-    # If in CI mode, retry as bcrypto can sometimes fail mysteriously and we don't expect actual yarn install errors.
-    denoise "retry yarn install"
+    # If in CI mode, retry as bcrypto can sometimes fail mysteriously.
+    # We set immutable since we don't expect the yarn.lock to change. Note that we have also added all package.json
+    # files to yarn immutablePatterns, so if they are also changed, this step will fail.
+    denoise "retry yarn install --immutable"
   else
     denoise "yarn install"
   fi
@@ -106,20 +102,38 @@ function test_cmds {
   local hash=$(hash)
   # These need isolation due to network stack usage (p2p, anvil, etc).
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
-    echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+    if [[ ! "$test" =~ testbench ]]; then
+      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+    else
+      # Testbench runs require more memory and CPU.
+      echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+    fi
+
+  done
+
+  # Enable real proofs in prover-client integration tests only on CI full
+  for test in prover-client/src/test/*.test.ts; do
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$hash ISOLATE=1 LOG_LEVEL=verbose CPUS=16 MEM=96g yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash FAKE_PROOFS=1 yarn-project/scripts/run_test.sh $test"
+    fi
   done
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
+  # prover-client/src/test: Enable real proofs only on CI full.
   # prover-node|p2p|ethereum|aztec: Isolated using docker above.
   for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
+    [[ "$test" == prover-client/src/test/* ]] && continue
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
+  echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 }
 
 function test {
@@ -141,14 +155,18 @@ function release_packages {
   local dir=$(mktemp -d)
   cd "$dir"
   do_or_dryrun npm init -y
-  do_or_dryrun npm i "${package_list[@]}"
+  # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
+  # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
+  for package in "${packages_list[@]}"; do
+    do_or_dryrun npm install $package
+  done
   rm -rf "$dir"
 }
 
 function release {
   echo_header "yarn-project release"
   # WORKTODO latest is only on master, otherwise use ref name
-  release_packages latest ${REF_NAME#v}
+  release_packages $(dist_tag) ${REF_NAME#v}
 }
 
 function release_commit {

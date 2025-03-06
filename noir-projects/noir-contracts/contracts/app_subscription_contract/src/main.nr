@@ -13,7 +13,7 @@ pub contract AppSubscription {
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
-        protocol_types::constants::MAX_FIELD_VALUE,
+        protocol_types::{constants::MAX_FIELD_VALUE, traits::ToField},
         utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;
@@ -39,7 +39,7 @@ pub contract AppSubscription {
 
         note.remaining_txs -= 1;
 
-        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(
+        storage.subscriptions.at(user_address).replace(note).emit(encode_and_encrypt_note(
             &mut context,
             user_address,
             user_address,
@@ -67,7 +67,7 @@ pub contract AppSubscription {
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
-        subscription_price: U128,
+        subscription_price: u128,
         fee_juice_limit_per_tx: Field,
     ) {
         storage.config.initialize(
@@ -109,9 +109,8 @@ pub contract AppSubscription {
             &mut context,
         );
 
-        let mut subscription_note =
-            SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
+        let subscription_note = SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
+        storage.subscriptions.at(subscriber).initialize_or_replace(subscription_note).emit(
             encode_and_encrypt_note(&mut context, subscriber, context.msg_sender()),
         );
     }

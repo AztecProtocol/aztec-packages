@@ -4,6 +4,8 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
+import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -13,16 +15,10 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Rollup, RollupConfig, GenesisState, BlockLog} from "@aztec/core/Rollup.sol";
 import {
-  Rollup,
-  Config,
-  BlockLog,
-  L1FeeData,
-  FeeHeader,
-  ManaBaseFeeComponents,
-  SubmitEpochRootProofArgs
-} from "@aztec/core/Rollup.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+  IRollup, SubmitEpochRootProofArgs, PublicInputArgs
+} from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
@@ -41,7 +37,10 @@ import {
   MANA_TARGET,
   MINIMUM_CONGESTION_MULTIPLIER,
   FeeAssetPerEthE9,
-  EthValue
+  EthValue,
+  FeeHeader,
+  L1FeeData,
+  ManaBaseFeeComponents
 } from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 import {
@@ -88,6 +87,8 @@ contract FakeCanonical is IRewardDistributor {
 }
 
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
+  using stdStorage for StdStorage;
+
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using FeeMath for uint256;
@@ -132,16 +133,18 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       IFeeJuicePortal(address(fakeCanonical)),
       IRewardDistributor(address(fakeCanonical)),
       asset,
-      bytes32(0),
-      bytes32(0),
-      bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      bytes32(Constants.GENESIS_BLOCK_HASH),
       address(this),
-      Config({
+      GenesisState({
+        vkTreeRoot: bytes32(0),
+        protocolContractTreeRoot: bytes32(0),
+        genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+        genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH)
+      }),
+      RollupConfig({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
-        aztecProofSubmissionWindow: EPOCH_DURATION * 2,
+        aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
@@ -153,7 +156,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(fakeCanonical), "FAKE CANONICAL");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.CUAUHXICALLI(), "CUAUHXICALLI");
+    vm.label(rollup.getCuauhxicalli(), "CUAUHXICALLI");
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -261,7 +264,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -291,7 +293,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    rollup.setAssumeProvenThroughBlockNumber(10000);
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
+      rollup.getPendingBlockNumber()
+    );
+
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
@@ -363,7 +368,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body,
           b.blobInputs
         );
 
@@ -450,18 +454,18 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           fees[feeIndex * 2 + 1] = bytes32(fee);
         }
 
-        uint256 cuauhxicalliBalanceBefore = asset.balanceOf(rollup.CUAUHXICALLI());
+        uint256 cuauhxicalliBalanceBefore = asset.balanceOf(rollup.getCuauhxicalli());
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
 
-        bytes32[7] memory args = [
-          rollup.getBlock(start).archive,
-          rollup.getBlock(start + epochSize - 1).archive,
-          rollup.getBlock(start).blockHash,
-          rollup.getBlock(start + epochSize - 1).blockHash,
-          bytes32(0),
-          bytes32(0),
-          bytes32(0)
-        ];
+        PublicInputArgs memory args = PublicInputArgs({
+          previousArchive: rollup.getBlock(start).archive,
+          endArchive: rollup.getBlock(start + epochSize - 1).archive,
+          previousBlockHash: rollup.getBlock(start).blockHash,
+          endBlockHash: rollup.getBlock(start + epochSize - 1).blockHash,
+          endTimestamp: Timestamp.wrap(0),
+          outHash: bytes32(0),
+          proverId: address(0)
+        });
 
         bytes memory blobPublicInputs;
         for (uint256 j = 0; j < epochSize; j++) {
@@ -485,7 +489,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           );
         }
 
-        uint256 burned = asset.balanceOf(rollup.CUAUHXICALLI()) - cuauhxicalliBalanceBefore;
+        uint256 burned = asset.balanceOf(rollup.getCuauhxicalli()) - cuauhxicalliBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
 
         // The reward is not yet distributed, but only accumulated.

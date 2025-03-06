@@ -102,7 +102,7 @@ const config = {
               fs.readFileSync(aztecVersionPath).toString()
             )["."];
             return {
-              "aztec-packages": `aztec-packages-v${aztecVersion}`,
+              "aztec-packages": `v${aztecVersion}`,
             };
           } catch (err) {
             throw new Error(
@@ -131,8 +131,8 @@ const config = {
       "docusaurus-plugin-typedoc",
       {
         id: "aztecjs/pxe",
-        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
+        entryPoints: ["../yarn-project/stdlib/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/stdlib/tsconfig.json",
         entryPointStrategy: "expand",
         out: "developers/reference/aztecjs/pxe",
         readme: "none",

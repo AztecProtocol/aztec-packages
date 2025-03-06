@@ -2,6 +2,7 @@ use crate::Auth;
 use crate::test::utils;
 
 use dep::aztec::prelude::AztecAddress;
+use dep::aztec::protocol_types::traits::FromField;
 
 global CHANGE_AUTHORIZED_DELAY_BLOCKS: u32 = 5;
 

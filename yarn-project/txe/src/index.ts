@@ -10,8 +10,8 @@ import {
   loadContractArtifact,
 } from '@aztec/aztec.js';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type Logger } from '@aztec/foundation/log';
-import { type ApiSchemaFor, type ZodFor } from '@aztec/foundation/schemas';
+import type { Logger } from '@aztec/foundation/log';
+import type { ApiSchemaFor, ZodFor } from '@aztec/stdlib/schemas';
 
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
@@ -49,7 +49,7 @@ type TXEForeignCallInput = {
 
 const TXEForeignCallInputSchema = z.object({
   // eslint-disable-next-line camelcase
-  session_id: z.number(),
+  session_id: z.number().int().nonnegative(),
   function: z.string() as ZodFor<MethodNames<TXEService> | 'reset'>,
   // eslint-disable-next-line camelcase
   root_path: z.string(),

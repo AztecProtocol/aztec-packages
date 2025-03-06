@@ -113,8 +113,8 @@ where
 {
     // We get the length by checking the index of the first empty element.
 
-    /// Safety: This is safe because we have validated the array (see function doc above) and the emptiness
-    /// of the element and non-emptiness of the previous element is checked below.
+    // Safety: This is safe because we have validated the array (see function doc above) and the emptiness
+    // of the element and non-emptiness of the previous element is checked below.
     let length = unsafe { find_index_hint(array, |elem: T| is_empty(elem)) };
     if length != 0 {
         assert(!is_empty(array[length - 1]));
@@ -141,7 +141,7 @@ pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N]
 where
     T: Empty + Eq,
 {
-    /// Safety: we constrain this array below
+    // Safety: we constrain this array below
     let result = unsafe { array_merge_helper(array1, array2) };
     // We assume arrays have been validated. The only use cases so far are with previously validated arrays.
     let array1_len = array_length(array1);
@@ -209,6 +209,63 @@ where
     }
 }
 
+// Helper function to find the index of the last element in an array, allowing empty elements.
+// e.g. useful for removing trailing 0s from [1, 0, 2, 0, 0, 0] -> [1, 0, 2]
+// Nothing to do with validated arrays. Correctness constrained by padded_array_length.
+pub unconstrained fn find_last_value_index<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    let mut index = N;
+    for i in 0..N {
+        let j = N - i - 1;
+        // We check `index == N` to ensure that we only update the index if we haven't found a match yet.
+        if (index == N) & !is_empty(array[j]) {
+            index = j;
+        }
+    }
+    index
+}
+
+// Routine which returns the length of an array right padded by empty elements
+// of the form: [*,*,*...,0,0,0,0] where * is any value (zeroes allowed).
+// See smoke_validate_array_trailing for examples.
+// Nothing to do with validated arrays. Correctness constrained by padded_array_length.
+pub unconstrained fn unsafe_padded_array_length<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    let index = find_last_value_index(array);
+    if index == N {
+        0
+    } else {
+        index + 1
+    }
+}
+
+// Routine which validates that zero values of an array form a contiguous region at the end, i.e.,
+// of the form: [*,*,*...,0,0,0,0] where * is any value (zeroes allowed).
+pub fn padded_array_length<T, let N: u32>(array: [T; N]) -> u32
+where
+    T: Empty + Eq,
+{
+    // Safety: this value is constrained in the below loop.
+    let length = unsafe { unsafe_padded_array_length(array) };
+    // Check the elt just before length is non-zero:
+    if length != 0 {
+        assert(!is_empty(array[length - 1]), "invalid right padded array");
+    }
+    // Check all beyond length are zero:
+    let mut check_zero = false;
+    for i in 0..N {
+        check_zero |= i == length;
+        if check_zero {
+            assert(is_empty(array[i]), "invalid right padded array");
+        }
+    }
+    length
+}
+
 #[test]
 fn smoke_validate_array() {
     let valid_array: [Field; 0] = [];
@@ -228,6 +285,30 @@ fn smoke_validate_array() {
 
     let valid_array = [1, 2, 3, 0, 0];
     assert(validate_array(valid_array) == 3);
+}
+
+#[test]
+fn smoke_validate_array_trailing() {
+    let valid_array: [Field; 0] = [];
+    assert(padded_array_length(valid_array) == 0);
+
+    let valid_array = [0];
+    assert(padded_array_length(valid_array) == 0);
+
+    let valid_array = [3];
+    assert(padded_array_length(valid_array) == 1);
+
+    let valid_array = [1, 0, 3];
+    assert(padded_array_length(valid_array) == 3);
+
+    let valid_array = [1, 0, 3, 0];
+    assert(padded_array_length(valid_array) == 3);
+
+    let valid_array = [1, 2, 3, 0, 0];
+    assert(padded_array_length(valid_array) == 3);
+
+    let valid_array = [0, 0, 3, 0, 0];
+    assert(padded_array_length(valid_array) == 3);
 }
 
 #[test(should_fail_with = "invalid array")]

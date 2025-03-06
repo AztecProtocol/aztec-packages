@@ -3,18 +3,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { type Anvil } from '@viem/anvil';
-import {
-  type Abi,
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  createPublicClient,
-  createWalletClient,
-  http,
-} from 'viem';
+import type { Anvil } from '@viem/anvil';
+import { type Abi, createPublicClient, createWalletClient, fallback, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -22,6 +12,7 @@ import { EthCheatCodes } from './eth_cheat_codes.js';
 import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
+import type { SimpleViemWalletClient, ViemPublicClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -37,17 +28,17 @@ export type PendingTransaction = {
 
 describe('GasUtils', () => {
   let gasUtils: L1TxUtilsWithBlobs;
-  let walletClient: WalletClient<HttpTransport, Chain, Account>;
-  let publicClient: PublicClient<HttpTransport, Chain>;
+  let walletClient: SimpleViemWalletClient;
+  let publicClient: ViemPublicClient;
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;
   const initialBaseFee = WEI_CONST; // 1 gwei
   const logger = createLogger('ethereum:test:l1_gas_test');
 
   beforeAll(async () => {
-    const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);
+    const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
     anvil = anvilInstance;
-    cheatCodes = new EthCheatCodes(rpcUrl);
+    cheatCodes = new EthCheatCodes([rpcUrl]);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {
@@ -57,12 +48,12 @@ describe('GasUtils', () => {
     const account = privateKeyToAccount(`0x${privKey}`);
 
     publicClient = createPublicClient({
-      transport: http(rpcUrl),
+      transport: fallback([http(rpcUrl)]),
       chain: foundry,
     });
 
     walletClient = createWalletClient({
-      transport: http(rpcUrl),
+      transport: fallback([http(rpcUrl)]),
       chain: foundry,
       account,
     });
@@ -77,7 +68,6 @@ describe('GasUtils', () => {
     gasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
-      minGwei: 1n,
       maxAttempts: 3,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
@@ -205,7 +195,6 @@ describe('GasUtils', () => {
     const baselineGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 0,
       maxGwei: 500n,
-      minGwei: 10n, // Increased minimum gas price
       maxAttempts: 5,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
@@ -225,7 +214,6 @@ describe('GasUtils', () => {
     const bufferedGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
-      minGwei: 1n,
       maxAttempts: 3,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
