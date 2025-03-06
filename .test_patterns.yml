@@ -136,6 +136,19 @@ tests:
       - "U05QWV669JB" # alex
 
   # kind tests
+
+  - regex: "spartan/bootstrap.sh test-kind-4epochs"
+    owners:
+      - "UBLTU1NJ3" # leila
+
+  - regex: "spartan/bootstrap.sh test-prod-deployment"
+    owners:
+      - "U06AY5G1NRK" # mitch
+
+  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    owners:
+      - "U06AY5G1NRK" # mitch
+
   - regex: "spartan/bootstrap.sh test-kind"
     owners:
       - "U02G4KAD57Y" # phil

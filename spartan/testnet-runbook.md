@@ -16,25 +16,20 @@ The engineering team's public testnet responsibilities begin after code-freeze. 
 
 ### Release Notes and Artifact Builds
 
-Verify the `release-please` CI workflow completed successfully and that release notes have been published. If there were no hotfixes, then this simply moves the tags forward to `v0.64.0`, otherwise, it releases `v0.64.X` (and moves the tags).
-A successful CI run publishes the following Barretenberg artifacts with the release notes:
+A successful tagged CI run publishes the following Barretenberg artifacts with the release notes:
 
 - Barretenberg for Mac (x86 64-bit)
 - Barretenberg for Mac (Arm 64-bit)
 - Barretenberg for Linux (x86 64-bit)
 - Barretenberg for WASM
 
-Additionally, the following NPM packages are published:
-
 - BB.js
 - l1-contracts
-- yarn-project (see [publish_npm.sh](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.63.0/yarn-project/publish_npm.sh))
+- yarn-project
 
 The following Docker containers are also published:
 
 - aztecprotocol/aztec:latest
-- aztecprotocol/aztec-nargo:latest
-- aztecprotocol/cli-wallet:latest
 
 Lastly, any changes made to developer documentation are published to <https://docs.aztec.network>
 

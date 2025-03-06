@@ -56,7 +56,9 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         },
     );
 
-    let context_creation = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
+    let context_creation = quote {
+        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, dep::aztec::protocol_types::traits::Hash::hash($args_hasher_name));
+    };
 
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_internal(f) {

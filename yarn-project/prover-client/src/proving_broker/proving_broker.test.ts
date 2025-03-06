@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobStatus } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
@@ -27,6 +28,9 @@ describe.each([
       proverBrokerPollIntervalMs: 1000,
       proverBrokerBatchIntervalMs: 10,
       proverBrokerBatchSize: 1,
+      l1Contracts: {
+        rollupAddress: EthAddress.random(),
+      } as any,
     };
     const database = await KVBrokerDatabase.new(config);
     const cleanup = () => {
