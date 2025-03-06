@@ -108,8 +108,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                                                     commitments.transcript_z2 };
 
     compute_translation_opening_claims(translation_commitments);
-    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - MASKING_OFFSET}
-    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval, circuit_size);
 
     opening_claims.back() = multivariate_to_univariate_opening_claim;
 
@@ -209,6 +207,9 @@ void ECCVMVerifier::compute_translation_opening_claims(
     // Place the claim to the array containing the SmallSubgroupIPA opening claims
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
+
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - MASKING_OFFSET}
+    shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 };
 
 } // namespace bb
