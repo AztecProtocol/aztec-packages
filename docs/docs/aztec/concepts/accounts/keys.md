@@ -3,6 +3,8 @@ title: Keys
 tags: [accounts, keys]
 ---
 
+import Image from "@theme/IdealImage";
+
 In this section, you will learn what keys are used in Aztec, and how the addresses are derived.
 
 ## Types of keys
@@ -26,7 +28,7 @@ To spend a note, the user computes a nullifier corresponding to this note. A nul
 
 Address keys are used for account [address derivation](../accounts/index.md).
 
-<Image img={require("../../../../static/img/Address_derivation.png")} />
+<Image img={require("/img/authwit.png")} />
 
 Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`.
 
