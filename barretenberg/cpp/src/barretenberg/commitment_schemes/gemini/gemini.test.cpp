@@ -2,7 +2,6 @@
 #include "gemini_impl.hpp"
 
 #include "../commitment_key.test.hpp"
-#include "barretenberg/commitment_schemes/utils/test_utils.hpp"
 
 using namespace bb;
 
@@ -50,50 +49,6 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // Aggregate: d+1 opening pairs and d+1 Fold poly commitments into verifier claim
         auto verifier_claims = GeminiVerifier::reduce_verification(
             multilinear_evaluation_point, mock_claims.claim_batcher, verifier_transcript);
-
-        // Check equality of the opening pairs computed by prover and verifier
-        for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
-            this->verify_opening_claim(verifier_claim, prover_claim.polynomial, ck);
-            ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
-        }
-    }
-
-    void execute_gemini_and_verify_claims_with_concatenation(
-        std::vector<Fr>& multilinear_evaluation_point,
-        MockClaimGenerator<Curve> mock_claims,
-        RefSpan<Polynomial<Fr>> concatenated_polynomials = {},
-        RefSpan<Fr> concatenated_evaluations = {},
-        const std::vector<RefVector<Polynomial<Fr>>>& groups_to_be_concatenated = {},
-        const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {})
-
-    {
-        auto prover_transcript = NativeTranscript::prover_init_empty();
-
-        // Compute:
-        // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
-        // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-        auto prover_output = GeminiProver::prove(this->n,
-                                                 mock_claims.polynomial_batcher,
-                                                 multilinear_evaluation_point,
-                                                 ck,
-                                                 prover_transcript,
-                                                 concatenated_polynomials,
-                                                 groups_to_be_concatenated);
-
-        // Check that the Fold polynomials have been evaluated correctly in the prover
-        this->verify_batch_opening_pair(prover_output);
-
-        auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-
-        // Compute:
-        // - Single opening pair: {r, \hat{a}_0}
-        // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
-        // Aggregate: d+1 opening pairs and d+1 Fold poly commitments into verifier claim
-        auto verifier_claims = GeminiVerifier::reduce_verification(multilinear_evaluation_point,
-                                                                   mock_claims.claim_batcher,
-                                                                   verifier_transcript,
-                                                                   concatenation_group_commitments,
-                                                                   concatenated_evaluations);
 
         // Check equality of the opening pairs computed by prover and verifier
         for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
@@ -151,19 +106,16 @@ TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
 {
     auto u = this->random_evaluation_point(this->log_n);
 
-    MockClaimGenerator mock_claims(
-        this->n, /*num_polynomials*/ 2, /*num_to_be_shifted*/ 0, /*num_to_be_right_shifted_by_k*/ 0, u, this->ck);
+    MockClaimGenerator mock_claims(this->n,
+                                   /*num_polynomials*/ 2,
+                                   /*num_to_be_shifted*/ 0,
+                                   /*num_to_be_right_shifted_by_k*/ 0,
+                                   u,
+                                   this->ck,
+                                   /*num_interleaved*/ 3,
+                                   /*num_to_be_interleaved*/ 2);
 
-    auto [concatenation_groups, concatenated_polynomials, c_evaluations, concatenation_groups_commitments] =
-        generate_concatenation_inputs<TypeParam>(u, /*num_concatenated=*/3, /*concatenation_index=*/2, this->ck);
-
-    this->execute_gemini_and_verify_claims_with_concatenation(
-        u,
-        mock_claims,
-        RefVector(concatenated_polynomials),
-        RefVector(c_evaluations),
-        to_vector_of_ref_vectors(concatenation_groups),
-        to_vector_of_ref_vectors(concatenation_groups_commitments));
+    this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::CK> GeminiTest<Curve>::ck = nullptr;
 template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::VK> GeminiTest<Curve>::vk = nullptr;

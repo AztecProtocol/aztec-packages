@@ -27,13 +27,16 @@ template <typename Relation> constexpr bool subrelation_is_linearly_independent(
 }
 
 template <typename Relation, typename Trace, typename RowGetter>
-void check_relation_internal(const Trace& trace, std::span<const size_t> subrelations, RowGetter get_row)
+void check_relation_internal(const Trace& trace,
+                             std::span<const size_t> subrelations,
+                             uint32_t num_rows,
+                             RowGetter get_row)
 {
     typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
 
     // Accumulate the trace over the subrelations and check the result
     // if the subrelation is linearly independent.
-    for (size_t r = 0; r < trace.size(); ++r) {
+    for (size_t r = 0; r < num_rows; ++r) {
         Relation::accumulate(result, get_row(trace, r), get_test_params(), 1);
         for (size_t j : subrelations) {
             if (subrelation_is_linearly_independent<Relation>(j) && !result[j].is_zero()) {
@@ -65,7 +68,7 @@ void check_relation(const tracegen::TestTraceContainer& trace, Ts... subrelation
 {
     std::array<size_t, sizeof...(Ts)> subrelations = { subrelation... };
     detail::check_relation_internal<Relation>(
-        trace.as_rows(), subrelations, [](const auto& trace, size_t r) { return trace.at(r); });
+        trace.as_rows(), subrelations, trace.get_num_rows(), [](const auto& trace, size_t r) { return trace.at(r); });
 }
 
 template <typename Relation> void check_relation(const tracegen::TestTraceContainer& trace)
@@ -93,7 +96,7 @@ template <typename Lookup> void check_interaction(const tracegen::TestTraceConta
     [&]<size_t... Is>(std::index_sequence<Is...>) {
         constexpr std::array<size_t, sizeof...(Is)> subrels = { Is... };
         detail::check_relation_internal<Lookup>(
-            polys, subrels, [](const auto& polys, size_t r) { return polys.get_row(r); });
+            polys, subrels, num_rows, [](const auto& polys, size_t r) { return polys.get_row(r); });
     }(std::make_index_sequence<Lookup::SUBRELATION_PARTIAL_LENGTHS.size()>());
 }
 

@@ -62,10 +62,10 @@ TEST_F(TranslatorRelationConsistency, PermutationRelation)
         using RelationValues = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? get_random_input() : get_special_input();
-        const auto& concatenated_range_constraints_0 = input_elements.concatenated_range_constraints_0;
-        const auto& concatenated_range_constraints_1 = input_elements.concatenated_range_constraints_1;
-        const auto& concatenated_range_constraints_2 = input_elements.concatenated_range_constraints_2;
-        const auto& concatenated_range_constraints_3 = input_elements.concatenated_range_constraints_3;
+        const auto& interleaved_range_constraints_0 = input_elements.interleaved_range_constraints_0;
+        const auto& interleaved_range_constraints_1 = input_elements.interleaved_range_constraints_1;
+        const auto& interleaved_range_constraints_2 = input_elements.interleaved_range_constraints_2;
+        const auto& interleaved_range_constraints_3 = input_elements.interleaved_range_constraints_3;
         const auto& ordered_range_constraints_0 = input_elements.ordered_range_constraints_0;
         const auto& ordered_range_constraints_1 = input_elements.ordered_range_constraints_1;
         const auto& ordered_range_constraints_2 = input_elements.ordered_range_constraints_2;
@@ -85,9 +85,9 @@ TEST_F(TranslatorRelationConsistency, PermutationRelation)
 
         // (Contribution 1)
         auto contribution_1 =
-            (z_perm + lagrange_first) * (concatenated_range_constraints_0 + gamma) *
-                (concatenated_range_constraints_1 + gamma) * (concatenated_range_constraints_2 + gamma) *
-                (concatenated_range_constraints_3 + gamma) * (ordered_extra_range_constraints_numerator + gamma) -
+            (z_perm + lagrange_first) * (interleaved_range_constraints_0 + gamma) *
+                (interleaved_range_constraints_1 + gamma) * (interleaved_range_constraints_2 + gamma) *
+                (interleaved_range_constraints_3 + gamma) * (ordered_extra_range_constraints_numerator + gamma) -
             (z_perm_shift + lagrange_last) * (ordered_range_constraints_0 + gamma) *
                 (ordered_range_constraints_1 + gamma) * (ordered_range_constraints_2 + gamma) *
                 (ordered_range_constraints_3 + gamma) * (ordered_range_constraints_4 + gamma);

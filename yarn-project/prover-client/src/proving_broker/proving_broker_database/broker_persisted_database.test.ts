@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
 import type { ProofUri, ProvingJob, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
@@ -28,6 +29,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerBatchSize: 1,
       proverBrokerBatchIntervalMs: 10,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
+      l1Contracts: {
+        rollupAddress: EthAddress.random(),
+      } as any,
+      l1RpcUrls: [],
+      l1ChainId: 42,
+      viemPollingIntervalMS: 100,
     };
     db = await KVBrokerDatabase.new(config);
   });
@@ -272,6 +279,47 @@ describe('ProvingBrokerPersistedDatabase', () => {
     expectArrayEquivalence(expectedJobs, allJobs);
   });
 
+  it('deletes databases created for old rollup instances', async () => {
+    const numJobs = 10;
+    const startEpoch = 12;
+    const expectedJobs: [ProvingJob, ProvingJobSettledResult | undefined][] = [];
+    for (let i = 0; i < numJobs; i++) {
+      const id = makeRandomProvingJobId(startEpoch + i);
+      const job: ProvingJob = {
+        id,
+        epochNumber: startEpoch + i,
+        type: ProvingRequestType.BASE_PARITY,
+        inputsUri: makeInputsUri(),
+      };
+      await db.addProvingJob(job);
+      if (i == startEpoch + 2) {
+        expectedJobs.push([job, undefined]);
+      } else if (i % 2) {
+        await db.setProvingJobResult(id, `Proof ${id}` as ProofUri);
+        const result: ProvingJobSettledResult = { status: 'fulfilled', value: `Proof ${id}` as ProofUri };
+        expectedJobs.push([job, result]);
+      } else {
+        await db.setProvingJobError(id, `Proof failed ${id}`);
+        const result: ProvingJobSettledResult = { status: 'rejected', reason: `Proof failed ${id}` };
+        expectedJobs.push([job, result]);
+      }
+    }
+    await db.close();
+
+    // Now create another instance
+    const secondDb = await KVBrokerDatabase.new({
+      ...config,
+      l1Contracts: {
+        ...config.l1Contracts,
+        rollupAddress: EthAddress.random(),
+      },
+    });
+
+    // db should be empty
+    const allJobs = await toArray(secondDb.allProvingJobs());
+    expect(allJobs.length).toBe(0);
+  });
+
   describe('Batching', () => {
     let commitSpy: jest.SpiedFunction<KVBrokerDatabase['commitWrites']>;
     let batchSize: number;
@@ -288,6 +336,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
         proverBrokerBatchSize: batchSize,
         proverBrokerBatchIntervalMs: 10,
         proverBrokerMaxEpochsToKeepResultsFor: 1,
+        l1Contracts: {
+          rollupAddress: EthAddress.random(),
+        } as any,
+        l1RpcUrls: [],
+        l1ChainId: 42,
+        viemPollingIntervalMS: 100,
       };
       db = await KVBrokerDatabase.new(config);
       commitSpy = jest.spyOn(db, 'commitWrites');

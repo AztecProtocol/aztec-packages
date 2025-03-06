@@ -149,7 +149,7 @@ void ECCVMProver::execute_pcs_rounds()
     polynomial_batcher.set_unshifted(key->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
 
-    const OpeningClaim multivariate_to_univariate_opening_claim =
+    OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
                          polynomial_batcher,
                          sumcheck_output.challenge,
@@ -159,10 +159,9 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.round_univariates,
                          sumcheck_output.round_univariate_evaluations);
 
-    const OpeningClaim translation_opening_claim = ECCVMProver::compute_translation_opening_claim();
+    ECCVMProver::compute_translation_opening_claims();
 
-    const std::array<OpeningClaim, 2> opening_claims = { multivariate_to_univariate_opening_claim,
-                                                         translation_opening_claim };
+    opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
     // Reduce the opening claims to a single opening claim via Shplonk
     const OpeningClaim batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
@@ -196,45 +195,116 @@ ECCVMProof ECCVMProver::construct_proof()
 }
 
 /**
- * @brief The evaluations of the wires `op`, `Px`, `Py`, `z_1`, and `z_2` as univariate polynomials have to be proved as
- * they are used in the 'TranslatorVerifier::verify_translation' sub-protocol and its recursive counterpart. To increase
- * the efficiency, we produce an OpeningClaim that is fed to Shplonk along with the OpeningClaim produced by Shplemini.
+ * @brief To link the ECCVM Transcript wires `op`, `Px`, `Py`, `z1`, and `z2` to the accumulator computed by the
+ * translator, we verify their evaluations as univariates. For efficiency reasons, we batch these evaluations.
  *
- * @return ProverOpeningClaim<typename ECCVMFlavor::Curve>
+ * @details As a sub-protocol of ECCVM, we are batch opening the `op`, `Px`, `Py`, `z1`, and `z2` wires as univariates
+ * (as opposed to their openings as multilinears performed after Sumcheck). We often refer to these polynomials as
+ * `translation_polynomials` \f$ T_i \f$ for \f$ i=0, \ldots, 4\f$.
+ * Below, the `evaluation_challenge_x` is denoted by \f$ x \f$ and `batching_challenge_v` is denoted by \f$v\f$.
+ *
+ * The batched translation evaluation
+ * \f{align}{
+ * \sum_{i=0}^4 T_i(x) \cdot v^i
+ * \f}
+ * is used by the \ref TranslatorVerifier to bind the ECCOpQueues over BN254 and Grumpkin. Namely, we
+ * check that the field element \f$ A = \text{accumulated_result} \f$ accumulated from the Ultra ECCOpQueue by
+ * TranslatorProver satisfies
+ * \f{align}{ x\cdot A = \sum_{i=0}^4 T_i(x) \cdot v^i, \f}
+ * where \f$ x \f$ is an artifact of our implementation of shiftable polynomials.
+ *
+ * This check gets trickier when the witness wires in ECCVM are masked. Namely, we randomize the last \f$
+ * \text{MASKING_OFFSET} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
+ * \text{MASKING_OFFSET}\f$. Denote
+ * \f{align}{ \widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X). \f}
+ *
+ * Informally speaking, to preserve ZK, the \ref ECCVMVerifier must never obtain the commitments to \f$ T_i \f$ or
+ * the evaluations \f$ T_i(x) \f$ of the unmasked wires.
+ *
+ * With masking, the identity above becomes
+ * \f{align}{ x\cdot A = \sum_i (\widetilde{T}_i - X^N \cdot m_i(X)) v^i =\sum_i \widetilde{T}_i v^i - X^N \cdot \sum_i
+ * m_i(X) v^i \f}
+ *
+ * The prover could send the evals of \f$ \widetilde{T}_i \f$ without revealing witness information. Moreover, the
+ * prover could prove the evaluation \f$ x^N \cdot \sum m_i(x) v^i \f$ using SmallSubgroupIPA argument. Namely, before
+ * obtaining \f$ x \f$ and \f$ v \f$, the prover sends a commitment to the polynomial \f$ \widetilde{M} = M + Z_H \cdot
+ * R\f$, where the coefficients of \f$ M \f$ are given by the concatenation \f{align}{ M = (m_0||m_1||m_2||m_3||m_4 ||
+ * \vec{0}) \f} in the Lagrange basis over the small multiplicative subgroup \f$ H \f$, where \f$ Z_H \f$ is the
+ * vanishing polynomial \f$ X^{|H|} -1 \f$ and \f$ R(X) \f$ is a random polynomial of degree \f$ 2 \f$. \ref
+ * SmallSubgroupIPAProver allows us to prove the inner product of \f$ M \f$ against the `challenge_polynomial`
+ * \f{align}{ ( 1, x , x^2 , x^3, v , v\cdot x ,\ldots, ... , v^4, v^4 x , v^4 x^2 , v^4 x^3, \vec{0} )\f}
+ * without revealing any other witness information apart from the claimed inner product.
+ *
+ * @return Ppopulate `opening_claims`.
+ *
  */
-ProverOpeningClaim<typename ECCVMFlavor::Curve> ECCVMProver::compute_translation_opening_claim()
+void ECCVMProver::compute_translation_opening_claims()
 {
-    // Collect the polynomials and evaluations to be batched
+    // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
+    using SmallIPA = SmallSubgroupIPAProver<ECCVMFlavor>;
+
+    // Initialize SmallSubgroupIPA structures
+    std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
+
+    // Collect the polynomials to be batched
     RefArray translation_polynomials{ key->polynomials.transcript_op,
                                       key->polynomials.transcript_Px,
                                       key->polynomials.transcript_Py,
                                       key->polynomials.transcript_z1,
                                       key->polynomials.transcript_z2 };
 
-    // Get the challenge at which we evaluate all transcript polynomials as univariates
+    // Extract the masking terms of `translation_polynomials`, concatenate them in the Lagrange basis over SmallSubgroup
+    // H, mask the resulting polynomial, and commit to it
+    TranslationData<Transcript> translation_data(translation_polynomials, transcript, key->commitment_key);
+
+    // Get a challenge to evaluate the `translation_polynomials` as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
-    // Evaluate the transcript polynomials as univariates and add their evaluations at x to the transcript
+    // Evaluate `translation_polynomial` as univariates and add their evaluations at x to the transcript
     for (auto [eval, poly, label] :
-         zip_view(translation_evaluations.get_all(), translation_polynomials, translation_labels)) {
+         zip_view(translation_evaluations.get_all(), translation_polynomials, translation_evaluations.labels)) {
         eval = poly.evaluate(evaluation_challenge_x);
         transcript->template send_to_verifier(label, eval);
     }
 
     // Get another challenge to batch the evaluations of the transcript polynomials
-    translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
+    batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
 
-    // Construct the batched polynomial and batched evaluation to produce the batched opening claim
+    SmallIPA translation_masking_term_prover(
+        translation_data, evaluation_challenge_x, batching_challenge_v, transcript, key->commitment_key);
+    translation_masking_term_prover.prove();
+
+    // Get the challenge to check evaluations of the SmallSubgroupIPA witness polynomials
+    FF small_ipa_evaluation_challenge =
+        transcript->template get_challenge<FF>("Translation:small_ipa_evaluation_challenge");
+
+    // Populate SmallSubgroupIPA opening claims:
+    // 1. Get the evaluation points and labels
+    evaluation_points = translation_masking_term_prover.evaluation_points(small_ipa_evaluation_challenge);
+    evaluation_labels = translation_masking_term_prover.evaluation_labels();
+    // 2. Compute the evaluations of witness polynomials at corresponding points, send them to the verifier, and create
+    // the opening claims
+    for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
+        auto witness_poly = translation_masking_term_prover.get_witness_polynomials()[idx];
+        const FF evaluation = witness_poly.evaluate(evaluation_points[idx]);
+        transcript->send_to_verifier(evaluation_labels[idx], evaluation);
+        opening_claims[idx] = { .polynomial = witness_poly, .opening_pair = { evaluation_points[idx], evaluation } };
+    }
+
+    // Compute the opening claim for the masked evaluations of `op`, `Px`, `Py`, `z1`, and `z2` at
+    // `evaluation_challenge_x` batched by the powers of `batching_challenge_v`.
     Polynomial batched_translation_univariate{ key->circuit_size };
     FF batched_translation_evaluation{ 0 };
     FF batching_scalar = FF(1);
     for (auto [polynomial, eval] : zip_view(translation_polynomials, translation_evaluations.get_all())) {
         batched_translation_univariate.add_scaled(polynomial, batching_scalar);
         batched_translation_evaluation += eval * batching_scalar;
-        batching_scalar *= translation_batching_challenge_v;
+        batching_scalar *= batching_challenge_v;
     }
 
-    return { .polynomial = batched_translation_univariate,
-             .opening_pair = { evaluation_challenge_x, batched_translation_evaluation } };
+    // Add the batched claim to the array of SmallSubgroupIPA opening claims.
+    opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { batched_translation_univariate,
+                                                  { evaluation_challenge_x, batched_translation_evaluation } };
 }
 } // namespace bb
