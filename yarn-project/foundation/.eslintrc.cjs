@@ -57,6 +57,13 @@ module.exports = {
             message: 'You should not be importing from a build directory. Did you accidentally do a relative import?',
           },
         ],
+        paths: [
+          {
+            name: 'viem',
+            importNames: ['fallback'],
+            message: "Please use our @aztec/ethereum implementation instead of viem's fallback.",
+          },
+        ],
       },
     ],
     'import/no-unresolved': [

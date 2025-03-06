@@ -1,3 +1,5 @@
+import { sleep } from '@aztec/foundation/sleep';
+
 import type { Anvil } from '@viem/anvil';
 import {
   type PrivateKeyAccount,
@@ -24,7 +26,12 @@ describe('fallback_transport', () => {
   let anvil1: Anvil;
   let anvil2: Anvil;
 
-  beforeAll(async () => {
+  afterAll(async () => {
+    await anvil1.stop();
+    await anvil2.stop();
+  }, 5_000);
+
+  beforeEach(async () => {
     // Start two separate Anvil instances
     const anvil1Result = await startAnvil();
     const anvil2Result = await startAnvil();
@@ -46,14 +53,6 @@ describe('fallback_transport', () => {
       transport: http(rpcUrl2),
       chain: foundry,
     });
-  });
-
-  afterAll(async () => {
-    await anvil1.stop();
-    await anvil2.stop();
-  }, 5_000);
-
-  beforeEach(() => {
     account = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
 
     // Create a client with fallback transport using both nodes
@@ -115,6 +114,44 @@ describe('fallback_transport', () => {
       expect(blockByHash2.number).toBeGreaterThanOrEqual(1n);
     } else {
       fail('Transaction should have a block hash');
+    }
+  });
+
+  it('does not fall back when encountering a contract error', async () => {
+    // Deploy a simple contract that will revert
+    // This is a minimal contract that always reverts with "ALWAYS_REVERT"
+    const bytecode = '0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe6080604052600080fdfe';
+
+    // Deploy the contract
+    const deployHash = await client.sendTransaction({
+      data: bytecode,
+    });
+    const deployReceipt = await client.waitForTransactionReceipt({ hash: deployHash });
+    expect(deployReceipt.status).toBe('success');
+    const contractAddress = deployReceipt.contractAddress;
+    expect(contractAddress).toBeDefined();
+
+    // this should revert
+    try {
+      await client.sendTransaction({
+        to: contractAddress,
+        data: '0xcafe',
+      });
+
+      fail('Transaction should have reverted');
+    } catch (error: any) {
+      // The error should be from the first node
+      expect(error.message).toContain('revert');
+
+      // Wait a sec to ensure any potential transaction would have been processed
+      await sleep(1000);
+
+      // Check that no transactions were sent to the contract on the second node
+      const block1 = await publicClient1.getBlock();
+      const block2 = await publicClient2.getBlock();
+
+      expect(block1.transactions.length).toBe(1);
+      expect(block2.transactions.length).toBe(0);
     }
   });
 });
