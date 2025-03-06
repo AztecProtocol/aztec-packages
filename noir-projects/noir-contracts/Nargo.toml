@@ -42,7 +42,8 @@ members = [
     "contracts/token_contract",
     "contracts/token_blacklist_contract",
     "contracts/token_bridge_contract",
-    "contracts/token_portal_content_hash_lib",
+# This breaks ci3's way of compiling contracts
+#    "contracts/token_portal_content_hash_lib",
     "contracts/uniswap_contract",
     "contracts/updatable_contract",
     "contracts/updated_contract",
