@@ -44,6 +44,7 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/986): Ensure the translation is also recursively
     // verified somewhere
-    bool verify_translation(const TranslationEvaluations& translation_evaluations);
+    bool verify_translation(const TranslationEvaluations& translation_evaluations,
+                            const BF& translation_masking_term_eval);
 };
 } // namespace bb

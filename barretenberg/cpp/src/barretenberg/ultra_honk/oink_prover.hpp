@@ -63,7 +63,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
     RelationSeparator generate_alphas_round();
-    void mask_witness_polynomial(Polynomial<FF>& polynomial);
     void commit_to_witness_polynomial(Polynomial<FF>& polynomial,
                                       const std::string& label,
                                       const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);
