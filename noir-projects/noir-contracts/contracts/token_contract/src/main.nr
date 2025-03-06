@@ -44,7 +44,6 @@ pub contract Token {
     // docs:end:import_authwit
 
     use crate::types::balance_set::BalanceSet;
-    use std::ops::{Add, Sub};
 
     // docs:end::imports
 
