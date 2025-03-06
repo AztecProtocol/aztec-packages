@@ -59,10 +59,13 @@ export function getConfigEnvVars(): AztecNodeConfig {
 }
 
 /**
- * Returns package name and version.
+ * Returns package version.
  */
-export function getPackageInfo() {
-  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
-  return { version, name };
+export function getPackageVersion() {
+  const releasePleaseManifestPath = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../.release-please-manifest.json',
+  );
+  const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString());
+  return version['.'];
 }
