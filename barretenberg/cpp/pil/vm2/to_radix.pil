@@ -68,6 +68,7 @@ namespace to_radix;
     // EXPONENTIATION
 
     pol commit exponent;
+    // We commit not_padding_limb instead of the more natural padding_limb because it's going to be used in a lookup
     pol commit not_padding_limb;
     not_padding_limb * (1 - not_padding_limb) = 0;
 
@@ -96,6 +97,7 @@ namespace to_radix;
     // Limb index must increase
     not_end * (limb_index + 1 - limb_index') = 0;
 
+    // Range check limb so we can safely assert that it's less than radix.
     #[LIMB_RANGE]
     sel { limb }
     in
@@ -133,8 +135,6 @@ namespace to_radix;
     // OVERFLOW PROTECTION
 
     pol commit safe_limbs;
-    pol commit is_unsafe_limb;
-    is_unsafe_limb * (1 - is_unsafe_limb) = 0;
 
     #[FETCH_SAFE_LIMBS]
     start { radix, safe_limbs }
@@ -142,6 +142,8 @@ namespace to_radix;
     precomputed.sel_to_radix_safe_limbs
         { precomputed.clk, precomputed.to_radix_safe_limbs };
 
+    pol commit is_unsafe_limb;
+    is_unsafe_limb * (1 - is_unsafe_limb) = 0;
 
     // If is_padding_limb, limb is zero
     (1 - not_padding_limb) * limb = 0;
@@ -153,6 +155,7 @@ namespace to_radix;
     pol commit safety_diff_inverse;
     sel * (safety_diff * (is_unsafe_limb * (1 - safety_diff_inverse) + safety_diff_inverse) - 1 + is_unsafe_limb) = 0;
 
+    // The limb of the modulus p decomposed by radix at this limb_index
     pol commit p_limb;
 
     #[FETCH_P_LIMB]
@@ -161,6 +164,7 @@ namespace to_radix;
     precomputed.sel_p_decomposition
         { precomputed.p_decomposition_radix, precomputed.p_decomposition_limb_index, precomputed.p_decomposition_limb };
 
+    // We carry wether the accumulator is under p. If we reach the unsafe limb, we need to ensure that this is true.
     pol commit acc_under_p;
     acc_under_p * (1 - acc_under_p) = 0;
 
