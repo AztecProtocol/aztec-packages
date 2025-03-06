@@ -178,11 +178,11 @@ class lookup_to_radix_limb_less_than_radix_range_relation
     }
 };
 
-/////////////////// lookup_to_radix_safe_limbs_precomputed ///////////////////
+/////////////////// lookup_to_radix_fetch_safe_limbs ///////////////////
 
-class lookup_to_radix_safe_limbs_precomputed_settings {
+class lookup_to_radix_fetch_safe_limbs_settings {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_SAFE_LIMBS_PRECOMPUTED";
+    static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_FETCH_SAFE_LIMBS";
     static constexpr std::string_view RELATION_NAME = "to_radix";
 
     static constexpr size_t READ_TERMS = 1;
@@ -197,8 +197,8 @@ class lookup_to_radix_safe_limbs_precomputed_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::to_radix_start;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_to_radix_safe_limbs;
-    static constexpr Column COUNTS = Column::lookup_to_radix_safe_limbs_precomputed_counts;
-    static constexpr Column INVERSES = Column::lookup_to_radix_safe_limbs_precomputed_inv;
+    static constexpr Column COUNTS = Column::lookup_to_radix_fetch_safe_limbs_counts;
+    static constexpr Column INVERSES = Column::lookup_to_radix_fetch_safe_limbs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::to_radix_radix, ColumnAndShifts::to_radix_safe_limbs
     };
@@ -232,8 +232,8 @@ class lookup_to_radix_safe_limbs_precomputed_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_to_radix_safe_limbs_precomputed_inv(),
-                                     in._lookup_to_radix_safe_limbs_precomputed_counts(),
+        return std::forward_as_tuple(in._lookup_to_radix_fetch_safe_limbs_inv(),
+                                     in._lookup_to_radix_fetch_safe_limbs_counts(),
                                      in._to_radix_start(),
                                      in._precomputed_sel_to_radix_safe_limbs(),
                                      in._to_radix_radix(),
@@ -244,16 +244,16 @@ class lookup_to_radix_safe_limbs_precomputed_settings {
 };
 
 template <typename FF_>
-class lookup_to_radix_safe_limbs_precomputed_relation
-    : public GenericLookupRelation<lookup_to_radix_safe_limbs_precomputed_settings, FF_> {
+class lookup_to_radix_fetch_safe_limbs_relation
+    : public GenericLookupRelation<lookup_to_radix_fetch_safe_limbs_settings, FF_> {
   public:
-    using Settings = lookup_to_radix_safe_limbs_precomputed_settings;
-    static constexpr std::string_view NAME = lookup_to_radix_safe_limbs_precomputed_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_to_radix_safe_limbs_precomputed_settings::RELATION_NAME;
+    using Settings = lookup_to_radix_fetch_safe_limbs_settings;
+    static constexpr std::string_view NAME = lookup_to_radix_fetch_safe_limbs_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_to_radix_fetch_safe_limbs_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lookup_to_radix_safe_limbs_precomputed_inv.is_zero();
+        return in.lookup_to_radix_fetch_safe_limbs_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -267,11 +267,11 @@ class lookup_to_radix_safe_limbs_precomputed_relation
     }
 };
 
-/////////////////// lookup_to_radix_p_decomposition_lookup ///////////////////
+/////////////////// lookup_to_radix_fetch_p_limb ///////////////////
 
-class lookup_to_radix_p_decomposition_lookup_settings {
+class lookup_to_radix_fetch_p_limb_settings {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_P_DECOMPOSITION_LOOKUP";
+    static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_FETCH_P_LIMB";
     static constexpr std::string_view RELATION_NAME = "to_radix";
 
     static constexpr size_t READ_TERMS = 1;
@@ -286,8 +286,8 @@ class lookup_to_radix_p_decomposition_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::to_radix_not_padding_limb;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_p_decomposition;
-    static constexpr Column COUNTS = Column::lookup_to_radix_p_decomposition_lookup_counts;
-    static constexpr Column INVERSES = Column::lookup_to_radix_p_decomposition_lookup_inv;
+    static constexpr Column COUNTS = Column::lookup_to_radix_fetch_p_limb_counts;
+    static constexpr Column INVERSES = Column::lookup_to_radix_fetch_p_limb_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::to_radix_radix, ColumnAndShifts::to_radix_limb_index, ColumnAndShifts::to_radix_p_limb
     };
@@ -323,8 +323,8 @@ class lookup_to_radix_p_decomposition_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_to_radix_p_decomposition_lookup_inv(),
-                                     in._lookup_to_radix_p_decomposition_lookup_counts(),
+        return std::forward_as_tuple(in._lookup_to_radix_fetch_p_limb_inv(),
+                                     in._lookup_to_radix_fetch_p_limb_counts(),
                                      in._to_radix_not_padding_limb(),
                                      in._precomputed_sel_p_decomposition(),
                                      in._to_radix_radix(),
@@ -337,16 +337,15 @@ class lookup_to_radix_p_decomposition_lookup_settings {
 };
 
 template <typename FF_>
-class lookup_to_radix_p_decomposition_lookup_relation
-    : public GenericLookupRelation<lookup_to_radix_p_decomposition_lookup_settings, FF_> {
+class lookup_to_radix_fetch_p_limb_relation : public GenericLookupRelation<lookup_to_radix_fetch_p_limb_settings, FF_> {
   public:
-    using Settings = lookup_to_radix_p_decomposition_lookup_settings;
-    static constexpr std::string_view NAME = lookup_to_radix_p_decomposition_lookup_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_to_radix_p_decomposition_lookup_settings::RELATION_NAME;
+    using Settings = lookup_to_radix_fetch_p_limb_settings;
+    static constexpr std::string_view NAME = lookup_to_radix_fetch_p_limb_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_to_radix_fetch_p_limb_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lookup_to_radix_p_decomposition_lookup_inv.is_zero();
+        return in.lookup_to_radix_fetch_p_limb_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

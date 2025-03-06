@@ -136,7 +136,7 @@ namespace to_radix;
     pol commit is_unsafe_limb;
     is_unsafe_limb * (1 - is_unsafe_limb) = 0;
 
-    #[SAFE_LIMBS_PRECOMPUTED]
+    #[FETCH_SAFE_LIMBS]
     start { radix, safe_limbs }
     in
     precomputed.sel_to_radix_safe_limbs
@@ -155,7 +155,7 @@ namespace to_radix;
 
     pol commit p_limb;
 
-    #[P_DECOMPOSITION_LOOKUP]
+    #[FETCH_P_LIMB]
     not_padding_limb { radix, limb_index, p_limb }
     in
     precomputed.sel_p_decomposition

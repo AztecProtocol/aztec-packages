@@ -28,10 +28,10 @@ using simulation::EventEmitter;
 using simulation::ToRadixEvent;
 using tracegen::LookupIntoIndexedByClk;
 using tracegen::LookupIntoPDecomposition;
-using lookup_to_radix_limb_range = bb::avm2::lookup_to_radix_limb_range_relation<FF>;
-using lookup_to_radix_limb_less_than_radix_range = bb::avm2::lookup_to_radix_limb_less_than_radix_range_relation<FF>;
-using lookup_to_radix_safe_limbs_precomputed = bb::avm2::lookup_to_radix_safe_limbs_precomputed_relation<FF>;
-using lookup_p_decomposition = bb::avm2::lookup_to_radix_p_decomposition_lookup_relation<FF>;
+using lookup_limb_range = bb::avm2::lookup_to_radix_limb_range_relation<FF>;
+using lookup_limb_less_than_radix_range = bb::avm2::lookup_to_radix_limb_less_than_radix_range_relation<FF>;
+using lookup_fetch_safe_limbs = bb::avm2::lookup_to_radix_fetch_safe_limbs_relation<FF>;
+using lookup_fetch_p_limb = bb::avm2::lookup_to_radix_fetch_p_limb_relation<FF>;
 using lookup_limb_p_diff_range = bb::avm2::lookup_to_radix_limb_p_diff_range_relation<FF>;
 
 TEST(ToRadixConstrainingTest, EmptyRow)
@@ -233,17 +233,17 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
 
-    LookupIntoIndexedByClk<lookup_to_radix_limb_range::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_to_radix_safe_limbs_precomputed::Settings>().process(trace);
-    LookupIntoPDecomposition<lookup_p_decomposition::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_limb_range::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_limb_less_than_radix_range::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_fetch_safe_limbs::Settings>().process(trace);
+    LookupIntoPDecomposition<lookup_fetch_p_limb::Settings>().process(trace);
     LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
 
     check_relation<to_radix>(trace);
-    check_interaction<lookup_to_radix_limb_range>(trace);
-    check_interaction<lookup_to_radix_limb_less_than_radix_range>(trace);
-    check_interaction<lookup_to_radix_safe_limbs_precomputed>(trace);
-    check_interaction<lookup_p_decomposition>(trace);
+    check_interaction<lookup_limb_range>(trace);
+    check_interaction<lookup_limb_less_than_radix_range>(trace);
+    check_interaction<lookup_fetch_safe_limbs>(trace);
+    check_interaction<lookup_fetch_p_limb>(trace);
     check_interaction<lookup_limb_p_diff_range>(trace);
 }
 
@@ -268,17 +268,17 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
 
-    LookupIntoIndexedByClk<lookup_to_radix_limb_range::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_to_radix_safe_limbs_precomputed::Settings>().process(trace);
-    LookupIntoPDecomposition<lookup_p_decomposition::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_limb_range::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_limb_less_than_radix_range::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_fetch_safe_limbs::Settings>().process(trace);
+    LookupIntoPDecomposition<lookup_fetch_p_limb::Settings>().process(trace);
     LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
 
     check_relation<to_radix>(trace);
-    check_interaction<lookup_to_radix_limb_range>(trace);
-    check_interaction<lookup_to_radix_limb_less_than_radix_range>(trace);
-    check_interaction<lookup_to_radix_safe_limbs_precomputed>(trace);
-    check_interaction<lookup_p_decomposition>(trace);
+    check_interaction<lookup_limb_range>(trace);
+    check_interaction<lookup_limb_less_than_radix_range>(trace);
+    check_interaction<lookup_fetch_safe_limbs>(trace);
+    check_interaction<lookup_fetch_p_limb>(trace);
     check_interaction<lookup_limb_p_diff_range>(trace);
 }
 

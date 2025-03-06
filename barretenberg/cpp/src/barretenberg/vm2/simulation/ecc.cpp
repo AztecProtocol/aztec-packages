@@ -23,7 +23,6 @@ EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& sc
 
     // First iteration does conditional assignment instead of addition
     EmbeddedCurvePoint temp = point;
-    // TODO(Alvaro): Call to radix here when it is implemented.
     bool bit = bits[0];
 
     EmbeddedCurvePoint result = bit ? temp : EmbeddedCurvePoint::infinity();

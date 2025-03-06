@@ -633,6 +633,34 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
                               "Relation.*SCALAR_MUL_ADD.* ACCUMULATION.* is non-zero");
 }
 
+TEST(ScalarMulConstrainingTest, NegativeMulRadixInteractions)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_relation::Settings>().process(trace),
+        "Failed.*SCALAR_MUL_TO_RADIX. Could not find tuple in destination.");
+
+    check_relation<scalar_mul>(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_scalar_mul_to_radix_relation>(trace),
+                              "Relation.*SCALAR_MUL_TO_RADIX.* ACCUMULATION.* is non-zero");
+}
+
 TEST(ScalarMulConstrainingTest, NegativeDisableSel)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;

@@ -32,6 +32,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
@@ -282,7 +283,10 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>(),
             // To radix
             std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_range_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range_settings>>());
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_fetch_safe_limbs_settings>>(),
+            std::make_unique<LookupIntoPDecomposition<lookup_to_radix_fetch_p_limb_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_p_diff_range_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

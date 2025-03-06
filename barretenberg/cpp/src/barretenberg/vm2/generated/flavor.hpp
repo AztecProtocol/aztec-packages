@@ -150,11 +150,11 @@ class AvmFlavor {
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
+        lookup_to_radix_fetch_p_limb_relation<FF_>,
+        lookup_to_radix_fetch_safe_limbs_relation<FF_>,
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
-        lookup_to_radix_limb_range_relation<FF_>,
-        lookup_to_radix_p_decomposition_lookup_relation<FF_>,
-        lookup_to_radix_safe_limbs_precomputed_relation<FF_>>;
+        lookup_to_radix_limb_range_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
 
