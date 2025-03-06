@@ -114,7 +114,7 @@ arg_port_assignment=""
 
 # Dynamic port assignment.
 if [ -n "${AZTEC_PORT:-}" ]; then
-  arg_port_assignment+="-p $AZTEC_PORT:$AZTEC_PORT "
+  arg_port_assignment+=" -p $AZTEC_PORT:$AZTEC_PORT "
 fi
 
 if [ -n "${P2P_TCP_LISTEN_ADDR:-}" ]; then
