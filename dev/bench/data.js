@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741284068917,
+  "lastUpdate": 1741286938726,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "saleel@aztecprotocol.com",
-            "name": "saleel",
-            "username": "saleel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "035bdb65cdeab264cb01822ea7c6f15c77717d40",
-          "message": "feat: add wasm mode for profiler (#12407)\n\n+fix the profiler",
-          "timestamp": "2025-03-03T21:29:29Z",
-          "tree_id": "7e8193559e0606fce388c729cebc30c4c0582c8a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/035bdb65cdeab264cb01822ea7c6f15c77717d40"
-        },
-        "date": 1741039314379,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18203.51833399991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15940.115910999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18732.819159999963,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16338.215185 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3926.0127779998584,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3131.5731460000006 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55181.495011,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55181496000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10419.563221,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10419584000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1911060090,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1911060090 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 219538181,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 219538181 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 221672200,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 221672200 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fb9ada38d49d5cdedf5a9f358ce8b8e56bf5170c",
+          "message": "chore: Fix yarn install immutable issues (#12539)\n\nWe introduced two issues in #12125 when adding the immutable patterns to\nyarn install:\n\n- If `immutablePatterns` is set, yarn sets the `immutable` flag even\noutside CI (contradicting its documentation). This is fixed by\nexplicitly setting `--no-immutable` on the non-CI branch of install.\n\n- The glob `**/package.json` inadvertently matched package.json files\nwithin `node_modules`, so installing them created the new files, which\nmeans they were flagged as changed. This is fixed by having a less eager\nglob.\n\nFixes #12538",
+          "timestamp": "2025-03-06T18:05:30Z",
+          "tree_id": "78ba6f5d77e1216353a5cbbfe43f37ec161db04b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fb9ada38d49d5cdedf5a9f358ce8b8e56bf5170c"
+        },
+        "date": 1741286931363,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18233.103634000145,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16126.868903999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18758.14135399992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16363.875466 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3879.4861850001325,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3082.134408 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55729.37016399999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55729369000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9716.030450000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9716033000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1904155558,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1904155558 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 215058238,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 215058238 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
