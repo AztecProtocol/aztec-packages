@@ -752,6 +752,9 @@ template <typename Builder> class CycleGroupBase {
              * will use the context of another input parameter
              */
             const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
+#ifdef SHOW_INFORMATION
+            std::cout << "Constant predicate? " << predicate_has_ctx << std::endl;
+#endif
             return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
         }
 
@@ -858,7 +861,7 @@ template <typename Builder> class CycleGroupBase {
                 case 0:
                     return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
                 case 1:
-                    return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
+                    return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
                 case 2:
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
                 }
@@ -967,12 +970,10 @@ template <typename Builder> class CycleGroupBase {
                     // Assert equal does nothing in this case
                     return;
                 }
-                auto to_add = cycle_group_t::from_witness(builder, AffineElement(this->base - other.base));
-                this->cycle_group.assert_equal(other.cg() + to_add);
-            } else {
-                auto to_add = cycle_group_t::from_witness(builder, AffineElement(this->base - other.base));
-                this->cg().assert_equal(other.cg() + to_add);
             }
+            auto to_add = cycle_group_t::from_witness(builder, AffineElement(this->base - other.base));
+            auto to_ae = other.cg() + to_add;
+            this->cg().assert_equal(to_ae);
         }
 
         /* Explicit re-instantiation using the various cycle_group_t constructors */
