@@ -858,59 +858,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-  async produceNoteDao(
-    contractAddress: AztecAddress,
-    storageSlot: Fr,
-    nonce: Fr,
-    content: Fr[],
-    noteHash: Fr,
-    nullifier: Fr,
-    txHash: Fr,
-    recipient: AztecAddress,
-  ): Promise<NoteDao> {
-    // We need to validate that the note does indeed exist in the world state to avoid adding notes that are then
-    // impossible to prove.
-
-    const receipt = await this.aztecNode.getTxReceipt(new TxHash(txHash));
-    if (receipt === undefined) {
-      throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
-    }
-
-    // Siloed and unique hashes are computed by us instead of relying on values sent by the contract to make sure
-    // we're not e.g. storing notes that belong to some other contract, which would constitute a security breach.
-    const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
-    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
-
-    // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
-    // note existence in said tree. Note that while this is technically a historical query, we perform it at the latest
-    // locally synced block number which *should* be recent enough to be available. We avoid querying at 'latest' since
-    // we want to avoid accidentally processing notes that only exist ahead in time of the locally synced state.
-    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
-    const uniqueNoteHashTreeIndex = (
-      await this.aztecNode.findLeavesIndexes(syncedBlockNumber!, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash])
-    )[0];
-    if (uniqueNoteHashTreeIndex === undefined) {
-      throw new Error(
-        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
-      );
-    }
-
-    return new NoteDao(
-      new Note(content),
-      contractAddress,
-      storageSlot,
-      nonce,
-      noteHash,
-      siloedNullifier,
-      new TxHash(txHash),
-      receipt.blockNumber!,
-      receipt.blockHash!.toString(),
-      uniqueNoteHashTreeIndex,
-      await recipient.toAddressPoint(),
-      NoteSelector.empty(), // TODO(#12013): remove
-    );
-  }
-
   async callProcessLog(
     contractAddress: AztecAddress,
     logPlaintext: Fr[],
