@@ -26,7 +26,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
-import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
