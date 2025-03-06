@@ -1,13 +1,14 @@
-import { BBWASMLazyPrivateKernelProver } from '@aztec/bb-prover/wasm/lazy';
+import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/indexeddb';
-import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
+import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 
-import type { PXEServiceConfig } from '../config/index.js';
-import { PXEService } from '../pxe_service/pxe_service.js';
+import type { PXEServiceConfig } from '../../config/index.js';
+import { PXEService } from '../../pxe_service/pxe_service.js';
 
 /**
  * Create and start an PXEService instance with the given AztecNode.
@@ -35,11 +36,11 @@ export async function createPXEService(
     l1Contracts,
   } as PXEServiceConfig;
 
-  const store = await createStore('pxe_data', configWithContracts, createLogger('pxe:data:indexeddb'));
+  const store = await createStore('pxe_data', configWithContracts, createLogger('pxe:data:lmdb'));
 
   const simulationProvider = new WASMSimulator();
-  const prover = proofCreator ?? new BBWASMLazyPrivateKernelProver(simulationProvider, 16);
-  const protocolContractsProvider = new LazyProtocolContractsProvider();
+  const prover = proofCreator ?? (await createProver(config, simulationProvider, logSuffix));
+  const protocolContractsProvider = new BundledProtocolContractsProvider();
   const pxe = await PXEService.create(
     aztecNode,
     store,
@@ -50,4 +51,15 @@ export async function createPXEService(
     logSuffix,
   );
   return pxe;
+}
+
+function createProver(config: PXEServiceConfig, simulationProvider: SimulationProvider, logSuffix?: string) {
+  if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
+    return new BBWASMBundlePrivateKernelProver(simulationProvider, 16);
+  } else {
+    const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> &
+      PXEServiceConfig;
+    const log = createLogger('pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
+    return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, simulationProvider, log);
+  }
 }

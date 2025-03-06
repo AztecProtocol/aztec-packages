@@ -17,21 +17,9 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/bb-prover@link:../yarn-project/bb-prover::locator=%40aztec%2Fplayground%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/bb-prover@link:../yarn-project/bb-prover::locator=%40aztec%2Fplayground%40workspace%3A."
-  languageName: node
-  linkType: soft
-
 "@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fplayground%40workspace%3A."
-  languageName: node
-  linkType: soft
-
-"@aztec/key-store@link:../yarn-project/key-store::locator=%40aztec%2Fplayground%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/key-store@link:../yarn-project/key-store::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -47,13 +35,9 @@ __metadata:
   dependencies:
     "@aztec/accounts": "link:../yarn-project/accounts"
     "@aztec/aztec.js": "link:../yarn-project/aztec.js"
-    "@aztec/bb-prover": "link:../yarn-project/bb-prover"
     "@aztec/foundation": "link:../yarn-project/foundation"
-    "@aztec/key-store": "link:../yarn-project/key-store"
     "@aztec/kv-store": "link:../yarn-project/kv-store"
-    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts"
     "@aztec/pxe": "link:../yarn-project/pxe"
-    "@aztec/simulator": "link:../yarn-project/simulator"
     "@aztec/stdlib": "link:../yarn-project/stdlib"
     "@emotion/react": "npm:^11.14.0"
     "@emotion/styled": "npm:^11.14.0"
@@ -87,21 +71,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=%40aztec%2Fplayground%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/protocol-contracts@link:../yarn-project/protocol-contracts::locator=%40aztec%2Fplayground%40workspace%3A."
-  languageName: node
-  linkType: soft
-
 "@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=%40aztec%2Fplayground%40workspace%3A."
-  languageName: node
-  linkType: soft
-
-"@aztec/simulator@link:../yarn-project/simulator::locator=%40aztec%2Fplayground%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/simulator@link:../yarn-project/simulator::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
   linkType: soft
 

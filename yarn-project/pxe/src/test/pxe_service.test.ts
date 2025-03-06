@@ -16,8 +16,8 @@ import { TxEffect } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { PXEServiceConfig } from '../config/index.js';
 import { PXEService } from '../pxe_service/pxe_service.js';
-import type { PXEServiceConfig } from '../server.js';
 import { pxeTestSuite } from './pxe_test_suite.js';
 
 async function createPXEService(): Promise<PXE> {
