@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -26,9 +27,12 @@ using ToRadixSimulator = simulation::ToRadix;
 using simulation::EventEmitter;
 using simulation::ToRadixEvent;
 using tracegen::LookupIntoIndexedByClk;
+using tracegen::LookupIntoPDecomposition;
 using lookup_to_radix_limb_range = bb::avm2::lookup_to_radix_limb_range_relation<FF>;
 using lookup_to_radix_limb_less_than_radix_range = bb::avm2::lookup_to_radix_limb_less_than_radix_range_relation<FF>;
 using lookup_to_radix_safe_limbs_precomputed = bb::avm2::lookup_to_radix_safe_limbs_precomputed_relation<FF>;
+using lookup_p_decomposition = bb::avm2::lookup_to_radix_p_decomposition_lookup_relation<FF>;
+using lookup_limb_p_diff_range = bb::avm2::lookup_to_radix_limb_p_diff_range_relation<FF>;
 
 TEST(ToRadixConstrainingTest, EmptyRow)
 {
@@ -209,6 +213,40 @@ TEST(ToRadixConstrainingTest, ToLeRadixPadded)
     check_relation<to_radix>(trace);
 }
 
+TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
+{
+    EventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+
+    to_radix_simulator.to_le_bits(FF::neg_one(), 254);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::ToRadixTraceBuilder to_radix_builder;
+    to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
+    tracegen::PrecomputedTraceBuilder precomputed_builder;
+    precomputed_builder.process_misc(trace, 254);
+    precomputed_builder.process_sel_range_8(trace);
+    precomputed_builder.process_to_radix_safe_limbs(trace);
+    precomputed_builder.process_to_radix_p_decompositions(trace);
+
+    LookupIntoIndexedByClk<lookup_to_radix_limb_range::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_to_radix_safe_limbs_precomputed::Settings>().process(trace);
+    LookupIntoPDecomposition<lookup_p_decomposition::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
+
+    check_relation<to_radix>(trace);
+    check_interaction<lookup_to_radix_limb_range>(trace);
+    check_interaction<lookup_to_radix_limb_less_than_radix_range>(trace);
+    check_interaction<lookup_to_radix_safe_limbs_precomputed>(trace);
+    check_interaction<lookup_p_decomposition>(trace);
+    check_interaction<lookup_limb_p_diff_range>(trace);
+}
+
 TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
 {
     EventEmitter<ToRadixEvent> to_radix_event_emitter;
@@ -224,18 +262,24 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     tracegen::ToRadixTraceBuilder to_radix_builder;
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
-    precomputed_builder.process_misc(trace, 10000);
+    // There are a total of 10736 values in the decomposition of p trace, and this is the last radix
+    precomputed_builder.process_misc(trace, 11000);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_to_radix_safe_limbs(trace);
+    precomputed_builder.process_to_radix_p_decompositions(trace);
 
     LookupIntoIndexedByClk<lookup_to_radix_limb_range::Settings>().process(trace);
     LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range::Settings>().process(trace);
     LookupIntoIndexedByClk<lookup_to_radix_safe_limbs_precomputed::Settings>().process(trace);
+    LookupIntoPDecomposition<lookup_p_decomposition::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
 
     check_relation<to_radix>(trace);
     check_interaction<lookup_to_radix_limb_range>(trace);
     check_interaction<lookup_to_radix_limb_less_than_radix_range>(trace);
     check_interaction<lookup_to_radix_safe_limbs_precomputed>(trace);
+    check_interaction<lookup_p_decomposition>(trace);
+    check_interaction<lookup_limb_p_diff_range>(trace);
 }
 
 } // namespace
