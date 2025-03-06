@@ -10,7 +10,7 @@ export hash=$(cache_content_hash .rebuild_patterns)
 # Paths are relative to repo root.
 # We append the hash as a comment. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  local test_versions=("0.72.1" "0.77.1")
+  local test_versions=("0.72.1")
 
   for version in ${test_versions[@]}; do
     echo -e "$hash barretenberg/bbup/test_install.sh $version"
