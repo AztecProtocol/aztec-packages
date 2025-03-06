@@ -39,7 +39,7 @@ jobs:
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
         run: |
-          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag }}/g" main.cpp
+          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag }}/g" src/barretenberg/bb/main.cpp
 
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
@@ -79,7 +79,7 @@ jobs:
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
         run: |
-          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag }}/g" main.cpp
+          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag }}/g" src/barretenberg/bb/main.cpp
 
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
