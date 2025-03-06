@@ -96,7 +96,6 @@ export class PXEService implements PXE {
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private authWitnessDataProvider: AuthWitnessDataProvider,
-    private pxeOracleInterface: PXEOracleInterface,
     private simulator: AcirSimulator,
     private packageVersion: string,
     private proverEnabled: boolean,
@@ -169,7 +168,6 @@ export class PXEService implements PXE {
       taggingDataProvider,
       addressDataProvider,
       authWitnessDataProvider,
-      pxeOracleInterface,
       simulator,
       packageVersion,
       proverEnabled,
@@ -358,7 +356,7 @@ export class PXEService implements PXE {
     const currentClassId = await readCurrentClassId(
       contractAddress,
       currentInstance,
-      this.pxeOracleInterface,
+      this.node,
       header.globalVariables.blockNumber.toNumber(),
     );
     if (!contractClass.id.equals(currentClassId)) {
