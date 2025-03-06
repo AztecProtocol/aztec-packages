@@ -10,14 +10,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
-import {
-  AvmCircuitInputs,
-  type AvmCircuitPublicInputs,
-  AvmExecutionHints,
-  type AvmProvingRequest,
-  PublicDataWrite,
-  RevertCode,
-} from '@aztec/stdlib/avm';
+import { type AvmCircuitPublicInputs, AvmExecutionHints, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
@@ -30,7 +23,6 @@ import {
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/stdlib/kernel';
-import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
@@ -45,8 +37,9 @@ import {
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
+import type { PublicContractsDBInterface } from '../../server.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
-import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from '../utils.js';
 
@@ -68,9 +61,15 @@ export class PublicTxContext {
   /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
 
-  public avmProvingRequest: AvmProvingRequest | undefined; // FIXME(dbanks12): remove
+  /***
+   * Hints for this Tx.
+   *
+   * I don't like that this is public, but we need to
+   * add enqueued calls to it from the PublicTxSimulator.
+   **/
+  public readonly hints: AvmExecutionHints = new AvmExecutionHints();
 
-  constructor(
+  private constructor(
     public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
@@ -94,7 +93,7 @@ export class PublicTxContext {
 
   public static async create(
     treesDB: PublicTreesDB,
-    contractsDB: PublicContractsDB,
+    contractsDB: PublicContractsDBInterface,
     tx: Tx,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
@@ -329,7 +328,7 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  private async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
+  public async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const stateManager = this.state.getActiveStateManager();
 
@@ -433,23 +432,6 @@ export class PublicTxContext {
     );
 
     return avmCircuitPublicInputs;
-  }
-
-  /**
-   * Generate the proving request for the AVM circuit.
-   */
-  async generateProvingRequest(endStateReference: StateReference): Promise<AvmProvingRequest> {
-    // TODO(fcarreiro): Bring back hints.
-    const hints = AvmExecutionHints.empty();
-    return {
-      type: ProvingRequestType.PUBLIC_VM,
-      inputs: new AvmCircuitInputs(
-        'public_dispatch',
-        [],
-        hints,
-        await this.generateAvmCircuitPublicInputs(endStateReference),
-      ),
-    };
   }
 }
 

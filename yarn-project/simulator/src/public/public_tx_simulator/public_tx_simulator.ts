@@ -3,10 +3,18 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
+import {
+  AvmCircuitInputs,
+  AvmCircuitPublicInputs,
+  AvmEnqueuedCallHint,
+  AvmExecutionHints,
+  type AvmProvingRequest,
+  type RevertCode,
+} from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import {
   type GlobalVariables,
@@ -124,9 +132,8 @@ export class PublicTxSimulator {
       await context.halt();
       await this.payFee(context);
 
-      const endStateReference = await this.treesDB.getStateReference();
-
-      const avmProvingRequest = await context.generateProvingRequest(endStateReference);
+      const publicInputs = await context.generateAvmCircuitPublicInputs(await this.treesDB.getStateReference());
+      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, context.hints);
 
       const revertCode = context.getFinalRevertCode();
 
@@ -294,7 +301,7 @@ export class PublicTxSimulator {
     // The reason we need enqueued hints at all (and cannot just use the public inputs) is
     // because they don't have the actual calldata, just the hash of it.
     stateManager.traceEnqueuedCall(callRequest);
-    // TODO(fcarreiro): Add hints.
+    context.hints.enqueuedCalls.push(new AvmEnqueuedCallHint(address, executionRequest.args));
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
@@ -472,5 +479,18 @@ export class PublicTxSimulator {
 
     const updatedBalance = currentBalance.sub(txFee);
     await stateManager.writeStorage(feeJuiceAddress, balanceSlot, updatedBalance, true);
+  }
+
+  /**
+   * Generate the proving request for the AVM circuit.
+   */
+  private static generateProvingRequest(
+    publicInputs: AvmCircuitPublicInputs,
+    hints: AvmExecutionHints,
+  ): AvmProvingRequest {
+    return {
+      type: ProvingRequestType.PUBLIC_VM,
+      inputs: new AvmCircuitInputs('public_dispatch', [], hints, publicInputs),
+    };
   }
 }

@@ -30,7 +30,7 @@ import { strict as assert } from 'assert';
 
 import { getPublicFunctionDebugName } from '../../../common/debug_fn_name.js';
 import type { PublicTreesDB } from '../../../public/public_db_sources.js';
-import type { PublicContractsDB } from '../../../server.js';
+import type { PublicContractsDBInterface } from '../../../server.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
@@ -53,7 +53,7 @@ export class AvmPersistableStateManager {
 
   constructor(
     private readonly treesDB: PublicTreesDB,
-    private readonly contractsDB: PublicContractsDB,
+    private readonly contractsDB: PublicContractsDBInterface,
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
     private readonly blockNumber: number, // Needed for contract updates.
@@ -67,7 +67,7 @@ export class AvmPersistableStateManager {
    */
   public static create(
     treesDB: PublicTreesDB,
-    contractsDB: PublicContractsDB,
+    contractsDB: PublicContractsDBInterface,
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,

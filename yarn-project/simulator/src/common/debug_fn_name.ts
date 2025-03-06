@@ -2,10 +2,10 @@ import type { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { PublicContractsDB } from '../public/public_db_sources.js';
+import type { PublicContractsDBInterface } from './db_interfaces.js';
 
 export async function getPublicFunctionDebugName(
-  db: PublicContractsDB,
+  db: PublicContractsDBInterface,
   contractAddress: AztecAddress,
   calldata: Fr[],
 ): Promise<string> {

@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/fields';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
 import {
   AvmBytecodeCommitmentHint,
   AvmContractClassHint,
@@ -6,20 +7,18 @@ import {
   type AvmExecutionHints,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { PublicContractsDB } from './public_db_sources.js';
+import type { PublicContractsDBInterface } from '../server.js';
 
 /**
- * A public contracts database that collects AVM hints.
+ * A public contracts database that forwards requests and collects AVM hints.
  */
-export class HintingPublicContractsDB extends PublicContractsDB {
-  constructor(dataSource: ContractDataSource, private hints: AvmExecutionHints) {
-    super(dataSource);
-  }
+export class HintingPublicContractsDB implements PublicContractsDBInterface {
+  constructor(private readonly db: PublicContractsDBInterface, public readonly hints: AvmExecutionHints) {}
 
-  public override async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const instance = await super.getContractInstance(address);
+  public async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    const instance = await this.db.getContractInstance(address);
     if (instance) {
       this.hints.contractInstances.push(
         new AvmContractInstanceHint(
@@ -36,8 +35,8 @@ export class HintingPublicContractsDB extends PublicContractsDB {
     return instance;
   }
 
-  public override async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
-    const contractClass = await super.getContractClass(contractClassId);
+  public async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
+    const contractClass = await this.db.getContractClass(contractClassId);
     if (contractClass) {
       this.hints.contractClasses.push(
         new AvmContractClassHint(
@@ -51,11 +50,18 @@ export class HintingPublicContractsDB extends PublicContractsDB {
     return contractClass;
   }
 
-  public override async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
-    const commitment = await super.getBytecodeCommitment(contractClassId);
+  public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    const commitment = await this.db.getBytecodeCommitment(contractClassId);
     if (commitment) {
       this.hints.bytecodeCommitments.push(new AvmBytecodeCommitmentHint(contractClassId, commitment));
     }
     return commitment;
+  }
+
+  public async getDebugFunctionName(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<string | undefined> {
+    return await this.db.getDebugFunctionName(contractAddress, selector);
   }
 }

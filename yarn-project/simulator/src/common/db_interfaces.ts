@@ -2,7 +2,7 @@ import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -40,6 +40,26 @@ export interface PublicContractsDBInterface {
    */
   getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
 
+  /**
+   * Returns a publicly deployed contract class.
+   * @param contractClassId - ID of the contract class.
+   * @returns The contract class or undefined if not found
+   */
+  getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined>;
+
+  /**
+   * Returns the commitment to the bytecode of a contract class.
+   * @param contractClassId - ID of the contract class.
+   * @returns The commitment to the bytecode or undefined if not found.
+   */
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined>;
+
+  /**
+   * Returns the function name of a contract's function given its selector.
+   * @param contractAddress - Address of the contract.
+   * @param selector - Selector of the function.
+   * @returns The name of the function or undefined if not found.
+   */
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }
 
