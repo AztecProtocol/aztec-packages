@@ -253,7 +253,7 @@ export class PXEService implements PXE {
       this.log.warn(`No instance found for contract ${address.toString()} when looking for its metadata`);
     }
     return {
-      contractInstance: await this.contractDataProvider.getContractInstance(address),
+      contractInstance: instance,
       isContractInitialized: await this.#isContractInitialized(address),
       isContractPubliclyDeployed: await this.#isContractPubliclyDeployed(address),
     };
