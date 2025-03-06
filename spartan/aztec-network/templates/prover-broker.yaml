@@ -82,7 +82,9 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "/scripts/configure-prover-env.sh ${BOOT_NODE_HOST}"
+            - |
+              source /shared/config/service-addresses
+              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST}
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
