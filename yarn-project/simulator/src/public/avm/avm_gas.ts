@@ -89,6 +89,7 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.CAST_16]: makeCost(c.AVM_CAST_BASE_L2_GAS, 0),
   [Opcode.GETENVVAR_16]: makeCost(c.AVM_GETENVVAR_BASE_L2_GAS, 0),
   [Opcode.CALLDATACOPY]: makeCost(c.AVM_CALLDATACOPY_BASE_L2_GAS, 0),
+  [Opcode.SUCCESSCOPY]: makeCost(c.AVM_SUCCESSCOPY_BASE_L2_GAS, 0),
   [Opcode.RETURNDATASIZE]: makeCost(c.AVM_RETURNDATASIZE_BASE_L2_GAS, 0),
   [Opcode.RETURNDATACOPY]: makeCost(c.AVM_RETURNDATACOPY_BASE_L2_GAS, 0),
   [Opcode.JUMP_32]: makeCost(c.AVM_JUMP_BASE_L2_GAS, 0),

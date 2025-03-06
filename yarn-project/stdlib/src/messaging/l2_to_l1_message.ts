@@ -17,7 +17,7 @@ export class L2ToL1Message {
       .object({
         recipient: schemas.EthAddress,
         content: schemas.Fr,
-        counter: z.number(),
+        counter: z.number().int().nonnegative(),
       })
       .transform(({ recipient, content, counter }) => new L2ToL1Message(recipient, content, counter));
   }

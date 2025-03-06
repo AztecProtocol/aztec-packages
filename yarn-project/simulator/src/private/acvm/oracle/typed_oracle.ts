@@ -166,8 +166,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('storageWrite'));
   }
 
-  emitContractClassLog(_log: ContractClassLog, _counter: number): void {
-    throw new OracleMethodNotAvailableError('emitContractClassLog');
+  notifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
+    throw new OracleMethodNotAvailableError('notifyCreatedContractClassLog');
   }
 
   callPrivateFunction(

@@ -34,7 +34,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
                                 TranslatorBF::from_witness(builder, native_translation_evaluations.z2)
 
         };
-    translator_verifier.verify_translation(translation_evaluations);
+    translator_verifier.verify_translation(translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 
     MergeVerifier merge_verifier{ builder };
     merge_verifier.verify_proof(proof.merge_proof);

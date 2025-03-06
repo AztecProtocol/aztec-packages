@@ -24,8 +24,8 @@ export interface NodeInfo {
 export const NodeInfoSchema: ZodFor<NodeInfo> = z
   .object({
     nodeVersion: z.string(),
-    l1ChainId: z.number(),
-    protocolVersion: z.number(),
+    l1ChainId: z.number().int().nonnegative(),
+    protocolVersion: z.number().int().nonnegative(),
     enr: z.string().optional(),
     l1ContractAddresses: L1ContractAddressesSchema,
     protocolContractAddresses: ProtocolContractAddressesSchema,

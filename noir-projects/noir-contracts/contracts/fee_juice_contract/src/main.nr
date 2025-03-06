@@ -11,6 +11,7 @@ pub contract FeeJuice {
     };
 
     use crate::lib::get_bridge_gas_msg_hash;
+    use std::ops::Add;
 
     #[storage]
     struct Storage<Context> {

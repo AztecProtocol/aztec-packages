@@ -38,11 +38,12 @@ The `paymentMethod` is an object for the type of payment. Each of the implementa
 
 #include_code gas_settings_vars yarn-project/stdlib/src/gas/gas_settings.ts javascript
 
-import { Gas_Components, Gas_Settings } from '/components/snippets';
+import { Gas_Settings_Components, Gas_Settings } from '/components/snippets';
 
 <Gas_Settings />
 
-<Gas_Components />
+<Gas_Settings_Components />
+
 
 ### Other params
 

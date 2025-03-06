@@ -23,7 +23,7 @@ use crate::ssa::{
 
 pub(super) mod inline_info;
 
-pub(super) use inline_info::{compute_inline_infos, InlineInfo, InlineInfos};
+pub(super) use inline_info::{InlineInfo, InlineInfos, compute_inline_infos};
 
 /// An arbitrary limit to the maximum number of recursive call
 /// frames at any point in time.
@@ -784,10 +784,11 @@ impl<'function> PerFunctionContext<'function> {
 mod test {
     use std::cmp::max;
 
-    use acvm::{acir::AcirField, FieldElement};
+    use acvm::{FieldElement, acir::AcirField};
     use noirc_frontend::monomorphization::ast::InlineType;
 
     use crate::ssa::{
+        Ssa,
         function_builder::FunctionBuilder,
         ir::{
             basic_block::BasicBlockId,
@@ -797,7 +798,6 @@ mod test {
             types::{NumericType, Type},
         },
         opt::{assert_normalized_ssa_equals, inlining::inline_info::compute_bottom_up_order},
-        Ssa,
     };
 
     #[test]
@@ -1274,29 +1274,29 @@ mod test {
     fn inline_simple_functions_with_zero_instructions() {
         let src = "
         acir(inline) fn main f0 {
-        b0(v0: Field):
-          v2 = call f1(v0) -> Field
-          v3 = call f1(v0) -> Field
-          v4 = add v2, v3
-          return v4
+          b0(v0: Field):
+            v2 = call f1(v0) -> Field
+            v3 = call f1(v0) -> Field
+            v4 = add v2, v3
+            return v4
         }
 
         acir(inline) fn foo f1 {
-        b0(v0: Field):
-          return v0
+          b0(v0: Field):
+            return v0
         }
         ";
         let ssa = Ssa::from_str(src).unwrap();
 
         let expected = "
         acir(inline) fn main f0 {
-        b0(v0: Field):
-          v1 = add v0, v0
-          return v1
+          b0(v0: Field):
+            v1 = add v0, v0
+            return v1
         }
         acir(inline) fn foo f1 {
-        b0(v0: Field):
-          return v0
+          b0(v0: Field):
+            return v0
         }
         ";
 
@@ -1308,33 +1308,33 @@ mod test {
     fn inline_simple_functions_with_one_instruction() {
         let src = "
         acir(inline) fn main f0 {
-        b0(v0: Field):
-          v2 = call f1(v0) -> Field
-          v3 = call f1(v0) -> Field
-          v4 = add v2, v3
-          return v4
+          b0(v0: Field):
+            v2 = call f1(v0) -> Field
+            v3 = call f1(v0) -> Field
+            v4 = add v2, v3
+            return v4
         }
 
         acir(inline) fn foo f1 {
-        b0(v0: Field):
-          v2 = add v0, Field 1
-          return v2
+          b0(v0: Field):
+            v2 = add v0, Field 1
+            return v2
         }
         ";
         let ssa = Ssa::from_str(src).unwrap();
 
         let expected = "
         acir(inline) fn main f0 {
-        b0(v0: Field):
-          v2 = add v0, Field 1
-          v3 = add v0, Field 1
-          v4 = add v2, v3
-          return v4
+          b0(v0: Field):
+            v2 = add v0, Field 1
+            v3 = add v0, Field 1
+            v4 = add v2, v3
+            return v4
         }
         acir(inline) fn foo f1 {
-        b0(v0: Field):
-          v2 = add v0, Field 1
-          return v2
+          b0(v0: Field):
+            v2 = add v0, Field 1
+            return v2
         }
         ";
 

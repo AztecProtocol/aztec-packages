@@ -3,6 +3,7 @@ use crate::{
     state_vars::shared_mutable::SharedMutable,
     test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
 };
+use protocol_types::traits::Empty;
 
 use dep::std::mem::zeroed;
 
