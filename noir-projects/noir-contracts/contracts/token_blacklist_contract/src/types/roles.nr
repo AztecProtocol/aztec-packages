@@ -74,7 +74,7 @@ impl Deserialize<3> for UserFlags {
 mod test {
     use crate::types::roles::UserFlags;
     use aztec::protocol_types::traits::Packable;
-    
+
     fn assert_packable(is_minter: bool, is_admin: bool, is_blacklisted: bool) {
         let flags = UserFlags { is_minter, is_admin, is_blacklisted };
         let converted = UserFlags::unpack(flags.pack());
