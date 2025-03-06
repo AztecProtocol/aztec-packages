@@ -17,8 +17,7 @@ import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { type ProtocolContract } from '@aztec/protocol-contracts';
-import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
+import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressDataProvider,
   AuthWitnessDataProvider,
