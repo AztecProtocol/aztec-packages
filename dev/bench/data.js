@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741212113187,
+  "lastUpdate": 1741260598168,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "5764343+charlielye@users.noreply.github.com",
-            "name": "Charlie Lye",
-            "username": "charlielye"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cca90e5e655ed9a2d2bb969f034e42ac15f87439",
-          "message": "feat: wip (#12412)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
-          "timestamp": "2025-03-03T14:32:48Z",
-          "tree_id": "8f83b4ecd8824c0d0a80bcafca1363d9d7bdc995",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cca90e5e655ed9a2d2bb969f034e42ac15f87439"
-        },
-        "date": 1741014382882,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18229.00447799998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16016.226036000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18917.62871900005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16595.152993 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3944.5827040001404,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3150.3194190000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55756.742267,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55756742000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9889.165365,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9889169000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1970746881,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1970746881 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 220208118,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 220208118 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3598,6 +3526,78 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
             "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "saleel@aztecprotocol.com",
+            "name": "saleel",
+            "username": "saleel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c3024e7b0f9475624e9652adce2f64a88b7f923",
+          "message": "fix: override bb path in cli-wallet PXE config (#12511)\n\nSet `bbBinaryPath` and `bbWorkingDirectory` only when\n`PXE_PROVER=native`\n\ncli-wallet sets its own bbPath and bbWorkdir when `PXE_PROVER=native`,\nbut PXE also read these values from env even when `PXE_PROVER=none`.\nThis is happening in release image as we now [set these ENVs\n](https://github.com/AztecProtocol/aztec-packages/blob/master/release-image/Dockerfile#L35-L36)in\nDockerfile.\nThis PR overrides the values from ENV and unset them if proving is not\nneeded.\n\n(This is only a patch. Need to refactor later)",
+          "timestamp": "2025-03-06T14:55:26+04:00",
+          "tree_id": "11b96a665a979ea6da6d61469dd4db0265de193d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c3024e7b0f9475624e9652adce2f64a88b7f923"
+        },
+        "date": 1741260590637,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18921.74718799993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16063.729397 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18984.19788399997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16456.994827 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3943.3864360000825,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3090.0180779999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55907.414586,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55907412000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10247.451128999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10247457000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1880520494,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1880520494 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 216057393,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 216057393 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
