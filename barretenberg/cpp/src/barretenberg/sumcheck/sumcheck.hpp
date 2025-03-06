@@ -354,7 +354,7 @@ template <typename Flavor> class SumcheckProver {
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
+            partially_evaluate(partially_evaluated_polynomials, round_idx, round_challenge);
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -444,18 +444,18 @@ template <typename Flavor> class SumcheckProver {
      * After the final update, i.e. when \f$ i = d-1 \f$, the upper row of the table contains the evaluations of Honk
      * polynomials at the challenge point \f$ (u_0,\ldots, u_{d-1}) \f$.
      * @param polynomials Honk polynomials at initialization; partially evaluated polynomials in subsequent rounds
-     * @param round_size \f$2^{d-i}\f$
+     * @param round_index \f$d-i\f$
      * @param round_challenge \f$u_i\f$
      */
-    void partially_evaluate(auto& polynomials, size_t round_size, FF round_challenge)
+    void partially_evaluate(auto& polynomials, size_t round_index, FF round_challenge)
     {
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(poly_view.size(), [&](size_t j) {
-            for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j].set_if_valid_index(
-                    i >> 1, poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]));
+            const auto& poly = poly_view[j];
+            for (size_t i = 0; i < poly.end_index() / (1 << (round_index - 1)); i += 2) {
+                pep_view[j].set_if_valid_index(i >> 1, poly[i] + round_challenge * (poly[i + 1] - poly[i]));
             }
         });
     };
@@ -464,14 +464,14 @@ template <typename Flavor> class SumcheckProver {
      * Specialization for array, see \ref bb::SumcheckProver<Flavor>::partially_evaluate "generic version".
      */
     template <typename PolynomialT, std::size_t N>
-    void partially_evaluate(std::array<PolynomialT, N>& polynomials, size_t round_size, FF round_challenge)
+    void partially_evaluate(std::array<PolynomialT, N>& polynomials, size_t round_index, FF round_challenge)
     {
         auto pep_view = partially_evaluated_polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
-            for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j].set_if_valid_index(
-                    i >> 1, polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]));
+            const auto& poly = polynomials[j];
+            for (size_t i = 0; i < poly.end_index() / (1 << (round_index - 1)); i += 2) {
+                pep_view[j].set_if_valid_index(i >> 1, poly[i] + round_challenge * (poly[i + 1] - poly[i]));
             }
         });
     };
