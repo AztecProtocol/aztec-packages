@@ -12,6 +12,7 @@
 #define HAVOC_TESTING
 
 #include "barretenberg/common/fuzzer.hpp"
+// TODO: figure out how to detect w + w = c
 
 #define SHOW_INFORMATION
 
@@ -819,8 +820,8 @@ template <typename Builder> class CycleGroupBase {
                     return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
                 }
             }
-
-            uint8_t add_option = VarianceRNG.next() % 6;
+            bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() || other.cycle_group.is_point_at_infinity().get_value();
+            uint8_t add_option = smth_inf ? 4 + (VarianceRNG.next() % 2) : VarianceRNG.next() % 6;
 #ifdef SHOW_INFORMATION
             std::cout << " using " << size_t(add_option) << " add path" << std::endl;
 #endif
@@ -881,8 +882,8 @@ template <typename Builder> class CycleGroupBase {
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
                 }
             }
-
-            uint8_t add_option = VarianceRNG.next() % 3;
+            bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() || other.cycle_group.is_point_at_infinity().get_value();
+            uint8_t add_option = smth_inf ? 2: VarianceRNG.next() % 3;
 #ifdef SHOW_INFORMATION
             std::cout << " using " << size_t(add_option) << " sub path" << std::endl;
 #endif
