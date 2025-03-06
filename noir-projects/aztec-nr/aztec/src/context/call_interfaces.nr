@@ -484,6 +484,17 @@ impl<let N: u32> PublicVoidCallInterface<N> {
             true,
         )
     }
+
+    pub fn set_as_teardown(self, context: &mut PrivateContext) {
+        let args_hash = hash_args(self.args);
+        execution_cache::store(self.args);
+        context.set_public_teardown_function_with_args_hash(
+            self.target_contract,
+            self.selector,
+            args_hash,
+            false,
+        )
+    }
 }
 
 impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {

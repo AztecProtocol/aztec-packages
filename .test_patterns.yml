@@ -169,7 +169,7 @@ tests:
     owners:
       - *mitch
 
-  - regex: "spartan/bootstrap.sh test-kind"
+  - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:
       - *phil
       - *mitch
