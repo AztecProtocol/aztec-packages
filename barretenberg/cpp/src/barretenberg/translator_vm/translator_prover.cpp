@@ -39,6 +39,17 @@ void TranslatorProver::execute_preamble_round()
 }
 
 /**
+ * @brief Utility to commit to witness polynomial and send the commitment to verifier.
+ *
+ * @param polynomial
+ * @param label
+ */
+void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
+{
+    transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(polynomial));
+}
+
+/**
  * @brief Compute commitments to wires and ordered range constraints.
  *
  */
@@ -48,13 +59,13 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
 
-        transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(wire));
+        commit_to_witness_polynomial(wire, label);
     }
 
     // The ordered range constraints are of full circuit size.
     for (const auto& [ordered_range_constraint, label] : zip_view(
              key->proving_key->polynomials.get_ordered_constraints(), commitment_labels.get_ordered_constraints())) {
-        transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(ordered_range_constraint));
+        commit_to_witness_polynomial(ordered_range_constraint, label);
     }
 }
 
@@ -105,8 +116,7 @@ void TranslatorProver::execute_grand_product_computation_round()
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->proving_key->polynomials, relation_parameters);
 
-    transcript->send_to_verifier(commitment_labels.z_perm,
-                                 key->proving_key->commitment_key->commit(key->proving_key->polynomials.z_perm));
+    commit_to_witness_polynomial(key->proving_key->polynomials.z_perm, commitment_labels.z_perm);
 }
 
 /**
