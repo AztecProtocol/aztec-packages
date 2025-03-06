@@ -41,11 +41,7 @@ using length_iv_relation = bb::avm2::lookup_bc_hashing_iv_is_len_relation<FF>;
 
 TEST(BytecodeHashingConstrainingTest, EmptyRow)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
-    check_relation<bc_hashing>(trace);
+    check_relation<bc_hashing>(testing::empty_trace());
 }
 
 TEST(BytecodeHashingConstrainingTest, SingleBytecodeHash)

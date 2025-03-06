@@ -236,18 +236,6 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
 }
 
 /**
- * @brief We mask the commitment to a witness, its evaluation at the Sumcheck challenge and, if needed, the
- * evaluation of its shift.
- */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::mask_witness_polynomial(Polynomial<FF>& polynomial)
-{
-    const size_t circuit_size = polynomial.virtual_size();
-    for (size_t idx = 1; idx < MASKING_OFFSET; idx++) {
-        polynomial.at(circuit_size - idx) = FF::random_element();
-    }
-}
-
-/**
  * @brief A uniform method to mask, commit, and send the corresponding commitment to the verifier.
  *
  * @param polynomial
@@ -259,9 +247,9 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
                                                       const std::string& label,
                                                       const CommitmentKey::CommitType type)
 {
-    // Mask if needed
+    // Mask the polynomial when proving in zero-knowledge
     if constexpr (Flavor::HasZK) {
-        mask_witness_polynomial(polynomial);
+        polynomial.mask();
     };
 
     typename Flavor::Commitment commitment;

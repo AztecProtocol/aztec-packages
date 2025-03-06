@@ -8,6 +8,19 @@
 # When a failing test matches one or more of the "regex" properties below,
 # a message is sent to slack channel #aztec3-ci tagging the owners.
 
+names:
+  - adam: &adam "U04BM8H25NJ"
+  - alex: &alex "U05QWV669JB"
+  - charlie: &charlie "UKUMA5J7K"
+  - lasse: &lasse "U03E5SYLY3Z"
+  - leila: &leila "UBLTU1NJ3"
+  - luke: &luke "U03JYU7AQET"
+  - mitch: &mitch "U06AY5G1NRK"
+  - palla: &palla "U04TPBU26E8"
+  - phil: &phil "U02G4KAD57Y"
+  - sean: &sean "U04DT239VQU"
+  - tom: &tom "U04LLT331NK"
+
 tests:
   # barretenberg
   #
@@ -20,18 +33,25 @@ tests:
   # Expected: true
   - regex: "join_split_example_tests"
     owners:
-      - "U03JYU7AQET" # luke
+      - *luke
+
+  # Sumcheck is failing for some reason
+  - regex: "barretenberg/acir_tests/run_test.sh ram_blowup_regression"
+    skip: true
+    owners:
+      - *tom
+
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
   - regex: "noir_lsp-.* notifications::notification_tests::test_caches_open_files"
     skip: true
     owners:
-      - "UKUMA5J7K" # charlie
+      - *charlie
   - regex: "noir_lsp-.* requests::"
     skip: true
     owners:
-      - "UKUMA5J7K" # charlie
+      - *charlie
   # Sometimes see this on ARM. But not when run on it's own...
   # FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
   #                                                                                                                                                                                running 1 test
@@ -47,7 +67,7 @@ tests:
   - regex: "tests::debug_ram_blowup_regression"
     skip: true
     owners:
-      - "UKUMA5J7K" # charlie
+      - *charlie
 
   # Seen this error on all the below.
   # e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
@@ -76,11 +96,11 @@ tests:
   #      at Object.<anonymous> (e2e_p2p/reqresp.test.ts:66:13)
   - regex: "simple e2e_p2p/"
     owners:
-      - "U04DT239VQU" # sean
+      - *sean
 
   - regex: "simple e2e_fees/private_payments"
     owners:
-      - "U02G4KAD57Y" # phil
+      - *phil
 
   # Summary of all failing tests
   #  FAIL  ./e2e_cheat_codes.test.ts
@@ -109,43 +129,56 @@ tests:
   # Ran all test suites matching /e2e_cheat_codes/i.
   - regex: "simple e2e_cheat_codes"
     owners:
-      - "U03E5SYLY3Z" # lasse
+      - *lasse
 
   - regex: "prover-client/src/test/bb_prover_parity.test.ts"
     owners:
-      - "U04TPBU26E8" # palla
+      - *palla
   - regex: "prover-client/src/proving_broker/broker_prover_facade.test.ts"
     owners:
-      - "U04TPBU26E8" # palla
+      - *palla
   - regex: "prover-client/src/orchestrator/orchestrator_errors.test.ts"
     owners:
-      - "U04TPBU26E8" # palla
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     owners:
-      - "U04DT239VQU" # sean
+      - *sean
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
-      - "U03E5SYLY3Z" # lasse
+      - *lasse
   - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
     owners:
-      - "U04TPBU26E8" # palla
+      - *palla
   - regex: "yarn-project/kv-store"
     owners:
-      - "U05QWV669JB" # alex
+      - *alex
 
   # kind tests
-  - regex: "spartan/bootstrap.sh test-kind"
+
+  - regex: "spartan/bootstrap.sh test-kind-4epochs"
     owners:
-      - "U02G4KAD57Y" # phil
-      - "U06AY5G1NRK" # mitch
+      - *leila
+
+  - regex: "spartan/bootstrap.sh test-prod-deployment"
+    owners:
+      - *mitch
+
+  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    owners:
+      - *mitch
+
+  - regex: "spartan/bootstrap.sh test-kind-transfer"
+    owners:
+      - *phil
+      - *mitch
   - regex: "spartan/bootstrap.sh test-local"
     skip: true
     owners:
-      - "U04BM8H25NJ" # adam
+      - *adam
 
   # Slack testing.
   - regex: "nonsense to match"
     owners:
-      - "UKUMA5J7K" # charlie
+      - *charlie

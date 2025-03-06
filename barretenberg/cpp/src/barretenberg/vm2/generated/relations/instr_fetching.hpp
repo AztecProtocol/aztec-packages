@@ -187,9 +187,36 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
 
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case 1:
+            return "INDIRECT_BYTES_DECOMPOSITION";
+        case 2:
+            return "OP1_BYTES_DECOMPOSITION";
+        case 3:
+            return "OP2_BYTES_DECOMPOSITION";
+        case 4:
+            return "OP3_BYTES_DECOMPOSITION";
+        case 5:
+            return "OP4_BYTES_DECOMPOSITION";
+        case 6:
+            return "OP5_BYTES_DECOMPOSITION";
+        case 7:
+            return "OP6_BYTES_DECOMPOSITION";
+        case 8:
+            return "OP7_BYTES_DECOMPOSITION";
+        }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_INDIRECT_BYTES_DECOMPOSITION = 1;
+    static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 2;
+    static constexpr size_t SR_OP2_BYTES_DECOMPOSITION = 3;
+    static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 4;
+    static constexpr size_t SR_OP4_BYTES_DECOMPOSITION = 5;
+    static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 6;
+    static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 7;
+    static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 8;
 };
 
 } // namespace bb::avm2

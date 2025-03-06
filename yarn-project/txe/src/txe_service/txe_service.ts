@@ -724,7 +724,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
   }
 
   async avmOpcodeStaticCall(
@@ -754,6 +754,11 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeSuccessCopy() {
+    const success = (this.typedOracle as TXE).avmOpcodeSuccessCopy();
+    return toForeignCallResult([toSingle(new Fr(success))]);
   }
 }
