@@ -45,7 +45,7 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import { PrivateKernelTailCircuitPublicInputs, type PrivateKernelTraceProofOutput } from '@aztec/stdlib/kernel';
+import type { PrivateKernelTraceProofOutput } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
@@ -416,9 +416,9 @@ export class PXEService implements PXE {
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
     skipFeeEnforcement: boolean = false,
-    profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
+    const profile = false;
     try {
       const txInfo = {
         origin: txRequest.origin,
@@ -632,31 +632,13 @@ export class PXEService implements PXE {
     this.log.verbose(`Registered protocol contracts in pxe`, registered);
   }
 
-  /**
-   * Retrieves the simulation parameters required to run an ACIR simulation.
-   * This includes the contract address, function artifact, and historical tree roots.
-   *
-   * @param execRequest - The transaction request object containing details of the contract call.
-   * @returns An object containing the contract address, function artifact, and historical tree roots.
-   */
-  #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
-    const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionSelector =
-      (execRequest as FunctionCall).selector ?? (execRequest as TxExecutionRequest).functionSelector;
-
-    return {
-      contractAddress,
-      functionSelector,
-    };
-  }
-
   async #executePrivate(
     txRequest: TxExecutionRequest,
     msgSender?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     // TODO - Pause syncing while simulating.
-    const { contractAddress, functionSelector } = this.#getSimulationParameters(txRequest);
+    const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
       const result = await this.simulator.run(txRequest, contractAddress, functionSelector, msgSender, scopes);
@@ -680,7 +662,7 @@ export class PXEService implements PXE {
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
   async #simulateUnconstrained(execRequest: FunctionCall, scopes?: AztecAddress[]) {
-    const { contractAddress, functionSelector } = this.#getSimulationParameters(execRequest);
+    const { to: contractAddress, selector: functionSelector } = execRequest;
 
     this.log.debug('Executing unconstrained simulator...');
     try {
@@ -742,7 +724,7 @@ export class PXEService implements PXE {
     const block = privateExecutionResult.getSimulationBlockNumber();
     const kernelOracle = new PrivateKernelOracleImpl(this.contractDataProvider, this.keyStore, this.node, block);
     const kernelTraceProver = new PrivateKernelTraceProver(kernelOracle, proofCreator, !this.proverEnabled);
-    this.log.debug(`Executing kernel prover (${JSON.stringify(config)})...`);
+    this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 

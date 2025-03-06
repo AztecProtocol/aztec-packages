@@ -13,6 +13,7 @@ import { hashVK } from '@aztec/stdlib/hash';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
   PrivateCallData,
+  type PrivateExecutionTraceEntry,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
   PrivateKernelInitCircuitPrivateInputs,
@@ -38,7 +39,6 @@ import {
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import type { WitnessMap } from '@noir-lang/types';
 import { strict as assert } from 'assert';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
@@ -94,14 +94,6 @@ export interface PrivateKernelTraceProverConfig {
   profile: boolean;
 }
 
-/** Represents either a private kernel circuit or one of our application function circuits. They are interleaved with one another.
- */
-interface PrivateExecutionTraceEntry {
-  functionName: string;
-  bytecode: Buffer;
-  witness: WitnessMap;
-}
-
 /**
  * The PrivateKernelSequencer class is responsible for taking a transaction request and sequencing the
  * the execution of the private functions within, sequenced with private kernel "glue" to check protocol rules.
@@ -150,7 +142,6 @@ export class PrivateKernelTraceProver {
 
     let output = NULL_SIMULATE_OUTPUT;
 
-    const gateCounts: { circuitName: string; gateCount: number }[] = [];
     const trace: PrivateExecutionTraceEntry[] = [];
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
@@ -322,8 +313,7 @@ export class PrivateKernelTraceProver {
     if (profile) {
       for (const entry of trace) {
         const gateCount = await this.proofCreator.computeGateCountForCircuit(entry.bytecode, entry.functionName);
-        gateCounts.push({ circuitName: entry.functionName, gateCount });
-        this.log.info(`Tx ${txRequest.hash()}: bb gates for ${entry.functionName} - ${gateCount}`);
+        entry.gateCount = gateCount;
       }
     }
 
@@ -344,9 +334,9 @@ export class PrivateKernelTraceProver {
 
     return {
       publicInputs: tailOutput.publicInputs,
+      trace,
       clientIvcProof,
       verificationKey: tailOutput.verificationKey,
-      profileResult: profile ? { gateCounts } : undefined,
     };
   }
 

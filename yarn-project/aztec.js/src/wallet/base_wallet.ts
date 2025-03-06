@@ -103,17 +103,8 @@ export abstract class BaseWallet implements Wallet {
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    profile?: boolean,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(
-      txRequest,
-      simulatePublic,
-      msgSender,
-      skipTxValidation,
-      skipFeeEnforcement,
-      profile,
-      this.scopes,
-    );
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, skipFeeEnforcement, this.scopes);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);

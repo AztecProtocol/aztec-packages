@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
+import type { PrivateExecutionTraceEntry } from '../kernel/private_kernel_prover_output.js';
 import {
   type PrivateKernelProverProfileResult,
   PrivateKernelProverProfileResultSchema,

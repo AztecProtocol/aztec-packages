@@ -1,9 +1,7 @@
 import type { WitnessMap } from '@noir-lang/acvm_js';
 
-import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { VerificationKeyAsFields } from '../vks/verification_key.js';
 import type { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
-import type { PrivateKernelProverProfileResult } from './private_kernel_prover_profile_result.js';
 import type { PrivateKernelTailCircuitPublicInputs } from './private_kernel_tail_circuit_public_inputs.js';
 
 /**
@@ -18,19 +16,6 @@ export interface PrivateKernelSimulateOutput<
   outputWitness: WitnessMap;
   verificationKey: VerificationKeyAsFields;
   bytecode: Buffer;
-}
-
-/** Represents the output of proven PrivateKernelSimulateOutput.*/
-export interface PrivateKernelTraceProofOutput<
-  PublicInputsType extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
-> {
-  /** The public inputs used by the proof generation process. */
-  publicInputs: PublicInputsType;
-  /** The private IVC proof optimized for user devices. It will be consumed by an Aztec prover,
-   * which recursively verifies it through the "tube" circuit.*/
-  clientIvcProof: ClientIvcProof;
-  verificationKey: VerificationKeyAsFields;
-  profileResult?: PrivateKernelProverProfileResult;
 }
 
 /**
