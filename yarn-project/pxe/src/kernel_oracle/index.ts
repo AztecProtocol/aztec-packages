@@ -17,7 +17,7 @@ import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import type { ContractDataProvider } from '../contract_data_provider/index.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import type { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
 // TODO: Block number should not be "latest".
