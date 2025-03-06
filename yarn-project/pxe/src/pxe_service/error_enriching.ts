@@ -6,14 +6,18 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 
-import type { ContractDataOracle, PxeDatabase } from '../index.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 
 /**
  * Adds contract and function names to a simulation error, if they
  * can be found in the PXE database
  * @param err - The error to enrich.
  */
-export async function enrichSimulationError(err: SimulationError, db: PxeDatabase, logger: Logger) {
+export async function enrichSimulationError(
+  err: SimulationError,
+  contractDataProvider: ContractDataProvider,
+  logger: Logger,
+) {
   // Maps contract addresses to the set of function names that were in error.
   // Map and Set do reference equality for their keys instead of value equality, so we store the string
   // representation to get e.g. different contract address objects with the same address value to match.
@@ -29,7 +33,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
   await Promise.all(
     [...mentionedFunctions.entries()].map(async ([contractAddress, fnNames]) => {
       const parsedContractAddress = AztecAddress.fromString(contractAddress);
-      const contract = await db.getContract(parsedContractAddress);
+      const contract = await contractDataProvider.getContract(parsedContractAddress);
       if (contract) {
         err.enrichWithContractName(parsedContractAddress, contract.name);
         for (const fnName of fnNames) {
@@ -57,8 +61,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
 
 export async function enrichPublicSimulationError(
   err: SimulationError,
-  contractDataOracle: ContractDataOracle,
-  db: PxeDatabase,
+  contractDataProvider: ContractDataProvider,
   logger: Logger,
 ) {
   const callStack = err.getCallStack();
@@ -68,7 +71,7 @@ export async function enrichPublicSimulationError(
   // no matter what the call stack selector points to (since we've modified it to point to the target function).
   // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
 
-  const artifact = await contractDataOracle.getFunctionArtifact(
+  const artifact = await contractDataProvider.getFunctionArtifact(
     originalFailingFunction.contractAddress,
     FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
   );
@@ -77,7 +80,7 @@ export async function enrichPublicSimulationError(
     err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
   }
 
-  const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
+  const debugInfo = await contractDataProvider.getFunctionDebugMetadata(
     originalFailingFunction.contractAddress,
     FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
   );
@@ -98,6 +101,6 @@ export async function enrichPublicSimulationError(
         );
       }
     }
-    await enrichSimulationError(err, db, logger);
+    await enrichSimulationError(err, contractDataProvider, logger);
   }
 }

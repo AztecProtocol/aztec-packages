@@ -3,14 +3,15 @@ import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { SiblingPath } from '@aztec/foundation/trees';
-import type { KeyStore } from '@aztec/key-store';
-import type { L2TipsStore } from '@aztec/kv-store/stores';
+import { KeyStore } from '@aztec/key-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { L2TipsStore } from '@aztec/kv-store/stores';
 import {
   ProtocolContractAddress,
   type ProtocolContractsProvider,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { type AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -24,12 +25,12 @@ import {
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block } from '@aztec/stdlib/block';
-import type {
+import {
   CompleteAddress,
-  ContractClassWithId,
-  ContractInstanceWithAddress,
-  NodeInfo,
-  PartialAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  type PartialAddress,
 } from '@aztec/stdlib/contract';
 import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -50,6 +51,7 @@ import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   PrivateExecutionResult,
   PrivateSimulationResult,
@@ -67,11 +69,16 @@ import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import type { PxeDatabase } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
-import { getAcirSimulator } from '../simulator/index.js';
+import { PXEOracleInterface } from '../pxe_oracle_interface/index.js';
+import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
+import { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
+import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
+import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
+import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
+import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 
@@ -79,44 +86,102 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
  * A Private eXecution Environment (PXE) implementation.
  */
 export class PXEService implements PXE {
-  private synchronizer: Synchronizer;
-  private contractDataOracle: ContractDataOracle;
-  private simulator: AcirSimulator;
-  private log: Logger;
-  private packageVersion: string;
-  private proverEnabled: boolean;
-
-  constructor(
-    private keyStore: KeyStore,
+  private constructor(
     private node: AztecNode,
-    private db: PxeDatabase,
-    tipsStore: L2TipsStore,
+    private synchronizer: Synchronizer,
+    private keyStore: KeyStore,
+    private contractDataProvider: ContractDataProvider,
+    private noteDataProvider: NoteDataProvider,
+    private capsuleDataProvider: CapsuleDataProvider,
+    private syncDataProvider: SyncDataProvider,
+    private taggingDataProvider: TaggingDataProvider,
+    private addressDataProvider: AddressDataProvider,
+    private authWitnessDataProvider: AuthWitnessDataProvider,
+    private simulator: AcirSimulator,
+    private packageVersion: string,
+    private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
-    private simulationProvider: SimulationProvider,
     private protocolContractsProvider: ProtocolContractsProvider,
+    private log: Logger,
+  ) {}
+
+  /**
+   * Creates an instance of a PXE Service by instantiating all the necessary data providers and services.
+   * Also triggers the registration of the protocol contracts and makes sure the provided node
+   * can be contacted.
+   *
+   * @returns A promise that resolves PXE service is ready to be used.
+   */
+  public static async create(
+    node: AztecNode,
+    store: AztecAsyncKVStore,
+    proofCreator: PrivateKernelProver,
+    simulationProvider: SimulationProvider,
+    protocolContractsProvider: ProtocolContractsProvider,
     config: PXEServiceConfig,
     loggerOrSuffix?: string | Logger,
   ) {
-    this.log =
+    const log =
       !loggerOrSuffix || typeof loggerOrSuffix === 'string'
         ? createLogger(loggerOrSuffix ? `pxe:service:${loggerOrSuffix}` : `pxe:service`)
         : loggerOrSuffix;
-    this.synchronizer = new Synchronizer(node, db, tipsStore, config, loggerOrSuffix);
-    this.contractDataOracle = new ContractDataOracle(db);
-    this.simulator = getAcirSimulator(db, node, keyStore, this.simulationProvider, this.contractDataOracle);
-    this.packageVersion = getPackageInfo().version;
-    this.proverEnabled = !!config.proverEnabled;
-  }
 
-  /**
-   * Starts the PXE Service by beginning the synchronization process between the Aztec node and the database.
-   *
-   * @returns A promise that resolves when the server has started successfully.
-   */
-  public async init() {
-    await this.#registerProtocolContracts();
-    const info = await this.getNodeInfo();
-    this.log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
+    const packageVersion = getPackageInfo().version;
+    const proverEnabled = !!config.proverEnabled;
+    const addressDataProvider = new AddressDataProvider(store);
+    const authWitnessDataProvider = new AuthWitnessDataProvider(store);
+    const contractDataProvider = new ContractDataProvider(store);
+    const noteDataProvider = await NoteDataProvider.create(store);
+    const syncDataProvider = new SyncDataProvider(store);
+    const taggingDataProvider = new TaggingDataProvider(store);
+    const capsuleDataProvider = new CapsuleDataProvider(store);
+    const keyStore = new KeyStore(store);
+    const tipsStore = new L2TipsStore(store, 'pxe');
+    const synchronizer = new Synchronizer(
+      node,
+      syncDataProvider,
+      noteDataProvider,
+      taggingDataProvider,
+      tipsStore,
+      config,
+      loggerOrSuffix,
+    );
+    const pxeOracleInterface = new PXEOracleInterface(
+      node,
+      keyStore,
+      simulationProvider,
+      contractDataProvider,
+      noteDataProvider,
+      capsuleDataProvider,
+      syncDataProvider,
+      taggingDataProvider,
+      addressDataProvider,
+      authWitnessDataProvider,
+      log,
+    );
+    const simulator = new AcirSimulator(pxeOracleInterface, simulationProvider);
+    const pxeService = new PXEService(
+      node,
+      synchronizer,
+      keyStore,
+      contractDataProvider,
+      noteDataProvider,
+      capsuleDataProvider,
+      syncDataProvider,
+      taggingDataProvider,
+      addressDataProvider,
+      authWitnessDataProvider,
+      simulator,
+      packageVersion,
+      proverEnabled,
+      proofCreator,
+      protocolContractsProvider,
+      log,
+    );
+    await pxeService.#registerProtocolContracts();
+    const info = await pxeService.getNodeInfo();
+    log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
+    return pxeService;
   }
 
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
@@ -124,24 +189,34 @@ export class PXEService implements PXE {
   }
 
   /** Returns an estimate of the db size in bytes. */
-  public estimateDbSize() {
-    return this.db.estimateSize();
+  public async estimateDbSize() {
+    const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
+    const dbSizes = await Promise.all([
+      this.addressDataProvider.getSize(),
+      this.authWitnessDataProvider.getSize(),
+      this.capsuleDataProvider.getSize(),
+      this.contractDataProvider.getSize(),
+      this.noteDataProvider.getSize(),
+      this.syncDataProvider.getSize(),
+      this.taggingDataProvider.getSize(),
+    ]);
+    return [...dbSizes, treeRootsSize].reduce((sum, size) => sum + size, 0);
   }
 
   public addAuthWitness(witness: AuthWitness) {
-    return this.db.addAuthWitness(witness.requestHash, witness.witness);
+    return this.authWitnessDataProvider.addAuthWitness(witness.requestHash, witness.witness);
   }
 
   public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    return this.db.getAuthWitness(messageHash);
+    return this.authWitnessDataProvider.getAuthWitness(messageHash);
   }
 
   public storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]) {
-    return this.db.storeCapsule(contract, storageSlot, capsule);
+    return this.capsuleDataProvider.storeCapsule(contract, storageSlot, capsule);
   }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.db.getContractInstance(address);
+    return this.contractDataProvider.getContractInstance(address);
   }
 
   public async getContractClassMetadata(
@@ -152,7 +227,12 @@ export class PXEService implements PXE {
     isContractClassPubliclyRegistered: boolean;
     artifact: ContractArtifact | undefined;
   }> {
-    const artifact = await this.db.getContractArtifact(id);
+    let artifact;
+    try {
+      artifact = await this.contractDataProvider.getContractArtifact(id);
+    } catch {
+      this.log.warn(`No artifact found for contract class ${id.toString()} when looking for its metadata`);
+    }
 
     return {
       contractClass: artifact && (await getContractClassFromArtifact(artifact)),
@@ -166,8 +246,14 @@ export class PXEService implements PXE {
     isContractInitialized: boolean;
     isContractPubliclyDeployed: boolean;
   }> {
+    let instance;
+    try {
+      instance = await this.contractDataProvider.getContractInstance(address);
+    } catch {
+      this.log.warn(`No instance found for contract ${address.toString()} when looking for its metadata`);
+    }
     return {
-      contractInstance: await this.db.getContractInstance(address),
+      contractInstance: instance,
       isContractInitialized: await this.#isContractInitialized(address),
       isContractPubliclyDeployed: await this.#isContractPubliclyDeployed(address),
     };
@@ -184,7 +270,8 @@ export class PXEService implements PXE {
       this.log.debug(`Registered account\n ${accountCompleteAddress.toReadableString()}`);
     }
 
-    await this.db.addCompleteAddress(accountCompleteAddress);
+    await this.addressDataProvider.addCompleteAddress(accountCompleteAddress);
+    await this.noteDataProvider.addScope(accountCompleteAddress.address);
     return accountCompleteAddress;
   }
 
@@ -195,7 +282,7 @@ export class PXEService implements PXE {
       return address;
     }
 
-    const wasAdded = await this.db.addSenderAddress(address);
+    const wasAdded = await this.taggingDataProvider.addSenderAddress(address);
 
     if (wasAdded) {
       this.log.info(`Added sender:\n ${address.toString()}`);
@@ -207,13 +294,13 @@ export class PXEService implements PXE {
   }
 
   public getSenders(): Promise<AztecAddress[]> {
-    const senders = this.db.getSenderAddresses();
+    const senders = this.taggingDataProvider.getSenderAddresses();
 
     return Promise.resolve(senders);
   }
 
   public async removeSender(address: AztecAddress): Promise<void> {
-    const wasRemoved = await this.db.removeSenderAddress(address);
+    const wasRemoved = await this.taggingDataProvider.removeSenderAddress(address);
 
     if (wasRemoved) {
       this.log.info(`Removed sender:\n ${address.toString()}`);
@@ -226,7 +313,7 @@ export class PXEService implements PXE {
 
   public async getRegisteredAccounts(): Promise<CompleteAddress[]> {
     // Get complete addresses of both the recipients and the accounts
-    const completeAddresses = await this.db.getCompleteAddresses();
+    const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
     // Filter out the addresses not corresponding to accounts
     const accounts = await this.keyStore.getAccounts();
     return completeAddresses.filter(completeAddress =>
@@ -236,7 +323,7 @@ export class PXEService implements PXE {
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
     const { id: contractClassId } = await getContractClassFromArtifact(artifact);
-    await this.db.addContractArtifact(contractClassId, artifact);
+    await this.contractDataProvider.addContractArtifact(contractClassId, artifact);
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
@@ -257,8 +344,7 @@ export class PXEService implements PXE {
       if (!computedAddress.equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
-
-      await this.db.addContractArtifact(contractClass.id, artifact);
+      await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
 
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -269,29 +355,21 @@ export class PXEService implements PXE {
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
-      artifact = await this.db.getContractArtifact(instance.currentContractClassId);
-      if (!artifact) {
-        throw new Error(
-          `Missing contract artifact for class id ${instance.currentContractClassId} for contract ${instance.address}`,
-        );
-      }
+      artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
     }
 
-    await this.db.addContractInstance(instance);
+    await this.contractDataProvider.addContractInstance(instance);
     this.log.info(
       `Added contract ${artifact.name} at ${instance.address.toString()} with class ${instance.currentContractClassId}`,
     );
   }
 
   public async updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    const currentInstance = await this.db.getContractInstance(contractAddress);
-    if (!currentInstance) {
-      throw new Error(`Contract ${contractAddress.toString()} is not registered.`);
-    }
+    const currentInstance = await this.contractDataProvider.getContractInstance(contractAddress);
     const contractClass = await getContractClassFromArtifact(artifact);
     await this.synchronizer.sync();
 
-    const header = await this.db.getBlockHeader();
+    const header = await this.syncDataProvider.getBlockHeader();
 
     const currentClassId = await readCurrentClassId(
       contractAddress,
@@ -303,7 +381,7 @@ export class PXEService implements PXE {
       throw new Error('Could not update contract to a class different from the current one.');
     }
 
-    await this.db.addContractArtifact(contractClass.id, artifact);
+    await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
 
     const publicFunctionSignatures = artifact.functions
       .filter(fn => fn.functionType === FunctionType.PUBLIC)
@@ -313,28 +391,25 @@ export class PXEService implements PXE {
     // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
     await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
     currentInstance.currentContractClassId = contractClass.id;
-    await this.db.addContractInstance(currentInstance);
+    await this.contractDataProvider.addContractInstance(currentInstance);
     this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
   }
 
   public getContracts(): Promise<AztecAddress[]> {
-    return this.db.getContractsAddresses();
+    return this.contractDataProvider.getContractsAddresses();
   }
 
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
-    if (!(await this.getContractInstance(contract))) {
-      throw new Error(`Contract ${contract.toString()} is not deployed`);
-    }
-    return await this.node.getPublicStorageAt(contract, slot, 'latest');
+    return await this.node.getPublicStorageAt('latest', contract, slot);
   }
 
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
-    const noteDaos = await this.db.getNotes(filter);
+    const noteDaos = await this.noteDataProvider.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
-        const completeAddresses = await this.db.getCompleteAddresses();
+        const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
         const completeAddressIndex = (
           await Promise.all(completeAddresses.map(completeAddresses => completeAddresses.address.toAddressPoint()))
         ).findIndex(addressPoint => addressPoint.equals(dao.addressPoint));
@@ -390,7 +465,6 @@ export class PXEService implements PXE {
         simulate: false,
         skipFeeEnforcement: false,
         profile: false,
-        dryRun: false,
       });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
@@ -430,7 +504,6 @@ export class PXEService implements PXE {
         simulate: !profile,
         skipFeeEnforcement,
         profile,
-        dryRun: true,
       });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -552,7 +625,7 @@ export class PXEService implements PXE {
   }
 
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
-    const contract = await this.db.getContract(to);
+    const contract = await this.contractDataProvider.getContract(to);
     if (!contract) {
       throw new Error(
         `Unknown contract ${to}: add it to PXE Service by calling server.addContracts(...).\nSee docs for context: https://docs.aztec.network/developers/reference/debugging/aztecnr-errors#unknown-contract-0x0-add-it-to-pxe-by-calling-serveraddcontracts`,
@@ -615,8 +688,8 @@ export class PXEService implements PXE {
     for (const name of protocolContractNames) {
       const { address, contractClass, instance, artifact } =
         await this.protocolContractsProvider.getProtocolContractArtifact(name);
-      await this.db.addContractArtifact(contractClass.id, artifact);
-      await this.db.addContractInstance(instance);
+      await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
+      await this.contractDataProvider.addContractInstance(instance);
       registered[name] = address.toString();
     }
     this.log.verbose(`Registered protocol contracts in pxe`, registered);
@@ -654,7 +727,7 @@ export class PXEService implements PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichSimulationError(err, this.db, this.log);
+        await enrichSimulationError(err, this.contractDataProvider, this.log);
       }
       throw err;
     }
@@ -662,7 +735,7 @@ export class PXEService implements PXE {
 
   /**
    * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
-   * The simulation parameters are fetched using ContractDataOracle and executed using AcirSimulator.
+   * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
@@ -680,7 +753,7 @@ export class PXEService implements PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichSimulationError(err, this.db, this.log);
+        await enrichSimulationError(err, this.contractDataProvider, this.log);
       }
       throw err;
     }
@@ -704,7 +777,7 @@ export class PXEService implements PXE {
     } catch (err) {
       if (err instanceof SimulationError) {
         try {
-          await enrichPublicSimulationError(err, this.contractDataOracle, this.db, this.log);
+          await enrichPublicSimulationError(err, this.contractDataProvider, this.log);
         } catch (enrichErr) {
           this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
         }
@@ -727,19 +800,18 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile, dryRun }: ProvingConfig,
+    { simulate, skipFeeEnforcement, profile }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
     const block =
       privateExecutionResult.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
+    const kernelOracle = new KernelOracle(this.contractDataProvider, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
-    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
+    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile})...`);
     return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
       simulate,
       skipFeeEnforcement,
       profile,
-      dryRun,
     });
   }
 
@@ -858,7 +930,7 @@ export class PXEService implements PXE {
   }
 
   async resetNoteSyncData() {
-    return await this.db.resetNoteSyncData();
+    return await this.taggingDataProvider.resetNoteSyncData();
   }
 
   private contextualizeError(err: Error, ...context: string[]): Error {

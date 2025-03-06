@@ -75,7 +75,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
     );
 }
 
-#[test(should_fail_with = "Authorization not found for message hash")]
+#[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designated_caller() {
     let (env, nft_contract_address, sender, recipient, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ true);
@@ -93,7 +93,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
     transfer_to_public_call_interface.call(&mut env.private());
 }
 
-#[test(should_fail_with = "Authorization not found for message hash")]
+#[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_other_no_approval() {
     let (env, nft_contract_address, sender, recipient, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ true);

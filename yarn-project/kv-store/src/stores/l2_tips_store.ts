@@ -41,6 +41,7 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
     if (!blockHash) {
       throw new Error(`Block hash not found for block number ${blockNumber}`);
     }
+
     return { number: blockNumber, hash: blockHash };
   }
 

@@ -333,15 +333,13 @@ export class P2PNetworkTest {
       {
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
-        minGwei: 1n,
         maxAttempts: 3,
         checkIntervalMs: 100,
         stallTimeMs: 1000,
       },
     );
 
-    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues));
-    this.monitor.start();
+    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues)).start();
   }
 
   async stopNodes(nodes: AztecNodeService[]) {

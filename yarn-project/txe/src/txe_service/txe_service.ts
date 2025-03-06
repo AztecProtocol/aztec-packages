@@ -1,12 +1,10 @@
 import { type ContractInstanceWithAddress, Fr } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
-import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { protocolContractNames } from '@aztec/protocol-contracts';
-import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
-import { enrichPublicSimulationError } from '@aztec/pxe';
-import { HashedValuesCache, type TypedOracle } from '@aztec/simulator/client';
+import type { ProtocolContract } from '@aztec/protocol-contracts';
+import { enrichPublicSimulationError } from '@aztec/pxe/server';
+import type { TypedOracle } from '@aztec/simulator/client';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -14,7 +12,6 @@ import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { NativeWorldStateService } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
 import {
@@ -31,28 +28,14 @@ import {
   toSingle,
 } from '../util/encoding.js';
 import { ExpectedFailureError } from '../util/expected_failure_error.js';
-import { TXEDatabase } from '../util/txe_database.js';
 
 export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
-  static async init(logger: Logger) {
-    const store = await openTmpStore('test');
-    const executionCache = new HashedValuesCache();
-    const nativeWorldStateService = await NativeWorldStateService.tmp();
-    const baseFork = await nativeWorldStateService.fork();
-
-    const keyStore = new KeyStore(store);
-    const txeDatabase = new TXEDatabase(store);
-    // Register protocol contracts.
-    const provider = new BundledProtocolContractsProvider();
-    for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = await provider.getProtocolContractArtifact(name);
-      await txeDatabase.addContractArtifact(contractClass.id, artifact);
-      await txeDatabase.addContractInstance(instance);
-    }
+  static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
-    const txe = await TXE.create(logger, executionCache, keyStore, txeDatabase, nativeWorldStateService, baseFork);
+    const store = await openTmpStore('test');
+    const txe = await TXE.create(logger, store, protocolContracts);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -140,8 +123,10 @@ export class TXEService {
     const secretFr = fromSingle(secret);
     // This is a footgun !
     const completeAddress = await keyStore.addAccount(secretFr, secretFr);
-    const accountStore = (this.typedOracle as TXE).getTXEDatabase();
-    await accountStore.setAccount(completeAddress.address, completeAddress);
+    const accountDataProvider = (this.typedOracle as TXE).getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
@@ -156,8 +141,10 @@ export class TXEService {
 
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));
-    const accountStore = (this.typedOracle as TXE).getTXEDatabase();
-    await accountStore.setAccount(completeAddress.address, completeAddress);
+    const accountDataProvider = (this.typedOracle as TXE).getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
@@ -714,8 +701,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
-          (this.typedOracle as TXE).getTXEDatabase(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           this.logger,
         );
         throw new Error(result.revertReason.message);
@@ -724,7 +710,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
   }
 
   async avmOpcodeStaticCall(
@@ -744,8 +730,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
-          (this.typedOracle as TXE).getTXEDatabase(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           this.logger,
         );
         throw new Error(result.revertReason.message);
@@ -754,6 +739,11 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeSuccessCopy() {
+    const success = (this.typedOracle as TXE).avmOpcodeSuccessCopy();
+    return toForeignCallResult([toSingle(new Fr(success))]);
   }
 }

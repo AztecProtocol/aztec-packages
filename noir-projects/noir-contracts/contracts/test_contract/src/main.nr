@@ -33,6 +33,7 @@ pub contract Test {
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
         discovery::private_logs::do_process_log,
+        event::event_interface::EventInterface,
         hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
         macros::{
@@ -47,6 +48,7 @@ pub contract Test {
             note_interface::NoteType,
             retrieved_note::RetrievedNote,
         },
+        state_vars::storage::Storage as _,
         test::mocks::mock_struct::MockStruct,
     };
     use dep::token_portal_content_hash_lib::{

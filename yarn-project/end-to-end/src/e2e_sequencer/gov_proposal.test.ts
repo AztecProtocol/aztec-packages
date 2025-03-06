@@ -9,7 +9,7 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
-import type { PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe/server';
 
 import { privateKeyToAccount } from 'viem/accounts';
 

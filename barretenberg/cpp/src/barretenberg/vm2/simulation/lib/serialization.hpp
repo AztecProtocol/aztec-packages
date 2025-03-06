@@ -42,6 +42,7 @@ class Operand {
     Operand(const Operand& other);
     Operand(Operand&&) = default;
     Operand& operator=(const Operand& other);
+    bool operator==(const Operand& other) const;
 
     // Helpers for when we want to pass a value without casting.
     static Operand u8(uint8_t value) { return { value }; }
@@ -68,9 +69,12 @@ struct Instruction {
     WireOpCode opcode;
     uint16_t indirect;
     std::vector<Operand> operands;
-    uint8_t size_in_bytes;
 
     std::string to_string() const;
+    // Serialize the instruction according to the specification from OPCODE_WIRE_FORMAT.
+    std::vector<uint8_t> serialize() const;
+
+    bool operator==(const Instruction& other) const = default;
 };
 
 /**
@@ -83,6 +87,6 @@ struct Instruction {
  * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
  * @return The instruction
  */
-Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos);
+Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
 
 } // namespace bb::avm2::simulation

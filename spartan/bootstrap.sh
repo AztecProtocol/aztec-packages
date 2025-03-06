@@ -61,6 +61,7 @@ function test_cmds {
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
   fi
 }
 
@@ -78,7 +79,9 @@ case "$cmd" in
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
       # As well if kind-control-plane has been killed, just recreate the cluster
-      flock scripts/logs/kind-boot.lock bash -c "kind delete cluster; kind create cluster"
+      flock scripts/logs/kind-boot.lock bash -c "kind delete cluster; kind create cluster --config scripts/kind-config.yaml"
+      # Patch the kubeconfig to replace any invalid API server address (0.0.0.0) with 127.0.0.1
+      sed -i 's/https:\/\/0\.0\.0\.0:/https:\/\/127.0.0.1:/' "$HOME/.kube/config"
     fi
     kubectl config use-context kind-kind >/dev/null || true
     docker update --restart=no kind-control-plane >/dev/null || true
@@ -130,6 +133,9 @@ case "$cmd" in
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
+    ;;
+  "test-prod-deployment")
+    FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
     ;;
   "test-local")
     # Isolate network stack in docker.

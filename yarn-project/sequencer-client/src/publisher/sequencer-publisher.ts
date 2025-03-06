@@ -228,6 +228,12 @@ export class SequencerPublisher {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
       return undefined;
+    } finally {
+      try {
+        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+      } catch (err) {
+        this.log.warn(`Failed to record balance after sending tx: ${err}`);
+      }
     }
   }
 
