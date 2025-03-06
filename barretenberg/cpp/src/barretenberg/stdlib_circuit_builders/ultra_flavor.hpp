@@ -496,13 +496,21 @@ class UltraFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
-
             PROFILE_THIS_NAME("PartiallyEvaluatedMultivariates constructor");
 
             // Storage is only needed after the first partial evaluation, hence polynomials of
             // size (n / 2)
             for (auto& poly : this->get_all()) {
                 poly = Polynomial(circuit_size / 2);
+            }
+        }
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            PROFILE_THIS_NAME("PartiallyEvaluatedMultivariates constructor");
+            size_t halved_circuit_size = circuit_size / 2;
+            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+                size_t desired_size = std::min(full_poly.end_index(), halved_circuit_size);
+                poly = Polynomial(desired_size, halved_circuit_size);
             }
         }
     };

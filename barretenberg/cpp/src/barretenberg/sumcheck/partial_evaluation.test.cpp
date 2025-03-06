@@ -65,6 +65,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
     FF expected_lo = v00 * (FF(1) - round_challenge_0) + v10 * round_challenge_0;
     FF expected_hi = v01 * (FF(1) - round_challenge_0) + v11 * round_challenge_0;
 
+    sumcheck.partially_evaluated_polynomials = typename Flavor::PartiallyEvaluatedMultivariates(multivariate_n);
     sumcheck.partially_evaluate(full_polynomials, multivariate_n, round_challenge_0);
 
     auto& first_polynomial = sumcheck.partially_evaluated_polynomials.get_all()[0];
@@ -102,6 +103,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
     FF expected_lo = v00 * (FF(1) - round_challenge_0) + v10 * round_challenge_0;
     FF expected_hi = v01 * (FF(1) - round_challenge_0) + v11 * round_challenge_0;
 
+    sumcheck.partially_evaluated_polynomials = typename Flavor::PartiallyEvaluatedMultivariates(multivariate_n);
     sumcheck.partially_evaluate(full_polynomials, multivariate_n, round_challenge_0);
     auto& first_polynomial = sumcheck.partially_evaluated_polynomials.get_all()[0];
 
@@ -166,6 +168,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
     FF expected_q3 = v001 * (FF(1) - round_challenge_0) + v101 * round_challenge_0; // 6
     FF expected_q4 = v011 * (FF(1) - round_challenge_0) + v111 * round_challenge_0; // 8
 
+    sumcheck.partially_evaluated_polynomials = typename Flavor::PartiallyEvaluatedMultivariates(multivariate_n);
     sumcheck.partially_evaluate(full_polynomials, multivariate_n, round_challenge_0);
 
     auto& first_polynomial = sumcheck.partially_evaluated_polynomials.get_all()[0];
@@ -218,6 +221,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
     FF expected_q3 = v001 * (FF(1) - round_challenge_0) + v101 * round_challenge_0;
     FF expected_q4 = v011 * (FF(1) - round_challenge_0) + v111 * round_challenge_0;
 
+    sumcheck.partially_evaluated_polynomials = typename Flavor::PartiallyEvaluatedMultivariates(multivariate_n);
     auto& first_polynomial = sumcheck.partially_evaluated_polynomials.get_all()[0];
     sumcheck.partially_evaluate(full_polynomials, multivariate_n, round_challenge_0);
 
@@ -287,6 +291,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
         expected_q4[i] = v011[i] * (FF(1) - round_challenge_0) + v111[i] * round_challenge_0;
     }
 
+    sumcheck.partially_evaluated_polynomials = typename Flavor::PartiallyEvaluatedMultivariates(multivariate_n);
     sumcheck.partially_evaluate(full_polynomials, multivariate_n, round_challenge_0);
     auto polynomial_get_all = sumcheck.partially_evaluated_polynomials.get_all();
     for (size_t i = 0; i < 3; i++) {

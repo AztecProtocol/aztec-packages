@@ -402,6 +402,14 @@ class AvmFlavor {
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size);
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            size_t halved_circuit_size = circuit_size / 2;
+            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+                size_t desired_size = std::min(full_poly.end_index(), halved_circuit_size);
+                poly = Polynomial(desired_size, halved_circuit_size);
+            }
+        }
     };
 
     /**
