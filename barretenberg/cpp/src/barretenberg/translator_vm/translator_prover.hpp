@@ -7,9 +7,6 @@
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 namespace bb {
-
-// We won't compile this class with Standard, but we will like want to compile it (at least for testing)
-// with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
 class TranslatorProver {
   public:
     using Flavor = TranslatorFlavor;
@@ -36,6 +33,7 @@ class TranslatorProver {
     BB_PROFILE void execute_grand_product_computation_round();
     BB_PROFILE void execute_relation_check_rounds();
     BB_PROFILE void execute_pcs_rounds();
+    void commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label);
     HonkProof export_proof();
     HonkProof construct_proof();
 

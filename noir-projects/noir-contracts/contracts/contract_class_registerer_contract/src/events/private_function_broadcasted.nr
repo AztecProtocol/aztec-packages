@@ -9,6 +9,7 @@ use dep::aztec::protocol_types::{
     contract_class_id::ContractClassId,
     traits::Serialize,
 };
+use dep::aztec::protocol_types::traits::ToField;
 use std::meta::derive;
 
 #[derive(Serialize)]

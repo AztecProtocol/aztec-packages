@@ -51,7 +51,7 @@ validator:
       cpu: "1"
 
 proverAgent:
-  replicas: 8
+  replicas: 2
   bb:
     hardwareConcurrency: 31
   gke:

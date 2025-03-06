@@ -10,7 +10,7 @@ dir=${test%%/*}
 
 # Default to 2 CPUs and 4GB of memory when running with ISOLATE=1.
 CPUS=${CPUS:-2}
-MEMORY=${MEMORY:-4g}
+MEM=${MEM:-4g}
 
 if [ "${ISOLATE:-0}" -eq 1 ]; then
   # Strip leading non alpha numerics and replace / with _ for the container name.
@@ -21,7 +21,7 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
   docker run --rm \
     ${name_arg:-} \
     --cpus=$CPUS \
-    --memory $MEMORY \
+    --memory $MEM \
     -v$(git rev-parse --show-toplevel):/root/aztec-packages \
     -v$HOME/.bb-crs:/root/.bb-crs \
     --workdir /root/aztec-packages/yarn-project/$dir \

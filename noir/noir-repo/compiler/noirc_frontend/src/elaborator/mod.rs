@@ -1264,9 +1264,13 @@ impl<'context> Elaborator<'context> {
         self.check_parent_traits_are_implemented(&trait_impl);
         self.remove_trait_impl_assumed_trait_implementations(trait_impl.impl_id);
 
-        for (module, function, _) in &trait_impl.methods.functions {
+        for (module, function, noir_function) in &trait_impl.methods.functions {
             self.local_module = *module;
-            let errors = check_trait_impl_method_matches_declaration(self.interner, *function);
+            let errors = check_trait_impl_method_matches_declaration(
+                self.interner,
+                *function,
+                noir_function,
+            );
             self.push_errors(errors.into_iter().map(|error| error.into()));
         }
 
@@ -2162,5 +2166,14 @@ impl<'context> Elaborator<'context> {
             let reason = ParserErrorReason::ExperimentalFeature(feature);
             self.push_err(ParserError::with_reason(reason, location));
         }
+    }
+
+    /// Run the given function using the resolver and return true if any errors (not warnings)
+    /// occurred while running it.
+    pub fn errors_occurred_in<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> (bool, T) {
+        let previous_errors = self.errors.len();
+        let ret = f(self);
+        let errored = self.errors.iter().skip(previous_errors).any(|error| error.is_error());
+        (errored, ret)
     }
 }

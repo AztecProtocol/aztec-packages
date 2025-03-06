@@ -49,7 +49,7 @@ type TXEForeignCallInput = {
 
 const TXEForeignCallInputSchema = z.object({
   // eslint-disable-next-line camelcase
-  session_id: z.number(),
+  session_id: z.number().int().nonnegative(),
   function: z.string() as ZodFor<MethodNames<TXEService> | 'reset'>,
   // eslint-disable-next-line camelcase
   root_path: z.string(),
