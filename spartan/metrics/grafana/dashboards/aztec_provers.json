@@ -330,7 +330,7 @@
           "values": false
         },
         "showPercentChange": false,
-        "textMode": "auto",
+        "textMode": "value_and_name",
         "wideLayout": true
       },
       "pluginVersion": "11.2.1",
@@ -352,7 +352,7 @@
             "uid": "spartan-metrics-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(aztec_proving_queue_rejected_jobs_count{k8s_namespace_name=\"$namespace\"})",
+          "expr": "sum(aztec_proving_queue_rejected_jobs_count{k8s_namespace_name=\"$namespace\"}) or vector(0)",
           "hide": false,
           "instant": false,
           "legendFormat": "Failed jobs",
@@ -1031,7 +1031,7 @@
         "y": 34
       },
       "id": 12,
-      "interval": "10m",
+      "maxDataPoints": 32,
       "options": {
         "calculate": false,
         "cellGap": 1,
@@ -1068,7 +1068,7 @@
         "yAxis": {
           "axisPlacement": "left",
           "reverse": false,
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "pluginVersion": "11.2.1",
@@ -1333,8 +1333,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1451,8 +1450,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1495,6 +1493,7 @@
           },
           "editorMode": "code",
           "expr": "sum(aztec_proving_queue_size{k8s_namespace_name=\"$namespace\"}) by (aztec_proving_job_type)",
+          "interval": "",
           "legendFormat": "{{aztec_proving_job_type}}",
           "range": true,
           "refId": "A"
@@ -1553,8 +1552,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1611,6 +1609,7 @@
         "type": "prometheus",
         "uid": "spartan-metrics-prometheus"
       },
+      "description": "How long jobs spend in the queue before being taken by an agent",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1654,8 +1653,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1674,14 +1672,11 @@
         "y": 68
       },
       "id": 19,
+      "interval": "20m",
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "p95",
-            "max"
-          ],
-          "displayMode": "table",
+          "calcs": [],
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
@@ -1698,15 +1693,54 @@
             "uid": "spartan-metrics-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (aztec_proving_job_type) (rate(aztec_proving_queue_job_wait_milliseconds_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) / sum by (aztec_proving_job_type) (rate(aztec_proving_queue_job_wait_milliseconds_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
-          "hide": false,
+          "expr": "avg (rate(aztec_proving_queue_job_wait_milliseconds_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval]) / rate(aztec_proving_queue_job_wait_milliseconds_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
+          "hide": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "{{label_name}}",
           "range": true,
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "spartan-metrics-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum(rate(aztec_proving_queue_job_wait_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "50th Perc",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "spartan-metrics-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.9, sum(rate(aztec_proving_queue_job_wait_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "90th Perc",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "spartan-metrics-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum(rate(aztec_proving_queue_job_wait_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "95th Perc",
+          "range": true,
+          "refId": "D"
         }
       ],
-      "title": "AVG Job Wait Time by Type",
+      "title": "AVG Job Wait Time",
       "type": "timeseries"
     },
     {
@@ -1727,8 +1761,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "orange",
-                "value": null
+                "color": "orange"
               }
             ]
           },
@@ -1827,8 +1860,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -1843,7 +1875,7 @@
         "y": 77
       },
       "id": 22,
-      "interval": "5m",
+      "interval": "20m",
       "options": {
         "barRadius": 0,
         "barWidth": 0.97,
@@ -1875,7 +1907,7 @@
             "uid": "spartan-metrics-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(rate(aztec_proving_queue_job_duration_milliseconds_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (aztec_proving_job_type) / sum(rate(aztec_proving_queue_job_duration_milliseconds_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (aztec_proving_job_type)",
+          "expr": "avg by (aztec_proving_job_type) ((rate(aztec_proving_queue_job_duration_milliseconds_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) / rate(aztec_proving_queue_job_duration_milliseconds_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -1915,7 +1947,7 @@
         "y": 77
       },
       "id": 23,
-      "interval": "5m",
+      "maxDataPoints": 32,
       "options": {
         "calculate": false,
         "cellGap": 1,
@@ -1952,7 +1984,7 @@
         "yAxis": {
           "axisPlacement": "left",
           "reverse": false,
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "pluginVersion": "11.2.1",
@@ -2025,8 +2057,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2108,8 +2139,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2183,8 +2213,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -2286,8 +2315,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -2358,8 +2386,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -2420,9 +2447,9 @@
     "list": [
       {
         "current": {
-          "selected": true,
-          "text": "master-rc-1",
-          "value": "master-rc-1"
+          "selected": false,
+          "text": "ignition-testnet",
+          "value": "ignition-testnet"
         },
         "datasource": {
           "type": "prometheus",
@@ -2449,13 +2476,13 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Prover Node Overview",
   "uid": "aztec-prover-nodes",
-  "version": 22,
+  "version": 26,
   "weekStart": ""
 }
