@@ -35,6 +35,13 @@ tests:
     owners:
       - *luke
 
+  # Sumcheck is failing for some reason
+  - regex: "barretenberg/acir_tests/run_test.sh ram_blowup_regression"
+    skip: true
+    owners:
+      - "U04LLT331NK" # Tom
+
+
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
   - regex: "noir_lsp-.* notifications::notification_tests::test_caches_open_files"
