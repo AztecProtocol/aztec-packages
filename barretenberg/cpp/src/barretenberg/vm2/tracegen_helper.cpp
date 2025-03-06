@@ -21,6 +21,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
@@ -281,6 +282,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // Scalar mul
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_settings>>(),
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_settings>>(),
             // To radix
             std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_range_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range_settings>>(),
