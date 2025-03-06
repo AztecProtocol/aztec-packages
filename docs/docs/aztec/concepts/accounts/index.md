@@ -2,7 +2,7 @@
 title: Accounts
 sidebar_position: 1
 tags: [accounts]
----                                                                                                                                                               
+---
 
 Aztec has native account abstraction. Every account in Aztec is a smart contract.
 
@@ -33,12 +33,13 @@ On Aztec, there is no limitation on the complexity of verification logic (what d
 This unlocks a whole universe of new use cases and optimization of existing ones. Whenever the dapp can benefit from moving expensive computations off-chain, Aztec will provide a unique chance for an optimization. That is to say, on traditional chains users pay for each executed opcode, hence more complex operations (e.g. alternative signature verification) are quite expensive. In the case of Aztec, it can be moved off-chain so that it becomes almost free. The user pays for the operations in terms of client-side prover time. However, this refers to Aztec's client-side proving feature and not directly AA.
 
 Couple of examples:
+
 - Multisig contract with an arbitrary number of parties that can verify any number of signatures for free.
 - Oracle contract with an arbitrary number of data providers that can verify any number of data entries for free.
 
 ## Aztec account
 
-Smart contracts on Aztec are represented by an "address", which is a hexadecimal number that uniquely represents an entity on the Aztec network. An address is derived by hashing information specific to the entity represented by the address. This information includes contract bytecode and the public keys used in private execution for encryption and nullification. This means addresses are deterministic. 
+Smart contracts on Aztec are represented by an "address", which is a hexadecimal number that uniquely represents an entity on the Aztec network. An address is derived by hashing information specific to the entity represented by the address. This information includes contract bytecode and the public keys used in private execution for encryption and nullification. This means addresses are deterministic.
 
 Aztec has no concept of EOAs (Externally Owned Accounts). Every account is implemented as a contract.
 
@@ -66,6 +67,7 @@ def entryPoint(payload):
 ```
 
 A request for executing an action requires:
+
 - The `origin` contract to execute as the first step.
 - The initial function to call (usually `entrypoint`).
 - The arguments (which encode the private and public calls to run as well as any signatures).
@@ -81,28 +83,30 @@ For example, a lottery contract, where at some point a prize needs to be paid ou
 For an example of this behavior see our [e2e_crowdfunding_and_claim test](https://github.com/AztecProtocol/aztec-packages/blob/88b5878dd4b95d691b855cd84153ba884adf25f8/yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts#L322) and the [SignerLess wallet](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/wallet/signerless_wallet.ts) implementation. Notice that the Signerless wallet doesn't invoke an `entrypoint` function of an account contract but instead invokes the target contract function directly.
 
 :::info
+
 Entrypoints for the following cases:
 
 - If no contract `entrypoint` is used `msg_sender` is set to `Field.max`.
 - In a private to public `entrypoint`, `msg_sender` is the contract making the private to public call.
 - When calling the `entrypoint` on an account contract, `msg_sender` is set to the account contract address.
+
 :::
 
 ### Account contracts and wallets
 
 Account contracts are tightly coupled to the wallet software that users use to interact with the protocol. Dapps submit to the wallet software one or more function calls to be executed (e.g. "call swap in X contract"), and the wallet encodes and signs the request as a valid payload for the user's account contract. The account contract then validates the request encoded and signed by the wallet, and executes the function calls requested by the dapp.
 
-### Account initialization
+### Account Initialization
 
-When a user wants to interact with the network's **public** state, as their first action, they need to deploy their account contract (analogous to setting up a wallet with a seed phrase in an EOA). A Contract Instance is considered to be Publicly Deployed when it has been broadcasted to the network via a canonical `ContractInstanceDeployer` contract, which also emits a Deployment Nullifier associated to the deployed instance.
+When a user wants to interact with the network's **public** state, they need to deploy their account contract. A contract instance is considered to be publicly deployed when it has been broadcasted to the network via the canonical `ContractInstanceDeployer` contract, which also emits a deployment nullifier associated to the deployed instance.
 
-However, if a transaction is fully **private**, to send this transaction, it's enough to initialize the account contract (deployment is not needed). The default state for any given address is to be uninitialized, meaning its [constructor](../../../developers/tutorials/codealong/contract_tutorials/nft_contract.md#initializer) has not been called. The contract is initialized when its constructor has been invoked, and the constructor has emitted the instance's Initialization Nullifier.
+However, to send fully **private** transactions, it's enough to initialize the account contract (public deployment is not needed). The default state for any given address is to be uninitialized, meaning a function with the [initializer annotation](../../../developers/tutorials/codealong/contract_tutorials/nft_contract.md#initializer) has not been called. The contract is initialized when one of the functions marked with the `#[initializer]` annotation has been invoked. Multiple functions in the contract can be marked as initializers. Contracts may have functions that skip the initialization check (marked with `#[noinitcheck]`).
 
-When sitting on the receiving end, account deployment and initialization are not required. The user address can be deterministically derived from their encryption public key and the account contract they intend to deploy. So that the funds can be sent to an account that hasn't been deployed yet.
+Account deployment and initialization are not required to receive notes. The user address is deterministically derived from the encryption public key and the account contract they intend to deploy, so that funds can be sent to an account that hasn't been deployed yet.
 
 Users will need to pay transaction fees in order to deploy their account contract. This can be done by sending fee juice to their account contract address (which can be derived deterministically, as mentioned above), so that the account has funds to pay for its own deployment. Alternatively, the fee can be paid for by another account, using [fee abstraction](#fee-abstraction).
 
-## What is account address
+## What is an account address
 
 Address is derived from the [address keys](keys.md#address-keys). While the AddressPublicKey is an elliptic curve point of the form (x,y) on the [Grumpkin elliptic curve](https://github.com/AztecProtocol/aztec-connect/blob/9374aae687ec5ea01adeb651e7b9ab0d69a1b33b/markdown/specs/aztec-connect/src/primitives.md), the address is its x coordinate. The corresponding y coordinate can be derived if needed. For x to be a legitimate address, address there should exist a corresponding y that satisfies the curve equation. Any field element cannot work as an address.
 
@@ -110,9 +114,10 @@ Address is derived from the [address keys](keys.md#address-keys). While the Addr
 
 Because of the contract address derivation scheme, you can check that a given set of public [keys](keys.md) corresponds to a given address by trying to recompute it.
 
-If Alice wants Bob to send her a note, it's enough to share with him her address (x coordinate of the AddressPublicKey). 
+If Alice wants Bob to send her a note, it's enough to share with him her address (x coordinate of the AddressPublicKey).
 
 However, if Alice wants to spend her notes (i.e. to prove that the nullifier key inside her address is correct) she needs her complete address. It is represented by:
+
 - all the user's public keys,
 - [partial address](keys.md#address-keys),
 - contract address.
@@ -145,7 +150,7 @@ Beyond the authentication logic abstraction, there are nonce abstraction and fee
 
 Nonce is a unique number and it is utilized for replay protection (i.e. preventing users from executing a transaction more than once and unauthorized reordering).
 
-In particular, nonce management defines what it means for a transaction to be canceled, the rules of transaction ordering, and replay protection. In Ethereum, nonce is enshrined into the protocol. On the Aztec network, nonce is abstracted i.e. if a developer wants to customize it, they get to decide how they handle replay protection, transaction cancellation, as well as ordering. 
+In particular, nonce management defines what it means for a transaction to be canceled, the rules of transaction ordering, and replay protection. In Ethereum, nonce is enshrined into the protocol. On the Aztec network, nonce is abstracted i.e. if a developer wants to customize it, they get to decide how they handle replay protection, transaction cancellation, as well as ordering.
 
 Take as an example the transaction cancellation logic. It can be done through managing nullifiers. Even though we usually refer to a nullifier as a creature utilized to consume a note, in essence, a nullifier is an emitted value whose uniqueness is guaranteed by the protocol. If we want to cancel a transaction before it was mined, we can send another transaction with higher gas price that emits the same nullifier (i.e. nullifier with the same value, for example, 5). The second transaction will invalidate the original one, since nullifiers cannot be repeated.
 
@@ -156,10 +161,12 @@ Nonce abstraction is mostly relevant to those building wallets. For example, a d
 It doesn't have to be the transaction sender who pays the transaction fees. Wallets or dapp developers can choose any payment logic they want using a paymaster. To learn more about fees on Aztec – check [this page](../fees.md).
 
 Paymaster is a contract that can pay for transactions on behalf of users. It is invoked during the private execution stage and set as the fee payer.
+
 - It can be managed by a dapp itself (e.g. a DEX can have its own paymaster) or operate as a third party service available for everyone.
 - Fees can be paid publicly or privately.
-- Fees can be paid in any token.
+- Fees can be paid in any token that a paymaster accepts.
 
 Fee abstraction unlocks use cases like:
+
 - Sponsored transactions (e.g. the dapp's business model might assume revenue from other streams besides transaction fees or the dapp might utilize sponsored transaction mechanics for marketing purposes). For example, sponsoring the first ten transactions for every user.
 - Flexibility in the currency used in transaction payments (e.g. users can pay for transactions in ERC-20 token).
