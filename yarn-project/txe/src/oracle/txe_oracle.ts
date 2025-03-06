@@ -17,7 +17,7 @@ import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { protocolContractNames } from '@aztec/protocol-contracts';
+import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import {
   AddressDataProvider,
@@ -168,7 +168,7 @@ export class TXE implements TypedOracle {
     );
   }
 
-  static async create(logger: Logger, store: AztecAsyncKVStore) {
+  static async create(logger: Logger, store: AztecAsyncKVStore, protocolContracts: ProtocolContract[]) {
     const executionCache = new HashedValuesCache();
     const nativeWorldStateService = await NativeWorldStateService.tmp();
     const baseFork = await nativeWorldStateService.fork();
@@ -186,8 +186,7 @@ export class TXE implements TypedOracle {
 
     // Register protocol contracts.
     const provider = new BundledProtocolContractsProvider();
-    for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = await provider.getProtocolContractArtifact(name);
+    for (const { contractClass, instance, artifact } of protocolContracts) {
       await contractDataProvider.addContractArtifact(contractClass.id, artifact);
       await contractDataProvider.addContractInstance(instance);
     }

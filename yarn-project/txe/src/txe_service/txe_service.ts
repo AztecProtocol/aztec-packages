@@ -2,6 +2,7 @@ import { type ContractInstanceWithAddress, Fr } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
 import type { TypedOracle } from '@aztec/simulator/client';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
@@ -31,10 +32,10 @@ import { ExpectedFailureError } from '../util/expected_failure_error.js';
 export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
-  static async init(logger: Logger) {
+  static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
     const store = await openTmpStore('test');
-    const txe = await TXE.create(logger, store);
+    const txe = await TXE.create(logger, store, protocolContracts);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
