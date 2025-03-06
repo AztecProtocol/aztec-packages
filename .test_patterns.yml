@@ -169,7 +169,7 @@ tests:
     owners:
       - *mitch
 
-  - regex: "spartan/bootstrap.sh test-kind"
+  - regex: "spartan/bootstrap.sh test-kind(?!-smoke)" # Exclude smoke test from this list
     owners:
       - *phil
       - *mitch
