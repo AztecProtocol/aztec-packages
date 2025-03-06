@@ -178,7 +178,7 @@ describe('NoteDataProvider', () => {
   });
 
   it('stores notes and retrieves notes with siloed account', async () => {
-    await noteDataProvider.addNotes(notes, owners[0].address);
+    await noteDataProvider.addNotes(notes.slice(0, 5), owners[0].address);
 
     await noteDataProvider.addNotes(notes.slice(5), owners[1].address);
 
