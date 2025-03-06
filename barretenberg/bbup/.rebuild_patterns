@@ -1,2 +1,3 @@
-^bbup
+^barretenberg/bbup/bbup
+^barretenberg/bbup/install
 ^install
