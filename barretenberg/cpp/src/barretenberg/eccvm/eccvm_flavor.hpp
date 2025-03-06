@@ -714,7 +714,7 @@ class ECCVMFlavor {
         PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
         {
             for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
-                poly = Polynomial(full_poly.size() / 2, circuit_size / 2, full_poly.start_index() / 2);
+                poly = Polynomial((full_poly.end_index() + 1) / 2, circuit_size / 2);
             }
         }
     };

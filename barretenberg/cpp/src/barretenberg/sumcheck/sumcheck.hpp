@@ -454,7 +454,8 @@ template <typename Flavor> class SumcheckProver {
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(poly_view.size(), [&](size_t j) {
             const auto& poly = poly_view[j];
-            for (size_t i = 0; i < poly.end_index() / (1 << (round_index - 1)); i += 2) {
+            size_t actual_end_index = (poly.end_index() + 1) / (1 << (round_index - 1));
+            for (size_t i = 0; i < actual_end_index; i += 2) {
                 pep_view[j].set_if_valid_index(i >> 1, poly[i] + round_challenge * (poly[i + 1] - poly[i]));
             }
         });
@@ -470,7 +471,8 @@ template <typename Flavor> class SumcheckProver {
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
             const auto& poly = polynomials[j];
-            for (size_t i = 0; i < poly.end_index() / (1 << (round_index - 1)); i += 2) {
+            size_t actual_end_index = (poly.end_index() + 1) / (1 << (round_index - 1));
+            for (size_t i = 0; i < actual_end_index; i += 2) {
                 pep_view[j].set_if_valid_index(i >> 1, poly[i] + round_challenge * (poly[i + 1] - poly[i]));
             }
         });
