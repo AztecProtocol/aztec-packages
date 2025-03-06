@@ -16,7 +16,7 @@ export class CapsuleDataProvider {
 
     this.#capsules = this.#store.openMap('capsules');
 
-    this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
+    this.debug = createDebugOnlyLogger('pxe:capsule-data-provider');
   }
 
   async storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

@@ -216,7 +216,10 @@ export class PXEService implements PXE {
     isContractClassPubliclyRegistered: boolean;
     artifact: ContractArtifact | undefined;
   }> {
-    const artifact = await this.contractDataProvider.getContractArtifact(id);
+    let artifact;
+    try {
+      artifact = await this.contractDataProvider.getContractArtifact(id);
+    } catch {}
 
     return {
       contractClass: artifact && (await getContractClassFromArtifact(artifact)),
@@ -322,7 +325,6 @@ export class PXEService implements PXE {
       if (!computedAddress.equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
-
       await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
 
       const publicFunctionSignatures = artifact.functions

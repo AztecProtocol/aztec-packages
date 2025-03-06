@@ -130,8 +130,6 @@ export class TXE implements TypedOracle {
 
   private noteCache: ExecutionNoteCache;
 
-  debug: LogFn;
-
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
@@ -167,8 +165,6 @@ export class TXE implements TypedOracle {
       this.authWitnessDataProvider,
       this.logger,
     );
-
-    this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
   }
 
   static async create(logger: Logger, store: AztecAsyncKVStore) {

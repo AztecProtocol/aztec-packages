@@ -151,9 +151,11 @@ export class AztecEnv {
     } as PXEServiceConfig;
 
     const pxe = await createPXEService(aztecNode, configWithContracts, {
-      store: WebLogger.getInstance().createLogger('pxe:data:indexeddb'),
-      pxe: WebLogger.getInstance().createLogger('pxe:service'),
-      prover: WebLogger.getInstance().createLogger('bb:wasm:lazy'),
+      loggers: {
+        store: WebLogger.getInstance().createLogger('pxe:data:indexeddb'),
+        pxe: WebLogger.getInstance().createLogger('pxe:service'),
+        prover: WebLogger.getInstance().createLogger('bb:wasm:lazy'),
+      }
     });
     return pxe;
   }

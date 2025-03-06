@@ -19,6 +19,6 @@ export class AuthWitnessDataProvider {
 
   async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     const witness = await this.#authWitnesses.getAsync(messageHash.toString());
-    return Promise.resolve(witness?.map(w => Fr.fromBuffer(w)));
+    return witness?.map(w => Fr.fromBuffer(w));
   }
 }

@@ -94,11 +94,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return instance;
   }
 
-  async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+  async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     const witness = await this.authWitnessDataProvider.getAuthWitness(messageHash);
-    if (!witness) {
-      throw new Error(`Unknown auth witness for message hash ${messageHash.toString()}`);
-    }
     return witness;
   }
 
