@@ -335,7 +335,7 @@ pub comptime fn generate_serialize_to_fields(
             // We add the individual fields to the fields array
             let pack_method = get_trait_impl_method(
                 typ,
-                quote { crate::traits::Packable<$maybe_packed_len_typ> },
+                quote { crate::traits::Packable<$packed_len> },
                 quote { pack },
             );
             let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
