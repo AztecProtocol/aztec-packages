@@ -17,7 +17,6 @@ import type { PXECreationOptions } from '../pxe_creation_options.js';
  * @param aztecNode - The AztecNode instance to be used by the server.
  * @param config - The PXE Service Config to use
  * @param options - (Optional) Optional information for creating an PXEService.
- * @param proofCreator - An optional proof creator to use in place of any other configuration
  * @returns A Promise that resolves to the started PXEService instance.
  */
 export async function createPXEService(

@@ -18,7 +18,7 @@ import { PXE_DATA_SCHEMA_VERSION } from './index.js';
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
  * @param config - The PXE Service Config to use
- * @param options - (Optional) Optional information for creating an PXEService.
+ * @param useLogSuffix - (Optional) Log suffix for PXE's logger.
  * @param proofCreator - An optional proof creator to use in place of any other configuration
  * @returns A Promise that resolves to the started PXEService instance.
  */

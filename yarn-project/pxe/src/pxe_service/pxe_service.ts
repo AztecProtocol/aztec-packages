@@ -106,9 +106,11 @@ export class PXEService implements PXE {
   ) {}
 
   /**
-   * Starts the PXE Service by beginning the synchronization process between the Aztec node and the database.
+   * Creates an instance of a PXE Service by instantiating all the necessary data providers and services.
+   * Also triggers the registration of the protocol contracts and makes sure the provided node
+   * can be contacted.
    *
-   * @returns A promise that resolves when the server has started successfully.
+   * @returns A promise that resolves PXE service is ready to be used.
    */
   public static async create(
     node: AztecNode,
