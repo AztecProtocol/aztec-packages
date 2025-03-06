@@ -156,7 +156,7 @@ tests:
     owners:
       - "U06AY5G1NRK" # mitch
 
-  - regex: "spartan/bootstrap.sh test-kind"
+  - regex: "spartan/bootstrap.sh test-kind(?!-smoke)" # Exclude smoke test from this list
     owners:
       - "U02G4KAD57Y" # phil
       - "U06AY5G1NRK" # mitch
