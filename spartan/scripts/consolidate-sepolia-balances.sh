@@ -2,9 +2,8 @@
 set -exu
 
 mnemonic=$1
-# at least 2 accounts are needed for the validator and prover nodes
-num_accounts=${2:-"2"}
-funding_address=${3:-"0x33D525f5ac95c2BCf98b644738C7d5673480493A"}
+funding_address=${2:-"0x33D525f5ac95c2BCf98b644738C7d5673480493A"}
+values_file=${3:-"ignition-testnet"}
 
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 
@@ -17,8 +16,50 @@ if ! command -v cast &>/dev/null; then
     $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
 fi
 
-# For each index
-for i in $(seq 0 $((num_accounts - 1))); do
+# Get values from the values file
+value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
+
+# Get the number of replicas for each service
+num_validators=$(./read_value.sh "validator.replicas" $value_yamls)
+num_provers=$(./read_value.sh "proverNode.replicas" $value_yamls)
+
+# Get the key index start values
+validator_key_index_start=$(./read_value.sh "aztec.validatorKeyIndexStart" $value_yamls)
+prover_key_index_start=$(./read_value.sh "aztec.proverKeyIndexStart" $value_yamls)
+bot_key_index_start=$(./read_value.sh "aztec.botKeyIndexStart" $value_yamls)
+
+# bots might be disabled
+bot_enabled=$(./read_value.sh "bot.enabled" $value_yamls)
+if [ "$bot_enabled" = "true" ]; then
+  num_bots=$(./read_value.sh "bot.replicas" $value_yamls)
+else
+  num_bots=0
+fi
+
+# Build an array of indices to check
+declare -a indices_to_check
+
+# Add validator indices
+for ((i = 0; i < num_validators; i++)); do
+  indices_to_check+=($((validator_key_index_start + i)))
+done
+
+# Add prover indices
+for ((i = 0; i < num_provers; i++)); do
+  indices_to_check+=($((prover_key_index_start + i)))
+done
+
+# Add bot indices if enabled
+if [ "$bot_enabled" = "true" ]; then
+  for ((i = 0; i < num_bots; i++)); do
+    indices_to_check+=($((bot_key_index_start + i)))
+  done
+fi
+
+echo "Checking balances for ${#indices_to_check[@]} accounts..."
+
+# For each index in our list
+for i in "${indices_to_check[@]}"; do
   # Get address and private key for this index
   address=$(cast wallet address --mnemonic "$mnemonic" --mnemonic-index $i)
   private_key=$(cast wallet private-key --mnemonic "$mnemonic" --mnemonic-index $i)
@@ -35,13 +76,13 @@ for i in $(seq 0 $((num_accounts - 1))); do
     send_amount=$((balance - gas_cost))
 
     if [ "$send_amount" -gt "0" ]; then
-      echo "Sending $send_amount wei from $address to $funding_address"
+      echo "Sending $send_amount wei from $address (index $i) to $funding_address"
       cast send --private-key "$private_key" --rpc-url "$ETHEREUM_RPC_URL" "$funding_address" \
         --value "$send_amount" --gas-price "$gas_price" --async
     else
-      echo "Balance too low to cover gas costs for $address"
+      echo "Balance too low to cover gas costs for $address (index $i)"
     fi
   else
-    echo "No balance in $address"
+    echo "No balance in $address (index $i)"
   fi
 done

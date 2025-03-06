@@ -4,9 +4,6 @@ telemetry:
 aztec:
   realProofs: true
   l1DeploymentMnemonic: ""
-  validatorKeyIndexStart: 0
-  proverKeyIndexStart: 48
-  botKeyIndexStart: 49
 
 images:
   aztec:
