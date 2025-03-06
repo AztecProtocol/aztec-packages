@@ -24,7 +24,7 @@ fi
 
 rm -rf $TEMP_DIR
 
-if ! grep "$VERSION" <<< $(echo $SEEN_VERSION) > /dev/null; then
+if ! grep "$VERSION" <<< $SEEN_VERSION > /dev/null; then
     echo "Did not find expected version of bb"
     echo "Expected: $VERSION"
     echo "Found: $SEEN_VERSION"
