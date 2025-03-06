@@ -366,9 +366,6 @@ export class PXEService implements PXE {
 
   public async updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
     const currentInstance = await this.contractDataProvider.getContractInstance(contractAddress);
-    if (!currentInstance) {
-      throw new Error(`Contract ${contractAddress.toString()} is not registered.`);
-    }
     const contractClass = await getContractClassFromArtifact(artifact);
     await this.synchronizer.sync();
 
