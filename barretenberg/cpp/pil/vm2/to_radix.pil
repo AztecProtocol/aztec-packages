@@ -78,7 +78,7 @@ namespace to_radix;
     // not_padding_limb starts at 1
     start * (1 - not_padding_limb) = 0;
     // next not not_padding_limb is current not_padding_limb unless current limb is unsafe, where it changes to 0
-    not_end * ((0 - not_padding_limb)*is_unsafe_limb + not_padding_limb - not_padding_limb') = 0;
+    not_end * ((0 - not_padding_limb) * is_unsafe_limb + not_padding_limb - not_padding_limb') = 0;
 
     // Padding limbs have zero exponent
     (1 - not_padding_limb) * exponent = 0;
@@ -197,6 +197,7 @@ namespace to_radix;
     not_end * ((acc_under_p - limb_lt_p') * limb_eq_p' + limb_lt_p' - acc_under_p') = 0;
 
     // On the the unsafe limb, we must be under p
+    #[OVERFLOW_CHECK]
     is_unsafe_limb * (1 - acc_under_p) = 0;
 
 

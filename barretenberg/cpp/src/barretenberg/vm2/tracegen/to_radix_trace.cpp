@@ -46,9 +46,6 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
             bool end = i == (event.limbs.size() - 1);
 
-            assert(!end || found);
-            assert(!is_unsafe_limb || acc_under_p);
-
             trace.set(row,
                       { {
                           { C::to_radix_sel, 1 },

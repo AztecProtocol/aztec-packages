@@ -314,6 +314,8 @@ template <typename FF> class to_radix : public Relation<to_radixImpl<FF>> {
             return "SELECTOR_ON_START";
         case 6:
             return "SELECTOR_CONSISTENCY";
+        case 36:
+            return "OVERFLOW_CHECK";
         case 37:
             return "CONSTANT_CONSISTENCY_RADIX";
         case 38:
@@ -328,6 +330,7 @@ template <typename FF> class to_radix : public Relation<to_radixImpl<FF>> {
     static constexpr size_t SR_START_AFTER_LATCH = 4;
     static constexpr size_t SR_SELECTOR_ON_START = 5;
     static constexpr size_t SR_SELECTOR_CONSISTENCY = 6;
+    static constexpr size_t SR_OVERFLOW_CHECK = 36;
     static constexpr size_t SR_CONSTANT_CONSISTENCY_RADIX = 37;
     static constexpr size_t SR_CONSTANT_CONSISTENCY_VALUE = 38;
     static constexpr size_t SR_CONSTANT_CONSISTENCY_SAFE_LIMBS = 39;

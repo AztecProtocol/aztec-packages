@@ -282,6 +282,66 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     check_interaction<lookup_limb_p_diff_range>(trace);
 }
 
+TEST(ToRadixConstrainingTest, NegativeOverflowCheck)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    std::vector<uint8_t> modulus_le_bits(256, 0);
+    for (size_t i = 0; i < 256; i++) {
+        modulus_le_bits[i] = static_cast<uint8_t>(FF::modulus.get_bit(i));
+    }
+
+    ToRadixEvent event = { .value = FF::zero(), .radix = 2, .limbs = modulus_le_bits };
+    std::vector<ToRadixEvent> events = { event };
+
+    tracegen::ToRadixTraceBuilder builder;
+    builder.process(events, trace);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_OVERFLOW_CHECK), "OVERFLOW_CHECK");
+}
+
+TEST(ToRadixConstrainingTest, NegativeConsistency)
+{
+    EventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+
+    to_radix_simulator.to_le_radix(FF(256), 32, 256);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::ToRadixTraceBuilder builder;
+    builder.process(to_radix_event_emitter.dump_events(), trace);
+
+    // Disable the selector in the middle
+    trace.set(Column::to_radix_sel, 6, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_SELECTOR_CONSISTENCY),
+                              "SELECTOR_CONSISTENCY");
+
+    // Mutate the radix
+    trace.set(Column::to_radix_radix, 5, 200);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_RADIX),
+                              "CONSTANT_CONSISTENCY_RADIX");
+
+    // Mutate the value
+    trace.set(Column::to_radix_value, 4, 27);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_VALUE),
+                              "CONSTANT_CONSISTENCY_VALUE");
+
+    // Mutate the safe_limbs
+    trace.set(Column::to_radix_safe_limbs, 3, 200);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_CONSTANT_CONSISTENCY_SAFE_LIMBS),
+                              "CONSTANT_CONSISTENCY_SAFE_LIMBS");
+}
+
 } // namespace
 
 } // namespace bb::avm2::constraining
