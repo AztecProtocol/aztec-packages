@@ -5,7 +5,6 @@ export {
   type EventSelectorLike,
   type FieldLike,
   type FunctionSelectorLike,
-  type U128Like,
   type WrappedFieldLike,
 } from './abi_types.js';
 export {

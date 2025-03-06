@@ -344,7 +344,6 @@ import {
   type PublicKey,
   PublicKeys,
   type Wallet,
-  type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
 ${artifactStatement}
