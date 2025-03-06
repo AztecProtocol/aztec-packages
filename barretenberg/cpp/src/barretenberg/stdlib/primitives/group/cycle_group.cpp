@@ -217,14 +217,10 @@ template <typename Builder> void cycle_group<Builder>::validate_is_on_curve() co
  * @brief  Get point in standard form. If the point is a point at infinity, ensure the coordinates are (0,0)
  *
  */
-template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_standard_form() const
+template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_standard_form()
 {
-    if (this->_is_standard) {
-        return *this;
-    }
-    cycle_group<Builder> result = *this;
-    result.set_point_at_infinity(result.is_point_at_infinity());
-    return result;
+    this->standardize();
+    return *this;
 }
 /**
  * @brief Evaluates a doubling. Does not use Ultra double gate
@@ -321,6 +317,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
  * @brief Will evaluate ECC point addition over `*this` and `other`.
  *        Incomplete addition formula edge cases are *NOT* checked!
  *        Only use this method if you know the x-coordinates of the operands cannot collide
+ *        and none of the operands is a point at infinity
  *        Standard version that does not use ecc group gate
  *
  * @tparam Builder
@@ -339,7 +336,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(
     auto lambda = y_diff.divide_no_zero_check(x_diff);
     auto x3 = lambda.madd(lambda, -other.x - x);
     auto y3 = lambda.madd(x - x3, -y);
-    cycle_group result(x3, y3, false);
+    cycle_group result(x3, y3, /*is_infinity=*/false, /*is_standard=*/true);
     return result;
 }
 
@@ -381,9 +378,9 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         auto x3 = hint.value().x;
         auto y3 = hint.value().y;
         if (lhs_constant && rhs_constant) {
-            return cycle_group(x3, y3, false);
+            return cycle_group(x3, y3, /*is_infinity=*/false, /*is_standard=*/true);
         }
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), false);
+        result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*is_standard=*/true);
     } else {
         const auto p1 = get_value();
         const auto p2 = other.get_value();
@@ -396,7 +393,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         }
         field_t r_x(witness_t(context, p3.x));
         field_t r_y(witness_t(context, p3.y));
-        result = cycle_group(r_x, r_y, false);
+        result = cycle_group(r_x, r_y, /*is_infinity=*/false, /*is_standard=*/true);
     }
     bb::ecc_add_gate_<FF> add_gate{
         .x1 = x.get_witness_index(),
@@ -454,9 +451,9 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
             auto x3 = hint.value().x;
             auto y3 = hint.value().y;
             if (lhs_constant && rhs_constant) {
-                return cycle_group(x3, y3, false);
+                return cycle_group(x3, y3, /*is_infinity=*/false, /*is_standard=*/true);
             }
-            result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+            result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*is_standard=*/true);
         } else {
             auto p1 = get_value();
             auto p2 = other.get_value();
@@ -469,7 +466,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
             }
             field_t r_x(witness_t(context, p3.x));
             field_t r_y(witness_t(context, p3.y));
-            result = cycle_group(r_x, r_y, false);
+            result = cycle_group(r_x, r_y, /*is_infinity=*/false, /*is_standard=*/true);
         }
         bb::ecc_add_gate_<FF> add_gate{
             .x1 = x.get_witness_index(),
@@ -1241,7 +1238,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::straus_lo
         // Merge tag of table with tag of index
         x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
         y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
-        return cycle_group(x, y, false);
+        return cycle_group(x, y, /*is_infinity=*/false, /*is_standard=*/true);
     }
     field_t x = _index * (point_table[1].x - point_table[0].x) + point_table[0].x;
     field_t y = _index * (point_table[1].y - point_table[0].y) + point_table[0].y;
@@ -1249,7 +1246,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::straus_lo
     // Merge tag of table with tag of index
     x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
-    return cycle_group(x, y, false);
+    return cycle_group(x, y, /*is_infinity=*/false, /*is_standard=*/true);
 }
 
 /**
@@ -1500,7 +1497,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         for (size_t j = 0; j < lookup_data[ColumnIdx::C2].size(); ++j) {
             const auto x = lookup_data[ColumnIdx::C2][j];
             const auto y = lookup_data[ColumnIdx::C3][j];
-            lookup_points.emplace_back(cycle_group(x, y, false));
+            lookup_points.emplace_back(cycle_group(x, y, /*is_infinity=*/false, /*is_standard=*/true));
         }
 
         std::optional<AffineElement> offset_1 =
@@ -1844,8 +1841,10 @@ template <typename Builder> bool_t<Builder> cycle_group<Builder>::operator==(con
 }
 
 template <typename Builder>
-void cycle_group<Builder>::assert_equal(const cycle_group& other, std::string const& msg) const
+void cycle_group<Builder>::assert_equal(cycle_group& other, std::string const& msg)
 {
+    this->standardize();
+    other.standardize();
     x.assert_equal(other.x, msg);
     y.assert_equal(other.y, msg);
 }

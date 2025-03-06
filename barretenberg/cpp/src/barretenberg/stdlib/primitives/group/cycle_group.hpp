@@ -220,7 +220,21 @@ template <typename Builder> class cycle_group {
         _is_infinity = is_infinity;
         this->_is_standard = true;
     }
-    cycle_group get_standard_form() const;
+    void standardize(){
+        if(this->_is_standard){
+            return;
+        }
+        if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+            this->x = 0;
+            this->y = 0;
+            this->_is_constant = true;
+        } else {
+            this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
+            this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
+        }
+        this->_is_standard = true;
+    }
+    cycle_group get_standard_form();
     void validate_is_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
@@ -261,7 +275,7 @@ template <typename Builder> class cycle_group {
     cycle_group operator*(const BigScalarField& scalar) const;
     cycle_group& operator*=(const BigScalarField& scalar);
     bool_t operator==(const cycle_group& other) const;
-    void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
+    void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
     cycle_group operator/(const cycle_group& other) const;
 
@@ -293,7 +307,7 @@ template <typename Builder> class cycle_group {
     bool_t _is_infinity;
     bool _is_constant;
     // Most of the time it is true, so we won't need to do extra conditional_assign
-    // during `get_standard_form` call
+    // during `get_standard_form` or `assert_equal` call
     // However sometimes it won't be the case, so we can handle these cases using this flag
     bool _is_standard;
     Builder* context;
