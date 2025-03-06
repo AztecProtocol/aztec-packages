@@ -82,7 +82,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
-          echo ./ci.sh ec2
+          ./ci.sh ec2
 
       - name: Download benchmarks
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
@@ -177,7 +177,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           CI_FULL: 1
         run: |
-          echo ./ci.sh ec2-test
+          ./ci.sh ec2-test
 
   # Necessary as github actions won't allow checks on matrix builds.
   merge-check:
