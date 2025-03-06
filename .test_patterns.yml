@@ -39,7 +39,7 @@ tests:
   - regex: "barretenberg/acir_tests/run_test.sh ram_blowup_regression"
     skip: true
     owners:
-      - "U04LLT331NK" # Tom
+      - *tom
 
 
   # noir
