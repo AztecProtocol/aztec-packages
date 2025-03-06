@@ -44,7 +44,7 @@ As in the previous section, the location of the noir contracts moved at version 
 Notice the difference between the sample Counter contract from `0.23.0` to `0.24.0` shows the `note_type_id` was added.
 
 ```shell
-diff ~/nargo/github.com/AztecProtocol/aztec-packages-v0.23.0/yarn-project/noir-contracts/contracts/counter_contract/src/main.nr ~/nargo/github.com/AztecProtocol/aztec-packages-v0.24.0/noir-projects/noir-contracts/contracts/counter_contract/src/main.nr
+diff ~/nargo/github.com/AztecProtocol/v0.23.0/yarn-project/noir-contracts/contracts/counter_contract/src/main.nr ~/nargo/github.com/AztecProtocol/v0.24.0/noir-projects/noir-contracts/contracts/counter_contract/src/main.nr
 ```
 
 ```
@@ -79,7 +79,7 @@ This can present confusion when opening older contracts (and dependencies) writt
 aztec-up
 ```
 
-To set `VERSION` for a particular git tag, eg for [aztec-package-v**0.35.0**](https://github.com/AztecProtocol/aztec-packages/tree/aztec-packages-v0.35.0)
+To set `VERSION` for a particular git tag, eg for [v**0.77.0**](https://github.com/AztecProtocol/aztec-packages/tree/v0.77.0)
 
 ```shell
 VERSION=0.35.0 aztec-up
@@ -127,9 +127,9 @@ To update the aztec.nr packages manually, update the tags of the `aztec.nr` depe
 
 ```diff
 [dependencies]
--aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="noir-projects/aztec-nr/aztec" }
+-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.7.5", directory="noir-projects/aztec-nr/aztec" }
 +aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
--value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="aztec-packages-v0.7.5", directory="noir-projects/aztec-nr/value-note" }
+-value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.7.5", directory="noir-projects/aztec-nr/value-note" }
 +value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
 ```
 
@@ -162,9 +162,9 @@ As mentioned in the tl;dr, `aztec-nargo` is updated as part of updating the whol
 aztec-up
 ```
 
-The version of aztec-nargo that comes with a particular version of the Aztec sandbox can be seen in the monorepo. Eg tag: aztec-packages-v0.35.0 contains aztec-nargo [v0.27.0 (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/aztec-packages-v0.35.0/noir/noir-repo/Cargo.toml#L44).
+The version of aztec-nargo that comes with a particular version of the Aztec sandbox can be seen in the monorepo. Eg tag: v0.35.0 contains aztec-nargo [v0.27.0 (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.35.0/noir/noir-repo/Cargo.toml#L44).
 
-Set VERSION to specify the desired Aztec sandbox version, eg monorepo tag suffix [0.35.0 (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/aztec-packages-v0.35.0) (to have `aztec-nargo` v0.27.0).
+Set VERSION to specify the desired Aztec sandbox version, eg monorepo tag suffix [0.35.0 (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.35.0) (to have `aztec-nargo` v0.27.0).
 
 ```bash
 VERSION=<tag-suffix> aztec-up

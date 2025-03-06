@@ -4,19 +4,12 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
 import { Contract } from '@aztec/aztec.js/contracts';
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
-import { PXEService } from '@aztec/pxe/service';
-import { type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/config';
-import { KVPxeDatabase } from '@aztec/pxe/database';
-import { KeyStore } from '@aztec/key-store';
-import { L2TipsStore } from '@aztec/kv-store/stores';
+import { createPXEService, type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/client/lazy';
 import { createStore } from '@aztec/kv-store/indexeddb';
-import { BBWASMLazyPrivateKernelProver } from '@aztec/bb-prover/wasm/lazy';
-import { WASMSimulator } from '@aztec/simulator/client';
 import { createContext } from 'react';
 import { NetworkDB, WalletDB } from './utils/storage';
 import { type ContractFunctionInteractionTx } from './utils/txs';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
-import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 
 const logLevel = ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
 
@@ -151,44 +144,19 @@ export class AztecEnv {
     const config = getPXEServiceConfig();
     config.dataDirectory = 'pxe';
     config.proverEnabled = true;
-
-    const simulationProvider = new WASMSimulator();
-    const proofCreator = new BBWASMLazyPrivateKernelProver(
-      simulationProvider,
-      16,
-      WebLogger.getInstance().createLogger('bb:wasm:lazy'),
-    );
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
       ...config,
       l1Contracts,
     } as PXEServiceConfig;
 
-    const store = await createStore(
-      'pxe_data',
-      configWithContracts,
-      WebLogger.getInstance().createLogger('pxe:data:indexeddb'),
-    );
-
-    const keyStore = new KeyStore(store);
-
-    const db = await KVPxeDatabase.create(store);
-    const tips = new L2TipsStore(store, 'pxe');
-
-    const protocolContractsProvider = new LazyProtocolContractsProvider();
-
-    const pxe = new PXEService(
-      keyStore,
-      aztecNode,
-      db,
-      tips,
-      proofCreator,
-      simulationProvider,
-      protocolContractsProvider,
-      config,
-      WebLogger.getInstance().createLogger('pxe:service'),
-    );
-    await pxe.init();
+    const pxe = await createPXEService(aztecNode, configWithContracts, {
+      loggers: {
+        store: WebLogger.getInstance().createLogger('pxe:data:indexeddb'),
+        pxe: WebLogger.getInstance().createLogger('pxe:service'),
+        prover: WebLogger.getInstance().createLogger('bb:wasm:lazy'),
+      }
+    });
     return pxe;
   }
 }

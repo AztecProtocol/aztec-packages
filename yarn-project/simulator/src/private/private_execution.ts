@@ -15,7 +15,8 @@ import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
 import { fromACVMField, witnessMapToFields } from './acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from './acvm/index.js';
-import type { ClientExecutionContext } from './client_execution_context.js';
+import type { ExecutionDataProvider } from './execution_data_provider.js';
+import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';
 
 /**
@@ -23,17 +24,17 @@ import type { SimulationProvider } from './providers/simulation_provider.js';
  */
 export async function executePrivateFunction(
   simulator: SimulationProvider,
-  context: ClientExecutionContext,
+  privateExecutionOracle: PrivateExecutionOracle,
   artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   log = createLogger('simulator:private_execution'),
 ): Promise<PrivateCallExecutionResult> {
-  const functionName = await context.getDebugFunctionName();
+  const functionName = await privateExecutionOracle.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
   const acir = artifact.bytecode;
-  const initialWitness = context.getInitialWitness(artifact);
-  const acvmCallback = new Oracle(context);
+  const initialWitness = privateExecutionOracle.getInitialWitness(artifact);
+  const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator
     .executeUserCircuit(acir, initialWitness, acvmCallback)
@@ -64,16 +65,16 @@ export async function executePrivateFunction(
     appCircuitName: functionName,
   } satisfies CircuitWitnessGenerationStats);
 
-  const contractClassLogs = context.getContractClassLogs();
+  const contractClassLogs = privateExecutionOracle.getContractClassLogs();
 
-  const rawReturnValues = await context.loadFromExecutionCache(publicInputs.returnsHash);
+  const rawReturnValues = await privateExecutionOracle.loadFromExecutionCache(publicInputs.returnsHash);
 
-  const noteHashLeafIndexMap = context.getNoteHashLeafIndexMap();
-  const newNotes = context.getNewNotes();
-  const noteHashNullifierCounterMap = context.getNoteHashNullifierCounterMap();
-  const nestedExecutions = context.getNestedExecutions();
-  const enqueuedPublicFunctionCalls = context.getEnqueuedPublicFunctionCalls();
-  const publicTeardownFunctionCall = context.getPublicTeardownFunctionCall();
+  const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
+  const newNotes = privateExecutionOracle.getNewNotes();
+  const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
+  const nestedExecutions = privateExecutionOracle.getNestedExecutions();
+  const enqueuedPublicFunctionCalls = privateExecutionOracle.getEnqueuedPublicFunctionCalls();
+  const publicTeardownFunctionCall = privateExecutionOracle.getPublicTeardownFunctionCall();
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
@@ -120,12 +121,12 @@ export function extractPrivateCircuitPublicInputs(
 export async function readCurrentClassId(
   contractAddress: AztecAddress,
   instance: ContractInstance,
-  node: AztecNode,
+  executionDataProvider: ExecutionDataProvider | AztecNode,
   blockNumber: number,
 ) {
   const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
   const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
-    node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, slot, blockNumber),
+    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceDeployer, slot),
   );
   let currentClassId = sharedMutableValues.svc.getCurrentAt(blockNumber)[0];
   if (currentClassId.isZero()) {
@@ -136,11 +137,12 @@ export async function readCurrentClassId(
 
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
-  instance: ContractInstance,
-  node: AztecNode,
-  blockNumber: number,
+  executionDataProvider: ExecutionDataProvider,
+  blockNumber?: number,
 ) {
-  const currentClassId = await readCurrentClassId(contractAddress, instance, node, blockNumber);
+  const instance = await executionDataProvider.getContractInstance(contractAddress);
+  blockNumber = blockNumber ?? (await executionDataProvider.getBlockNumber());
+  const currentClassId = await readCurrentClassId(contractAddress, instance, executionDataProvider, blockNumber);
   if (!instance.currentContractClassId.equals(currentClassId)) {
     throw new Error(
       `Contract ${contractAddress} is outdated, current class id is ${currentClassId}, local class id is ${instance.currentContractClassId}`,

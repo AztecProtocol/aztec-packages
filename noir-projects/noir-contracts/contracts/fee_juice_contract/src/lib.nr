@@ -1,6 +1,7 @@
 use dep::aztec::context::PublicContext;
 use dep::aztec::prelude::AztecAddress;
 use dep::aztec::protocol_types::hash::sha256_to_field;
+use dep::aztec::protocol_types::traits::ToField;
 
 pub fn calculate_fee<TPublicContext>(context: PublicContext) -> Field {
     context.transaction_fee()

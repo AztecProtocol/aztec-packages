@@ -11,7 +11,6 @@ import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx'
 export class MockL2BlockSource implements L2BlockSource {
   protected l2Blocks: L2Block[] = [];
 
-  private provenEpochNumber: number = 0;
   private provenBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
@@ -40,10 +39,6 @@ export class MockL2BlockSource implements L2BlockSource {
     this.provenBlockNumber = provenBlockNumber;
   }
 
-  public setProvenEpochNumber(provenEpochNumber: number) {
-    this.provenEpochNumber = provenEpochNumber;
-  }
-
   /**
    * Method to fetch the rollup contract address at the base-layer.
    * @returns The rollup address.
@@ -70,10 +65,6 @@ export class MockL2BlockSource implements L2BlockSource {
 
   public getProvenBlockNumber(): Promise<number> {
     return Promise.resolve(this.provenBlockNumber);
-  }
-
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.provenEpochNumber);
   }
 
   /**

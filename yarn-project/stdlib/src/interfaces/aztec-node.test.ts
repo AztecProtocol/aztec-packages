@@ -282,7 +282,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getPublicStorageAt', async () => {
-    const response = await context.client.getPublicStorageAt(await AztecAddress.random(), Fr.random(), 1);
+    const response = await context.client.getPublicStorageAt(1, await AztecAddress.random(), Fr.random());
     expect(response).toBeInstanceOf(Fr);
   });
 
@@ -570,7 +570,7 @@ class MockAztecNode implements AztecNode {
     expect(txHashes[0]).toBeInstanceOf(TxHash);
     return [await Tx.random()];
   }
-  getPublicStorageAt(contract: AztecAddress, slot: Fr, _blockNumber: number | 'latest'): Promise<Fr> {
+  getPublicStorageAt(_blockNumber: number | 'latest', contract: AztecAddress, slot: Fr): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());

@@ -60,7 +60,7 @@ install_bb() {
     if [ "$architecture" = "arm64" ]; then
         architecture="aarch64"
     elif [ "$architecture" = "x86_64" ]; then
-        architecture="x86_64"
+        architecture="amd64"
     else
         printf "${RED}${ERROR} Unsupported architecture: ${architecture}${NC}\n"
         exit 1
@@ -68,9 +68,9 @@ install_bb() {
 
     # Determine platform
     if [ "$(uname)" = "Darwin" ]; then
-        platform="apple-darwin"
+        platform="darwin"
     elif [ "$(uname)" = "Linux" ]; then
-        platform="linux-gnu"
+        platform="linux"
     else
         printf "${RED}${ERROR} Unsupported platform: $(uname)${NC}\n"
         exit 1
@@ -86,7 +86,7 @@ install_bb() {
     local temp_tar="${temp_dir}/temp.tar.gz"
 
     # Download and extract
-    local release_url="https://github.com/AztecProtocol/aztec-packages/releases/download/aztec-packages-v${version}"
+    local release_url="https://github.com/AztecProtocol/aztec-packages/releases/download/v${version}"
     local binary_url="${release_url}/barretenberg-${architecture}-${platform}.tar.gz"
 
     curl -L "$binary_url" -o "$temp_tar"
