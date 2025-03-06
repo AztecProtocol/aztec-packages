@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  report:
+  merge-queue-pr-link:
     runs-on: ubuntu-latest
     if: github.event_name == 'merge_group'
     steps:
