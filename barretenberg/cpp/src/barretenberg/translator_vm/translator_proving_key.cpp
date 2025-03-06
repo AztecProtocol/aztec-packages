@@ -1,105 +1,72 @@
 #include "translator_proving_key.hpp"
 namespace bb {
-
 /**
- * @brief Compute new polynomials which are the concatenated versions of other polynomials
+ * @brief Construct a set of polynomials that are the result of interleaving a group of polynomials into one. Used in
+ * translator to reduce the degree of the permutation relation.
  *
- * @details Multilinear PCS allow to provide openings for concatenated polynomials in an easy way by combining
- * commitments. This method creates concatenated version of polynomials we won't need to commit to. Used in Goblin
- * Translator
+ * @details Multilinear PCS allow to provide openings for the resulting interleaved polynomials without having to commit
+ * to them, using the commitments of polynomials in groups.
  *
- * Concatenation in Translator mean the action of constructing a new Polynomial from existing ones by writing
- * their multilinear representations sequentially. For example, if we have f(x₁,x₂)={0, 1, 0, 1} and
- * g(x₁,x₂)={1, 0, 0, 1} then h(x₁ ,x₂ ,x₃ )=concatenation(f(x₁,x₂),g(x₁,x₂))={0, 1, 0, 1, 1, 0, 0, 1}
+ * If we have:
+ * f(x₁, x₂) = {a₁, a₂, a₃, a₄}
+ * g(x₁, x₂) = {b₁, b₂, b₃, b₄}
+ * then:
+ * h(x₁, x₂, x₃) = interleave(f(x₁, x₂), g(x₁, x₂)) = {a₁, b₁, a₂, b₂, a₃, b₃, a₄, b₄}
  *
  * Since we commit to multilinear polynomials with KZG, which treats evaluations as monomial coefficients, in univariate
- * form h(x)=f(x)+x⁴⋅g(x)Fr
- * @tparam Flavor
- * @param proving_key Can be a proving_key or an AllEntities object
+ * form h(x)=f(x) + x⋅g(x⁴)
+ *
  */
-void TranslatorProvingKey::compute_concatenated_polynomials()
+void TranslatorProvingKey::compute_interleaved_polynomials()
 {
-    // Concatenation groups are vectors of polynomials that are concatenated together
-    auto concatenation_groups = proving_key->polynomials.get_groups_to_be_concatenated();
+    // The vector of groups of polynomials to be interleaved
+    auto interleaved = proving_key->polynomials.get_groups_to_be_interleaved();
+    // Resulting interleaved polynomials
+    auto targets = proving_key->polynomials.get_interleaved();
 
-    // Resulting concatenated polynomials
-    auto targets = proving_key->polynomials.get_concatenated();
+    const size_t num_polys_in_group = interleaved[0].size();
+    ASSERT(num_polys_in_group == Flavor::INTERLEAVING_GROUP_SIZE);
 
     // Targets have to be full-sized proving_key->polynomials. We can compute the mini circuit size from them by
-    // dividing by concatenation index
-    const size_t MINI_CIRCUIT_SIZE = targets[0].size() / Flavor::CONCATENATION_GROUP_SIZE;
-    ASSERT(MINI_CIRCUIT_SIZE * Flavor::CONCATENATION_GROUP_SIZE == targets[0].size());
-    // A function that produces 1 concatenated polynomial
+    // dividing by the number of polynomials in the group
+    const size_t MINI_CIRCUIT_SIZE = targets[0].size() / num_polys_in_group;
+    ASSERT(MINI_CIRCUIT_SIZE * num_polys_in_group == targets[0].size());
 
-    // Translator uses concatenated polynomials in the permutation argument. These polynomials contain the same
-    // coefficients as other shorter polynomials, but we don't have to commit to them due to reusing commitments of
-    // shorter polynomials and updating our PCS to open using them. But the prover still needs the concatenated
-    // proving_key->polynomials. This function constructs a chunk of the polynomial.
     auto ordering_function = [&](size_t index) {
-        // Get the index of the concatenated polynomial
-        size_t i = index / concatenation_groups[0].size();
+        // Get the index of the interleaved polynomial
+        size_t i = index / interleaved[0].size();
         // Get the index of the original polynomial
-        size_t j = index % concatenation_groups[0].size();
-        auto& group = concatenation_groups[i];
+        size_t j = index % interleaved[0].size();
+        auto& group = interleaved[i];
         auto& current_target = targets[i];
 
-        // Copy into appropriate position in the concatenated polynomial
+        // Copy into appropriate position in the interleaved polynomial
         // We offset by start_index() as the first 0 is not physically represented for shiftable values
-        for (size_t k = current_target.start_index(); k < MINI_CIRCUIT_SIZE; k++) {
-            current_target.at(j * MINI_CIRCUIT_SIZE + k) = group[j][k];
+        for (size_t k = group[j].start_index(); k < group[j].size(); k++) {
+            current_target.at(k * num_polys_in_group + j) = group[j][k];
         }
     };
-    parallel_for(concatenation_groups.size() * concatenation_groups[0].size(), ordering_function);
-}
-
-/**
- * @brief Sequential method for computing the concatenated polynomials by interleaving.
- *
- * @note This is not currently used in the implementation.
- */
-void TranslatorProvingKey::compute_concatenated_polynomials_by_interleaving()
-{
-    auto groups = proving_key->polynomials.get_groups_to_be_concatenated();
-    auto concatenated_polynomials = proving_key->polynomials.get_concatenated();
-    for (auto [concatenated, group] : zip_view(concatenated_polynomials, groups)) {
-        interleave(group, concatenated);
-    }
-}
-
-/**
- * @brief Construct a polynomial from a group of polynomial by interleaving their elements.
- */
-void TranslatorProvingKey::interleave(const RefVector<Polynomial>& group, Polynomial& result)
-{
-
-    const size_t num_polys_in_group = group.size();
-    // Ensure the result polynomial fits all the elements from the polynomials in the group
-    ASSERT(group[0].size() * num_polys_in_group <= result.size());
-    for (size_t j = group[0].start_index(); j < group[0].size(); j++) {
-        for (size_t k = 0; k < num_polys_in_group; k++) {
-            result.at(j * num_polys_in_group + k) = group[k][j];
-        }
-    }
+    parallel_for(interleaved.size() * num_polys_in_group, ordering_function);
 }
 
 /**
  * @brief Compute denominator polynomials for Translator's range constraint permutation
  *
  * @details  We need to prove that all the range constraint wires indeed have values within the given range (unless
- * changed ∈  [0 , 2¹⁴ - 1]. To do this, we use several virtual concatenated wires, each of which represents a subset
- * or original wires (concatenated_range_constraints_<i>). We also generate several new polynomials of the same length
- * as concatenated ones. These polynomials have values within range, but they are also constrained by the
+ * changed ∈  [0 , 2¹⁴ - 1]. To do this, we use several virtual interleaved wires, each of which represents a subset
+ * or original wires (interleaved_range_constraints_<i>). We also generate several new polynomials of the same length
+ * as interleaved ones. These polynomials have values within range, but they are also constrained by the
  * TranslatorFlavor's DeltaRangeConstraint relation, which ensures that sequential values differ by not more than
  * 3, the last value is the maximum and the first value is zero (zero at the start allows us not to dance around
  * shifts).
  *
- * Ideally, we could simply rearrange the values in concatenated_.._0 ,..., concatenated_.._3 and get denominator
+ * Ideally, we could simply rearrange the values in interleaved_.._0 ,..., interleaved_.._3 and get denominator
  * polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is
  * maximum value. What can we do in that case? We still have to add (max_range/3)+1 values  to each of the ordered
  * wires for the sort constraint to hold.  So we also need a and extra denominator to store k ⋅ ( max_range / 3 + 1 )
  * values that couldn't go in + ( max_range / 3 +  1 ) connecting values. To counteract the extra ( k + 1 ) ⋅
  * ⋅ (max_range / 3 + 1 ) values needed for denominator sort constraints we need a polynomial in the numerator. So we
- * can construct a proof when ( k + 1 ) ⋅ ( max_range/ 3 + 1 ) < concatenated size
+ * can construct a proof when ( k + 1 ) ⋅ ( max_range/ 3 + 1 ) < interleaved size
  *
  * @tparam Flavor
  * @param proving_key
@@ -108,8 +75,8 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 {
     // Get constants
     constexpr auto sort_step = Flavor::SORT_STEP;
-    constexpr auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
-    const auto full_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
+    constexpr auto num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
+    const auto full_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
 
     // The value we have to end polynomials with
     constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
@@ -118,7 +85,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     constexpr size_t sorted_elements_count = (max_value / sort_step) + 1 + (max_value % sort_step == 0 ? 0 : 1);
 
     // Check if we can construct these polynomials
-    ASSERT((num_concatenated_wires + 1) * sorted_elements_count < full_circuit_size);
+    ASSERT((num_interleaved_wires + 1) * sorted_elements_count < full_circuit_size);
 
     // First use integers (easier to sort)
     std::vector<size_t> sorted_elements(sorted_elements_count);
@@ -129,21 +96,21 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         sorted_elements[i] = (sorted_elements_count - 1 - i) * sort_step;
     }
 
-    std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_concatenated_wires);
+    std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_interleaved_wires);
     RefArray ordered_constraint_polynomials{ proving_key->polynomials.ordered_range_constraints_0,
                                              proving_key->polynomials.ordered_range_constraints_1,
                                              proving_key->polynomials.ordered_range_constraints_2,
                                              proving_key->polynomials.ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
 
-    // Get information which polynomials need to be concatenated
-    auto concatenation_groups = proving_key->polynomials.get_groups_to_be_concatenated();
+    // Get information which polynomials need to be interleaved
+    auto to_be_interleaved_groups = proving_key->polynomials.get_groups_to_be_interleaved();
 
-    // A function that transfers elements from each of the polynomials in the chosen concatenation group in the uint
+    // A function that transfers elements from each of the polynomials in the chosen interleaved group in the uint
     // ordered polynomials
     auto ordering_function = [&](size_t i) {
         // Get the group and the main target vector
-        auto group = concatenation_groups[i];
+        auto group = to_be_interleaved_groups[i];
         auto& current_vector = ordered_vectors_uint[i];
         current_vector.resize(full_circuit_size);
 
@@ -153,8 +120,8 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         // Calculate the offset of this group's overflowing elements in the extra denominator polynomial
         size_t extra_denominator_offset = i * sorted_elements_count;
 
-        // Go through each polynomial in the concatenation group
-        for (size_t j = 0; j < Flavor::CONCATENATION_GROUP_SIZE; j++) {
+        // Go through each polynomial in the interleaved group
+        for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
             auto current_offset = j * mini_circuit_dyadic_size;
@@ -188,11 +155,11 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     };
 
     // Construct the first 4 polynomials
-    parallel_for(num_concatenated_wires, ordering_function);
+    parallel_for(num_interleaved_wires, ordering_function);
     ordered_vectors_uint.clear();
 
     auto sorted_element_insertion_offset = extra_denominator_uint.begin();
-    std::advance(sorted_element_insertion_offset, num_concatenated_wires * sorted_elements_count);
+    std::advance(sorted_element_insertion_offset, num_interleaved_wires * sorted_elements_count);
 
     // Add steps to the extra denominator polynomial
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), sorted_element_insertion_offset);
@@ -243,7 +210,7 @@ void TranslatorProvingKey::compute_extra_range_constraint_numerator()
     size_t sorted_elements_count = (MAX_VALUE / Flavor::SORT_STEP) + 1 + (MAX_VALUE % Flavor::SORT_STEP == 0 ? 0 : 1);
 
     // Check that we can fit every element in the polynomial
-    ASSERT((Flavor::NUM_CONCATENATED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
+    ASSERT((Flavor::NUM_INTERLEAVED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
 
     std::vector<size_t> sorted_elements(sorted_elements_count);
 
@@ -256,10 +223,10 @@ void TranslatorProvingKey::compute_extra_range_constraint_numerator()
     // TODO(#756): can be parallelized further. This will use at most 5 threads
     auto fill_with_shift = [&](size_t shift) {
         for (size_t i = 0; i < sorted_elements_count; i++) {
-            extra_range_constraint_numerator.at(shift + i * (Flavor::NUM_CONCATENATED_WIRES + 1)) = sorted_elements[i];
+            extra_range_constraint_numerator.at(shift + i * (Flavor::NUM_INTERLEAVED_WIRES + 1)) = sorted_elements[i];
         }
     };
-    // Fill polynomials with a sequence, where each element is repeated NUM_CONCATENATED_WIRES+1 times
-    parallel_for(Flavor::NUM_CONCATENATED_WIRES + 1, fill_with_shift);
+    // Fill polynomials with a sequence, where each element is repeatedNUM_INTERLEAVED_WIRES+1 times
+    parallel_for(Flavor::NUM_INTERLEAVED_WIRES + 1, fill_with_shift);
 }
 } // namespace bb

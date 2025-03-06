@@ -385,8 +385,8 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.P2P_TX_POOL_KEEP_PROVEN_FOR)
         },
         {
-          name  = "P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH"
-          value = tostring(var.P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH)
+          name  = "P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW"
+          value = tostring(var.P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW)
         },
         {
           name  = "P2P_GOSSIPSUB_INTERVAL_MS"
