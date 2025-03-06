@@ -1,6 +1,5 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, type Point } from '@aztec/foundation/fields';
-import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { SiblingPath } from '@aztec/foundation/trees';
@@ -229,7 +228,9 @@ export class PXEService implements PXE {
     let artifact;
     try {
       artifact = await this.contractDataProvider.getContractArtifact(id);
-    } catch {}
+    } catch {
+      this.log.warn(`No artifact found for contract class ${id.toString()} when looking for its metadata`);
+    }
 
     return {
       contractClass: artifact && (await getContractClassFromArtifact(artifact)),
