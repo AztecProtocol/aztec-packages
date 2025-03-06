@@ -18,3 +18,4 @@ noir-protocol-circuits-types/src/vk_tree.ts
 noir-protocol-circuits-types/src/client_artifacts_helper.ts
 constants/src/constants.gen.ts
 noir-bb-bench/src/types/index.ts
+aztec.js/src/fee/contracts/
