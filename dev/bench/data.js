@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741283676619,
+  "lastUpdate": 1741284068917,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3bdb886d1cfde30ba044a37f89c702b056a4834d",
-          "message": "feat: contract instance/class cache for current tx - ensure that later txs in block cannot wipe out contracts created earlier (#12261)\n\nEnsures that contracts only get wiped out of the cache when they really\nshould.\n\n## What's included\n1. Separates the caches for `ContractDataSourcePublicDB` as follows:\n    ```\n    private blockCache = new TxContractCache();\n    private currentTxNonRevertibleCache = new TxContractCache();\n    private currentTxRevertibleCache = new TxContractCache();\n    private bytecodeCommitmentCache = new Map<string, Fr>();\n    ```\n    - using a new little cache class `TxContractCache`.\n1. Caches non-revertibles before public setup and revertibles before\npublic app logic.\n1. Pushes all new contracts to block-level cache for private-only txs.\n1. Includes some progress towards ensuring that contracts can be called\nafter deployment in same block (including public-processor and e2e\ntests)\n1. Rearranged some things in `simulator/src/public` into subfolders\n1. Created a new suite of deployment tests for public processor.\n\n## Issues\nI discovered during this work, that if you run certain test-cases in\n`deploy_method.test.ts` _on their own_ (without running earlier test\ncases, they fail as follows (happens on master):\n\n![image](https://github.com/user-attachments/assets/7e9b476b-c9f4-48c0-97a4-e2a52de77b69)\n\nThis holds true for the new test. This *might* mean that contracts\ncannot be properly called after deployment in the same block! More\ninvestigation is needed in another ticket/pr.",
-          "timestamp": "2025-03-03T20:39:34Z",
-          "tree_id": "fddf79a445a74688db1e37ff6f8bd2622a87c365",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3bdb886d1cfde30ba044a37f89c702b056a4834d"
-        },
-        "date": 1741036455949,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18455.58466600005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16246.144482000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18843.664178000152,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16339.517242 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3905.0467419997403,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3138.345809 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55633.761479999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55633762000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9793.011663,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9793015000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1904656968,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1904656968 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 214122665,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 214122665 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 211901901,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 211901901 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2c45fb9a66d4bfba476e8ca3c29207a311b35f1a",
+          "message": "chore: More config defaults and forward p2p ports (#12529)\n\nThis PR specifies more network defaults and modifies aztec start to\nforward p2p ports",
+          "timestamp": "2025-03-06T17:24:35Z",
+          "tree_id": "dc85d7aeb95c6f5bcdc219e0542d7cd05e84ab4a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2c45fb9a66d4bfba476e8ca3c29207a311b35f1a"
+        },
+        "date": 1741284061638,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18347.1750650001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16168.707955999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18798.600246000206,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16400.570402 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3889.735557999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3182.0644020000004 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55407.450774,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55407451000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10717.033823999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10717042000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1916032685,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1916032685 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 221672200,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 221672200 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
