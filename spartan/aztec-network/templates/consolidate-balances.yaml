@@ -35,7 +35,7 @@ spec:
             - |
               cat > /scripts/consolidate-sepolia-balances.sh << 'EOF'
               #!/bin/bash
-              set -exu
+              set -eu
 
               mnemonic=$1
               # at least 2 accounts are needed for the validator and prover nodes
