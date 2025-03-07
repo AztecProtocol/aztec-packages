@@ -48,7 +48,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     private logger = createLogger('p2p:discv5_service'),
   ) {
     super();
-    const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
+    const { p2pIp, p2pPort, bootstrapNodes } = config;
     this.bootstrapNodes = bootstrapNodes ?? [];
     this.bootstrapNodeEnrs = this.bootstrapNodes.map(x => ENR.decodeTxt(x));
     // create ENR from PeerId
@@ -56,17 +56,11 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Add aztec identification to ENR
     this.versions = setAztecEnrKey(this.enr, config);
 
-    if (!tcpAnnounceAddress) {
-      throw new Error('You need to provide at least a TCP announce address.');
-    }
-
-    const multiAddrTcp = multiaddr(`${convertToMultiaddr(tcpAnnounceAddress, 'tcp')}/p2p/${peerId.toString()}`);
+    const multiAddrTcp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pPort, 'tcp')}/p2p/${peerId.toString()}`);
     // if no udp announce address is provided, use the tcp announce address
-    const multiAddrUdp = multiaddr(
-      `${convertToMultiaddr(udpAnnounceAddress || tcpAnnounceAddress, 'udp')}/p2p/${peerId.toString()}`,
-    );
+    const multiAddrUdp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pPort, 'udp')}/p2p/${peerId.toString()}`);
 
-    this.listenMultiAddrUdp = multiaddr(convertToMultiaddr(udpListenAddress, 'udp'));
+    this.listenMultiAddrUdp = multiaddr(convertToMultiaddr(p2pIp!, p2pPort, 'udp'));
 
     // set location multiaddr in ENR record
     this.enr.setLocationMultiaddr(multiAddrUdp);
@@ -81,6 +75,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         lookupTimeout: 2000,
         requestTimeout: 2000,
         allowUnverifiedSessions: true,
+        enrUpdate: !p2pIp ? true : false, // If no p2p IP is set, enrUpdate can automatically resolve it
       },
       metricsRegistry,
     });
