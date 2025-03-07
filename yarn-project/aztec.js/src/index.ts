@@ -45,7 +45,6 @@ export {
 } from '@aztec/stdlib/keys';
 export { AuthWitness } from '@aztec/stdlib/auth-witness';
 export { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-export { FunctionCall } from '@aztec/stdlib/abi';
 export {
   Tx,
   TxExecutionRequest,
@@ -68,7 +67,6 @@ export { ProtocolContractAddress } from '@aztec/protocol-contracts';
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/stdlib/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { sha256, Grumpkin, Schnorr } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';

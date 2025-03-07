@@ -51,3 +51,12 @@ export {
 export { BatchCall } from '../contract/batch_call.js';
 export { type DeployOptions, DeployMethod } from '../contract/deploy_method.js';
 export { DeploySentTx } from '../contract/deploy_sent_tx.js';
+
+export {
+  type PartialAddress,
+  type ContractClassWithId,
+  type ContractInstanceWithAddress,
+  getContractClassFromArtifact,
+  getContractInstanceFromDeployParams,
+  type NodeInfo,
+} from '@aztec/stdlib/contract';
