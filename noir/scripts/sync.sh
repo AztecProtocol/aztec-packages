@@ -285,6 +285,9 @@ case "$cmd" in
   "make-patch")
     make_patch
     ;;
+  "needs-patch")
+    needs_patch && echo 1 || echo 0
+    ;;
   "testme")
     testme
     ;;
