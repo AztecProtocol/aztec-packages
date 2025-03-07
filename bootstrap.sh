@@ -54,7 +54,7 @@ function check_toolchains {
     exit 1
   fi
   # Check rustup installed.
-  local rust_version=$(yq '.toolchain.channel' ./noir/noir-repo/rust-toolchain.toml)
+  local rust_version=$(yq '.toolchain.channel' ./avm-transpiler/rust-toolchain.toml)
   if ! command -v rustup > /dev/null; then
     encourage_dev_container
     echo "Rustup not installed."
