@@ -1,5 +1,5 @@
 import { retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
-import { type ViemPublicClient, createEthereumChain, fallback } from '@aztec/ethereum';
+import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { compactArray, mapValues, unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
@@ -8,7 +8,7 @@ import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 import chunk from 'lodash.chunk';
 import groupBy from 'lodash.groupby';
-import { createPublicClient, getAbiItem, getAddress, http } from 'viem';
+import { createPublicClient, fallback, getAbiItem, getAddress, http } from 'viem';
 
 export async function proverStats(opts: {
   l1RpcUrls: string[];

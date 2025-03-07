@@ -1,9 +1,9 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { createEthereumChain, fallback, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, getContract, http } from 'viem';
+import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 export async function sequencers(opts: {
