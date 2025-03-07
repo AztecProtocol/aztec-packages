@@ -183,6 +183,10 @@ namespace to_radix;
 
     pol LIMB_LT_P = p_limb - limb - 1;
     pol LIMB_GT_P = limb - p_limb - 1;
+    // We already need an 8 bit range check for the LT/GT cases. We can reuse that range check
+    // to validate the EQ case, instead of doing the classical inversion mechanism.
+    // (limb - p_limb) can go from -255 to +255, so if we multiply by 256 any number in the range
+    // will be greater than 8 bits except for 0.
     pol LIMB_EQ_P = (limb - p_limb) * 256;
 
     // limb_p_diff = if limb_lt_p {LIMB_LT_P} else if limb_eq_p {LIMB_EQ_P} else {LIMB_GT_P}
