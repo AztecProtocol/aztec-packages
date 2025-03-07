@@ -26,14 +26,6 @@ export { SiblingPath } from '@aztec/foundation/trees';
 
 export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
-export {
-  type PartialAddress,
-  type ContractClassWithId,
-  type ContractInstanceWithAddress,
-  getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
-  type NodeInfo,
-} from '@aztec/stdlib/contract';
 export { MerkleTreeId, merkleTreeIds } from '@aztec/stdlib/trees';
 export { type PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 export { computeSecretHash } from '@aztec/stdlib/hash';
