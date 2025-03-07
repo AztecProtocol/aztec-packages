@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741352782035,
+  "lastUpdate": 1741361155246,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "james.zaki@proton.me",
-            "name": "James Zaki",
-            "username": "jzaki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f3743ac7836b6ab97f3f794c5f5d981e10424e71",
-          "message": "docs: minor fixes PR (#12362)\n\nWill keep this in draft for a few days adding incidental fixes not\nrelated to active PRs\n\n---------\n\nCo-authored-by: Josh Crites <jc@joshcrites.com>",
-          "timestamp": "2025-03-05T14:34:28Z",
-          "tree_id": "73e30107baafdc74dabcc1e68cab38c48d15802f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f3743ac7836b6ab97f3f794c5f5d981e10424e71"
-        },
-        "date": 1741188447739,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17993.58683299988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15985.471011 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18659.581768999942,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16279.571960000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3899.266171999898,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3115.585968 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55125.791807,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55125789000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10950.341891999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10950356000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1886589610,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1886589610 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 214586499,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 214586499 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 213490389,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 213490389 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "910f21df296719b60e1567483bd4597c720e5d58",
+          "message": "feat: Generic handling of public inputs components (#12357)\n\nIntroduces the notion of a `PublicInputComponent` which wraps objects\nconforming to a new concept `IsSerializableToAndFromPublicInputs` with\nthe goal of standardizing the handling of objects\nstored/propagated/reconstructed via the public inputs, e.g. commitments,\npairing inputs etc. This sets the precedent that types should own their\nown methods for this public inputs serialization logic rather than\nrelying on free floating methods (as is currently the case in a few\nplaces).\n\nAs a proof of concept I've utilized this new mechanism to simplify the\nimplementation of the `DataBusDepot` which has two main functions:\nsetting databus return_data commitments to public (in order to propagate\nthem to the next layer), and reconstructing those commitments from the\npublic inputs in order to perform commitment consistency checks. All of\nthe setting and reconstructing logic previously residing in this class\nhas been replaced with implementations directly in goblin_element (the\ngoblin analog to biggroup) and its sub components (goblin field and\nbigfield).\n\nNote: By convention we represent the coordinates of a goblin_element\n(goblin fields) using 4 limbs for consistency with bigfield, even though\ngoblin fields are implemented using 2 limbs. This would be easy to\nchange in the future if needed but doesn't seem terribly important.",
+          "timestamp": "2025-03-07T07:44:59-07:00",
+          "tree_id": "6163249eda35efd091aab89333aeeeec42c8fe2e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/910f21df296719b60e1567483bd4597c720e5d58"
+        },
+        "date": 1741361148152,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18414.57230800006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16160.918136 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18793.188397999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16271.016047000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3930.1161799999136,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3123.7230489999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55426.187755,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55426188000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9877.586586,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9877589000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1902274429,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1902274429 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 221063771,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 221063771 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
