@@ -40,12 +40,11 @@ void prove_tube(const std::string& output_path)
     // circuit
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and calling set_public on each witness
-    auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
+    auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(vk.mega->num_public_inputs));
     num_inner_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
 
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
-        builder->add_public_variable(proof.mega_proof[i + offset]);
+        builder->add_public_variable(proof.mega_proof[i]);
     }
     ClientIVCRecursiveVerifier verifier{ builder, vk };
 
