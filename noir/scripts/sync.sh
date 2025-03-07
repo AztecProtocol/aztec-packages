@@ -57,6 +57,19 @@ function is_last_commit_patch {
   test "$last_msg" == "$PATCH_COMMIT_MSG"
 }
 
+# Check if we have applied the patch in the last N commits.
+# It is possible that we checkout a branch, apply the patch, then go into noir-repo
+# and work on various fixes, committing them as we go. In that case the patch won't
+# the the last commit, but it doesn't have to be applied again if we switch away
+# from our branch and then come back to it later.
+function has_commit_patch {
+  if git -C noir-repo rev-list --max-count=100 --no-commit-header --format=%B HEAD | grep "$PATCH_COMMIT_MSG" 1>/dev/null ; then
+    return 0 # true
+  else
+    return 1 # false
+  fi
+}
+
 # Apply the fixup script and any local patch file.
 function fixup_repo {
   echo "Applying patches on noir-repo"
@@ -87,6 +100,8 @@ function switch_repo {
   ref=$1
   echo Switching noir-repo to $ref
   git -C noir-repo fetch origin
+  # If we try to switch to some random commit after a branch it might not find it locally.
+  git -C noir-repo fetch --depth 1 origin $ref || echo ""
   # Try to check out an existing branch, or remote commit.
   if git -C noir-repo checkout $ref; then
     # If it's a branch we just need to pull the latest changes.
@@ -98,7 +113,7 @@ function switch_repo {
     git -C noir-repo checkout --track origin/$ref
   fi
   # If we haven't applied the patch yet, we have to do it (again).
-  if ! is_last_commit_patch; then
+  if ! has_commit_patch; then
     fixup_repo
   else
     echo "Patches already applied"
@@ -142,7 +157,7 @@ function update_repo {
 }
 
 function testme {
-  if ! is_detached_head; then
+  if has_commit_patch; then
     echo "yes"
   else
     echo "no"
