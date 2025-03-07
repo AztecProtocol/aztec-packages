@@ -502,7 +502,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle_group& other,
                                                                      const std::optional<AffineElement> hint) const
 {
-    field_t x_delta = x - other.x;
+    field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
         ASSERT(x_delta.get_value() != 0);
     } else {
@@ -528,7 +528,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const cycle_group& other,
                                                                           const std::optional<AffineElement> hint) const
 {
-    field_t x_delta = x - other.x;
+    field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
         ASSERT(x_delta.get_value() != 0);
     } else {
@@ -677,7 +677,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-() const
 {
     cycle_group result(*this);
-    result.y = -y;
+    result.y = (-y).normalize();
     return result;
 }
 
