@@ -6,6 +6,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
@@ -120,7 +121,7 @@ export function extractPrivateCircuitPublicInputs(
 export async function readCurrentClassId(
   contractAddress: AztecAddress,
   instance: ContractInstance,
-  executionDataProvider: ExecutionDataProvider,
+  executionDataProvider: ExecutionDataProvider | AztecNode,
   blockNumber: number,
 ) {
   const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);

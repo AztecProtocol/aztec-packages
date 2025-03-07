@@ -54,7 +54,7 @@ export interface ExecutionDataProvider extends CommitmentsDB {
    * @param messageHash - The message hash.
    * @returns A Promise that resolves to an array of field elements representing the auth witness.
    */
-  getAuthWitness(messageHash: Fr): Promise<Fr[]>;
+  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
    * Retrieve keys associated with a specific master public key and app address.

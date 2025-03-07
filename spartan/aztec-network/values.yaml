@@ -308,6 +308,7 @@ bot:
   maxOldSpaceSize: "4608"
 
 ethereum:
+  acceleratedTestDeployments: false
   replicas: 1
   chainId: 1337
   blockTime: 12

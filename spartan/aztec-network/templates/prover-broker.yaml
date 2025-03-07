@@ -46,9 +46,11 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
       initContainers:
-        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
+
         - name: wait-for-dependencies
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -81,10 +83,9 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-            - "cp /scripts/configure-prover-env.sh /tmp/configure-prover-env.sh && \
-               chmod +x /tmp/configure-prover-env.sh && \
-               source /shared/config/service-addresses && \
-               /tmp/configure-prover-env.sh ${BOOT_NODE_HOST}"
+            - |
+              source /shared/config/service-addresses
+              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST}
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
@@ -162,6 +163,7 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: config
           emptyDir: {}
         - name: contracts-env
