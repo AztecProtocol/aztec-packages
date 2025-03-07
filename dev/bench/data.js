@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741315577427,
+  "lastUpdate": 1741329373776,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "518e7b9a3a148c7a856c3d5ee24d64aa4e1453af",
-          "message": "fix: mass tag push scenario (#12464)\n\nAfter mass-deleting some tags (which is generally not recommended, but I\nthought I'd clean up recent work if possible) I realized that this could\ncause someone to mass re-push the tags, as git doesn't delete them\nlocally after a pull.\n\nInstead, if we are on a git tag starting with 'v', assume we are doing a\nrelease and only allow one to go through.\n\nPS: I recommend this setting if doing manual releases:\n\n```\ngit config fetch.pruneTags true\n```",
-          "timestamp": "2025-03-04T20:17:50-05:00",
-          "tree_id": "49027dbcee8c1795f1daa705a70e1d1881b22701",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/518e7b9a3a148c7a856c3d5ee24d64aa4e1453af"
-        },
-        "date": 1741139308260,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18013.557726999807,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15890.925299 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18586.551727999904,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16163.357683 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3840.0458429998707,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3089.607527 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54981.726484000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54981726000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11069.249169,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11069253000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1896390369,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1896390369 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 220484537,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 220484537 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 218071212,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 218071212 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ed1dbdc57861a9b346deea2f208f97cd01c0758f",
+          "message": "chore: rm unused methods (#12544)\n\nWe got rid of `addNullifiedNote` in\nhttps://github.com/AztecProtocol/aztec-packages/pull/11822, I imagine it\naccidentally came back in the recent refactors.\n\nI also got rid of `addNote` since we always use `addNotes` anyway.",
+          "timestamp": "2025-03-07T06:48:01+01:00",
+          "tree_id": "53bf67a77fe14c47dba62bece9cda61721bdfddc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ed1dbdc57861a9b346deea2f208f97cd01c0758f"
+        },
+        "date": 1741329366304,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18521.546717000092,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16281.611852000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18952.38420099986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16517.416342999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3943.3212789999743,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3101.3331209999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55307.34542899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55307348000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9842.743641,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9842749000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1916444944,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1916444944 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 215365549,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 215365549 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
