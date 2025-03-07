@@ -36,6 +36,8 @@ pub contract Token {
         protocol_types::{point::Point, traits::Serialize},
     };
 
+    use aztec::protocol_types::traits::ToField;
+
     use dep::uint_note::uint_note::UintNote;
 
     // docs:start:import_authwit

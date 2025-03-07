@@ -84,10 +84,6 @@ export class NoteDataProvider implements DataProvider {
     return true;
   }
 
-  async addNote(note: NoteDao, scope?: AztecAddress): Promise<void> {
-    await this.addNotes([note], scope);
-  }
-
   async addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
     if (!(await this.#scopes.hasAsync(scope.toString()))) {
       await this.addScope(scope);
@@ -341,16 +337,6 @@ export class NoteDataProvider implements DataProvider {
       }
       return nullifiedNotes;
     });
-  }
-
-  async addNullifiedNote(note: NoteDao): Promise<void> {
-    const noteIndex = toBufferBE(note.index, 32).toString('hex');
-
-    await this.#nullifiedNotes.set(noteIndex, note.toBuffer());
-    await this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
-    await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
-    await this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
-    await this.#nullifiedNotesByAddressPoint.set(note.addressPoint.toString(), noteIndex);
   }
 
   async getSize() {

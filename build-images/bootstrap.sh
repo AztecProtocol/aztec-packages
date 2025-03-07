@@ -45,8 +45,8 @@ function build_ec2 {
 
   # Request new instance.
   instance_name=build_image_$(echo -n "$branch" | tr -c 'a-zA-Z0-9-' '_')_$arch
-  ip_sir=$(aws_request_instance $instance_name $cpus $arch)
-  parts=(${ip_sir//:/ })
+  ip_sir=$(NO_SPOT=1 aws_request_instance $instance_name $cpus $arch)
+  IFS=':' read -r -a parts <<< "$ip_sir"
   ip="${parts[0]}"
   sir="${parts[1]}"
   iid="${parts[2]}"

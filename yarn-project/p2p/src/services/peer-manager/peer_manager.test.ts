@@ -157,6 +157,19 @@ describe('PeerManager', () => {
       expect(mockLibP2PNode.dial).toHaveBeenCalled();
     });
 
+    it('should report peer count metric', async () => {
+      const recordPeerCountSpy = jest.spyOn((peerManager as any).metrics, 'recordPeerCount');
+      const peerId = await createSecp256k1PeerId();
+
+      mockLibP2PNode.getConnections.mockReturnValue([{ remotePeer: peerId }]);
+
+      await (peerManager as any).discover();
+
+      await sleep(100);
+
+      expect(recordPeerCountSpy).toHaveBeenCalledWith(1);
+    });
+
     it('should retry failed dials up to MAX_DIAL_ATTEMPTS', async () => {
       const enr = await createMockENR();
       mockLibP2PNode.dial.mockRejectedValue(new Error('Connection failed'));

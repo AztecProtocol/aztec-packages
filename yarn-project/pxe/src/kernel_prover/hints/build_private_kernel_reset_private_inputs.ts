@@ -4,6 +4,7 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
@@ -367,7 +368,12 @@ export class PrivateKernelResetPrivateInputsBuilder {
       countAccumulatedItems(this.previousKernel.end.nullifiers) +
       countAccumulatedItems(this.nextIteration?.nullifiers ?? []);
     const nullifierWillOverflow = nextAccumNullifiers > MAX_NULLIFIERS_PER_TX;
-    if (this.nextIteration && !noteHashWillOverflow && !nullifierWillOverflow) {
+    const nextAccumLogs =
+      countAccumulatedItems(this.previousKernel.end.privateLogs) +
+      countAccumulatedItems(this.nextIteration?.privateLogs ?? []);
+    const logsWillOverflow = nextAccumLogs > MAX_PRIVATE_LOGS_PER_TX;
+
+    if (this.nextIteration && !noteHashWillOverflow && !nullifierWillOverflow && !logsWillOverflow) {
       return false;
     }
 
@@ -405,9 +411,14 @@ export class PrivateKernelResetPrivateInputsBuilder {
       const forceResetAll = true;
       const canClearReadRequests =
         (noteHashWillOverflow && this.needsResetNoteHashReadRequests(forceResetAll)) ||
-        (nullifierWillOverflow && this.needsResetNullifierReadRequests(forceResetAll));
+        (nullifierWillOverflow && this.needsResetNullifierReadRequests(forceResetAll)) ||
+        (logsWillOverflow && this.needsResetNoteHashReadRequests(forceResetAll));
       if (!canClearReadRequests) {
-        const overflownData = noteHashWillOverflow ? 'note hashes' : 'nullifiers';
+        const overflownData = noteHashWillOverflow
+          ? 'note hashes'
+          : nullifierWillOverflow
+          ? 'nullifiers'
+          : 'private logs';
         throw new Error(`Number of ${overflownData} exceeds the limit.`);
       }
       // Clearing the read requests might not be enough to squash the overflown data.

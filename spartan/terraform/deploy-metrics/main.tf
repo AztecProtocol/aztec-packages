@@ -84,6 +84,11 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
+    name  = "grafana.env.SLACK_WEBHOOK_URL"
+    value = var.SLACK_WEBHOOK_URL
+  }
+
+  set {
     name  = "opentelemetry-collector.service.loadBalancerIP"
     value = google_compute_address.otel_collector_ip.address
   }

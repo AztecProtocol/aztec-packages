@@ -3,6 +3,7 @@ use dep::aztec::{
     protocol_types::{address::PartialAddress, public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys}},
     utils::array,
 };
+use aztec::protocol_types::traits::Deserialize;
 
 pub struct AuthWitness {
     keys: PublicKeys,

@@ -10,7 +10,9 @@
 
 using namespace bb;
 
-const char* BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
+// This is updated in-place by sed during the release process. This prevents
+// the version string from needing to be present at build-time, simplifying e.g. caching.
+const char* const BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1257): Remove unused/seemingly unnecessary flags.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1258): Improve defaults.
@@ -19,7 +21,7 @@ const char* BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 void print_active_subcommands(const CLI::App& app, const std::string& prefix = "bb command: ")
 {
     // get_subcommands() returns a vector of pointers to subcommands
-    for (auto subcmd : app.get_subcommands()) {
+    for (auto* subcmd : app.get_subcommands()) {
         // Check if this subcommand was activated (nonzero count)
         if (subcmd->count() > 0) {
             vinfo(prefix, subcmd->get_name());
@@ -231,9 +233,9 @@ int main(int argc, char* argv[])
     add_crs_path_option(&app);
 
     /***************************************************************************************************************
-     * Subcommand: version
+     * Builtin flag: --version
      ***************************************************************************************************************/
-    CLI::App* version = app.add_subcommand("version", "Print the version string.");
+    app.set_version_flag("--version", BB_VERSION_PLACEHOLDER, "Print the version string.");
 
     /***************************************************************************************************************
      * Subcommand: check
@@ -690,14 +692,8 @@ int main(int argc, char* argv[])
     };
 
     try {
-        if (version->parsed()) {
-            // Placeholder that we replace inside the binary as a pre-release step.
-            // Compared to the prevs CMake injection strategy, this avoids full rebuilds.
-            std::cout << BB_VERSION_PLACEHOLDER << std::endl;
-            return 0;
-        }
         // ULTRA PLONK
-        else if (OLD_API_gates->parsed()) {
+        if (OLD_API_gates->parsed()) {
             gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
         } else if (OLD_API_prove->parsed()) {
             prove_ultra_plonk(bytecode_path, witness_path, plonk_prove_output_path, flags.recursive);
@@ -780,4 +776,5 @@ int main(int argc, char* argv[])
         std::cerr << err.what() << std::endl;
         return 1;
     }
+    return 0;
 }

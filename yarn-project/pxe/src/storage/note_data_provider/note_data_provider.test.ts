@@ -85,20 +85,9 @@ describe('NoteDataProvider', () => {
     }
   });
 
-  it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
+  it.each(filteringTests)('stores notes and retrieves notes', async (getFilter, getExpected) => {
     await noteDataProvider.addNotes(notes);
     const returnedNotes = await noteDataProvider.getNotes(await getFilter());
-    const expected = await getExpected();
-    expect(returnedNotes.sort()).toEqual(expected.sort());
-  });
-
-  it.each(filteringTests)('stores notes one by one and retrieves notes', async (getFilter, getExpected) => {
-    for (const note of notes) {
-      await noteDataProvider.addNote(note);
-    }
-
-    const returnedNotes = await noteDataProvider.getNotes(await getFilter());
-
     const expected = await getExpected();
     expect(returnedNotes.sort()).toEqual(expected.sort());
   });
@@ -188,14 +177,10 @@ describe('NoteDataProvider', () => {
     expect(result.sort()).toEqual([...notes].sort());
   });
 
-  it('stores notes one by one and retrieves notes with siloed account', async () => {
-    for (const note of notes.slice(0, 5)) {
-      await noteDataProvider.addNote(note, owners[0].address);
-    }
+  it('stores notes and retrieves notes with siloed account', async () => {
+    await noteDataProvider.addNotes(notes.slice(0, 5), owners[0].address);
 
-    for (const note of notes.slice(5)) {
-      await noteDataProvider.addNote(note, owners[1].address);
-    }
+    await noteDataProvider.addNotes(notes.slice(5), owners[1].address);
 
     const owner0Notes = await noteDataProvider.getNotes({
       scopes: [owners[0].address],
@@ -217,8 +202,8 @@ describe('NoteDataProvider', () => {
   });
 
   it('a nullified note removes notes from all accounts in the pxe', async () => {
-    await noteDataProvider.addNote(notes[0], owners[0].address);
-    await noteDataProvider.addNote(notes[0], owners[1].address);
+    await noteDataProvider.addNotes([notes[0]], owners[0].address);
+    await noteDataProvider.addNotes([notes[0]], owners[1].address);
 
     await expect(
       noteDataProvider.getNotes({

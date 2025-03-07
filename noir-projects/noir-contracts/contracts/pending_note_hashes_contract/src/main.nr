@@ -17,6 +17,7 @@ pub contract PendingNoteHashes {
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
     };
     use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
+    use aztec::protocol_types::traits::ToField;
 
     #[storage]
     struct Storage<Context> {

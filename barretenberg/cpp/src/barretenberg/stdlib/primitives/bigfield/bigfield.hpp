@@ -467,6 +467,21 @@ template <typename Builder, typename T> class bigfield {
                              prime_basis_limb.tag);
     }
 
+    /**
+     * @brief Set the witness indices of the binary basis limbs to public
+     *
+     * @return uint32_t The public input index at which the representation of the bigfield starts
+     */
+    uint32_t set_public() const
+    {
+        Builder* ctx = get_context();
+        const uint32_t start_index = static_cast<uint32_t>(ctx->public_inputs.size());
+        for (auto& limb : binary_basis_limbs) {
+            ctx->set_public_input(limb.element.normalize().witness_index);
+        }
+        return start_index;
+    }
+
     static constexpr uint512_t get_maximum_unreduced_value()
     {
         // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t

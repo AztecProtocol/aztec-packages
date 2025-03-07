@@ -5,6 +5,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 # Download ignition up front to ensure no race conditions at runtime.
 [ -n "${SKIP_BB_CRS:-}" ] || ./scripts/download_bb_crs.sh
 
+./bbup/bootstrap.sh $@
 ./cpp/bootstrap.sh $@
 ./ts/bootstrap.sh $@
 ./acir_tests/bootstrap.sh $@
@@ -24,4 +25,4 @@ if [ "$cmd" == "bench" ]; then
     > ./bench-out/bb-bench.json
 
   cache_upload barretenberg-bench-results-$COMMIT_HASH.tar.gz ./bench-out/bb-bench.json
-fi 
+fi

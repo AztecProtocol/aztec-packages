@@ -14,6 +14,7 @@ export async function deployL1Contracts(
   mnemonicIndex: number,
   salt: number | undefined,
   testAccounts: boolean,
+  acceleratedTestDeployments: boolean,
   json: boolean,
   initialValidators: EthAddress[],
   log: LogFn,
@@ -34,6 +35,7 @@ export async function deployL1Contracts(
     initialValidators,
     genesisArchiveRoot,
     genesisBlockHash,
+    acceleratedTestDeployments,
     config,
     debugLogger,
   );

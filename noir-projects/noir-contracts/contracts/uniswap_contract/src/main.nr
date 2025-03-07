@@ -20,6 +20,8 @@ pub contract Uniswap {
     use dep::token::Token;
     use dep::token_bridge::TokenBridge;
 
+    use dep::aztec::protocol_types::traits::ToField;
+
     #[storage]
     struct Storage<Context> {
         portal_address: PublicImmutable<EthAddress, Context>,

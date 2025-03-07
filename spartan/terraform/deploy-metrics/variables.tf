@@ -20,6 +20,12 @@ variable "GRAFANA_DASHBOARD_PASSWORD" {
   sensitive   = true
 }
 
+variable "SLACK_WEBHOOK_URL" {
+  description = "Webhook to use to send to notifications"
+  type        = string
+  sensitive   = true
+}
+
 variable "project" {
   default = "testnet-440309"
   type    = string

@@ -558,6 +558,7 @@ class ECCVMFlavor {
             }
 
             dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;
+            size_t unmasked_witness_size = dyadic_num_rows - MASKING_OFFSET;
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -572,7 +573,7 @@ class ECCVMFlavor {
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
-            lagrange_last.at(lagrange_last.size() - 1) = 1;
+            lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
@@ -629,13 +630,13 @@ class ECCVMFlavor {
             // values must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column
             // values that are all zero (issue #2217)
             if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
-                for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+                for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
                     transcript_accumulator_empty.set_if_valid_index(i, 1);
                 }
             }
             // in addition, unless the accumulator is reset, it contains the value from the previous row so this
             // must be propagated
-            for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+            for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
                 transcript_accumulator_x.set_if_valid_index(i, transcript_accumulator_x[i - 1]);
                 transcript_accumulator_y.set_if_valid_index(i, transcript_accumulator_y[i - 1]);
             }

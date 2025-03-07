@@ -7,6 +7,7 @@
 **/bootstrap.sh @charlielye
 **/run_test.sh @charlielye
 /release-please-config @charlielye
+/.test_patterns.yml @charlielye
 
 # Notify the Noir team of any changes to ACIR serialization
 /noir/noir-repo/acvm-repo/acir/codegen/* @TomAFrench @vezenovm @guipublic

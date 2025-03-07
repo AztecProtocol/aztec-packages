@@ -73,6 +73,7 @@ export const L1_PUBLISHER_BALANCE = 'aztec.l1_publisher.balance';
 
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
+export const PEER_MANAGER_PEER_COUNT = 'aztec.peer_manager.peer_count';
 
 export const P2P_REQ_RESP_SENT_REQUESTS = 'aztec.p2p.req_resp.sent_requests';
 export const P2P_REQ_RESP_RECEIVED_REQUESTS = 'aztec.p2p.req_resp.received_requests';

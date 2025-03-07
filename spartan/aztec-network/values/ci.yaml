@@ -4,6 +4,7 @@ aztec:
   proofSubmissionWindow: 8
 
 ethereum:
+  acceleratedTestDeployments: true
   blockTime: 8
   execution:
     resources:

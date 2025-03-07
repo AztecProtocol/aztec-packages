@@ -34,7 +34,7 @@ pub contract Test {
         deploy::deploy_contract as aztec_deploy_contract,
         discovery::private_logs::do_process_log,
         event::event_interface::EventInterface,
-        hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
+        hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
         macros::{
             events::event,
@@ -48,7 +48,6 @@ pub contract Test {
             note_interface::NoteType,
             retrieved_note::RetrievedNote,
         },
-        state_vars::storage::Storage as _,
         test::mocks::mock_struct::MockStruct,
     };
     use dep::token_portal_content_hash_lib::{
@@ -140,7 +139,8 @@ pub contract Test {
         storage_slot: Field,
     ) {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -156,7 +156,8 @@ pub contract Test {
     #[private]
     fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -176,7 +177,8 @@ pub contract Test {
     #[private]
     fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [Field; 2] {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -193,7 +195,8 @@ pub contract Test {
 
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -212,7 +215,8 @@ pub contract Test {
         active_or_nullified: bool,
     ) -> pub [Field; 2] {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -229,7 +233,8 @@ pub contract Test {
     #[private]
     fn call_destroy_note(storage_slot: Field) {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -371,7 +376,8 @@ pub contract Test {
 
     #[private]
     fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress, sender: AztecAddress) {
-        let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
+        let mut storage_slot =
+            aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant) + 1;
         Test::at(context.this_address()).call_create_note(value, owner, sender, storage_slot).call(
             &mut context,
         );

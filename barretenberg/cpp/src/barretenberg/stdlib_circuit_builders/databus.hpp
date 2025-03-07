@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <cstdint>
 namespace bb {
 
@@ -78,19 +79,17 @@ enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
 struct DatabusPropagationData {
     bool operator==(const DatabusPropagationData&) const = default;
 
-    // The start index of the return data commitments (if present) in the public inputs. Note: a start index is all
-    // that's needed here since the commitents are represented by a fixed number of witnesses and are contiguous in the
-    // public inputs by construction.
-    uint32_t app_return_data_public_input_idx = 0;
-    uint32_t kernel_return_data_public_input_idx = 0;
+    // Keys indicating the location of databus return data commitments in the public inputs
+    PublicComponentKey app_return_data_commitment_pub_input_key;
+    PublicComponentKey kernel_return_data_commitment_pub_input_key;
 
     // Is this a kernel circuit (used to determine when databus consistency checks can be appended to a circuit in IVC)
     bool is_kernel = false;
 
     friend std::ostream& operator<<(std::ostream& os, DatabusPropagationData const& data)
     {
-        os << data.app_return_data_public_input_idx << ",\n"
-           << data.kernel_return_data_public_input_idx << ",\n"
+        os << data.app_return_data_commitment_pub_input_key.start_idx << ",\n"
+           << data.kernel_return_data_commitment_pub_input_key.start_idx << ",\n"
            << data.is_kernel << "\n";
         return os;
     };
@@ -99,13 +98,14 @@ struct DatabusPropagationData {
     static DatabusPropagationData kernel_default()
     {
         DatabusPropagationData data;
-        data.kernel_return_data_public_input_idx = 0; // kernel return data commitment is first public input
-        data.app_return_data_public_input_idx = 8;    // followed by app return data commitment
+        // Kernel return data is the first public input, followed by app return data
+        data.kernel_return_data_commitment_pub_input_key.start_idx = 0;
+        data.app_return_data_commitment_pub_input_key.start_idx = 8;
         data.is_kernel = true;
         return data;
     }
 
-    MSGPACK_FIELDS(app_return_data_public_input_idx, kernel_return_data_public_input_idx, is_kernel);
+    MSGPACK_FIELDS(app_return_data_commitment_pub_input_key, kernel_return_data_commitment_pub_input_key, is_kernel);
 };
 
 } // namespace bb

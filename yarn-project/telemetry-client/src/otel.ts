@@ -145,7 +145,7 @@ export class OpenTelemetryClient implements TelemetryClient {
           instrumentType: InstrumentType.HISTOGRAM,
           instrumentUnit: 's',
           aggregation: new ExplicitBucketHistogramAggregation(
-            [1, 2, 4, 6, 10, 15, 30, 60, 90, 120, 180, 240, 300, 480, 600],
+            [1, 2, 4, 6, 10, 15, 30, 60, 90, 120, 180, 240, 300, 480, 600, 900, 1200],
             true,
           ),
         }),

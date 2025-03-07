@@ -489,8 +489,10 @@ class MegaFlavor {
             serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
             serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
 
-            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
+                                      elements);
+            serialize_to_field_buffer(
+                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
 
             for (const Commitment& commitment : this->get_all()) {

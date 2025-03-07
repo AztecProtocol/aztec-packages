@@ -6,7 +6,7 @@ contract Updated {
     use aztec::macros::{functions::{private, public}, storage::storage};
     use aztec::prelude::{PrivateMutable, PublicMutable};
 
-    use aztec::protocol_types::{constants::DEPLOYER_CONTRACT_ADDRESS, traits::Hash};
+    use aztec::protocol_types::constants::DEPLOYER_CONTRACT_ADDRESS;
     use contract_instance_deployer::ContractInstanceDeployer;
     use value_note::value_note::ValueNote;
 

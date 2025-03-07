@@ -9,6 +9,8 @@ use dep::aztec::prelude::{
     RetrievedNote,
 };
 
+use std::ops::Add;
+
 pub struct BalancesMap<Note, Context> {
     map: Map<AztecAddress, PrivateSet<Note, Context>, Context>,
 }

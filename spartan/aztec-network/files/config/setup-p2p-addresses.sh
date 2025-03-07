@@ -30,10 +30,10 @@ else
 fi
 
 # Write addresses to file for sourcing
-echo "export P2P_TCP_ANNOUNCE_ADDR=${TCP_ADDR}" > /shared/p2p/p2p-addresses
-echo "export P2P_TCP_LISTEN_ADDR=0.0.0.0:${P2P_TCP_PORT}" >> /shared/p2p/p2p-addresses
-echo "export P2P_UDP_ANNOUNCE_ADDR=${UDP_ADDR}" >> /shared/p2p/p2p-addresses
-echo "export P2P_UDP_LISTEN_ADDR=0.0.0.0:${P2P_UDP_PORT}" >> /shared/p2p/p2p-addresses
+echo "export P2P_TCP_ANNOUNCE_ADDR=${TCP_ADDR}" > /shared/config/p2p-addresses
+echo "export P2P_TCP_LISTEN_ADDR=0.0.0.0:${P2P_TCP_PORT}" >> /shared/config/p2p-addresses
+echo "export P2P_UDP_ANNOUNCE_ADDR=${UDP_ADDR}" >> /shared/config/p2p-addresses
+echo "export P2P_UDP_LISTEN_ADDR=0.0.0.0:${P2P_UDP_PORT}" >> /shared/config/p2p-addresses
 
 echo "P2P addresses configured:"
-cat /shared/p2p/p2p-addresses
+cat /shared/config/p2p-addresses

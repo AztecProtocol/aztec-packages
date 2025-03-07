@@ -130,7 +130,7 @@ case "$cmd" in
       ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-upgrade-rollup-version")
-    OVERRIDES="bot.enabled=false" \
+    OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
     ;;

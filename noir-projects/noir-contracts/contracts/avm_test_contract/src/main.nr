@@ -33,6 +33,7 @@ pub contract AvmTest {
     };
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
+    use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
     use std::ops::Add;

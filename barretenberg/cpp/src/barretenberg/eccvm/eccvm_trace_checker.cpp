@@ -31,8 +31,9 @@ bool ECCVMTraceChecker::check(Builder& builder, numeric::RNG* engine_ptr)
 
     ProverPolynomials polynomials(builder);
     const size_t num_rows = polynomials.get_polynomial_size();
-    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, num_rows);
-    compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params);
+    const size_t unmasked_witness_size = num_rows - MASKING_OFFSET;
+    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, unmasked_witness_size);
+    compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params, unmasked_witness_size);
 
     polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
 

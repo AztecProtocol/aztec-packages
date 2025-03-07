@@ -37,6 +37,7 @@ bot:
   enabled: false
 
 ethereum:
+  acceleratedTestDeployments: true
   execution:
     resources:
       requests:
