@@ -10,11 +10,10 @@ export hash=$(cache_content_hash .rebuild_patterns)
 # Paths are relative to repo root.
 # We append the hash as a comment. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  local test_versions=("0.72.1" "0.77.1")
-
-  for version in ${test_versions[@]}; do
-    echo -e "$hash barretenberg/bbup/run_test.sh $version"
-  done
+  if [ $(arch) == "amd64" ]; then
+    echo -e "$hash barretenberg/bbup/run_test.sh 0.72.1"
+  fi
+  echo -e "$hash barretenberg/bbup/run_test.sh 0.77.1"
 }
 
 # This is not called in ci. It is just for a developer to run the tests.
@@ -27,7 +26,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
+  ""|"fast"|"full"|"bench")
     ;;
   "ci")
     test
