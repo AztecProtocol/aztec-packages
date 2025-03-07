@@ -21,18 +21,17 @@ In this guide, we will look at how to profile the private execution of a transac
 
 The profiling tool is integrated into the `aztec-wallet`.
 
-In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L269) method in the token contract.
-If you want to follow along, you'll need to clone the Aztec [monorepo](https://github.com/AztecProtocol/aztec-packages) and [compile](./how_to_compile_contract.md) the `token_contract` in `noir-projects/noir-contracts` by running `aztec-nargo compile --package token_contract`.
-
-Let's deploy the necessary account and token contracts first:
+In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L263) method in the token contract.
+Let us start by deploying the token contarct (included in the Sandbox) and minting some tokens to the test account.
 
 ```bash
-# Create some test accounts
+# Import some test accounts included in cli-wallet
 aztec-wallet import-test-accounts
 
-# Deploy a token contract and mint 100 tokens to the test0 user
-# We are using the compiled token contract from the noir-contracts directory of aztec-packages
-aztec-wallet deploy ~/aztec-packages/noir-projects/noir-contracts/target/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0 -a token
+# Deploy a token contract.
+aztec-wallet deploy TokenContractArtifact --from accounts:test0 --args accounts:test0 TestToken TST 18 -a token
+
+# Mint some tokens to the test0 account
 aztec-wallet send mint_to_private -ca token --args accounts:test0 accounts:test0 100 -f test0
 ```
 
@@ -54,14 +53,14 @@ This will print the following results after some time:
 
 ```bash
 Gate count per circuit:
-   SchnorrAccount:entrypoint                          Gates: 26,487     Acc: 26,487
-   private_kernel_init                                Gates: 48,562     Acc: 75,049
-   Token:transfer                                     Gates: 32,869     Acc: 107,918
-   private_kernel_inner                               Gates: 89,062     Acc: 196,980
-   private_kernel_reset                               Gates: 105,077    Acc: 302,057
-   private_kernel_tail                                Gates: 27,501     Acc: 329,558
+   SchnorrAccount:entrypoint                          Gates: 21,724     Acc: 21,724
+   private_kernel_init                                Gates: 45,351     Acc: 67,075
+   Token:transfer                                     Gates: 31,559     Acc: 98,634
+   private_kernel_inner                               Gates: 78,452     Acc: 177,086
+   private_kernel_reset                               Gates: 91,444     Acc: 268,530
+   private_kernel_tail                                Gates: 31,201     Acc: 299,731
 
-Total gates: 329,558
+Total gates: 299,731
 ```
 
 Here you can see the gate count of each private function call in the transaction along with the kernel circuits needed in between, and the total gate count.
