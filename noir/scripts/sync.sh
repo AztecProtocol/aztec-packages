@@ -62,7 +62,7 @@ function fixup {
   scripts/sync-in-fixup.sh
   # TODO: Apply any patch file
   cd noir-repo
-  git add . && git commit -m $PATCH_COMMIT_MSG
+  git add . && git commit -m "$PATCH_COMMIT_MSG"
 }
 
 # Clone the repository if it doesn't exist.
