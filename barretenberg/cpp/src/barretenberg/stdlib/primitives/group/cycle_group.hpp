@@ -213,9 +213,13 @@ template <typename Builder> class cycle_group {
             this->x = 0;
             this->y = 0;
             this->_is_constant = true;
-        } else {
+        } else if(!is_infinity.is_constant()) {
             this->x = field_t::conditional_assign(is_infinity, 0, this->x);
             this->y = field_t::conditional_assign(is_infinity, 0, this->y);
+            this->_is_constant = false;
+            if(this->context == nullptr){
+                this->context = is_infinity.get_context();
+            }
         }
         _is_infinity = is_infinity;
         this->_is_standard = true;
@@ -228,9 +232,13 @@ template <typename Builder> class cycle_group {
             this->x = 0;
             this->y = 0;
             this->_is_constant = true;
-        } else {
+        } else if (!this->_is_infinity.is_constant()){
             this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
             this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
+            this->_is_constant = false;
+            if(this->context == nullptr){
+                this->context = this->_is_infinity.get_context();
+            }
         }
         this->_is_standard = true;
     }
@@ -274,7 +282,7 @@ template <typename Builder> class cycle_group {
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator*(const BigScalarField& scalar) const;
     cycle_group& operator*=(const BigScalarField& scalar);
-    bool_t operator==(const cycle_group& other) const;
+    bool_t operator==(cycle_group& other);
     void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
     cycle_group operator/(const cycle_group& other) const;
