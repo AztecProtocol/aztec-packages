@@ -35,6 +35,7 @@ pub contract Token {
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
+    use aztec::protocol_types::traits::ToField;
 
     // docs:start:import_authwit
     use dep::authwit::auth::{

@@ -29,6 +29,7 @@ pub contract NFT {
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
+    use aztec::protocol_types::traits::ToField;
     use std::meta::derive;
 
     // docs:end:imports
