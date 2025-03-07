@@ -53,7 +53,7 @@ void ECCVMProver::execute_wire_commitments_round()
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - MASKING_OFFSET;
 
-    auto commit_type =
+    CommitmentKey::CommitType commit_type =
         (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
 
     // Commit to wires whose length is bounded by the real size of the ECCVM
@@ -62,11 +62,10 @@ void ECCVMProver::execute_wire_commitments_round()
         wire.mask();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
         // ECCVM/Translator/MegaZK
-
-        size_t start = circuit_size == wire.size() ? 0 : 1;
+        const size_t start = circuit_size == wire.size() ? 0 : 1;
         std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
                                                               { unmasked_witness_size, circuit_size } };
-        auto struct_comm = key->commitment_key->commit_with_type(wire, commit_type, active_ranges);
+        const Commitment struct_comm = key->commitment_key->commit_with_type(wire, commit_type, active_ranges);
         transcript->send_to_verifier(label, struct_comm);
     }
 

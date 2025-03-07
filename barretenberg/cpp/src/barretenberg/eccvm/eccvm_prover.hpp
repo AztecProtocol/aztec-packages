@@ -18,6 +18,7 @@ class ECCVMProver {
     using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
+    using Commitment = typename Flavor::Commitment;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
