@@ -4,7 +4,6 @@
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/numeric/bitop/division.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
@@ -406,7 +405,8 @@ class AvmFlavor {
         PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
         {
             for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
-                poly = Polynomial(numeric::div_ceil<size_t>(full_poly.end_index(), 2), circuit_size / 2);
+                size_t desired_size = std::min(full_poly.end_index(), circuit_size / 2);
+                poly = Polynomial(desired_size, circuit_size / 2);
             }
         }
     };

@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/numeric/bitop/division.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -209,7 +208,7 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, 0, round_challenge);
+            partially_evaluate(full_polynomials, multivariate_n, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
             // release memory?        // All but final round
@@ -226,8 +225,7 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
-            // We use "round_idx - 1" because the partially_evaluated_polynomials are already halved once.
-            partially_evaluate(partially_evaluated_polynomials, round_idx - 1, round_challenge);
+            partially_evaluate(partially_evaluated_polynomials, multivariate_n >> round_idx, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
         }
@@ -321,7 +319,7 @@ template <typename Flavor> class SumcheckProver {
 
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, 0, round_challenge);
+            partially_evaluate(full_polynomials, multivariate_n, round_challenge);
             // Prepare ZK Sumcheck data for the next round
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -356,8 +354,7 @@ template <typename Flavor> class SumcheckProver {
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
-            // We use "round_idx - 1" because the partially_evaluated_polynomials are already halved once.
-            partially_evaluate(partially_evaluated_polynomials, round_idx - 1, round_challenge);
+            partially_evaluate(partially_evaluated_polynomials, multivariate_n >> round_idx, round_challenge);
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -447,19 +444,20 @@ template <typename Flavor> class SumcheckProver {
      * After the final update, i.e. when \f$ i = d-1 \f$, the upper row of the table contains the evaluations of Honk
      * polynomials at the challenge point \f$ (u_0,\ldots, u_{d-1}) \f$.
      * @param polynomials Honk polynomials at initialization; partially evaluated polynomials in subsequent rounds
-     * @param halvings \f$i\f$
+     * @param round_size \f$2^{d-i}\f$
      * @param round_challenge \f$u_i\f$
      */
-    void partially_evaluate(auto& polynomials, size_t halvings, FF round_challenge)
+    void partially_evaluate(auto& polynomials, size_t round_size, FF round_challenge)
     {
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(poly_view.size(), [&](size_t j) {
             const auto& poly = poly_view[j];
-            size_t actual_end_index = numeric::div_ceil<size_t>(poly.end_index(), 1 << halvings);
-            for (size_t i = 0; i < actual_end_index; i += 2) {
-                pep_view[j].set_if_valid_index(i >> 1, poly[i] + round_challenge * (poly[i + 1] - poly[i]));
+            // If the polynomial is shorter than the round size, we do a little optimization.
+            size_t limit = std::min(poly.end_index(), round_size);
+            for (size_t i = 0; i < limit; i += 2) {
+                pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
         });
     };
@@ -468,15 +466,16 @@ template <typename Flavor> class SumcheckProver {
      * Specialization for array, see \ref bb::SumcheckProver<Flavor>::partially_evaluate "generic version".
      */
     template <typename PolynomialT, std::size_t N>
-    void partially_evaluate(std::array<PolynomialT, N>& polynomials, size_t halvings, FF round_challenge)
+    void partially_evaluate(std::array<PolynomialT, N>& polynomials, size_t round_size, FF round_challenge)
     {
         auto pep_view = partially_evaluated_polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
             const auto& poly = polynomials[j];
-            size_t actual_end_index = numeric::div_ceil<size_t>(poly.end_index(), 1 << halvings);
-            for (size_t i = 0; i < actual_end_index; i += 2) {
-                pep_view[j].set_if_valid_index(i >> 1, poly[i] + round_challenge * (poly[i + 1] - poly[i]));
+            // If the polynomial is shorter than the round size, we do a little optimization.
+            size_t limit = std::min(poly.end_index(), round_size);
+            for (size_t i = 0; i < limit; i += 2) {
+                pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
         });
     };
