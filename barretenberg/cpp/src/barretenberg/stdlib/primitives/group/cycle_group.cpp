@@ -1832,12 +1832,13 @@ template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator
     return *this;
 }
 
-template <typename Builder> bool_t<Builder> cycle_group<Builder>::operator==(const cycle_group& other) const
+template <typename Builder> bool_t<Builder> cycle_group<Builder>::operator==(cycle_group& other)
 {
-    const auto equal_and_not_infinity =
-        (x == other.x) && (y == other.y) && !is_point_at_infinity() && !other.is_point_at_infinity();
-    const auto both_infinity = is_point_at_infinity() && other.is_point_at_infinity();
-    return equal_and_not_infinity || both_infinity;
+    this->standardize();
+    other.standardize();
+    const auto equal =
+        (x == other.x) && (y == other.y);
+    return equal;
 }
 
 template <typename Builder>
