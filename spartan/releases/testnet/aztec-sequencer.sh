@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Global variables
-DEFAULT_P2P_PORT="40400"
+DEFAULT_P2P_PORT="40500"
 DEFAULT_PORT="8080"
 DEFAULT_KEY="0x0000000000000000000000000000000000000000000000000000000000000001"
 # Try to get default IP from ipify API, otherwise leave empty to require user input
@@ -21,7 +21,7 @@ DEFAULT_BIND_MOUNT_DIR="$HOME/aztec-data"
 ETHEREUM_HOSTS=
 IMAGE=
 BOOTNODE_URL=
-
+DEFAULT_L1_CONSENSUS_HOST_URL="https://eth-beacon-chain-sepolia.drpc.org/rest"
 # Parse command line arguments
 parse_args() {
   while [[ $# -gt 0 ]]; do
@@ -40,6 +40,10 @@ parse_args() {
       ;;
     -e | --ethereum-hosts)
       ETHEREUM_HOSTS="$2"
+      shift 2
+      ;;
+    -l | --l1-consensus-host-url)
+      L1_CONSENSUS_HOST_URL="$2"
       shift 2
       ;;
     -p | --port)
@@ -84,45 +88,6 @@ show_banner() {
   echo -e "${NC}"
 }
 
-# Check if Docker is installed
-check_docker() {
-  echo -e "${BLUE}Checking Docker installation...${NC}"
-  if command -v docker >/dev/null 2>&1 && command -v docker compose >/dev/null 2>&1; then
-    echo -e "${GREEN}Docker and Docker Compose are installed${NC}"
-    return 0
-  else
-    echo -e "${RED}Docker or Docker Compose not found${NC}"
-    # If macOS
-    if [[ "$(uname -s)" == "Darwin" ]]; then
-      echo -e "${YELLOW}macOS detected. Please install Docker Desktop for Mac:${NC}"
-      echo "https://www.docker.com/products/docker-desktop"
-      return 1
-    else
-      read -p "Would you like to install Docker? [Y/n] " -n 1 -r
-      echo
-      if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-        install_docker
-        return $?
-      fi
-      return 1
-    fi
-  fi
-}
-
-# Install Docker
-install_docker() {
-  echo -e "${BLUE}Installing Docker...${NC}"
-  if curl -fsSL https://get.docker.com | sh; then
-    sudo usermod -aG docker $USER
-    echo -e "${GREEN}Docker installed successfully${NC}"
-    echo -e "${YELLOW}Please log out and back in for group changes to take effect${NC}"
-    return 0
-  else
-    echo -e "${RED}Failed to install Docker${NC}"
-    return 1
-  fi
-}
-
 # Get public IP
 get_public_ip() {
   echo -e "${BLUE}Fetching public IP...${NC}"
@@ -136,32 +101,6 @@ get_public_ip() {
   fi
 }
 
-get_node_info() {
-  echo -e "${BLUE}Fetching node info...${NC}"
-  CMD="get-node-info --node-url ${BOOTNODE_URL} --json"
-  # TODO: use the correct (corresponding) image
-  # Can't do it today because `release/unhinged-unicorn` doesn't support --json flag
-  NODE_INFO=$(curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' -s ${BOOTNODE_URL})
-
-  # Extract the relevant fields
-  result=$(echo $NODE_INFO | jq -r '.result')
-  L1_CHAIN_ID=$(echo $result | jq -r '.l1ChainId')
-  BOOTSTRAP_NODES=$(echo $result | jq -r '.enr')
-  REGISTRY_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.registryAddress')
-  GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.governanceProposerAddress')
-  FEE_JUICE_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuiceAddress')
-  ROLLUP_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.rollupAddress')
-  REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.rewardDistributorAddress')
-  GOVERNANCE_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.governanceAddress')
-  COIN_ISSUER_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.coinIssuerAddress')
-  FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.feeJuicePortalAddress')
-  INBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.inboxAddress')
-  OUTBOX_CONTRACT_ADDRESS=$(echo $result | jq -r '.l1ContractAddresses.outboxAddress')
-
-  echo -e "${GREEN}Node info fetched successfully${NC}"
-  return 0
-}
-
 # Configure environment
 configure_environment() {
   local args=("$@")
@@ -171,28 +110,52 @@ configure_environment() {
   if [ -n "$NETWORK" ]; then
     NETWORK="$NETWORK"
   else
-    read -p "Network [unhinged-unicorn]: " NETWORK
-    NETWORK=${NETWORK:-unhinged-unicorn}
+    read -p "Network [ignition-testnet]: " NETWORK
+    NETWORK=${NETWORK:-ignition-testnet}
   fi
 
-  # if the network is `unhinged-unicorn`
-  if [ "$NETWORK" = "unhinged-unicorn" ]; then
-    BOOTNODE_URL="${BOOTNODE_URL:-http://34.169.19.201:8080}"
-    ETHEREUM_HOSTS="${ETHEREUM_HOSTS:-http://34.82.214.254:8545}"
-    IMAGE="${IMAGE:-aztecprotocol/aztec:unhinged-unicorn}"
+  # if the network is `ignition-testnet`
+  if [ "$NETWORK" = "ignition-testnet" ]; then
+    REGISTRY_CONTRACT_ADDRESS="${REGISTRY_CONTRACT_ADDRESS:-0x12b3ebc176a1646b911391eab3760764f2e05fe3}"
+    # Determine architecture and set the image accordingly
+    if [[ "$(uname -m)" == "x86_64" ]]; then
+      IMAGE="${IMAGE:-aztecprotocol/aztec:1dc66419e0e7e1543bee081471701f90192fa33e-amd64}"
+    else
+      IMAGE="${IMAGE:-aztecprotocol/aztec:1dc66419e0e7e1543bee081471701f90192fa33e-arm64}"
+    fi
   else
     # unknown network
     echo -e "${RED}Unknown network: $NETWORK${NC}"
   fi
 
-  # Check that bootnode, ethereum host, and image are set
-  if [ -z "$BOOTNODE_URL" ] || [ -z "$ETHEREUM_HOSTS" ] || [ -z "$IMAGE" ]; then
-    echo -e "${RED}Bootnode, Ethereum host, and image are required${NC}"
+  if [ -z "$IMAGE" ] || [ -z "$REGISTRY_CONTRACT_ADDRESS" ]; then
+    echo -e "${RED}Bootstrap Nodes, Ethereum host, image and Registry contract address are required${NC}"
     exit 1
   fi
 
-  # get the node info
-  get_node_info
+  if [ -n "$ETHEREUM_HOSTS" ]; then
+    ETHEREUM_HOSTS="$ETHEREUM_HOSTS"
+  else
+    while true; do
+      read -p "Sepolia Ethereum Host (ex. Infura, Alchemy, etc.): " ETHEREUM_HOSTS
+      if [ -z "$ETHEREUM_HOSTS" ]; then
+        echo -e "${RED}Error: Ethereum Hosts is required${NC}"
+      else
+        break
+      fi
+    done
+  fi
+
+    if [ -n "$L1_CONSENSUS_HOST_URL" ]; then
+    L1_CONSENSUS_HOST_URL="$L1_CONSENSUS_HOST_URL"
+  else
+    read -p "L1 Consensus Host URL [$DEFAULT_L1_CONSENSUS_HOST_URL]: " L1_CONSENSUS_HOST_URL
+    L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-$DEFAULT_L1_CONSENSUS_HOST_URL}
+  fi
+
+
+  # # get the node info
+  # get_node_info
 
   if [ -n "$CLI_P2P_PORT" ]; then
     P2P_PORT="$CLI_P2P_PORT"
@@ -281,32 +244,36 @@ DEBUG=aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-aztec:libp2p_
 LOG_LEVEL=debug
 AZTEC_PORT=${PORT}
 P2P_ENABLED=true
-L1_CHAIN_ID=${L1_CHAIN_ID}
+L1_CHAIN_ID=11155111
 PROVER_REAL_PROOFS=true
 PXE_PROVER_ENABLED=true
-ETHEREUM_SLOT_DURATION=12sec
+ETHEREUM_SLOT_DURATION=12
 AZTEC_SLOT_DURATION=36
-AZTEC_EPOCH_DURATION=48
-AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=13
 ETHEREUM_HOSTS=${ETHEREUM_HOSTS}
+L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL}
 AZTEC_EPOCH_DURATION=32
 AZTEC_PROOF_SUBMISSION_WINDOW=64
 BOOTSTRAP_NODES=${BOOTSTRAP_NODES}
 REGISTRY_CONTRACT_ADDRESS=${REGISTRY_CONTRACT_ADDRESS}
-GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=${GOVERNANCE_PROPOSER_CONTRACT_ADDRESS}
-FEE_JUICE_CONTRACT_ADDRESS=${FEE_JUICE_CONTRACT_ADDRESS}
-ROLLUP_CONTRACT_ADDRESS=${ROLLUP_CONTRACT_ADDRESS}
-REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=${REWARD_DISTRIBUTOR_CONTRACT_ADDRESS}
-GOVERNANCE_CONTRACT_ADDRESS=${GOVERNANCE_CONTRACT_ADDRESS}
-COIN_ISSUER_CONTRACT_ADDRESS=${COIN_ISSUER_CONTRACT_ADDRESS}
-FEE_JUICE_PORTAL_CONTRACT_ADDRESS=${FEE_JUICE_PORTAL_CONTRACT_ADDRESS}
-INBOX_CONTRACT_ADDRESS=${INBOX_CONTRACT_ADDRESS}
-OUTBOX_CONTRACT_ADDRESS=${OUTBOX_CONTRACT_ADDRESS}
+SLASH_FACTORY_CONTRACT_ADDRESS=0x0f216a792a4cc3691010e7870ae2c0f4fadd952a
 P2P_UDP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 P2P_TCP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 DATA_DIRECTORY=/var/lib/aztec
 PEER_ID_PRIVATE_KEY=${PEER_ID_PRIVATE_KEY}
 COINBASE=${COINBASE}
+TEST_ACCOUNTS=true
+SEQ_MIN_TX_PER_BLOCK=0
+SEQ_MAX_TX_PER_BLOCK=0
+L1_FIXED_PRIORITY_FEE_PER_GAS=3
+L1_GAS_LIMIT_BUFFER_PERCENTAGE=15
+L1_GAS_PRICE_MAX=500
+ARCHIVER_POLLING_INTERVAL_MS=1000
+ARCHIVER_VIEM_POLLING_INTERVAL_MS=1000
+L1_READER_VIEM_POLLING_INTERVAL_MS=1000
+SEQ_VIEM_POLLING_INTERVAL_MS=1000
+VERSION=aztecprotocol/aztec:1dc66419e0e7e1543bee081471701f90192fa33e-arm64
+BOOTSTRAP_NODES=enr:-LO4QDwlKJN0BqMc4hYPsI-MQoR1O7qLVr4TK6DhqGsZT_pPTmg3gS-JD072rKI4vlaR0N4SdeH2gCD09oh-zMVT3JkEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMmM4ZmM0NjMtMjM3YWFkY2WCaWSCdjSCaXCEI-XzqolzZWNwMjU2azGhA0da3IZGbY1tLdqXgdQKG-SW-Z4D6dvXJBeoXn8EZsCVg3VkcIKd0A,enr:-LO4QPJR493G_BQG1UU0_h-g0TEBnZEJ-zgWYH3YctVAn3GzfM9dWVIO7_TSETXYLy-h34bF6sSoSfpP5O44qsZnp00EhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMmM4ZmM0NjMtMjM3YWFkY2WCaWSCdjSCaXCEIlle64lzZWNwMjU2azGhAwuSF_VE1cRfSc3MvtDZvvaTl2Qo_dJK-Qp7TcnhYWBtg3VkcIKd0A,enr:-LO4QKq488wXvw6vAHToGWJYkxMmKsjQCsFjPs5Pt_MrawlnZ7G-xIfwhkXR1afddf8lFj_RNVZdBfGzHHR262pXNhMEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMmM4ZmM0NjMtMjM3YWFkY2WCaWSCdjSCaXCEI8VFSYlzZWNwMjU2azGhA2xqOyFaHAARgLAi3dORuPmFHbxgoMDWBZJnnbiatW8jg3VkcIKd0A
+REGISTRY_CONTRACT_ADDRESS=0x12b3ebc176a1646b911391eab3760764f2e05fe3
 EOF
 
   # Generate docker-compose.yml
@@ -342,13 +309,13 @@ volumes:
 EOF
   fi
 
-  echo -e "${GREEN}Configuration complete! Use './aztec-spartan.sh start' to launch your node.${NC}"
+  echo -e "${GREEN}Configuration complete! Use './aztec-sequencer.sh start' to launch your node.${NC}"
 }
 
 # Docker commands
 start_node() {
   if [ ! -f "docker-compose.yml" ]; then
-    echo -e "${RED}Configuration not found. Please run './aztec-spartan.sh config' first.${NC}"
+    echo -e "${RED}Configuration not found. Please run './aztec-sequencer.sh config' first.${NC}"
     exit 1
   fi
   echo -e "${BLUE}Starting containers...${NC}"
@@ -392,7 +359,6 @@ show_logs() {
 case "$1" in
 "config")
   show_banner
-  check_docker
   configure_environment "$@"
   ;;
 "start")

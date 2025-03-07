@@ -22,15 +22,15 @@ mkdir val1 && cd val1
 curl -L sp-testnet.aztec.network | bash
 ```
 
-This will install `aztec-spartan.sh` in the current directory. You can now run it:
+This will install `aztec-sequencer.sh` in the current directory. You can now run it:
 
 ```bash
-./aztec-spartan.sh config
+./aztec-sequencer.sh config
 ```
 
 If you don't have Docker installed, the script will do it for you. It will then prompt for any required environment variables and output both a `docker-compose.yml` and an `.env` file. You will also be prompted to choose whether to use a [named volume](https://docs.docker.com/engine/storage/volumes/) (default) or if you want to use a local directory to store the node's data.
 
-Run `./aztec-spartan.sh` without any command to see all available options, and pass them as flags, i.e. `npx aztec-spartan config -p 8080 -p2p 40400`. If you want to use a different key for p2p peer id, pass it with `-pk <your_key>`.
+Run `./aztec-sequencer.sh` without any command to see all available options, and pass them as flags, i.e. `./aztec-sequencer config -p 8080 -p2p 40400`. If you want to use a different key for p2p peer id, pass it with `-pk <your_key>`.
 
 For more options, see the [Node Configuration](#node-configuration) section.
 
@@ -39,7 +39,7 @@ For more options, see the [Node Configuration](#node-configuration) section.
 
 ## Running
 
-To spare you a few keystrokes, you can use `npx aztec-spartan [start/stop/logs/update]` to start, stop, output logs or pull the latest docker images.
+To spare you a few keystrokes, you can use `./aztec-sequencer [start/stop/logs/update]` to start, stop, output logs or pull the latest docker images.
 
 > [!NOTE]
 > The above deploy script will connect your node to the p2p network where it will register peers and start receiving messages from other nodes on the network. You will not be in the validator set just yet.
@@ -48,13 +48,13 @@ To spare you a few keystrokes, you can use `npx aztec-spartan [start/stop/logs/u
 
 ## Node Configuration
 
-The `aztec-spartan.sh` script will set the following required variables on your behalf. You can ofcourse override the variables set by the script by simply changing the `.env` file directly and re-running `./aztec-spartan.sh`
+The `aztec-sequencer.sh` script will set the following required variables on your behalf. You can of course override the variables set by the script by simply changing the `.env` file directly and re-running `./aztec-sequencer.sh`
 
-| Variable       | Description                                                                                                                                   |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| ETHEREUM_HOSTS | URL to the Ethereum node your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh` |
-| BOOTNODE_URL   | URL to a bootnode that supplies L1 contract addresses and the ENR of the bootstrap nodes.                                                     |
-| IMAGE          | The docker image to run                                                                                                                       |
+| Variable       | Description                                                                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ETHEREUM_HOSTS | List of Ethereum nodes URLs your validator will connect to (comma separated). For as long as we're on private networks, please use the value in `aztec-sequencer.sh` |
+| BOOTNODE_URL   | URL to a bootnode that supplies L1 contract addresses and the ENR of the bootstrap nodes.                                                                            |
+| IMAGE          | The docker image to run                                                                                                                                              |
 
 In addition, the user is prompted to enter 1) an IP Address and a P2P port to be used for the TCP and UDP addresses (defaults to 40400) 2) A port for your node (8080) 3) an Ethereum private key 4) `COINBASE` which is the Ethereum address associated with the private key and 5) a path to a local directory to store node data if you don't opt for a named volume.
 
@@ -66,15 +66,15 @@ The Publisher is the main node component that interacts with the Ethereum L1, fo
 
 The Archiver's primary functions are data storage and retrieval (i.e. L1->L2 messages), state synchronization and re-org handling.
 
-| Variable                       | Description                                                                                                                                         |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ETHEREUM_HOSTS                 | This is the URL to the L1 node your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh` |
-| L1_CHAIN_ID                    | Chain ID of the L1                                                                                                                                  |
-| DATA_DIRECTORY                 | Optional dir to store archiver and world state data. If omitted will store in memory                                                                |
-| ARCHIVER_POLLING_INTERVAL_MS   | The polling interval in ms for retrieving new L2 blocks and encrypted logs                                                                          |
-| SEQ_PUBLISHER_PRIVATE_KEY      | This should be the same as your validator private key                                                                                               |
-| SEQ_PUBLISH_RETRY_INTERVAL_MS  | The interval to wait between publish retries                                                                                                        |
-| SEQ_VIEM_POLLING_INTERVAL_TIME | The polling interval viem uses in ms                                                                                                                |
+| Variable                       | Description                                                                                                                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ETHEREUM_HOSTS                 | List of Ethereum nodes URLs your validator will connect to (comma separated). For as long as we're on private networks, please use the value in `aztec-sequencer.sh` |
+| L1_CHAIN_ID                    | Chain ID of the L1                                                                                                                                                   |
+| DATA_DIRECTORY                 | Optional dir to store archiver and world state data. If omitted will store in memory                                                                                 |
+| ARCHIVER_POLLING_INTERVAL_MS   | The polling interval in ms for retrieving new L2 blocks and encrypted logs                                                                                           |
+| SEQ_PUBLISHER_PRIVATE_KEY      | This should be the same as your validator private key                                                                                                                |
+| SEQ_PUBLISH_RETRY_INTERVAL_MS  | The interval to wait between publish retries                                                                                                                         |
+| SEQ_VIEM_POLLING_INTERVAL_TIME | The polling interval viem uses in ms                                                                                                                                 |
 
 ### Sequencer Config
 
