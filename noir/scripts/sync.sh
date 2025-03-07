@@ -120,7 +120,7 @@ function fixup_repo {
   echo "Applying fixup on noir-repo"
   # Redirect the `bb` reference to the local one.
   scripts/sync-in-fixup.sh
-  git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG"
+  git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG" --allow-empty
   # Apply any patch file.
   if [ -f $NOIR_REPO_PATCH ]; then
     echo Applying $NOIR_REPO_PATCH
@@ -138,8 +138,11 @@ function init_repo {
     url=https://github.com/noir-lang/noir.git
     ref=$(read_wanted_ref)
     echo Initializing noir-repo to $ref
+    # If we're cloning from a tag with --depth=1, we won't be able to switch to a branch later.
+    # On CI we won't be switching branches, but on dev machines we can, so there make a full checkout.
+    depth=$([ ! -z "${CI_FULL:-}" ] && echo "--depth 1" || echo "")
     # `--branch` doesn't work for commit hashes
-    git clone --depth 1 --branch $ref $url noir-repo \
+    git clone $depth --branch $ref $url noir-repo \
     || git clone $url noir-repo && git -C noir-repo checkout $ref
     fixup_repo
     write_last_ref $ref
