@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741364414668,
+  "lastUpdate": 1741366689082,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "saleel@aztecprotocol.com",
-            "name": "saleel",
-            "username": "saleel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a96c0f193835d9b423419bc9eada14d3a055033",
-          "message": "fix: default DB path in cli-wallet (#12475)",
-          "timestamp": "2025-03-05T15:01:10Z",
-          "tree_id": "996d7c3417052bd8f1fd7ef0ce961bc34aadf9eb",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a96c0f193835d9b423419bc9eada14d3a055033"
-        },
-        "date": 1741188845479,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18159.76303399998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16170.500452000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18779.015284000023,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16243.369481999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3884.751902000062,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3059.583453 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55472.076508,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55472076000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9513.936944,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9513939000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1931727566,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1931727566 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 223888289,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 223888289 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 227074093,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 227074093 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2ea17670b5e7f7cc047a49313bd99032e39323de",
+          "message": "feat: provision alerts (#12561)\n\nThis PR updates the in-repo dashboards to the latest version and adds\nalerting rules.\n\nA new secret is added to Gcloud to hold the webhook URL for a Slack\nchannel where we want alerts to fire to.\n\nOne thing that needs to kept in mind if editing the rules is that\nGrafana templates need to be escaped otherwise Helm will try to execute\nthem and fail (use `` {{ ` escaped content {{ $some_grafan_var }} `\n}}``)",
+          "timestamp": "2025-03-07T16:24:19Z",
+          "tree_id": "c94929d606de5a6eae7ded6674f2fdeb57ad1ad3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2ea17670b5e7f7cc047a49313bd99032e39323de"
+        },
+        "date": 1741366681855,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18210.882255999877,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16011.872736000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18796.94469800006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16403.648056 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3912.077887999885,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3111.3191199999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55447.94522,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55447946000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9797.035358,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9797037000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1890045844,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1890045844 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 214041745,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 214041745 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
