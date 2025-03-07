@@ -41,7 +41,6 @@ spec:
       terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
 
         - name: get-private-key
           image: {{ .Values.images.foundry.image }}
@@ -135,14 +134,16 @@ spec:
             - /bin/bash
             - -c
             - |
+              source /scripts/setup-otel-resource.sh && \
               source /shared/config/keys.env && \
               source /shared/contracts/contracts.env && \
               source /shared/config/p2p-addresses && \
               source /shared/config/service-addresses && \
-              source /shared/config/otel-resource && \
               env && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --archiver
           volumeMounts:
+            - name: scripts
+              mountPath: /scripts
             - name: contracts-env
               mountPath: /shared/contracts
             - name: config
@@ -150,22 +151,7 @@ spec:
             - name: prover-node-data
               mountPath: {{ .Values.proverNode.dataDir }}
           env:
-            - name: K8S_POD_UID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-            - name: K8S_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: K8S_NAMESPACE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
+            {{- include "aztec-network.otelEnvVars" . | nindent 12 }}
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.proverNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
@@ -230,10 +216,6 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
-            - name: USE_GCLOUD_LOGGING
-              value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
             {{- if .Values.blobSink.enabled }}

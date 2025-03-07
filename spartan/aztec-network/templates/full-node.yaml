@@ -41,7 +41,6 @@ spec:
       {{- end }}
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.combinedWaitAndConfigureContainer" . | nindent 8 }}
 
       containers:
@@ -51,6 +50,7 @@ spec:
             - /bin/bash
             - -c
             - |
+              source /scripts/setup-otel-resource.sh
               source /shared/contracts/contracts.env
               source /shared/config/p2p-addresses
               source /shared/config/service-addresses
@@ -72,6 +72,8 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
+            - name: scripts
+              mountPath: /scripts
             - name: config
               mountPath: /shared/config
             - name: full-node-data
@@ -80,24 +82,7 @@ spec:
               mountPath: /shared/contracts/contracts.env
               subPath: contracts.env
           env:
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: K8S_POD_UID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-            - name: K8S_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: full-node
-            - name: K8S_NAMESPACE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+            {{- include "aztec-network.otelEnvVars" . | nindent 12 }}
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.fullNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
@@ -116,8 +101,6 @@ spec:
               value: "true"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.aztec.realProofs }}"
             - name: PXE_PROVER_ENABLED
@@ -146,10 +129,6 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
-            - name: USE_GCLOUD_LOGGING
-              value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: TEST_ACCOUNTS

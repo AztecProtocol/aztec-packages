@@ -188,6 +188,37 @@ Sets up the OpenTelemetry resource attributes for a service
       mountPath: /shared/config
 {{- end -}}
 
+{{/*
+Otel Env vars
+*/}}
+{{- define "aztec-network.otelEnvVars" -}}
+{{- $serviceName := base $.Template.Name | trimSuffix ".yaml" -}}
+- name: POD_IP
+  valueFrom:
+    fieldRef:
+      fieldPath: status.podIP
+- name: K8S_POD_UID
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.uid
+- name: K8S_POD_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.name
+- name: K8S_NAMESPACE_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.namespace
+- name: OTEL_SERVICE_NAME
+  value: "{{ $serviceName }}"
+- name: OTEL_RESOURCE_ATTRIBUTES
+  value: 'service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}'
+- name: USE_GCLOUD_LOGGING
+  value: "{{ .Values.telemetry.useGcloudLogging }}"
+- name: OTEL_EXCLUDE_METRICS
+  value: "{{ .Values.telemetry.excludeMetrics }}"
+{{- end -}}
+
 {{/**
 Anti-affinity when running in public network mode
 */}}
