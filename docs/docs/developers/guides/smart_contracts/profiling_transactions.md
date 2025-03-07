@@ -27,28 +27,27 @@ If you want to follow along, you'll need to clone the Aztec [monorepo](https://g
 Let's deploy the necessary account and token contracts first:
 
 ```bash
-# Deploy accounts
-aztec-wallet create-account -a owner
-aztec-wallet create-account -a user
+# Create some test accounts
+aztec-wallet import-test-accounts
 
-# Deploy a token contract and mint 100 tokens to the user
-# Run this from noir-projects/noir-contracts to determine the path to the token_contract
-aztec-wallet deploy token_contract@Token --args accounts:owner Test TST 18 -f owner -a token
-aztec-wallet send mint_to_private -ca token --args accounts:owner accounts:user 100 -f owner
+# Deploy a token contract and mint 100 tokens to the test0 user
+# We are using the compiled token contract from the noir-contracts directory of aztec-packages
+aztec-wallet deploy ~/aztec-packages/noir-projects/noir-contracts/target/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0 -a token
+aztec-wallet send mint_to_private -ca token --args accounts:test0 accounts:test0 100 -f test0
 ```
 
-Now, the `user` can transfer tokens by running:
+Now, the `test0` account can transfer tokens by running:
 
 ```bash
-# Send the tokens back to the owner
-aztec-wallet send transfer -ca token --args accounts:owner 40 -f user
+# Send 40 tokens from test0 to test1
+aztec-wallet send transfer -ca token --args accounts:test1 40 -f accounts:test0
 ```
 
 Instead of sending the above transaction, you can simulate it by running the `simulate` command with the same parameters, and then add a `--profile` flag to profile the gate count of each private function in the transaction.
 
 
 ```bash
-aztec-wallet simulate --profile transfer -ca token --args accounts:owner 40 -f user
+aztec-wallet simulate --profile transfer -ca token --args accounts:test1 40 -f accounts:test0
 ```
 
 This will print the following results after some time:
