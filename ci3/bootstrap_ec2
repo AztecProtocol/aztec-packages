@@ -103,7 +103,7 @@ container_script=$(cat <<EOF
   git remote add origin https://github.com/aztecprotocol/aztec-packages
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
-  git checkout -b $REF_NAME
+  git checkout -b \$REF_NAME
   source ci3/source
   source ci3/source_redis
   ci_log_id=\$(log_ci_run)
@@ -111,13 +111,9 @@ container_script=$(cat <<EOF
   # Heartbeat.
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
 
-  export NPM_TOKEN=${NPM_TOKEN:-}
-  if [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
-    echo ${DOCKERHUB_PASSWORD:-} | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
-  fi
-  echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL DRY_RUN=${DRY_RUN:-0}"
-  if semver check "$REF_NAME"; then
-    echo "Performing a release because $REF_NAME is a semver."
+  echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI_FULL=\$CI_FULL DRY_RUN=\${DRY_RUN:-0}"
+  if semver check "\$REF_NAME"; then
+    echo "Performing a release because \$REF_NAME is a semver."
   fi
   set +e
   set -x
@@ -174,11 +170,16 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e CI=$CI \
     -e CI_FULL=$CI_FULL \
     -e DRY_RUN=${DRY_RUN:-0} \
+    -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
+    -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+    -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
     -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
     -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
     -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
+    -e NPM_TOKEN=${NPM_TOKEN:-} \
     -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+    -e REF_NAME=${REF_NAME:-} \
     -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
