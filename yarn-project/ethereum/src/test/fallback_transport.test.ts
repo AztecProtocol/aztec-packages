@@ -111,7 +111,7 @@ describe('fallback_transport', () => {
 
     // Create custom transports with mocks
     const transport1 = custom({
-      request: (async ({ method, params }) => {
+      request: (({ method, params }) => {
         // Log the call
         node1Mock(method, params);
         // This will throw since the node is down
