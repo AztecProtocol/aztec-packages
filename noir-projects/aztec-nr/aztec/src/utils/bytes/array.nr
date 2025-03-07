@@ -1,12 +1,10 @@
-pub mod array;
-pub mod bounded_vec;
-
 use crate::oracle::random::random;
 
-/// Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole bytes.
+/// Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole
+/// bytes.
 ///
-/// The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted into a Field. If the last chunk
-/// is less than 31 bytes long, then only the relevant bytes are considered.
+/// The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted
+/// into a Field. If the last chunk is less than 31 bytes long, then only the relevant bytes are considered.
 /// For example, [1, 10, 3] is encoded as [1 * 256^2 + 10 * 256 + 3]
 /// Note: ceil(N / 31) = (N + 30) / 31
 pub fn be_bytes_31_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; (N + 30) / 31] {
