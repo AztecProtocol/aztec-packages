@@ -18,7 +18,8 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
     for (const auto& event : events) {
         FF value = event.value;
         uint32_t radix = event.radix;
-        uint32_t safe_limbs = static_cast<uint32_t>(P_LIMBS_PER_RADIX[radix].size()) - 1;
+        size_t radix_index = static_cast<size_t>(radix);
+        uint32_t safe_limbs = static_cast<uint32_t>(P_LIMBS_PER_RADIX[radix_index].size()) - 1;
 
         FF acc = 0;
         FF exponent = 1;
@@ -26,9 +27,9 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
         bool acc_under_p = false;
 
         for (uint32_t i = 0; i < event.limbs.size(); ++i) {
-            bool is_padding = i >= P_LIMBS_PER_RADIX[radix].size();
+            bool is_padding = i > safe_limbs;
             uint8_t limb = event.limbs[i];
-            uint8_t p_limb = is_padding ? 0 : P_LIMBS_PER_RADIX[radix][i];
+            uint8_t p_limb = is_padding ? 0 : P_LIMBS_PER_RADIX[radix_index][static_cast<size_t>(i)];
 
             if (limb != p_limb) {
                 acc_under_p = limb < p_limb;

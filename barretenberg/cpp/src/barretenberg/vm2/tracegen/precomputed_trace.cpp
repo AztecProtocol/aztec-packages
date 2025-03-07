@@ -220,11 +220,11 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
     trace.reserve_column(C::precomputed_sel_to_radix_safe_limbs, P_LIMBS_PER_RADIX.size());
     trace.reserve_column(C::precomputed_to_radix_safe_limbs, P_LIMBS_PER_RADIX.size());
 
-    for (uint32_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
+    for (size_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
         size_t decomposition_len = P_LIMBS_PER_RADIX[i].size();
         if (decomposition_len > 0) {
-            trace.set(C::precomputed_sel_to_radix_safe_limbs, i, 1);
-            trace.set(C::precomputed_to_radix_safe_limbs, i, decomposition_len - 1);
+            trace.set(C::precomputed_sel_to_radix_safe_limbs, static_cast<uint32_t>(i), 1);
+            trace.set(C::precomputed_to_radix_safe_limbs, static_cast<uint32_t>(i), decomposition_len - 1);
         }
     }
 }
