@@ -57,13 +57,31 @@ function is_last_commit_patch {
   test "$last_msg" == "$PATCH_COMMIT_MSG"
 }
 
+# Check if a ref is a tag
+function is_tag {
+  tag=$1
+  test $(git -C noir-repo tag --list $tag)
+}
+
+# Get the commit a tag *currently* refers to on the remote and check if we have it in our local history.
+function has_tag_commit {
+  tag=$1
+  rev=$(git -C noir-repo ls-remote --tags origin $1 | awk '{print $1}')
+  if [ ! -z "$rev" ]; then
+    if git -C noir-repo show --oneline "$rev" 1>/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
 # Check if we have applied the patch in any commit in the log.
 # It is possible that we checkout a branch, apply the patch, then go into noir-repo
 # and work on various fixes, committing them as we go. In that case the patch won't
 # the the last commit, but it doesn't have to be applied again if we switch away
 # from our branch and then come back to it later.
 function has_commit_patch {
-  if git -C noir-repo rev-list --no-commit-header --format=%B HEAD | grep --max-count=1 "$PATCH_COMMIT_MSG" 1>/dev/null ; then
+  if git -C noir-repo rev-list --no-commit-header --format=%B HEAD | grep -q --max-count=1 "$PATCH_COMMIT_MSG" ; then
     return 0 # true
   else
     return 1 # false
@@ -99,7 +117,7 @@ function init_repo {
 function switch_repo {
   ref=$1
   echo Switching noir-repo to $ref
-  git -C noir-repo fetch origin
+  git -C noir-repo fetch --tags --depth 1 origin
   # If we try to switch to some random commit after a branch it might not find it locally.
   git -C noir-repo fetch --depth 1 origin $ref || echo ""
   # Try to check out an existing branch, or remote commit.
@@ -109,7 +127,7 @@ function switch_repo {
       git -C noir-repo pull --rebase
     fi
   else
-    # If the checkout failed, then it must be a remote branch
+    # If the checkout failed, then it should be a remote branch or tag
     git -C noir-repo checkout --track origin/$ref
   fi
   # If we haven't applied the patch yet, we have to do it (again).
@@ -131,10 +149,16 @@ function update_repo {
       # If we're on a branch, then we there might be new commits.
       # Rebasing so our local patch commit ends up on top.
       git -C noir-repo pull --rebase
+      return
+    elif ! is_tag $want; then
+      # If the last thing we checked out was the commit we wanted, then we're okay.
+      return
+    elif has_tag_commit $want; then
+      # We checked out a tag, and it looks like it hasn't been moved to a different commit.
+      return
+    else
+      echo "The current commit of the tag doesn't appear in our history."
     fi
-    # If the last thing we checked out was the commit we wanted, then we're okay.
-    # TODO: If we checked out a tag, it may have been moved, in which case we'd need to check out again.
-    return
   fi
 
   # We need to switch branches.
@@ -157,7 +181,7 @@ function update_repo {
 }
 
 function testme {
-  if has_commit_patch; then
+  if has_tag_commit nightly-2025-03-07; then
     echo "yes"
   else
     echo "no"
