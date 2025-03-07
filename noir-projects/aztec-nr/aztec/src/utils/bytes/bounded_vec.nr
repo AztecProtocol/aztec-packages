@@ -43,18 +43,18 @@ pub fn be_bytes_31_to_fields<let N: u32>(
     fields
 }
 
-/// Converts an input BoundedVec of fields into a BoundedVec of bytes.
-/// Each input field must contain at most 31 bytes (this is constrained to be so).
-/// Note that the last field might contain less than 31 bytes. This is communicated through the M parameter.
+/// Converts an input BoundedVec of fields into a BoundedVec of bytes in big-endian order.
 ///
-/// We have the M parameter be flexible instead of defined with arithmetic over generic because it's common that
-/// this function is used to convert fields to bytes where the input was previously converted from bytes to fields,
-/// while the original input did not necessarily have a length that is a multiple of 31. Having the M parameter be
-/// flexible allows us to get the BoundedVec of bytes that is the same maximum length as the original input.
+/// Each input field must contain at most 31 bytes (this is constrained to be so). Note that the last field might
+/// contain less than 31 bytes. This is communicated through the M parameter.
 ///
-/// Each field (other than the last which might be shorter) is converted into 31 big-endian bytes, and the resulting
-/// 31-byte chunks are concatenated back together in the order of the original fields. The bytes within each field
-/// are ordered from most significant to least significant.
+/// The M parameter is flexible rather than computed from N because this function is commonly used to convert fields
+/// back to bytes after a previous bytes->fields conversion. Since the original byte length may not be a multiple
+/// of 31, having a flexible M parameter allows us to output the same number of bytes as the original input.
+///
+/// Each field (other than the last which might be shorter) is converted into 31 big-endian bytes, and the
+/// resulting 31-byte chunks are concatenated back together in the order of the original fields. You'll end up
+/// with quite a strange ordering of bytes if you use this particular function.
 pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(
     fields: BoundedVec<Field, N>,
 ) -> BoundedVec<u8, M> {
