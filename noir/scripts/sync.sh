@@ -17,7 +17,7 @@ PATCH_COMMIT_MSG="Noir local patch commit."
 # We either have a patch file or we don't - once applied, any further
 # if we add new commits and create a new patch, we can override it
 # so that it includes all previous patches.
-NOIR_REPO_PATCH=noir-repo.path
+NOIR_REPO_PATCH=noir-repo.patch
 
 cd $(dirname $0)/..
 
@@ -117,13 +117,16 @@ function has_tag_commit {
 
 # Apply the fixup script and any local patch file.
 function fixup_repo {
-  echo "Applying patches on noir-repo"
+  echo "Applying fixup on noir-repo"
   # Redirect the `bb` reference to the local one.
   scripts/sync-in-fixup.sh
   git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG"
   # Apply any patch file.
-  if [ -f "$NOIR_REPO_PATCH" ]; then
-    git -C noir-repo am $NOIR_REPO_PATCH
+  if [ -f $NOIR_REPO_PATCH ]; then
+    echo Applying $NOIR_REPO_PATCH
+    git -C noir-repo am --allow-empty ../$NOIR_REPO_PATCH
+  else
+    echo "No patch file to apply"
   fi
   # Create an empty marker commit to show that patches have been applied.
   git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
@@ -224,7 +227,7 @@ function make_patch {
   # The patch marker commit could be in the middle: fixup-commit from-patch-1 from-patch-2 patch-commit new-fix-1 new-fix-2
   # wo we write all patches to files, then exclude the one which is just the empty patch commit.
   git -C noir-repo format-patch -o ../patches $fixup_rev..HEAD
-  cat $(find patches -name "*.patch" | grep -v Noir-local-patch-commit) > noir-repo.patch
+  cat $(find patches -name "*.patch" | grep -v Noir-local-patch-commit) > $NOIR_REPO_PATCH
   rm -rf patches
 }
 
