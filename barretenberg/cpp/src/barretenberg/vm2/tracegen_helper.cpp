@@ -255,7 +255,6 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
     {
         auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
             std::make_unique<LookupIntoDynamicTableSequential<lookup_poseidon2_hash_poseidon2_perm_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_diff_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_rng_chk_pow_2_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r0_is_u16_settings>>(),
@@ -268,10 +267,6 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r7_is_u16_settings>>(),
             std::make_unique<LookupIntoBitwise<lookup_bitwise_byte_operations_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_to_read_as_unary_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_settings>>(),
             // Bytecode Hashing
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_get_packed_field_settings>>(),
@@ -280,6 +275,13 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // Bytecode Retrieval
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
+            // Bytecode Decomposition
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_to_read_as_unary_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
+            // Instruction Fetching
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
             // Class Id Derivation
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_0_settings>>(),

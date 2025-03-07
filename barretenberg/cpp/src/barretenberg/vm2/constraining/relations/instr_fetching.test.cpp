@@ -42,6 +42,8 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
     Instruction add_8_instruction = {
         .opcode = WireOpCode::ADD_8,
         .indirect = 3,
@@ -55,8 +57,9 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
                                              .instruction = add_8_instruction,
                                              .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } },
                                          trace);
+    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    EXPECT_EQ(trace.get_num_rows(), 1);
+    EXPECT_EQ(trace.get_num_rows(), 2);
     check_relation<instr_fetching>(trace);
 }
 
@@ -66,6 +69,8 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
     Instruction ecadd_instruction = {
         .opcode = WireOpCode::ECADD,
         .indirect = 0x1f1f,
@@ -84,8 +89,9 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
                                              .instruction = ecadd_instruction,
                                              .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } },
                                          trace);
+    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    EXPECT_EQ(trace.get_num_rows(), 1);
+    EXPECT_EQ(trace.get_num_rows(), 2);
     check_relation<instr_fetching>(trace);
 }
 
@@ -127,11 +133,13 @@ TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
 
     builder.process_instruction_fetching(gen_instr_events_each_opcode(), trace);
+    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
     constexpr auto num_opcodes = static_cast<size_t>(WireOpCode::LAST_OPCODE_SENTINEL);
-    EXPECT_EQ(trace.get_num_rows(), num_opcodes);
+    EXPECT_EQ(trace.get_num_rows(), num_opcodes + 1);
     check_relation<instr_fetching>(trace);
 }
 
@@ -141,6 +149,7 @@ TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
 TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
 {
     BytecodeTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
 
     std::vector<WireOpCode> opcodes = { WireOpCode::REVERT_16, WireOpCode::CAST_8, WireOpCode::TORADIXBE };
     std::vector<size_t> sub_relations = {
@@ -164,9 +173,11 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
                 .instruction = instr,
                 .bytecode = std::make_shared<std::vector<uint8_t>>(instr.serialize()) } },
             trace);
+        precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
+
         check_relation<instr_fetching>(trace);
 
-        EXPECT_EQ(trace.get_num_rows(), 1);
+        EXPECT_EQ(trace.get_num_rows(), 2);
 
         for (size_t i = 0; i < operand_cols.size(); i++) {
             auto mutated_trace = trace;
@@ -187,9 +198,10 @@ TEST(InstrFetchingConstrainingTest, WireInstructionSpecInteractions)
 
     TestTraceContainer trace;
     BytecodeTraceBuilder bytecode_builder;
-
     PrecomputedTraceBuilder precomputed_builder;
+
     precomputed_builder.process_wire_instruction_spec(trace);
+    precomputed_builder.process_sel_range_8(trace);
     bytecode_builder.process_instruction_fetching(gen_instr_events_each_opcode(), trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
@@ -208,6 +220,7 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
 
     TestTraceContainer trace;
     BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
 
     const auto instr_fetch_events = gen_instr_events_each_opcode();
     bytecode_builder.process_instruction_fetching(instr_fetch_events, trace);
@@ -216,8 +229,9 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
                                                .bytecode = instr_fetch_events.at(0).bytecode,
                                            } },
                                            trace);
+    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    tracegen::LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
 
     check_relation<instr_fetching>(trace);
     check_interaction<bc_decomposition_lookup>(trace);
@@ -246,6 +260,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
                 .bytecode = std::make_shared<std::vector<uint8_t>>(instr.serialize()) } },
             trace);
         precomputed_builder.process_wire_instruction_spec(trace);
+        precomputed_builder.process_sel_range_8(trace);
         precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
         LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
@@ -254,20 +269,20 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
         check_interaction<wire_instr_spec_lookup>(trace);
 
         constexpr std::array<C, 20> mutated_cols = {
-            C::instr_fetching_exec_opcode,  C::instr_fetching_instr_size_in_bytes, C::instr_fetching_sel_op_dc_0,
-            C::instr_fetching_sel_op_dc_1,  C::instr_fetching_sel_op_dc_2,         C::instr_fetching_sel_op_dc_3,
-            C::instr_fetching_sel_op_dc_4,  C::instr_fetching_sel_op_dc_5,         C::instr_fetching_sel_op_dc_6,
-            C::instr_fetching_sel_op_dc_7,  C::instr_fetching_sel_op_dc_8,         C::instr_fetching_sel_op_dc_9,
-            C::instr_fetching_sel_op_dc_10, C::instr_fetching_sel_op_dc_11,        C::instr_fetching_sel_op_dc_12,
-            C::instr_fetching_sel_op_dc_13, C::instr_fetching_sel_op_dc_14,        C::instr_fetching_sel_op_dc_15,
+            C::instr_fetching_exec_opcode,  C::instr_fetching_instr_size,   C::instr_fetching_sel_op_dc_0,
+            C::instr_fetching_sel_op_dc_1,  C::instr_fetching_sel_op_dc_2,  C::instr_fetching_sel_op_dc_3,
+            C::instr_fetching_sel_op_dc_4,  C::instr_fetching_sel_op_dc_5,  C::instr_fetching_sel_op_dc_6,
+            C::instr_fetching_sel_op_dc_7,  C::instr_fetching_sel_op_dc_8,  C::instr_fetching_sel_op_dc_9,
+            C::instr_fetching_sel_op_dc_10, C::instr_fetching_sel_op_dc_11, C::instr_fetching_sel_op_dc_12,
+            C::instr_fetching_sel_op_dc_13, C::instr_fetching_sel_op_dc_14, C::instr_fetching_sel_op_dc_15,
             C::instr_fetching_sel_op_dc_16, C::instr_fetching_sel_op_dc_17,
         };
 
         // Mutate execution opcode
         for (const auto& col : mutated_cols) {
             auto mutated_trace = trace;
-            const FF mutated_value = trace.get(col, 0) + 1; // Mutate to value + 1
-            mutated_trace.set(col, 0, mutated_value);
+            const FF mutated_value = trace.get(col, 1) + 1; // Mutate to value + 1
+            mutated_trace.set(col, 1, mutated_value);
 
             // We do not need to re-run LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
             // because we never mutate the indexing column for this lookup (clk) and for this lookup
@@ -329,8 +344,8 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
         // Mutate execution opcode
         for (const auto& col : mutated_cols) {
             auto mutated_trace = trace;
-            const FF mutated_value = trace.get(col, 0) + 1; // Mutate to value + 1
-            mutated_trace.set(col, 0, mutated_value);
+            const FF mutated_value = trace.get(col, 1) + 1; // Mutate to value + 1
+            mutated_trace.set(col, 1, mutated_value);
 
             // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this even
             // though we know it will fail.

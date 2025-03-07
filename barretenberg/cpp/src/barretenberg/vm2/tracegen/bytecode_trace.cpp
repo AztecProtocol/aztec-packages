@@ -246,95 +246,165 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     TraceContainer& trace)
 {
     using C = Column;
+    using simulation::BytecodeId;
+    using simulation::InstructionFetchingEvent;
+    using simulation::InstructionFetchingError::INSTRUCTION_OUT_OF_RANGE;
+    using simulation::InstructionFetchingError::NO_ERROR;
+    using simulation::InstructionFetchingError::OPCODE_OUT_OF_RANGE;
+    using simulation::InstructionFetchingError::PC_OUT_OF_RANGE;
 
-    uint32_t row = 0;
-    for (const auto& event : events) {
-        auto get_operand = [&](size_t i) -> FF {
-            return i < event.instruction.operands.size() ? static_cast<FF>(event.instruction.operands[i]) : 0;
-        };
-        auto bytecode_at = [&](size_t i) -> uint8_t { return i < event.bytecode->size() ? (*event.bytecode)[i] : 0; };
+    // We start from row 1 because we need a row of zeroes for the shifts.
+    uint32_t row = 1;
 
-        const uint8_t wire_opcode = bytecode_at(event.pc);
-        const auto w_opcode = static_cast<WireOpCode>(wire_opcode);
+    // Group and process events per bytecode_id.
+    // The trace is expecting all rows pertaining to a given bytecode_id to be contigous.
+    unordered_flat_map<BytecodeId, std::vector<size_t>> bytecode_id_to_events;
 
-        trace.set(row,
-                  { {
-                      { C::instr_fetching_sel, 1 },
-                      { C::instr_fetching_bytecode_id, event.bytecode_id },
-                      { C::instr_fetching_pc, event.pc },
-                      // indirect + operands.
-                      { C::instr_fetching_indirect, event.instruction.indirect },
-                      { C::instr_fetching_op1, get_operand(0) },
-                      { C::instr_fetching_op2, get_operand(1) },
-                      { C::instr_fetching_op3, get_operand(2) },
-                      { C::instr_fetching_op4, get_operand(3) },
-                      { C::instr_fetching_op5, get_operand(4) },
-                      { C::instr_fetching_op6, get_operand(5) },
-                      { C::instr_fetching_op7, get_operand(6) },
-                      // Single bytes.
-                      { C::instr_fetching_bd0, wire_opcode },
-                      { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
-                      { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
-                      { C::instr_fetching_bd3, bytecode_at(event.pc + 3) },
-                      { C::instr_fetching_bd4, bytecode_at(event.pc + 4) },
-                      { C::instr_fetching_bd5, bytecode_at(event.pc + 5) },
-                      { C::instr_fetching_bd6, bytecode_at(event.pc + 6) },
-                      { C::instr_fetching_bd7, bytecode_at(event.pc + 7) },
-                      { C::instr_fetching_bd8, bytecode_at(event.pc + 8) },
-                      { C::instr_fetching_bd9, bytecode_at(event.pc + 9) },
-                      { C::instr_fetching_bd10, bytecode_at(event.pc + 10) },
-                      { C::instr_fetching_bd11, bytecode_at(event.pc + 11) },
-                      { C::instr_fetching_bd12, bytecode_at(event.pc + 12) },
-                      { C::instr_fetching_bd13, bytecode_at(event.pc + 13) },
-                      { C::instr_fetching_bd14, bytecode_at(event.pc + 14) },
-                      { C::instr_fetching_bd15, bytecode_at(event.pc + 15) },
-                      { C::instr_fetching_bd16, bytecode_at(event.pc + 16) },
-                      { C::instr_fetching_bd17, bytecode_at(event.pc + 17) },
-                      { C::instr_fetching_bd18, bytecode_at(event.pc + 18) },
-                      { C::instr_fetching_bd19, bytecode_at(event.pc + 19) },
-                      { C::instr_fetching_bd20, bytecode_at(event.pc + 20) },
-                      { C::instr_fetching_bd21, bytecode_at(event.pc + 21) },
-                      { C::instr_fetching_bd22, bytecode_at(event.pc + 22) },
-                      { C::instr_fetching_bd23, bytecode_at(event.pc + 23) },
-                      { C::instr_fetching_bd24, bytecode_at(event.pc + 24) },
-                      { C::instr_fetching_bd25, bytecode_at(event.pc + 25) },
-                      { C::instr_fetching_bd26, bytecode_at(event.pc + 26) },
-                      { C::instr_fetching_bd27, bytecode_at(event.pc + 27) },
-                      { C::instr_fetching_bd28, bytecode_at(event.pc + 28) },
-                      { C::instr_fetching_bd29, bytecode_at(event.pc + 29) },
-                      { C::instr_fetching_bd30, bytecode_at(event.pc + 30) },
-                      { C::instr_fetching_bd31, bytecode_at(event.pc + 31) },
-                      { C::instr_fetching_bd32, bytecode_at(event.pc + 32) },
-                      { C::instr_fetching_bd33, bytecode_at(event.pc + 33) },
-                      { C::instr_fetching_bd34, bytecode_at(event.pc + 34) },
-                      { C::instr_fetching_bd35, bytecode_at(event.pc + 35) },
-                      { C::instr_fetching_bd36, bytecode_at(event.pc + 36) },
+    for (size_t i = 0; i < events.size(); i++) {
+        if (bytecode_id_to_events.contains(events.at(i).bytecode_id)) {
+            bytecode_id_to_events.at(events.at(i).bytecode_id).push_back(i);
+        } else {
+            assert(events.at(i).pc == 0);
+            bytecode_id_to_events[events.at(i).bytecode_id] = { i };
+        }
+    }
 
-                      // From instruction table.
-                      { C::instr_fetching_exec_opcode,
-                        static_cast<uint32_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode) },
-                      { C::instr_fetching_instr_size_in_bytes, WIRE_INSTRUCTION_SPEC.at(w_opcode).size_in_bytes },
-                      // Fill operand decomposition selectors
-                      { C::instr_fetching_sel_op_dc_0, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(0) },
-                      { C::instr_fetching_sel_op_dc_1, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(1) },
-                      { C::instr_fetching_sel_op_dc_2, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(2) },
-                      { C::instr_fetching_sel_op_dc_3, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(3) },
-                      { C::instr_fetching_sel_op_dc_4, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(4) },
-                      { C::instr_fetching_sel_op_dc_5, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(5) },
-                      { C::instr_fetching_sel_op_dc_6, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(6) },
-                      { C::instr_fetching_sel_op_dc_7, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(7) },
-                      { C::instr_fetching_sel_op_dc_8, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(8) },
-                      { C::instr_fetching_sel_op_dc_9, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(9) },
-                      { C::instr_fetching_sel_op_dc_10, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(10) },
-                      { C::instr_fetching_sel_op_dc_11, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(11) },
-                      { C::instr_fetching_sel_op_dc_12, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(12) },
-                      { C::instr_fetching_sel_op_dc_13, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(13) },
-                      { C::instr_fetching_sel_op_dc_14, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(14) },
-                      { C::instr_fetching_sel_op_dc_15, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(15) },
-                      { C::instr_fetching_sel_op_dc_16, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(16) },
-                      { C::instr_fetching_sel_op_dc_17, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(17) },
-                  } });
-        row++;
+    for (auto it = bytecode_id_to_events.begin(); it != bytecode_id_to_events.end(); it++) {
+        const auto& event_indices = it->second;
+        const auto& bytecode_id = it->first;
+        const BytecodeId next_bytecode_id = next(it) != bytecode_id_to_events.end() ? next(it)->first : 0;
+
+        for (const auto& idx : event_indices) {
+            const auto& event = events.at(idx);
+            const auto bytecode_size = event.bytecode->size();
+
+            auto get_operand = [&](size_t i) -> FF {
+                return i < event.instruction.operands.size() ? static_cast<FF>(event.instruction.operands[i]) : 0;
+            };
+            auto bytecode_at = [&](size_t i) -> uint8_t { return i < bytecode_size ? (*event.bytecode)[i] : 0; };
+
+            const bool is_last_of_bytecode = event_indices.back() == idx && bytecode_id != next_bytecode_id;
+
+            FF bytecode_id_diff_inv = 0;
+            if (is_last_of_bytecode) {
+                bytecode_id_diff_inv = (FF(next_bytecode_id) - FF(bytecode_id)).invert();
+            }
+
+            const uint8_t wire_opcode = bytecode_at(event.pc);
+            const bool wire_opcode_in_range = wire_opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL);
+            const auto wire_instr_spec = wire_opcode_in_range
+                                             ? WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(wire_opcode))
+                                             : WireInstructionSpec{ .exec_opcode = static_cast<ExecutionOpCode>(0),
+                                                                    .size_in_bytes = 0,
+                                                                    .op_dc_selectors = {} };
+
+            const uint32_t bytes_remaining =
+                event.error == PC_OUT_OF_RANGE ? 0 : static_cast<uint32_t>(bytecode_size - event.pc);
+            const uint32_t bytes_to_read = std::min(bytes_remaining, DECOMPOSE_WINDOW_SIZE);
+
+            uint32_t abs_diff = 0;
+            if (wire_instr_spec.size_in_bytes <= bytes_to_read) {
+                abs_diff = bytes_to_read - wire_instr_spec.size_in_bytes;
+            } else {
+                abs_diff = wire_instr_spec.size_in_bytes - bytes_to_read - 1;
+            }
+
+            trace.set(row,
+                      { {
+                          { C::instr_fetching_sel, 1 },
+                          { C::instr_fetching_bytecode_id, bytecode_id },
+                          { C::instr_fetching_pc, event.pc },
+                          // indirect + operands.
+                          { C::instr_fetching_indirect, event.instruction.indirect },
+                          { C::instr_fetching_op1, get_operand(0) },
+                          { C::instr_fetching_op2, get_operand(1) },
+                          { C::instr_fetching_op3, get_operand(2) },
+                          { C::instr_fetching_op4, get_operand(3) },
+                          { C::instr_fetching_op5, get_operand(4) },
+                          { C::instr_fetching_op6, get_operand(5) },
+                          { C::instr_fetching_op7, get_operand(6) },
+                          // Single bytes.
+                          { C::instr_fetching_bd0, wire_opcode },
+                          { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
+                          { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
+                          { C::instr_fetching_bd3, bytecode_at(event.pc + 3) },
+                          { C::instr_fetching_bd4, bytecode_at(event.pc + 4) },
+                          { C::instr_fetching_bd5, bytecode_at(event.pc + 5) },
+                          { C::instr_fetching_bd6, bytecode_at(event.pc + 6) },
+                          { C::instr_fetching_bd7, bytecode_at(event.pc + 7) },
+                          { C::instr_fetching_bd8, bytecode_at(event.pc + 8) },
+                          { C::instr_fetching_bd9, bytecode_at(event.pc + 9) },
+                          { C::instr_fetching_bd10, bytecode_at(event.pc + 10) },
+                          { C::instr_fetching_bd11, bytecode_at(event.pc + 11) },
+                          { C::instr_fetching_bd12, bytecode_at(event.pc + 12) },
+                          { C::instr_fetching_bd13, bytecode_at(event.pc + 13) },
+                          { C::instr_fetching_bd14, bytecode_at(event.pc + 14) },
+                          { C::instr_fetching_bd15, bytecode_at(event.pc + 15) },
+                          { C::instr_fetching_bd16, bytecode_at(event.pc + 16) },
+                          { C::instr_fetching_bd17, bytecode_at(event.pc + 17) },
+                          { C::instr_fetching_bd18, bytecode_at(event.pc + 18) },
+                          { C::instr_fetching_bd19, bytecode_at(event.pc + 19) },
+                          { C::instr_fetching_bd20, bytecode_at(event.pc + 20) },
+                          { C::instr_fetching_bd21, bytecode_at(event.pc + 21) },
+                          { C::instr_fetching_bd22, bytecode_at(event.pc + 22) },
+                          { C::instr_fetching_bd23, bytecode_at(event.pc + 23) },
+                          { C::instr_fetching_bd24, bytecode_at(event.pc + 24) },
+                          { C::instr_fetching_bd25, bytecode_at(event.pc + 25) },
+                          { C::instr_fetching_bd26, bytecode_at(event.pc + 26) },
+                          { C::instr_fetching_bd27, bytecode_at(event.pc + 27) },
+                          { C::instr_fetching_bd28, bytecode_at(event.pc + 28) },
+                          { C::instr_fetching_bd29, bytecode_at(event.pc + 29) },
+                          { C::instr_fetching_bd30, bytecode_at(event.pc + 30) },
+                          { C::instr_fetching_bd31, bytecode_at(event.pc + 31) },
+                          { C::instr_fetching_bd32, bytecode_at(event.pc + 32) },
+                          { C::instr_fetching_bd33, bytecode_at(event.pc + 33) },
+                          { C::instr_fetching_bd34, bytecode_at(event.pc + 34) },
+                          { C::instr_fetching_bd35, bytecode_at(event.pc + 35) },
+                          { C::instr_fetching_bd36, bytecode_at(event.pc + 36) },
+
+                          // From instruction table.
+                          { C::instr_fetching_exec_opcode, static_cast<uint32_t>(wire_instr_spec.exec_opcode) },
+                          { C::instr_fetching_instr_size, wire_instr_spec.size_in_bytes },
+                          { C::instr_fetching_opcode_out_of_range, wire_opcode_in_range ? 0 : 1 },
+
+                          // Fill operand decomposition selectors
+                          { C::instr_fetching_sel_op_dc_0, wire_instr_spec.op_dc_selectors.at(0) },
+                          { C::instr_fetching_sel_op_dc_1, wire_instr_spec.op_dc_selectors.at(1) },
+                          { C::instr_fetching_sel_op_dc_2, wire_instr_spec.op_dc_selectors.at(2) },
+                          { C::instr_fetching_sel_op_dc_3, wire_instr_spec.op_dc_selectors.at(3) },
+                          { C::instr_fetching_sel_op_dc_4, wire_instr_spec.op_dc_selectors.at(4) },
+                          { C::instr_fetching_sel_op_dc_5, wire_instr_spec.op_dc_selectors.at(5) },
+                          { C::instr_fetching_sel_op_dc_6, wire_instr_spec.op_dc_selectors.at(6) },
+                          { C::instr_fetching_sel_op_dc_7, wire_instr_spec.op_dc_selectors.at(7) },
+                          { C::instr_fetching_sel_op_dc_8, wire_instr_spec.op_dc_selectors.at(8) },
+                          { C::instr_fetching_sel_op_dc_9, wire_instr_spec.op_dc_selectors.at(9) },
+                          { C::instr_fetching_sel_op_dc_10, wire_instr_spec.op_dc_selectors.at(10) },
+                          { C::instr_fetching_sel_op_dc_11, wire_instr_spec.op_dc_selectors.at(11) },
+                          { C::instr_fetching_sel_op_dc_12, wire_instr_spec.op_dc_selectors.at(12) },
+                          { C::instr_fetching_sel_op_dc_13, wire_instr_spec.op_dc_selectors.at(13) },
+                          { C::instr_fetching_sel_op_dc_14, wire_instr_spec.op_dc_selectors.at(14) },
+                          { C::instr_fetching_sel_op_dc_15, wire_instr_spec.op_dc_selectors.at(15) },
+                          { C::instr_fetching_sel_op_dc_16, wire_instr_spec.op_dc_selectors.at(16) },
+                          { C::instr_fetching_sel_op_dc_17, wire_instr_spec.op_dc_selectors.at(17) },
+
+                          // Parsing errors
+                          { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
+                          { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
+                          { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
+                          { C::instr_fetching_parsing_err, event.error != NO_ERROR ? 1 : 0 },
+
+                          // selector for lookups
+                          { C::instr_fetching_sel_lookup_bc_decomposition, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
+
+                          { C::instr_fetching_last_of_bytecode, is_last_of_bytecode ? 1 : 0 },
+                          { C::instr_fetching_bc_id_diff_inv, bytecode_id_diff_inv },
+                          { C::instr_fetching_bytecode_size, bytecode_size },
+                          { C::instr_fetching_bytes_remaining, bytes_remaining },
+                          { C::instr_fetching_bytes_to_read, bytes_to_read },
+                          { C::instr_fetching_abs_diff, abs_diff },
+                      } });
+            row++;
+        }
     }
 }
 
