@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.78.1](https://github.com/AztecProtocol/aztec-packages/compare/v0.78.0...v0.78.1) (2025-03-07)
+
+
+### Features
+
+* Generic handling of public inputs components ([#12357](https://github.com/AztecProtocol/aztec-packages/issues/12357)) ([910f21d](https://github.com/AztecProtocol/aztec-packages/commit/910f21df296719b60e1567483bd4597c720e5d58))
+* Get blobs from blob archive if not found in blob sink ([#12498](https://github.com/AztecProtocol/aztec-packages/issues/12498)) ([58cbafe](https://github.com/AztecProtocol/aztec-packages/commit/58cbafe823630678e2cf3998fc4e135bcaefac73))
+* remove acir hash ([#12564](https://github.com/AztecProtocol/aztec-packages/issues/12564)) ([bdc9c2b](https://github.com/AztecProtocol/aztec-packages/commit/bdc9c2b8635ea77a2f8ffb7d805f469982cc3bf7))
+
+
+### Bug Fixes
+
+* release fix ([#12572](https://github.com/AztecProtocol/aztec-packages/issues/12572)) ([d4ee871](https://github.com/AztecProtocol/aztec-packages/commit/d4ee87129c4a6eae16574c07063963bbca63162f))
+
 ## [0.78.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.77.1...v0.78.0) (2025-03-07)
 
 
