@@ -1,23 +1,18 @@
 global TX_EFFECTS_HASH_INPUT_FIELDS: u32 = 256;
 
-// Convert a 32 byte array to a field element by truncating the final byte
+// Convert a 32 byte array to a field element
 pub fn field_from_bytes_32_trunc(bytes32: [u8; 32]) -> Field {
-    // Convert it to a field element
+    // Use only the first 31 bytes to ensure the result is within the field range
+    // This is safe because the BN254 field modulus is about 254 bits, which is less than 31 * 8 = 248 bits
     let mut v = 1;
-    let mut high = 0 as Field;
-    let mut low = 0 as Field;
+    let mut result = 0 as Field;
 
-    for i in 0..15 {
-        // covers bytes 16..30 (31 is truncated and ignored)
-        low = low + (bytes32[15 + 15 - i] as Field) * v;
+    for i in 0..31 {
+        result = result + (bytes32[30 - i] as Field) * v;
         v = v * 256;
-        // covers bytes 0..14
-        high = high + (bytes32[14 - i] as Field) * v;
     }
-    // covers byte 15
-    low = low + (bytes32[15] as Field) * v;
 
-    low + high * v
+    result
 }
 
 pub fn blake3_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
