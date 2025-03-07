@@ -14,7 +14,7 @@
 #include "barretenberg/common/fuzzer.hpp"
 // TODO: figure out how to detect w + w = c
 
-#define SHOW_INFORMATION
+//#define SHOW_INFORMATION
 
 #ifdef SHOW_INFORMATION
 #define PRINT_SINGLE_ARG_INSTRUCTION(first_index, vector, operation_name, preposition)                                 \
@@ -100,7 +100,7 @@ template <typename Builder> class CycleGroupBase {
             SUBTRACT,
             NEG,
             DBL,
-            MUL,
+            MULTIPLY,
             BATCH_MUL,
             RANDOMSEED,
             _LAST
@@ -233,7 +233,7 @@ template <typename Builder> class CycleGroupBase {
                          .arguments.fourArgs.in2 = in2,
                          .arguments.fourArgs.in3 = in3,
                          .arguments.fourArgs.out = out };
-            case OPCODE::MUL:
+            case OPCODE::MULTIPLY:
                 in = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode,
@@ -527,7 +527,7 @@ template <typename Builder> class CycleGroupBase {
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.in);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.out);
                 break;
-            case OPCODE::MUL:
+            case OPCODE::MULTIPLY:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.mulArgs.in);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.mulArgs.out);
                 if (rng.next() & 1) {
@@ -599,7 +599,7 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t ADD = 3;
         static constexpr size_t SUBTRACT = 3;
         static constexpr size_t COND_ASSIGN = 4;
-        static constexpr size_t MUL = sizeof(typename Instruction::MulArgs);
+        static constexpr size_t MULTIPLY = sizeof(typename Instruction::MulArgs);
         static constexpr size_t BATCH_MUL = sizeof(typename Instruction::BatchMulArgs);
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
     };
@@ -623,7 +623,7 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t NEG = 1;
         static constexpr size_t COND_ASSIGN = 1;
 
-        static constexpr size_t MUL = 2;
+        static constexpr size_t MULTIPLY = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
         static constexpr size_t SET_INF = 2;
 
@@ -670,7 +670,7 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::COND_ASSIGN:
                 instr.arguments.fourArgs = { .in1 = *Data, .in2 = *(Data + 1), .in3 = *(Data + 2), .out = *(Data + 3) };
                 break;
-            case Instruction::OPCODE::MUL:
+            case Instruction::OPCODE::MULTIPLY:
                 instr.arguments.mulArgs.in = *Data;
                 instr.arguments.mulArgs.out = *(Data + 1);
                 instr.arguments.mulArgs.scalar = ScalarField::serialize_from_buffer(Data + 2);
@@ -723,7 +723,7 @@ template <typename Builder> class CycleGroupBase {
                 *(Data + 3) = instruction.arguments.fourArgs.in3;
                 *(Data + 4) = instruction.arguments.fourArgs.out;
                 return;
-            case Instruction::OPCODE::MUL:
+            case Instruction::OPCODE::MULTIPLY:
                 *(Data + 1) = instruction.arguments.mulArgs.in;
                 *(Data + 2) = instruction.arguments.mulArgs.out;
                 ScalarField::serialize_to_buffer(instruction.arguments.mulArgs.scalar, Data + 3);
@@ -786,7 +786,7 @@ template <typename Builder> class CycleGroupBase {
             , cycle_group(w_g)
         {}
 
-        ExecutionHandler operator+(const ExecutionHandler& other)
+        ExecutionHandler operator_add(Builder* builder, const ExecutionHandler& other)
         {
             ScalarField base_scalar_res = this->base_scalar + other.base_scalar;
             GroupElement base_res = this->base + other.base;
@@ -815,11 +815,11 @@ template <typename Builder> class CycleGroupBase {
                 switch (inf_path) {
                 case 0:
                     res = this->cg();
-                    res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
+                    res.set_point_at_infinity(this->construct_predicate(builder, true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 1:
                     res = other.cg();
-                    res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
+                    res.set_point_at_infinity(this->construct_predicate(builder, true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
@@ -850,7 +850,7 @@ template <typename Builder> class CycleGroupBase {
             return {};
         }
 
-        ExecutionHandler operator-(const ExecutionHandler& other)
+        ExecutionHandler operator_sub(Builder* builder, const ExecutionHandler& other)
         {
             ScalarField base_scalar_res = this->base_scalar - other.base_scalar;
             GroupElement base_res = this->base - other.base;
@@ -879,11 +879,11 @@ template <typename Builder> class CycleGroupBase {
                 switch (inf_path) {
                 case 0:
                     res = this->cg();
-                    res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
+                    res.set_point_at_infinity(this->construct_predicate(builder, true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 1:
                     res = other.cg();
-                    res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
+                    res.set_point_at_infinity(this->construct_predicate(builder, true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
@@ -1019,7 +1019,8 @@ template <typename Builder> class CycleGroupBase {
         ExecutionHandler set_inf(Builder* builder)
         {
             auto res = this->set(builder);
-            res.set_point_at_infinity(this->construct_predicate(builder, true));
+            const bool set_inf = static_cast<bool>(VarianceRNG.next() & 1);
+            res.set_point_at_infinity(this->construct_predicate(builder, set_inf));
             return res;
         }
 
@@ -1282,7 +1283,7 @@ template <typename Builder> class CycleGroupBase {
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Adding", "+")
 
             ExecutionHandler result;
-            result = stack[first_index] + stack[second_index];
+            result = stack[first_index].operator_add(builder, stack[second_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -1317,7 +1318,7 @@ template <typename Builder> class CycleGroupBase {
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Subtracting", "-")
 
             ExecutionHandler result;
-            result = stack[first_index] - stack[second_index];
+            result = stack[first_index].operator_sub(builder, stack[second_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
