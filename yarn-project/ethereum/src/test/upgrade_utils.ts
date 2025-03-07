@@ -1,6 +1,6 @@
 import type { Logger } from '@aztec/foundation/log';
-import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts';
 import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
+import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
 import { type GetContractReturnType, type PrivateKeyAccount, getContract } from 'viem';
 

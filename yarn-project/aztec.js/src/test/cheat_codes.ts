@@ -2,8 +2,8 @@ import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
-import { AztecCheatCodes } from '../utils/aztec_cheatcodes.js';
-import { RollupCheatCodes } from './ethereum/cheat_codes.js';
+import { AztecCheatCodes } from './aztec_cheat_codes.js';
+import { RollupCheatCodes } from './rollup_cheat_codes.js';
 
 /**
  * A class that provides utility functions for interacting with the chain.

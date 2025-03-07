@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts';
+import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
 import { type GetContractReturnType, type Hex, getContract } from 'viem';
 

@@ -1,4 +1,4 @@
-import { type ABIParameter, type AbiType, isAddressStruct } from '@aztec/stdlib/abi';
+import { type ABIParameter, type AbiType, isAddressStruct } from '@aztec/aztec.js';
 import { formatFrAsString, parseAliasedBuffersAsString } from '../../utils/conversion';
 import { useContext, useState } from 'react';
 import EditIcon from '@mui/icons-material/Edit';

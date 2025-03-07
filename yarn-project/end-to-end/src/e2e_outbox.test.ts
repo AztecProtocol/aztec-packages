@@ -2,12 +2,12 @@ import {
   type AccountWalletWithSecretKey,
   type AztecNode,
   BatchCall,
-  type CheatCodes,
-  type DeployL1ContractsReturnType,
   EthAddress,
   Fr,
   type SiblingPath,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 import { OutboxAbi } from '@aztec/l1-artifacts';

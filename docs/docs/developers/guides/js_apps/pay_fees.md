@@ -79,7 +79,7 @@ After a user has sent fee juice from L1 to be bridged to L2, a transaction can b
 
 The claim object:
 
-#include_code claim_type_amount yarn-project/aztec.js/src/api/ethereum/portal_manager.ts javascript
+#include_code claim_type_amount yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
 
 Calling a function on an object (in this case checking the balance of the fee juice contract)
 

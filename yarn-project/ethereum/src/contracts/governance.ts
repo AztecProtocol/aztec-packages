@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { GovernanceAbi } from '@aztec/l1-artifacts';
+import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
 
 import {
   type EncodeFunctionDataParameters,

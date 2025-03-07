@@ -1,4 +1,5 @@
-import type { AztecNode, CheatCodes, Logger, PXE, Wallet } from '@aztec/aztec.js';
+import type { AztecNode, Logger, PXE, Wallet } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import {
   type DeployL1ContractsReturnType,
   GovernanceProposerContract,
