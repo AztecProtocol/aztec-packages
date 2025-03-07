@@ -46,7 +46,6 @@ spec:
             defaultMode: 0755
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
-
         - name: wait-for-prover-node
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
