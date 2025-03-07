@@ -3,9 +3,8 @@ import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type Hex, createPublicClient, http } from 'viem';
+import { type Hex, createPublicClient, fallback, http } from 'viem';
 
-import { fallback } from './fallback_transport.js';
 import type { ViemPublicClient } from './types.js';
 
 /**

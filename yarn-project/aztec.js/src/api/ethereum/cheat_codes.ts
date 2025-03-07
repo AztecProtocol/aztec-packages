@@ -1,11 +1,11 @@
-import { type ViemPublicClient, fallback } from '@aztec/ethereum';
+import type { ViemPublicClient } from '@aztec/ethereum';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import { type GetContractReturnType, type Hex, createPublicClient, getContract, http, keccak256 } from 'viem';
+import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
 import { foundry } from 'viem/chains';
 
 export { EthCheatCodes };

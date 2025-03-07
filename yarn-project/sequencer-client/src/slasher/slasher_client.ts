@@ -3,7 +3,6 @@ import {
   type L1ReaderConfig,
   type ViemPublicClient,
   createEthereumChain,
-  fallback,
 } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -16,7 +15,7 @@ import {
 } from '@aztec/stdlib/block';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type GetContractReturnType, createPublicClient, getAddress, getContract, http } from 'viem';
+import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
 
 /**
  * Enum defining the possible states of the Slasher client.
