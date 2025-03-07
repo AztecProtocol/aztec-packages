@@ -167,7 +167,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   ) {
     const { p2pIp, p2pPort, maxPeerCount } = config;
     const bindAddrTcp = convertToMultiaddr(p2pIp!, p2pPort, 'tcp');
-    const announceAddrTcp = convertToMultiaddr(p2pIp!, p2pPort, 'tcp');
 
     const datastore = new AztecDatastore(store);
 
@@ -184,7 +183,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       peerId,
       addresses: {
         listen: [bindAddrTcp],
-        announce: [announceAddrTcp],
+        announce: [], // announce is handled by the peer discovery service
       },
       transports: [
         tcp({

@@ -77,8 +77,7 @@ bootNode:
   externalHost: ""
   replicas: 1
   service:
-    p2pTcpPort: 40400
-    p2pUdpPort: 40400
+    p2pPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
@@ -113,8 +112,7 @@ fullNode:
   externalHost: ""
   replicas: 1
   service:
-    p2pTcpPort: 40400
-    p2pUdpPort: 40400
+    p2pPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
@@ -151,8 +149,7 @@ validator:
   dynamicBootNode: false
   replicas: 1
   service:
-    p2pTcpPort: 40400
-    p2pUdpPort: 40400
+    p2pPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
@@ -192,8 +189,7 @@ proverNode:
     enabled: true
     floodPublish: true
   service:
-    p2pTcpPort: 40400
-    p2pUdpPort: 40400
+    p2pPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   proverAgent:
