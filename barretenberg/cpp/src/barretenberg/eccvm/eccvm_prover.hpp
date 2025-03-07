@@ -47,6 +47,10 @@ class ECCVMProver {
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
     void compute_translation_opening_claims();
+    void commit_to_witness_polynomial(Polynomial& polynomial,
+                                      const std::string& label,
+                                      CommitmentKey::CommitType commit_type = CommitmentKey::CommitType::Default,
+                                      const std::vector<std::pair<size_t, size_t>>& active_ranges = {});
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;

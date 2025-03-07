@@ -47,9 +47,8 @@ void ECCVMProver::execute_preamble_round()
  */
 void ECCVMProver::execute_wire_commitments_round()
 {
-    // We mask the last MASKING_OFFSET coefficients of each wire polynomial. To commit to the masked wires when
-    // `real_size` < `circuit_size`, we use `commit_structured` that ignores 0 coefficients between the real size and
-    // the last MASKING_OFFSET wire entries.
+    // To commit to the masked wires when `real_size` < `circuit_size`, we use
+    // `commit_structured` that ignores 0 coefficients between the real size and the last MASKING_OFFSET wire entries.
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - MASKING_OFFSET;
 
@@ -59,21 +58,18 @@ void ECCVMProver::execute_wire_commitments_round()
     // Commit to wires whose length is bounded by the real size of the ECCVM
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
                                               commitment_labels.get_wires_without_accumulators())) {
-        wire.mask();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
         // ECCVM/Translator/MegaZK
         const size_t start = circuit_size == wire.size() ? 0 : 1;
         std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
                                                               { unmasked_witness_size, circuit_size } };
-        const Commitment struct_comm = key->commitment_key->commit_with_type(wire, commit_type, active_ranges);
-        transcript->send_to_verifier(label, struct_comm);
+        commit_to_witness_polynomial(wire, label, commit_type, active_ranges);
     }
 
     // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
     for (const auto& [wire, label] :
          zip_view(key->polynomials.get_accumulators(), commitment_labels.get_accumulators())) {
-        wire.mask();
-        transcript->send_to_verifier(label, key->commitment_key->commit(wire));
+        commit_to_witness_polynomial(wire, label);
     }
 }
 
@@ -99,9 +95,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<typename Flavor::FF, typename Flavor::LookupRelation>(
         key->polynomials, relation_parameters, unmasked_witness_size);
-    key->polynomials.lookup_inverses.mask();
-    transcript->send_to_verifier(commitment_labels.lookup_inverses,
-                                 key->commitment_key->commit(key->polynomials.lookup_inverses));
+    commit_to_witness_polynomial(key->polynomials.lookup_inverses, commitment_labels.lookup_inverses);
 }
 
 /**
@@ -112,9 +106,7 @@ void ECCVMProver::execute_grand_product_computation_round()
 {
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
-    key->polynomials.z_perm.mask();
-
-    transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key->commit(key->polynomials.z_perm));
+    commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
 }
 
 /**
@@ -322,5 +314,22 @@ void ECCVMProver::compute_translation_opening_claims()
     // Add the batched claim to the array of SmallSubgroupIPA opening claims.
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { batched_translation_univariate,
                                                   { evaluation_challenge_x, batched_translation_evaluation } };
+}
+
+/**
+ * @brief Utility to mask and commit to a witness polynomial and send the commitment to verifier.
+ *
+ * @param polynomial
+ * @param label
+ */
+void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial,
+                                               const std::string& label,
+                                               CommitmentKey::CommitType commit_type,
+                                               const std::vector<std::pair<size_t, size_t>>& active_ranges)
+{
+    // We add MASKING_OFFSET-1 random values to the coefficients of each wire polynomial to not leak information via the
+    // commitment and evaluations. -1 is caused by shifts.
+    polynomial.mask();
+    transcript->send_to_verifier(label, key->commitment_key->commit_with_type(polynomial, commit_type, active_ranges));
 }
 } // namespace bb
