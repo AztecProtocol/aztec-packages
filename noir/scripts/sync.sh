@@ -116,7 +116,7 @@ function has_tag_commit {
   rev=$(git -C noir-repo ls-remote --tags origin $1 | awk '{print $1}')
   if [ ! -z "$rev" ]; then
     # NB `git show` would tell if we have the commit, but it would not necessarily be an ancestor.
-    if git -C noir-repo log --oneline | grep -q --max-count=1 "$rev"; then
+    if git -C noir-repo log --oneline --no-abbrev-commit | grep -q --max-count=1 "$rev"; then
       return 0
     fi
   fi
@@ -252,12 +252,9 @@ function make_patch {
 }
 
 function testme {
-  # if has_tag_commit nightly-2025-03-07; then
-  #   echo "yes"
-  # else
-  #   echo "no"
-  # fi
-  log "Now you see me"
+  tag=nightly-2025-03-04
+  is_tag $tag  && echo "tag" || echo "not a tag"
+  has_tag_commit $tag && echo "has commit" || echo "no commit"
 }
 
 cmd=${1:-}
