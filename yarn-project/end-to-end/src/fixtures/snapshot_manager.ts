@@ -9,7 +9,6 @@ import {
   CheatCodes,
   type CompleteAddress,
   type ContractFunctionInteraction,
-  type DeployL1ContractsReturnType,
   type FunctionCall,
   type Logger,
   type PXE,
@@ -18,7 +17,13 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsArgs,
+  type DeployL1ContractsReturnType,
+  createL1Clients,
+  getL1ContractsConfigEnvVars,
+  l1Artifacts,
+} from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { randomBytes } from '@aztec/foundation/crypto';

@@ -10,16 +10,15 @@ import {
   type AztecNode,
   type CheatCodes,
   type CompleteAddress,
-  type DeployL1ContractsReturnType,
   EthAddress,
   type Logger,
   type PXE,
   createLogger,
-  deployL1Contract,
 } from '@aztec/aztec.js';
 import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
+import { type DeployL1ContractsReturnType, deployL1Contract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';

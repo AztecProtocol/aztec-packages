@@ -16,7 +16,6 @@ import {
   BatchCall,
   CheatCodes,
   type ContractMethod,
-  type DeployL1ContractsReturnType,
   FeeJuicePaymentMethod,
   type Logger,
   type PXE,
@@ -25,7 +24,6 @@ import {
   createAztecNodeClient,
   createLogger,
   createPXEClient,
-  deployL1Contracts,
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
@@ -36,9 +34,11 @@ import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/serv
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
+  type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
   createL1Clients,
+  deployL1Contracts,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
   l1Artifacts,
