@@ -124,7 +124,7 @@ function fixup_repo {
   # Apply any patch file.
   if [ -f $NOIR_REPO_PATCH ]; then
     echo Applying $NOIR_REPO_PATCH
-    git -C noir-repo am --allow-empty ../$NOIR_REPO_PATCH
+    git -C noir-repo am ../$NOIR_REPO_PATCH
   else
     echo "No patch file to apply"
   fi
@@ -227,7 +227,15 @@ function make_patch {
   # The patch marker commit could be in the middle: fixup-commit from-patch-1 from-patch-2 patch-commit new-fix-1 new-fix-2
   # wo we write all patches to files, then exclude the one which is just the empty patch commit.
   git -C noir-repo format-patch -o ../patches $fixup_rev..HEAD
-  cat $(find patches -name "*.patch" | grep -v Noir-local-patch-commit) > $NOIR_REPO_PATCH
+  # In theory we should be able to apply empty patches `git am --allow-empty`, but it seems to choke on them,
+  # so we only keep non-empty patches, which conveniently also excludes `000*-Noir-local-patch-commit.patch` as well.
+  rm -f $NOIR_REPO_PATCH
+  for patch in $(find patches -name "*.patch"); do
+    # --- seems to separtate the files in a patch; in an empty patch it does not appear
+    if cat $patch | grep -q "\-\-\-" ; then
+      cat $patch >> $NOIR_REPO_PATCH
+    fi
+  done
   rm -rf patches
 }
 
