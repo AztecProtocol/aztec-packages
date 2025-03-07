@@ -1,3 +1,7 @@
+// This file contains some unused functions that may be needed later (e.g. those filling top 6 bits of a 31-byte
+// field). Little endian functions are kept for reference but likely won't be used. Unused functions should be
+// removed before audit.
+
 pub mod array;
 pub mod bounded_vec;
 
@@ -93,7 +97,7 @@ pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8;
     let mut bytes = [0; M];
 
     // Given the input is N fields, and each field (except the last) is mapped to 31 bytes,
-    // we definitely need M > (N - 1) * 31 to cover those first (N - 1) fields.
+    // we check that M > (N - 1) * 31 to cover those first (N - 1) fields.
     std::static_assert(M > (N - 1) * 31, "Not enough output bytes specified");
     // We make this assertion to keep the logic simpler:
     std::static_assert(N * 31 >= M, "Too many output bytes specified.");
