@@ -211,6 +211,9 @@ case "$cmd" in
   "hash-test")
     echo $test_hash
     ;;
+  "make-patch")
+    scripts/sync.sh make-patch
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

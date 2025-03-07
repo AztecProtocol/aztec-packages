@@ -29,6 +29,12 @@ When syncing from aztec-packages to Noir it's important to check that the latest
 When we make changes in `noir-repo` and commit them, we can check out a branch and push them back to Noir, where a PR can be opened to merge them back
 into an appropriate branch (could be `master` or some kind of integration branch). It is important to exclude the [fixup](./scripts/sync-in-fixup.sh) that the local checkout performs from the PR by running the [fixdown](./scripts/sync-out-fixup.sh) script.
 
-Syncing can be postponed by creating a few commits in `noir-repo`, but instead of opening a PR against Noir, creating a [git patch](https://git-scm.com/docs/git-format-patch) instead, which is committed to aztec-packages and is applied to any subsequent checkout.
+Syncing can be postponed by creating a few commits in `noir-repo`, but instead of opening a PR against Noir, creating a [git patch](https://git-scm.com/docs/git-format-patch) instead using, which is committed to aztec-packages and is applied to any subsequent checkout. A patch file can be made using the following command:
+
+```shell
+./bootstrap.sh make-patch
+```
+
+After this `./noir-repo.patch` should have the changes committed on top of the latest checkout, and if we commit this file to `aztec-packages` then it is automatically applied by any subsequent checkouts of `noir-repo`.
 
 To start an automated sync run [this action](https://github.com/AztecProtocol/aztec-packages/actions/workflows/mirror-noir-subrepo.yml) manually (click the "Run Workflow" button in the top right). aztec-bot will then open a new PR in the `noir-lang/noir` repository which does the initial sync, this will have merge conflicts with master which will need to be resolved.
