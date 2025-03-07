@@ -234,9 +234,9 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
     using C = Column;
 
     uint32_t row = 0;
-    for (uint32_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
+    for (size_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
         size_t decomposition_len = P_LIMBS_PER_RADIX[i].size();
-        for (uint32_t j = 0; j < decomposition_len; ++j) {
+        for (size_t j = 0; j < decomposition_len; ++j) {
             trace.set(C::precomputed_sel_p_decomposition, row, 1);
             trace.set(C::precomputed_p_decomposition_radix, row, i);
             trace.set(C::precomputed_p_decomposition_limb_index, row, j);

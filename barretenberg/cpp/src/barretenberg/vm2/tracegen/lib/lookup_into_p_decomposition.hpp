@@ -13,9 +13,9 @@ template <typename LookupSettings> class LookupIntoPDecomposition : public BaseL
     uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const override
     {
         const auto& [radix, limb_index, _] = tup;
-        uint32_t radix_integer = static_cast<uint32_t>(radix);
+        size_t radix_integer = static_cast<size_t>(radix);
         uint32_t row = 0;
-        for (uint32_t i = 0; i < radix_integer; ++i) {
+        for (size_t i = 0; i < radix_integer; ++i) {
             row += P_LIMBS_PER_RADIX[i].size();
         }
 
