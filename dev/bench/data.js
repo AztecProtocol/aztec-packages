@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741366689082,
+  "lastUpdate": 1741369484023,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9f65695bef8e49442df8341ef62cae7fe8aaa7fa",
-          "message": "fix: readme markdown (#12465)",
-          "timestamp": "2025-03-05T15:20:03Z",
-          "tree_id": "5a6592c4cb059418263119d3a8f1fb1543b18cc7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9f65695bef8e49442df8341ef62cae7fe8aaa7fa"
-        },
-        "date": 1741189990596,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18093.833926000116,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15927.927822000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18673.804052999913,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16156.248969 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4021.2018219999663,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3054.5605829999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54726.545305,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54726544000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9417.980901,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9417989000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1899473500,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1899473500 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 214401547,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 214401547 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 214041745,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214041745 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "283b624d909574ca8cf872448e61dbd748bb94d6",
+          "message": "fix: Log overflow handling in reset (#12579)\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/12295\nWe were handling overflow in note hashes and nullifiers, but not in\nlogs. I have updated the reset handling code to also trigger cleaning up\nnote hashes because that can clean up logs and avoid the overflow",
+          "timestamp": "2025-03-07T18:21:26+01:00",
+          "tree_id": "a80b6d3f9f5a21d7b8a1626a73cb07b5ec69637f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/283b624d909574ca8cf872448e61dbd748bb94d6"
+        },
+        "date": 1741369476555,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18261.95046299995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15960.816711 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18596.165851000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16185.222540000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3880.179152999972,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 2996.757742999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55118.078538999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55118077000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11917.268122000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11917271000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1890538705,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1890538705 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 215072860,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 215072860 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
