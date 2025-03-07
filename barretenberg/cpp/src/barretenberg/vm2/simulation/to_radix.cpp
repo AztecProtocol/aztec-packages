@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include <algorithm>
 
@@ -9,7 +10,7 @@ std::vector<uint8_t> ToRadix::to_le_radix(const FF& value, uint32_t num_limbs, u
 {
     uint256_t value_integer = static_cast<uint256_t>(value);
     auto limbs = std::vector<uint8_t>();
-    limbs.reserve(num_limbs);
+    limbs.reserve(std::max(num_limbs, static_cast<uint32_t>(P_LIMBS_PER_RADIX[radix].size())));
 
     while (value_integer > 0) {
         limbs.push_back(static_cast<uint8_t>(value_integer % radix));
