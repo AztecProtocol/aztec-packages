@@ -23,10 +23,6 @@ describe('Governance', () => {
   let walletClient: ViemWalletClient;
   let publicClient: ViemPublicClient;
   let governance: GovernanceContract;
-  // let l1TxUtils: L1TxUtils;
-  // let govProposerAddress: EthAddress;
-  // let tokenAddress: EthAddress;
-  // let tokenContract: GetContractReturnType<typeof TestERC20Abi, ViemPublicClient>;
   beforeAll(async () => {
     logger = createLogger('ethereum:test:governance');
     // this is the 6th address that gets funded by the junk mnemonic
