@@ -358,27 +358,27 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         // Check size_in_bytes column
         const auto expected_size_in_bytes = WIRE_INSTRUCTION_SPEC.at(w_opcode).size_in_bytes;
         ASSERT_EQ(instr_encoded.size(), expected_size_in_bytes);
-        EXPECT_EQ(FF(expected_size_in_bytes), trace.get(C::instr_fetching_instr_size_in_bytes, i));
+        EXPECT_EQ(FF(expected_size_in_bytes), trace.get(C::instr_fetching_instr_size, i + 1));
 
         // Inspect each byte
         for (size_t j = 0; j < static_cast<size_t>(expected_size_in_bytes); j++) {
-            EXPECT_EQ(FF(instr_encoded.at(j)), trace.get(bd_columns.at(j), i));
+            EXPECT_EQ(FF(instr_encoded.at(j)), trace.get(bd_columns.at(j), i + 1));
         }
 
         // Check exection opcode
         EXPECT_EQ(FF(static_cast<uint8_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode)),
-                  trace.get(C::instr_fetching_exec_opcode, i));
+                  trace.get(C::instr_fetching_exec_opcode, i + 1));
 
         // Check indirect
-        EXPECT_EQ(FF(instr.indirect), trace.get(C::instr_fetching_indirect, i));
+        EXPECT_EQ(FF(instr.indirect), trace.get(C::instr_fetching_indirect, i + 1));
 
         // Check PCs
-        EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i));
+        EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i + 1));
 
         // Check operands
         size_t operand_idx = 0;
         for (const auto& operand : instr.operands) {
-            EXPECT_EQ(FF(operand), trace.get(operand_columns.at(operand_idx++), i));
+            EXPECT_EQ(FF(operand), trace.get(operand_columns.at(operand_idx++), i + 1));
         }
     }
 }

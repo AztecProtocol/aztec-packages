@@ -55,7 +55,7 @@ template <typename Event> class DeduplicatingEventEmitter : public EventEmitter<
     unordered_flat_set<typename Event::Key> elements_seen;
 };
 
-// This is an event emmiter that offers stable references to the events.
+// This is an event emitter that offers stable references to the events.
 // It lets you access the last event that was emitted.
 // Note: this is currently unused but it might be needed for the execution trace (calls).
 // Reconsider its existence in a while.

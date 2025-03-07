@@ -86,12 +86,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 38;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 772;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 102;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 785;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 107;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 912;
+    static constexpr size_t NUM_ALL_ENTITIES = 930;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -130,6 +130,7 @@ class AvmFlavor {
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
+        lookup_instr_fetching_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
@@ -401,8 +402,9 @@ class AvmFlavor {
             this->precomputed_clk = verification_key->precomputed_clk;
             this->precomputed_exec_opcode = verification_key->precomputed_exec_opcode;
             this->precomputed_first_row = verification_key->precomputed_first_row;
-            this->precomputed_instr_size_in_bytes = verification_key->precomputed_instr_size_in_bytes;
+            this->precomputed_instr_size = verification_key->precomputed_instr_size;
             this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
+            this->precomputed_opcode_out_of_range = verification_key->precomputed_opcode_out_of_range;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
             this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
@@ -426,7 +428,6 @@ class AvmFlavor {
             this->precomputed_sel_op_dc_9 = verification_key->precomputed_sel_op_dc_9;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
-            this->precomputed_sel_range_wire_opcode = verification_key->precomputed_sel_range_wire_opcode;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =
