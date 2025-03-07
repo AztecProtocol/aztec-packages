@@ -105,6 +105,7 @@ container_script=$(cat <<EOF
   git checkout FETCH_HEAD
   git checkout -b \$REF_NAME
   source ci3/source
+  source ci3/source_refname
   source ci3/source_redis
   ci_log_id=\$(log_ci_run)
 
