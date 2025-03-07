@@ -74,7 +74,8 @@ function has_tag_commit {
   tag=$1
   rev=$(git -C noir-repo ls-remote --tags origin $1 | awk '{print $1}')
   if [ ! -z "$rev" ]; then
-    if git -C noir-repo show --oneline "$rev" 1>/dev/null 2>&1; then
+    # NB `git show` would tell if we have the commit, but it would not necessarily be an ancestor.
+    if git -C noir-repo log --oneline | grep -q --max-count=1 "$rev"; then
       return 0
     fi
   fi
