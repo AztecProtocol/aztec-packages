@@ -111,8 +111,6 @@ pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(
 mod tests_shared_with_array {
     use crate::utils::bytes::bounded_vec::{be_bytes_31_to_fields, fields_to_be_bytes_31};
 
-    // BE BYTES
-
     #[test]
     fn test_be_bytes_31_to_1_field() {
         let input = BoundedVec::<u8, 31>::from_array([
