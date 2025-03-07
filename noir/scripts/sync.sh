@@ -57,13 +57,13 @@ function is_last_commit_patch {
   test "$last_msg" == "$PATCH_COMMIT_MSG"
 }
 
-# Check if we have applied the patch in the last N commits.
+# Check if we have applied the patch in any commit in the log.
 # It is possible that we checkout a branch, apply the patch, then go into noir-repo
 # and work on various fixes, committing them as we go. In that case the patch won't
 # the the last commit, but it doesn't have to be applied again if we switch away
 # from our branch and then come back to it later.
 function has_commit_patch {
-  if git -C noir-repo rev-list --max-count=100 --no-commit-header --format=%B HEAD | grep "$PATCH_COMMIT_MSG" 1>/dev/null ; then
+  if git -C noir-repo rev-list --no-commit-header --format=%B HEAD | grep --max-count=1 "$PATCH_COMMIT_MSG" 1>/dev/null ; then
     return 0 # true
   else
     return 1 # false
