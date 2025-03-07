@@ -18,8 +18,17 @@ PATCH_COMMIT_MSG="Noir local patch commit."
 # if we add new commits and create a new patch, we can override it
 # so that it includes all previous patches.
 NOIR_REPO_PATCH=noir-repo.patch
+# Certain commands such as `noir/bootstrap.sh test_cmds` are expected to print
+# executable scripts, which would be corrupted by any extra logs coming from here.
+NOIR_REPO_VERBOSE=${NOIR_REPO_VERBOSE:-0}
 
 cd $(dirname $0)/..
+
+function log {
+  if [ "${NOIR_REPO_VERBOSE}" -eq 1 ]; then
+    echo $@
+  fi
+}
 
 # Read the commitish that we have to check out from the marker file
 # or an env var to facilitate overriding it on CI for nightly tests.
@@ -117,16 +126,16 @@ function has_tag_commit {
 
 # Apply the fixup script and any local patch file.
 function fixup_repo {
-  echo "Applying fixup on noir-repo"
+  log "Applying fixup on noir-repo"
   # Redirect the `bb` reference to the local one.
   scripts/sync-in-fixup.sh
   git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG" --allow-empty
   # Apply any patch file.
   if [ -f $NOIR_REPO_PATCH ]; then
-    echo Applying $NOIR_REPO_PATCH
+    log Applying $NOIR_REPO_PATCH
     git -C noir-repo am ../$NOIR_REPO_PATCH
   else
-    echo "No patch file to apply"
+    log "No patch file to apply"
   fi
   # Create an empty marker commit to show that patches have been applied.
   git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
@@ -137,7 +146,7 @@ function init_repo {
   if [ ! -d noir-repo ]; then
     url=https://github.com/noir-lang/noir.git
     ref=$(read_wanted_ref)
-    echo Initializing noir-repo to $ref
+    log Initializing noir-repo to $ref
     # If we're cloning from a tag with --depth=1, we won't be able to switch to a branch later.
     # On CI we won't be switching branches, but on dev machines we can, so there make a full checkout.
     depth=$([ ! -z "${CI_FULL:-}" ] && echo "--depth 1" || echo "")
@@ -152,7 +161,7 @@ function init_repo {
 # Check out a tag, branch or commit.
 function switch_repo {
   ref=$1
-  echo Switching noir-repo to $ref
+  log Switching noir-repo to $ref
   git -C noir-repo fetch --tags --depth 1 origin
   # If we try to switch to some random commit after a branch it might not find it locally.
   git -C noir-repo fetch --depth 1 origin $ref || echo ""
@@ -170,7 +179,7 @@ function switch_repo {
   if ! has_patch_commit; then
     fixup_repo
   else
-    echo "Patches already applied"
+    log "Patches already applied"
   fi
   write_last_ref $ref
 }
@@ -180,7 +189,7 @@ function update_repo {
   want=$(read_wanted_ref)
   have=$(read_last_ref)
   if [ "$want" == "$have" ]; then
-    echo "noir-repo already on $want"
+    log "noir-repo already on $want"
     if is_on_branch; then
       # If we're on a branch, then we there might be new commits.
       # Rebasing so our local patch commit ends up on top.
@@ -193,7 +202,7 @@ function update_repo {
       # We checked out a tag, and it looks like it hasn't been moved to a different commit.
       return
     else
-      echo "The current commit of the tag doesn't appear in our history."
+      log "The current commit of the tag doesn't appear in our history."
     fi
   fi
 
@@ -243,11 +252,12 @@ function make_patch {
 }
 
 function testme {
-  if has_tag_commit nightly-2025-03-07; then
-    echo "yes"
-  else
-    echo "no"
-  fi
+  # if has_tag_commit nightly-2025-03-07; then
+  #   echo "yes"
+  # else
+  #   echo "no"
+  # fi
+  log "Now you see me"
 }
 
 cmd=${1:-}
