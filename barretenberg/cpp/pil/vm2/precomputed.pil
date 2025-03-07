@@ -75,12 +75,11 @@ pol constant sel_op_dc_16;
 pol constant sel_op_dc_17;
 
 pol constant exec_opcode;
-pol constant instr_size_in_bytes;
+pol constant instr_size; // Instruction size in bytes
 
-// Toggle the rows which index (clk) is equal to a wire opcode
-// Is used to lookup into the wire instruction spec table which contains the operand decomposition
-// selectors as well as exec_opcode
-pol constant sel_range_wire_opcode;
+// Toggled at rows whose clk interpreted as a byte does not correspond to a valid wire opcode
+// Toggled only up to clk = 255. (within range specified by sel_range_8)
+pol constant opcode_out_of_range;
 
 // Used for getting the number of safe limbs for a given radix.
 // The selector is on for 1 < clk <= 256
