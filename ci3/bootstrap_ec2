@@ -57,7 +57,7 @@ fi
 
 echo_header "request build instance"
 # Terminate any existing instance with the same name.
-existing_instance=$(KEY_NAME=$key_name aws ec2 describe-instances \
+existing_instance=$(aws ec2 describe-instances \
   --region us-east-2 \
   --filters "Name=tag:Name,Values=$instance_name" \
   --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
@@ -68,7 +68,7 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(aws_request_instance $instance_name $cores $arch)
+ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
 IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
