@@ -62,7 +62,7 @@ function is_on_branch {
 # Check if we are on a detached HEAD, which means if we switch branches
 # it would be difficult to recover any changes committed on this branch.
 function is_detached_head {
-  test ! is_on_branch
+  ! is_on_branch
 }
 
 # Check if noir-repo has uncommitted changes.
@@ -123,22 +123,31 @@ function has_tag_commit {
   return 1
 }
 
+# Indicate that the `make-patch` command should be used to create a new patch file.
+function needs_patch {
+  is_detached_head && ! is_last_commit_patch
+}
+
+# Create an empty marker commit to show that patches have been applied or put in a patch file.
+function commit_patch_marker {
+  git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
+}
 
 # Apply the fixup script and any local patch file.
-function fixup_repo {
-  log "Applying fixup on noir-repo"
+function patch_repo {
+  log Applying fixup on noir-repo
   # Redirect the `bb` reference to the local one.
   scripts/sync-in-fixup.sh
   git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG" --allow-empty
   # Apply any patch file.
   if [ -f $NOIR_REPO_PATCH ]; then
-    log Applying $NOIR_REPO_PATCH
+    log Applying patches from $NOIR_REPO_PATCH
     git -C noir-repo am ../$NOIR_REPO_PATCH
   else
     log "No patch file to apply"
   fi
   # Create an empty marker commit to show that patches have been applied.
-  git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
+  commit_patch_marker
 }
 
 # Clone the repository if it doesn't exist.
@@ -153,7 +162,7 @@ function init_repo {
     # `--branch` doesn't work for commit hashes
     git clone $depth --branch $ref $url noir-repo \
     || git clone $url noir-repo && git -C noir-repo checkout $ref
-    fixup_repo
+    patch_repo
     write_last_ref $ref
   fi
 }
@@ -164,7 +173,7 @@ function switch_repo {
   log Switching noir-repo to $ref
   git -C noir-repo fetch --tags --depth 1 origin
   # If we try to switch to some random commit after a branch it might not find it locally.
-  git -C noir-repo fetch --depth 1 origin $ref || echo ""
+  git -C noir-repo fetch --depth 1 origin $ref || true
   # Try to check out an existing branch, or remote commit.
   if git -C noir-repo checkout $ref; then
     # If it's a branch we just need to pull the latest changes.
@@ -177,7 +186,7 @@ function switch_repo {
   fi
   # If we haven't applied the patch yet, we have to do it (again).
   if ! has_patch_commit; then
-    fixup_repo
+    patch_repo
   else
     log "Patches already applied"
   fi
@@ -214,10 +223,11 @@ function update_repo {
     exit 1
   fi
 
-
-  if [[ is_detached_head && ! is_last_commit_patch ]]; then
-    echo "noir-repo is on a detached HEAD and the last commit is not just the fixup patch."
-    echo "Please create a branch and consider pushing it upstream to make sure commits are easy to recover after switching from $have to $want"
+  if needs_patch; then
+    echo "noir-repo is on a detached HEAD and the last commit is not the patch marker commit;"
+    echo "switching from $have to $want could meand losing those commits."
+    echo "Please use the 'make-patch' command to create a $NOIR_REPO_PATCH file and commit it in aztec-packages, "
+    echo "so that it is applied after each checkout; make sure to commit the patch on the branch where it should be."
     exit 1
   fi
 
@@ -249,12 +259,17 @@ function make_patch {
     fi
   done
   rm -rf patches
+  # Create an empty patch marker commit at the end to show that it is safe to switch now.
+  if ! is_last_commit_patch; then
+    commit_patch_marker
+  fi
 }
 
 function testme {
-  tag=nightly-2025-03-04
-  is_tag $tag  && echo "tag" || echo "not a tag"
-  has_tag_commit $tag && echo "has commit" || echo "no commit"
+  is_on_branch && echo "on branch" || echo "not on branch"
+  is_detached_head && echo "detached" || echo "not detached"
+  is_last_commit_patch && echo "patch commit" || echo "other commit"
+  needs_patch && echo "patch needed" || echo "no patch needed"
 }
 
 cmd=${1:-}
