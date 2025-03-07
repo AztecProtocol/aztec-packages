@@ -48,15 +48,11 @@ To spare you a few keystrokes, you can use `./aztec-sequencer [start/stop/logs/u
 
 ## Node Configuration
 
-The `aztec-sequencer.sh` script will set the following required variables on your behalf. You can of course override the variables set by the script by simply changing the `.env` file directly and re-running `./aztec-sequencer.sh`
+The user is prompted to enter some values which will map to corresponding ENV variables. Some are required:
 
-| Variable       | Description                                                                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ETHEREUM_HOSTS | List of Ethereum nodes URLs your validator will connect to (comma separated). For as long as we're on private networks, please use the value in `aztec-sequencer.sh` |
-| BOOTNODE_URL   | URL to a bootnode that supplies L1 contract addresses and the ENR of the bootstrap nodes.                                                                            |
-| IMAGE          | The docker image to run                                                                                                                                              |
-
-In addition, the user is prompted to enter 1) an IP Address and a P2P port to be used for the TCP and UDP addresses (defaults to 40400) 2) A port for your node (8080) 3) an Ethereum private key 4) `COINBASE` which is the Ethereum address associated with the private key and 5) a path to a local directory to store node data if you don't opt for a named volume.
+1. A Sepolia execution node RPC (for example on [alchemy](https://dashboard.alchemy.com/))
+2. An Ethereum private key
+3. `COINBASE` which is the Ethereum address associated with the private key
 
 On a first run, the script will generate a p2p private key and store it in `$DATA_DIR/var/lib/aztec/p2p-private-key`. If you wish to change your p2p private key, you can pass it on as a CLI arg using the flag `-pk` or update the `PEER_ID_PRIVATE_KEY` in the env file.
 
