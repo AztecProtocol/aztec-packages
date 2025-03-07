@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+set -eou pipefail
+
 cmd=${1:-}
 [ -n "$cmd" ] && shift
+
+if [ "$cmd" != "clean" ]; then
+  scripts/sync.sh init
+  scripts/sync.sh update
+fi
 
 export hash=$(cache_content_hash .rebuild_patterns)
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
@@ -185,7 +192,8 @@ function release_commit {
 
 case "$cmd" in
   "clean")
-    git clean -fdx
+    # Double `f` needed to delete the nested git repository.
+    git clean -ffdx
     ;;
   "ci")
     build
