@@ -110,9 +110,21 @@ for env in ${ENV_VARS_TO_INJECT:-}; do
   fi
 done
 
+arg_port_assignment=""
+
 # Dynamic port assignment.
 if [ -n "${AZTEC_PORT:-}" ]; then
-  arg_port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
+  arg_port_assignment+=" -p $AZTEC_PORT:$AZTEC_PORT "
+fi
+
+if [ -n "${P2P_TCP_LISTEN_ADDR:-}" ]; then
+  P2P_TCP_PORT=${P2P_TCP_LISTEN_ADDR#*:}
+  arg_port_assignment+=" -p $P2P_TCP_PORT:$P2P_TCP_PORT "
+fi
+
+if [ -n "${P2P_UDP_LISTEN_ADDR:-}" ]; then
+  P2P_UDP_PORT=${P2P_UDP_LISTEN_ADDR#*:}
+  arg_port_assignment+=" -p $P2P_UDP_PORT:$P2P_UDP_PORT/udp "
 fi
 
 # For debugging the aztec-up scripts, can be useful to mount local code into container.

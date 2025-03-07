@@ -152,7 +152,7 @@ if [ -z "${SKIP_PULL:-}" ]; then
 
   # If not latest, retag to be latest so it runs from scripts.
   if [ $VERSION != "latest" ]; then
-    docker tag aztecprotocol/aztec:$VERSION aztecprotocol/$1:latest
+    docker tag aztecprotocol/aztec:$VERSION aztecprotocol/aztec:latest
   fi
 fi
 

@@ -40,10 +40,9 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
-        {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
 
         # Get the private key from the mnemonic - based on the pod replica index
         - name: get-private-key
@@ -69,71 +68,8 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
 
+        {{- include "aztec-network.combinedWaitAndConfigureContainer" . | nindent 8 }}
 
-        - name: wait-for-services
-          {{- include "aztec-network.image" . | nindent 10 }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
-              if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
-                echo "Registry address and bootstrap nodes already set, skipping wait for services"
-                echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
-                exit 0
-              fi
-
-              source /shared/config/service-addresses
-              cat /shared/config/service-addresses
-              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
-
-              if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
-                echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
-              else
-                until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
-                  echo "Waiting for boot node..."
-                  sleep 5
-                done
-                echo "Boot node is ready!"
-                echo "${BOOT_NODE_HOST}" > /shared/pxe/pxe_url
-              fi
-          volumeMounts:
-            - name: pxe-url
-              mountPath: /shared/pxe
-            - name: scripts
-              mountPath: /scripts
-            - name: config
-              mountPath: /shared/config
-
-
-        - name: configure-validator-env
-          {{- include "aztec-network.image" . | nindent 10 }}
-          command:
-            - "/bin/bash"
-            - "-c"
-            - |
-              source /shared/config/service-addresses && \
-              cp /scripts/configure-full-node-env.sh /tmp/configure-full-node-env.sh && \
-              chmod +x /tmp/configure-full-node-env.sh && \
-              /tmp/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
-          volumeMounts:
-            - name: contracts-env
-              mountPath: /shared/contracts
-            - name: pxe-url
-              mountPath: /shared/pxe
-            - name: scripts
-              mountPath: /scripts
-            - name: config
-              mountPath: /shared/config
-          env:
-            - name: P2P_ENABLED
-              value: "{{ .Values.validator.p2p.enabled }}"
-            - name: BOOTSTRAP_NODES
-              value: "{{ .Values.aztec.bootstrapENRs }}"
-            - name: REGISTRY_CONTRACT_ADDRESS
-              value: "{{ .Values.aztec.contracts.registryAddress }}"
-            - name: SLASH_FACTORY_CONTRACT_ADDRESS
-              value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
       containers:
         - name: validator
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -141,9 +77,8 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
-              sleep 10 && \
               source /shared/contracts/contracts.env && \
-              source /shared/p2p/p2p-addresses && \
+              source /shared/config/p2p-addresses && \
               source /shared/config/service-addresses && \
               source /shared/config/keys.env && \
               source /shared/config/otel-resource && \
@@ -168,8 +103,6 @@ spec:
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
-            - name: p2p-addresses
-              mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
             - name: validator-data
@@ -270,9 +203,8 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: contracts-env
-          emptyDir: {}
-        - name: p2p-addresses
           emptyDir: {}
         - name: pxe-url
           emptyDir: {}

@@ -34,7 +34,7 @@ pub contract Test {
         deploy::deploy_contract as aztec_deploy_contract,
         discovery::private_logs::do_process_log,
         event::event_interface::EventInterface,
-        hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
+        hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
         macros::{
             events::event,
