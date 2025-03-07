@@ -77,22 +77,22 @@ pub fn le_bytes_31_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; (N + 30) / 3
     fields
 }
 
-/// Converts an input array of fields into a single array of bytes.
-/// Each input field must contain at most 31 bytes (this is constrained to be so).
-/// Note that the last field might contain less than 31 bytes. This is communicated through the M parameter.
+/// Converts an input array of fields into a single array of bytes in big-endian order.
 ///
-/// We have the M parameter be flexible instead of defined with arithmetic over generic because it's common that
-/// this function is used to convert fields to bytes where the input was previously converted from bytes to fields,
-/// while the original input did not necessarily have a length that is a multiple of 31. Having the M parameter be
-/// flexible allows us to get the byte array that is the same length as the original input.
+/// Each input field must contain at most 31 bytes (this is constrained to be so). Note that the last field might
+/// contain less than 31 bytes. This is communicated through the M parameter.
+///
+/// The M parameter is flexible rather than computed from N because this function is commonly used to convert fields
+/// back to bytes after a previous bytes->fields conversion. Since the original byte length may not be a multiple
+/// of 31, having a flexible M parameter allows us to output the same number of bytes as the original input.
 ///
 /// Each field (other than the last which might be shorter) is converted into 31 big-endian bytes, and the
-/// resulting 31-byte chunks are concatenated back together in the order of the original fields. The bytes within
-/// each field are ordered from most significant to least significant.
+/// resulting 31-byte chunks are concatenated back together in the order of the original fields. You'll end up
+/// with quite a strange ordering of bytes if you use this particular function.
 ///
 ///
-/// TODO: this is the same as the "le" version of this function, save for the `field.to_be_bytes()` calls. I tried
-/// passing the conversion function in as a parameter, to reduce code duplication, but couldn't get it to work.
+/// TODO: this is the same as the "le" version of this function, save for the `field.to_be_bytes()` calls. I (Mike)
+/// tried passing the conversion function in as a parameter, to reduce code duplication, but couldn't get it to work.
 pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8; M] {
     let mut bytes = [0; M];
 
@@ -129,14 +129,14 @@ pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8;
     bytes
 }
 
-/// Converts an input array of fields into a single array of bytes.
-/// Each input field must contain at most 31 bytes (this is constrained to be so).
-/// Note that the last field might contain less than 31 bytes. This is communicated through the M parameter.
+/// Converts an input array of fields into a single array of bytes in little-endian order.
 ///
-/// We have the M parameter be flexible instead of defined with arithmetic over generic because it's common that
-/// this function is used to convert fields to bytes where the input was previously converted from bytes to fields,
-/// while the original input did not necessarily have a length that is a multiple of 31. Having the M parameter be
-/// flexible allows us to get the byte array that is the same length as the original input.
+/// Each input field must contain at most 31 bytes (this is constrained to be so). Note that the last field might
+/// contain less than 31 bytes. This is communicated through the M parameter.
+///
+/// The M parameter is flexible rather than computed from N because this function is commonly used to convert fields
+/// back to bytes after a previous bytes->fields conversion. Since the original byte length may not be a multiple
+/// of 31, having a flexible M parameter allows us to output the same number of bytes as the original input.
 ///
 /// Each field (other than the last which might be shorter) is converted into 31 little-endian bytes, and the
 /// resulting 31-byte chunks are concatenated back together in the order of the original fields. You'll end up
