@@ -65,7 +65,7 @@ http://{{ include "aztec-network.fullname" . }}-pxe.{{ .Release.Namespace }}:{{ 
 {{- end -}}
 
 {{- define "aztec-network.bootNodeUrl" -}}
-http://{{ include "aztec-network.fullname" . }}-boot-node-0.{{ include "aztec-network.fullname" . }}-boot-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.bootNode.service.nodePort }}
+http://{{ include "aztec-network.fullname" . }}-boot-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.bootNode.service.nodePort }}
 {{- end -}}
 
 {{- define "aztec-network.validatorUrl" -}}
@@ -94,34 +94,6 @@ http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 {{- end -}}
 
-{{/*
-P2P Setup Container
-*/}}
-{{- define "aztec-network.p2pSetupContainer" -}}
-- name: setup-p2p-addresses
-  image: bitnami/kubectl
-  command:
-    - /bin/sh
-    - -c
-    - |
-      cp /scripts/setup-p2p-addresses.sh /tmp/setup-p2p-addresses.sh && \
-      chmod +x /tmp/setup-p2p-addresses.sh && \
-      /tmp/setup-p2p-addresses.sh
-  env:
-    - name: NETWORK_PUBLIC
-      value: "{{ .Values.network.public }}"
-    - name: NAMESPACE
-      value: {{ .Release.Namespace }}
-    - name: P2P_TCP_PORT
-      value: "{{ .Values.validator.service.p2pTcpPort }}"
-    - name: P2P_UDP_PORT
-      value: "{{ .Values.validator.service.p2pUdpPort }}"
-  volumeMounts:
-    - name: scripts
-      mountPath: /scripts
-    - name: p2p-addresses
-      mountPath: /shared/p2p
-{{- end -}}
 
 {{/*
 Service Address Setup Container
@@ -133,9 +105,7 @@ Service Address Setup Container
     - /bin/bash
     - -c
     - |
-      cp /scripts/setup-service-addresses.sh /tmp/setup-service-addresses.sh && \
-      chmod +x /tmp/setup-service-addresses.sh && \
-      /tmp/setup-service-addresses.sh
+      /scripts/setup-service-addresses.sh
   env:
     - name: NETWORK_PUBLIC
       value: "{{ .Values.network.public }}"
@@ -189,9 +159,7 @@ Sets up the OpenTelemetry resource attributes for a service
     - /bin/bash
     - -c
     - |
-      cp /scripts/setup-otel-resource.sh /tmp/setup-otel-resource.sh && \
-      chmod +x /tmp/setup-otel-resource.sh && \
-      /tmp/setup-otel-resource.sh
+      /scripts/setup-otel-resource.sh
   env:
     - name: POD_IP
       valueFrom:
@@ -262,4 +230,143 @@ while true; do
   done
   sleep 5
 done
+{{- end -}}
+
+{{/*
+Combined wait-for-services and configure-env container for full nodes
+*/}}
+{{- define "aztec-network.combinedWaitAndConfigureContainer" -}}
+- name: wait-and-configure
+  {{- include "aztec-network.image" . | nindent 2 }}
+  command:
+    - /bin/bash
+    - -c
+    - |
+      # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
+      if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
+        echo "Registry address and bootstrap nodes already set, skipping wait for services"
+        echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
+      else
+        source /shared/config/service-addresses
+        cat /shared/config/service-addresses
+        {{- include "aztec-network.waitForEthereum" . | nindent 8 }}
+
+        if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
+          echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
+        else
+          until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
+            echo "Waiting for boot node..."
+            sleep 5
+          done
+          echo "Boot node is ready!"
+          echo "${BOOT_NODE_HOST}" > /shared/pxe/pxe_url
+        fi
+      fi
+
+      # Configure environment
+      source /shared/config/service-addresses
+      /scripts/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
+  volumeMounts:
+    - name: pxe-url
+      mountPath: /shared/pxe
+    - name: scripts
+      mountPath: /scripts
+    - name: config
+      mountPath: /shared/config
+    - name: contracts-env
+      mountPath: /shared/contracts
+  env:
+    - name: P2P_ENABLED
+      value: "{{ .Values.fullNode.p2p.enabled }}"
+    - name: BOOTSTRAP_NODES
+      value: "{{ .Values.aztec.bootstrapENRs }}"
+    - name: REGISTRY_CONTRACT_ADDRESS
+      value: "{{ .Values.aztec.contracts.registryAddress }}"
+    - name: SLASH_FACTORY_CONTRACT_ADDRESS
+      value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
+{{- end -}}
+
+{{/*
+Combined P2P, Service Address, and OpenTelemetry Setup Container
+*/}}
+{{- define "aztec-network.combinedAllSetupContainer" -}}
+{{- $serviceName := base $.Template.Name | trimSuffix ".yaml" -}}
+- name: setup-all
+  {{- include "aztec-network.image" . | nindent 2 }}
+  command:
+    - /bin/bash
+    - -c
+    - |
+      # Setup P2P addresses
+      /scripts/setup-p2p-addresses.sh
+
+      # Setup service addresses
+      /scripts/setup-service-addresses.sh
+
+      # Setup OpenTelemetry resource
+      /scripts/setup-otel-resource.sh
+  env:
+    - name: NETWORK_PUBLIC
+      value: "{{ .Values.network.public }}"
+    - name: NAMESPACE
+      value: {{ .Release.Namespace }}
+    - name: P2P_TCP_PORT
+      value: "{{ .Values.validator.service.p2pTcpPort }}"
+    - name: P2P_UDP_PORT
+      value: "{{ .Values.validator.service.p2pUdpPort }}"
+    - name: TELEMETRY
+      value: "{{ .Values.telemetry.enabled }}"
+    - name: OTEL_COLLECTOR_ENDPOINT
+      value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
+    - name: EXTERNAL_ETHEREUM_HOSTS
+      value: "{{ .Values.ethereum.execution.externalHosts }}"
+    - name: ETHEREUM_PORT
+      value: "{{ .Values.ethereum.execution.service.port }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST
+      value: "{{ .Values.ethereum.beacon.externalHost }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY
+      value: "{{ .Values.ethereum.beacon.apiKey }}"
+    - name: EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER
+      value: "{{ .Values.ethereum.beacon.apiKeyHeader }}"
+    - name: ETHEREUM_CONSENSUS_PORT
+      value: "{{ .Values.ethereum.beacon.service.port }}"
+    - name: EXTERNAL_BOOT_NODE_HOST
+      value: "{{ .Values.bootNode.externalHost }}"
+    - name: BOOT_NODE_PORT
+      value: "{{ .Values.bootNode.service.nodePort }}"
+    - name: EXTERNAL_PROVER_NODE_HOST
+      value: "{{ .Values.proverNode.externalHost }}"
+    - name: PROVER_NODE_PORT
+      value: "{{ .Values.proverNode.service.nodePort }}"
+    - name: PROVER_BROKER_PORT
+      value: "{{ .Values.proverBroker.service.nodePort }}"
+    - name: USE_GCLOUD_LOGGING
+      value: "{{ .Values.telemetry.useGcloudLogging }}"
+    - name: SERVICE_NAME
+      value: {{ include "aztec-network.fullname" . }}
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: K8S_POD_UID
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.uid
+    - name: K8S_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: K8S_NAMESPACE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: OTEL_SERVICE_NAME
+      value: "{{ $serviceName }}"
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: 'service.namespace={{ .Release.Namespace }},environment={{ .Values.environment | default "production" }}'
+  volumeMounts:
+    - name: scripts
+      mountPath: /scripts
+    - name: config
+      mountPath: /shared/config
 {{- end -}}

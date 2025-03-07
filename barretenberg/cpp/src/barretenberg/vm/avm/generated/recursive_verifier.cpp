@@ -34,8 +34,7 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
-        .virtual_size_ =
-            static_cast<uint32_t>(key->circuit_size.get_value()), // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+        .virtual_size_ = key->circuit_size, // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
         .backing_memory_ = std::static_pointer_cast<FF[]>(get_mem_slab(sizeof(FF) * points.size())),
     };
 
@@ -88,7 +87,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     VerifierCommitments commitments{ key };
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    if (static_cast<uint32_t>(circuit_size.get_value()) != static_cast<uint32_t>(key->circuit_size.get_value())) {
+    if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
 
