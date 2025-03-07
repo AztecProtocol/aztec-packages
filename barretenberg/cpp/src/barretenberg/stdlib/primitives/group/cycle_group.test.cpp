@@ -136,6 +136,26 @@ TYPED_TEST(CycleGroupTest, TestWitnessSumRegression)
 }
 
 /**
+ * @brief Checks that adding operator-(value) to an existing value does not result into error
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestOperatorNegRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto lhs = TestFixture::generators[0];
+    auto rhs = TestFixture::generators[1];
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+    b = -b;
+    cycle_group_ct c = a.unconditional_add(b);
+    (void)c;
+    EXPECT_FALSE(builder.failed());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+/**
  * @brief Checks that a point on the curve passes the validate_is_on_curve check
  *
  */
