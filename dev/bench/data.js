@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741303517466,
+  "lastUpdate": 1741315577427,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "14b9df8850df3a0b8151a924532bf1a4862822e3",
-          "message": "fix: update cli payment method option (#12423)\n\n- Only allow to configure `feePayer` for the `--payment` option of\n`create-account` and `deploy-account`.\n  - If `feePayer` is set for other commands, it will simply be ignored.\n- Add descriptions for the parameters of  the `--payment` option.",
-          "timestamp": "2025-03-04T22:18:01Z",
-          "tree_id": "969b6a4621fe4038c44217760a08e1773c9d809b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/14b9df8850df3a0b8151a924532bf1a4862822e3"
-        },
-        "date": 1741128816334,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18296.27789999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16086.481404999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18901.081848999864,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16474.707217 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3952.021487000138,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3147.5787750000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55725.698284000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55725698000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11259.298213000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11259303000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1905687882,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1905687882 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 218820818,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 218820818 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 219973693,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 219973693 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dcba7a49a4fefcbe6db4f28d7bb7e0986e31c30d",
+          "message": "feat: nullify just-added notes (#12552)\n\nBack when PXE was a service processing all blocks, we'd remove nullified\nnotes as we saw their nullifiers. This later got changed, and as of\nhttps://github.com/AztecProtocol/aztec-packages/pull/10722 we remove all\nnullified notes whenever we 'sync' notes. However, note syncing is\nbecoming less and less a part of PXE, and as of\nhttps://github.com/AztecProtocol/aztec-packages/pull/12391 we even\ndeliver notes _outside_ of the PXE-led note syncing process (whenever we\ncomplete partial note). This causes problems because we end up adding\nnotes, failing to realize they've been nullified and then returning them\nvia `get_notes` (which is what causes some tests in\nhttps://github.com/AztecProtocol/aztec-packages/pull/12391 to fail). The\nnext time a contract function is run we'll do note syncing again and\nthey'll be then removed, but we did have a full fn call in which they\nwere available.\n\nThis PR makes it so we always check if newly-added notes have been\nnullified, and remove them if so. I also added some explanations re. why\nwe're doing things this way, created some follow-up issues (mostly\n#12550 and\nhttps://github.com/AztecProtocol/aztec-packages/issues/12553), and\ninlined `produceNoteDaos` to have the whole thing happen in a single\nplace. I think it's now more readable but potentially slightly large -\nperhaps this will improve as we split `PxeOracleInterface` in multiple\nfiles or modules.",
+          "timestamp": "2025-03-07T02:19:04Z",
+          "tree_id": "f9d4217d21979ec659e5b28e9488d6811159a0ea",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dcba7a49a4fefcbe6db4f28d7bb7e0986e31c30d"
+        },
+        "date": 1741315569809,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18227.74790700009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16011.127119999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18677.2359229999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16391.866535 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3889.9609000000055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3105.319923 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55150.87788,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55150878000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11676.987714,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11676991000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1927901363,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1927901363 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 218071212,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 218071212 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
