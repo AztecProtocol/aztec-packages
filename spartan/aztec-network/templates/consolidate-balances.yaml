@@ -1,3 +1,4 @@
+# NOTE: If script logic below is updated, then scripts/consolidate-sepolia-balances.sh should be updated as well.
 {{- if .Values.ethereum.execution.externalHosts }}
 apiVersion: batch/v1
 kind: Job

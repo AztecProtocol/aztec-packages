@@ -1,4 +1,14 @@
 #!/bin/bash
+
+# Helper script for consolidating balances on Sepolia, that were previously dispersed across multiple accounts.
+# The script uses the mnemonic to get the accounts' private keys & calculate which ones were funded from a helm chart yaml.
+# Usage: ./consolidate-sepolia-balances.sh <mnemonic> <funding_address> <values_file>
+# Environment variables:
+#   ETHEREUM_HOSTS (must be provided)
+
+# IMPORTANT NOTE: The script should be the same as the one found in the consolidate-balances.yaml template.
+# This standalone is left here for ad-hoc use if needed.
+
 set -exu
 
 mnemonic=$1
