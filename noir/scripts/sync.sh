@@ -39,11 +39,12 @@ function is_detached_head {
 
 # Check if noir-repo has uncommitted changes.
 function has_uncommitted_changes {
-  cd noir-repo
   # Add any untracked files, because otherwise we might switch branches,
   # apply the patch fixup, create an artifical commit and inadvertedly
   # add these files to a commit they have nothing to do with.
-  if git add . && git diff --quiet && git diff --cached --quiet ; then
+  if git -C noir-repo add . && \
+     git -C noir-repo diff --quiet && \
+     git -C noir-repo diff --cached --quiet ; then
     return 1 # false
   else
     return 0 # true
@@ -52,8 +53,7 @@ function has_uncommitted_changes {
 
 # Check if the last commit is marked with the local patch message.
 function is_last_commit_patch {
-  cd noir-repo
-  last_msg=$(git rev-list --max-count=1 --no-commit-header --format=%B HEAD)
+  last_msg=$(git -C noir-repo rev-list --max-count=1 --no-commit-header --format=%B HEAD)
   test "$last_msg" == "$PATCH_COMMIT_MSG"
 }
 
@@ -63,6 +63,7 @@ function fixup {
   # TODO: Apply any patch file
   cd noir-repo
   git add . && git commit -m "$PATCH_COMMIT_MSG"
+  cd -
 }
 
 # Clone the repository if it doesn't exist.
@@ -77,6 +78,16 @@ function init_repo {
   fi
 }
 
+# Check out a tag, branch or commit.
+function checkout_commitish {
+  ref=$1
+  cd noir-repo
+  git fetch origin
+  # Tracking so we can pull changes in subsequent updates
+  git checkout --track origin/$ref || git checkout $ref
+  cd -
+}
+
 # Bring the noir-repo in line with the commit marker.
 function update_repo {
   want=$(read_wanted_ref)
@@ -84,7 +95,8 @@ function update_repo {
   if [ "$want" == "$have" ]; then
     if is_on_branch; then
       # If we're on a branch, then we there might be new commits.
-      git -C noir-repo pull
+      # Rebasing so our local patch commit ends up on top.
+      git -C noir-repo pull --rebase
     fi
     # If the last thing we checked out was the commit we wanted, then we're okay.
     # TODO: If we checked out a tag, it may have been moved, in which case we'd need to check out again.
@@ -99,6 +111,7 @@ function update_repo {
     exit 1
   fi
 
+
   if [[ is_detached_head && ! is_last_commit_patch ]]; then
     echo "noir-repo is on a detached HEAD and the last commit is not just the fixup patch."
     echo "Please create a branch and consider pushing it upstream to make sure commits are easy to recover"
@@ -106,15 +119,8 @@ function update_repo {
     exit 1
   fi
 
-  # Check out the wanted commitish
-  cd noir-repo
-  git fetch origin
-  git checkout origin/$want || git checkout $want
-  cd -
-
-  # Remember the checkout
+  checkout_commitish $want
   write_last_ref $want
-  # Apply patches on the new checkout
   fixup
 }
 
