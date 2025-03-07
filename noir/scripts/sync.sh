@@ -11,8 +11,9 @@ cd $(dirname $0)/..
 # Read the commitish that we have to check out from the marker file
 # or an env var to facilitate overriding it on CI for nightly tests.
 function read_wanted_ref {
-  if [ ! -z "${NOIR_REPO_REF}" ]; then
-    echo $NOIR_REPO_REF
+  ref=${NOIR_REPO_REF:-}
+  if [ ! -z "$ref" ]; then
+    echo $ref
     return
   fi
   cat noir-repo-ref
