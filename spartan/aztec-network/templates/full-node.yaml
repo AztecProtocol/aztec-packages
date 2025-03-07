@@ -41,6 +41,7 @@ spec:
       {{- end }}
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.combinedWaitAndConfigureContainer" . | nindent 8 }}
 
       containers:
