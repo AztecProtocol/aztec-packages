@@ -599,10 +599,10 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     // yes = lhs_infinity && rhs_infinity
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
-    result.set_point_at_infinity(result_is_infinity);
 
-    ASSERT(result.x.is_constant() == result.y.is_constant());
-    result._is_constant = result.x.is_constant();
+    // need to set this before set_point_at_infinity call
+    result._is_constant = this->_is_constant & other._is_constant;
+    result.set_point_at_infinity(result_is_infinity);
 
     return result;
 }
@@ -659,10 +659,10 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     // n.b. can likely optimize this
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
-    result.set_point_at_infinity(result_is_infinity);
 
-    ASSERT(result.x.is_constant() == result.y.is_constant());
-    result._is_constant = result.x.is_constant();
+    // need to set this before set_point_at_infinity call
+    result._is_constant = this->_is_constant & other._is_constant;
+    result.set_point_at_infinity(result_is_infinity);
 
     return result;
 }
