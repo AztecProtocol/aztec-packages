@@ -3,7 +3,7 @@ import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type Wait
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
 import type { MetricsType } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 

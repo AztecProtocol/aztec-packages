@@ -8,6 +8,8 @@ pub contract TestLog {
     use dep::aztec::protocol_types::{address::AztecAddress, traits::Serialize};
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     use dep::value_note::value_note::ValueNote;
+    use aztec::event::event_interface::EventInterface;
+    use aztec::protocol_types::traits::FromField;
     use std::meta::derive;
 
     #[derive(Serialize)]

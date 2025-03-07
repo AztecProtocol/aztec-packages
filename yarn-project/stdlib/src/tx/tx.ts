@@ -13,7 +13,6 @@ import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
 import type { ScopedLogHash } from '../kernel/log_hash.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
-import { PrivateLog } from '../logs/private_log.js';
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
@@ -239,7 +238,7 @@ export class Tx extends Gossipable {
       nullifierCount: this.data.getNonEmptyNullifiers().length,
       privateLogCount: this.data.getNonEmptyPrivateLogs().length,
       classRegisteredCount: this.data.getNonEmptyContractClassLogsHashes().length,
-      contractClassLogSize: this.data.getNonEmptyContractClassLogsLength(),
+      contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
       proofSize: this.clientIvcProof.clientIvcProofBuffer.length,
       size: this.toBuffer().length,
@@ -273,8 +272,8 @@ export class Tx extends Gossipable {
     return (
       this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
       this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
-      this.data.getNonEmptyPrivateLogs().length * PrivateLog.SIZE_IN_BYTES +
-      this.data.getNonEmptyContractClassLogsLength() * Fr.SIZE_IN_BYTES
+      this.data.getEmittedPrivateLogsLength() * Fr.SIZE_IN_BYTES +
+      this.data.getEmittedContractClassLogsLength() * Fr.SIZE_IN_BYTES
     );
   }
 

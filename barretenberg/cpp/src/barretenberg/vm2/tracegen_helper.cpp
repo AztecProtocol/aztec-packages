@@ -246,7 +246,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r5_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r6_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r7_is_u16_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bitwise_byte_operations_settings>>(),
+            std::make_unique<LookupIntoBitwise<lookup_bitwise_byte_operations_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_to_read_as_unary_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
