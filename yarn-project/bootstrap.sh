@@ -92,7 +92,7 @@ function build {
     # files to yarn immutablePatterns, so if they are also changed, this step will fail.
     denoise "retry yarn install --immutable"
   else
-    denoise "yarn install"
+    denoise "yarn install --no-immutable"
   fi
   denoise "compile_all"
   echo -e "${green}Yarn project successfully built!${reset}"
@@ -106,7 +106,7 @@ function test_cmds {
       echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     else
       # Testbench runs require more memory and CPU.
-      echo "$hash ISOLATE=1 CPUS=18 MEMORY=12g yarn-project/scripts/run_test.sh $test"
+      echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
     fi
 
   done
@@ -166,7 +166,7 @@ function release_packages {
 function release {
   echo_header "yarn-project release"
   # WORKTODO latest is only on master, otherwise use ref name
-  release_packages latest ${REF_NAME#v}
+  release_packages $(dist_tag) ${REF_NAME#v}
 }
 
 function release_commit {

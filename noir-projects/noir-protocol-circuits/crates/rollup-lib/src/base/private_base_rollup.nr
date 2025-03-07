@@ -231,11 +231,16 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog,
-            gas::Gas, gas_fees::GasFees,
-            kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs, log::Log,
-            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-            side_effect::OrderedValue, sponge_blob::SpongeBlob,
+            constant_rollup_data::ConstantRollupData,
+            contract_class_log::ContractClassLog,
+            gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
+            gas_fees::GasFees,
+            kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
+            log::Log,
+            nullifier_leaf_preimage::NullifierLeafPreimage,
+            public_data_write::PublicDataWrite,
+            side_effect::OrderedValue,
+            sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -261,7 +266,7 @@ mod tests {
         },
         traits::{Empty, FromField, Hash, ToField},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple, unsafe_padded_array_length},
             field::{field_from_bytes, full_field_less_than},
         },
     };
@@ -939,7 +944,18 @@ mod tests {
             );
         }
         builder.tube_data.append_l2_to_l1_msgs(NUM_MSGS);
-        builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
+        for i in 0..NUM_PRIV_EVENT_LOGS {
+            // manually adding to test appending logs with trailing zeros
+            let fields = [i as Field, (i + 1) as Field, (i + 2) as Field];
+            builder.tube_data.add_private_log(
+                array_concat(
+                    fields,
+                    [0; PRIVATE_LOG_SIZE_IN_FIELDS - 3 /* = fields.len() */],
+                ),
+                0,
+            );
+        }
+        // builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         // Below will only work with NUM_CC_LOGS=1
         let cc_log = [1, 2, 3];
         builder.append_contract_class_log(cc_log);
@@ -993,19 +1009,31 @@ mod tests {
         reconstructed_tx_effects[offset + 1] = fee_write.value;
         offset += 2;
         // private logs
-        let total_private_logs_len = (NUM_NOTES + NUM_PRIV_EVENT_LOGS) * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let total_private_logs_len = get_emitted_private_logs_len(builder
+            .tube_data
+            .private_logs
+            .storage()
+            .map(|l| l.inner.log));
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
         reconstructed_tx_effects[offset] = private_logs_prefix;
         offset += 1;
         for i in 0..NUM_NOTES + NUM_PRIV_EVENT_LOGS {
-            for j in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-                reconstructed_tx_effects[offset + i * PRIVATE_LOG_SIZE_IN_FIELDS + j] =
-                    builder.tube_data.private_logs.storage()[i].inner.log.fields[j];
+            let log = builder.tube_data.private_logs.storage()[i].inner.log.fields;
+            let log_len = unsafe_padded_array_length(log);
+            if log_len != 0 {
+                reconstructed_tx_effects[offset] = log_len as Field;
+                offset += 1;
+            }
+            for j in 0..log_len {
+                reconstructed_tx_effects[offset] = log[j];
+                offset += 1;
             }
         }
-        offset += total_private_logs_len;
         // cc logs
-        let total_contract_class_logs_len = NUM_CC_LOGS * (cc_log.len() + 2);
+        let total_contract_class_logs_len = get_emitted_contract_class_logs_len(builder
+            .tube_data
+            .contract_class_logs_hashes
+            .storage());
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;

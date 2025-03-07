@@ -5,7 +5,9 @@ import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler 
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../config/index.js';
-import type { PxeDatabase } from '../database/index.js';
+import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
+import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 
 /**
  * The Synchronizer class manages the synchronization with the aztec node, allowing PXE to retrieve the
@@ -21,7 +23,9 @@ export class Synchronizer implements L2BlockStreamEventHandler {
 
   constructor(
     private node: AztecNode,
-    private db: PxeDatabase,
+    private syncDataProvider: SyncDataProvider,
+    private noteDataProvider: NoteDataProvider,
+    private taggingDataProvider: TaggingDataProvider,
     private l2TipsStore: L2TipsStore,
     config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
     loggerOrSuffix?: string | Logger,
@@ -51,23 +55,24 @@ export class Synchronizer implements L2BlockStreamEventHandler {
           archive: lastBlock.archive.root.toString(),
           header: lastBlock.header.toInspect(),
         });
-        await this.db.setHeader(lastBlock.header);
+        await this.syncDataProvider.setHeader(lastBlock.header);
         break;
       }
       case 'chain-pruned': {
         this.log.warn(`Pruning data after block ${event.blockNumber} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
-        await this.db.unnullifyNotesAfter(event.blockNumber);
-        await this.db.removeNotesAfter(event.blockNumber);
+        const lastSynchedBlockNumber = await this.syncDataProvider.getBlockNumber();
+        await this.noteDataProvider.unnullifyNotesAfter(event.blockNumber, lastSynchedBlockNumber);
+        await this.noteDataProvider.removeNotesAfter(event.blockNumber);
         // Remove all note tagging indexes to force a full resync. This is suboptimal, but unless we track the
         // block number in which each index is used it's all we can do.
-        await this.db.resetNoteSyncData();
+        await this.taggingDataProvider.resetNoteSyncData();
         // Update the header to the last block.
         const newHeader = await this.node.getBlockHeader(event.blockNumber);
         if (!newHeader) {
           this.log.error(`Block header not found for block number ${event.blockNumber} during chain prune`);
         } else {
-          await this.db.setHeader(newHeader);
+          await this.syncDataProvider.setHeader(newHeader);
         }
         break;
       }
@@ -99,18 +104,18 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = await this.db.getBlockHeader();
+      currentHeader = await this.syncDataProvider.getBlockHeader();
     } catch (e) {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.db.setHeader((await this.node.getBlockHeader(0))!);
+      await this.syncDataProvider.setHeader((await this.node.getBlockHeader(0))!);
     }
     await this.blockStream.sync();
   }
 
   public async getSynchedBlockNumber() {
-    return (await this.db.getBlockNumber()) ?? this.initialSyncBlockNumber;
+    return (await this.syncDataProvider.getBlockNumber()) ?? this.initialSyncBlockNumber;
   }
 }

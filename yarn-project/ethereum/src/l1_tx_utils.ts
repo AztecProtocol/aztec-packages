@@ -5,7 +5,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import type { Logger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -60,10 +60,6 @@ export interface L1TxUtilsConfig {
    */
   maxGwei?: bigint;
   /**
-   * Minimum gas price in gwei
-   */
-  minGwei?: bigint;
-  /**
    * Maximum blob fee per gas in gwei
    */
   maxBlobGwei?: bigint;
@@ -107,11 +103,6 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: 'How much to increase calculated gas limit by (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
     ...numberConfigHelper(20),
-  },
-  minGwei: {
-    description: 'Minimum gas price in gwei',
-    env: 'L1_GAS_PRICE_MIN',
-    ...bigintConfigHelper(1n),
   },
   maxGwei: {
     description: 'Maximum gas price in gwei',
@@ -199,14 +190,15 @@ export type TransactionStats = {
 };
 
 export class L1TxUtils {
-  protected readonly config: L1TxUtilsConfig;
+  public readonly config: L1TxUtilsConfig;
   private interrupted = false;
 
   constructor(
     public publicClient: ViemPublicClient,
     public walletClient: ViemWalletClient,
-    protected readonly logger?: Logger,
+    protected logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
+    private debugMaxGasLimit: boolean = false,
   ) {
     this.config = {
       ...defaultL1TxUtilsConfig,
@@ -257,7 +249,9 @@ export class L1TxUtils {
       const account = this.walletClient.account;
       let gasLimit: bigint;
 
-      if (gasConfig.gasLimit) {
+      if (this.debugMaxGasLimit) {
+        gasLimit = LARGE_GAS_LIMIT;
+      } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
         gasLimit = await this.estimateGas(account, request);
@@ -297,7 +291,9 @@ export class L1TxUtils {
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
       const viemError = formatViemError(err);
-      this.logger?.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
+      this.logger?.error(`Failed to send L1 transaction`, viemError.message, {
+        metaMessages: viemError.metaMessages,
+      });
       throw viemError;
     }
   }

@@ -28,7 +28,9 @@ describe.each([
       proverBrokerPollIntervalMs: 1000,
       proverBrokerBatchIntervalMs: 10,
       proverBrokerBatchSize: 1,
-      rollupAddress: EthAddress.random(),
+      l1Contracts: {
+        rollupAddress: EthAddress.random(),
+      } as any,
     };
     const database = await KVBrokerDatabase.new(config);
     const cleanup = () => {

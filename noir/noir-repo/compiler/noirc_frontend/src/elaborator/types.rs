@@ -12,6 +12,7 @@ use crate::{
         Signedness, UnaryOp, UnresolvedGeneric, UnresolvedGenerics, UnresolvedType,
         UnresolvedTypeData, UnresolvedTypeExpression, WILDCARD_TYPE,
     },
+    elaborator::UnstableFeature,
     hir::{
         def_collector::dc_crate::CompilationError,
         def_map::{ModuleDefId, fully_qualified_module_path},
@@ -31,8 +32,8 @@ use crate::{
         traits::{NamedType, ResolvedTraitBound, Trait, TraitConstraint},
     },
     node_interner::{
-        DependencyId, ExprId, FuncId, GlobalValue, ImplSearchErrorKind, NodeInterner, TraitId,
-        TraitImplKind, TraitMethodId,
+        DependencyId, ExprId, FuncId, GlobalValue, ImplSearchErrorKind, TraitId, TraitImplKind,
+        TraitMethodId,
     },
     signed_field::SignedField,
     token::SecondaryAttribute,
@@ -141,8 +142,11 @@ impl Elaborator<'_> {
                     }
                 }
             }
-            MutableReference(element) => {
-                Type::MutableReference(Box::new(self.resolve_type_inner(*element, kind)))
+            Reference(element, mutable) => {
+                if !mutable {
+                    self.use_unstable_feature(UnstableFeature::Ownership, location);
+                }
+                Type::Reference(Box::new(self.resolve_type_inner(*element, kind)), mutable)
             }
             Parenthesized(typ) => self.resolve_type_inner(*typ, kind),
             Resolved(id) => self.interner.get_quoted_type(id).clone(),
@@ -174,8 +178,8 @@ impl Elaborator<'_> {
 
         if !kind.unifies(&resolved_type.kind()) {
             let expected_typ_err = CompilationError::TypeError(TypeCheckError::TypeKindMismatch {
-                expected_kind: kind.to_string(),
-                expr_kind: resolved_type.kind().to_string(),
+                expected_kind: kind.clone(),
+                expr_kind: resolved_type.kind(),
                 expr_location: location,
             });
             self.push_err(expected_typ_err);
@@ -523,8 +527,8 @@ impl Elaborator<'_> {
                     (Type::Constant(lhs, lhs_kind), Type::Constant(rhs, rhs_kind)) => {
                         if !lhs_kind.unifies(&rhs_kind) {
                             self.push_err(TypeCheckError::TypeKindMismatch {
-                                expected_kind: lhs_kind.to_string(),
-                                expr_kind: rhs_kind.to_string(),
+                                expected_kind: lhs_kind,
+                                expr_kind: rhs_kind,
                                 expr_location: location,
                             });
                             return Type::Error;
@@ -557,8 +561,8 @@ impl Elaborator<'_> {
     fn check_kind(&mut self, typ: Type, expected_kind: &Kind, location: Location) -> Type {
         if !typ.kind().unifies(expected_kind) {
             self.push_err(TypeCheckError::TypeKindMismatch {
-                expected_kind: expected_kind.to_string(),
-                expr_kind: typ.kind().to_string(),
+                expected_kind: expected_kind.clone(),
+                expr_kind: typ.kind(),
                 expr_location: location,
             });
             return Type::Error;
@@ -766,8 +770,7 @@ impl Elaborator<'_> {
         make_error: impl FnOnce() -> TypeCheckError,
     ) {
         if let Err(UnificationError) = actual.unify(expected) {
-            let error: CompilationError = make_error().into();
-            self.push_err(error);
+            self.push_err(make_error());
         }
     }
 
@@ -846,7 +849,7 @@ impl Elaborator<'_> {
     /// Insert as many dereference operations as necessary to automatically dereference a method
     /// call object to its base value type T.
     pub(super) fn insert_auto_dereferences(&mut self, object: ExprId, typ: Type) -> (ExprId, Type) {
-        if let Type::MutableReference(element) = typ.follow_bindings() {
+        if let Type::Reference(element, _mut) = typ.follow_bindings() {
             let location = self.interner.id_location(object);
 
             let object = self.interner.push_expr(HirExpression::Prefix(HirPrefixExpression {
@@ -1040,6 +1043,7 @@ impl Elaborator<'_> {
         location: Location,
     ) -> Result<(Type, bool), TypeCheckError> {
         use Type::*;
+
         match (lhs_type, rhs_type) {
             // Avoid reporting errors multiple times
             (Error, _) | (_, Error) => Ok((Bool, false)),
@@ -1250,6 +1254,7 @@ impl Elaborator<'_> {
         location: Location,
     ) -> Result<(Type, bool), TypeCheckError> {
         use Type::*;
+
         match op {
             crate::ast::UnaryOp::Minus | crate::ast::UnaryOp::Not => {
                 match rhs_type {
@@ -1303,17 +1308,26 @@ impl Elaborator<'_> {
                     _ => Ok((rhs_type.clone(), true)),
                 }
             }
-            crate::ast::UnaryOp::MutableReference => {
-                Ok((Type::MutableReference(Box::new(rhs_type.follow_bindings())), false))
+            crate::ast::UnaryOp::Reference { mutable } => {
+                let typ = Type::Reference(Box::new(rhs_type.follow_bindings()), *mutable);
+                Ok((typ, false))
             }
             crate::ast::UnaryOp::Dereference { implicitly_added: _ } => {
                 let element_type = self.interner.next_type_variable();
-                let expected = Type::MutableReference(Box::new(element_type.clone()));
-                self.unify(rhs_type, &expected, || TypeCheckError::TypeMismatch {
-                    expr_typ: rhs_type.to_string(),
-                    expected_typ: expected.to_string(),
-                    expr_location: location,
-                });
+                let make_expected =
+                    |mutable| Type::Reference(Box::new(element_type.clone()), mutable);
+
+                let immutable = make_expected(false);
+                let mutable = make_expected(true);
+
+                // Both `&mut T` and `&T` should coerce to an expected `&T`.
+                if !rhs_type.try_reference_coercion(&immutable) {
+                    self.unify(rhs_type, &mutable, || TypeCheckError::TypeMismatch {
+                        expr_typ: rhs_type.to_string(),
+                        expected_typ: mutable.to_string(),
+                        expr_location: location,
+                    });
+                }
                 Ok((element_type, false))
             }
         }
@@ -1436,9 +1450,9 @@ impl Elaborator<'_> {
             Type::NamedGeneric(_, _) => {
                 self.lookup_method_in_trait_constraints(object_type, method_name, location)
             }
-            // Mutable references to another type should resolve to methods of their element type.
+            // References to another type should resolve to methods of their element type.
             // This may be a data type or a primitive type.
-            Type::MutableReference(element) => {
+            Type::Reference(element, _mutable) => {
                 self.lookup_method(&element, method_name, location, check_self_param)
             }
 
@@ -1835,13 +1849,12 @@ impl Elaborator<'_> {
         if let Some(expected_object_type) = expected_object_type {
             let actual_type = object_type.follow_bindings();
 
-            if matches!(expected_object_type.follow_bindings(), Type::MutableReference(_)) {
-                if !matches!(actual_type, Type::MutableReference(_)) {
-                    if let Err(error) = verify_mutable_reference(self.interner, *object) {
-                        self.push_err(TypeCheckError::ResolverError(error));
-                    }
+            if let Type::Reference(_, mutable) = expected_object_type.follow_bindings() {
+                if !matches!(actual_type, Type::Reference(..)) {
+                    let location = self.interner.id_location(*object);
+                    self.check_can_mutate(*object, location);
 
-                    let new_type = Type::MutableReference(Box::new(actual_type));
+                    let new_type = Type::Reference(Box::new(actual_type), mutable);
                     *object_type = new_type.clone();
 
                     // First try to remove a dereference operator that may have been implicitly
@@ -1850,11 +1863,9 @@ impl Elaborator<'_> {
 
                     // If that didn't work, then wrap the whole expression in an `&mut`
                     *object = new_object.unwrap_or_else(|| {
-                        let location = self.interner.id_location(*object);
-
                         let new_object =
                             self.interner.push_expr(HirExpression::Prefix(HirPrefixExpression {
-                                operator: UnaryOp::MutableReference,
+                                operator: UnaryOp::Reference { mutable },
                                 rhs: *object,
                                 trait_method_id: None,
                             }));
@@ -1865,7 +1876,7 @@ impl Elaborator<'_> {
                 }
             // Otherwise if the object type is a mutable reference and the method is not, insert as
             // many dereferences as needed.
-            } else if matches!(actual_type, Type::MutableReference(_)) {
+            } else if matches!(actual_type, Type::Reference(..)) {
                 let (new_object, new_type) = self.insert_auto_dereferences(*object, actual_type);
                 *object_type = new_type;
                 *object = new_object;
@@ -2132,32 +2143,5 @@ fn bind_generic(param: &ResolvedGeneric, arg: &Type, bindings: &mut TypeBindings
     // Avoid binding t = t
     if !arg.occurs(param.type_var.id()) {
         bindings.insert(param.type_var.id(), (param.type_var.clone(), param.kind(), arg.clone()));
-    }
-}
-
-/// Gives an error if a user tries to create a mutable reference
-/// to an immutable variable.
-fn verify_mutable_reference(interner: &NodeInterner, rhs: ExprId) -> Result<(), ResolverError> {
-    match interner.expression(&rhs) {
-        HirExpression::MemberAccess(member_access) => {
-            verify_mutable_reference(interner, member_access.lhs)
-        }
-        HirExpression::Index(_) => {
-            let location = interner.expr_location(&rhs);
-            Err(ResolverError::MutableReferenceToArrayElement { location })
-        }
-        HirExpression::Ident(ident, _) => {
-            if let Some(definition) = interner.try_definition(ident.id) {
-                if !definition.mutable {
-                    let location = interner.expr_location(&rhs);
-                    let variable = definition.name.clone();
-                    let err =
-                        ResolverError::MutableReferenceToImmutableVariable { location, variable };
-                    return Err(err);
-                }
-            }
-            Ok(())
-        }
-        _ => Ok(()),
     }
 }

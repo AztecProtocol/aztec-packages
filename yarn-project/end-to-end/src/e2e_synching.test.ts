@@ -61,7 +61,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe/server';
 import { SequencerPublisher } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
@@ -424,7 +424,6 @@ describe('e2e_synching', () => {
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
-        requiredConfirmations: 1,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
