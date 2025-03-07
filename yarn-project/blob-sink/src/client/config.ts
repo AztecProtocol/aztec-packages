@@ -61,12 +61,5 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
  * @returns The blob sink configuration.
  */
 export function getBlobSinkConfigFromEnv(): BlobSinkConfig {
-  const config = getConfigFromMappings<BlobSinkConfig>(blobSinkConfigMapping);
-
-  // check if l1ConsensusHostUrl has a trailing '/' and remove it
-  if (config.l1ConsensusHostUrl && config.l1ConsensusHostUrl.endsWith('/')) {
-    config.l1ConsensusHostUrl = config.l1ConsensusHostUrl.slice(0, -1);
-  }
-
-  return config;
+  return getConfigFromMappings<BlobSinkConfig>(blobSinkConfigMapping);
 }
