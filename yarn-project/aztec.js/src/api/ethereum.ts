@@ -7,5 +7,5 @@ export {
   type L2AmountClaimWithRecipient,
   type L2Claim,
   generateClaimSecret,
-} from './portal_manager.js';
-export { getL1ContractAddresses } from './l1_contracts.js';
+} from '../ethereum/portal_manager.js';
+export { getL1ContractAddresses } from '../ethereum/l1_contracts.js';

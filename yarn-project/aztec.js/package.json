@@ -5,25 +5,25 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./interfaces/pxe": "./dest/api/interfaces/pxe.js",
+    "./interfaces": "./dest/api/interfaces.js",
     "./abi": "./dest/api/abi.js",
     "./account": "./dest/api/account.js",
     "./addresses": "./dest/api/addresses.js",
     "./cheatcodes": "./dest/api/cheatcodes.js",
-    "./contracts": "./dest/api/contract/index.js",
+    "./contracts": "./dest/api/contract.js",
     "./deployment": "./dest/api/deployment.js",
     "./entrypoint": "./dest/api/entrypoint.js",
     "./eth_address": "./dest/api/eth_address.js",
-    "./ethereum": "./dest/api/ethereum/index.js",
+    "./ethereum": "./dest/api/ethereum.js",
     "./fee": "./dest/api/fee.js",
     "./fields": "./dest/api/fields.js",
     "./log": "./dest/api/log.js",
     "./log_id": "./dest/api/log_id.js",
-    "./rpc": "./dest/rpc_clients/index.js",
+    "./rpc": "./dest/api/rpc.js",
     "./tx_hash": "./dest/api/tx_hash.js",
     "./wallet": "./dest/api/wallet.js",
-    "./utils": "./dest/api/utils/index.js",
-    "./testing": "./dest/api/test/index.js"
+    "./utils": "./dest/api/utils.js",
+    "./testing": "./dest/api/testing.js"
   },
   "typedocOptions": {
     "entryPoints": [

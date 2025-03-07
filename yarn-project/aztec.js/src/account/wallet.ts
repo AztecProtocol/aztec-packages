@@ -1,7 +1,7 @@
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
-import type { IntentAction, IntentInnerHash } from '../api/utils/authwit.js';
+import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import type { AccountInterface } from './interface.js';
 
 /**

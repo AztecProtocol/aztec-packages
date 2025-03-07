@@ -1,7 +1,7 @@
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import type { ContractFunctionInteraction } from '../api/contract/contract_function_interaction.js';
-import { getDeployerContract } from '../api/contract/protocol_contracts.js';
+import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { getDeployerContract } from '../contract/protocol_contracts.js';
 import type { Wallet } from '../wallet/index.js';
 
 /**

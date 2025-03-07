@@ -20,15 +20,7 @@
  * TODO: Ultimately reimplement this mega exporter by mega exporting a granular api (then deprecate it).
  */
 
-export { ContractDeployer } from './deployment/index.js';
-
 export { NoteSelector } from '@aztec/stdlib/abi';
-
-export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
-
-export { type DeployAccountOptions } from './account_manager/index.js';
-
-export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet } from './wallet/index.js';
 
 export { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -97,8 +89,11 @@ export { fileURLToPath } from '@aztec/foundation/url';
 export * from './api/abi.js';
 export * from './api/account.js';
 export * from './api/addresses.js';
-export * from './api/ethereum/index.js';
+export * from './api/deployment.js';
+export * from './api/ethereum.js';
 export * from './api/fee.js';
 export * from './api/log.js';
-export * from './api/contract/index.js';
-export * from './api/utils/index.js';
+export * from './api/contract.js';
+export * from './api/utils.js';
+export * from './api/rpc.js';
+export * from './api/wallet.js';

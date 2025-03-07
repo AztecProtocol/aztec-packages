@@ -7,4 +7,4 @@ export {
   getAccountContractAddress,
 } from '../account/index.js';
 
-export { AccountManager } from '../account_manager/index.js';
+export { AccountManager, type DeployAccountOptions } from '../account_manager/index.js';

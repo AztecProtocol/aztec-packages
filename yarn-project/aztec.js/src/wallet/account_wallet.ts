@@ -7,14 +7,14 @@ import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { AccountInterface } from '../account/interface.js';
-import { ContractFunctionInteraction } from '../api/contract/contract_function_interaction.js';
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import {
   type IntentAction,
   type IntentInnerHash,
   computeAuthWitMessageHash,
   computeInnerAuthWitHashFromAction,
-} from '../api/utils/authwit.js';
-import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+} from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
 /**

@@ -3,8 +3,8 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 
-import { getFeeJuice } from '../api/contract/protocol_contracts.js';
-import type { L2AmountClaim } from '../api/ethereum/portal_manager.js';
+import { getFeeJuice } from '../contract/protocol_contracts.js';
+import type { L2AmountClaim } from '../ethereum/portal_manager.js';
 import type { Wallet } from '../wallet/index.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
