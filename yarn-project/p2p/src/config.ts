@@ -169,6 +169,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * A list of trusted peers.
    */
   trustedPeers: string[];
+
+  /**
+   * A list of private peers.
+   */
+  privatePeers: string[];
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -340,6 +345,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_TRUSTED_PEERS',
     parseEnv: (val: string) => val.split(','),
     description: 'A list of trusted peers ENRs. Separated by commas.',
+  },
+  privatePeers: {
+    env: 'P2P_PRIVATE_PEERS',
+    parseEnv: (val: string) => val.split(','),
+    description: 'A list of private peers ENRs. Separated by commas.',
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
