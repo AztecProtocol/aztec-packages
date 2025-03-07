@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741372968933,
+  "lastUpdate": 1741374396636,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "miranda@aztecprotocol.com",
-            "name": "Miranda Wood",
-            "username": "MirandaWood"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b6871ce5487f7ab1cc27cf8777fa238028f2dc10",
-          "message": "feat: tightly pack logs inside blobs (#11752)\n\nThis PR removes trailing zeroes from logs appended to the blobs to save\non field space.\ne.g. before this PR, a public log would be appended like:\n```rust\n[1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n```\nbut now is appended as:\n```rust\n[1, 2, 3]\n```\nwith a length prefix.\nIn ts, we add back the trailing zeroes when constructing tx effects from\nthe blob, so if they are required there should be no issue.\nAlso, in some logs there are valid zeroes inside the log. The method\ndoes not remove these. e.g. a public log like:\n```rust\n[1, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]\n```\nis appended as:\n```rust\n[1, 0, 3]\n```\nthen reconstructed to the original log once in ts.",
-          "timestamp": "2025-03-05T16:41:24Z",
-          "tree_id": "8b902567ded2d8645c08792a667de1c1856bd848",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b6871ce5487f7ab1cc27cf8777fa238028f2dc10"
-        },
-        "date": 1741195084902,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18310.558331000037,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16201.020712999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18907.178333999807,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16361.319737000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3951.323004999722,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3140.8121120000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55501.222697000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55501227000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11469.875582,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11469877000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1926191800,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1926191800 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 223513178,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 223513178 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3598,6 +3526,78 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
             "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "sergei iakovenko",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aacb91a49a7099c93b5953c210c151fe70dad433",
+          "message": "chore: turn on masking in eccvm (#12467)\n\n* All ECCVM wires are masked now. \n* Redefined `lagrange_last` in ECCVM to keep it sound. \n* Used `commit_structured` with active ranges to commit to randomized\nwires, as they have a huge 0 region from `real_size` to `circuit_size -\nMASKING_OFFSET`.\n\nIt closes the **translation evaluations** arc: \n* Goblin: `verify_translation` passes when ECCVM wires are masked thanks\nto `ECCVMVerifier` propagating the `translation_masking_term_eval` to\n`TranslatorVerifier`\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1238",
+          "timestamp": "2025-03-07T19:26:53+01:00",
+          "tree_id": "e78ffe3cf20a746e2fd2fb96c0342010daf98c2b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/aacb91a49a7099c93b5953c210c151fe70dad433"
+        },
+        "date": 1741374389067,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18321.74213799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16211.802812000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19021.914125999956,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16488.884207 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3954.5373650003057,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3142.4520840000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55712.91697399999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55712914000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10475.729677000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10475736000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1600050735,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1600050735 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 217583539,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 217583539 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
