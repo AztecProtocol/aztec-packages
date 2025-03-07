@@ -10,6 +10,8 @@ NC='\033[0m'
 SUCCESS="✓"
 ERROR="✗"
 
+BB_PATH=${BB_PATH:-"$HOME/.bb"}
+
 # Utility functions
 print_spinner() {
     local pid=$1
@@ -51,6 +53,10 @@ get_bb_version_for_noir() {
     echo "$bb_version"
 }
 
+version_gte() {
+    [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" = "$2" ]
+}
+
 install_bb() {
     local version=$1
     local architecture=$(uname -m)
@@ -58,9 +64,17 @@ install_bb() {
 
     # Convert architecture names
     if [ "$architecture" = "arm64" ]; then
-        architecture="aarch64"
+        if version_gte "$version" "0.77.0"; then
+            architecture="arm64"
+        else
+            architecture="aarch64"
+        fi
     elif [ "$architecture" = "x86_64" ]; then
-        architecture="amd64"
+        if version_gte "$version" "0.77.0"; then
+            architecture="amd64"
+        else
+            architecture="x86_64"
+        fi
     else
         printf "${RED}${ERROR} Unsupported architecture: ${architecture}${NC}\n"
         exit 1
@@ -68,36 +82,46 @@ install_bb() {
 
     # Determine platform
     if [ "$(uname)" = "Darwin" ]; then
-        platform="darwin"
+        if version_gte "$version" "0.77.0"; then
+            platform="darwin"
+        else
+            platform="apple-darwin"
+        fi
     elif [ "$(uname)" = "Linux" ]; then
-        platform="linux"
+        if version_gte "$version" "0.77.0"; then
+            platform="linux"
+        else
+            platform="linux-gnu"
+        fi
+
     else
         printf "${RED}${ERROR} Unsupported platform: $(uname)${NC}\n"
         exit 1
     fi
 
-    local home_dir=$HOME
-    local bb_path="${home_dir}/.bb"
-
-    printf "${BLUE}Installing to ${bb_path}${NC}\n"
+    printf "${BLUE}Installing to ${BB_PATH}${NC}\n"
 
     # Create temporary directory
     local temp_dir=$(mktemp -d)
     local temp_tar="${temp_dir}/temp.tar.gz"
 
     # Download and extract
-    local release_url="https://github.com/AztecProtocol/aztec-packages/releases/download/v${version}"
-    local binary_url="${release_url}/barretenberg-${architecture}-${platform}.tar.gz"
+    local release_url_base="https://github.com/AztecProtocol/aztec-packages/releases/download"
+    local release_tag="v${version}"
+    if ! version_gte "$version" "0.77.0"; then
+        release_tag="aztec-packages-v${version}"
+    fi
+    local binary_url="${release_url_base}/${release_tag}/barretenberg-${architecture}-${platform}.tar.gz"
 
     curl -L "$binary_url" -o "$temp_tar"
-    mkdir -p "$bb_path"
-    tar xzf "$temp_tar" -C "$bb_path"
+    mkdir -p "$BB_PATH"
+    tar xzf "$temp_tar" -C "$BB_PATH"
     rm -rf "$temp_dir"
 
     # Update shell configuration
-    update_shell_config "$bb_path"
+    update_shell_config "$BB_PATH"
 
-    printf "${GREEN}${SUCCESS} Installed barretenberg to ${bb_path}${NC}\n"
+    printf "${GREEN}${SUCCESS} Installed barretenberg to ${BB_PATH}${NC}\n"
 }
 
 update_shell_config() {

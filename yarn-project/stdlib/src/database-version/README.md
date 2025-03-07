@@ -12,8 +12,8 @@ The Version Manager helps manage database migrations and version compatibility a
 ## Usage
 
 ```typescript
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { version } from '@aztec/foundation';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 // Define your current database version
 const DB_VERSION = 3;
@@ -44,7 +44,7 @@ await versionManager.checkVersionAndHandle(
       // Unsupported migration path, will fall back to reset
       throw new Error(`Cannot upgrade from ${oldVersion} to ${newVersion}`);
     }
-  }
+  },
 );
 
 // Get the data directory for your service
