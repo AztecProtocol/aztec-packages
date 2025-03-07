@@ -53,6 +53,36 @@ With the fee options explained, lets do a paid transaction.
 
 ## Examples
 
+### Bridging fee-juice on the sandbox (ready to claim)
+
+Bridging of the tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec), and below summarises bridging fee juice on the sandbox.
+
+First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
+
+#include_code get_node_info_pub_client yarn-project/end-to-end/src/spartan/smoke.test.ts javascript
+
+Note: You'll need to: `import { createPublicClient } from 'viem';`
+
+Now use these to create the L1FeeJuicePortalManager
+
+```
+const l1PortalManager = new L1FeeJuicePortalManager(
+    info.l1ContractAddresses.feeJuicePortalAddress,
+    info.l1ContractAddresses.feeJuiceAddress,
+    publicClient, // from step 1
+    getL1WalletClient(foundry.rpcUrls.default.http[0], 0),
+    createLogger('example:bridging-fee-juice');,
+);
+```
+
+Bridge the tokens (true = mint)
+
+#include_code l1-bridge-public yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts
+
+The resulting object can now be used to claim fee-juice, or alternatively, claim and pay for a transaction in one.
+
+See here to [Bridge Fee Juice](../../../developers/reference/environment_reference/cli_wallet_reference#bridge-fee-juice) via the CLI wallet.
+
 ### Pay with FeeJuice
 
 An account can be deployed directly via fee-juice payment if the address has been pre-funded.
@@ -71,48 +101,14 @@ import { CLI_Fees } from '/components/snippets';
 
 <CLI_Fees />
 
-See here to [Bridge Fee Juice](../../../developers/reference/environment_reference/cli_wallet_reference#bridge-fee-juice) via the CLI wallet.
-
 ### Claim and pay
 
-After a user has sent fee juice from L1 to be bridged to L2, a transaction can be made that claims this to pay for itself, and make the transaction, in one.
+A transaction can be made that claims bridged fee juice, and immediately uses it to pay for itself in one.
 
 The claim object:
 
 #include_code claim_type_amount yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
 
-#### Half-bridging fee-juice in the Sandbox
-
-Bridging of the fee-juice asset is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec), but since we're going to claim and pay in one, we only need to mint/approve on L1.
-
-1. Get node info and create a public client pointing to the sandbox's foundry L1:
-
-#include_code get_node_info_pub_client yarn-project/end-to-end/src/spartan/smoke.test.ts javascript
-
-Notes: Steps 1 and 3 make use of viem functions, so be sure to: `import { createPublicClient, createWalletClient } from 'viem';`
-
-2. Now use these to create the L1FeeJuicePortalManager and get its L1TokenManager
-
-```
-const feeJuicePortalManager = new L1FeeJuicePortalManager( // Create an L1FeeJuicePortalManager
-    info.l1ContractAddresses.feeJuicePortalAddress,
-    info.l1ContractAddresses.feeJuiceAddress,
-    publicClient, // from step 1
-    getL1WalletClient(foundry.rpcUrls.default.http[0], 0),
-    createLogger('example:bridging-fee-juice');,
-);
-const tokenManager = feeJuicePortalManager.getTokenManager();
-```
-
-3. Now mint and approve the amount of tokens on L1
-
-```
-const [claimSecret, claimSecretHash] = await generateClaimSecret();
-await this.tokenManager.mint(amount, publicClient.account.address);
-await this.tokenManager.approve(amount, l1ContractAddresses.feeJuicePortalAddress, 'FeeJuice Portal');
-```
-
-These tokens are now ready for use with claim and pay, using the claimSecret and claimSecretHash.
 
 #### Claim and Pay on Aztec
 
@@ -120,6 +116,7 @@ Calling a function on an object (in this case checking the balance of the fee ju
 
 #include_code claim_and_pay yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts javascript
 
+Note: This uses the `claim` object shown in the earlier bridging section.
 
 ### Fee Paying Contract
 
