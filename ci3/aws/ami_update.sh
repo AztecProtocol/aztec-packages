@@ -59,6 +59,9 @@ ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip "
 "
 
 if [ "${NO_AMI:-0}" -eq 0 ]; then
+  # Erase the login key to ensure only the key given by KeyName on launch has access.
+  ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip rm .ssh/authorized_keys
+
   export AWS_DEFAULT_REGION=us-east-2
   ami_id=$(aws ec2 create-image \
     --instance-id "$iid" \
