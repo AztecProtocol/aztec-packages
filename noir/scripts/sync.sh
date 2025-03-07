@@ -84,7 +84,7 @@ function has_tag_commit {
 # Check if we have applied the patch in any commit in the log.
 # It is possible that we checkout a branch, apply the patch, then go into noir-repo
 # and work on various fixes, committing them as we go. In that case the patch won't
-# the the last commit, but it doesn't have to be applied again if we switch away
+# be the last commit, but it doesn't have to be applied again if we switch away
 # from our branch and then come back to it later.
 function has_commit_patch {
   if git -C noir-repo rev-list --no-commit-header --format=%B HEAD | grep -q --max-count=1 "$PATCH_COMMIT_MSG" ; then
