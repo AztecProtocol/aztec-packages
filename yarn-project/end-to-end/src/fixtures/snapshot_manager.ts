@@ -2,11 +2,9 @@ import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccounts, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  AnvilTestWatcher,
   type AztecAddress,
   BatchCall,
   type Capsule,
-  CheatCodes,
   type CompleteAddress,
   type ContractFunctionInteraction,
   type FunctionCall,
@@ -16,6 +14,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
   type DeployL1ContractsArgs,

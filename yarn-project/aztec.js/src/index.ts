@@ -97,10 +97,8 @@ export { fileURLToPath } from '@aztec/foundation/url';
 export * from './api/abi.js';
 export * from './api/account.js';
 export * from './api/addresses.js';
-export * from './api/cheat_codes.js';
 export * from './api/ethereum/index.js';
 export * from './api/fee.js';
 export * from './api/log.js';
-// Granular export, even if not in the api folder
-export * from './contract/index.js';
-export * from './utils/index.js';
+export * from './api/contract/index.js';
+export * from './api/utils/index.js';

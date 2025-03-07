@@ -8,13 +8,13 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
-  type CheatCodes,
   type CompleteAddress,
   EthAddress,
   type Logger,
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';

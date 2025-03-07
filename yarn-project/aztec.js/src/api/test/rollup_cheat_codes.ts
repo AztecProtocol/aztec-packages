@@ -8,8 +8,6 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
 import { foundry } from 'viem/chains';
 
-export { EthCheatCodes };
-
 /** Cheat codes for the L1 rollup contract. */
 export class RollupCheatCodes {
   private client: ViemPublicClient;

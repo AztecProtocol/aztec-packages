@@ -8,7 +8,7 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { type GetContractReturnType, getAddress, getContract } from 'viem';
 
-import { RollupCheatCodes } from './cheat_codes.js';
+import { RollupCheatCodes } from './rollup_cheat_codes.js';
 
 /**
  * Represents a watcher for a rollup contract.

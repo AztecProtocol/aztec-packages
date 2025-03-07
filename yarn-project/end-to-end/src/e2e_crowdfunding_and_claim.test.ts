@@ -1,6 +1,5 @@
 import {
   type AccountWallet,
-  type CheatCodes,
   Fr,
   HashedValues,
   type Logger,
@@ -9,6 +8,7 @@ import {
   type UniqueNote,
   deriveKeys,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TestContract } from '@aztec/noir-contracts.js/Test';

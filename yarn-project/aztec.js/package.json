@@ -10,7 +10,7 @@
     "./account": "./dest/api/account.js",
     "./addresses": "./dest/api/addresses.js",
     "./cheatcodes": "./dest/api/cheatcodes.js",
-    "./contracts": "./dest/contract/index.js",
+    "./contracts": "./dest/api/contract/index.js",
     "./deployment": "./dest/api/deployment.js",
     "./entrypoint": "./dest/api/entrypoint.js",
     "./eth_address": "./dest/api/eth_address.js",
@@ -22,7 +22,8 @@
     "./rpc": "./dest/rpc_clients/index.js",
     "./tx_hash": "./dest/api/tx_hash.js",
     "./wallet": "./dest/api/wallet.js",
-    "./utils": "./dest/utils/index.js"
+    "./utils": "./dest/api/utils/index.js",
+    "./testing": "./dest/api/test/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

@@ -10,11 +10,9 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
   BatchCall,
-  CheatCodes,
   type ContractMethod,
   FeeJuicePaymentMethod,
   type Logger,
@@ -28,6 +26,7 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import type { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';

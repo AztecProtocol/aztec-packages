@@ -1,4 +1,5 @@
-import { CheatCodes, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import { createPXEClient, makeFetch } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import type { LogFn } from '@aztec/foundation/log';
 
 export async function advanceEpoch(l1RpcUrls: string[], rpcUrl: string, log: LogFn) {

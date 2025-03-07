@@ -3,10 +3,10 @@ import { createLogger } from '@aztec/foundation/log';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/wallet.js';
-import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import type { FeeOptions, UserFeeOptions } from '../entrypoint/payload.js';
-import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
+import type { Wallet } from '../../account/wallet.js';
+import type { ExecutionRequestInit } from '../../entrypoint/entrypoint.js';
+import type { FeeOptions, UserFeeOptions } from '../../entrypoint/payload.js';
+import { FeeJuicePaymentMethod } from '../../fee/fee_juice_payment_method.js';
 import { getGasLimits } from './get_gas_limits.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';

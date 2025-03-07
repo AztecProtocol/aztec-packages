@@ -13,7 +13,7 @@ import type { Tx, TxExecutionRequest, TxHash, TxProvingResult, TxReceipt, TxSimu
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { Wallet } from '../account/wallet.js';
+import type { Wallet } from '../../account/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {

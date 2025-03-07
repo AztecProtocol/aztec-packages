@@ -3,7 +3,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { Tx } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/index.js';
+import type { Wallet } from '../../account/index.js';
 import type { Contract } from './contract.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 import { ProvenTx } from './proven_tx.js';

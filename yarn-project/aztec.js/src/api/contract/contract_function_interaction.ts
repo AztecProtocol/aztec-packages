@@ -10,8 +10,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PrivateKernelProverProfileResult } from '@aztec/stdlib/kernel';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/wallet.js';
-import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
+import type { Wallet } from '../../account/wallet.js';
+import { FeeJuicePaymentMethod } from '../../fee/fee_juice_payment_method.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
 export type { SendMethodOptions };

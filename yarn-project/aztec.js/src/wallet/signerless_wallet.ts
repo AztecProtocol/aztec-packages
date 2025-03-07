@@ -4,9 +4,9 @@ import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
+import type { IntentAction, IntentInnerHash } from '../api/utils/authwit.js';
 import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
 import type { EntrypointInterface, ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
 /**
