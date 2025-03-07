@@ -20,7 +20,7 @@ pub contract NFT {
             functions::{initializer, internal, private, public, view},
             storage::storage,
         },
-        note::constants::MAX_NOTES_PER_PAGE,
+        note::{constants::MAX_NOTES_PER_PAGE, note_interface::NoteProperties},
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicImmutable, PublicMutable,
