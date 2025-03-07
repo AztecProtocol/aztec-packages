@@ -20,7 +20,7 @@ pub contract NFT {
             functions::{initializer, internal, private, public, view},
             storage::storage,
         },
-        note::constants::MAX_NOTES_PER_PAGE,
+        note::{constants::MAX_NOTES_PER_PAGE, note_interface::{NoteProperties, PartialNote}},
         oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
@@ -30,6 +30,7 @@ pub contract NFT {
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
+    use aztec::protocol_types::traits::ToField;
     use std::meta::derive;
 
     // docs:end:imports

@@ -45,10 +45,8 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     {
         size_t max_log_circuit_size{ 0 };
         for (auto key : _data) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value.
-            max_log_circuit_size = std::max(
-                max_log_circuit_size,
-                static_cast<size_t>(static_cast<uint32_t>(key->verification_key->log_circuit_size.get_value())));
+            max_log_circuit_size =
+                std::max(max_log_circuit_size, static_cast<size_t>(key->verification_key->log_circuit_size));
         }
         return max_log_circuit_size;
     }

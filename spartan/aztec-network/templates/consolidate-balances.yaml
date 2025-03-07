@@ -122,6 +122,7 @@ spec:
           volumeMounts:
             - name: scripts
               mountPath: /scripts
+
       containers:
         - name: consolidate-balances
           {{- include "aztec-network.image" . | nindent 10 }}

@@ -15,7 +15,7 @@ import {
   type PXEServiceConfig,
   allPxeConfigMappings,
   createPXEService,
-} from '@aztec/pxe';
+} from '@aztec/pxe/server';
 import { type AztecNode, PXESchema, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import { L2BasicContractsMap, Network } from '@aztec/stdlib/network';
 import { makeTracedFetch } from '@aztec/telemetry-client';
