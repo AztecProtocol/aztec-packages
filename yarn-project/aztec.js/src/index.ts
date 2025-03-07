@@ -20,10 +20,6 @@
  * TODO: Ultimately reimplement this mega exporter by mega exporting a granular api (then deprecate it).
  */
 
-export { NoteSelector } from '@aztec/stdlib/abi';
-
-export { EthAddress } from '@aztec/foundation/eth-address';
-
 export { Fq, Fr, Point, GrumpkinScalar } from '@aztec/foundation/fields';
 
 export { SiblingPath } from '@aztec/foundation/trees';
@@ -91,6 +87,7 @@ export * from './api/account.js';
 export * from './api/addresses.js';
 export * from './api/deployment.js';
 export * from './api/ethereum.js';
+export * from './api/eth_address.js';
 export * from './api/fee.js';
 export * from './api/log.js';
 export * from './api/contract.js';
