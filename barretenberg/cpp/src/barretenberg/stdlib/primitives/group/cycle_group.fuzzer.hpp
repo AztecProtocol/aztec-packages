@@ -751,11 +751,15 @@ template <typename Builder> class CycleGroupBase {
              * in that case, the function that handles the predicate
              * will use the context of another input parameter
              */
-            const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
+            const bool predicate_is_const = static_cast<bool>(VarianceRNG.next() & 1);
 #ifdef SHOW_INFORMATION
-            std::cout << "Constant predicate? " << predicate_has_ctx << std::endl;
+            std::cout << "Constant predicate? " << predicate_is_const << std::endl;
 #endif
-            return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
+            if(predicate_is_const){
+                const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
+                return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
+            }
+            return bool_t(witness_t(builder, predicate));
         }
 
         cycle_group_t cg() const
