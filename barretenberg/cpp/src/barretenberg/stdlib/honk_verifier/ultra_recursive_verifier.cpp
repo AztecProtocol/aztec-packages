@@ -46,12 +46,10 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
 
-    std::cout << "XA" << std::endl;
     transcript = std::make_shared<Transcript>(proof);
     auto verification_key = std::make_shared<RecursiveDeciderVK>(builder, key);
     OinkVerifier oink_verifier{ builder, verification_key, transcript };
     oink_verifier.verify();
-    std::cout << "XB" << std::endl;
 
     VerifierCommitments commitments{ key, verification_key->witness_commitments };
 
@@ -63,7 +61,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
     AggregationObject nested_agg_obj;
     size_t idx = 0;
-
     std::array<typename Curve::Group, 2> nested_pairing_points;
     for (size_t i = 0; i < 2; i++) {
         std::array<typename Curve::BaseField, 2> base_field_vals;

@@ -359,7 +359,6 @@ class MegaFlavor {
                                    /* offset */ 1 };
             }
             // catch-all with fully formed polynomials
-
             for (auto& poly : get_unshifted()) {
                 if (poly.is_empty()) {
                     // Not set above
