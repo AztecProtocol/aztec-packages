@@ -28,13 +28,13 @@ function write_last_ref {
 
 # Check if we are on a branch.
 function is_on_branch {
-  test $(git -C noir-repo symbolic-ref -q HEAD &>/dev/null)
+  test $(git -C noir-repo symbolic-ref -q HEAD)
 }
 
 # Check if we are on a detached HEAD, which means if we switch branches
 # it would be difficult to recover any changes committed on this branch.
 function is_detached_head {
-  test ! $(is_on_branch)
+  test ! is_on_branch
 }
 
 # Check if noir-repo has uncommitted changes.
@@ -57,7 +57,9 @@ function is_last_commit_patch {
   test "$last_msg" == "$PATCH_COMMIT_MSG"
 }
 
-function fixup {
+# Apply the fixup script and any local patch file.
+function fixup_repo {
+  echo "Applying patches on noir-repo"
   # Redirect the `bb` reference to the local one.
   scripts/sync-in-fixup.sh
   # TODO: Apply any patch file
@@ -71,21 +73,37 @@ function init_repo {
   if [ ! -d noir-repo ]; then
     url=https://github.com/noir-lang/noir.git
     ref=$(read_wanted_ref)
+    echo Initializing noir-repo to $ref
     # `--branch` doesn't work for commit hashes
-    git clone --depth 1 --branch $ref $url noir-repo || git clone $url noir-repo && git -C noir-repo checkout $ref
+    git clone --depth 1 --branch $ref $url noir-repo \
+    || git clone $url noir-repo && git -C noir-repo checkout $ref
+    fixup_repo
     write_last_ref $ref
-    fixup
   fi
 }
 
 # Check out a tag, branch or commit.
-function checkout_commitish {
+function switch_repo {
   ref=$1
-  cd noir-repo
-  git fetch origin
-  # Tracking so we can pull changes in subsequent updates
-  git checkout --track origin/$ref || git checkout $ref
-  cd -
+  echo Switching noir-repo to $ref
+  git -C noir-repo fetch origin
+  # Try to check out an existing branch, or remote commit.
+  if git -C noir-repo checkout $ref; then
+    # If it's a branch we just need to pull the latest changes.
+    if is_on_branch; then
+      git -C noir-repo pull --rebase
+    fi
+  else
+    # If the checkout failed, then it must be a remote branch
+    git -C noir-repo checkout --track origin/$ref
+  fi
+  # If we haven't applied the patch yet, we have to do it (again).
+  if ! is_last_commit_patch; then
+    fixup_repo
+  else
+    echo "Patches already applied"
+  fi
+  write_last_ref $ref
 }
 
 # Bring the noir-repo in line with the commit marker.
@@ -93,6 +111,7 @@ function update_repo {
   want=$(read_wanted_ref)
   have=$(read_last_ref)
   if [ "$want" == "$have" ]; then
+    echo "noir-repo already on $want"
     if is_on_branch; then
       # If we're on a branch, then we there might be new commits.
       # Rebasing so our local patch commit ends up on top.
@@ -119,13 +138,11 @@ function update_repo {
     exit 1
   fi
 
-  checkout_commitish $want
-  write_last_ref $want
-  fixup
+  switch_repo $want
 }
 
 function testme {
-  if [[ is_detached_head && is_last_commit_patch ]]; then
+  if ! is_detached_head; then
     echo "yes"
   else
     echo "no"
