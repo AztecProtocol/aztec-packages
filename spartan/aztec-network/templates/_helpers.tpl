@@ -181,6 +181,10 @@ Sets up the OpenTelemetry resource attributes for a service
       value: "{{ $serviceName }}"
     - name: OTEL_RESOURCE_ATTRIBUTES
       value: 'service.namespace={{ .Release.Namespace }},environment={{ .Values.environment | default "production" }}'
+    - name: AZTEC_SLOT_DURATION
+      value: "{{ .Values.aztec.slotDuration }}"
+    - name: AZTEC_EPOCH_DURATION
+      value: "{{ .Values.aztec.epochDuration }}"
   volumeMounts:
     - name: scripts
       mountPath: /scripts
@@ -342,6 +346,10 @@ Combined P2P, Service Address, and OpenTelemetry Setup Container
       value: "{{ .Values.proverBroker.service.nodePort }}"
     - name: USE_GCLOUD_LOGGING
       value: "{{ .Values.telemetry.useGcloudLogging }}"
+    - name: AZTEC_SLOT_DURATION
+      value: "{{ .Values.aztec.slotDuration }}"
+    - name: AZTEC_EPOCH_DURATION
+      value: "{{ .Values.aztec.epochDuration }}"
     - name: SERVICE_NAME
       value: {{ include "aztec-network.fullname" . }}
     - name: POD_IP
