@@ -10,6 +10,8 @@ export type L2ChainConfig = {
   p2pEnabled: boolean;
   p2pBootstrapNodes: string[];
   registryAddress: string;
+  seqMinTxsPerBlock: number;
+  seqMaxTxsPerBlock: number;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -22,6 +24,8 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 0,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -65,4 +69,6 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('P2P_ENABLED', config.p2pEnabled.toString());
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
   enrichVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
+  enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
+  enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
 }

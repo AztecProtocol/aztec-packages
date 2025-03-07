@@ -18,6 +18,7 @@ class ECCVMProver {
     using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
+    using Commitment = typename Flavor::Commitment;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -46,11 +47,16 @@ class ECCVMProver {
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
     void compute_translation_opening_claims();
+    void commit_to_witness_polynomial(Polynomial& polynomial,
+                                      const std::string& label,
+                                      CommitmentKey::CommitType commit_type = CommitmentKey::CommitType::Default,
+                                      const std::vector<std::pair<size_t, size_t>>& active_ranges = {});
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
     bool fixed_size;
+    size_t unmasked_witness_size;
 
     // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`

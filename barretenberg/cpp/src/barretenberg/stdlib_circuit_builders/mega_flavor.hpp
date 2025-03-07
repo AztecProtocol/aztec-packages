@@ -103,7 +103,7 @@ class MegaFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities {
+    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
         bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
@@ -429,7 +429,7 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
@@ -489,8 +489,10 @@ class MegaFlavor {
             serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
             serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
 
-            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
+                                      elements);
+            serialize_to_field_buffer(
+                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
 
             for (const Commitment& commitment : this->get_all()) {
