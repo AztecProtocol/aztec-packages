@@ -12,7 +12,7 @@ or if some integration test fails and the Noir bug is fixed locally, changes hav
 
 ## Syncing from Noir to aztec-packages
 
-During the build the the Noir repository is cloned or updated according to the contents of the [noir-repo-ref](./noir-repo-ref)
+During the build the Noir repository is cloned or updated according to the contents of the [noir-repo-ref](./noir-repo-ref)
 file, which can be a tag, branch name or commit hash. The value can be overriden using the `NOIR_REPO_REF` environment variable,
 for example to run the integration tests in aztec-packages against a yet-to-be-released branch of Noir.
 
