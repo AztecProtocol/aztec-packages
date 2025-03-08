@@ -8,6 +8,24 @@ export preset=clang16-assert
 export pic_preset="clang16-pic"
 export hash=$(cache_content_hash .rebuild_patterns)
 
+# Injects version number into a given bb binary.
+# Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
+function inject_version {
+  local binary=$1
+  local version=$(jq -r '."."' ../../.release-please-manifest.json)
+  local placeholder='00000000.00000000.00000000'
+  if [ ${#version} -gt ${#placeholder} ]; then
+    echo "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
+    exit 1
+  fi
+  local offset=$(grep -aobF "$placeholder" $binary | head -n 1 | cut -d: -f1)
+  if [ -z "$offset" ]; then
+    echo "Placeholder not found in $binary, can't inject version."
+    exit 1
+  fi
+  printf "$version\0" | dd of=$binary bs=1 seek=$offset conv=notrunc 2>/dev/null
+}
+
 # Build all native binaries, including tests.
 function build_native {
   set -eu
@@ -98,46 +116,26 @@ function download_old_crs {
 }
 
 function build_release {
+  local arch=$(arch)
   rm -rf build-release
   mkdir build-release
-  local version=$(jq -r '."."' ../../.release-please-manifest.json)
-  local version_placeholder='00000000.00000000.00000000'
-  local version_regex='00000000\.00000000\.00000000'
-  local arch=$(arch)
-  # We pad version to the length of our version_placeholder, adding null bytes to the end.
-  # We then write out to this version to our artifacts, using sed to replace the version placeholder in our binaries.
-  # Calculate lengths (both version and placeholder)
-  local placeholder_length=${#version_placeholder}
-  local version_length=${#version}
-  if (( version_length > placeholder_length )); then
-    echo "Error: version ($version) is longer than placeholder ($version_placeholder). Cannot update bb binaries."
-    exit 1
-  fi
-  # Create a string for use in sed that will write the appropriate number of null bytes.
-  local N=$(( placeholder_length - version_length ))
-  local nullbytes="$(printf '\\x00%.0s' $(seq 1 "$N"))"
 
-  function update_bb_version {
-    local file=$1
-    if ! grep $version_regex "$file" 2>/dev/null; then
-      echo_stderr "Error: $file does not have placeholder ($version_placeholder). Cannot update bb binaries."
-      exit 1
-    fi
-    # Perform the actual replacement on a file.
-    sed "s/$version_regex/$version$nullbytes/" "$file"
-  }
-  update_bb_version build/bin/bb > build-release/bb
-  chmod +x build-release/bb
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release bb
-  # WASM binaries do not currently report version.
-  tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
-  tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
-  tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
-  tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
+  cp build/bin/bb build-release/bb
+  inject_version build-release/bb
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
+
   if [ "$CI_FULL" -eq 1 ]; then
-    update_bb_version build-darwin-$arch/bin/bb > build-darwin-$arch/bin/bb.replaced
-    chmod +x build-darwin-$arch/bin/bb.replaced
-    tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-darwin-$arch/bin --transform 's/.replaced//' bb.replaced
+    cp build-darwin-$arch/bin/bb build-release/bb
+    inject_version build-release/bb
+    tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-release --remove-files bb
+  fi
+
+  # Only release wasms built on amd64.
+  if [ "$arch" == "amd64 "]; then
+    tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
+    tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
+    tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
+    tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
   fi
 }
 
@@ -152,16 +150,12 @@ function build {
     build_wasm_threads
     download_old_crs
   )
-  if [ "$(arch)" == "amd64" ] && [ "${CI:-0}" = 1 ]; then
+  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # TODO figure out why this is failing on arm64 with ultra circuit builder string op overflow.
-    builds+=(
-      build_gcc_syntax_check_only
-    )
+    builds+=(build_gcc_syntax_check_only)
   fi
   if [ "$CI_FULL" -eq 1 ]; then
-    builds+=(
-      build_darwin
-    )
+    builds+=(build_darwin)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
@@ -280,10 +274,6 @@ function release {
   do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
 }
 
-function release_commit {
-  release
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -304,7 +294,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|release|release_commit|build_native|build_wasm|build_wasm_threads|build_darwin|build_release)
+  test|test_cmds|bench|release|build_native|build_wasm|build_wasm_threads|build_darwin|build_release|inject_version)
     $cmd "$@"
     ;;
   *)
