@@ -24,9 +24,7 @@ describe('e2e_token_contract private transfer recursion', () => {
     for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
       const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);
       const from = wallets[0].getAddress(); // we are setting from to sender here because we need a sender to calculate the tag
-      const actions = await Promise.all(
-        toMint.map(amt => asset.methods.mint_to_private(from, wallets[0].getAddress(), amt).request()),
-      );
+      const actions = toMint.map(amt => asset.methods.mint_to_private(from, wallets[0].getAddress(), amt));
       await new BatchCall(wallets[0], actions).send().wait();
     }
 

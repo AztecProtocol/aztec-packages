@@ -24,7 +24,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee, nonce, cancellable, capsules = [] } = exec;
+    const { calls, fee, nonce, cancellable, authWitnesses = [], capsules = [] } = exec;
     const appPayload = await EntrypointPayload.fromAppExecution(calls, nonce);
     const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
@@ -43,7 +43,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
       argsOfCalls: [...appPayload.hashedArguments, ...feePayload.hashedArguments, entrypointHashedArgs],
-      authWitnesses: [combinedPayloadAuthWitness],
+      authWitnesses: [...authWitnesses, combinedPayloadAuthWitness],
       capsules,
     });
 

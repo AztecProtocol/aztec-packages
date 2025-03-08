@@ -172,7 +172,7 @@ describe('e2e_token_contract transfer private', () => {
         isValidInPublic: false,
       });
 
-      const innerHash = await computeInnerAuthWitHashFromAction(accounts[1].address, await action.request());
+      const innerHash = await computeInnerAuthWitHashFromAction(accounts[1].address, (await action.request()).calls[0]);
       await asset.withWallet(wallets[0]).methods.cancel_authwit(innerHash).send().wait();
 
       expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({

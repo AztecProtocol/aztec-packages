@@ -5,6 +5,7 @@ import {
   AztecAddress,
   type AztecNode,
   BatchCall,
+  ContractFunctionInteraction,
   type DeployMethod,
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
@@ -18,7 +19,6 @@ import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { FunctionCall } from '@aztec/stdlib/abi';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
@@ -182,20 +182,20 @@ export class BotFactory {
       privateBalance = await getPrivateBalance(token, sender);
     }
 
-    const calls: FunctionCall[] = [];
+    const calls: ContractFunctionInteraction[] = [];
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
       const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
-          ? await token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
-          : await token.methods.mint(MINT_BALANCE, sender).request(),
+          ? token.methods.mint_to_private(from, sender, MINT_BALANCE)
+          : token.methods.mint(MINT_BALANCE, sender),
       );
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {
       this.log.info(`Minting public tokens for ${sender.toString()}`);
-      calls.push(await token.methods.mint_to_public(sender, MINT_BALANCE).request());
+      calls.push(token.methods.mint_to_public(sender, MINT_BALANCE));
     }
     if (calls.length === 0) {
       this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);
