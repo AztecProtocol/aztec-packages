@@ -10,6 +10,104 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_scalar_mul_to_radix ///////////////////
+
+class lookup_scalar_mul_to_radix_settings {
+  public:
+    static constexpr std::string_view NAME = "LOOKUP_SCALAR_MUL_TO_RADIX";
+    static constexpr std::string_view RELATION_NAME = "scalar_mul";
+
+    static constexpr size_t READ_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
+    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
+    static constexpr size_t READ_TERM_DEGREE = 0;
+    static constexpr size_t WRITE_TERM_DEGREE = 0;
+
+    // Columns using the Column enum.
+    static constexpr Column SRC_SELECTOR = Column::scalar_mul_sel;
+    static constexpr Column DST_SELECTOR = Column::to_radix_sel;
+    static constexpr Column COUNTS = Column::lookup_scalar_mul_to_radix_counts;
+    static constexpr Column INVERSES = Column::lookup_scalar_mul_to_radix_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::scalar_mul_scalar,
+        ColumnAndShifts::scalar_mul_bit,
+        ColumnAndShifts::scalar_mul_bit_idx,
+        ColumnAndShifts::scalar_mul_bit_radix
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::to_radix_value,
+        ColumnAndShifts::to_radix_limb,
+        ColumnAndShifts::to_radix_limb_index,
+        ColumnAndShifts::to_radix_radix
+    };
+
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in._scalar_mul_sel() == 1 || in._to_radix_sel() == 1);
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static inline auto compute_inverse_exists(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+        const auto is_operation = View(in._scalar_mul_sel());
+        const auto is_table_entry = View(in._to_radix_sel());
+        return (is_operation + is_table_entry - is_operation * is_table_entry);
+    }
+
+    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
+    {
+        return std::forward_as_tuple(in._lookup_scalar_mul_to_radix_inv(),
+                                     in._lookup_scalar_mul_to_radix_counts(),
+                                     in._scalar_mul_sel(),
+                                     in._to_radix_sel(),
+                                     in._scalar_mul_scalar(),
+                                     in._scalar_mul_bit(),
+                                     in._scalar_mul_bit_idx(),
+                                     in._scalar_mul_bit_radix(),
+                                     in._to_radix_value(),
+                                     in._to_radix_limb(),
+                                     in._to_radix_limb_index(),
+                                     in._to_radix_radix());
+    }
+};
+
+template <typename FF_>
+class lookup_scalar_mul_to_radix_relation : public GenericLookupRelation<lookup_scalar_mul_to_radix_settings, FF_> {
+  public:
+    using Settings = lookup_scalar_mul_to_radix_settings;
+    static constexpr std::string_view NAME = lookup_scalar_mul_to_radix_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_scalar_mul_to_radix_settings::RELATION_NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lookup_scalar_mul_to_radix_inv.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
+};
+
 /////////////////// lookup_scalar_mul_double ///////////////////
 
 class lookup_scalar_mul_double_settings {

@@ -1,17 +1,18 @@
 #include "barretenberg/vm2/simulation/ecc.hpp"
 
-#include <gmock/gmock.h>
+#include "gmock/gmock.h"
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 
 using ::testing::AllOf;
 using ::testing::ElementsAre;
-using ::testing::ElementsAreArray;
-using ::testing::Field;
+using ::testing::Return;
 using ::testing::SizeIs;
+using ::testing::StrictMock;
 
 namespace bb::avm2::simulation {
 namespace {
@@ -20,8 +21,9 @@ TEST(AvmSimulationEccTest, Add)
 {
     EventEmitter<EccAddEvent> ecc_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    StrictMock<MockToRadix> to_radix;
 
-    Ecc ecc(ecc_event_emitter, scalar_mul_event_emitter);
+    Ecc ecc(to_radix, ecc_event_emitter, scalar_mul_event_emitter);
 
     FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
@@ -51,10 +53,18 @@ TEST(AvmSimulationEccTest, ScalarMul)
 {
     EventEmitter<EccAddEvent> ecc_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    StrictMock<MockToRadix> to_radix;
 
-    Ecc ecc(ecc_event_emitter, scalar_mul_event_emitter);
+    Ecc ecc(to_radix, ecc_event_emitter, scalar_mul_event_emitter);
 
     FF scalar("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
+    uint256_t scalar_num = scalar;
+    std::vector<bool> bits(254, false);
+    for (size_t i = 0; i < 254; ++i) {
+        bits[i] = scalar_num.get_bit(i);
+    }
+
+    EXPECT_CALL(to_radix, to_le_bits(scalar, 254)).WillOnce(Return(bits));
 
     FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");

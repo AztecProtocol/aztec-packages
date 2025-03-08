@@ -9,11 +9,13 @@
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
+#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
+#include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
@@ -24,12 +26,15 @@ using C = Column;
 using ecc = bb::avm2::ecc<FF>;
 using scalar_mul = bb::avm2::scalar_mul<FF>;
 using EccSimulator = simulation::Ecc;
+using ToRadixSimulator = simulation::ToRadix;
 using simulation::EccAddEvent;
 using simulation::EventEmitter;
 using simulation::NoopEventEmitter;
 using simulation::ScalarMulEvent;
+using simulation::ToRadixEvent;
 using lookup_scalar_mul_double_relation = bb::avm2::lookup_scalar_mul_double_relation<FF>;
 using lookup_scalar_mul_add_relation = bb::avm2::lookup_scalar_mul_add_relation<FF>;
+using lookup_scalar_mul_to_radix_relation = bb::avm2::lookup_scalar_mul_to_radix_relation<FF>;
 using tracegen::LookupIntoDynamicTableGeneric;
 
 // Known good points for P and Q
@@ -472,7 +477,10 @@ TEST(ScalarMulConstrainingTest, MulByOne)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF(1);
     ecc_simulator.scalar_mul(p, scalar);
@@ -491,7 +499,10 @@ TEST(ScalarMulConstrainingTest, BasicMul)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -510,7 +521,10 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     ecc_simulator.scalar_mul(p, FF("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6"));
     ecc_simulator.scalar_mul(q, FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09"));
@@ -525,11 +539,14 @@ TEST(ScalarMulConstrainingTest, MultipleInvocations)
     check_relation<scalar_mul>(trace);
 }
 
-TEST(ScalarMulConstrainingTest, MulAddInteractions)
+TEST(ScalarMulConstrainingTest, MulInteractions)
 {
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    EventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -539,23 +556,30 @@ TEST(ScalarMulConstrainingTest, MulAddInteractions)
     });
 
     tracegen::EccTraceBuilder builder;
+    tracegen::ToRadixTraceBuilder to_radix_builder;
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+    to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_relation::Settings>().process(trace);
 
     check_relation<scalar_mul>(trace);
     check_relation<ecc>(trace);
     check_interaction<lookup_scalar_mul_double_relation>(trace);
     check_interaction<lookup_scalar_mul_add_relation>(trace);
+    check_interaction<lookup_scalar_mul_to_radix_relation>(trace);
 }
 
 TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
 {
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     EmbeddedCurvePoint result = ecc_simulator.scalar_mul(EmbeddedCurvePoint::infinity(), FF(10));
     ASSERT(result.is_infinity());
@@ -581,7 +605,10 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -606,11 +633,42 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
                               "Relation.*SCALAR_MUL_ADD.* ACCUMULATION.* is non-zero");
 }
 
+TEST(ScalarMulConstrainingTest, NegativeMulRadixInteractions)
+{
+    NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
+
+    FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
+    ecc_simulator.scalar_mul(p, scalar);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::EccTraceBuilder builder;
+    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_relation::Settings>().process(trace),
+        "Failed.*SCALAR_MUL_TO_RADIX. Could not find tuple in destination.");
+
+    check_relation<scalar_mul>(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_scalar_mul_to_radix_relation>(trace),
+                              "Relation.*SCALAR_MUL_TO_RADIX.* ACCUMULATION.* is non-zero");
+}
+
 TEST(ScalarMulConstrainingTest, NegativeDisableSel)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -631,7 +689,10 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -651,7 +712,10 @@ TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -672,7 +736,10 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointXOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -694,7 +761,10 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointYOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);
@@ -716,7 +786,10 @@ TEST(ScalarMulConstrainingTest, NegativeMutatePointInfOnEnd)
 {
     NoopEventEmitter<EccAddEvent> ecc_add_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    EccSimulator ecc_simulator(ecc_add_event_emitter, scalar_mul_event_emitter);
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(to_radix_simulator, ecc_add_event_emitter, scalar_mul_event_emitter);
 
     FF scalar = FF("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
     ecc_simulator.scalar_mul(p, scalar);

@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
+#include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -34,6 +35,7 @@ struct EventsContainer {
     EventEmitterInterface<ScalarMulEvent>::Container scalar_mul;
     EventEmitterInterface<Poseidon2HashEvent>::Container poseidon2_hash;
     EventEmitterInterface<Poseidon2PermutationEvent>::Container poseidon2_permutation;
+    EventEmitterInterface<ToRadixEvent>::Container to_radix;
 };
 
 } // namespace bb::avm2::simulation
