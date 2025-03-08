@@ -10,6 +10,7 @@ export interface ConfigMapping {
   description: string;
   isBoolean?: boolean;
   nested?: Record<string, ConfigMapping>;
+  fallback?: EnvVar[];
 }
 
 export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
@@ -22,16 +23,28 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
   const config = {} as T;
 
   for (const key in configMappings) {
-    const { env, parseEnv, defaultValue: def, nested } = configMappings[key];
+    const { env, parseEnv, defaultValue, nested, fallback } = configMappings[key];
     if (nested) {
       (config as any)[key] = getConfigFromMappings(nested);
     } else {
+      let value;
       const val = env ? process.env[env] : undefined;
+
       if (val !== undefined) {
-        (config as any)[key] = parseEnv ? parseEnv(val) : val;
-      } else if (def !== undefined) {
-        (config as any)[key] = def;
+        value = parseEnv ? parseEnv(val) : val;
+      } else if (fallback && fallback.length > 0) {
+        // Try each fallback env var in order
+        for (const fallbackEnv of fallback) {
+          const fallbackVal = process.env[fallbackEnv];
+          if (fallbackVal !== undefined) {
+            value = parseEnv ? parseEnv(fallbackVal) : fallbackVal;
+            break;
+          }
+        }
       }
+
+      // Assign the found value or default
+      (config as any)[key] = value !== undefined ? value : defaultValue;
     }
   }
 
