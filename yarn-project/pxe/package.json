@@ -3,20 +3,13 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./service": "./dest/pxe_service/index.js",
+    "./server": "./dest/entrypoints/server/index.js",
+    "./client/lazy": "./dest/entrypoints/client/lazy/index.js",
+    "./client/bundle": "./dest/entrypoints/client/bundle/index.js",
     "./config": "./dest/config/index.js",
-    "./database": "./dest/database/index.js",
-    "./kernel_prover": "./dest/kernel_prover/index.js"
+    "./testing": "./dest/test/pxe_test_suite.js"
   },
   "bin": "./dest/bin/index.js",
-  "typedocOptions": {
-    "entryPoints": [
-      "./src/index.ts"
-    ],
-    "name": "Wallet",
-    "tsconfig": "./tsconfig.json"
-  },
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b",
     "build:dev": "tsc -b --watch",

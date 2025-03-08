@@ -99,6 +99,10 @@ class ECCVMFlavor {
     // define the containers for storing the contributions from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
 
+    // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
+    // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
+    // SmallSubgroupIPA witness polynomials.
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
@@ -108,9 +112,8 @@ class ECCVMFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities {
+    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        bool operator==(const PrecomputedEntities& other) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               lagrange_first,  // column 0
@@ -555,6 +558,7 @@ class ECCVMFlavor {
             }
 
             dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;
+            size_t unmasked_witness_size = dyadic_num_rows - MASKING_OFFSET;
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -569,7 +573,7 @@ class ECCVMFlavor {
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
-            lagrange_last.at(lagrange_last.size() - 1) = 1;
+            lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
@@ -626,13 +630,13 @@ class ECCVMFlavor {
             // values must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column
             // values that are all zero (issue #2217)
             if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
-                for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+                for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
                     transcript_accumulator_empty.set_if_valid_index(i, 1);
                 }
             }
             // in addition, unless the accumulator is reset, it contains the value from the previous row so this
             // must be propagated
-            for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+            for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
                 transcript_accumulator_x.set_if_valid_index(i, transcript_accumulator_x[i - 1]);
                 transcript_accumulator_y.set_if_valid_index(i, transcript_accumulator_y[i - 1]);
             }
@@ -747,9 +751,8 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
@@ -1013,11 +1016,19 @@ class ECCVMFlavor {
         std::vector<Commitment> gemini_fold_comms;
         std::vector<FF> gemini_fold_evals;
         Commitment shplonk_q_comm;
+        Commitment translation_concatenated_masking_term_commitment;
+        FF translation_masking_term_eval;
         FF translation_eval_op;
         FF translation_eval_px;
         FF translation_eval_py;
         FF translation_eval_z1;
         FF translation_eval_z2;
+        Commitment translation_grand_sum_commitment;
+        Commitment translation_quotient_commitment;
+        FF translation_concatenation_eval;
+        FF translation_grand_sum_shift_eval;
+        FF translation_grand_sum_eval;
+        FF translation_quotient_eval;
         Commitment shplonk_q2_comm;
 
         Transcript() = default;
@@ -1242,6 +1253,8 @@ class ECCVMFlavor {
             libra_quotient_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
+            translation_concatenated_masking_term_commitment =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             translation_eval_op =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             translation_eval_px =
@@ -1253,6 +1266,20 @@ class ECCVMFlavor {
             translation_eval_z2 =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
+            translation_masking_term_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            translation_grand_sum_commitment =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            translation_quotient_commitment =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            translation_concatenation_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            translation_grand_sum_shift_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            translation_grand_sum_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            translation_quotient_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
             shplonk_q2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
@@ -1393,12 +1420,21 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(libra_quotient_eval, proof_data);
             NativeTranscript::template serialize_to_buffer(shplonk_q_comm, proof_data);
 
+            NativeTranscript::template serialize_to_buffer(translation_concatenated_masking_term_commitment,
+                                                           proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_px, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_py, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_z1, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_z2, NativeTranscript::proof_data);
 
+            NativeTranscript::template serialize_to_buffer(translation_masking_term_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_grand_sum_commitment, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_quotient_commitment, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_concatenation_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_grand_sum_shift_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_grand_sum_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_quotient_eval, proof_data);
             NativeTranscript::template serialize_to_buffer(shplonk_q2_comm, NativeTranscript::proof_data);
 
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
