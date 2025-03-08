@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.78.2](https://github.com/AztecProtocol/aztec-packages/compare/v0.78.1...v0.78.2) (2025-03-08)
+
+
+### Features
+
+* **p2p:** peer manager peer count metrics ([#12575](https://github.com/AztecProtocol/aztec-packages/issues/12575)) ([b4891c1](https://github.com/AztecProtocol/aztec-packages/commit/b4891c14a2e49a8e475c6839840561a074c511cc))
+* provision alerts ([#12561](https://github.com/AztecProtocol/aztec-packages/issues/12561)) ([2ea1767](https://github.com/AztecProtocol/aztec-packages/commit/2ea17670b5e7f7cc047a49313bd99032e39323de))
+
+
+### Bug Fixes
+
+* Cl/release fixes 2 ([#12595](https://github.com/AztecProtocol/aztec-packages/issues/12595)) ([fc597f4](https://github.com/AztecProtocol/aztec-packages/commit/fc597f4a6462902a345e6e879bf809634c0b83ed))
+* Cl/release noir refs ([#12597](https://github.com/AztecProtocol/aztec-packages/issues/12597)) ([fdcfcaf](https://github.com/AztecProtocol/aztec-packages/commit/fdcfcaf5553a39c1d8b0e09fff3f9951171487d8))
+* Log overflow handling in reset ([#12579](https://github.com/AztecProtocol/aztec-packages/issues/12579)) ([283b624](https://github.com/AztecProtocol/aztec-packages/commit/283b624d909574ca8cf872448e61dbd748bb94d6))
+* metrics update ([#12571](https://github.com/AztecProtocol/aztec-packages/issues/12571)) ([80a5df2](https://github.com/AztecProtocol/aztec-packages/commit/80a5df2e4ddd33a1c970207f119c984d44d8e191))
+* **sandbox:** query release please manifest for version if in a docker container ([#12591](https://github.com/AztecProtocol/aztec-packages/issues/12591)) ([db8ebc6](https://github.com/AztecProtocol/aztec-packages/commit/db8ebc64b28cf038afef2fe220c3c26fa21c9ac5))
+* **spartan:** setup needs kubectl ([#12580](https://github.com/AztecProtocol/aztec-packages/issues/12580)) ([753cb33](https://github.com/AztecProtocol/aztec-packages/commit/753cb336cc6503a21eed1ed4e3220d5656be8b96))
+
+
+### Miscellaneous
+
+* reactivate acir_test for `regression_5045` ([#12548](https://github.com/AztecProtocol/aztec-packages/issues/12548)) ([c89f89c](https://github.com/AztecProtocol/aztec-packages/commit/c89f89c7b8db2ebbcaa1a2cf77e5b105e507d5e2))
+* replace relative paths to noir-protocol-circuits ([251ae38](https://github.com/AztecProtocol/aztec-packages/commit/251ae38262a381bd2c12a2abf69554855924885c))
+* **sandbox:** drop cheat-codes log level ([#12586](https://github.com/AztecProtocol/aztec-packages/issues/12586)) ([24f04c7](https://github.com/AztecProtocol/aztec-packages/commit/24f04c7092e2adaf2c4e701b42534d045dd9b62f))
+* turn on masking in eccvm ([#12467](https://github.com/AztecProtocol/aztec-packages/issues/12467)) ([aacb91a](https://github.com/AztecProtocol/aztec-packages/commit/aacb91a49a7099c93b5953c210c151fe70dad433))
+* Update Bb line counting script ([#12350](https://github.com/AztecProtocol/aztec-packages/issues/12350)) ([7a41843](https://github.com/AztecProtocol/aztec-packages/commit/7a4184390904708fd868485574e7521881341681))
+
 ## [0.78.1](https://github.com/AztecProtocol/aztec-packages/compare/v0.78.0...v0.78.1) (2025-03-07)
 
 
