@@ -12,12 +12,24 @@ case "$cmd" in
 
     # TOOD(#10775): see 'releases'. We want to move away from this and use nightlies.
     if [ "$REF_NAME" == "master" ] && [ "${CI:-0}" -eq 1 ]; then
+      if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+        echo "Missing DOCKERHUB_PASSWORD."
+        exit 1
+      fi
+      echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
       docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$COMMIT_HASH-$(arch)
       do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH-$(arch)
     fi
     ;;
   "release")
     echo_header "release-image release"
+
+    if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+      echo "Missing DOCKERHUB_PASSWORD."
+      exit 1
+    fi
+    echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
+
     # We strip leading 'v' so that this is a valid semver.
     tag=${REF_NAME#v}
     docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$tag-$(arch)
