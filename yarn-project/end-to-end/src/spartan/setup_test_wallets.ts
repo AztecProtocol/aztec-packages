@@ -50,7 +50,7 @@ export async function setupTestWalletsWithTokens(
 export async function deployTestWalletWithTokens(
   pxeUrl: string,
   nodeUrl: string,
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   mnemonicOrPrivateKey: string,
   mintAmount: bigint,
   logger: Logger,
@@ -71,7 +71,7 @@ export async function deployTestWalletWithTokens(
 
   const claims = await Promise.all(
     fundedAccounts.map(a =>
-      bridgeL1FeeJuice(l1RpcUrl, mnemonicOrPrivateKey, pxe, a.getAddress(), initialFeeJuice, logger),
+      bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), initialFeeJuice, logger),
     ),
   );
 
@@ -97,7 +97,7 @@ export async function deployTestWalletWithTokens(
 }
 
 async function bridgeL1FeeJuice(
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   mnemonicOrPrivateKey: string,
   pxe: PXE,
   recipient: AztecAddress,
@@ -105,7 +105,7 @@ async function bridgeL1FeeJuice(
   log: Logger,
 ) {
   const { l1ChainId } = await pxe.getNodeInfo();
-  const chain = createEthereumChain([l1RpcUrl], l1ChainId);
+  const chain = createEthereumChain(l1RpcUrls, l1ChainId);
   const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
   const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);

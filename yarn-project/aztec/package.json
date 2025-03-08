@@ -63,7 +63,7 @@
     "commander": "^12.1.0",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
-    "viem": "2.22.8"
+    "viem": "2.23.7"
   },
   "files": [
     "dest",

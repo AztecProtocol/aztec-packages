@@ -48,12 +48,12 @@ describe('GasUtils', () => {
     const account = privateKeyToAccount(`0x${privKey}`);
 
     publicClient = createPublicClient({
-      transport: fallback([http(rpcUrl)]),
+      transport: fallback([...Array(1)].map(() => http(rpcUrl))),
       chain: foundry,
     });
 
     walletClient = createWalletClient({
-      transport: fallback([http(rpcUrl)]),
+      transport: fallback([...Array(1)].map(() => http(rpcUrl))),
       chain: foundry,
       account,
     });

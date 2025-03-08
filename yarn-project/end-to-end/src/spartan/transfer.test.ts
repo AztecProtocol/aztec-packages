@@ -20,7 +20,7 @@ describe('token transfer test', () => {
 
   let testWallets: TestWallets;
   let PXE_URL: string;
-  let ETHEREUM_HOSTS: string;
+  let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
 
   afterAll(() => {
@@ -43,7 +43,7 @@ describe('token transfer test', () => {
         containerPort: config.CONTAINER_ETHEREUM_PORT,
       });
       forwardProcesses.push(ethProcess);
-      ETHEREUM_HOSTS = `http://127.0.0.1:${ethPort}`;
+      ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
       const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
