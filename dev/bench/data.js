@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741381837595,
+  "lastUpdate": 1741397110127,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c1daa11be668d5a85b39a82ce18b81745d2a283e",
-          "message": "fix: release and add nightly tag flow (#12493)\n\n- resurrect release please workflow with just the portion that creates\nthe tag and release\n- fix use of dist tag in yarn-project\n- add nightly tag flow\n- add issue for moving everything to nightly",
-          "timestamp": "2025-03-05T17:33:11Z",
-          "tree_id": "5cf4d6672999b6a448d7e9c66da928cf4b5dd390",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c1daa11be668d5a85b39a82ce18b81745d2a283e"
-        },
-        "date": 1741198182978,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18332.599569999955,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16030.796683000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18846.680727999912,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16354.416469 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4021.972594999852,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3113.3686700000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54998.825232,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54998826000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10348.066354,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10348068000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1922777682,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1922777682 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 216331240,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 216331240 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2217.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 214378676,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214378676 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "db8ebc64b28cf038afef2fe220c3c26fa21c9ac5",
+          "message": "fix(sandbox): query release please manifest for version if in a docker container (#12591)\n\n## Overview\n\nFixes sandbox cli versioning issue",
+          "timestamp": "2025-03-08T00:54:15Z",
+          "tree_id": "081c3eef5cd98f00ffe0aa9af52522c9adc13256",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/db8ebc64b28cf038afef2fe220c3c26fa21c9ac5"
+        },
+        "date": 1741397102598,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18383.817019999922,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15997.982788000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18801.794479000135,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16321.073056000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3881.7451509999046,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3094.270535 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55601.51113,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55601511000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9584.308328,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9584312000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1628088063,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1628088063 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 216749691,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 216749691 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
