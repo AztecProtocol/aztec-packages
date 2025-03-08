@@ -10,6 +10,9 @@
       "path": "../blob-lib"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {

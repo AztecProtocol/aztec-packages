@@ -384,6 +384,7 @@ __metadata:
   resolution: "@aztec/blob-sink@workspace:blob-sink"
   dependencies:
     "@aztec/blob-lib": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:*"
     "@aztec/stdlib": "workspace:^"
@@ -22017,8 +22018,8 @@ __metadata:
   linkType: hard
 
 "viem@npm:^2.23.5":
-  version: 2.23.5
-  resolution: "viem@npm:2.23.5"
+  version: 2.23.7
+  resolution: "viem@npm:2.23.7"
   dependencies:
     "@noble/curves": "npm:1.8.1"
     "@noble/hashes": "npm:1.7.1"
@@ -22033,7 +22034,7 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/80db013d510688386c37500442c29d85b9adda3035c3a3644156828830cf856f95d6c228dd4fe97d21f270bde9b63bfb98ebf2538bbd1831d40b38918ed07787
+  checksum: 10/bf1618f39ca3645082323776342c0f87fa37f60bcca0476a7db0f6fbb9d1b6db7ab1e434a57463e8486bea29f97c5ab01e95b6139190a008d6f9a30194b7b081
   languageName: node
   linkType: hard
 
