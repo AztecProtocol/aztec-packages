@@ -419,6 +419,10 @@ export async function getFunctionArtifact(
   return { ...functionArtifact, debug: debugMetadata };
 }
 
+export function parseDebugSymbols(debugSymbols: string): DebugInfo[] {
+  return JSON.parse(inflate(Buffer.from(debugSymbols, 'base64'), { to: 'string', raw: true })).debug_infos;
+}
+
 /**
  * Gets the debug metadata of a given function from the contract artifact
  * @param artifact - The contract build artifact
@@ -432,14 +436,12 @@ export function getFunctionDebugMetadata(
   try {
     if (functionArtifact.debugSymbols && contractArtifact.fileMap) {
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/10546) investigate why debugMetadata is so big for some tests.
-      const programDebugSymbols = JSON.parse(
-        inflate(Buffer.from(functionArtifact.debugSymbols, 'base64'), { to: 'string', raw: true }),
-      );
+      const programDebugSymbols = parseDebugSymbols(functionArtifact.debugSymbols);
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5813)
       // We only support handling debug info for the contract function entry point.
       // So for now we simply index into the first debug info.
       return {
-        debugSymbols: programDebugSymbols.debug_infos[0],
+        debugSymbols: programDebugSymbols[0],
         files: contractArtifact.fileMap,
       };
     }
