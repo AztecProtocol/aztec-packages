@@ -27,6 +27,7 @@ export class TxScopedL2Log {
     public isFromPublic: boolean,
     /*
      * The log data
+     * TODO(benesjan): Make this Fr[]
      */
     public logData: Buffer,
   ) {}

@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
@@ -451,5 +451,20 @@ export class Oracle {
       fromACVMField(dstSlot),
       frToNumber(fromACVMField(numEntries)),
     );
+  }
+
+  // TODO(benesjan): When I had the ephPk input defined only as "ephPk: ACVMField[]" then ephPk was only 1 Field
+  // instead of 3. Does the reviewer know why I need to have the Point components directly listed here? It's ugly.
+  async getSharedSecret(
+    [address]: ACVMField[],
+    [ephPk_field_0]: ACVMField[],
+    [ephPk_field_1]: ACVMField[],
+    [ephPk_field_2]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const secret = await this.typedOracle.getSharedSecret(
+      AztecAddress.fromField(fromACVMField(address)),
+      Point.fromFields([ephPk_field_0, ephPk_field_1, ephPk_field_2].map(fromACVMField)),
+    );
+    return secret.toFields().map(toACVMField);
   }
 }

@@ -1,4 +1,4 @@
-import { type ContractInstanceWithAddress, Fr } from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -576,6 +576,14 @@ export class TXEService {
     const plaintextBuffer = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
 
     return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBuffer.length));
+  }
+
+  async getSharedSecret(address: ForeignCallSingle, ephPk: ForeignCallArray) {
+    const secret = await this.typedOracle.getSharedSecret(
+      AztecAddress.fromField(fromSingle(address)),
+      Point.fromFields(fromArray(ephPk)),
+    );
+    return toForeignCallResult([toArray(secret.toFields())]);
   }
 
   // AVM opcodes

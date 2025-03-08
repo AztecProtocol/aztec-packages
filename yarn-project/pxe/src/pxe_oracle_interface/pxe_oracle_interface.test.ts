@@ -660,7 +660,7 @@ describe('PXEOracleInterface', () => {
 
       const taggedLogs = await mockTaggedLogs(requests);
 
-      await pxeOracleInterface.processTaggedLogs(taggedLogs, recipient.address, simulator);
+      await pxeOracleInterface.processTaggedLogs(contractAddress, taggedLogs, recipient.address, simulator);
 
       // We test that a call to `processLog` is made with the correct function artifact and contract address
       expect(runUnconstrainedSpy).toHaveBeenCalledTimes(3);
@@ -679,9 +679,10 @@ describe('PXEOracleInterface', () => {
         new MockNoteRequest(await getRandomNoteLogPayload(), 2, 3, 0, await AztecAddress.random()),
       ];
 
+      const contractAddress = await AztecAddress.random();
       const taggedLogs = await mockTaggedLogs(requests);
 
-      await pxeOracleInterface.processTaggedLogs(taggedLogs, recipient.address, simulator);
+      await pxeOracleInterface.processTaggedLogs(contractAddress, taggedLogs, recipient.address, simulator);
 
       expect(addNotesSpy).toHaveBeenCalledTimes(0);
     });
