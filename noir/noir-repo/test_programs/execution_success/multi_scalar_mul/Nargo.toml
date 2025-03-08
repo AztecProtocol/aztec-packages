@@ -1,6 +1,0 @@
-[package]
-name = "multi_scalar_mul"
-type = "bin"
-authors = [""]
-
-[dependencies]

@@ -1,9 +1,0 @@
-docs
-scripts
-
-# config files
-*.toml
-*.md
-*.json
-*.txt
-*.config.mjs
