@@ -23,6 +23,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  merge-queue-pr-link:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'merge_group'
+    steps:
+      - run: echo "This job exists only to link merge queue to the PR run."
+
   ci:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: if it is a pull request target only run if it is NOT a fork.
@@ -35,7 +41,7 @@ jobs:
         # The way to do conditions here is to parse full strings as JSON.
         settings: >-
           ${{ fromJson(
-            (contains(github.event.pull_request.labels.*.name, 'arm64-ci') || github.event_name == 'push') &&
+            (contains(github.event.pull_request.labels.*.name, 'arm64-ci') || github.event_name == 'push' || github.event_name == 'merge_group') &&
             '[{"arch":"amd64"},{"arch":"arm64"}]' ||
             '[{"arch":"amd64"}]') }}
     steps:
