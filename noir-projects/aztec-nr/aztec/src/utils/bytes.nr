@@ -1,9 +1,17 @@
+// This file contains some unused functions that may be needed later (e.g. those filling top 6 bits of a 31-byte
+// field). Little endian functions are kept for reference but likely won't be used. Unused functions should be
+// removed before audit.
+
+pub mod array;
+pub mod bounded_vec;
+
 use crate::oracle::random::random;
 
-/// Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole bytes.
+/// Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole
+/// bytes.
 ///
-/// The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted into a Field. If the last chunk
-/// is less than 31 bytes long, then only the relevant bytes are considered.
+/// The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted
+/// into a Field. If the last chunk is less than 31 bytes long, then only the relevant bytes are considered.
 /// For example, [1, 10, 3] is encoded as [1 * 256^2 + 10 * 256 + 3]
 /// Note: ceil(N / 31) = (N + 30) / 31
 pub fn be_bytes_31_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; (N + 30) / 31] {
@@ -69,20 +77,27 @@ pub fn le_bytes_31_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; (N + 30) / 3
     fields
 }
 
-/// Converts an input array of fields into a single array of bytes.
-/// Each input field must contain only 31 bytes (this is constrained to be so).
-/// Each field is converted into 31 big-endian bytes, and the resulting 31-byte
-/// chunks are concatenated back together in the order of the original fields.
+/// Converts an input array of fields into a single array of bytes in big-endian order.
 ///
-/// It appears that the original author of this function wants to give the caller some control
-/// over the number of bytes that are returned: the final field can be mapped to fewer than 31 bytes,
-/// based on the caller's choice of M.
-/// Given the input is N fields, and each field (except the last) is mapped to 31 bytes,
-/// we definitely need M > (N - 1) * 31 to cover those first (N - 1) fields. Hence the static assertion.
-/// TODO: this is the same as the "le" version of this function, save for the `field.to_be_bytes()` calls. I tried passing the conversion function in as a parameter, to reduce code duplication, but couldn't get it to work.
+/// Each input field must contain at most 31 bytes (this is constrained to be so). Note that the last field might
+/// contain less than 31 bytes. This is communicated through the M parameter.
+///
+/// The M parameter is flexible rather than computed from N because this function is commonly used to convert fields
+/// back to bytes after a previous bytes->fields conversion. Since the original byte length may not be a multiple
+/// of 31, having a flexible M parameter allows us to output the same number of bytes as the original input.
+///
+/// Each field (other than the last which might be shorter) is converted into 31 big-endian bytes, and the
+/// resulting 31-byte chunks are concatenated back together in the order of the original fields. You'll end up
+/// with quite a strange ordering of bytes if you use this particular function.
+///
+///
+/// TODO: this is the same as the "le" version of this function, save for the `field.to_be_bytes()` calls. I (Mike)
+/// tried passing the conversion function in as a parameter, to reduce code duplication, but couldn't get it to work.
 pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8; M] {
     let mut bytes = [0; M];
 
+    // Given the input is N fields, and each field (except the last) is mapped to 31 bytes,
+    // we check that M > (N - 1) * 31 to cover those first (N - 1) fields.
     std::static_assert(M > (N - 1) * 31, "Not enough output bytes specified");
     // We make this assertion to keep the logic simpler:
     std::static_assert(N * 31 >= M, "Too many output bytes specified.");
@@ -114,11 +129,18 @@ pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8;
     bytes
 }
 
-/// Converts an input array of fields into a single array of bytes.
-/// Each input field must contain only 31 bytes (this is constrained to be so).
-/// Each field is converted into 31 little-endian bytes, and the resulting 31-byte
-/// chunks are concatenated back together in the order of the original fields. You'll
-/// end up with quite a strange ordering of bytes if you use this particular function.
+/// Converts an input array of fields into a single array of bytes in little-endian order.
+///
+/// Each input field must contain at most 31 bytes (this is constrained to be so). Note that the last field might
+/// contain less than 31 bytes. This is communicated through the M parameter.
+///
+/// The M parameter is flexible rather than computed from N because this function is commonly used to convert fields
+/// back to bytes after a previous bytes->fields conversion. Since the original byte length may not be a multiple
+/// of 31, having a flexible M parameter allows us to output the same number of bytes as the original input.
+///
+/// Each field (other than the last which might be shorter) is converted into 31 little-endian bytes, and the
+/// resulting 31-byte chunks are concatenated back together in the order of the original fields. You'll end up
+/// with quite a strange ordering of bytes if you use this particular function.
 pub fn fields_to_le_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8; M] {
     let mut bytes = [0; M];
 
