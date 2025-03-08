@@ -115,6 +115,7 @@ function install_hooks {
   echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
   echo "(cd noir && ./postcheckout.sh)" >$hooks_dir/post-checkout
+  chmod +x $hooks_dir/post-checkout
 }
 
 function test_cmds {
