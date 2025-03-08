@@ -133,10 +133,10 @@ spec:
             - /bin/bash
             - -c
             - |
+              source /scripts/setup-otel-resource.sh && \
               source /shared/contracts/contracts.env && \
               source /shared/config/p2p-addresses && \
               source /shared/config/service-addresses && \
-              source /shared/config/otel-resource && \
               env && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
           startupProbe:
@@ -156,27 +156,14 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
+            - name: scripts
+              mountPath: /scripts
             - name: boot-node-data
               mountPath: {{ .Values.bootNode.dataDir }}
             - name: scripts-output
               mountPath: /shared/contracts
           env:
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: K8S_POD_UID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-            - name: K8S_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: K8S_NAMESPACE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+            {{- include "aztec-network.otelEnvVars" . | nindent 12 }}
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.bootNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
@@ -223,10 +210,6 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
-            - name: USE_GCLOUD_LOGGING
-              value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
             {{- if .Values.blobSink.enabled }}
