@@ -29,15 +29,9 @@ import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
-import {
-  PrivateExecutionResult,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxProvingResult,
-  TxReceipt,
-  TxSimulationResult,
-} from '../tx/index.js';
+import { PrivateExecutionResult, Tx, TxExecutionRequest, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import {
   type GetContractClassLogsResponse,
@@ -166,14 +160,13 @@ export interface PXE {
   getContracts(): Promise<AztecAddress[]>;
 
   /**
-   * Creates a proving result based on the provided preauthenticated execution request and the results
-   * of executing the private part of the transaction. This will assemble the zero-knowledge proof for the private execution.
-   * It returns an object that contains the proof and public inputs of the tail circuit, which can be converted into a Tx ready to be sent to the network
+   * Proves the private portion of a simulated transaction, ready to send to the network
+   * (where valiators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
    * @param privateExecutionResult - The result of the private execution of the transaction
-   * @returns A transaction ready to be sent to the network for execution.
-   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * @returns A result containing the proof and public inputs of the tail circuit.
+   * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult>;
@@ -209,8 +202,7 @@ export interface PXE {
   ): Promise<TxSimulationResult>;
 
   /**
-   * Profiles a transaction, reporting gate counts.
-   * Returns an execution trace.
+   * Profiles a transaction, reporting gate counts (unless disabled) and returns an execution trace.
    *
    * @param txRequest - An authenticated tx request ready for simulation
    * @param msgSender - (Optional) The message sender to use for the simulation.
@@ -220,9 +212,9 @@ export interface PXE {
    */
   profileTx(
     txRequest: TxExecutionRequest,
+    profileMode: 'gates' | 'debug',
     msgSender?: AztecAddress,
-    skipFeeEnforcement?: boolean,
-  ): Promise<TxSimulationResult>;
+  ): Promise<TxProfileResult>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
@@ -488,6 +480,10 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
   proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
+  profileTx: z
+    .function()
+    .args(TxExecutionRequest.schema, z.union([z.literal('gates'), z.literal('debug')]), optional(schemas.AztecAddress))
+    .returns(TxProfileResult.schema),
   simulateTx: z
     .function()
     .args(

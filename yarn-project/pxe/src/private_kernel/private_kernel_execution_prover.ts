@@ -13,15 +13,15 @@ import { hashVK } from '@aztec/stdlib/hash';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
   PrivateCallData,
-  type PrivateExecutionTraceEntry,
+  type PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
+  type PrivateKernelExecutionProofOutput,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelSimulateOutput,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type PrivateKernelTraceProofOutput,
   PrivateVerificationKeyHints,
   type ScopedPrivateLogData,
 } from '@aztec/stdlib/kernel';
@@ -88,7 +88,7 @@ const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPubl
   bytecode: Buffer.from([]),
 };
 
-export interface PrivateKernelTraceProverConfig {
+export interface PrivateKernelExecutionProverConfig {
   simulate: boolean;
   skipFeeEnforcement: boolean;
   profile: boolean;
@@ -100,7 +100,7 @@ export interface PrivateKernelTraceProverConfig {
  * The result can be a client IVC proof of the private transaction portion, or just a simulation that can e.g.
  * inform state tree updates.
  */
-export class PrivateKernelTraceProver {
+export class PrivateKernelExecutionProver {
   private log = createLogger('pxe:private-kernel-trace-prover');
 
   constructor(
@@ -119,17 +119,16 @@ export class PrivateKernelTraceProver {
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @param profile - Set true to profile the gate count for each circuit
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
-   * TODO(#7368) this should be refactored to not recreate the ACIR bytecode now that it operates on a program stack
    */
   async proveWithKernels(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile }: PrivateKernelTraceProverConfig = {
+    { simulate, skipFeeEnforcement, profile }: PrivateKernelExecutionProverConfig = {
       simulate: false,
       skipFeeEnforcement: false,
       profile: false,
     },
-  ): Promise<PrivateKernelTraceProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+  ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const skipProofGeneration = this.fakeProofs || simulate;
     const generateWitnesses = !skipProofGeneration || profile;
 
@@ -142,7 +141,7 @@ export class PrivateKernelTraceProver {
 
     let output = NULL_SIMULATE_OUTPUT;
 
-    const trace: PrivateExecutionTraceEntry[] = [];
+    const executionSteps: PrivateExecutionStep[] = [];
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
@@ -164,7 +163,7 @@ export class PrivateKernelTraceProver {
           output = simulate
             ? await this.proofCreator.simulateReset(privateInputs)
             : await this.proofCreator.generateResetOutput(privateInputs);
-          trace.push({
+          executionSteps.push({
             functionName: 'private_kernel_reset',
             bytecode: output.bytecode,
             witness: output.outputWitness,
@@ -187,7 +186,7 @@ export class PrivateKernelTraceProver {
         currentExecution.publicInputs.callContext.functionSelector,
       );
 
-      trace.push({
+      executionSteps.push({
         functionName: functionName!,
         bytecode: currentExecution.acir,
         witness: currentExecution.partialWitness,
@@ -214,7 +213,7 @@ export class PrivateKernelTraceProver {
           ? await this.proofCreator.generateInitOutput(proofInput)
           : await this.proofCreator.simulateInit(proofInput);
 
-        trace.push({
+        executionSteps.push({
           functionName: 'private_kernel_init',
           bytecode: output.bytecode,
           witness: output.outputWitness,
@@ -235,7 +234,7 @@ export class PrivateKernelTraceProver {
           ? await this.proofCreator.generateInnerOutput(proofInput)
           : await this.proofCreator.simulateInner(proofInput);
 
-        trace.push({
+        executionSteps.push({
           functionName: 'private_kernel_inner',
           bytecode: output.bytecode,
           witness: output.outputWitness,
@@ -257,7 +256,7 @@ export class PrivateKernelTraceProver {
         ? await this.proofCreator.generateResetOutput(privateInputs)
         : await this.proofCreator.simulateReset(privateInputs);
 
-      trace.push({
+      executionSteps.push({
         functionName: 'private_kernel_reset',
         bytecode: output.bytecode,
         witness: output.outputWitness,
@@ -304,14 +303,14 @@ export class PrivateKernelTraceProver {
       checkPrivateLogs(privateLogs, nonRevertiblePrivateLogs, revertiblePrivateLogs, validationRequestsSplitCounter);
     }
 
-    trace.push({
+    executionSteps.push({
       functionName: 'private_kernel_tail',
       bytecode: tailOutput.bytecode,
       witness: tailOutput.outputWitness,
     });
 
     if (profile) {
-      for (const entry of trace) {
+      for (const entry of executionSteps) {
         const gateCount = await this.proofCreator.computeGateCountForCircuit(entry.bytecode, entry.functionName);
         entry.gateCount = gateCount;
       }
@@ -325,8 +324,8 @@ export class PrivateKernelTraceProver {
     // TODO(#7368) how do we 'bincode' encode these inputs?
     if (!skipProofGeneration) {
       clientIvcProof = await this.proofCreator.createClientIvcProof(
-        trace.map(e => e.bytecode),
-        trace.map(e => e.witness),
+        executionSteps.map(e => e.bytecode),
+        executionSteps.map(e => e.witness),
       );
     } else {
       clientIvcProof = ClientIvcProof.random();
@@ -334,7 +333,7 @@ export class PrivateKernelTraceProver {
 
     return {
       publicInputs: tailOutput.publicInputs,
-      trace,
+      executionSteps,
       clientIvcProof,
       verificationKey: tailOutput.verificationKey,
     };

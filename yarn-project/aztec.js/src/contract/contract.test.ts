@@ -9,10 +9,11 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { Tx, TxExecutionRequest, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
+import type { Tx, TxExecutionRequest, TxHash, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { TxProvingResult } from '../../../stdlib/src/tx/proven_tx.js';
 import type { Wallet } from '../account/wallet.js';
 import { Contract } from './contract.js';
 

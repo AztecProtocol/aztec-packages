@@ -74,6 +74,8 @@
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/stdlib": "workspace:^",
+    "@msgpack/msgpack": "^3.0.0-beta2",
+    "@noir-lang/noirc_abi": "workspace:^",
     "commander": "^12.1.0",
     "inquirer": "^10.1.8",
     "source-map-support": "^0.5.21",

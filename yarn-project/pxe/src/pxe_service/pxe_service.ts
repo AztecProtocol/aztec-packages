@@ -46,7 +46,11 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import type { PrivateKernelTailCircuitPublicInputs, PrivateKernelTraceProofOutput } from '@aztec/stdlib/kernel';
+import type {
+  PrivateExecutionStep,
+  PrivateKernelExecutionProofOutput,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
@@ -55,11 +59,12 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   PrivateExecutionResult,
   PrivateSimulationResult,
-  type PublicSimulationOutput,
-  type Tx,
+  PublicSimulationOutput,
+  Tx,
   type TxEffect,
-  type TxExecutionRequest,
+  TxExecutionRequest,
   type TxHash,
+  TxProfileResult,
   TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
@@ -69,11 +74,11 @@ import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
-import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
 import {
-  PrivateKernelTraceProver,
-  type PrivateKernelTraceProverConfig,
-} from '../private_kernel/private_kernel_trace_prover.js';
+  PrivateKernelExecutionProver,
+  type PrivateKernelExecutionProverConfig,
+} from '../private_kernel/private_kernel_execution_prover.js';
+import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
 import { PXEOracleInterface } from '../pxe_oracle_interface/index.js';
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
@@ -474,6 +479,54 @@ export class PXEService implements PXE {
       throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
     }
   }
+  public async profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'debug' | 'gates',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult> {
+    const profile = false;
+    try {
+      const txInfo = {
+        origin: txRequest.origin,
+        functionSelector: txRequest.functionSelector,
+        simulatePublic: false,
+        msgSender,
+        chainId: txRequest.txContext.chainId,
+        version: txRequest.txContext.version,
+        authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
+      };
+      this.log.info(
+        `Profiling transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
+        txInfo,
+      );
+      await this.synchronizer.sync();
+      const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
+
+      const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        simulate: true,
+        skipFeeEnforcement: false,
+        profile,
+      });
+
+      if (profileMode === 'gates') {
+        const gateFilter = ({ functionName, gateCount }: PrivateExecutionStep) => ({
+          functionName,
+          gateCount,
+          bytecode: Buffer.from([]),
+          witness: new Map(),
+        });
+        return new TxProfileResult(executionSteps.map(gateFilter));
+      }
+      return new TxProfileResult(executionSteps);
+    } catch (err: any) {
+      throw this.contextualizeError(
+        err,
+        inspect(txRequest),
+        `profileMode=${profileMode}`,
+        `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+      );
+    }
+  }
 
   // TODO(#7456) Prevent msgSender being defined here for the first call
   public async simulateTx(
@@ -503,7 +556,7 @@ export class PXEService implements PXE {
       await this.synchronizer.sync();
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-      const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+      const { publicInputs } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
         simulate: !profile,
         skipFeeEnforcement,
         profile,
@@ -527,7 +580,6 @@ export class PXEService implements PXE {
       this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
         txHash,
         ...txInfo,
-        ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
         ...(publicOutput
           ? {
               gasUsed: publicOutput.gasUsed,
@@ -537,11 +589,7 @@ export class PXEService implements PXE {
           : {}),
       });
 
-      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
-        privateSimulationResult,
-        publicOutput,
-        profileResult,
-      );
+      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
     } catch (err: any) {
       throw this.contextualizeError(
         err,
@@ -785,11 +833,11 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    config: PrivateKernelTraceProverConfig,
-  ): Promise<PrivateKernelTraceProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+    config: PrivateKernelExecutionProverConfig,
+  ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const block = privateExecutionResult.getSimulationBlockNumber();
     const kernelOracle = new PrivateKernelOracleImpl(this.contractDataProvider, this.keyStore, this.node, block);
-    const kernelTraceProver = new PrivateKernelTraceProver(kernelOracle, proofCreator, !this.proverEnabled);
+    const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }

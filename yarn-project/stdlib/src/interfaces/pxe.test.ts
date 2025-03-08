@@ -36,7 +36,9 @@ import { UniqueNote } from '../note/index.js';
 import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
-import { PrivateExecutionResult, Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { PrivateExecutionResult, Tx, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -371,6 +373,18 @@ class MockPXE implements PXE {
   }
   getContracts(): Promise<AztecAddress[]> {
     return Promise.resolve([this.address]);
+  }
+  profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'gates' | 'debug',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult> {
+    expect(txRequest).toBeInstanceOf(TxExecutionRequest);
+    expect(profileMode).toMatch(/gates|debug/);
+    if (msgSender) {
+      expect(msgSender).toBeInstanceOf(AztecAddress);
+    }
+    return Promise.resolve(new TxProfileResult([]));
   }
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);

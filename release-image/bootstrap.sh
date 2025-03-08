@@ -26,7 +26,7 @@ case "$cmd" in
     # If doing a release in CI, update the remote manifest if we're the arm build.
     if [ "${DRY_RUN:-0}" == 0 ] && [ "$(arch)" == "arm64" ] && [ "${CI:-0}" -eq 1 ]; then
       # Wait for amd64 image to be available.
-      while ! docker manifest inspect aztecprotocol/aztec:$tag-$(arch) &>/dev/null; do
+      while ! docker manifest inspect aztecprotocol/aztec:$tag-amd64 &>/dev/null; do
         echo "Waiting for amd64 image to be pushed..."
         sleep 10
       done

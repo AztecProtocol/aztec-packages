@@ -23,11 +23,12 @@ import type {
   Tx,
   TxExecutionRequest,
   TxHash,
-  TxProvingResult,
   TxReceipt,
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
+import type { TxProfileResult } from '../../../stdlib/src/tx/profiled_tx.js';
+import type { TxProvingResult } from '../../../stdlib/src/tx/proven_tx.js';
 import type { Wallet } from '../account/wallet.js';
 import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
@@ -96,6 +97,13 @@ export abstract class BaseWallet implements Wallet {
   }
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
     return this.pxe.proveTx(txRequest, privateExecutionResult);
+  }
+  profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'gates' | 'debug',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult> {
+    return this.pxe.profileTx(txRequest, profileMode, msgSender);
   }
   simulateTx(
     txRequest: TxExecutionRequest,

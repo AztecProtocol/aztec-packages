@@ -31,14 +31,14 @@ import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
 
+import { PrivateKernelExecutionProver } from './private_kernel_execution_prover.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
-import { PrivateKernelTraceProver } from './private_kernel_trace_prover.js';
 
 describe('Private Kernel Sequencer', () => {
   let txRequest: TxRequest;
   let oracle: ReturnType<typeof mock<PrivateKernelOracle>>;
   let proofCreator: ReturnType<typeof mock<PrivateKernelProver>>;
-  let prover: PrivateKernelTraceProver;
+  let prover: PrivateKernelExecutionProver;
   let dependencies: { [name: string]: string[] } = {};
 
   const contractAddress = AztecAddress.fromBigInt(987654n);
@@ -159,7 +159,7 @@ describe('Private Kernel Sequencer', () => {
     proofCreator.simulateReset.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal([]));
 
-    prover = new PrivateKernelTraceProver(oracle, proofCreator, true);
+    prover = new PrivateKernelExecutionProver(oracle, proofCreator, true);
   });
 
   it('should create proofs in correct order', async () => {
