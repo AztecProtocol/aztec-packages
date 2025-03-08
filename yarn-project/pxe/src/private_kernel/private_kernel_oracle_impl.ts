@@ -1,4 +1,4 @@
-import { type NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import { NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -17,15 +17,16 @@ import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
-import type { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
+import type { ContractDataProvider } from '../storage/index.js';
+import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.
 /**
  * A data oracle that provides information needed for simulating a transaction.
  */
-export class KernelOracle implements ProvingDataOracle {
+
+export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   constructor(
     private contractDataProvider: ContractDataProvider,
     private keyStore: KeyStore,

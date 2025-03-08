@@ -4,8 +4,6 @@
 > [!WARNING]
 > :warning: **<https://github.com/AztecProtocol/barretenberg> is a mirror-only repository, please only use <https://github.com/AztecProtocol/aztec-packages>. Do not use this for any purpose other than reference.** :warning:
 
-![banner](../.github/img/bb_banner.png)
-
 # Barretenberg
 
 Barretenberg (or `bb` for short) is an optimized elliptic curve library for the bn128 curve, and a PLONK SNARK prover.

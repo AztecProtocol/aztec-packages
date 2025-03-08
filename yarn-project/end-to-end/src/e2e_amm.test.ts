@@ -309,6 +309,7 @@ describe('AMM', () => {
       // real-life scenario we'd need to choose sensible amounts to avoid losing value due to slippage.
       const amount0Min = 1n;
       const amount1Min = 1n;
+
       await amm
         .withWallet(otherLiquidityProvider)
         .methods.remove_liquidity(liquidityTokenBalance, amount0Min, amount1Min, nonceForAuthwits)

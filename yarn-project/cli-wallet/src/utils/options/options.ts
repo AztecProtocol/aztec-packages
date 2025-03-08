@@ -103,6 +103,13 @@ export function createContractAddressOption(db?: WalletDB) {
     .makeOptionMandatory(true);
 }
 
+export function createExecutionStepsOutputDirOption() {
+  return new Option(
+    '--execution-steps-output-dir <address>',
+    'Directory to write execution step artifacts for bb profiling/debugging.',
+  ).makeOptionMandatory(false);
+}
+
 export function artifactPathParser(filePath: string, db?: WalletDB) {
   if (filePath.includes('@')) {
     const [pkg, contractName] = filePath.split('@');
@@ -138,13 +145,6 @@ export function createArtifactOption(db?: WalletDB) {
   return new Option('-c, --contract-artifact <fileLocation>', ARTIFACT_DESCRIPTION)
     .argParser(filePath => artifactPathParser(filePath, db))
     .makeOptionMandatory(false);
-}
-
-export function createProfileOption() {
-  return new Option(
-    '-p, --profile',
-    'Run the real prover and get the gate count for each function in the transaction.',
-  ).default(false);
 }
 
 async function contractArtifactFromWorkspace(pkg?: string, contractName?: string) {

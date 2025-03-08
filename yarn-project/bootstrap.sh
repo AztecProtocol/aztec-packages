@@ -31,8 +31,9 @@ function get_projects {
 }
 
 function format {
+  arg=${1:-"-w"}
   find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
 }
 
 function lint {
@@ -65,7 +66,7 @@ function compile_all {
 
   get_projects | compile_project
 
-  cmds=(format)
+  cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
     cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
@@ -134,6 +135,7 @@ function test_cmds {
   # Uses mocha for browser tests, so we have to treat it differently.
   echo "$hash cd yarn-project/kv-store && yarn test"
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
+  echo "$hash yarn-project/cli-wallet/test/test.sh"
 }
 
 function test {
@@ -202,10 +204,10 @@ case "$cmd" in
       get_projects | compile_project
     fi
     ;;
-  "lint")
-    lint "$@"
+  lint|format)
+    $cmd "$@"
     ;;
-  test|test_cmds|hash|release|release_commit|format)
+  test|test_cmds|hash|release|release_commit)
     $cmd
     ;;
   *)

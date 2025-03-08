@@ -115,6 +115,13 @@ export class PrivateExecutionResult {
   static async random(nested = 1): Promise<PrivateExecutionResult> {
     return new PrivateExecutionResult(await PrivateCallExecutionResult.random(nested), Fr.random());
   }
+
+  /**
+   * The block number that this execution was simulated with.
+   */
+  getSimulationBlockNumber(): number {
+    return this.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+  }
 }
 
 /**

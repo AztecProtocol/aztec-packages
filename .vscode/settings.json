@@ -181,5 +181,11 @@
   "typescript.tsserver.maxTsServerMemory": 4096,
   "typescript.tsdk": "yarn-project/node_modules/typescript/lib",
   "markdown.extension.toc.levels": "2..6",
-  "noir.nargoPath": "${workspaceFolder}/noir/noir-repo/target/release/nargo"
+  "noir.nargoPath": "${workspaceFolder}/noir/noir-repo/target/release/nargo",
+  "auto-close-tag.activationOnLanguage": [
+    "xml",
+    "markdown",
+    "HTML (EEx)",
+    "HTML (Eex)"
+  ]
 }

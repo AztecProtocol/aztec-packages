@@ -3,7 +3,6 @@ set -e
 
 cd "$(dirname "$0")"
 
-set -x
 TEST_NAMES=("$@")
 THREADS=(1 4 16 32 64)
 BENCHMARKS=$LOG_FILE

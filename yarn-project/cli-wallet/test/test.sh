@@ -1,9 +1,5 @@
 #!/bin/bash
-set -e
-
-LOCATION=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-NOIR_CONTRACTS_PATH=$(realpath ../../../noir-projects/noir-contracts)
+source $(git rev-parse --show-toplevel)/ci3/source
 
 POSITIONAL_ARGS=()
 
@@ -34,12 +30,24 @@ done
 
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
-export WALLET_DATA_DIRECTORY="${LOCATION}/data"
+# Set up wallet data directory
+rm -rf data
+mkdir -p data
+export WALLET_DATA_DIRECTORY="$(pwd)/data"
 
-rm -rf $WALLET_DATA_DIRECTORY
-mkdir -p $WALLET_DATA_DIRECTORY
+# Note: We rely on 'aztec' being built
+anvil &
+ANVIL_PID=$!
+../../aztec/bin/index.js start --sandbox &
+SANDBOX_PID=$!
+function cleanup {
+  kill $ANVIL_PID
+  kill $SANDBOX_PID
+}
+trap cleanup EXIT
+while ! nc -z localhost 8080; do sleep 1; done;
 
-COMMAND="node --no-warnings $(realpath ../dest/bin/index.js)"
+COMMAND="node --no-warnings $(pwd)/../dest/bin/index.js"
 
 if [ "${REMOTE_PXE:-}" = "1" ]; then
   echo "Using remote PXE"
@@ -47,13 +55,12 @@ if [ "${REMOTE_PXE:-}" = "1" ]; then
 fi
 
 if [ "${USE_DOCKER:-}" = "1" ]; then
-    echo "Using docker"
-    COMMAND="aztec-wallet"
+  echo "Using docker"
+  COMMAND="aztec-wallet"
 fi
 
 cd ./flows
 
 for file in $(ls *.sh | grep ${FILTER:-"."}); do
-    ./$file $COMMAND $NOIR_CONTRACTS_PATH
+  ./$file $COMMAND $root/noir-projects/noir-contracts
 done
-

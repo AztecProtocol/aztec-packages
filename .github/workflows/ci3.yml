@@ -25,8 +25,9 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # exclusive with ci3-external.yml: if it is a pull request target only run if it is NOT a fork.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # exclusive with ci3-external.yml: never run on forks
+    # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
+    if: github.event.pull_request.head.repo.fork != true
     strategy:
       fail-fast: false
       matrix:
