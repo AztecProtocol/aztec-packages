@@ -13,7 +13,7 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
-#include "barretenberg/vm2/simulation/context_stack.hpp"
+// #include "barretenberg/vm2/simulation/context_stack.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -23,8 +23,10 @@
 namespace bb::avm2::simulation {
 
 struct ExecutionResult {
-    std::vector<FF> returndata;
+    uint32_t returndata_src_addr;
+    uint32_t returndata_size_addr;
     bool success;
+    // uint32_t gas_used;
 };
 
 class ExecutionInterface {
@@ -43,11 +45,11 @@ class Execution : public ExecutionInterface {
     Execution(AluInterface& alu,
               AddressingInterface& addressing,
               ContextProviderInterface& context_provider,
-              ContextStackInterface& context_stack,
+              // ContextSnapshotsInterface& context_snapshots,
               const InstructionInfoDBInterface& instruction_info_db,
               EventEmitterInterface<ExecutionEvent>& event_emitter)
         : context_provider(context_provider)
-        , context_stack(context_stack)
+        // , context_snapshots(context_snapshots)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , addressing(addressing)
@@ -59,6 +61,12 @@ class Execution : public ExecutionInterface {
                             AztecAddress msg_sender,
                             bool is_static) override;
 
+    ExecutionResult execute_internal(AztecAddress contract_address,
+                                     AztecAddress msg_sender,
+                                     uint32_t calldata_offset,
+                                     uint32_t calldata_size,
+                                     bool is_static);
+
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, MemoryValue value);
@@ -66,7 +74,16 @@ class Execution : public ExecutionInterface {
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
     void call(ContextInterface& context, MemoryAddress addr);
+    void cd_copy(ContextInterface& context,
+                 MemoryAddress cd_offset_addr,
+                 MemoryAddress copy_size_addr,
+                 MemoryAddress dst_addr);
     void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
+    void rd_size(ContextInterface& context, MemoryAddress dst_offset);
+    void rd_copy(ContextInterface& context,
+                 MemoryAddress rd_offset_addr,
+                 MemoryAddress copy_size_addr,
+                 MemoryAddress dst_offset);
 
   private:
     void execution_loop();
@@ -76,10 +93,11 @@ class Execution : public ExecutionInterface {
                             const std::vector<Operand>& resolved_operands);
     std::vector<Operand> resolve_operands(const Instruction& instruction, const ExecInstructionSpec& spec);
 
+    std::unique_ptr<ContextInterface> current_context; // Yuck?
     ContextProviderInterface& context_provider;
-    ContextStackInterface& context_stack;
+    // ContextSnapshotsInterface& context_snapshots;
     const InstructionInfoDBInterface& instruction_info_db;
-    ExecutionResult top_level_result;
+    ExecutionResult execution_result;
 
     AluInterface& alu;
     AddressingInterface& addressing;
