@@ -7,7 +7,7 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { createL1Clients, deployL1Contracts, deployRollupAndPeriphery } from '../deploy_l1_contracts.js';
+import { createL1Clients, deployL1Contracts, deployRollupForUpgrade } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { defaultL1TxUtilsConfig } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
@@ -105,7 +105,7 @@ describe('Registry', () => {
     );
     const newVersionSalt = originalVersionSalt + 1;
 
-    const { rollup: newRollup, payloadAddress } = await deployRollupAndPeriphery(
+    const { rollup: newRollup, payloadAddress } = await deployRollupForUpgrade(
       {
         walletClient,
         publicClient,

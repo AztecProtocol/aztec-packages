@@ -14,6 +14,7 @@ import {
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemPublicClient, ViemWalletClient } from '../types.js';
+import { extractProposalIdFromLogs } from './events.js';
 import { GovernanceProposerContract } from './governance_proposer.js';
 
 export type L1GovernanceContractAddresses = Pick<
@@ -71,6 +72,10 @@ export class GovernanceContract {
     };
   }
 
+  public getConfiguration() {
+    return this.publicGovernance.read.getConfiguration();
+  }
+
   public getProposal(proposalId: bigint) {
     return this.publicGovernance.read.getProposal([proposalId]);
   }
@@ -102,16 +107,14 @@ export class GovernanceContract {
   }: {
     payloadAddress: Hex;
     withdrawAddress: Hex;
-  }): Promise<number> {
+  }): Promise<bigint> {
     const walletGovernance = this.assertWalletGovernance();
     const proposeTx = await walletGovernance.write.proposeWithLock([payloadAddress, withdrawAddress]);
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash: proposeTx });
     if (receipt.status !== 'success') {
       throw new Error(`Proposal failed: ${receipt.status}`);
     }
-
-    const proposalId = Number(receipt.logs[1].topics[1]);
-    return proposalId;
+    return extractProposalIdFromLogs(receipt.logs);
   }
 
   public async awaitProposalActive({ proposalId, logger }: { proposalId: bigint; logger: Logger }) {
