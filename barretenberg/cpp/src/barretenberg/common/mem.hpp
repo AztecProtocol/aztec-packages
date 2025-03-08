@@ -6,6 +6,10 @@
 #include <cstdlib>
 #include <memory>
 
+#ifdef ENABLE_JEMALLOC
+#include "jemalloc_helper.h"
+#endif
+
 // This can be altered to capture stack traces, though more expensive
 // so wrap TracyAlloc or TracyAllocS. We disable these if gates are being tracked
 // Gates are hackishly tracked as if they were memory, for the sweet sweet memory
