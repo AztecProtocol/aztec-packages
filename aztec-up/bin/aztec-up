@@ -9,7 +9,7 @@ function help() {
   echo "Usage: aztec-up [options]"
   echo "Options:"
   echo "  -v, --version <version>  Install a specific version of Aztec"
-  echo "  -h, --help             Show this help message"
+  echo "  -h, --help               Show this help message"
 }
 
 # Parse optional version argument
