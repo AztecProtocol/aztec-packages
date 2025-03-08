@@ -42,7 +42,9 @@ pub contract AMM {
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         prelude::{AztecAddress, PublicImmutable},
     };
+
     use dep::token::Token;
+    use dep::uint_note::uint_note::PartialUintNote;
 
     #[storage]
     struct Storage<Context> {
@@ -103,19 +105,19 @@ pub contract AMM {
         token0.transfer_to_public(sender, context.this_address(), amount0_max, nonce).call(
             &mut context,
         );
-        let refund_token0_hiding_point_slot =
+        let refund_token0_partial_note =
             token0.prepare_private_balance_increase(sender, sender).call(&mut context);
 
         token1.transfer_to_public(sender, context.this_address(), amount1_max, nonce).call(
             &mut context,
         );
-        let refund_token1_hiding_point_slot =
+        let refund_token1_partial_note =
             token1.prepare_private_balance_increase(sender, sender).call(&mut context);
 
         // The number of liquidity tokens to mint for the caller depends on both the live balances and the amount
         // supplied, both of which can only be known during public execution. We therefore prepare a partial note that
         // will get completed via minting.
-        let liquidity_hiding_point_slot =
+        let liquidity_partial_note =
             liquidity_token.prepare_private_balance_increase(sender, sender).call(&mut context);
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
@@ -124,9 +126,9 @@ pub contract AMM {
         AMM::at(context.this_address())
             ._add_liquidity(
                 config,
-                refund_token0_hiding_point_slot,
-                refund_token1_hiding_point_slot,
-                liquidity_hiding_point_slot,
+                refund_token0_partial_note,
+                refund_token1_partial_note,
+                liquidity_partial_note,
                 amount0_max,
                 amount1_max,
                 amount0_min,
@@ -139,9 +141,9 @@ pub contract AMM {
     #[internal]
     fn _add_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
-        refund_token0_hiding_point_slot: Field,
-        refund_token1_hiding_point_slot: Field,
-        liquidity_hiding_point_slot: Field,
+        refund_token0_partial_note: PartialUintNote,
+        refund_token1_partial_note: PartialUintNote,
+        liquidity_partial_note: PartialUintNote,
         amount0_max: u128,
         amount1_max: u128,
         amount0_min: u128,
@@ -181,12 +183,12 @@ pub contract AMM {
         // simply stay in public storage and not be completed, but this is not an issue.
         if (refund_amount_token0 > 0 as u128) {
             token0
-                .finalize_transfer_to_private(refund_amount_token0, refund_token0_hiding_point_slot)
+                .finalize_transfer_to_private(refund_amount_token0, refund_token0_partial_note)
                 .call(&mut context);
         }
         if (refund_amount_token1 > 0 as u128) {
             token1
-                .finalize_transfer_to_private(refund_amount_token1, refund_token1_hiding_point_slot)
+                .finalize_transfer_to_private(refund_amount_token1, refund_token1_partial_note)
                 .call(&mut context);
         }
 
@@ -217,9 +219,9 @@ pub contract AMM {
         };
 
         assert(liquidity_amount > 0 as u128, "INSUFFICIENT_LIQUIDITY_MINTED");
-        liquidity_token
-            .finalize_mint_to_private(liquidity_amount, liquidity_hiding_point_slot)
-            .call(&mut context);
+        liquidity_token.finalize_mint_to_private(liquidity_amount, liquidity_partial_note).call(
+            &mut context,
+        );
     }
 
     /// Privately removes liquidity from the pool. This function receives how many liquidity tokens to burn, and the
@@ -248,9 +250,9 @@ pub contract AMM {
 
         // We don't yet know how many tokens the sender will get - that can only be computed during public execution
         // since the it depends on the live balances. We therefore simply prepare partial notes to the sender.
-        let token0_hiding_point_slot =
+        let token0_partial_note =
             token0.prepare_private_balance_increase(sender, sender).call(&mut context);
-        let token1_hiding_point_slot =
+        let token1_partial_note =
             token1.prepare_private_balance_increase(sender, sender).call(&mut context);
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
@@ -260,8 +262,8 @@ pub contract AMM {
             ._remove_liquidity(
                 config,
                 liquidity,
-                token0_hiding_point_slot,
-                token1_hiding_point_slot,
+                token0_partial_note,
+                token1_partial_note,
                 amount0_min,
                 amount1_min,
             )
@@ -273,8 +275,8 @@ pub contract AMM {
     fn _remove_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
         liquidity: u128,
-        token0_hiding_point_slot: Field,
-        token1_hiding_point_slot: Field,
+        token0_partial_note: PartialUintNote,
+        token1_partial_note: PartialUintNote,
         amount0_min: u128,
         amount1_min: u128,
     ) {
@@ -297,8 +299,8 @@ pub contract AMM {
         // We can now burn the liquidity tokens that had been privately transferred into the AMM, as well as complete
         // both partial notes.
         liquidity_token.burn_public(context.this_address(), liquidity, 0).call(&mut context);
-        token0.finalize_transfer_to_private(amount0, token0_hiding_point_slot).call(&mut context);
-        token1.finalize_transfer_to_private(amount1, token1_hiding_point_slot).call(&mut context);
+        token0.finalize_transfer_to_private(amount0, token0_partial_note).call(&mut context);
+        token1.finalize_transfer_to_private(amount1, token1_partial_note).call(&mut context);
     }
 
     /// Privately swaps `amount_in` `token_in` tokens for at least `amount_out_mint` `token_out` tokens with the pool.
@@ -328,7 +330,7 @@ pub contract AMM {
         Token::at(token_in)
             .transfer_to_public(sender, context.this_address(), amount_in, nonce)
             .call(&mut context);
-        let token_out_hiding_point_slot = Token::at(token_out)
+        let token_out_partial_note = Token::at(token_out)
             .prepare_private_balance_increase(sender, sender)
             .call(&mut context);
 
@@ -338,7 +340,7 @@ pub contract AMM {
                 token_out,
                 amount_in,
                 amount_out_min,
-                token_out_hiding_point_slot,
+                token_out_partial_note,
             )
             .enqueue(&mut context);
     }
@@ -350,7 +352,7 @@ pub contract AMM {
         token_out: AztecAddress,
         amount_in: u128,
         amount_out_min: u128,
-        token_out_hiding_point_slot: Field,
+        token_out_partial_note: PartialUintNote,
     ) {
         // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
         // transfer has already been completed as that function call was enqueued before this one. We therefore need to
@@ -366,9 +368,9 @@ pub contract AMM {
         let amount_out = get_amount_out(amount_in, balance_in, balance_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        Token::at(token_out)
-            .finalize_transfer_to_private(amount_out, token_out_hiding_point_slot)
-            .call(&mut context);
+        Token::at(token_out).finalize_transfer_to_private(amount_out, token_out_partial_note).call(
+            &mut context,
+        );
     }
 
     /// Privately swaps at most `amount_in_max` `token_in` tokens for `amount_out` `token_out` tokens with the pool.
@@ -402,10 +404,10 @@ pub contract AMM {
         Token::at(token_in)
             .transfer_to_public(sender, context.this_address(), amount_in_max, nonce)
             .call(&mut context);
-        let change_token_in_hiding_point_slot =
+        let change_token_in_partial_note =
             Token::at(token_in).prepare_private_balance_increase(sender, sender).call(&mut context);
 
-        let token_out_hiding_point_slot = Token::at(token_out)
+        let token_out_partial_note = Token::at(token_out)
             .prepare_private_balance_increase(sender, sender)
             .call(&mut context);
 
@@ -415,8 +417,8 @@ pub contract AMM {
                 token_out,
                 amount_in_max,
                 amount_out,
-                change_token_in_hiding_point_slot,
-                token_out_hiding_point_slot,
+                change_token_in_partial_note,
+                token_out_partial_note,
             )
             .enqueue(&mut context);
     }
@@ -428,8 +430,8 @@ pub contract AMM {
         token_out: AztecAddress,
         amount_in_max: u128,
         amount_out: u128,
-        change_token_in_hiding_point_slot: Field,
-        token_out_hiding_point_slot: Field,
+        change_token_in_partial_note: PartialUintNote,
+        token_out_partial_note: PartialUintNote,
     ) {
         // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
         // transfer has already been completed as that function call was enqueued before this one. We therefore need to
@@ -448,15 +450,15 @@ pub contract AMM {
         let change = amount_in_max - amount_in;
         if (change > 0 as u128) {
             Token::at(token_in)
-                .finalize_transfer_to_private(change, change_token_in_hiding_point_slot)
+                .finalize_transfer_to_private(change, change_token_in_partial_note)
                 .call(&mut context);
         }
 
         // Note again that we already knew the amount out, but for consistency we want to only commit this note once
         // all other steps have been performed.
-        Token::at(token_out)
-            .finalize_transfer_to_private(amount_out, token_out_hiding_point_slot)
-            .call(&mut context);
+        Token::at(token_out).finalize_transfer_to_private(amount_out, token_out_partial_note).call(
+            &mut context,
+        );
     }
 
     unconstrained fn get_amount_out_for_exact_in(

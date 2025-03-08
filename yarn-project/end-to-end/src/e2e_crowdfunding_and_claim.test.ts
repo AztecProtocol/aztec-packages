@@ -131,9 +131,9 @@ describe('e2e_crowdfunding_and_claim', () => {
   const processUniqueNote = (uniqueNote: UniqueNote) => {
     return {
       note: {
-        value: uniqueNote.note.items[0].toBigInt(), // We convert to bigint as Fr is not serializable to U128
-        owner: AztecAddress.fromField(uniqueNote.note.items[1]),
-        randomness: uniqueNote.note.items[2],
+        owner: AztecAddress.fromField(uniqueNote.note.items[0]),
+        randomness: uniqueNote.note.items[1],
+        value: uniqueNote.note.items[2].toBigInt(), // We convert to bigint as Fr is not serializable to U128
       },
       // eslint-disable-next-line camelcase
       contract_address: uniqueNote.contractAddress,
