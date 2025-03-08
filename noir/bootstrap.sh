@@ -71,6 +71,9 @@ function build_packages {
     mv packages/package packages/${project#*/}
   done
 
+  # Find all files in packages dir and use sed to in-place replace @noir-lang with @aztec/noir-
+  find packages -type f -exec sed -i 's|@noir-lang/|@aztec/noir-|g' {} \;
+
   cache_upload noir-packages-$hash.tar.gz \
     packages \
     noir-repo/acvm-repo/acvm_js/nodejs \
