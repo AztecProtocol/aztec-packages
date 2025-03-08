@@ -355,6 +355,7 @@ class AvmFlavor {
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size);
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size);
     };
 
     /**
