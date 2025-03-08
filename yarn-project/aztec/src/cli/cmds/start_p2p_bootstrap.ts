@@ -24,6 +24,6 @@ export async function startP2PBootstrap(
   await node.start(config);
   signalHandlers.push(() => node.stop());
   services.bootstrap = [node, P2PBootstrapApiSchema];
-  userLog(`P2P bootstrap node started on ${config.udpListenAddress}`);
+  userLog(`P2P bootstrap node started on ${config.p2pIp}:${config.p2pPort}`);
   return { config: emptyChainConfig };
 }

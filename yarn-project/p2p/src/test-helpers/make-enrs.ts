@@ -30,10 +30,9 @@ export async function makeEnr(p2pPrivateKey: string, port: number, config: Chain
   const peerId = await createLibP2PPeerIdFromPrivateKey(p2pPrivateKey);
   const enr = SignableENR.createFromPeerId(peerId);
 
-  const udpAnnounceAddress = `127.0.0.1:${port}`;
-  const tcpAnnounceAddress = `127.0.0.1:${port}`;
-  const udpPublicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
-  const tcpPublicAddr = multiaddr(convertToMultiaddr(tcpAnnounceAddress, 'tcp'));
+  const p2pIp = `127.0.0.1`;
+  const udpPublicAddr = multiaddr(convertToMultiaddr(p2pIp, port, 'udp'));
+  const tcpPublicAddr = multiaddr(convertToMultiaddr(p2pIp, port, 'tcp'));
 
   // ENRS must include the network and a discoverable address (udp for discv5)
   setAztecEnrKey(enr, config);
