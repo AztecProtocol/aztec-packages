@@ -1,5 +1,5 @@
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
-import { SimpleContractDataSource, WorldStateDB } from '@aztec/simulator/server';
+import { SimpleContractDataSource } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -28,11 +28,10 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
     private checkCircuitOnly: boolean,
-    worldStateDB: WorldStateDB,
+    merkleTree: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
-    merkleTrees: MerkleTreeWriteOperations,
   ) {
-    super(worldStateDB, contractDataSource, merkleTrees);
+    super(merkleTree, contractDataSource);
   }
 
   static override async create(checkCircuitOnly: boolean = false) {
@@ -40,8 +39,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, worldStateDB, contractDataSource, merkleTrees);
+    return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, merkleTrees, contractDataSource);
   }
 
   async prove(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
@@ -108,11 +106,10 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 export class AvmProvingTesterV2 extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
-    worldStateDB: WorldStateDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
   ) {
-    super(worldStateDB, contractDataSource, merkleTrees);
+    super(merkleTrees, contractDataSource);
   }
 
   static override async create() {
@@ -120,8 +117,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    return new AvmProvingTesterV2(bbWorkingDirectory, worldStateDB, contractDataSource, merkleTrees);
+    return new AvmProvingTesterV2(bbWorkingDirectory, contractDataSource, merkleTrees);
   }
 
   async proveV2(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
