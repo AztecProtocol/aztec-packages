@@ -122,7 +122,7 @@ Clients behind a NAT must be publically dialable and they must provide their pub
 
 #### Multiplexing
 
-LibP2P supports the multiplexing of stream based transports such as TCP. There are 2 widely implemented multiplexing modules within LibP2P, [mplex](https://docs.libp2p.io/concepts/multiplex/mplex/) and the more sophisticated [yamux](https://docs.libp2p.io/concepts/multiplex/yamux/). Clients must be configured to support mplex and may choose to support yamux.
+LibP2P supports the multiplexing of stream based transports such as TCP. Clients must be configured to support [yamux](https://docs.libp2p.io/concepts/multiplex/yamux/).
 
 #### Encryption handshake
 
