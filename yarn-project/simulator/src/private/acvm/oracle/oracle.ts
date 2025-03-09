@@ -453,6 +453,21 @@ export class Oracle {
     );
   }
 
+  async aes128Decrypt(
+    ciphertext: ACVMField[],
+    [_iv_length]: ACVMField[],
+    iv: ACVMField[],
+    [_sym_key_length]: ACVMField[],
+    sym_key: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const ciphertextBuffer = Buffer.from(ciphertext.map(f => Number(fromACVMField(f))));
+    const ivBuffer = Buffer.from(iv.map(f => Number(fromACVMField(f))));
+    const symKeyBuffer = Buffer.from(sym_key.map(f => Number(fromACVMField(f))));
+
+    const plaintext = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
+    return Array.from(plaintext).map(b => toACVMField(BigInt(b)));
+  }
+
   // TODO(benesjan): When I had the ephPk input defined only as "ephPk: ACVMField[]" then ephPk was only 1 Field
   // instead of 3. Does the reviewer know why I need to have the Point components directly listed here? It's ugly.
   async getSharedSecret(

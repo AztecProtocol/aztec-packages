@@ -32,14 +32,20 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret, L1NotePayload, LogWithTxData, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import {
+  IndexedTaggingSecret,
+  L1NotePayload,
+  LogWithTxData,
+  PrivateLog,
+  TxScopedL2Log,
+  deriveEcdhSharedSecret,
+} from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { deriveEcdhSharedSecret } from '../../../stdlib/src/logs/l1_payload/shared_secret_derivation.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import type { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
@@ -652,6 +658,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
+    const decryptedLogs = await this.#decryptTaggedLogs(logs, recipient);
+
     // We've produced the full NoteDao, which we'd be able to simply insert into the database. However, this is
     // only a temporary measure as we migrate from the PXE-driven discovery into the new contract-driven approach. We
     // discard most of the work done up to this point and reconstruct the note plaintext to then hand over to the
