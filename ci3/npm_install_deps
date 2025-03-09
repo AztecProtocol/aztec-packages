@@ -12,7 +12,7 @@ fi
 yarn_lock_path=$(realpath yarn.lock --relative-to=$root)
 
 if [ "$CI" -eq 1 ]; then
-  local nm_hash=$(cache_content_hash "^$yarn_lock_path")
+  nm_hash=$(cache_content_hash "^$yarn_lock_path")
   if ! cache_download node-modules-$nm_hash.zst; then
     denoise "retry yarn install --immutable"
     cache_upload node-modules-$nm_hash.zst node_modules
