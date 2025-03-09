@@ -45,32 +45,18 @@ function build_native {
   cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm target/release/noir-profiler
 }
 
-function install_deps {
-  # Cache hit won't restore .yarn, which means a subsequent "yarn install" may still be slow.
-  # This doesn't matter in CI however.
-  if [ "$CI" -eq 1 ]; then
-    local nm_hash=$(cache_content_hash ^noir/noir-repo/yarn.lock)
-    if ! cache_download noir-packages-node-modules-$nm_hash.zst; then
-      yarn install
-      cache_upload noir-packages-node-modules-$nm_hash.zst node_modules
-    fi
-  else
-    yarn install
-  fi
-}
-
 # Builds js packages.
 function build_packages {
   set -euo pipefail
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
-    install_deps
+    npm_install_deps
     return
   fi
 
   cd noir-repo
-  install_deps
+  npm_install_deps
   yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.

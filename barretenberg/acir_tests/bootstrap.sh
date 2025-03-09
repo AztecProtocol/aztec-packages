@@ -40,14 +40,19 @@ function build {
     cache_upload $tests_tar acir_tests
   fi
 
+  npm_install_deps
+  # TODO: Check if still needed.
+  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
+
   # TODO: Revisit. Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
-  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
-  denoise "cd headless-test && yarn"
-  denoise "cd sol-test && yarn"
+  # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
+  # denoise "cd headless-test && yarn"
+  # denoise "cd sol-test && yarn"
+
   # TODO: Revist. The md5sum of everything is the same after each yarn call.
   # Yet seemingly yarn's content hash will churn unless we reset timestamps
-  find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
+  # find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 
   denoise "cd browser-test-app && yarn build"
 }
