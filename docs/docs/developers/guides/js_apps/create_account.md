@@ -1,6 +1,7 @@
 ---
 title: How to Create a New Account
 tags: [accounts]
+sidebar_position: 0
 ---
 
 This guide explains how to create a new account using Aztec.js.
