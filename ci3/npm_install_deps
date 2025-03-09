@@ -10,7 +10,6 @@ if [ ! -f yarn.lock ]; then
 fi
 
 yarn_lock_path=$(realpath yarn.lock --relative-to=$root)
-cd $(dirname $yarn_lock_path)
 
 if [ "$CI" -eq 1 ]; then
   local nm_hash=$(cache_content_hash "^$yarn_lock_path")
