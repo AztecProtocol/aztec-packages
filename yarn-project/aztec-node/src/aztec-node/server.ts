@@ -865,7 +865,6 @@ export class AztecNodeService implements AztecNode, Traceable {
       new DateProvider(),
       this.telemetry,
     );
-    const fork = await this.worldStateSynchronizer.fork();
 
     this.log.verbose(`Simulating public calls for tx ${txHash}`, {
       globalVariables: newGlobalVariables.toInspect(),
@@ -873,8 +872,9 @@ export class AztecNodeService implements AztecNode, Traceable {
       blockNumber,
     });
 
+    const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
-      const processor = publicProcessorFactory.create(fork, newGlobalVariables, skipFeeEnforcement);
+      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, skipFeeEnforcement);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
@@ -893,7 +893,7 @@ export class AztecNodeService implements AztecNode, Traceable {
         processedTx.gasUsed,
       );
     } finally {
-      await fork.close();
+      await merkleTreeFork.close();
     }
   }
 

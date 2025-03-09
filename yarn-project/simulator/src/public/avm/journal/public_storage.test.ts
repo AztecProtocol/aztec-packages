@@ -3,15 +3,15 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { PublicStateDB } from '../../../common/db_interfaces.js';
+import type { PublicStateDBInterface } from '../../../common/db_interfaces.js';
 import { PublicStorage } from './public_storage.js';
 
 describe('avm public storage', () => {
-  let publicDb: MockProxy<PublicStateDB>;
+  let publicDb: MockProxy<PublicStateDBInterface>;
   let publicStorage: PublicStorage;
 
   beforeEach(() => {
-    publicDb = mock<PublicStateDB>();
+    publicDb = mock<PublicStateDBInterface>();
     publicStorage = new PublicStorage(publicDb);
   });
 
