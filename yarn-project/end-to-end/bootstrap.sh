@@ -93,6 +93,7 @@ function test_cmds {
   echo "$prefix simple e2e_p2p/slashing"
   echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
 
+  echo "$prefix simple e2e_pending_note_hashes_contract"
   echo "$prefix simple e2e_private_voting_contract"
   echo "$prefix simple e2e_pruned_blocks"
   echo "$prefix simple e2e_public_testnet_transfer"

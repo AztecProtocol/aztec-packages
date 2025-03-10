@@ -43,6 +43,7 @@ spec:
       terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
 
         # Get the private key from the mnemonic - based on the pod replica index
         - name: get-private-key
