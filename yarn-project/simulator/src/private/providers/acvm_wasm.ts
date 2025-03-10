@@ -1,14 +1,13 @@
 import { createLogger } from '@aztec/foundation/log';
+import initACVM, { type ExecutionError, executeCircuit } from '@aztec/noir-acvm_js';
+import initAbi from '@aztec/noir-noirc_abi';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
+import type { WitnessMap } from '@aztec/noir-types';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
-
-import initACVM, { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
-import initAbi from '@noir-lang/noirc_abi';
-import type { WitnessMap } from '@noir-lang/types';
 
 import { type ACIRCallback, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
-import { type SimulationProvider, parseErrorPayload } from './simulation_provider.js';
+import { type SimulationProvider, enrichNoirError } from './simulation_provider.js';
 
 export class WASMSimulator implements SimulationProvider {
   constructor(protected log = createLogger('wasm-simulator')) {}
@@ -43,7 +42,7 @@ export class WASMSimulator implements SimulationProvider {
     } catch (err) {
       // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        const parsed = parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
+        const parsed = enrichNoirError(compiledCircuit, err as ExecutionError);
         this.log.debug('execution failed', {
           hash: compiledCircuit.hash,
           error: parsed,

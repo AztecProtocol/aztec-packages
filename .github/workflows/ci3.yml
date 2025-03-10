@@ -28,6 +28,7 @@ jobs:
     # exclusive with ci3-external.yml: never run on forks
     # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
     if: github.event.pull_request.head.repo.fork != true
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     strategy:
       fail-fast: false
       matrix:

@@ -21,7 +21,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee, capsules = [] } = exec;
+    const { calls, fee, authWitnesses = [], capsules = [] } = exec;
     if (calls.length !== 1) {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
@@ -50,7 +50,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       functionSelector,
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
       argsOfCalls: [...payload.hashedArguments, entrypointHashedArgs],
-      authWitnesses: [authWitness],
+      authWitnesses: [...authWitnesses, authWitness],
       capsules,
     });
 

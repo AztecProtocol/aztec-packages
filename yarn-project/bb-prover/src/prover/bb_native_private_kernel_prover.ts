@@ -1,18 +1,18 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { serializeWitness } from '@aztec/noir-noirc_abi';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
 import type { SimulationProvider } from '@aztec/simulator/server';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { encode } from '@msgpack/msgpack';
-import { serializeWitness } from '@noir-lang/noirc_abi';
 import { promises as fs } from 'fs';
 import path from 'path';
 
 import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../bb/execute.js';
 import type { BBConfig } from '../config.js';
-import { BBPrivateKernelProver } from './bb_private_kernel_prover.js';
+import { BBPrivateKernelProver } from './bb_private_kegitrnel_prover.js';
 import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
 
 /**

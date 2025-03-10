@@ -168,12 +168,7 @@ function release_packages {
 function release {
   echo_header "yarn-project release"
   # WORKTODO latest is only on master, otherwise use ref name
-  release_packages $(dist_tag) ${REF_NAME#v}
-}
-
-function release_commit {
-  echo_header "yarn-project release commit"
-  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
+  release_packages $(dist-tag) ${REF_NAME#v}
 }
 
 case "$cmd" in
@@ -207,7 +202,7 @@ case "$cmd" in
   lint|format)
     $cmd "$@"
     ;;
-  test|test_cmds|hash|release|release_commit)
+  test|test_cmds|hash|release|format)
     $cmd
     ;;
   *)
