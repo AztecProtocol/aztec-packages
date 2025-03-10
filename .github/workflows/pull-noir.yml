@@ -72,7 +72,7 @@ jobs:
           BRANCH=bump-noir
           git checkout $BRANCH || git checkout -b $BRANCH
           echo $LATEST_NOIR_NIGHTLY > noir/noir-repo-ref
-          git add .
+          git add noir
           # This should fail if there was no change in the tag. We could use --allow-empty to do it anyway.
           git commit -m 'chore: Update noir-repo-ref to the latest nightly'
           git push --set-upstream origin $BRANCH --force
