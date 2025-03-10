@@ -408,12 +408,6 @@ export async function setup(
     return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
   }
 
-  // Blob sink service - blobs get posted here and served from here
-  const blobSinkPort = await getPort();
-  const blobSink = await createBlobSinkServer({ port: blobSinkPort });
-  await blobSink.start();
-  config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
-
   const initialFundedAccounts =
     opts.initialFundedAccounts ??
     (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts));
@@ -475,6 +469,22 @@ export async function setup(
 
   await watcher.start();
 
+  const telemetry = getTelemetryClient(opts.telemetryConfig);
+
+  // Blob sink service - blobs get posted here and served from here
+  const blobSinkPort = await getPort();
+  const blobSink = await createBlobSinkServer(
+    {
+      l1ChainId: config.l1ChainId,
+      l1RpcUrls: config.l1RpcUrls,
+      rollupAddress: config.l1Contracts.rollupAddress,
+      port: blobSinkPort,
+    },
+    telemetry,
+  );
+  await blobSink.start();
+  config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+
   logger.verbose('Creating and synching an aztec node...');
 
   const acvmConfig = await getACVMConfig(logger);
@@ -489,8 +499,6 @@ export async function setup(
     config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
   config.l1PublishRetryIntervalMS = 100;
-
-  const telemetry = getTelemetryClient(opts.telemetryConfig);
 
   const blobSinkClient = createBlobSinkClient(config);
   const aztecNode = await AztecNodeService.createAndSync(
