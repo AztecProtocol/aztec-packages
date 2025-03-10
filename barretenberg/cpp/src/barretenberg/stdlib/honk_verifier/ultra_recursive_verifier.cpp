@@ -104,7 +104,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size));
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
+    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials
