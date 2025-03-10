@@ -12,6 +12,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
+    use dep::uint_note::uint_note::PartialUintNote;
     use aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         prelude::AztecAddress,
@@ -89,11 +90,11 @@ pub contract FPC {
         token.transfer_to_public(user, context.this_address(), max_fee, nonce).call(&mut context);
 
         // Prepare a partial note for the refund for the user.
-        let refund_slot = token.prepare_private_balance_increase(user, user).call(&mut context);
+        let partial_note = token.prepare_private_balance_increase(user, user).call(&mut context);
 
         // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
         FPC::at(context.this_address())
-            ._complete_refund(accepted_asset, refund_slot, max_fee)
+            ._complete_refund(accepted_asset, partial_note, max_fee)
             .set_as_teardown(&mut context);
 
         // Set the FPC as the fee payer of the tx.
@@ -106,7 +107,11 @@ pub contract FPC {
     // docs:start:complete_refund
     #[public]
     #[internal]
-    fn _complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: u128) {
+    fn _complete_refund(
+        accepted_asset: AztecAddress,
+        partial_note: PartialUintNote,
+        max_fee: u128,
+    ) {
         let tx_fee = safe_cast_to_u128(context.transaction_fee());
 
         // 1. Check that user funded the fee payer contract with at least the transaction fee.
@@ -117,7 +122,7 @@ pub contract FPC {
         // TODO(#10805): Introduce a real exchange rate
         let refund_amount = max_fee - tx_fee;
 
-        Token::at(accepted_asset).finalize_transfer_to_private(refund_amount, refund_slot).call(
+        Token::at(accepted_asset).finalize_transfer_to_private(refund_amount, partial_note).call(
             &mut context,
         );
     }

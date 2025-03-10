@@ -18,8 +18,7 @@ describe('e2e_token_contract private transfer recursion', () => {
   });
 
   async function mintNotes(noteAmounts: bigint[]): Promise<bigint> {
-    // We mint only 3 notes in 1 transaction as that is the maximum public data writes we can squeeze into a tx.
-    // --> Minting one note requires 19 public data writes (16 for the note encrypted log, 3 for note hiding point).
+    // We mint only 3 notes in 1 transaction as we're limited by how many public data writes we can squeeze into a tx.
     const notesPerIteration = 3;
     for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
       const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);

@@ -80,10 +80,9 @@ class MockNoteRequest {
   }
 
   get snippetOfNoteDao() {
-    const payload = L1NotePayload.fromIncomingBodyPlaintextContractAndPublicValues(
+    const payload = L1NotePayload.fromIncomingBodyPlaintextContract(
       this.logPayload.incomingBodyPlaintext,
       this.logPayload.contractAddress,
-      [],
     )!;
     return {
       note: new Note(payload.privateNoteValues),
