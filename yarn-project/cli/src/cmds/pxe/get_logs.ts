@@ -1,6 +1,6 @@
-import { type AztecAddress, type LogFilter, type LogId, type TxHash } from '@aztec/aztec.js';
+import type { AztecAddress, LogFilter, LogId, TxHash } from '@aztec/aztec.js';
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 export async function getLogs(

@@ -4,12 +4,14 @@ use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use crate::{
     context::PrivateContext,
     note::{
-        note_interface::{NoteInterface, NullifiableNote},
-        retrieved_note::RetrievedNote,
-        utils::compute_siloed_nullifier,
+        note_interface::NoteHash, retrieved_note::RetrievedNote,
+        utils::compute_siloed_note_nullifier,
     },
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
 };
+use protocol_types::traits::Hash;
+
+mod test;
 
 trait ProveNullifierInclusion {
     fn prove_nullifier_inclusion(header: BlockHeader, nullifier: Field);
@@ -50,7 +52,7 @@ trait ProveNoteIsNullified {
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface + NullifiableNote;
+        Note: NoteHash;
 }
 
 impl ProveNoteIsNullified for BlockHeader {
@@ -62,9 +64,9 @@ impl ProveNoteIsNullified for BlockHeader {
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface + NullifiableNote,
+        Note: NoteHash,
     {
-        let nullifier = compute_siloed_nullifier(retrieved_note, storage_slot, context);
+        let nullifier = compute_siloed_note_nullifier(retrieved_note, storage_slot, context);
 
         self.prove_nullifier_inclusion(nullifier);
     }

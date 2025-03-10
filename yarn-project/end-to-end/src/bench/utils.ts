@@ -1,15 +1,11 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
 import { mean, stdDev, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
-import { type MetricsType } from '@aztec/telemetry-client';
-import {
-  type BenchmarkDataPoint,
-  type BenchmarkMetricsType,
-  type BenchmarkTelemetryClient,
-} from '@aztec/telemetry-client/bench';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
+import type { MetricsType } from '@aztec/telemetry-client';
+import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { writeFileSync } from 'fs';
 import { mkdirpSync } from 'fs-extra';

@@ -18,7 +18,10 @@ pub contract Test {
     };
 
     use dep::aztec::protocol_types::{
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+        constants::{
+            MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_TX,
+            PRIVATE_LOG_SIZE_IN_FIELDS,
+        },
         point::Point,
         traits::{Hash, Packable, Serialize},
         utils::arrays::array_concat,
@@ -29,27 +32,33 @@ pub contract Test {
 
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
-        hash::{ArgsHasher, compute_secret_hash, pedersen_hash},
-        macros::{events::event, functions::{internal, private, public}, storage::storage},
+        discovery::private_logs::do_process_log,
+        event::event_interface::EventInterface,
+        hash::{ArgsHasher, pedersen_hash},
+        history::note_inclusion::ProveNoteInclusion,
+        macros::{
+            events::event,
+            functions::{initializer, internal, noinitcheck, private, public},
+            storage::storage,
+        },
         note::{
             lifecycle::{create_note, destroy_note_unsafe},
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
+            note_interface::NoteType,
             retrieved_note::RetrievedNote,
         },
         test::mocks::mock_struct::MockStruct,
-        utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
-    use dep::value_note::value_note::ValueNote;
     use std::meta::derive;
 
+    // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
-
-    // Imported just to test note type ids
-    use dep::uint_note::uint_note::UintNote;
+    use address_note::address_note::AddressNote;
+    use value_note::value_note::ValueNote;
 
     #[derive(Serialize)]
     #[event]
@@ -78,12 +87,17 @@ pub contract Test {
     struct Storage<Context> {
         example_constant: PrivateImmutable<TestNote, Context>,
         example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
-        example_set: PrivateSet<TestNote, Context>,
+        example_set: PrivateSet<AddressNote, Context>,
         example_struct: PrivateImmutable<ExampleStruct, Context>,
         example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
         example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
         another_example_struct: PrivateImmutable<ExampleStruct, Context>,
     }
+
+    #[initializer]
+    #[private]
+    // We can name our initializer anything we want as long as it's marked as aztec(initializer)
+    fn initialize() {}
 
     #[private]
     fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
@@ -116,6 +130,7 @@ pub contract Test {
     #[internal]
     fn dummy_public_call() {}
 
+    // docs:start:create_note
     #[private]
     fn call_create_note(
         value: Field,
@@ -124,7 +139,8 @@ pub contract Test {
         storage_slot: Field,
     ) {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -135,11 +151,13 @@ pub contract Test {
             sender,
         ));
     }
+    // docs:end:create_note
 
     #[private]
     fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -148,8 +166,10 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
+        // docs:start:get_note_from_pxe
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
+        // docs:end:get_note_from_pxe
 
         retrieved_notes.get(0).note.value
     }
@@ -157,7 +177,8 @@ pub contract Test {
     #[private]
     fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [Field; 2] {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -174,7 +195,8 @@ pub contract Test {
 
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -193,7 +215,8 @@ pub contract Test {
         active_or_nullified: bool,
     ) -> pub [Field; 2] {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -210,7 +233,8 @@ pub contract Test {
     #[private]
     fn call_destroy_note(storage_slot: Field) {
         assert(
-            storage_slot != storage.example_constant.get_storage_slot(),
+            storage_slot
+                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
             "this storage slot is reserved for example_constant",
         );
 
@@ -221,7 +245,22 @@ pub contract Test {
         let retrieved_note = retrieved_notes.get(0);
         let note_hash = note_hashes.get(0);
 
+        // docs:start:nullify_note
         destroy_note_unsafe(&mut context, retrieved_note, note_hash);
+        // docs:end:nullify_note
+    }
+
+    #[private]
+    fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
+
+        let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
+            get_notes(&mut context, storage_slot, options);
+
+        let header = context.get_block_header();
+
+        header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
     }
 
     #[private]
@@ -299,6 +338,7 @@ pub contract Test {
 
     // Forcefully emits a nullifier (for testing purposes)
     #[private]
+    #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
@@ -336,7 +376,8 @@ pub contract Test {
 
     #[private]
     fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress, sender: AztecAddress) {
-        let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
+        let mut storage_slot =
+            aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant) + 1;
         Test::at(context.this_address()).call_create_note(value, owner, sender, storage_slot).call(
             &mut context,
         );
@@ -374,7 +415,7 @@ pub contract Test {
     #[public]
     fn consume_mint_to_public_message(
         to: AztecAddress,
-        amount: U128,
+        amount: u128,
         secret: Field,
         message_leaf_index: Field,
         portal_address: EthAddress,
@@ -386,7 +427,7 @@ pub contract Test {
 
     #[private]
     fn consume_mint_to_private_message(
-        amount: U128,
+        amount: u128,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
         message_leaf_index: Field,
@@ -426,7 +467,39 @@ pub contract Test {
     #[private]
     fn set_constant(value: Field) {
         let note = TestNote::new(value);
+        // We don't broadcast the fact that we created a note, it must be manually delivered by calling the deliver_note
+        // function. Note that we can only do this because the note contains no contract-generated values (e.g.
+        // randomness), if it did then we'd need to extract those out of the contract so that the app can get them (e.g.
+        // via capsules).
         storage.example_constant.initialize(note).discard();
+    }
+
+    unconstrained fn deliver_note(
+        contract_address: AztecAddress,
+        value: Field,
+        tx_hash: Field,
+        unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+        first_nullifier_in_tx: Field,
+        recipient: AztecAddress,
+    ) {
+        // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
+        // [ storage_slot, note_type_id, ...packed_note ]
+
+        let note = TestNote::new(value);
+        let log_plaintext = BoundedVec::from_array(array_concat(
+            [Test::storage_layout().example_constant.slot, TestNote::get_id()],
+            note.pack(),
+        ));
+
+        do_process_log(
+            contract_address,
+            log_plaintext,
+            tx_hash,
+            unique_note_hashes_in_tx,
+            first_nullifier_in_tx,
+            recipient,
+            _compute_note_hash_and_nullifier,
+        );
     }
 
     #[private]
@@ -468,21 +541,9 @@ pub contract Test {
         aztec_deploy_contract(&mut context, target);
     }
 
-    #[private]
-    // Adapted from TokenContract#redeem_shield but without an initcheck so it can be run in simulator/src/client/private_execution.test.ts
-    fn consume_note_from_secret(secret: Field) {
-        let notes_set = storage.example_set;
-        let secret_hash = compute_secret_hash(secret);
-        let mut options = NoteGetterOptions::new();
-        options =
-            options.select(TestNote::properties().value, Comparator.EQ, secret_hash).set_limit(1);
-        let notes = notes_set.pop_notes(options);
-        assert(notes.len() == 1, "note not popped");
-    }
-
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
-        constant.value
+        constant.get_value()
     }
 
     #[private]

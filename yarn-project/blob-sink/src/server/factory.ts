@@ -1,8 +1,9 @@
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type BlobSinkConfig } from './config.js';
+import { createBlobArchiveClient } from '../archive/factory.js';
+import type { BlobSinkConfig } from './config.js';
 import { BlobSinkServer } from './server.js';
 
 // If data store settings are provided, the store is created and returned.
@@ -11,7 +12,7 @@ async function getDataStoreConfig(config?: BlobSinkConfig): Promise<AztecAsyncKV
   if (!config?.dataStoreConfig) {
     return undefined;
   }
-  return await createStore('blob-sink', config.dataStoreConfig);
+  return await createStore('blob-sink', 1, config.dataStoreConfig);
 }
 
 /**
@@ -22,6 +23,7 @@ export async function createBlobSinkServer(
   telemetry?: TelemetryClient,
 ): Promise<BlobSinkServer> {
   const store = await getDataStoreConfig(config);
+  const archiveClient = createBlobArchiveClient(config);
 
-  return new BlobSinkServer(config, store, telemetry);
+  return new BlobSinkServer(config, store, archiveClient, telemetry);
 }

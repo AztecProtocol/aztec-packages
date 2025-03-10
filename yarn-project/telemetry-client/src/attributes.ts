@@ -19,7 +19,7 @@ export const NETWORK_NAME = 'aztec.network_name';
 
 /**
  * The name of the protocol circuit being run (e.g. public-kernel-setup or base-rollup)
- * @see {@link @aztec/circuit-types/stats:CircuitName}
+ * @see {@link @aztec/stdlib/stats:CircuitName}
  */
 export const PROTOCOL_CIRCUIT_NAME = 'aztec.circuit.protocol_circuit_name';
 
@@ -64,6 +64,8 @@ export const TX_HASH = 'aztec.tx.hash';
 export const OK = 'aztec.ok';
 /** Generic status attribute */
 export const STATUS = 'aztec.status';
+/** Generic error type attribute */
+export const ERROR_TYPE = 'aztec.error_type';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The L1 address of the entity that sent a transaction to L1 */

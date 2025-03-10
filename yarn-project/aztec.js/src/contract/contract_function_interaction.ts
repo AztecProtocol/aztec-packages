@@ -1,15 +1,16 @@
-import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
-import type { PrivateKernelProverProfileResult } from '@aztec/circuit-types/interfaces/client';
 import {
   type FunctionAbi,
+  FunctionCall,
   FunctionSelector,
   FunctionType,
   decodeFromAbi,
   encodeArguments,
-} from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+} from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PrivateKernelProverProfileResult } from '@aztec/stdlib/kernel';
+import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import { type Wallet } from '../account/wallet.js';
+import type { Wallet } from '../account/wallet.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 

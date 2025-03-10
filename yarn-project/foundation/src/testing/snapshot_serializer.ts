@@ -1,4 +1,4 @@
-import { type NewPlugin } from 'pretty-format';
+import type { NewPlugin } from 'pretty-format';
 import { inspect } from 'util';
 
 function makeSerializerForCustomInspect(prefix: string): NewPlugin {

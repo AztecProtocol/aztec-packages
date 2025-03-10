@@ -117,7 +117,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
-        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
@@ -151,7 +151,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (HasIPAAccumulator<Flavor>) {
         const auto recover_fq_from_public_inputs = [](std::array<FF, Curve::BaseField::NUM_LIMBS>& limbs) {
             for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
-                info("limbs " + std::to_string(k) + ": ", limbs[k]);
                 limbs[k].create_range_constraint(Curve::BaseField::NUM_LIMB_BITS, "limb_" + std::to_string(k));
             }
             return Curve::BaseField::unsafe_construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], false);

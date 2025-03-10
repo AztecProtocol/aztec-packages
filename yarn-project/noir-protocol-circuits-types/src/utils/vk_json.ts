@@ -1,4 +1,5 @@
-import { Fr, VerificationKeyAsFields, VerificationKeyData } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
+import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 interface VkJson {
   keyAsBytes: string;

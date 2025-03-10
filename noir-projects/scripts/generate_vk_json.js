@@ -152,7 +152,7 @@ async function generateVKData(
     vk_as_fields_flow = "vk_as_fields_ultra_rollup_honk";
     honk_recursion = 2;
   } else {
-    write_vk_flow = "write_vk_ultra_honk";
+    write_vk_flow = "write_vk --scheme ultra_honk";
     vk_as_fields_flow = "vk_as_fields_ultra_honk";
     honk_recursion = 1;
   }

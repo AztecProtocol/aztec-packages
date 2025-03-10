@@ -63,7 +63,7 @@ impl PermutationBuilder for BBFiles {
             .iter()
             .filter(|identity| matches!(identity.kind, IdentityKind::Permutation))
             .map(|perm| {
-                let name = perm
+                let label = perm
                     .attribute
                     .clone()
                     .expect("Permutation name must be provided using attribute syntax")
@@ -77,6 +77,7 @@ impl PermutationBuilder for BBFiles {
                     .unwrap_or_default()
                     .replace(".pil", "");
                 let file_name = format!("perms_{}.hpp", relation);
+                let name = format!("perm_{}_{}", relation, label);
                 Permutation {
                     name: name.clone(),
                     owning_relation: relation,
@@ -176,7 +177,13 @@ fn get_perm_side<F: FieldElement>(
     def: &SelectedExpressions<AlgebraicExpression<F>>,
 ) -> PermutationSide {
     let get_name = |expr: &AlgebraicExpression<F>| match expr {
-        AlgebraicExpression::Reference(a_ref) => sanitize_name(&a_ref.name),
+        AlgebraicExpression::Reference(a_ref) => {
+            let mut name = a_ref.name.clone();
+            if a_ref.next {
+                name = format!("{}_shift", name);
+            }
+            sanitize_name(&name)
+        }
         _ => panic!("Expected reference"),
     };
 

@@ -56,7 +56,7 @@ contract MinimalFeeModel {
   EthValue public provingCost = EthValue.wrap(100);
 
   constructor(uint256 _slotDuration, uint256 _epochDuration) {
-    feeHeaders[0] = FeeHeader(0, 0, 0, 0);
+    feeHeaders[0] = FeeHeader(0, 0, 0, 0, 0);
 
     l1BaseFees.pre = L1FeesModel({base_fee: 1 gwei, blob_fee: 1});
     l1BaseFees.post = L1FeesModel({base_fee: block.basefee, blob_fee: _getBlobBaseFee()});
@@ -127,7 +127,8 @@ contract MinimalFeeModel {
       ),
       manaUsed: _manaUsed,
       excessMana: excessMana,
-      congestionCost: 0
+      congestionCost: 0,
+      provingCost: 0
     });
   }
 

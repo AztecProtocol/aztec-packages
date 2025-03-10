@@ -1,7 +1,8 @@
-import { type L1NotePayload, Note } from '@aztec/circuit-types';
 import { ContractNotFoundError } from '@aztec/simulator/client';
+import type { L1NotePayload } from '@aztec/stdlib/logs';
+import { Note } from '@aztec/stdlib/note';
 
-import { type PxeDatabase } from '../database/pxe_database.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 
 /**
  * Merges privately and publicly delivered note values.
@@ -10,21 +11,21 @@ import { type PxeDatabase } from '../database/pxe_database.js';
  * @returns Note payload with public fields added.
  */
 export async function getOrderedNoteItems(
-  db: PxeDatabase,
+  contractDataProvider: ContractDataProvider,
   { contractAddress, noteTypeId, privateNoteValues, publicNoteValues }: L1NotePayload,
 ): Promise<Note> {
   if (publicNoteValues.length === 0) {
     return new Note(privateNoteValues);
   }
 
-  const instance = await db.getContractInstance(contractAddress);
+  const instance = await contractDataProvider.getContractInstance(contractAddress);
   if (!instance) {
     throw new ContractNotFoundError(
       `Could not find instance for ${contractAddress.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,
     );
   }
 
-  const artifact = await db.getContractArtifact(instance.currentContractClassId);
+  const artifact = await contractDataProvider.getContractArtifact(instance.currentContractClassId);
   if (!artifact) {
     throw new Error(
       `Could not find artifact for contract class ${instance.currentContractClassId.toString()}. This should never happen here as the partial notes flow should be triggered only for non-deferred notes.`,

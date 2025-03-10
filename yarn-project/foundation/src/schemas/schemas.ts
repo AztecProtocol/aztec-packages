@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-import { AztecAddress } from '../aztec-address/index.js';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { EthAddress } from '../eth-address/index.js';
 import { Fq, Fr } from '../fields/fields.js';
@@ -8,13 +7,9 @@ import { Point } from '../fields/point.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
 import { bufferSchema, hexSchema } from './utils.js';
 
-/** Validation schemas for common types. Every schema must match its toJSON. */
 export const schemas = {
   /** Accepts a hex string. */
   EthAddress: EthAddress.schema,
-
-  /** Accepts a hex string. */
-  AztecAddress: AztecAddress.schema,
 
   /** Accepts a hex string. */
   Fr: Fr.schema,
@@ -64,3 +59,6 @@ export const schemas = {
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,
 };
+
+// These are needed to avoid errors such as: "The inferred type of 'YourClassSchema' cannot be named without a reference to..."
+export type { EthAddress, Point, Fr, Fq };

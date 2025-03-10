@@ -19,8 +19,8 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  EXTERNAL_ETHEREUM_HOST: "https://json-rpc.${{ secrets.SEPOLIA_EXTERNAL_HOST }}?key=${{ secrets.SEPOLIA_API_KEY }}"
-  EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.SEPOLIA_EXTERNAL_HOST }}"
+  EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
+  EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
   GCP_API_KEY_HEADER: "X-goog-api-key"
 jobs:
   setup:
@@ -50,7 +50,7 @@ jobs:
 
   test:
     needs: build
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         test:
@@ -73,7 +73,7 @@ jobs:
 
   proving-test:
     needs: build
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -121,12 +121,11 @@ jobs:
               docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
 
               # Set the sepolia run variables
-              export EXTERNAL_ETHEREUM_HOST=${{ env.EXTERNAL_ETHEREUM_HOST }}
+              export EXTERNAL_ETHEREUM_HOSTS=${{ env.EXTERNAL_ETHEREUM_HOSTS }}
               export EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}
-              export EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.SEPOLIA_API_KEY }}
+              export EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}
               export EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}
               export L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}
-              export L1_ACCOUNTS_MNEMONIC="${{ secrets.SEPOLIA_ACCOUNTS_MNEMONIC }}"
               SEPOLIA_RUN=true INSTALL_METRICS=false ./spartan/scripts/test_kind.sh "./src/spartan/${{ matrix.config.test }}" "${{ matrix.config.values }}"
               ci3/cache_upload_flag "$artifact"
             fi
@@ -142,7 +141,7 @@ jobs:
           path: test_kind.log
 
   success-check:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     needs:
       - test
       - proving-test
@@ -161,7 +160,7 @@ jobs:
   notify:
     needs:
       - success-check
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && failure() }}
     steps:
       - name: Send notification to aztec3-ci channel if workflow failed on master

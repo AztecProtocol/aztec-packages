@@ -155,7 +155,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
         manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:big_sum_commitment", frs_per_G);
+        manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
@@ -174,8 +174,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
         }
         manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:shifted_big_sum_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:big_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fr);
         manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
         manifest_expected.add_challenge(round, "Shplonk:nu");
         round++;
@@ -183,6 +183,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
+        manifest_expected.add_entry(round, "Translation:concatenated_masking_term_commitment", frs_per_G);
         manifest_expected.add_challenge(round, "Translation:evaluation_challenge_x");
 
         round++;
@@ -191,17 +192,24 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Translation:Py", frs_per_Fr);
         manifest_expected.add_entry(round, "Translation:z1", frs_per_Fr);
         manifest_expected.add_entry(round, "Translation:z2", frs_per_Fr);
-        manifest_expected.add_challenge(round, "Translation:ipa_batching_challenge");
+        manifest_expected.add_challenge(round, "Translation:batching_challenge_v");
 
         round++;
+        manifest_expected.add_entry(round, "Translation:masking_term_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_commitment", frs_per_G);
+        manifest_expected.add_entry(round, "Translation:quotient_commitment", frs_per_G);
+        manifest_expected.add_challenge(round, "Translation:small_ipa_evaluation_challenge");
+
+        round++;
+        manifest_expected.add_entry(round, "Translation:concatenation_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_shift_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:quotient_eval", frs_per_Fr);
         manifest_expected.add_challenge(round, "Shplonk:nu");
 
         round++;
         manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
         manifest_expected.add_challenge(round, "Shplonk:z");
-
-        round++;
-        manifest_expected.add_challenge(round, "Translation:batching_challenge");
 
         return manifest_expected;
     }

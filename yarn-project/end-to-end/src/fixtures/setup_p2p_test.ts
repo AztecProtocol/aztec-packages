@@ -2,11 +2,11 @@
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx } from '@aztec/aztec.js';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
+import type { SentTx } from '@aztec/aztec.js';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
-import { type DateProvider } from '@aztec/foundation/timer';
-import { type PXEService } from '@aztec/pxe';
+import type { DateProvider } from '@aztec/foundation/timer';
+import type { PXEService } from '@aztec/pxe/server';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import getPort from 'get-port';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -122,7 +122,6 @@ export async function createValidatorConfig(
     p2pEnabled: true,
     peerCheckIntervalMS: TEST_PEER_CHECK_INTERVAL_MS,
     blockCheckIntervalMS: 1000,
-    transactionProtocol: '',
     dataDirectory,
     bootstrapNodes: bootstrapNodeEnr ? [bootstrapNodeEnr] : [],
   };

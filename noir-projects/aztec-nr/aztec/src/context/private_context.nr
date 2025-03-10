@@ -21,6 +21,7 @@ use dep::protocol_types::{
     abis::{
         call_context::CallContext,
         function_selector::FunctionSelector,
+        gas_settings::GasSettings,
         log::Log,
         log_hash::LogHash,
         max_block_number::MaxBlockNumber,
@@ -45,7 +46,7 @@ use dep::protocol_types::{
         PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_DISPATCH_SELECTOR,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
-    traits::Empty,
+    traits::{Empty, FromField, Hash, ToField},
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -127,6 +128,10 @@ impl PrivateContext {
 
     pub fn version(self) -> Field {
         self.inputs.tx_context.version
+    }
+
+    pub fn gas_settings(self) -> GasSettings {
+        self.inputs.tx_context.gas_settings
     }
 
     pub fn selector(self) -> FunctionSelector {

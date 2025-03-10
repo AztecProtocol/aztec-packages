@@ -1,5 +1,6 @@
 use crate::macros::{
     functions::{abi_export::create_fn_abi_export, call_interface_stubs::stub_fn, stub_registry},
+    notes::NOTES,
     utils::{
         add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
         is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
@@ -55,7 +56,9 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         },
     );
 
-    let context_creation = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
+    let context_creation = quote {
+        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, dep::aztec::protocol_types::traits::Hash::hash($args_hasher_name));
+    };
 
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_internal(f) {
@@ -90,6 +93,14 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
     // Initialization checks are not included in contracts that don't have initializers.
     let init_check = if module_has_initializer & !is_fn_initializer(f) & !fn_has_noinitcheck(f) {
         create_init_check(f)
+    } else {
+        quote {}
+    };
+
+    // All private functions perform note discovery, since they may need to access notes. This is slightly inefficient
+    // and could be improved by only doing it once we actually attempt to read any.
+    let note_discovery_call = if NOTES.len() > 0 {
+        create_note_discovery_call()
     } else {
         quote {}
     };
@@ -145,6 +156,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
+        $note_discovery_call
     };
 
     let to_append = quote {
@@ -273,9 +285,19 @@ pub(crate) comptime fn transform_unconstrained(f: FunctionDefinition) {
     } else {
         quote {}
     };
+
+    // All unconstrained functions perform note discovery, since they may need to access notes. This is slightly
+    // inefficient and could be improved by only doing it once we actually attempt to read any.
+    let note_discovery_call = if NOTES.len() > 0 {
+        create_note_discovery_call()
+    } else {
+        quote {}
+    };
+
     let to_prepend = quote {
         $context_creation
         $storage_init
+        $note_discovery_call
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
@@ -317,4 +339,19 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
     f"dep::aztec::macros::functions::initialization_utils::assert_is_initialized_{fn_visibility}(&mut context);"
         .quoted_contents()
+}
+
+/// Injects a call to `aztec::discovery::discover_new_notes`, causing for new notes to be added to PXE and made
+/// available for the current execution.
+comptime fn create_note_discovery_call() -> Quoted {
+    quote {
+        /// Safety: note discovery returns nothing and is performed solely for its side-effects. It is therefore always
+        /// safe to call.
+        unsafe {
+            dep::aztec::discovery::discover_new_notes(
+                context.this_address(),
+                _compute_note_hash_and_nullifier,
+            )
+        };
+    }
 }

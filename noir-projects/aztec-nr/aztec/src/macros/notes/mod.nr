@@ -1,8 +1,9 @@
 use crate::{note::note_getter_options::PropertySelector, prelude::Point};
+use super::utils::AsStrQuote;
 use protocol_types::meta::{derive_packable_and_get_packed_len, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
-    hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
+    hash::{BuildHasherDefault, derive_generators, Hash, Hasher, poseidon2::Poseidon2Hasher},
     meta::{type_of, unquote},
 };
 
@@ -50,14 +51,10 @@ comptime fn derive_packable_if_not_implemented_and_get_len(s: StructDefinition) 
     }
 }
 
-/// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as a quote.
+/// Generates default `NoteType` implementation for a given note struct `s` and returns it as a quote.
 ///
-/// impl NoteInterface for NoteStruct {
-///     fn get_note_type_id() -> Field {
-///         ...
-///     }
-///
-///     fn compute_note_hash(self, storage_slot: Field) -> Field {
+/// impl NoteType for NoteStruct {
+///     fn get_id() -> Field {
 ///         ...
 ///     }
 /// }
@@ -65,32 +62,85 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
     let name = s.name();
 
     quote {
-        impl aztec::note::note_interface::NoteInterface for $name {
-            fn get_note_type_id() -> Field {
+        impl aztec::note::note_interface::NoteType for $name {
+            fn get_id() -> Field {
                 $note_type_id
-            }
-
-            fn compute_note_hash(self, storage_slot: Field) -> Field {
-                let inputs = aztec::protocol_types::utils::arrays::array_concat(self.pack(), [storage_slot]);
-                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
             }
         }
     }
 }
 
-/// Generates default `NoteInterface` implementation for a given partial note struct `s` and returns it as a quote.
+/// Generates default `NoteHash` trait implementation for a given note struct `s` and returns it as a quote.
 ///
-/// impl NoteInterface for NoteStruct {
-///     fn get_note_type_id() -> Field {
-///         ...
-///     }
+/// # Generated Implementation
+/// ```
+/// impl NoteHash for NoteStruct {
+///     fn compute_note_hash(self, storage_slot: Field) -> Field { ... }
 ///
+///     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field { ... }
+///
+///     unconstrained fn compute_nullifier_unconstrained(note_hash_for_nullify: Field) -> Field { ... }
+/// }
+/// ```
+comptime fn generate_note_hash_trait_impl(s: StructDefinition) -> Quoted {
+    let name = s.name();
+
+    quote {
+        impl aztec::note::note_interface::NoteHash for $name {
+            fn compute_note_hash(self, storage_slot: Field) -> Field {
+                let inputs = aztec::protocol_types::utils::arrays::array_concat(aztec::protocol_types::traits::Packable::pack(self), [storage_slot]);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
+            }
+
+            fn compute_nullifier(
+                self,
+                context: &mut aztec::prelude::PrivateContext,
+                note_hash_for_nullify: Field,
+            ) -> Field {
+                let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
+                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
+                // in the quote to avoid "trait not in scope" compiler warnings.
+                let owner_npk_m_hash = aztec::protocol_types::traits::Hash::hash(owner_npk_m);
+                let secret = context.request_nsk_app(owner_npk_m_hash);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                    [note_hash_for_nullify, secret],
+                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                )
+            }
+
+            unconstrained fn compute_nullifier_unconstrained(
+                self,
+                note_hash_for_nullify: Field,
+            ) -> Field {
+                let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
+                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
+                // in the quote to avoid "trait not in scope" compiler warnings.
+                let owner_npk_m_hash = aztec::protocol_types::traits::Hash::hash(owner_npk_m);
+                let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                    [note_hash_for_nullify, secret],
+                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                )
+            }
+        }
+    }
+}
+
+/// Generates default `NoteHash` implementation for a given partial note struct `s` and returns it as a quote.
+///
+/// impl NoteHash for NoteStruct {
 ///     fn compute_note_hash(self, storage_slot: Field) -> Field {
 ///         ...
 ///     }
+///
+///     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+///         ...
+///     }
+///
+///     unconstrained fn compute_nullifier_unconstrained(note_hash_for_nullify: Field) -> Field { ... }
 /// }
 ///
-/// # On differences from `generate_note_interface`
+/// # On differences from `generate_note_hash_trait_impl`
 /// We use multi-scalar multiplication (MSM) instead of Poseidon2 here since this is a partial note and therefore
 /// does require MSM's additive homomorphism property (the property is used to add to the commitment in public).
 /// We don't use this implementation for standard notes as well because Poseidon2 is significantly cheaper
@@ -108,9 +158,8 @@ comptime fn generate_note_interface(s: StructDefinition, note_type_id: Field) ->
 ///
 /// Since -l would be -3 (an extraordinarily large number that cannot be a valid preimage length),
 /// including the length protects against these collisions.
-comptime fn generate_note_interface_for_partial_note(
+comptime fn generate_note_hash_trait_impl_for_partial_note(
     s: StructDefinition,
-    note_type_id: Field,
     indexed_fixed_fields: [(Quoted, Type, u32)],
     indexed_nullable_fields: [(Quoted, Type, u32)],
 ) -> Quoted {
@@ -136,11 +185,7 @@ comptime fn generate_note_interface_for_partial_note(
         .join(quote {,});
 
     quote {
-        impl aztec::note::note_interface::NoteInterface for $name {
-            fn get_note_type_id() -> Field {
-                $note_type_id
-            }
-
+        impl aztec::note::note_interface::NoteHash for $name {
             fn compute_note_hash(self, storage_slot: Field) -> Field {
                 $new_aux_vars
                 let point = std::embedded_curve_ops::multi_scalar_mul(
@@ -148,6 +193,37 @@ comptime fn generate_note_interface_for_partial_note(
                     [$new_scalars]
                 );
                 point.x
+            }
+
+            fn compute_nullifier(
+                self,
+                context: &mut aztec::prelude::PrivateContext,
+                note_hash_for_nullify: Field,
+            ) -> Field {
+                let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
+                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly in
+                // the quote to avoid "trait not in scope" compiler warnings.
+                let owner_npk_m_hash = aztec::protocol_types::traits::Hash::hash(owner_npk_m);
+                let secret = context.request_nsk_app(owner_npk_m_hash);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                    [note_hash_for_nullify, secret],
+                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                )
+            }
+
+            unconstrained fn compute_nullifier_unconstrained(
+                self,
+                note_hash_for_nullify: Field,
+            ) -> Field {
+                let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
+                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly in
+                // the quote to avoid "trait not in scope" compiler warnings.
+                let owner_npk_m_hash = aztec::protocol_types::traits::Hash::hash(owner_npk_m);
+                let secret = aztec::keys::getters::get_nsk_app(owner_npk_m_hash);
+                aztec::protocol_types::hash::poseidon2_hash_with_separator(
+                    [note_hash_for_nullify, secret],
+                    aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+                )
             }
         }
     }
@@ -309,7 +385,7 @@ comptime fn generate_fixed_generators() -> (Quoted, Quoted) {
 ///     std::hash::from_field_unsafe(npk_m_hash as Field),
 ///     std::hash::from_field_unsafe(randomness as Field)
 /// ]
-/// args_list: [amount: U128, npk_m_hash: Field, randomness: Field]
+/// args_list: [amount: u128, npk_m_hash: Field, randomness: Field]
 /// aux_vars: []
 comptime fn generate_multi_scalar_mul(
     indexed_fields: [(Quoted, Type, u32)],
@@ -406,7 +482,7 @@ comptime fn generate_multi_scalar_mul(
 ///         );
 ///
 ///         let let storage_slot_bytes = storage_slot.to_be_bytes();
-///         let let note_type_id_bytes = TokenNote::get_note_type_id().to_be_bytes();
+///         let let note_type_id_bytes = TokenNote::get_id().to_be_bytes();
 ///
 ///         for i in 0..32 {
 ///             log_plaintext[i] = storage_slot_bytes[i];
@@ -450,6 +526,7 @@ comptime fn generate_setup_payload(
     s: StructDefinition,
     indexed_fixed_fields: [(Quoted, Type, u32)],
     indexed_nullable_fields: [(Quoted, Type, u32)],
+    note_type_id: Field,
 ) -> (Quoted, Quoted) {
     let name = s.name();
     let setup_payload_name = f"{name}SetupPayload".quoted_contents();
@@ -472,8 +549,12 @@ comptime fn generate_setup_payload(
 
     // Then the log plaintext ones
     let log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_plaintext: Quoted =
-        get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
+    let setup_log_plaintext: Quoted = get_setup_log_plaintext_body(
+        s,
+        log_plaintext_length,
+        indexed_nullable_fields,
+        note_type_id,
+    );
 
     // Then we compute values for `encrypt_log(...)` function.
     // First, the length of the items that are broken into bytes:
@@ -511,7 +592,7 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_fields_length] {
+            pub fn encrypt_log(self, context: &mut aztec::prelude::PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_fields_length] {
                 aztec::encrypted_logs::log_assembly_strategies::default_aes128::partial_note::compute_partial_public_log_payload(
                     context.this_address(),
                     self.log_plaintext,
@@ -523,7 +604,7 @@ comptime fn generate_setup_payload(
 
         impl aztec::protocol_types::traits::Empty for $setup_payload_name {
             fn empty() -> Self {
-                Self { log_plaintext: [0; $log_plaintext_length], hiding_point: aztec::protocol_types::point::Point::empty() }
+                Self { log_plaintext: [0; $log_plaintext_length], hiding_point: aztec::protocol_types::traits::Empty::empty() }
             }
         }
     },
@@ -539,9 +620,8 @@ comptime fn get_setup_log_plaintext_body(
     s: StructDefinition,
     log_plaintext_length: u32,
     indexed_nullable_fields: [(Quoted, Type, u32)],
+    note_type_id: Field,
 ) -> Quoted {
-    let name = s.name();
-
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
     // to the generate_serialize_to_fields function but we omit the nullable fields.
     let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name);
@@ -561,7 +641,7 @@ comptime fn get_setup_log_plaintext_body(
         let mut log_plaintext: [u8; $log_plaintext_length] = [0; $log_plaintext_length];
 
         let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
-        let note_type_id_bytes: [u8; 32] = $name::get_note_type_id().to_be_bytes();
+        let note_type_id_bytes: [u8; 32] = $note_type_id.to_be_bytes();
 
         for i in 0..32 {
             log_plaintext[i] = storage_slot_bytes[i];
@@ -592,7 +672,7 @@ comptime fn get_setup_log_plaintext_body(
 /// }
 ///
 /// impl TokenNoteFinalizationPayload {
-///     fn new(mut self, context: &mut aztec::prelude::PublicContext, slot: Field, amount: U128) -> TokenNoteFinalizationPayload {
+///     fn new(mut self, context: &mut aztec::prelude::PublicContext, slot: Field, amount: u128) -> TokenNoteFinalizationPayload {
 ///         self.context = context;
 ///         self.hiding_point_slot = slot;
 ///         self.setup_log_slot = slot + aztec::protocol_types::point::POINT_LENGTH as Field;
@@ -810,7 +890,7 @@ comptime fn generate_finalization_payload(
 
         impl aztec::protocol_types::traits::Empty for $finalization_payload_name {
             fn empty() -> Self {
-                Self { context: &mut aztec::prelude::PublicContext::empty(), public_values: [0; $public_values_length], hiding_point_slot: 0, setup_log_slot: 0 }
+                Self { context: &mut aztec::protocol_types::traits::Empty::empty(), public_values: [0; $public_values_length], hiding_point_slot: 0, setup_log_slot: 0 }
             }
         }
     },
@@ -841,11 +921,11 @@ comptime fn generate_partial_note_impl(
     quote {
         impl aztec::note::note_interface::PartialNote<$setup_payload_name, $finalization_payload_name> for $name {
             fn setup_payload() -> $setup_payload_name {
-                $setup_payload_name::empty()
+                aztec::protocol_types::traits::Empty::empty()
             }
 
             fn finalization_payload() -> $finalization_payload_name {
-                $finalization_payload_name::empty()
+                aztec::protocol_types::traits::Empty::empty()
             }
         }
     }
@@ -875,7 +955,6 @@ comptime fn register_note(
 
 /// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
 /// starts in the serialized note. Note that each struct member can occupy multiple fields (as in Field type).
-/// An example of a struct member occupying multiple fields is `amount` in `TokenNote` that uses `U128` type.
 comptime fn index_note_fields(
     s: StructDefinition,
     nullable_fields: [Quoted],
@@ -902,8 +981,8 @@ comptime fn index_note_fields(
 /// - SetupPayload
 /// - FinalizationPayload
 /// - PartialNote trait implementation
-/// - NoteExport
-/// - NoteInterface trait implementation
+/// - NoteType trait implementation
+/// - NoteHash trait implementation
 /// - Packable implementation
 ///
 /// Registers the note in the global `NOTES` map.
@@ -914,19 +993,25 @@ comptime fn index_note_fields(
 /// in the partial note are nullable.
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
+    assert_has_owner(s);
+
     // We separate struct members into fixed ones and nullable ones and we store info about the start index of each
     // member in the packed note array.
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
-    let (setup_payload_impl, setup_payload_name) =
-        generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
+    let note_interface_impl = generate_note_interface(s, note_type_id);
+    let (setup_payload_impl, setup_payload_name) = generate_setup_payload(
+        s,
+        indexed_fixed_fields,
+        indexed_nullable_fields,
+        note_type_id,
+    );
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let note_interface_impl = generate_note_interface_for_partial_note(
+    let note_hash_impl = generate_note_hash_trait_impl_for_partial_note(
         s,
-        note_type_id,
         indexed_fixed_fields,
         indexed_nullable_fields,
     );
@@ -947,6 +1032,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         $setup_payload_impl
         $finalization_payload_impl
         $note_interface_impl
+        $note_hash_impl
         $partial_note_impl
         $packable_impl
     }
@@ -954,18 +1040,22 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 
 /// Generates the following:
 /// - NoteTypeProperties
-/// - NoteInterface trait implementation
+/// - NoteType trait implementation
+/// - NoteHash trait implementation
 /// - Packable implementation
 ///
 /// Registers the note in the global `NOTES` map.
 ///
 /// For more details on the generated code, see the individual functions.
 pub comptime fn note(s: StructDefinition) -> Quoted {
+    assert_has_owner(s);
+
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
     let note_interface_impl = generate_note_interface(s, note_type_id);
+    let note_hash_impl = generate_note_hash_trait_impl(s);
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
 
     register_note(
@@ -979,20 +1069,50 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     quote {
         $note_properties
         $note_interface_impl
+        $note_hash_impl
         $packable_impl
     }
 }
 
-/// Generates the following:
-/// - NoteTypeProperties
-/// - Packable implementation
+/// Generates code for a custom note implementation that requires specialized note hash or nullifier computation.
 ///
-/// Registers the note in the global `NOTES` map.
+/// # Generated Code
+/// - NoteTypeProperties: Defines the structure and properties of note fields
+/// - NoteType trait implementation: Provides the note type ID
+/// - Packable implementation: Enables serialization/deserialization of the note
 ///
-/// For more details on the generated code, see the individual functions.
-pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
+/// # Registration
+/// Registers the note in the global `NOTES` map with:
+/// - Note type ID
+/// - Packed length
+/// - Field indices and nullability
+///
+/// # Use Cases
+/// Use this macro when implementing a note that needs custom:
+/// - Note hash computation logic
+/// - Nullifier computation logic
+///
+/// The macro omits generating default NoteHash trait implementation, allowing you to provide your own.
+///
+/// # Example
+/// ```
+/// #[custom_note]
+/// struct CustomNote {
+///     value: Field,
+///     metadata: Field
+/// }
+///
+/// impl NoteHash for CustomNote {
+///     // Custom note hash computation...
+///     fn compute_note_hash(...) -> Field { ... }
+///
+///     // Custom nullifier computation...
+///     fn compute_nullifier(...) -> Field { ... }
+///     fn compute_nullifier_unconstrained(...) -> Field { ... }
+/// }
+/// ```
+pub comptime fn custom_note(s: StructDefinition) -> Quoted {
     let (packable_impl, note_packed_len) = derive_packable_if_not_implemented_and_get_len(s);
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/12012): This is broken
     let note_type_id = get_next_note_type_id();
 
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
@@ -1005,9 +1125,31 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     );
 
     let note_properties = generate_note_properties(s);
+    let note_interface_impl = generate_note_interface(s, note_type_id);
 
     quote {
         $note_properties
+        $note_interface_impl
         $packable_impl
     }
+}
+
+/// Asserts that the note has an 'owner' field.
+///
+/// We require notes implemented with #[note] macro and #[partial_note] macro to have an 'owner' field because our
+/// auto-generated nullifier functions expect it. This requirement is most likely only temporary.
+comptime fn assert_has_owner(note: StructDefinition) {
+    let fields = note.fields_as_written();
+    let mut has_owner = false;
+    for i in 0..fields.len() {
+        let (field_name, _) = fields[i];
+        if field_name == quote { owner } {
+            has_owner = true;
+            break;
+        }
+    }
+    assert(
+        has_owner,
+        "Note must have an 'owner' field. If your notes have no owner, use #[custom_note] insteadof #[note] and implement the NoteHashing trait manually.",
+    );
 }

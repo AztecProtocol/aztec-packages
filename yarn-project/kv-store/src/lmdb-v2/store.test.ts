@@ -5,8 +5,8 @@ import { expect } from 'chai';
 import { stub } from 'sinon';
 
 import { openTmpStore } from './factory.js';
-import { type ReadTransaction } from './read_transaction.js';
-import { type AztecLMDBStoreV2 } from './store.js';
+import type { ReadTransaction } from './read_transaction.js';
+import type { AztecLMDBStoreV2 } from './store.js';
 
 const testMaxReaders = 4;
 
@@ -14,7 +14,7 @@ describe('AztecLMDBStoreV2', () => {
   let store: AztecLMDBStoreV2;
 
   beforeEach(async () => {
-    store = await openTmpStore('test', true, 10 * 1024 * 1024, testMaxReaders);
+    store = await openTmpStore('test', true, 10 * 1024 * 1024, testMaxReaders, undefined);
   });
 
   afterEach(async () => {

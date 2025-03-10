@@ -9,7 +9,7 @@ import {
   CheatCodes,
   type CompleteAddress,
   type ContractFunctionInteraction,
-  type DeployL1Contracts,
+  type DeployL1ContractsReturnType,
   type FunctionCall,
   type Logger,
   type PXE,
@@ -25,12 +25,12 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { type ProverNode } from '@aztec/prover-node';
-import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import type { ProverNode } from '@aztec/prover-node';
+import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
 import fs from 'fs/promises';
@@ -54,7 +54,7 @@ export type SubsystemsContext = {
   aztecNode: AztecNodeService;
   aztecNodeConfig: AztecNodeConfig;
   pxe: PXEService;
-  deployL1ContractsValues: DeployL1Contracts;
+  deployL1ContractsValues: DeployL1ContractsReturnType;
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
@@ -76,7 +76,6 @@ export function createSnapshotManager(
   dataPath?: string,
   config: Partial<SetupOptions> = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
   },
 ) {
@@ -105,7 +104,7 @@ class MockSnapshotManager implements ISnapshotManager {
   constructor(
     testName: string,
     private config: Partial<AztecNodeConfig> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
   ) {
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
@@ -153,7 +152,7 @@ class SnapshotManager implements ISnapshotManager {
     testName: string,
     private dataPath: string,
     private config: Partial<SetupOptions> = {},
-    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {},
   ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createLogger(`e2e:snapshot_manager:${testName}`);
@@ -189,7 +188,7 @@ class SnapshotManager implements ISnapshotManager {
     await restore(snapshotData, context);
 
     // Save the snapshot data.
-    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrl);
+    const ethCheatCodes = new EthCheatCodesWithState(context.aztecNodeConfig.l1RpcUrls);
     const anvilStateFile = `${this.livePath}/anvil.dat`;
     await ethCheatCodes.dumpChainState(anvilStateFile);
     writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
@@ -264,7 +263,11 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.watcher.stop();
     await context.blobSink.stop();
     if (context.directoryToCleanup) {
-      await fs.rm(context.directoryToCleanup, { recursive: true, force: true });
+      try {
+        await fs.rm(context.directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        getLogger().warn(`Failed to delete tmp directory ${context.directoryToCleanup}: ${err}`);
+      }
     }
   } catch (err) {
     getLogger().error('Error during teardown', err);
@@ -281,7 +284,6 @@ async function setupFromFresh(
   logger: Logger,
   { numberOfInitialFundedAccounts = 10, ...opts }: SetupOptions = {},
   deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
     initialValidators: [],
   },
 ): Promise<SubsystemsContext> {
@@ -318,7 +320,7 @@ async function setupFromFresh(
   logger.verbose('Starting anvil...');
   const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
   const anvil = res.anvil;
-  aztecNodeConfig.l1RpcUrl = res.rpcUrl;
+  aztecNodeConfig.l1RpcUrls = [res.rpcUrl];
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
@@ -332,7 +334,7 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
   if (opts.l1StartTime) {
     await ethCheatCodes.warp(opts.l1StartTime);
@@ -344,7 +346,7 @@ async function setupFromFresh(
     opts.initialAccountFeeJuice,
   );
 
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
+  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
     genesisArchiveRoot,
     genesisBlockHash,
@@ -379,7 +381,7 @@ async function setupFromFresh(
   }
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
   );
@@ -424,7 +426,7 @@ async function setupFromFresh(
   pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
@@ -484,10 +486,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const { anvil, rpcUrl } = await startAnvil();
-  aztecNodeConfig.l1RpcUrl = rpcUrl;
+  aztecNodeConfig.l1RpcUrls = [rpcUrl];
   // Load anvil state.
   const anvilStateFile = `${statePath}/anvil.dat`;
-  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
   await ethCheatCodes.loadChainState(anvilStateFile);
 
   // TODO: Encapsulate this in a NativeAcvm impl.
@@ -504,10 +506,10 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   }
 
   logger.verbose('Creating ETH clients...');
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, mnemonicToAccount(MNEMONIC));
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
 
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrl),
+    new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     aztecNodeConfig.l1Contracts.rollupAddress,
     publicClient,
   );
@@ -541,7 +543,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
 
   return {
     aztecNodeConfig,

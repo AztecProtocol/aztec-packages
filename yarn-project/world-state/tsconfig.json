@@ -7,12 +7,6 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -31,10 +25,10 @@
       "path": "../protocol-contracts"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     },
     {
       "path": "../archiver"

@@ -13,7 +13,7 @@ pub contract AppSubscription {
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
-        protocol_types::constants::MAX_FIELD_VALUE,
+        protocol_types::{constants::MAX_FIELD_VALUE, traits::ToField},
         utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;
@@ -67,7 +67,7 @@ pub contract AppSubscription {
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
-        subscription_price: U128,
+        subscription_price: u128,
         fee_juice_limit_per_tx: Field,
     ) {
         storage.config.initialize(

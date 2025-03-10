@@ -1,15 +1,3 @@
-import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types/interfaces/client';
-import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import { type ClientIvcProof } from '@aztec/circuits.js';
-import {
-  type PrivateKernelCircuitPublicInputs,
-  type PrivateKernelInitCircuitPrivateInputs,
-  type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
-} from '@aztec/circuits.js/kernel';
-import { type NoirCompiledCircuit } from '@aztec/circuits.js/noir';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
@@ -26,11 +14,22 @@ import {
   getPrivateKernelResetArtifactName,
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
-import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
-import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-import { type SimulationProvider } from '@aztec/simulator/client';
-
-import { type Abi, type WitnessMap } from '@noir-lang/types';
+import type { ArtifactProvider, ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { Abi, WitnessMap } from '@aztec/noir-types';
+import type { SimulationProvider } from '@aztec/simulator/client';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import type {
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelSimulateOutput,
+  PrivateKernelTailCircuitPrivateInputs,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/stdlib/kernel';
+import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { ClientIvcProof } from '@aztec/stdlib/proofs';
+import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
@@ -215,7 +214,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
-    const verificationKey = ClientCircuitVks[circuitType].keyAsFields;
+    const verificationKey = (await this.artifactProvider.getCircuitVkByName(circuitType)).keyAsFields;
     const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
@@ -227,12 +226,12 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return kernelOutput;
   }
 
-  public makeEmptyKernelSimulateOutput<
+  public async makeEmptyKernelSimulateOutput<
     PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
   >(publicInputs: PublicInputsType, circuitType: ClientProtocolArtifact) {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
-      verificationKey: ClientCircuitVks[circuitType].keyAsFields,
+      verificationKey: (await this.artifactProvider.getCircuitVkByName(circuitType)).keyAsFields,
       outputWitness: new Map(),
       bytecode: Buffer.from([]),
     };

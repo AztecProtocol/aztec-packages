@@ -1,14 +1,14 @@
-import { Tx } from '@aztec/circuit-types';
-import { type ContractInstanceWithAddress } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import type { TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { siloNullifier } from '@aztec/stdlib/hash';
+import { Tx } from '@aztec/stdlib/tx';
 
 import { TestContext } from '../mocks/test_context.js';
 
@@ -119,7 +119,8 @@ describe('prover/orchestrator/public-functions', () => {
     ): Promise<Tx> {
       const setupCallSeed = (i: number) => i * txSeed;
       const appCallSeed = (i: number) => (i + numberOfNonRevertiblePublicCallRequests) * txSeed;
-      //const teardownCallSeed =  (numberOfNonRevertiblePublicCallRequests + numberOfRevertiblePublicCallRequests) * txSeed;
+      const teardownCallSeed =
+        (numberOfNonRevertiblePublicCallRequests + numberOfRevertiblePublicCallRequests) * txSeed;
 
       const setupCalls = Array.from({ length: numberOfNonRevertiblePublicCallRequests }, (_, i) =>
         createMintCall(/*seed=*/ setupCallSeed(i)),
@@ -131,8 +132,7 @@ describe('prover/orchestrator/public-functions', () => {
         /*sender=*/ admin,
         /*setupCalls=*/ setupCalls,
         /*appCalls=*/ appCalls,
-        // TODO(dbanks12): Teardown breaks!
-        ///*teardownCall=*/ createMintCall(/*seed=*/ teardownCallSeed),
+        /*teardownCall=*/ createMintCall(/*seed=*/ teardownCallSeed),
       );
     }
   });

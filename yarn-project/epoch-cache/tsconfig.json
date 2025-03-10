@@ -8,9 +8,6 @@
   "include": ["src"],
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../ethereum"
     },
     {
@@ -18,6 +15,9 @@
     },
     {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../stdlib"
     }
   ]
 }

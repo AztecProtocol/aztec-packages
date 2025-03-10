@@ -1,17 +1,17 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types/interfaces/server';
-import { type PublicDataTreeLeaf } from '@aztec/circuits.js/trees';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
+import type { ProverCoordination, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { type ProverNodeConfig } from './config.js';
+import type { ProverNodeConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
@@ -52,9 +52,9 @@ export async function createProverNode(
   const broker = deps.broker ?? (await createAndStartProvingBroker(config, telemetry));
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
-  const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey } = config;
-  const chain = createEthereumChain(rpcUrl, chainId);
-  const { publicClient, walletClient } = createL1Clients(rpcUrl, publisherPrivateKey, chain.chainInfo);
+  const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const { publicClient, walletClient } = createL1Clients(rpcUrls, publisherPrivateKey, chain.chainInfo);
 
   const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
 
@@ -82,7 +82,7 @@ export async function createProverNode(
     txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
-  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig, telemetry);
+  const epochMonitor = await EpochMonitor.create(archiver, proverNodeConfig, telemetry);
 
   return new ProverNode(
     prover,

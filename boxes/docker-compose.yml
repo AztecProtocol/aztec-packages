@@ -15,8 +15,8 @@ services:
     working_dir: /root/aztec-packages/yarn-project/aztec
     command: "node ./dest/bin start --sandbox"
     environment:
+      ETHEREUM_HOSTS: http://ethereum:8545
       HARDWARE_CONCURRENCY: 4
-      ETHEREUM_HOST: http://ethereum:8545
       L1_CHAIN_ID: 31337
       FORCE_COLOR: ${FORCE_COLOR:-1}
       ARCHIVER_POLLING_INTERVAL_MS: 50
@@ -45,11 +45,11 @@ services:
       HARDWARE_CONCURRENCY: 4
       DEBUG: "aztec:*"
       DEBUG_COLORS: "true"
-      ETHEREUM_HOST: http://ethereum:8545
+      ETHEREUM_HOSTS: http://ethereum:8545
       L1_CHAIN_ID: 31337
       FORCE_COLOR: ${FORCE_COLOR:-1}
       PXE_URL: http://aztec:8080
-      VITE_AZTEC_NODE_URL: http://aztec:8080
+      AZTEC_NODE_URL: http://aztec:8080
       BOX: ${BOX:-vanilla}
       BROWSER: ${BROWSER:-chromium}
     depends_on:
