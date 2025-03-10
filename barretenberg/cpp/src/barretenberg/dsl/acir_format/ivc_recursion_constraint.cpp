@@ -77,7 +77,6 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
     ClientIVC::VerifierInputs entry =
         acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
     ivc->verification_queue.emplace_back(entry);
-    ivc->merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
     ivc->initialized = true;
 }
 
@@ -123,7 +122,9 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
         verification_key->databus_propagation_data = bb::DatabusPropagationData::kernel_default();
     }
 
-    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
+    std::vector<FF> merge_proof = create_dummy_merge_proof();
+
+    return ClientIVC::VerifierInputs{ proof, merge_proof, verification_key, verification_type };
 }
 
 /**

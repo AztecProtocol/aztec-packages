@@ -23,15 +23,16 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     }
 
     size_t key_idx = 0;
-    for (auto& [proof, vkey, type] : verification_queue) {
+    for (auto& [proof, merge_proof, vkey, type] : verification_queue) {
         // Construct stdlib proof directly from the internal native queue data
         auto stdlib_proof = bb::convert_native_proof_to_stdlib(&circuit, proof);
+        auto stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&circuit, merge_proof);
 
         // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
         auto stdlib_vkey =
             vkeys_provided ? input_keys[key_idx++] : std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
 
-        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vkey, type });
+        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_merge_proof, stdlib_vkey, type });
     }
     verification_queue.clear(); // the native data is not needed beyond this point
 }
@@ -49,11 +50,14 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * @param type The type of the proof (equivalently, the type of the verifier)
  */
 void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
-    ClientCircuit& circuit,
-    const StdlibProof<ClientCircuit>& proof,
-    const std::shared_ptr<RecursiveVerificationKey>& vkey,
-    const QUEUE_TYPE type)
+    ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs)
 {
+
+    const StdlibProof<ClientCircuit>& proof = verifier_inputs.proof;
+    const StdlibProof<ClientCircuit>& merge_proof = verifier_inputs.merge_proof;
+    const std::shared_ptr<RecursiveVerificationKey>& vkey = verifier_inputs.honk_verification_key;
+    const QUEUE_TYPE type = verifier_inputs.type;
+
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
     std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
 
@@ -93,6 +97,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
+    // Recursively verify the merge proof for the present circuit
+    goblin.verify_merge(circuit, merge_proof);
+
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
     // inputs
@@ -102,20 +109,6 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         decider_vk->witness_commitments.secondary_calldata,
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
-}
-
-/**
- * @brief Perform recursive merge verification for each merge proof in the queue
- *
- * @param circuit
- */
-void ClientIVC::process_recursive_merge_verification_queue(ClientCircuit& circuit)
-{
-    // Recusively verify all merge proofs in queue
-    for (auto& proof : merge_verification_queue) {
-        goblin.verify_merge(circuit, proof);
-    }
-    merge_verification_queue.clear();
 }
 
 /**
@@ -135,17 +128,14 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         instantiate_stdlib_verification_queue(circuit);
     }
 
-    // Peform recursive verification and databus consistency checks for each entry in the verification queue
-    for (auto& [proof, vkey, type] : stdlib_verification_queue) {
-        perform_recursive_verification_and_databus_consistency_checks(circuit, proof, vkey, type);
+    // Perform recursive verification and databus consistency checks for each entry in the verification queue
+    for (auto& verifier_input : stdlib_verification_queue) {
+        perform_recursive_verification_and_databus_consistency_checks(circuit, verifier_input);
     }
     stdlib_verification_queue.clear();
 
     // Propagate return data commitments via the public inputs for use in databus consistency checks
     bus_depot.propagate_return_data_commitments(circuit);
-
-    // Perform recursive merge verification for every merge proof in the queue
-    process_recursive_merge_verification_queue(circuit);
 }
 
 /**
@@ -166,7 +156,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 {
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
-    merge_verification_queue.emplace_back(merge_proof);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
     // verifier.
@@ -221,8 +210,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
         // Add oink proof and corresponding verification key to the verification queue
-        verification_queue.push_back(
-            bb::ClientIVC::VerifierInputs{ oink_prover.transcript->proof_data, honk_vk, QUEUE_TYPE::OINK });
+        verification_queue.push_back(bb::ClientIVC::VerifierInputs{
+            oink_prover.transcript->proof_data, merge_proof, honk_vk, QUEUE_TYPE::OINK });
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
@@ -232,7 +221,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("constructed folding proof");
 
         // Add fold proof and corresponding verification key to the verification queue
-        verification_queue.push_back(bb::ClientIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
+        verification_queue.push_back(
+            bb::ClientIVC::VerifierInputs{ fold_output.proof, merge_proof, honk_vk, QUEUE_TYPE::PG });
     }
 }
 
@@ -243,11 +233,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
  * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
  * @return HonkProof - a Mega proof
  */
-HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+std::pair<HonkProof, HonkProof> ClientIVC::construct_and_prove_hiding_circuit()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);
-    ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
 
     FoldProof& fold_proof = verification_queue[0].proof;
     HonkProof decider_proof = decider_prove();
@@ -267,7 +256,9 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
         builder.add_public_variable(fold_proof[i + offset]);
     }
 
-    process_recursive_merge_verification_queue(builder);
+    const StdlibProof<ClientCircuit> stdlib_merge_proof =
+        bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
+    goblin.verify_merge(builder, stdlib_merge_proof);
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
@@ -291,7 +282,6 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 
     // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);
-    merge_verification_queue.emplace_back(merge_proof);
 
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
@@ -299,7 +289,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 
     HonkProof proof = prover.construct_proof();
 
-    return proof;
+    return { proof, merge_proof };
 }
 
 /**
@@ -309,12 +299,14 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
+    MergeProof merge_proof;
     if (!one_circuit) {
-        mega_proof = construct_and_prove_hiding_circuit();
-        ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
+        auto [mega_proof, merge_proof_hiding] = construct_and_prove_hiding_circuit();
+        merge_proof = merge_proof_hiding;
+    } else {
+        merge_proof = verification_queue[0].merge_proof;
     }
 
-    MergeProof& merge_proof = merge_verification_queue[0];
     return { mega_proof, goblin.prove(merge_proof) };
 };
 

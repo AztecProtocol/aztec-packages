@@ -77,40 +77,43 @@ class GoblinProver {
         commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
         GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
     }
-    /**
-     * @brief Construct a MegaHonk proof and a merge proof for the present circuit.
-     * @details If there is a previous merge proof, recursively verify it.
-     *
-     * @param circuit_builder
-     */
-    GoblinAccumulationOutput accumulate(MegaBuilder& circuit_builder)
-    {
-        // Complete the circuit logic by recursively verifying previous merge proof if it exists
-        if (merge_proof_exists) {
-            RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-            [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
-        }
+    // /**
+    //  * @brief Construct a MegaHonk proof and a merge proof for the present circuit.
+    //  * @details If there is a previous merge proof, recursively verify it.
+    //  *
+    //  * @param circuit_builder
+    //  */
+    // GoblinAccumulationOutput accumulate(MegaBuilder& circuit_builder)
+    // {
+    //     // Complete the circuit logic by recursively verifying previous merge proof if it exists
+    //     if (merge_proof_exists) {
+    //         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
+    //         StdlibProof<MegaBuilder> stdlib_merge_proof =
+    //             bb::convert_native_proof_to_stdlib(&circuit_builder, merge_proof);
+    //         [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    //     }
 
-        // Construct a Honk proof for the main circuit
-        auto proving_key = std::make_shared<MegaDeciderProvingKey>(circuit_builder);
-        MegaProver prover(proving_key);
-        auto ultra_proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    //     // Construct a Honk proof for the main circuit
+    //     auto proving_key = std::make_shared<MegaDeciderProvingKey>(circuit_builder);
+    //     MegaProver prover(proving_key);
+    //     auto ultra_proof = prover.construct_proof();
+    //     auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
 
-        // Construct and store the merge proof to be recursively verified on the next call to accumulate
-        MergeProver merge_prover{ circuit_builder.op_queue };
-        merge_proof = merge_prover.construct_proof();
+    //     // Construct and store the merge proof to be recursively verified on the next call to accumulate
+    //     MergeProver merge_prover{ circuit_builder.op_queue };
+    //     merge_proof = merge_prover.construct_proof();
 
-        if (!merge_proof_exists) {
-            merge_proof_exists = true;
-        }
+    //     if (!merge_proof_exists) {
+    //         merge_proof_exists = true;
+    //     }
 
-        return { ultra_proof, verification_key };
-    };
+    //     return { ultra_proof, verification_key };
+    // };
 
     /**
      * @brief Add a recursive merge verifier to input circuit and construct a merge proof for the updated op queue
-     * @details When this method is used, the "prover" functionality of the IVC scheme must be performed explicitly, but
+     * @details When this method is used, the "prover" functionality of the IVC scheme must be performed explicitly,
+     but
      * this method has to be called first so that the recursive merge verifier can be "appended" to the circuit being
      * accumulated
      *
@@ -120,7 +123,9 @@ class GoblinProver {
     {
         // Append a recursive merge verification of the merge proof
         if (merge_proof_exists) {
-            [[maybe_unused]] auto pairing_points = verify_merge(circuit_builder, merge_proof);
+            StdlibProof<MegaBuilder> stdlib_merge_proof =
+                bb::convert_native_proof_to_stdlib(&circuit_builder, merge_proof);
+            [[maybe_unused]] auto pairing_points = verify_merge(circuit_builder, stdlib_merge_proof);
         }
 
         // Construct a merge proof for the present circuit
@@ -133,7 +138,7 @@ class GoblinProver {
      * @param circuit_builder
      * @return PairingPoints
      */
-    PairingPoints verify_merge(MegaBuilder& circuit_builder, MergeProof& proof) const
+    PairingPoints verify_merge(MegaBuilder& circuit_builder, const StdlibProof<MegaBuilder>& proof) const
     {
         PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
