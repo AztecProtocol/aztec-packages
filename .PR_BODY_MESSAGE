@@ -1,0 +1,7 @@
+chore: remove unnecessary trait bounds (https://github.com/noir-lang/noir/pull/7635)
+feat: add optional oracle resolver url in `acvm_cli` (https://github.com/noir-lang/noir/pull/7630)
+chore: Rename `StructDefinition` to `TypeDefinition` (https://github.com/noir-lang/noir/pull/7614)
+fix: Error on infinitely recursive types (https://github.com/noir-lang/noir/pull/7579)
+fix: update error message to display 128 bits as valid bit size (https://github.com/noir-lang/noir/pull/7626)
+chore: update docs to reflect u128 type (https://github.com/noir-lang/noir/pull/7623)
+feat: array concat method (https://github.com/noir-lang/noir/pull/7199)
