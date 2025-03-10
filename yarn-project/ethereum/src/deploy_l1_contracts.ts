@@ -66,7 +66,6 @@ import {
   type L1TxRequest,
   L1TxUtils,
   type L1TxUtilsConfig,
-  defaultL1TxUtilsConfig,
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
