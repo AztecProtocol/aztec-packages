@@ -97,8 +97,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
-    // Recursively verify the merge proof for the present circuit
-    goblin.verify_merge(circuit, merge_proof);
+    // Recursively verify the merge proof for the circuit being recursively verified
+    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(circuit, merge_proof);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
@@ -201,7 +201,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         // proof
         MegaOinkProver oink_prover{ proving_key };
         vinfo("computing oink proof...");
-        oink_prover.prove();
+        HonkProof oink_proof = oink_prover.prove();
         vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
@@ -210,8 +210,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
         // Add oink proof and corresponding verification key to the verification queue
-        verification_queue.push_back(bb::ClientIVC::VerifierInputs{
-            oink_prover.transcript->proof_data, merge_proof, honk_vk, QUEUE_TYPE::OINK });
+        verification_queue.push_back(
+            bb::ClientIVC::VerifierInputs{ oink_proof, merge_proof, honk_vk, QUEUE_TYPE::OINK });
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
@@ -258,7 +258,8 @@ std::pair<HonkProof, HonkProof> ClientIVC::construct_and_prove_hiding_circuit()
 
     const StdlibProof<ClientCircuit> stdlib_merge_proof =
         bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
-    goblin.verify_merge(builder, stdlib_merge_proof);
+
+    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(builder, stdlib_merge_proof);
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
