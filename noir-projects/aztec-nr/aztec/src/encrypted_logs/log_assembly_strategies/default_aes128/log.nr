@@ -242,11 +242,18 @@ pub unconstrained fn decrypt_log(
         ciphertext_shared_secret,
     );
 
-    // Extract and decrypt header
+    // Extract the header ciphertext
     let header_start = 1; // Skip eph_pk_sign byte
     let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
-        array::subbvec(log_ciphertext, header_start).storage();
-    let header_plaintext = aes128_decrypt_oracle(header_ciphertext, iv, sym_key);
+        array::subarray(log_ciphertext.storage(), header_start);
+    // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to work
+    // with logs with unknown length at compile time. This would not be necessary here as the header ciphertext length
+    // is fixed. But we do it anyway to not have to have duplicate oracles.
+    let header_ciphertext_bvec =
+        BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
+
+    // Decrypt header
+    let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, iv, sym_key);
 
     // Extract ciphertext length from header (2 bytes, big-endian)
     let ciphertext_length =
@@ -259,14 +266,8 @@ pub unconstrained fn decrypt_log(
     let ciphertext: BoundedVec<u8, (PRIVATE_LOG_SIZE_IN_FIELDS - 2) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - 1> =
         BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
-    // // The result of subbvec call above includes padding bytes. We remove them in a for-loop.
-    // let mut ciphertext = ciphertext;
-    // for _ in 0..(ciphertext.len() - ciphertext_length) {
-    //     let _ = ciphertext.pop();
-    // }
-
     // Decrypt main ciphertext
-    let plaintext_bytes = aes128_decrypt_oracle(ciphertext.storage(), iv, sym_key);
+    let plaintext_bytes = aes128_decrypt_oracle(ciphertext, iv, sym_key);
 
     // Convert plaintext bytes back to fields
     utils_to_nuke::be_bytes_31_to_fields(plaintext_bytes)
@@ -277,6 +278,7 @@ mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::utils::bytes::be_bytes_31_to_fields;
     use crate::utils::bytes::fields_to_be_bytes_31;
+    use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
     use dep::protocol_types::address::AztecAddress;
     use dep::protocol_types::traits::FromField;
     use std::test::OracleMock;
@@ -291,7 +293,7 @@ mod test {
             0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04,
         );
 
-        let plaintext: [Field; 3] = [1, 2, 3];
+        let plaintext = [1, 2, 3];
         let plaintext_bytes = fields_to_be_bytes_31::<3, 93>(plaintext);
 
         let recipient = AztecAddress::from_field(
@@ -313,7 +315,7 @@ mod test {
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
         // Encrypt the log
-        let encrypted_log = BoundedVec::from_array(super::encrypt_log(
+        let encrypted_log = BoundedVec::from_array(encrypt_log(
             contract_address,
             plaintext_bytes,
             recipient,
@@ -325,12 +327,16 @@ mod test {
             std::hash::from_field_unsafe(eph_sk),
             recipient,
         );
-        let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
+        let _ = OracleMock::mock("getSharedSecret").returns(shared_secret.serialize());
 
         // Decrypt the log
-        let decrypted = super::decrypt_log(encrypted_log, recipient);
+        let decrypted = decrypt_log(encrypted_log, recipient);
 
-        let plaintext = BoundedVec::from_array(be_bytes_31_to_fields(plaintext_bytes));
+        // The decryption function spits out a BoundedVec and the log is represented as fields and not as bytes. This
+        // inconsistent as the original input to the encryption function was bytes. Not dealing with this for now.
+        let plaintext = BoundedVec::<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>::from_array(
+            be_bytes_31_to_fields(plaintext_bytes),
+        );
 
         // Verify decryption matches original plaintext
         assert_eq(decrypted, plaintext, "Decrypted bytes should match original plaintext");

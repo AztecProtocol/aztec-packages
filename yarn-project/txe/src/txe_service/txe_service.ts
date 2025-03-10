@@ -567,15 +567,25 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts. The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need to implement this function here. Isn't there a way to programmatically identify that this is missing, given the existence of a txe_oracle method?
-  async aes128Decrypt(ciphertext: ForeignCallArray, iv: ForeignCallArray, symKey: ForeignCallArray) {
-    const ciphertextBuffer = fromUintArray(ciphertext, 8);
+  // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts.
+  // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
+  // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
+  // existence of a txe_oracle method?
+  async aes128Decrypt(
+    ciphertext: ForeignCallArray,
+    ciphertextLength: ForeignCallSingle,
+    iv: ForeignCallArray,
+    symKey: ForeignCallArray,
+  ) {
+    const ciphertextLengthNumber = fromSingle(ciphertextLength).toNumber();
+    const ciphertextBufferWithPadding = fromUintArray(ciphertext, 8);
+    const ciphertextBuffer = ciphertextBufferWithPadding.subarray(0, ciphertextLengthNumber);
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
     const plaintextBuffer = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
 
-    return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBuffer.length));
+    return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBufferWithPadding.length));
   }
 
   async getSharedSecret(address: ForeignCallSingle, ephPk: ForeignCallArray) {
