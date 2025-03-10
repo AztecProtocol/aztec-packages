@@ -173,7 +173,7 @@ function test_cmds {
       grep -v 'DISABLED_' | \
       while read -r test; do
         echo -e "$hash barretenberg/cpp/scripts/run_test.sh $bin_name $test"
-      done
+      done || (echo "Failed to list tests in $bin" && exit 1)
   done
 }
 

@@ -1,5 +1,3 @@
-import type { WitnessMap } from '@aztec/noir-acvm_js';
-
 import type {
   PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
