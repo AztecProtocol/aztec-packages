@@ -1,12 +1,6 @@
 use crate::{
     context::PrivateContext,
-    encrypted_logs::{
-        encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
-        log_assembly_strategies::default_aes128::note::{
-            get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES,
-        },
-    },
+    encrypted_logs::encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
     event::event_interface::EventInterface,
     keys::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
@@ -14,9 +8,15 @@ use crate::{
     },
     oracle::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::random,
+        random::random_with_max_byte_size,
     },
     utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
+};
+use super::{
+    arithmetic_generics_utils::{
+        get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
+    },
+    log::HEADER_CIPHERTEXT_SIZE_IN_BYTES,
 };
 use dep::protocol_types::{
     address::AztecAddress,
@@ -85,6 +85,39 @@ where
     plaintext_bytes
 }
 
+/// Computes an encrypted log for an event using AES-128 encryption in CBC mode.
+///
+/// The resulting log has the following format:
+/// ```text
+/// [
+///   tag: Field,                    // Tag for event discovery, derived from sender/recipient
+///   epk_x: Field,                  // X coordinate of ephemeral public key
+///   log_bytes: [Field],            // Encrypted data converted from bytes to fields, containing:
+///     [
+///       epk_sign: u8,              // Sign bit of ephemeral public key Y coordinate
+///       header_ciphertext: [u8],   // AES encrypted header containing:
+///         [
+///           contract_address: [u8; 32],  // Contract address that emitted the event
+///           ciphertext_length: [u8; 2],  // Length of main ciphertext in bytes
+///           padding: [u8; 14]            // PKCS#7 padding to AES block size
+///         ],
+///       ciphertext: [u8],          // AES encrypted event data containing:
+///         [
+///           event_type_id: [u8; 32],     // Type identifier of event
+///           event_data: [u8],            // Serialized event data
+///           padding: [u8]                // PKCS#7 padding to AES block size
+///         ],
+///       padding: [u8]              // Random padding to make log_bytes multiple of 31
+///     ],
+///   padding: [Field]               // Random padding to PRIVATE_LOG_SIZE_IN_FIELDS
+/// ]
+/// ```
+///
+/// The encryption process:
+/// 1. Generate ephemeral keypair and ECDH shared secret with recipient
+/// 2. Derive AES key and IV from shared secret using SHA-256
+/// 3. Encrypt header and event data separately using AES-128-CBC
+/// 4. Format into final log structure with padding
 fn compute_log<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
@@ -233,7 +266,10 @@ where
     offset += log_bytes_as_fields.len();
 
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
-        final_log[i] = unsafe { random() };
+        // We need to get a random value that fits in 31 bytes to not leak information about the size of the log
+        // (all the "real" log fields contain at most 31 bytes because of the way we convert the bytes to fields).
+        // Safety: randomness cannot be constrained.
+        final_log[i] = unsafe { random_with_max_byte_size::<31>() };
     }
 
     final_log

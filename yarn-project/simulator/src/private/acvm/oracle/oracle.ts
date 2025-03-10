@@ -1,12 +1,12 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { ACVMField } from '../acvm_types.js';
-import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
-import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
+import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec, fromUintArray } from '../deserialize.js';
+import { bufferToBoundedVec, toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
@@ -451,5 +451,36 @@ export class Oracle {
       fromACVMField(dstSlot),
       frToNumber(fromACVMField(numEntries)),
     );
+  }
+
+  async aes128Decrypt(
+    ciphertext: ACVMField[],
+    [ciphertextLength]: ACVMField[],
+    iv: ACVMField[],
+    symKey: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const ciphertextBufferWithPadding = fromUintArray(ciphertext, 8);
+    // TODO(benesjan): Use the fromBoundedVec functionality for this?
+    const ciphertextBuffer = ciphertextBufferWithPadding.subarray(0, frToNumber(fromACVMField(ciphertextLength)));
+    const ivBuffer = fromUintArray(iv, 8);
+    const symKeyBuffer = fromUintArray(symKey, 8);
+
+    const plaintext = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
+    return bufferToBoundedVec(plaintext, ciphertextBufferWithPadding.length);
+  }
+
+  // TODO(benesjan): When I had the ephPk input defined only as "ephPk: ACVMField[]" then ephPk was only 1 Field
+  // instead of 3. Does the reviewer know why I need to have the Point components directly listed here? It's ugly.
+  async getSharedSecret(
+    [address]: ACVMField[],
+    [ephPKField0]: ACVMField[],
+    [ephPKField1]: ACVMField[],
+    [ephPKField2]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const secret = await this.typedOracle.getSharedSecret(
+      AztecAddress.fromField(fromACVMField(address)),
+      Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(fromACVMField)),
+    );
+    return secret.toFields().map(toACVMField);
   }
 }

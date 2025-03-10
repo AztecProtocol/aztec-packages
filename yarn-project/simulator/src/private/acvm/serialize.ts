@@ -58,3 +58,31 @@ export function toACVMWitness(witnessStartIndex: number, fields: Parameters<type
     return witness;
   }, new Map<number, ACVMField>());
 }
+
+export function bufferToU8Array(buffer: Buffer): ACVMField[] {
+  return Array.from(buffer).map(byte => toACVMField(BigInt(byte)));
+}
+
+export function bufferToBoundedVec(buffer: Buffer, maxLen: number): [ACVMField[], ACVMField] {
+  const u8Array = bufferToU8Array(buffer);
+  return arrayToBoundedVec(u8Array, maxLen);
+}
+
+/**
+ * Converts a ForeignCallArray into a tuple which represents a nr BoundedVec.
+ * If the input array is shorter than the maxLen, it pads the result with zeros,
+ * so that nr can correctly coerce this result into a BoundedVec.
+ * @param array
+ * @param maxLen - the max length of the BoundedVec.
+ * @returns a tuple representing a BoundedVec.
+ */
+export function arrayToBoundedVec(array: ACVMField[], maxLen: number): [ACVMField[], ACVMField] {
+  if (array.length > maxLen) {
+    throw new Error(`Array of length ${array.length} larger than maxLen ${maxLen}`);
+  }
+  const lengthDiff = maxLen - array.length;
+  const zeroPaddingArray = Array(lengthDiff).fill(toACVMField(BigInt(0)));
+  const storage = array.concat(zeroPaddingArray);
+  const len = toACVMField(BigInt(array.length));
+  return [storage, len];
+}

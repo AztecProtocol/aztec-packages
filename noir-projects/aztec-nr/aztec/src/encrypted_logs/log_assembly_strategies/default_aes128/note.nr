@@ -1,26 +1,9 @@
-use crate::{
-    context::PrivateContext,
-    encrypted_logs::encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
-    keys::{
-        ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
-        ephemeral::generate_ephemeral_key_pair,
-    },
-    note::{note_emission::NoteEmission, note_interface::NoteType},
-    oracle::{
-        notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::random,
-    },
-    utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
-};
+use crate::{context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteType}};
+use super::log::encrypt_log;
 use dep::protocol_types::{
-    abis::note_hash::NoteHash,
-    address::AztecAddress,
-    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-    traits::{Packable, ToField},
+    abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    traits::Packable,
 };
-use std::aes128::aes128_encrypt;
-
-pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address (32) + ciphertext_length (2) + 16 bytes pkcs#7 AES padding.
 
 /*
  * WHY IS THERE LOTS OF CODE DUPLICATION BETWEEN event.nr and note.nr?
@@ -114,92 +97,6 @@ pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address
  */
 
 /********************************************************/
-// Disgusting arithmetic on generics
-/********************************************************/
-
-// In this section, instead of initialising arrays with very complicated generic
-// arithmetic, such as:
-// let my_arr: [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] = [0; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))];
-//... we instead do the arithmetic a little bit at a time, so that the computation
-// can be audited and understood. Now, we can't do arithmetic on generics in the body
-// of a function, so we abusing functions in the following way:
-
-// |full_pt| = |pt| = (N * 32) + 64
-fn get_arr_of_size__full_plaintext<let PT: u32>() -> [u8; PT] {
-    [0; PT]
-}
-
-// |pt_aes_padding| = 16 - (|full_pt| % 16)
-fn get_arr_of_size__plaintext_aes_padding<let FULL_PT: u32>(
-    _full_pt: [u8; FULL_PT],
-) -> [u8; 16 - (FULL_PT % 16)] {
-    [0; 16 - (FULL_PT % 16)]
-}
-
-// |ct| = |full_pt| + |pt_aes_padding|
-fn get_arr_of_size__ciphertext<let FULL_PT: u32, let PT_AES_PADDING: u32>(
-    _full_pt: [u8; FULL_PT],
-    _pt_aes_padding: [u8; PT_AES_PADDING],
-) -> [u8; FULL_PT + PT_AES_PADDING] {
-    [0; FULL_PT + PT_AES_PADDING]
-}
-
-// Ok, so we have the following bytes:
-// eph_pk_sign, header_ciphertext, ciphertext:
-// Let lbwop = 1 + 48 + |ct| // aka log bytes without padding
-fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8; 1 + 48 + CT] {
-    [0; 1 + 48 + CT]
-}
-
-// Recall:
-//   lbwop := 1 + 48 + |ct| // aka log bytes without padding
-// We now want to pad b to the next multiple of 31, so as to "fill" fields.
-// Let p be that padding.
-// p = 31 * ceil(lbwop / 31) - lbwop
-//   = 31 * ((lbwop + 30) // 31) - lbwop
-//     (because ceil(x / y) = (x + y - 1) // y ).
-fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(
-    _lbwop: [u8; LBWOP],
-) -> [u8; (31 * ((LBWOP + 30) / 31)) - LBWOP] {
-    [0; (31 * ((LBWOP + 30) / 31)) - LBWOP]
-}
-
-// |log_bytes| = 1 + 48 + |ct| + p // aka log bytes (with padding)
-// Recall:
-//   lbwop := 1 + 48 + |ct|
-//   p is the padding
-fn get_arr_of_size__log_bytes<let LBWOP: u32, let P: u32>(
-    _lbwop: [u8; LBWOP],
-    _p: [u8; P],
-) -> [u8; LBWOP + P] {
-    [0; LBWOP + P]
-}
-
-// The return type is pasted from the LSP's expectation, because it was too difficult
-// to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
-// PT is the plaintext length.
-pub(crate) fn get_arr_of_size__log_bytes_padding__from_PT<let PT: u32>() -> [u8; ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49))] {
-    let full_pt = get_arr_of_size__full_plaintext::<PT>();
-    let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
-    let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
-    let lbwop = get_arr_of_size__log_bytes_without_padding(ct);
-    let p = get_arr_of_size__log_bytes_padding(lbwop);
-    p
-}
-
-// The return type is pasted from the LSP's expectation, because it was too difficult
-// to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
-pub(crate) fn get_arr_of_size__log_bytes__from_PT<let PT: u32>() -> [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] {
-    let full_pt = get_arr_of_size__full_plaintext::<PT>();
-    let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
-    let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
-    let lbwop = get_arr_of_size__log_bytes_without_padding(ct);
-    let p = get_arr_of_size__log_bytes_padding(lbwop);
-    let log_bytes = get_arr_of_size__log_bytes(lbwop, p);
-    log_bytes
-}
-
-/********************************************************/
 // End of disgusting arithmetic on generics
 /********************************************************/
 
@@ -223,6 +120,8 @@ where
     Note: NoteType + Packable<N>,
 {
     let packed_note = note.pack();
+
+    // TODO(benesjan): Instead of the following, implement fields_to_be_bytes_32 and use it here.
 
     let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
 
@@ -256,158 +155,13 @@ fn compute_log<Note, let N: u32>(
 where
     Note: NoteType + Packable<N>,
 {
-    // *****************************************************************************
-    // Compute the shared secret
-    // *****************************************************************************
-
-    let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
-
-    let eph_pk_sign_byte: u8 = get_sign_of_point(eph_pk) as u8;
-
-    let ciphertext_shared_secret = derive_ecdh_shared_secret_using_aztec_address(eph_sk, recipient); // not to be confused with the tagging shared secret
-
-    // TODO: also use this shared secret for deriving note randomness.
-
-    // *****************************************************************************
-    // Compute the plaintext
-    // *****************************************************************************
-
     let final_plaintext_bytes = compute_note_plaintext_for_this_strategy(note, storage_slot);
-
-    // *****************************************************************************
-    // Convert the plaintext into whatever format the encryption function expects
-    // *****************************************************************************
-
-    // Already done for this strategy: AES expects bytes.
-
-    // *****************************************************************************
-    // Encrypt the plaintext
-    // *****************************************************************************
-
-    let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
-        ciphertext_shared_secret,
-    );
-
-    let ciphertext_bytes = aes128_encrypt(final_plaintext_bytes, iv, sym_key);
-
-    // |full_pt| = |pt_length| + |pt|
-    // |pt_aes_padding| = 16 - (|full_pt| % 16)
-    // or... since a % b is the same as a - b * (a // b) (integer division), so:
-    // |pt_aes_padding| = 16 - (|full_pt| - 16 * (|full_pt| // 16))
-    // |ct| = |full_pt| + |pt_aes_padding|
-    //      = |full_pt| + 16 - (|full_pt| - 16 * (|full_pt| // 16))
-    //      = 16 + 16 * (|full_pt| // 16)
-    //      = 16 * (1 + |full_pt| // 16)
-    assert(ciphertext_bytes.len() == 16 * (1 + ((N * 32) + 64) / 16));
-
-    // *****************************************************************************
-    // Compute the header ciphertext
-    // *****************************************************************************
-
-    let contract_address = context.this_address();
-    let contract_address_bytes = contract_address.to_field().to_be_bytes::<32>();
-
-    let mut header_plaintext: [u8; 32 + 2] = [0; 32 + 2];
-    for i in 0..32 {
-        header_plaintext[i] = contract_address_bytes[i];
-    }
-    let offset = 32;
-    let ciphertext_bytes_length = ciphertext_bytes.len();
-    header_plaintext[offset] = (ciphertext_bytes_length >> 8) as u8;
-    header_plaintext[offset + 1] = ciphertext_bytes_length as u8;
-
-    // TODO: this is insecure and wasteful:
-    // "Insecure", because the esk shouldn't be used twice (once for the header,
-    // and again for the proper ciphertext) (at least, I never got the
-    // "go ahead" that this would be safe, unfortunately).
-    // "Wasteful", because the exact same computation is happening further down.
-    // I'm leaving that 2nd computation where it is, because this 1st computation
-    // will be imminently deleted, when the header logic is deleted.
-    let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
-        ciphertext_shared_secret,
-    );
-
-    // Note: the aes128_encrypt builtin fn automatically appends bytes to the
-    // input, according to pkcs#7; hence why the output `header_ciphertext_bytes` is 16
-    // bytes larger than the input in this case.
-    let header_ciphertext_bytes = aes128_encrypt(header_plaintext, iv, sym_key);
-    // I recall that converting a slice to an array incurs constraints, so I'll check the length this way instead:
-    assert(header_ciphertext_bytes.len() == HEADER_CIPHERTEXT_SIZE_IN_BYTES);
-
-    // *****************************************************************************
-    // Prepend / append more bytes of data to the ciphertext, before converting back
-    // to fields.
-    // *****************************************************************************
-
-    let mut log_bytes_padding_to_mult_31 =
-        get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 64>();
-    // Safety: this randomness won't be constrained to be random. It's in the
-    // interest of the executor of this fn to encrypt with random bytes.
-    log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
-
-    let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 64>();
-
-    assert(
-        log_bytes.len() % 31 == 0,
-        "Unexpected error: log_bytes.len() should be divisible by 31, by construction.",
-    );
-
-    log_bytes[0] = eph_pk_sign_byte;
-    let mut offset = 1;
-    for i in 0..header_ciphertext_bytes.len() {
-        log_bytes[offset + i] = header_ciphertext_bytes[i];
-    }
-    offset += header_ciphertext_bytes.len();
-
-    for i in 0..ciphertext_bytes.len() {
-        log_bytes[offset + i] = ciphertext_bytes[i];
-    }
-    offset += ciphertext_bytes.len();
-
-    for i in 0..log_bytes_padding_to_mult_31.len() {
-        log_bytes[offset + i] = log_bytes_padding_to_mult_31[i];
-    }
-
-    assert(
-        offset + log_bytes_padding_to_mult_31.len() == log_bytes.len(),
-        "Something has gone wrong",
-    );
-
-    // *****************************************************************************
-    // Convert bytes back to fields
-    // *****************************************************************************
-
-    let log_bytes_as_fields = be_bytes_31_to_fields(log_bytes);
-
-    // *****************************************************************************
-    // Prepend / append fields, to create the final log
-    // *****************************************************************************
-
-    // In this strategy, we prepend [tag, eph_pk.x]
-
-    // We assume that the sender wants for the recipient to find the tagged note,
-    // and therefore that they will cooperate and use the correct tag. Usage of a bad
-    // tag will result in the recipient not being able to find the note automatically.
-    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
-    increment_app_tagging_secret_index_as_sender(sender, recipient);
-
-    let mut final_log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS] = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
-
-    final_log[0] = tag;
-    final_log[1] = eph_pk.x;
-
-    let mut offset = 2;
-    for i in 0..log_bytes_as_fields.len() {
-        final_log[offset + i] = log_bytes_as_fields[i];
-    }
-    offset += log_bytes_as_fields.len();
-
-    for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
-        // Safety: randomness cannot be constrained.
-        final_log[i] = unsafe { random() };
-    }
-
-    final_log
+    encrypt_log(
+        context.this_address(),
+        final_plaintext_bytes,
+        recipient,
+        sender,
+    )
 }
 
 unconstrained fn compute_log_unconstrained<Note, let N: u32>(
