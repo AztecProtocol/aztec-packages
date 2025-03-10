@@ -944,7 +944,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.3"
+    "@noir-lang/types": "npm:1.0.0-beta.3"
     glob: "npm:^10.3.10"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -954,12 +954,12 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.3
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=1c440e&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=bc845c&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-acvm_js": "npm:1.0.0-beta.3"
-    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.3"
-    "@aztec/noir-types": "npm:1.0.0-beta.3"
-  checksum: 10/08fd293b038e8e3700f6a5dede8ad80ed8254ad49f177dc4e4f3b0528661621f36bf02a2335dd7002ae0caf9ca6bdbc7c494e4093a40b1e58acb37352dcf22dd
+    "@noir-lang/acvm_js": "npm:1.0.0-beta.3"
+    "@noir-lang/noirc_abi": "npm:1.0.0-beta.3"
+    "@noir-lang/types": "npm:1.0.0-beta.3"
+  checksum: 10/f022bae12f2d34d50550a3f5874df347426fc0588ff79d787882da03723aa769cd41d43153d30e67362d3e67ba18069a759d60693b6d553054b6b3236e456bc4
   languageName: node
   linkType: hard
 
@@ -967,7 +967,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.3"
+    "@noir-lang/types": "npm:1.0.0-beta.3"
   languageName: node
   linkType: soft
 
@@ -4190,6 +4190,29 @@ __metadata:
     "@nodelib/fs.scandir": "npm:2.1.5"
     fastq: "npm:^1.6.0"
   checksum: 10/40033e33e96e97d77fba5a238e4bba4487b8284678906a9f616b5579ddaf868a18874c0054a75402c9fbaaa033a25ceae093af58c9c30278e35c23c9479e79b0
+  languageName: node
+  linkType: hard
+
+"@noir-lang/acvm_js@npm:1.0.0-beta.3":
+  version: 1.0.0-beta.3
+  resolution: "@noir-lang/acvm_js@npm:1.0.0-beta.3"
+  checksum: 10/e314c00a6509cf6bb0395ebcdbe78b45d3136eb50e4e4756de201faa1e0f62f147f7d9d039e1db13446443b6973409ccf108e4fb4d45abdd2f4981d0c2aecf7d
+  languageName: node
+  linkType: hard
+
+"@noir-lang/noirc_abi@npm:1.0.0-beta.3":
+  version: 1.0.0-beta.3
+  resolution: "@noir-lang/noirc_abi@npm:1.0.0-beta.3"
+  dependencies:
+    "@noir-lang/types": "npm:1.0.0-beta.3"
+  checksum: 10/325b3a89197974960f62879715f6d3d545e80a091a0a4189b79adcb5318c6eb074c0cf6e653f33fcad8ac2db26ede68a438103aa369543d70b4ab667a0625ce5
+  languageName: node
+  linkType: hard
+
+"@noir-lang/types@npm:1.0.0-beta.3":
+  version: 1.0.0-beta.3
+  resolution: "@noir-lang/types@npm:1.0.0-beta.3"
+  checksum: 10/3425d082fe1496781dac590877b4c5d67c6e3d26fdeb0d039d2284494e4dea55193419260709027a3161369a90c28775d0eca5eee728b54c9ea9b3abf414f9b8
   languageName: node
   linkType: hard
 
@@ -21956,7 +21979,6 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/bf1618f39ca3645082323776342c0f87fa37f60bcca0476a7db0f6fbb9d1b6db7ab1e434a57463e8486bea29f97c5ab01e95b6139190a008d6f9a30194b7b081
   checksum: 10/bf1618f39ca3645082323776342c0f87fa37f60bcca0476a7db0f6fbb9d1b6db7ab1e434a57463e8486bea29f97c5ab01e95b6139190a008d6f9a30194b7b081
   languageName: node
   linkType: hard
