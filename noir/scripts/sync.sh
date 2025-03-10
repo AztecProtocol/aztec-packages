@@ -128,6 +128,13 @@ function needs_patch {
   is_detached_head && ! is_last_commit_patch
 }
 
+# Indicate that we have to switch to the wanted branch.
+function needs_switch {
+  want=$(read_wanted_ref)
+  have=$(read_last_ref)
+  [ "$want" != "$have" ]
+}
+
 # Create an empty marker commit to show that patches have been applied or put in a patch file.
 function commit_patch_marker {
   git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
@@ -196,8 +203,7 @@ function switch_repo {
 # Bring the noir-repo in line with the commit marker.
 function update_repo {
   want=$(read_wanted_ref)
-  have=$(read_last_ref)
-  if [ "$want" == "$have" ]; then
+  if ! needs_switch; then
     log "noir-repo already on $want"
     if is_on_branch; then
       # If we're on a branch, then we there might be new commits.
@@ -218,14 +224,14 @@ function update_repo {
   # We need to switch branches.
 
   if has_uncommitted_changes; then
-    echo "noir-repo has uncommitted changes which could get lost if we switch from $have to $want"
+    echo "noir-repo has uncommitted changes which could get lost if we switch to $want"
     echo "Please commit these changes and consider pushing them upstream to make sure they are not lost."
     exit 1
   fi
 
   if needs_patch; then
     echo "noir-repo is on a detached HEAD and the last commit is not the patch marker commit;"
-    echo "switching from $have to $want could meand losing those commits."
+    echo "switching from to $want could meand losing those commits."
     echo "Please use the 'make-patch' command to create a $NOIR_REPO_PATCH file and commit it in aztec-packages, "
     echo "so that it is applied after each checkout; make sure to commit the patch on the branch where it should be."
     exit 1
@@ -274,14 +280,20 @@ function info {
     echo "$(pad "$1:" -25)" $2
   }
   function yesno {
-    $1 && echo "yes" || echo "no"
+    $@ && echo "yes" || echo "no"
   }
-  echo_info "Wanted" $(read_wanted_ref)
-  echo_info "Have" $(read_last_ref)
+  want=$(read_wanted_ref)
+  have=$(read_last_ref)
+  echo_info "Wanted" $want
+  echo_info "Have" $have
   echo_info "On branch" $(yesno is_on_branch)
   echo_info "Deteached" $(yesno is_detached_head)
+  echo_info "Is on tag" $(yesno is_tag $have)
+  echo_info "Has tag commit" $(yesno has_tag_commit $have)
   echo_info "Last commit is patch" $(yesno is_last_commit_patch)
+  echo_info "Has patch commit" $(yesno has_patch_commit)
   echo_info "Needs patch" $(yesno needs_patch)
+  echo_info "Needs switch" $(yesno needs_switch)
 }
 
 cmd=${1:-}
