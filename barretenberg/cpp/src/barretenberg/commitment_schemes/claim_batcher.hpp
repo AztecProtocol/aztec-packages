@@ -71,13 +71,13 @@ template <typename Curve> struct ClaimBatcher_ {
      * \right)
      * \f]
      *
-     * @param inverse_vanishing_eval_pos 1/(z-r)
-     * @param inverse_vanishing_eval_neg 1/(z+r)
+     * @param inverse_vanishing_eval_pos 1/(z+r)
+     * @param inverse_vanishing_eval_neg 1/(z-r)
      * @param nu_challenge ν (shplonk batching challenge)
      * @param r_challenge r (gemini evaluation challenge)
      */
-    void compute_scalars_for_each_batch(const Fr& inverse_vanishing_eval_pos,
-                                        const Fr& inverse_vanishing_eval_neg,
+    void compute_scalars_for_each_batch(const Fr& inverse_vanishing_eval_neg,
+                                        const Fr& inverse_vanishing_eval_pos,
                                         const Fr& nu_challenge,
                                         const Fr& r_challenge,
                                         const Fr& interleaving_vanishing_eval = { 0 })

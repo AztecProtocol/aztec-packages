@@ -73,6 +73,7 @@ template <typename Curve> class ShplonkProver_ {
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
 
+            // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
             if (claim.gemini_fold) {
                 tmp = claim.polynomial;
                 tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx];
@@ -86,9 +87,7 @@ template <typename Curve> class ShplonkProver_ {
 
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
         // batched before adding Libra commitments and evaluations is bounded by CONST_PROOF_SIZE_LOG_N+2
-        for (size_t idx = opening_claims.size(); idx < CONST_PROOF_SIZE_LOG_N + 2; idx++) {
-            current_nu *= nu;
-        };
+        current_nu = nu.pow(2 * CONST_PROOF_SIZE_LOG_N + 2);
 
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -172,52 +171,48 @@ template <typename Curve> class ShplonkProver_ {
             // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
+            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
 
             // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             G.add_scaled(tmp, -scaling_factor);
 
             current_nu *= nu_challenge;
-            idx++;
+
             if (claim.gemini_fold) {
                 tmp = claim.polynomial;
                 tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx];
                 info("prover ", fold_idx, "  eval ", gemini_fold_pos_evaluations[fold_idx]);
-                Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
+                Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
                 // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
                 G.add_scaled(tmp, -scaling_factor);
 
                 current_nu *= nu_challenge;
                 fold_idx++;
-                idx++;
             }
         }
 
         // Take into account the constant proof size in Gemini
-        for (size_t idx = opening_claims.size(); idx < CONST_PROOF_SIZE_LOG_N + 2; idx++) {
-            current_nu *= nu_challenge;
-        };
+        current_nu = nu_challenge.pow(2 * CONST_PROOF_SIZE_LOG_N + 2);
 
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
+            info("zk current nu ", current_nu);
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
-
+            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
+            info(scaling_factor);
             // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(tmp, -scaling_factor);
-            idx++;
             current_nu *= nu_challenge;
         }
-
+        info("prover nu before sumcheck op claims ", current_nu);
         for (const auto& claim : sumcheck_opening_claims) {
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
+            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
 
             // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(tmp, -scaling_factor);
-            idx++;
             current_nu *= nu_challenge;
         }
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
@@ -410,27 +405,36 @@ template <typename Curve> class ShplonkVerifier_ {
         return { { z_challenge, evaluation }, G_commitment };
     };
     /**
-     * @brief Computes \f$ \frac{1}{z - r}, \frac{1}{z+r}, \ldots, \frac{1}{z+r^{2^{d-1}}} \f$.
+     * @brief Computes \f$ \frac{1}{z + r}, \frac{1}{z-r}, \ldots, \frac{1}{z+r^{2^{d-1}}}, \frac{1}{z-r^{2^{d-1}}} \f$.
      *
      * @param num_gemini_claims \f$ d + 1 \f$ where d = log_circuit_size
      * @param shplonk_eval_challenge \f$ z \f$
      * @param gemini_eval_challenge_powers \f$ (r , r^2, \ldots, r^{2^{d-1}}) \f$
-     * @return \f[ \left( \frac{1}{z - r}, \frac{1}{z+r}, \ldots, \frac{1}{z+r^{2^{d-1}}} \right) \f]
+     * @return \f[ \left( \frac{1}{z + r}, \frac{1}{z-r},  \ldots, \frac{1}{z+r^{2^{d-1}}}, \frac{1}{z-r^{2^{d-1}}}
+     * \right) \f]
      */
     static std::vector<Fr> compute_inverted_gemini_denominators(const size_t num_gemini_claims,
                                                                 const Fr& shplonk_eval_challenge,
                                                                 const std::vector<Fr>& gemini_eval_challenge_powers)
     {
-        std::vector<Fr> inverted_denominators;
-        inverted_denominators.reserve(2 * num_gemini_claims);
+        std::vector<Fr> denominators;
+        denominators.reserve(2 * num_gemini_claims);
 
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
-            Fr round_inverted_neg_denominator = (shplonk_eval_challenge + gemini_eval_challenge_power).invert();
-            inverted_denominators.emplace_back(round_inverted_neg_denominator);
-            Fr round_inverted_pos_denominator = (shplonk_eval_challenge - gemini_eval_challenge_power).invert();
-            inverted_denominators.emplace_back(round_inverted_pos_denominator);
+            // Place 1/(z + r ^ {2^j})
+            denominators.emplace_back(shplonk_eval_challenge + gemini_eval_challenge_power);
+            // Place 1/(z - r ^ {2^j})
+            denominators.emplace_back(shplonk_eval_challenge - gemini_eval_challenge_power);
         }
-        return inverted_denominators;
+
+        if constexpr (Curve::is_stdlib_type) {
+            Fr::batch_invert(denominators);
+        } else {
+            for (auto& denominator : denominators) {
+                denominator = denominator.invert();
+            }
+        }
+        return denominators;
     }
 };
 } // namespace bb
