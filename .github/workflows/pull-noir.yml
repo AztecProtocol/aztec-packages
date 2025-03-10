@@ -64,18 +64,18 @@ jobs:
           git config --global user.email tech@aztecprotocol.com
 
       # Push a commit to the `bump-noir` branch that overrides the Noir ref.
-      # The push overwrites whatever is currently on the branch, so if we
-      # want to conduct debugging or fixes, we should either pause the workflow
-      # or do it on a different branch and separate PR.
+      # If a branch already exists then push to that one; it might contain some merge conflict fixes with the patch file.
+      # If there was no change in the ref then this step will fail.
       - name: Push to branch
         run: |
           set -xue # print commands
           BRANCH=bump-noir
-          git checkout $BRANCH || git checkout -b $BRANCH
+          git fetch --depth 1 origin $BRANCH || true
+          git checkout --track origin/$BRANCH || git checkout $BRANCH || git checkout -b $BRANCH
           echo $LATEST_NOIR_NIGHTLY > noir/noir-repo-ref
           git add noir
           git commit -m 'chore: Update noir-repo-ref to the latest nightly'
-          git push --set-upstream origin $BRANCH --force
+          git push --set-upstream origin $BRANCH
 
       # Update the PR from `bump-noir` to `master` with the latest message body.
       - name: Update PR
