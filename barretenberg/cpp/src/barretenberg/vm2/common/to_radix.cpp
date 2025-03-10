@@ -5,9 +5,11 @@
 
 namespace bb::avm2 {
 
+namespace {
 // The little endian decompositions of Fr modulus into limbs for each radix.
 // Radix goes up to 256 so we need 257 descompositions.
-const std::array<std::vector<uint8_t>, 257> P_LIMBS_PER_RADIX = []() {
+std::array<std::vector<uint8_t>, 257> createPLimbsPerRadix()
+{
     std::array<std::vector<uint8_t>, 257> limbs_per_radix;
 
     for (size_t radix = 2; radix < 257; ++radix) {
@@ -23,6 +25,14 @@ const std::array<std::vector<uint8_t>, 257> P_LIMBS_PER_RADIX = []() {
     }
 
     return limbs_per_radix;
-}();
+}
+
+} // namespace
+
+const std::array<std::vector<uint8_t>, 257>& getPLimbsPerRadix()
+{
+    static const std::array<std::vector<uint8_t>, 257> limbs_per_radix = createPLimbsPerRadix();
+    return limbs_per_radix;
+}
 
 } // namespace bb::avm2

@@ -15,12 +15,14 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
 {
     using C = Column;
 
+    auto p_limbs_per_radix = getPLimbsPerRadix();
+
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {
         FF value = event.value;
         uint32_t radix = event.radix;
         size_t radix_index = static_cast<size_t>(radix);
-        uint32_t safe_limbs = static_cast<uint32_t>(P_LIMBS_PER_RADIX[radix_index].size()) - 1;
+        uint32_t safe_limbs = static_cast<uint32_t>(p_limbs_per_radix[radix_index].size()) - 1;
 
         FF acc = 0;
         FF exponent = 1;
@@ -30,7 +32,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
         for (uint32_t i = 0; i < event.limbs.size(); ++i) {
             bool is_padding = i > safe_limbs;
             uint8_t limb = event.limbs[i];
-            uint8_t p_limb = is_padding ? 0 : P_LIMBS_PER_RADIX[radix_index][static_cast<size_t>(i)];
+            uint8_t p_limb = is_padding ? 0 : p_limbs_per_radix[radix_index][static_cast<size_t>(i)];
 
             if (limb != p_limb) {
                 acc_under_p = limb < p_limb;

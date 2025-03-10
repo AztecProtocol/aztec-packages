@@ -6,7 +6,6 @@
 
 namespace bb::avm2 {
 
-// These are "extern" because the definition is in a different file.
-extern const std::array<std::vector<uint8_t>, 257> P_LIMBS_PER_RADIX;
+const std::array<std::vector<uint8_t>, 257>& getPLimbsPerRadix();
 
 } // namespace bb::avm2

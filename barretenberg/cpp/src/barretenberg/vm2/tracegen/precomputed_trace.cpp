@@ -217,11 +217,13 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 {
     using C = Column;
 
-    trace.reserve_column(C::precomputed_sel_to_radix_safe_limbs, P_LIMBS_PER_RADIX.size());
-    trace.reserve_column(C::precomputed_to_radix_safe_limbs, P_LIMBS_PER_RADIX.size());
+    auto p_limbs_per_radix = getPLimbsPerRadix();
 
-    for (size_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
-        size_t decomposition_len = P_LIMBS_PER_RADIX[i].size();
+    trace.reserve_column(C::precomputed_sel_to_radix_safe_limbs, p_limbs_per_radix.size());
+    trace.reserve_column(C::precomputed_to_radix_safe_limbs, p_limbs_per_radix.size());
+
+    for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
+        size_t decomposition_len = p_limbs_per_radix[i].size();
         if (decomposition_len > 0) {
             trace.set(C::precomputed_sel_to_radix_safe_limbs, static_cast<uint32_t>(i), 1);
             trace.set(C::precomputed_to_radix_safe_limbs, static_cast<uint32_t>(i), decomposition_len - 1);
@@ -233,14 +235,16 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
 {
     using C = Column;
 
+    auto p_limbs_per_radix = getPLimbsPerRadix();
+
     uint32_t row = 0;
-    for (size_t i = 0; i < P_LIMBS_PER_RADIX.size(); ++i) {
-        size_t decomposition_len = P_LIMBS_PER_RADIX[i].size();
+    for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
+        size_t decomposition_len = p_limbs_per_radix[i].size();
         for (size_t j = 0; j < decomposition_len; ++j) {
             trace.set(C::precomputed_sel_p_decomposition, row, 1);
             trace.set(C::precomputed_p_decomposition_radix, row, i);
             trace.set(C::precomputed_p_decomposition_limb_index, row, j);
-            trace.set(C::precomputed_p_decomposition_limb, row, P_LIMBS_PER_RADIX[i][j]);
+            trace.set(C::precomputed_p_decomposition_limb, row, p_limbs_per_radix[i][j]);
             row++;
         }
     }

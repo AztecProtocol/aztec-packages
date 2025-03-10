@@ -16,7 +16,7 @@ template <typename LookupSettings> class LookupIntoPDecomposition : public BaseL
         size_t radix_index = static_cast<size_t>(radix);
         uint32_t row = 0;
         for (size_t i = 0; i < radix_index; ++i) {
-            row += static_cast<uint32_t>(P_LIMBS_PER_RADIX[i].size());
+            row += static_cast<uint32_t>(getPLimbsPerRadix()[i].size());
         }
 
         row += static_cast<uint32_t>(limb_index);
