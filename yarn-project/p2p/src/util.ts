@@ -81,9 +81,7 @@ export async function configureP2PClientAddresses(
   if (!p2pIp) {
     if (queryForIp) {
       const publicIp = await getPublicIp();
-      config.p2pIp = `${publicIp}`;
-    } else {
-      config.p2pIp = `0.0.0.0`;
+      config.p2pIp = publicIp;
     }
   }
   // TODO(md): guard against setting a local ip address as the announce ip
