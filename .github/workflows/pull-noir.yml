@@ -56,8 +56,6 @@ jobs:
             cd ..
           }
           echo "$(compute_commit_message)" >> .PR_BODY_MESSAGE
-          # Remove the temporary clone we made to calculate the message
-          rm -rf noir-repo
 
       - name: Set git configure for commits
         run: |
@@ -66,6 +64,9 @@ jobs:
           git config --global user.email tech@aztecprotocol.com
 
       # Push a commit to the `bump-noir` branch that overrides the Noir ref.
+      # The push overwrites whatever is currently on the branch, so if we
+      # want to conduct debugging or fixes, we should either pause the workflow
+      # or do it on a different branch and separate PR.
       - name: Push to branch
         run: |
           set -xue # print commands
@@ -73,7 +74,6 @@ jobs:
           git checkout $BRANCH || git checkout -b $BRANCH
           echo $LATEST_NOIR_NIGHTLY > noir/noir-repo-ref
           git add noir
-          # This should fail if there was no change in the tag. We could use --allow-empty to do it anyway.
           git commit -m 'chore: Update noir-repo-ref to the latest nightly'
           git push --set-upstream origin $BRANCH --force
 
