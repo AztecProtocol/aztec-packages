@@ -1,4 +1,4 @@
-import type { WitnessMap } from '@noir-lang/acvm_js';
+import type { WitnessMap } from '@aztec/noir-acvm_js';
 
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { VerificationKeyAsFields } from '../vks/verification_key.js';

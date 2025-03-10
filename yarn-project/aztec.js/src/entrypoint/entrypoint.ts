@@ -28,6 +28,27 @@ export type ExecutionRequestInit = {
   cancellable?: boolean;
 };
 
+/**
+ * Merges an array of ExecutionRequestInits.
+ */
+export function mergeExecutionRequestInits(
+  requests: Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>[],
+  { nonce, cancellable }: Pick<ExecutionRequestInit, 'nonce' | 'cancellable'> = {},
+): Omit<ExecutionRequestInit, 'fee'> {
+  const calls = requests.map(r => r.calls).flat();
+  const authWitnesses = requests.map(r => r.authWitnesses ?? []).flat();
+  const hashedArguments = requests.map(r => r.hashedArguments ?? []).flat();
+  const capsules = requests.map(r => r.capsules ?? []).flat();
+  return {
+    calls,
+    authWitnesses,
+    hashedArguments,
+    capsules,
+    nonce,
+    cancellable,
+  };
+}
+
 /** Creates transaction execution requests out of a set of function calls. */
 export interface EntrypointInterface {
   /**
