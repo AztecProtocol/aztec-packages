@@ -350,7 +350,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
     debug: "npm:^4.3.4"
