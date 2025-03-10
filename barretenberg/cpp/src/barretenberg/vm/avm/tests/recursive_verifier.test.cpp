@@ -131,9 +131,8 @@ TEST_F(AvmRecursiveTests, recursion)
         EXPECT_EQ(key_el, rec_key_el.get_value());
     }
 
-    EXPECT_EQ(verifier.key->circuit_size, static_cast<uint64_t>(recursive_verifier.key->circuit_size.get_value()));
-    EXPECT_EQ(verifier.key->num_public_inputs,
-              static_cast<uint64_t>(recursive_verifier.key->num_public_inputs.get_value()));
+    EXPECT_EQ(verifier.key->circuit_size, recursive_verifier.key->circuit_size);
+    EXPECT_EQ(verifier.key->num_public_inputs, recursive_verifier.key->num_public_inputs);
 
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 23;
