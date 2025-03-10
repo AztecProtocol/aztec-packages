@@ -211,15 +211,17 @@ export class UltraHonkBackend {
       gunzip(compressedWitness),
     );
 
-    // Write VK to get the VK
+    // Write VK to get the number of public inputs
     const writeVKUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : this.api.acirWriteVkUltraHonk.bind(this.api);
 
     const vk = await writeVKUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
 
-    const vkAsStrings = deflattenFields(vk.slice(serializedBufferSize));
-    const numPublicInputs = Number(vkAsStrings[1]);
+    // Item at index 1 in VK is the number of public inputs
+    const numPublicInputs = Number(vkAsFields[1].toString());
+
 
     // Account for the serialized buffer size at start
     // Get the part before and after the public inputs
@@ -255,14 +257,13 @@ export class UltraHonkBackend {
       this.circuitOptions.recursive,
       gunzip(compressedWitness),
     );
-
-    // Write VK to get the VK
-    // Write VK to get the VK
+    // Write VK to get the number of public inputs
     const writeVKUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : this.api.acirWriteVkUltraHonk.bind(this.api);
 
     const vk = await writeVKUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
 
     // proofWithPublicInputs starts with a four-byte size
     const numSerdeHeaderBytes = 4;
@@ -270,9 +271,7 @@ export class UltraHonkBackend {
     const numKZGAccumulatorFieldElements = 16;
     const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
 
-    // Slice serde header and convert to fields
-    const vkAsStrings = deflattenFields(vk.slice(numSerdeHeaderBytes));
-    const numPublicInputs = Number(vkAsStrings[publicInputsSizeIndex]) - numKZGAccumulatorFieldElements;
+    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - numKZGAccumulatorFieldElements;
 
     // Construct the proof without the public inputs
     const numPublicInputsBytes = numPublicInputs * fieldByteSize;
