@@ -339,7 +339,10 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<P2PConfig, 'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'bootstrapNodes'> &
+export type BootnodeConfig = Pick<
+  P2PConfig,
+  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'bootstrapNodes' | 'listenAddress'
+> &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
   Pick<ChainConfig, 'l1ChainId'>;
