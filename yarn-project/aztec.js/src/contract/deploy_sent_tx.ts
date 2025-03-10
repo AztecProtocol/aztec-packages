@@ -5,7 +5,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/wallet.js';
+import type { Wallet } from '../wallet/wallet.js';
 import type { Contract } from './contract.js';
 import type { ContractBase } from './contract_base.js';
 import { SentTx, type WaitOpts } from './sent_tx.js';

@@ -8,11 +8,11 @@ import {
 import type { PublicKeys } from '@aztec/stdlib/keys';
 
 import type { AuthWitnessProvider } from '../account/interface.js';
-import type { Wallet } from '../account/wallet.js';
 import type { ExecutionRequestInit } from '../api/entrypoint.js';
 import { Contract } from '../contract/contract.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { EntrypointPayload, computeCombinedPayloadHash } from '../entrypoint/payload.js';
+import type { Wallet } from '../wallet/wallet.js';
 
 /**
  * Contract interaction for deploying an account contract. Handles fee preparation and contract initialization.

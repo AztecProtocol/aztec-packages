@@ -28,9 +28,9 @@ import type {
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/wallet.js';
 import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
+import type { Wallet } from './wallet.js';
 
 /**
  * A base class for Wallet implementations

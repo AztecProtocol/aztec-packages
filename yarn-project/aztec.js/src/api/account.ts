@@ -3,7 +3,6 @@ export {
   type AccountInterface,
   type AuthWitnessProvider,
   type Salt,
-  type Wallet,
   getAccountContractAddress,
 } from '../account/index.js';
 

@@ -4,14 +4,14 @@ import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
-import type { AccountContract } from '../account/contract.js';
-import type { Salt, Wallet } from '../account/index.js';
+import type { AccountContract } from '../account/account_contract.js';
+import type { Salt } from '../account/index.js';
 import type { AccountInterface } from '../account/interface.js';
 import { Contract } from '../contract/contract.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
-import { AccountWalletWithSecretKey, SignerlessWallet } from '../wallet/index.js';
+import { AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from '../wallet/index.js';
 import { DeployAccountMethod } from './deploy_account_method.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
