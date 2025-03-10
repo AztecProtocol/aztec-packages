@@ -6,6 +6,7 @@
 namespace bb::avm2 {
 
 namespace {
+
 // The little endian decompositions of Fr modulus into limbs for each radix.
 // Radix goes up to 256 so we need 257 descompositions.
 std::array<std::vector<uint8_t>, 257> createPLimbsPerRadix()
