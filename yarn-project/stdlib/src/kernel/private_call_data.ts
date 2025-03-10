@@ -104,10 +104,6 @@ export class PrivateVerificationKeyHints {
      *  The low leaf showing that the address of the contract being called is not in the tree.
      */
     public protocolContractLeaf: ProtocolContractLeafPreimage,
-    /**
-     * The hash of the ACIR of the function being invoked.
-     */
-    public acirHash: Fr,
 
     public updatedClassIdHints: UpdatedClassIdHints,
   ) {}
@@ -126,7 +122,6 @@ export class PrivateVerificationKeyHints {
       fields.functionLeafMembershipWitness,
       fields.protocolContractMembershipWitness,
       fields.protocolContractLeaf,
-      fields.acirHash,
       fields.updatedClassIdHints,
     ] as const;
   }
@@ -158,7 +153,6 @@ export class PrivateVerificationKeyHints {
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
       reader.readObject(MembershipWitness.deserializer(PROTOCOL_CONTRACT_TREE_HEIGHT)),
       reader.readObject(ProtocolContractLeafPreimage),
-      reader.readObject(Fr),
       reader.readObject(UpdatedClassIdHints),
     );
   }

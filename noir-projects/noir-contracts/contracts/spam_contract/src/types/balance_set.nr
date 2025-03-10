@@ -10,6 +10,7 @@ use dep::aztec::{
 use dep::aztec::prelude::{
     NoteGetterOptions, NoteHash, NoteType, NoteViewerOptions, PrivateSet, RetrievedNote,
 };
+use std::ops::Add;
 
 pub struct BalanceSet<Note, Context> {
     set: PrivateSet<Note, Context>,

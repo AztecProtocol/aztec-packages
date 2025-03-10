@@ -3,7 +3,7 @@ import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import type { ENR } from '@chainsafe/enr';
+import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
@@ -41,6 +41,8 @@ export class PeerManager {
   private heartbeatCounter: number = 0;
   private displayPeerCountsPeerHeartbeat: number = 0;
   private timedOutPeers: Map<string, TimedOutPeer> = new Map();
+  private trustedPeers: Set<PeerId> = new Set();
+  private trustedPeersInitialized: boolean = false;
 
   private metrics: PeerManagerMetrics;
   private discoveredPeerHandler;
@@ -64,11 +66,27 @@ export class PeerManager {
     // Handle Discovered peers
     this.discoveredPeerHandler = (enr: ENR) =>
       this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e));
+
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.discoveredPeerHandler);
 
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
+  }
+
+  /**
+   * Initializes the trusted peers.
+   *
+   * This function is called when the peer manager is initialized.
+   */
+  async initializeTrustedPeers() {
+    const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
+    await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
+      .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId)))
+      .finally(() => {
+        this.trustedPeersInitialized = true;
+      })
+      .catch(e => this.logger.error('Error initializing trusted peers', e));
   }
 
   get tracer() {
@@ -126,6 +144,30 @@ export class PeerManager {
     } else {
       this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
     }
+  }
+
+  /**
+   * Checks if a peer is trusted.
+   * @param peerId - The peer ID.
+   * @returns True if the peer is trusted, false otherwise.
+   * Note: This function will return false and log a warning if the trusted peers are not initialized.
+   */
+  private isTrustedPeer(peerId: PeerId): boolean {
+    if (!this.trustedPeersInitialized) {
+      this.logger.warn('Trusted peers not initialized, returning false');
+      return false;
+    }
+    return this.trustedPeers.has(peerId);
+  }
+
+  /**
+   * Adds a peer to the trusted peers set.
+   * @param peerId - The peer ID to add to trusted peers.
+   */
+  public addTrustedPeer(peerId: PeerId): void {
+    this.trustedPeers.add(peerId);
+    this.trustedPeersInitialized = true;
+    this.logger.verbose(`Added trusted peer ${peerId.toString()}`);
   }
 
   /**
@@ -190,10 +232,12 @@ export class PeerManager {
   private discover() {
     const connections = this.libP2PNode.getConnections();
 
-    const healthyConnections = this.prioritizePeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections)));
+    const healthyConnections = this.prioritizePeers(
+      this.onlyNotTrustedPeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections))),
+    );
 
     // Calculate how many connections we're looking to make
-    const peersToConnect = this.config.maxPeerCount - healthyConnections.length;
+    const peersToConnect = this.config.maxPeerCount - healthyConnections.length - this.trustedPeers.size;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
     this.logger[logLevel](`Connected to ${healthyConnections.length} peers`, {
@@ -202,6 +246,8 @@ export class PeerManager {
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),
     });
+
+    this.metrics.recordPeerCount(healthyConnections.length);
 
     // Exit if no peers to connect
     if (peersToConnect <= 0) {
@@ -248,10 +294,18 @@ export class PeerManager {
     }
   }
 
+  private onlyNotTrustedPeers(connections: Connection[]): Connection[] {
+    return connections.filter(conn => !this.isTrustedPeer(conn.remotePeer));
+  }
+
   private pruneUnhealthyPeers(connections: Connection[]): Connection[] {
     const connectedHealthyPeers: Connection[] = [];
 
     for (const peer of connections) {
+      if (this.isTrustedPeer(peer.remotePeer)) {
+        this.logger.debug(`Not pruning trusted peer ${peer.remotePeer.toString()}`);
+        continue;
+      }
       const score = this.peerScoring.getScoreState(peer.remotePeer.toString());
       switch (score) {
         case PeerScoreState.Banned:
@@ -275,19 +329,24 @@ export class PeerManager {
    * @returns The pruned list of connections.
    */
   private prioritizePeers(connections: Connection[]): Connection[] {
-    if (connections.length > this.config.maxPeerCount) {
-      // Sort the peer scores from lowest to highest
+    if (connections.length > this.config.maxPeerCount - this.trustedPeers.size) {
+      // Sort the regular peer scores from highest to lowest
       const prioritizedConnections = connections.sort((connectionA, connectionB) => {
         const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
         const connectionScoreB = this.peerScoring.getScore(connectionB.remotePeer.toString());
         return connectionScoreB - connectionScoreA;
       });
 
-      // Disconnect from the lowest scoring connections.
-      for (const conn of prioritizedConnections.slice(this.config.maxPeerCount)) {
+      // Calculate how many regular peers we can keep
+      const peersToKeep = Math.max(0, this.config.maxPeerCount - this.trustedPeers.size);
+
+      // Disconnect from the lowest scoring regular connections that exceed our limit
+      for (const conn of prioritizedConnections.slice(peersToKeep)) {
         void this.goodbyeAndDisconnectPeer(conn.remotePeer, GoodByeReason.MAX_PEERS);
       }
-      return prioritizedConnections.slice(0, this.config.maxPeerCount);
+
+      // Return trusted connections plus the highest scoring regular connections up to the max peer count
+      return prioritizedConnections.slice(0, peersToKeep);
     } else {
       return connections;
     }
@@ -458,7 +517,12 @@ export class PeerManager {
     }
 
     // Remove the oldest peers
-    for (const key of this.cachedPeers.keys()) {
+    for (const [key, value] of this.cachedPeers.entries()) {
+      if (this.isTrustedPeer(value.peerId)) {
+        this.logger.debug(`Not pruning trusted peer ${key}`);
+        continue;
+      }
+
       this.cachedPeers.delete(key);
       this.logger.trace(`Pruning peer ${key} from cache`);
       peersToDelete--;

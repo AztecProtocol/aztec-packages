@@ -128,30 +128,26 @@ describe('e2e_deploy_contract deploy method', () => {
     // Create a contract instance and make the PXE aware of it
     logger.debug(`Initializing deploy method`);
     const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
-    logger.debug(`Creating request/calls to register and deploy contract`);
-    const deploy = await deployMethod.request();
-    logger.debug(`Getting an instance of the not-yet-deployed contract to batch calls to`);
-    const instance = await deployMethod.getInstance();
-    const contract = await StatefulTestContract.at(instance.address, wallet);
+    logger.debug(`Registering the not-yet-deployed contract to batch calls to`);
+    const contract = await deployMethod.register();
 
     // Batch registration, deployment, and public call into same TX
     logger.debug(`Creating public calls to run in same batch as deployment`);
-    const init = await contract.methods.increment_public_value(owner, 84).request();
+    const init = contract.methods.increment_public_value(owner, 84);
     logger.debug(`Deploying a contract and calling a public function in the same batched call`);
-    await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
+    await new BatchCall(wallet, [deployMethod, init]).send().wait();
   }, 300_000);
 
-  it.skip('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
+  it('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
     await t.aztecNode.setConfig({ minTxsPerBlock: 2 });
 
     const owner = wallet.getAddress();
     logger.debug('Initializing deploy method');
     const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
     logger.debug('Creating request/calls to register and deploy contract');
-    const deploy = await deployMethod.request();
-    const deployTx = new BatchCall(wallet, deploy.calls);
-    logger.debug('Getting an instance of the not-yet-deployed contract to batch calls to');
-    const contract = await StatefulTestContract.at((await deployMethod.getInstance()).address, wallet);
+    const deployTx = new BatchCall(wallet, [deployMethod]);
+    logger.debug('Registering the not-yet-deployed contract to batch calls to');
+    const contract = await deployMethod.register();
 
     logger.debug('Creating public call to run in same block as deployment');
     const publicCall = contract.methods.increment_public_value(owner, 84);

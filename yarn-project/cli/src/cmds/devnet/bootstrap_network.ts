@@ -179,8 +179,8 @@ async function deployToken(
     .deployed(waitOpts);
 
   await new BatchCall(wallet, [
-    await devCoin.methods.set_minter(bridge.address, true).request(),
-    await devCoin.methods.set_admin(bridge.address).request(),
+    devCoin.methods.set_minter(bridge.address, true),
+    devCoin.methods.set_admin(bridge.address),
   ])
     .send()
     .wait(waitOpts);

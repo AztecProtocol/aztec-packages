@@ -58,7 +58,8 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const action = intent.action instanceof ContractFunctionInteraction ? await intent.action.request() : intent.action;
+    const action =
+      intent.action instanceof ContractFunctionInteraction ? (await intent.action.request()).calls[0] : intent.action;
     return computeOuterAuthWitHash(
       action.to,
       chainId,
