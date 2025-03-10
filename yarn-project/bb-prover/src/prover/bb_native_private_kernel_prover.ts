@@ -12,7 +12,7 @@ import path from 'path';
 
 import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../bb/execute.js';
 import type { BBConfig } from '../config.js';
-import { BBPrivateKernelProver } from './bb_private_kegitrnel_prover.js';
+import { BBPrivateKernelProver } from './bb_private_kernel_prover.js';
 import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
 
 /**
