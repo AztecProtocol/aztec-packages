@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741626639377,
+  "lastUpdate": 1741626881413,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "saleel@aztecprotocol.com",
-            "name": "saleel",
-            "username": "saleel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0c3024e7b0f9475624e9652adce2f64a88b7f923",
-          "message": "fix: override bb path in cli-wallet PXE config (#12511)\n\nSet `bbBinaryPath` and `bbWorkingDirectory` only when\n`PXE_PROVER=native`\n\ncli-wallet sets its own bbPath and bbWorkdir when `PXE_PROVER=native`,\nbut PXE also read these values from env even when `PXE_PROVER=none`.\nThis is happening in release image as we now [set these ENVs\n](https://github.com/AztecProtocol/aztec-packages/blob/master/release-image/Dockerfile#L35-L36)in\nDockerfile.\nThis PR overrides the values from ENV and unset them if proving is not\nneeded.\n\n(This is only a patch. Need to refactor later)",
-          "timestamp": "2025-03-06T14:55:26+04:00",
-          "tree_id": "11b96a665a979ea6da6d61469dd4db0265de193d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c3024e7b0f9475624e9652adce2f64a88b7f923"
-        },
-        "date": 1741260590637,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18921.74718799993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16063.729397 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18984.19788399997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16456.994827 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3943.3864360000825,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3090.0180779999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55907.414586,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55907412000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10247.451128999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10247457000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1880520494,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1880520494 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 216057393,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 216057393 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2217.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 222356462,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 222356462 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c296422e43f47fa9838045bc4faf933893046028",
+          "message": "feat: add extra attributes to target_info (#12583)\n\nThis PR adds slot duration (in seconds), epoch size (in slots) and the\nl1 address (if it exists) to `target_info` metric.",
+          "timestamp": "2025-03-10T16:40:02Z",
+          "tree_id": "477a97f1c21dd3dec5462717209398954b6db8fa",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c296422e43f47fa9838045bc4faf933893046028"
+        },
+        "date": 1741626874101,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18131.84106899985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16079.386195000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18683.811452999864,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16162.178574999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3833.61777600021,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3014.9587850000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55087.079861,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55087081000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9669.830038,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9669833000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1631204073,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1631204073 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 231521308,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 231521308 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
