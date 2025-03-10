@@ -263,6 +263,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     ShpleminiVerifier::batch_gemini_claims_received_from_prover(this->log_n,
                                                                 prover_commitments,
                                                                 prover_evaluations,
+                                                                {},
                                                                 inverse_vanishing_evals,
                                                                 shplonk_batching_challenge,
                                                                 commitments,

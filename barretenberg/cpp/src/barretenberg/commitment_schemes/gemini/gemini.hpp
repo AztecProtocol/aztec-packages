@@ -444,10 +444,17 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         // Compute the full of evaluation A₀(r) = A₀₊(r) + P₊(r^s)
-        Fr full_a_0_pos = compute_gemini_batched_univariate_evaluation(
+        std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
             num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
+
+        size_t idx = 0;
+        for (auto eval : gemini_fold_pos_evaluations) {
+            info("verifier ", idx, "  ", eval);
+            idx++;
+        }
+        auto full_a_0_pos = gemini_fold_pos_evaluations[0];
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
-        fold_polynomial_opening_claims.reserve(num_variables + 1);
+        fold_polynomial_opening_claims.reserve(2 * num_variables + 2);
 
         // ( [A₀₊], r, A₀₊(r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_pos }, C0_r_pos });
@@ -457,6 +464,9 @@ template <typename Curve> class GeminiVerifier_ {
             // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
             fold_polynomial_opening_claims.emplace_back(
                 OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
+
+            fold_polynomial_opening_claims.emplace_back(
+                OpeningClaim<Curve>{ { r_squares[l + 1], gemini_fold_pos_evaluations[l + 1] }, commitments[l] });
         }
         if (has_interleaved) {
             size_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
@@ -514,7 +524,7 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_polynomial_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_gemini_batched_univariate_evaluation(
+    static std::vector<Fr> compute_fold_pos_evaluations(
         const size_t num_variables,
         Fr& batched_eval_accumulator,
         std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
@@ -523,6 +533,9 @@ template <typename Curve> class GeminiVerifier_ {
         Fr p_neg = Fr(0))
     {
         std::vector<Fr> evals(fold_polynomial_evals.begin(), fold_polynomial_evals.end());
+
+        std::vector<Fr> gemini_fold_pos_evaluations;
+        gemini_fold_pos_evaluations.reserve(CONST_PROOF_SIZE_LOG_N - 1); //?
 
         // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
         evals[0] += p_neg;
@@ -540,7 +553,6 @@ template <typename Curve> class GeminiVerifier_ {
                 ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
             // Divide by the denominator
             batched_eval_round_acc *= (challenge_power * (Fr(1) - u) + u).invert();
-
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
@@ -551,11 +563,15 @@ template <typename Curve> class GeminiVerifier_ {
             } else {
                 if (l <= num_variables) {
                     batched_eval_accumulator = batched_eval_round_acc;
+                    gemini_fold_pos_evaluations.emplace_back(batched_eval_accumulator);
+                } else {
+                    gemini_fold_pos_evaluations.emplace_back(Fr(0));
                 }
             }
         }
+        std::reverse(gemini_fold_pos_evaluations.begin(), gemini_fold_pos_evaluations.end());
 
-        return batched_eval_accumulator;
+        return gemini_fold_pos_evaluations;
     }
 };
 

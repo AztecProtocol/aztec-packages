@@ -33,6 +33,7 @@ template <typename Curve> class ProverOpeningClaim {
   public:
     Polynomial polynomial;           // p
     OpeningPair<Curve> opening_pair; // (challenge r, evaluation v = p(r))
+    bool gemini_fold = false;
 };
 
 /**
