@@ -231,16 +231,16 @@ function update_repo {
   # We need to switch branches.
 
   if has_uncommitted_changes; then
-    echo "Warning: noir-repo has uncommitted changes which could get lost if we switch to $want"
+    echo "Error: noir-repo has uncommitted changes which could get lost if we switch to $want"
     echo "Please commit these changes and consider pushing them upstream to make sure they are not lost."
     exit 1
   fi
 
   if needs_patch; then
-    echo "Warning: noir-repo is on a detached HEAD and the last commit is not the patch marker commit;"
-    echo "switching from to $want could meand losing those commits."
+    echo "Error: noir-repo is on a detached HEAD and the last commit is not the patch marker commit;"
+    echo "switching to $want could mean losing those commits."
     echo "Please use the 'make-patch' command to create a $NOIR_REPO_PATCH file and commit it in aztec-packages, "
-    echo "so that it is applied after each checkout; make sure to commit the patch on the branch where it should be."
+    echo "so that it is re-applied after each checkout. Make sure to commit the patch on the branch where it should be."
     exit 1
   fi
 

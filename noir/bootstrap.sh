@@ -6,7 +6,9 @@ set -eou pipefail
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-if [ "$cmd" != "clean" ]; then
+# Update the noir-repo before we hash its content, unless the command is exempt.
+no_update=(clean make-patch)
+if [[ ! ${no_update[*]} =~ "$cmd" ]]; then
   scripts/sync.sh init
   scripts/sync.sh update
 fi
