@@ -1316,7 +1316,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:^2.23.5"
+    viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -21956,27 +21956,6 @@ __metadata:
     typescript:
       optional: true
   checksum: 10/bf1618f39ca3645082323776342c0f87fa37f60bcca0476a7db0f6fbb9d1b6db7ab1e434a57463e8486bea29f97c5ab01e95b6139190a008d6f9a30194b7b081
-  languageName: node
-  linkType: hard
-
-"viem@npm:^2.23.5":
-  version: 2.23.5
-  resolution: "viem@npm:2.23.5"
-  dependencies:
-    "@noble/curves": "npm:1.8.1"
-    "@noble/hashes": "npm:1.7.1"
-    "@scure/bip32": "npm:1.6.2"
-    "@scure/bip39": "npm:1.5.4"
-    abitype: "npm:1.0.8"
-    isows: "npm:1.0.6"
-    ox: "npm:0.6.7"
-    ws: "npm:8.18.0"
-  peerDependencies:
-    typescript: ">=5.0.4"
-  peerDependenciesMeta:
-    typescript:
-      optional: true
-  checksum: 10/80db013d510688386c37500442c29d85b9adda3035c3a3644156828830cf856f95d6c228dd4fe97d21f270bde9b63bfb98ebf2538bbd1831d40b38918ed07787
   languageName: node
   linkType: hard
 
