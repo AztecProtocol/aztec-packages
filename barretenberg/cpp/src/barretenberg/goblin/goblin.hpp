@@ -40,10 +40,6 @@ class GoblinProver {
     using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = std::vector<FF>;
-    /**
-     * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
-     *
-     */
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
@@ -77,38 +73,6 @@ class GoblinProver {
         commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
         GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
     }
-    // /**
-    //  * @brief Construct a MegaHonk proof and a merge proof for the present circuit.
-    //  * @details If there is a previous merge proof, recursively verify it.
-    //  *
-    //  * @param circuit_builder
-    //  */
-    // GoblinAccumulationOutput accumulate(MegaBuilder& circuit_builder)
-    // {
-    //     // Complete the circuit logic by recursively verifying previous merge proof if it exists
-    //     if (merge_proof_exists) {
-    //         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-    //         StdlibProof<MegaBuilder> stdlib_merge_proof =
-    //             bb::convert_native_proof_to_stdlib(&circuit_builder, merge_proof);
-    //         [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
-    //     }
-
-    //     // Construct a Honk proof for the main circuit
-    //     auto proving_key = std::make_shared<MegaDeciderProvingKey>(circuit_builder);
-    //     MegaProver prover(proving_key);
-    //     auto ultra_proof = prover.construct_proof();
-    //     auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-
-    //     // Construct and store the merge proof to be recursively verified on the next call to accumulate
-    //     MergeProver merge_prover{ circuit_builder.op_queue };
-    //     merge_proof = merge_prover.construct_proof();
-
-    //     if (!merge_proof_exists) {
-    //         merge_proof_exists = true;
-    //     }
-
-    //     return { ultra_proof, verification_key };
-    // };
 
     /**
      * @brief Add a recursive merge verifier to input circuit and construct a merge proof for the updated op queue

@@ -299,11 +299,14 @@ std::pair<HonkProof, HonkProof> ClientIVC::construct_and_prove_hiding_circuit()
  */
 ClientIVC::Proof ClientIVC::prove()
 {
+    HonkProof mega_proof;
     MergeProof merge_proof;
     if (!one_circuit) {
-        auto [mega_proof, merge_proof_hiding] = construct_and_prove_hiding_circuit();
+        auto [mega_proof_hiding, merge_proof_hiding] = construct_and_prove_hiding_circuit();
+        mega_proof = mega_proof_hiding;
         merge_proof = merge_proof_hiding;
     } else {
+        mega_proof = verification_queue[0].proof;
         merge_proof = verification_queue[0].merge_proof;
     }
 
