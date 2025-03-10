@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741601441306,
+  "lastUpdate": 1741608321921,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3b981f9217f9b859bdfbcdba2f5c080392c98da6",
-          "message": "chore: fix a bunch of trait import issues (#12431)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
-          "timestamp": "2025-03-05T19:05:04Z",
-          "tree_id": "edb8f27088b11d75033c36c5b7069466b7cfcd78",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3b981f9217f9b859bdfbcdba2f5c080392c98da6"
-        },
-        "date": 1741203528767,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18327.026243999855,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16124.392135 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18681.443285000114,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16244.653399 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3878.8610250001057,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3089.8239439999998 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55236.77291600001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55236774000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10069.38365,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10069386000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1909020292,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1909020292 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 219302052,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 219302052 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 214865419,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214865419 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "877de5c4e3fcfdad915f2fbb065611d5b54c93b5",
+          "message": "feat: allow to pay via sponsored fpc from cli (#12598)\n\nUse option `--payment method=fpc-sponsored,fpc=0x_address_of_the_fpc` to\npay fee via a sponsored fpc.\n\nOr see an example\n[here](https://github.com/AztecProtocol/aztec-packages/pull/12598/files#diff-a019e1f3bfc94f752f40c182e5bb3bff43a63f2bacd7b540a9b891de969eee68)\nfor deploying and funding a sponsored fpc.",
+          "timestamp": "2025-03-10T11:35:07Z",
+          "tree_id": "8e20ebff66cb7d9218a87d9b0d299b7f9549e5ef",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/877de5c4e3fcfdad915f2fbb065611d5b54c93b5"
+        },
+        "date": 1741608314516,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18569.91765399994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16342.938337 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18736.785947000044,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16272.432259000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3912.335743000085,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3082.098904 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54859.056244,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54859056000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9524.878568,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9524882000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1600520393,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1600520393 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 217640032,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 217640032 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
