@@ -11,9 +11,7 @@ if [ "$is_branch" == "0" ]; then
     exit 0
 fi
 
-needs_patch=$(scripts/sync.sh needs-patch)
-
-if [ "$needs_patch" == "1" ]; then
+if scripts/sync.sh needs-patch; then
     echo "Warning: the noir-repo has outstanding commits that need to be put in a patch file"
     echo "with the './noir/bootstrap.sh make-patch' command, then committed to the appropriate branch"
     echo "in aztec-packages in order to ensure they don't get lost if the noir-repo is switched."
