@@ -15,7 +15,7 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
 {
     using C = Column;
 
-    auto p_limbs_per_radix = getPLimbsPerRadix();
+    auto p_limbs_per_radix = get_p_limbs_per_radix();
 
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
     for (const auto& event : events) {

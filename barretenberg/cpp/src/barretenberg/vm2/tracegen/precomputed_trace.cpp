@@ -217,7 +217,7 @@ void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
 {
     using C = Column;
 
-    auto p_limbs_per_radix = getPLimbsPerRadix();
+    auto p_limbs_per_radix = get_p_limbs_per_radix();
 
     trace.reserve_column(C::precomputed_sel_to_radix_safe_limbs, p_limbs_per_radix.size());
     trace.reserve_column(C::precomputed_to_radix_safe_limbs, p_limbs_per_radix.size());
@@ -235,7 +235,7 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
 {
     using C = Column;
 
-    auto p_limbs_per_radix = getPLimbsPerRadix();
+    auto p_limbs_per_radix = get_p_limbs_per_radix();
 
     uint32_t row = 0;
     for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {

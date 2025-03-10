@@ -9,7 +9,7 @@ namespace {
 
 // The little endian decompositions of Fr modulus into limbs for each radix.
 // Radix goes up to 256 so we need 257 descompositions.
-std::array<std::vector<uint8_t>, 257> createPLimbsPerRadix()
+std::array<std::vector<uint8_t>, 257> create_p_limbs_per_radix()
 {
     std::array<std::vector<uint8_t>, 257> limbs_per_radix;
 
@@ -30,9 +30,9 @@ std::array<std::vector<uint8_t>, 257> createPLimbsPerRadix()
 
 } // namespace
 
-const std::array<std::vector<uint8_t>, 257>& getPLimbsPerRadix()
+const std::array<std::vector<uint8_t>, 257>& get_p_limbs_per_radix()
 {
-    static const std::array<std::vector<uint8_t>, 257> limbs_per_radix = createPLimbsPerRadix();
+    static const std::array<std::vector<uint8_t>, 257> limbs_per_radix = create_p_limbs_per_radix();
     return limbs_per_radix;
 }
 

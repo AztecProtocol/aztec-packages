@@ -11,7 +11,7 @@ std::vector<uint8_t> ToRadix::to_le_radix(const FF& value, uint32_t num_limbs, u
     uint256_t value_integer = static_cast<uint256_t>(value);
     auto limbs = std::vector<uint8_t>();
     size_t radix_index = static_cast<size_t>(radix);
-    limbs.reserve(std::max(num_limbs, static_cast<uint32_t>(getPLimbsPerRadix()[radix_index].size())));
+    limbs.reserve(std::max(num_limbs, static_cast<uint32_t>(get_p_limbs_per_radix()[radix_index].size())));
 
     while (value_integer > 0) {
         limbs.push_back(static_cast<uint8_t>(value_integer % radix));
