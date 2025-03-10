@@ -473,13 +473,13 @@ export class Oracle {
   // instead of 3. Does the reviewer know why I need to have the Point components directly listed here? It's ugly.
   async getSharedSecret(
     [address]: ACVMField[],
-    [ephPk_field_0]: ACVMField[],
-    [ephPk_field_1]: ACVMField[],
-    [ephPk_field_2]: ACVMField[],
+    [ephPKField0]: ACVMField[],
+    [ephPKField1]: ACVMField[],
+    [ephPKField2]: ACVMField[],
   ): Promise<ACVMField[]> {
     const secret = await this.typedOracle.getSharedSecret(
       AztecAddress.fromField(fromACVMField(address)),
-      Point.fromFields([ephPk_field_0, ephPk_field_1, ephPk_field_2].map(fromACVMField)),
+      Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(fromACVMField)),
     );
     return secret.toFields().map(toACVMField);
   }

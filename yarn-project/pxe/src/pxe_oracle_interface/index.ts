@@ -658,12 +658,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const decryptedLogs = await this.#decryptTaggedLogs(logs, recipient);
-
-    // We've produced the full NoteDao, which we'd be able to simply insert into the database. However, this is
-    // only a temporary measure as we migrate from the PXE-driven discovery into the new contract-driven approach. We
-    // discard most of the work done up to this point and reconstruct the note plaintext to then hand over to the
-    // contract for further processing.
     for (const log of logs) {
       if (log.isFromPublic) {
         throw new Error('Attempted to decrypt public log');
