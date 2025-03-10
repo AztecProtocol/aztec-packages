@@ -8,7 +8,7 @@ cmd=${1:-}
 
 # Update the noir-repo before we hash its content, unless the command is exempt.
 no_update=(clean make-patch)
-if [[ ! ${no_update[*]} =~ "$cmd" ]]; then
+if [[ -z "$cmd" || ! ${no_update[*]} =~ "$cmd" ]]; then
   scripts/sync.sh init
   scripts/sync.sh update
 fi
