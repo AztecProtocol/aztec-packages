@@ -41,6 +41,7 @@ template <typename Curve> class ShplonkProver_ {
      */
     static Polynomial compute_batched_quotient(std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                                const Fr& nu,
+                                               std::span<Fr> gemini_fold_pos_evaluations,
                                                std::span<const ProverOpeningClaim<Curve>> libra_opening_claims,
                                                std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims)
     {
@@ -61,6 +62,8 @@ template <typename Curve> class ShplonkProver_ {
         Polynomial tmp(max_poly_size);
 
         Fr current_nu = Fr::one();
+
+        size_t fold_idx = 0;
         for (const auto& claim : opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
@@ -69,6 +72,16 @@ template <typename Curve> class ShplonkProver_ {
             // Add the claim quotient to the batched quotient polynomial
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
+
+            if (claim.gemini_fold) {
+                tmp = claim.polynomial;
+                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx];
+                tmp.factor_roots(-claim.opening_pair.challenge);
+                // Add the claim quotient to the batched quotient polynomial
+                Q.add_scaled(tmp, current_nu);
+                current_nu *= nu;
+                fold_idx++;
+            }
         }
 
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
@@ -118,6 +131,7 @@ template <typename Curve> class ShplonkProver_ {
         Polynomial& batched_quotient_Q,
         const Fr& nu_challenge,
         const Fr& z_challenge,
+        std::span<Fr> gemini_fold_pos_evaluations,
         std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {},
         std::span<const ProverOpeningClaim<Curve>> sumcheck_opening_claims = {})
     {
@@ -128,6 +142,9 @@ template <typename Curve> class ShplonkProver_ {
         inverse_vanishing_evals.reserve(num_opening_claims);
         for (const auto& claim : opening_claims) {
             inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
+            if (claim.gemini_fold) {
+                inverse_vanishing_evals.emplace_back(z_challenge + claim.opening_pair.challenge);
+            }
         }
 
         // Add the terms (z - uₖ) for k = 0, …, d−1 where d is the number of rounds in Sumcheck
@@ -150,6 +167,7 @@ template <typename Curve> class ShplonkProver_ {
         Polynomial tmp(G.size());
         size_t idx = 0;
 
+        size_t fold_idx = 0;
         for (const auto& claim : opening_claims) {
             // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             tmp = claim.polynomial;
@@ -161,6 +179,18 @@ template <typename Curve> class ShplonkProver_ {
 
             current_nu *= nu_challenge;
             idx++;
+            if (claim.gemini_fold) {
+                tmp = claim.polynomial;
+                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx];
+                info("prover ", fold_idx, "  eval ", gemini_fold_pos_evaluations[fold_idx]);
+                Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
+                // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
+                G.add_scaled(tmp, -scaling_factor);
+
+                current_nu *= nu_challenge;
+                fold_idx++;
+                idx++;
+            }
         }
 
         // Take into account the constant proof size in Gemini
@@ -194,6 +224,22 @@ template <typename Curve> class ShplonkProver_ {
         return { .polynomial = G, .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
     };
 
+    static std::vector<Fr> compute_gemini_fold_pos_evaluations(
+        std::span<const ProverOpeningClaim<Curve>> opening_claims)
+    {
+        std::vector<Fr> gemini_fold_pos_evaluations;
+        gemini_fold_pos_evaluations.reserve(opening_claims.size());
+
+        for (const auto claim : opening_claims) {
+            if (claim.gemini_fold) {
+                const Fr evaluation_point = -claim.opening_pair.challenge;
+                const Fr evaluation = claim.polynomial.evaluate(evaluation_point);
+                gemini_fold_pos_evaluations.emplace_back(evaluation);
+            }
+        }
+        return gemini_fold_pos_evaluations;
+    }
+
     /**
      * @brief Returns a batched opening claim equivalent to a set of opening claims consisting of polynomials, each
      * opened at a single point.
@@ -211,13 +257,21 @@ template <typename Curve> class ShplonkProver_ {
                                            std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims = {})
     {
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
-        auto batched_quotient =
-            compute_batched_quotient(opening_claims, nu, libra_opening_claims, sumcheck_round_claims);
+
+        std::vector<Fr> gemini_fold_pos_evaluations = compute_gemini_fold_pos_evaluations(opening_claims);
+
+        auto batched_quotient = compute_batched_quotient(
+            opening_claims, nu, gemini_fold_pos_evaluations, libra_opening_claims, sumcheck_round_claims);
         auto batched_quotient_commitment = commitment_key->commit(batched_quotient);
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
-        return compute_partially_evaluated_batched_quotient(
-            opening_claims, batched_quotient, nu, z, libra_opening_claims, sumcheck_round_claims);
+        return compute_partially_evaluated_batched_quotient(opening_claims,
+                                                            batched_quotient,
+                                                            nu,
+                                                            z,
+                                                            gemini_fold_pos_evaluations,
+                                                            libra_opening_claims,
+                                                            sumcheck_round_claims);
     }
 };
 
@@ -368,11 +422,13 @@ template <typename Curve> class ShplonkVerifier_ {
                                                                 const std::vector<Fr>& gemini_eval_challenge_powers)
     {
         std::vector<Fr> inverted_denominators;
-        inverted_denominators.reserve(num_gemini_claims);
-        inverted_denominators.emplace_back((shplonk_eval_challenge - gemini_eval_challenge_powers[0]).invert());
+        inverted_denominators.reserve(2 * num_gemini_claims);
+
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
-            Fr round_inverted_denominator = (shplonk_eval_challenge + gemini_eval_challenge_power).invert();
-            inverted_denominators.emplace_back(round_inverted_denominator);
+            Fr round_inverted_neg_denominator = (shplonk_eval_challenge + gemini_eval_challenge_power).invert();
+            inverted_denominators.emplace_back(round_inverted_neg_denominator);
+            Fr round_inverted_pos_denominator = (shplonk_eval_challenge - gemini_eval_challenge_power).invert();
+            inverted_denominators.emplace_back(round_inverted_pos_denominator);
         }
         return inverted_denominators;
     }
