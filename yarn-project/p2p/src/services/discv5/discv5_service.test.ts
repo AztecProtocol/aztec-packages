@@ -149,8 +149,10 @@ describe('Discv5Service', () => {
       })(),
     ]);
 
-    // Expect it's IP has been updated
+    // Expect it's IP has been updated, and that the tcp and udp ports are the same
     expect(node.getEnr().ip).not.toEqual(undefined);
+    expect(node.getEnr().tcp).not.toEqual(undefined);
+    expect(node.getEnr().tcp).toEqual(node.getEnr().udp);
 
     await stopNodes(...nodes);
   });

@@ -6,7 +6,7 @@ import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@a
 import { Discv5, type Discv5EventEmitter, type IDiscv5CreateOptions } from '@chainsafe/discv5';
 import { ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import { multiaddr } from '@multiformats/multiaddr';
+import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';
 
 import type { P2PConfig } from '../../config.js';
@@ -37,6 +37,12 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   private bootstrapNodeEnrs: ENR[] = [];
 
   private startTime = 0;
+
+  private handlers = {
+    onMultiaddrUpdated: this.onMultiaddrUpdated.bind(this),
+    onDiscovered: this.onDiscovered.bind(this),
+    onEnrAdded: this.onEnrAdded.bind(this),
+  };
 
   constructor(
     private peerId: PeerId,
@@ -102,8 +108,16 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       }
     };
 
-    this.discv5.on(Discv5Event.DISCOVERED, this.onDiscovered.bind(this));
-    this.discv5.on(Discv5Event.ENR_ADDED, this.onEnrAdded.bind(this));
+    this.discv5.on(Discv5Event.DISCOVERED, this.handlers.onDiscovered);
+    this.discv5.on(Discv5Event.ENR_ADDED, this.handlers.onEnrAdded);
+    this.discv5.on(Discv5Event.MULTIADDR_UPDATED, this.handlers.onMultiaddrUpdated);
+  }
+
+  private onMultiaddrUpdated(m: Multiaddr) {
+    // We want to update our tcp port to match the udp port
+    const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pPort, 'tcp'));
+    this.enr.setLocationMultiaddr(multiAddrTcp);
+    this.logger.info('\n\n\n\nMultiaddr updated', { multiaddr: multiaddr.toString() });
   }
 
   public async start(): Promise<void> {
@@ -185,8 +199,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   public async stop(): Promise<void> {
-    await this.discv5.off(Discv5Event.DISCOVERED, this.onDiscovered);
-    await this.discv5.off(Discv5Event.ENR_ADDED, this.onEnrAdded);
+    await this.discv5.off(Discv5Event.DISCOVERED, this.handlers.onDiscovered);
+    await this.discv5.off(Discv5Event.ENR_ADDED, this.handlers.onEnrAdded);
+    await this.discv5.off(Discv5Event.MULTIADDR_UPDATED, this.handlers.onMultiaddrUpdated);
 
     await this.discv5.stop();
 
