@@ -1,50 +1,4 @@
 import {
-  CallContext,
-  CountedPublicCallRequest,
-  Fr,
-  FunctionData,
-  type KeyValidationHint,
-  KeyValidationRequest,
-  KeyValidationRequestAndGenerator,
-  LogHash,
-  NoteHash,
-  type NoteHashReadRequestHints,
-  Nullifier,
-  type NullifierReadRequestHints,
-  type PendingReadHint,
-  PrivateCallRequest,
-  type PrivateCircuitPublicInputs,
-  PrivateLogData,
-  PrivateValidationRequests,
-  type PublicKeys,
-  ReadRequest,
-  type ReadRequestStatus,
-  RollupValidationRequests,
-  ScopedKeyValidationRequestAndGenerator,
-  ScopedLogHash,
-  ScopedNoteHash,
-  ScopedNullifier,
-  ScopedPrivateLogData,
-  ScopedReadRequest,
-  type SettledReadHint,
-  type TxRequest,
-} from '@aztec/circuits.js';
-import {
-  PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
-  PrivateAccumulatedData,
-  type PrivateCallData,
-  PrivateKernelCircuitPublicInputs,
-  type PrivateKernelData,
-  type PrivateKernelResetHints,
-  PrivateKernelTailCircuitPublicInputs,
-  PrivateToPublicAccumulatedData,
-  type PrivateVerificationKeyHints,
-  type TransientDataIndexHint,
-  TxConstantData,
-} from '@aztec/circuits.js/kernel';
-import { type NullifierLeafPreimage } from '@aztec/circuits.js/trees';
-import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
@@ -60,7 +14,46 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   UPDATES_SHARED_MUTABLE_VALUES_LEN,
 } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
+import {
+  CountedPublicCallRequest,
+  KeyValidationHint,
+  KeyValidationRequest,
+  KeyValidationRequestAndGenerator,
+  NoteHash,
+  type NoteHashReadRequestHints,
+  Nullifier,
+  type NullifierReadRequestHints,
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
+  PendingReadHint,
+  PrivateAccumulatedData,
+  type PrivateCallData,
+  PrivateCallRequest,
+  PrivateCircuitPublicInputs,
+  PrivateKernelCircuitPublicInputs,
+  type PrivateKernelData,
+  PrivateKernelResetHints,
+  PrivateKernelTailCircuitPublicInputs,
+  PrivateLogData,
+  PrivateToPublicAccumulatedData,
+  PrivateValidationRequests,
+  type PrivateVerificationKeyHints,
+  ReadRequest,
+  ReadRequestStatus,
+  RollupValidationRequests,
+  ScopedKeyValidationRequestAndGenerator,
+  ScopedNoteHash,
+  ScopedNullifier,
+  ScopedPrivateLogData,
+  ScopedReadRequest,
+  SettledReadHint,
+  TransientDataIndexHint,
+} from '@aztec/stdlib/kernel';
+import type { PublicKeys } from '@aztec/stdlib/keys';
+import type { NullifierLeafPreimage } from '@aztec/stdlib/trees';
+import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/stdlib/tx';
 
 import type {
   CallContext as CallContextNoir,
@@ -70,7 +63,6 @@ import type {
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
-  LogHash as LogHashNoir,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
   NoteHash as NoteHashNoir,
   NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
@@ -97,7 +89,6 @@ import type {
   ReadRequestStatus as ReadRequestStatusNoir,
   RollupValidationRequests as RollupValidationRequestsNoir,
   ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
-  ScopedLogHash as ScopedLogHashNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
   ScopedNullifier as ScopedNullifierNoir,
   Scoped as ScopedPrivateLogDataNoir,
@@ -118,6 +109,7 @@ import {
   mapHeaderFromNoir,
   mapHeaderToNoir,
   mapL2ToL1MessageToNoir,
+  mapLogHashToNoir,
   mapMaxBlockNumberFromNoir,
   mapMaxBlockNumberToNoir,
   mapMembershipWitnessToNoir,
@@ -137,6 +129,8 @@ import {
   mapPublicDataTreePreimageToNoir,
   mapScopedL2ToL1MessageFromNoir,
   mapScopedL2ToL1MessageToNoir,
+  mapScopedLogHashFromNoir,
+  mapScopedLogHashToNoir,
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
@@ -254,56 +248,6 @@ function mapScopedPrivateLogDataFromNoir(data: ScopedPrivateLogDataNoir) {
   return new ScopedPrivateLogData(
     mapPrivateLogDataFromNoir(data.inner),
     mapAztecAddressFromNoir(data.contract_address),
-  );
-}
-
-/**
- * Maps a LogHash to a noir LogHash.
- * @param logHash - The LogHash.
- * @returns The noir log hash.
- */
-function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
-  return {
-    value: mapFieldToNoir(logHash.value),
-    counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
-  };
-}
-
-/**
- * Maps a noir LogHash to a LogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
-  return new LogHash(
-    mapFieldFromNoir(logHash.value),
-    mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
-  );
-}
-
-/**
- * Maps a ts ScopedLogHash to a noir ScopedLogHash.
- * @param logHash - The ts LogHash.
- * @returns The noir log hash.
- */
-function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogHashNoir {
-  return {
-    log_hash: mapLogHashToNoir(scopedLogHash.logHash),
-    contract_address: mapAztecAddressToNoir(scopedLogHash.contractAddress),
-  };
-}
-
-/**
- * Maps a noir ScopedLogHash to a ts ScopedLogHash.
- * @param logHash - The noir LogHash.
- * @returns The TS log hash.
- */
-function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
-  return new ScopedLogHash(
-    mapLogHashFromNoir(scopedLogHash.log_hash),
-    mapAztecAddressFromNoir(scopedLogHash.contract_address),
   );
 }
 
@@ -634,7 +578,6 @@ export function mapPrivateVerificationKeyHintsToNoir(
       privateVerificationKeyHints.protocolContractMembershipWitness,
     ),
     protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateVerificationKeyHints.protocolContractLeaf),
-    acir_hash: mapFieldToNoir(privateVerificationKeyHints.acirHash),
     updated_class_id_witness: mapMembershipWitnessToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdWitness,
     ),

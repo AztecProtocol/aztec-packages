@@ -1,17 +1,11 @@
-import { type PublicKeys } from '@aztec/circuits.js';
-import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionSelector,
-  encodeArguments,
-  getFunctionArtifactByName,
-} from '@aztec/circuits.js/abi';
+import { type ContractArtifact, type FunctionArtifact, getFunctionArtifactByName } from '@aztec/stdlib/abi';
+import type { PublicKeys } from '@aztec/stdlib/keys';
 
-import { type AuthWitnessProvider } from '../account/interface.js';
-import { type Wallet } from '../account/wallet.js';
-import { type ExecutionRequestInit } from '../api/entrypoint.js';
+import type { AuthWitnessProvider } from '../account/interface.js';
+import type { Wallet } from '../account/wallet.js';
 import { Contract } from '../contract/contract.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
+import { ContractFunctionInteraction } from '../contract/index.js';
 import { EntrypointPayload, computeCombinedPayloadHash } from '../entrypoint/payload.js';
 
 /**
@@ -46,41 +40,28 @@ export class DeployAccountMethod extends DeployMethod {
         : feePaymentNameOrArtifact;
   }
 
-  protected override async getInitializeFunctionCalls(
-    options: DeployOptions,
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
-    const exec = await super.getInitializeFunctionCalls(options);
+  protected override async getInitializeFunctionCalls(options: DeployOptions): Promise<ContractFunctionInteraction[]> {
+    const calls = await super.getInitializeFunctionCalls(options);
 
     if (options.fee && this.#feePaymentArtifact) {
       const { address } = await this.getInstance();
       const emptyAppPayload = await EntrypointPayload.fromAppExecution([]);
       const fee = await this.getDefaultFeeOptions(options.fee);
       const feePayload = await EntrypointPayload.fromFeeOptions(address, fee);
+      const args = [emptyAppPayload, feePayload, false];
 
-      exec.calls.push({
-        name: this.#feePaymentArtifact.name,
-        to: address,
-        args: encodeArguments(this.#feePaymentArtifact, [emptyAppPayload, feePayload, false]),
-        selector: await FunctionSelector.fromNameAndParameters(
-          this.#feePaymentArtifact.name,
-          this.#feePaymentArtifact.parameters,
-        ),
-        type: this.#feePaymentArtifact.functionType,
-        isStatic: this.#feePaymentArtifact.isStatic,
-        returnTypes: this.#feePaymentArtifact.returnTypes,
-      });
+      const call = new ContractFunctionInteraction(this.wallet, address, this.#feePaymentArtifact, args);
 
-      exec.authWitnesses ??= [];
-      exec.hashedArguments ??= [];
-
-      exec.authWitnesses.push(
+      call.addAuthWitness(
         await this.#authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(emptyAppPayload, feePayload)),
       );
 
-      exec.hashedArguments.push(...emptyAppPayload.hashedArguments);
-      exec.hashedArguments.push(...feePayload.hashedArguments);
+      call.addHashedArguments(emptyAppPayload.hashedArguments);
+      call.addHashedArguments(feePayload.hashedArguments);
+
+      calls.push(call);
     }
 
-    return exec;
+    return calls;
   }
 }

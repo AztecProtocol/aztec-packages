@@ -3,7 +3,10 @@
 # Declare CI_REDIS host, allowing override.
 export CI_REDIS=${CI_REDIS:-localhost}
 
-# If we haven't yet checked for redis availablility.
+# Default to not using the test cache.
+export USE_TEST_CACHE=${USE_TEST_CACHE:-0}
+
+# If we haven't yet checked for redis availability.
 if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   # Start by setting it as not available.
   export CI_REDIS_AVAILABLE=0
@@ -34,6 +37,19 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   fi
 fi
 
+# If redis isn't available, neither is the test cache.
+if [ "$CI_REDIS_AVAILABLE" -eq 0 ] && [ "$USE_TEST_CACHE" -eq 1 ]; then
+  echo_stderr "${yellow}Use of test cache requested, but redis unavailable. Disabling test cache.${reset}"
+  USE_TEST_CACHE=0
+fi
+
+# Will set log expiry to 2 weeks in CI, and 8 hours for local runs.
+if [ "${CI:-0}" -eq 1 ]; then
+  CI_REDIS_EXPIRE=$((60 * 60 * 24 * 14))
+else
+  CI_REDIS_EXPIRE=$((60 * 60 * 8))
+fi
+
 # Help function to avoid having to constantly specify args.
 # Noop when redis is unavailable.
 function redis_cli {
@@ -41,4 +57,21 @@ function redis_cli {
     redis-cli --raw -h $CI_REDIS "$@"
   fi
 }
-export -f redis_cli
+
+function redis_setexz {
+  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+}
+
+function redis_getz {
+  hex=$(redis_cli --raw GET "$1" | head -c -1 | xxd -p)
+  if [ -z "$hex" ]; then
+    echo "Key not found."
+  fi
+  if [[ "${hex:0:4}" == "1f8b" ]]; then
+    echo "$hex" | xxd -r -p | gunzip
+  else
+    echo "$hex" | xxd -r -p
+  fi
+}
+
+export -f redis_cli redis_setexz redis_getz

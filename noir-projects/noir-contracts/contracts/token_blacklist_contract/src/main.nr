@@ -24,10 +24,15 @@ pub contract TokenBlacklist {
         },
         hash::compute_secret_hash,
         macros::{functions::{initializer, internal, private, public, view}, storage::storage},
-        note::note_interface::NoteInterface,
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
     };
+
+    use aztec::note::note_interface::NoteHash;
+    use aztec::note::note_interface::NoteProperties;
+    use aztec::note::note_interface::NoteType;
+    use aztec::protocol_types::traits::ToField;
+    use std::ops::{Add, Sub};
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
@@ -47,9 +52,9 @@ pub contract TokenBlacklist {
     #[storage]
     struct Storage<Context> {
         balances: BalancesMap<TokenNote, Context>,
-        total_supply: PublicMutable<U128, Context>,
+        total_supply: PublicMutable<u128, Context>,
         pending_shields: PrivateSet<TransparentNote, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
+        public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>,
     }
 
@@ -88,14 +93,13 @@ pub contract TokenBlacklist {
     }
 
     #[public]
-    fn mint_public(to: AztecAddress, amount: Field) {
+    fn mint_public(to: AztecAddress, amount: u128) {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
-        let amount = U128::from_integer(amount);
         let new_balance = storage.public_balances.at(to).read().add(amount);
         let supply = storage.total_supply.read().add(amount);
 
@@ -104,13 +108,13 @@ pub contract TokenBlacklist {
     }
 
     #[public]
-    fn mint_private(amount: Field, secret_hash: Field) {
+    fn mint_private(amount: u128, secret_hash: Field) {
         let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let pending_shields = storage.pending_shields;
         let note = TransparentNote::new(amount, secret_hash);
-        let supply = storage.total_supply.read().add(U128::from_integer(amount));
+        let supply = storage.total_supply.read().add(amount);
 
         storage.total_supply.write(supply);
 
@@ -122,7 +126,7 @@ pub contract TokenBlacklist {
     }
 
     #[public]
-    fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
+    fn shield(from: AztecAddress, amount: u128, secret_hash: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
@@ -133,11 +137,10 @@ pub contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
 
         let pending_shields = storage.pending_shields;
-        let note = TransparentNote::new(amount.to_field(), secret_hash);
+        let note = TransparentNote::new(amount, secret_hash);
 
         storage.public_balances.at(from).write(from_balance);
 
@@ -149,7 +152,7 @@ pub contract TokenBlacklist {
     }
 
     #[public]
-    fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
@@ -161,7 +164,6 @@ pub contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
 
@@ -170,7 +172,7 @@ pub contract TokenBlacklist {
     }
 
     #[public]
-    fn burn_public(from: AztecAddress, amount: Field, nonce: Field) {
+    fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
@@ -180,7 +182,6 @@ pub contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
 
@@ -189,7 +190,7 @@ pub contract TokenBlacklist {
     }
 
     #[private]
-    fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
+    fn redeem_shield(to: AztecAddress, amount: u128, secret: Field) {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
@@ -207,7 +208,7 @@ pub contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note(
             &mut context,
             to,
             context.msg_sender(),
@@ -215,7 +216,7 @@ pub contract TokenBlacklist {
     }
 
     #[private]
-    fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn unshield(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
@@ -227,11 +228,7 @@ pub contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
@@ -240,7 +237,7 @@ pub contract TokenBlacklist {
 
     // docs:start:transfer_private
     #[private]
-    fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
+    fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
@@ -252,7 +249,6 @@ pub contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let amount = U128::from_integer(amount);
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from,
@@ -266,7 +262,7 @@ pub contract TokenBlacklist {
     }
 
     #[private]
-    fn burn(from: AztecAddress, amount: Field, nonce: Field) {
+    fn burn(from: AztecAddress, amount: u128, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
@@ -276,11 +272,7 @@ pub contract TokenBlacklist {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.sub(from, U128::from_integer(amount)).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
@@ -288,16 +280,16 @@ pub contract TokenBlacklist {
     /// Internal ///
     #[public]
     #[internal]
-    fn _increase_public_balance(to: AztecAddress, amount: Field) {
-        let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
+    fn _increase_public_balance(to: AztecAddress, amount: u128) {
+        let new_balance = storage.public_balances.at(to).read().add(amount);
         storage.public_balances.at(to).write(new_balance);
     }
 
     #[public]
     #[internal]
-    fn _reduce_total_supply(amount: Field) {
+    fn _reduce_total_supply(amount: u128) {
         // Only to be called from burn.
-        let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
+        let new_supply = storage.total_supply.read().sub(amount);
         storage.total_supply.write(new_supply);
     }
 
@@ -309,7 +301,7 @@ pub contract TokenBlacklist {
     // docs:start:deliver_note_contract_method
     unconstrained fn deliver_transparent_note(
         contract_address: AztecAddress,
-        amount: Field,
+        amount: u128,
         secret_hash: Field,
         tx_hash: Field,
         unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
@@ -322,10 +314,7 @@ pub contract TokenBlacklist {
         // [ storage_slot, note_type_id, ...packed_note ]
         let note = TransparentNote::new(amount, secret_hash);
         let log_plaintext = BoundedVec::from_array(array_concat(
-            [
-                TokenBlacklist::storage_layout().pending_shields.slot,
-                TransparentNote::get_note_type_id(),
-            ],
+            [TokenBlacklist::storage_layout().pending_shields.slot, TransparentNote::get_id()],
             note.pack(),
         ));
 

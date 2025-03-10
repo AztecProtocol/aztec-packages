@@ -2,14 +2,15 @@ import {
   type AccountWalletWithSecretKey,
   type AztecNode,
   BatchCall,
-  type DeployL1Contracts,
+  type CheatCodes,
+  type DeployL1ContractsReturnType,
   EthAddress,
   Fr,
   type SiblingPath,
 } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
-import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { OutboxAbi } from '@aztec/l1-artifacts';
 import { SHA256 } from '@aztec/merkle-tree';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
@@ -24,12 +25,12 @@ describe('E2E Outbox Tests', () => {
   const merkleSha256 = new SHA256();
   let contract: TestContract;
   let wallets: AccountWalletWithSecretKey[];
-  let deployL1ContractsValues: DeployL1Contracts;
+  let deployL1ContractsValues: DeployL1ContractsReturnType;
   let outbox: any;
-  let rollup: any;
+  let cheatCodes: CheatCodes;
 
   beforeEach(async () => {
-    ({ teardown, aztecNode, wallets, deployL1ContractsValues } = await setup(1));
+    ({ teardown, aztecNode, wallets, deployL1ContractsValues, cheatCodes } = await setup(1));
     outbox = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
@@ -38,12 +39,6 @@ describe('E2E Outbox Tests', () => {
 
     const receipt = await TestContract.deploy(wallets[0]).send({ contractAddressSalt: Fr.ZERO }).wait();
     contract = receipt.contract;
-
-    rollup = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: deployL1ContractsValues.walletClient,
-    });
   });
 
   afterAll(() => teardown());
@@ -56,8 +51,8 @@ describe('E2E Outbox Tests', () => {
     ];
 
     const call = new BatchCall(wallets[0], [
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1).request(),
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2),
     ]);
 
     // TODO (#5104): When able to guarantee multiple txs in a single block, make this populate a full tree. Right now we are
@@ -100,7 +95,7 @@ describe('E2E Outbox Tests', () => {
     // Outbox L1 tests
 
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenThroughBlockNumber([txReceipt.blockNumber ?? 0]);
+    await cheatCodes.rollup.markAsProven(txReceipt.blockNumber ?? 0);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([txReceipt.blockNumber]);
@@ -176,9 +171,9 @@ describe('E2E Outbox Tests', () => {
     ];
 
     const call0 = new BatchCall(wallets[0], [
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1).request(),
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2).request(),
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content3, recipient3).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content3, recipient3),
     ]);
 
     const call1 = contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content4, recipient4);
@@ -218,7 +213,7 @@ describe('E2E Outbox Tests', () => {
 
     // Outbox L1 tests
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenThroughBlockNumber([l2TxReceipt0.blockNumber ?? 0]);
+    await cheatCodes.rollup.markAsProven(l2TxReceipt0.blockNumber ?? 0);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
@@ -336,7 +331,7 @@ describe('E2E Outbox Tests', () => {
 
     // Outbox L1 tests
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenThroughBlockNumber([l2TxReceipt0.blockNumber ?? 0]);
+    await cheatCodes.rollup.markAsProven(l2TxReceipt0.blockNumber ?? 0);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);

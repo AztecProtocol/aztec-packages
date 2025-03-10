@@ -1,5 +1,3 @@
-import { type ComponentsVersions } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,9 +6,11 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { Fr } from '@aztec/foundation/fields';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
+import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { z } from 'zod';
 
@@ -28,7 +28,7 @@ export type BotConfig = {
   /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
   pxeUrl: string | undefined;
   /** Url of the ethereum host. */
-  l1RpcUrl: string | undefined;
+  l1RpcUrls: string[] | undefined;
   /** The mnemonic for the account to bridge fee juice from L1. */
   l1Mnemonic: string | undefined;
   /** The private key for the account to bridge fee juice from L1. */
@@ -75,32 +75,32 @@ export const BotConfigSchema = z
   .object({
     nodeUrl: z.string().optional(),
     pxeUrl: z.string().optional(),
-    l1RpcUrl: z.string().optional(),
+    l1RpcUrls: z.array(z.string()).optional(),
     l1Mnemonic: z.string().optional(),
     l1PrivateKey: z.string().optional(),
     senderPrivateKey: schemas.Fr.optional(),
     recipientEncryptionSecret: schemas.Fr,
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
-    privateTransfersPerTx: z.number(),
-    publicTransfersPerTx: z.number(),
+    privateTransfersPerTx: z.number().int().nonnegative(),
+    publicTransfersPerTx: z.number().int().nonnegative(),
     feePaymentMethod: z.literal('fee_juice'),
     noStart: z.boolean(),
     txMinedWaitSeconds: z.number(),
     followChain: z.enum(BotFollowChain),
-    maxPendingTxs: z.number(),
+    maxPendingTxs: z.number().int().nonnegative(),
     flushSetupTransactions: z.boolean(),
     skipPublicSimulation: z.boolean(),
-    l2GasLimit: z.number().optional(),
-    daGasLimit: z.number().optional(),
+    l2GasLimit: z.number().int().nonnegative().optional(),
+    daGasLimit: z.number().int().nonnegative().optional(),
     contract: z.nativeEnum(SupportedTokenContracts),
-    maxConsecutiveErrors: z.number(),
+    maxConsecutiveErrors: z.number().int().nonnegative(),
     stopWhenUnhealthy: z.boolean(),
   })
   .transform(config => ({
     nodeUrl: undefined,
     pxeUrl: undefined,
-    l1RpcUrl: undefined,
+    l1RpcUrls: undefined,
     l1Mnemonic: undefined,
     l1PrivateKey: undefined,
     senderPrivateKey: undefined,
@@ -118,9 +118,10 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_PXE_URL',
     description: 'URL to the PXE for sending txs, or undefined if an in-proc PXE is used.',
   },
-  l1RpcUrl: {
-    env: 'ETHEREUM_HOST',
+  l1RpcUrls: {
+    env: 'ETHEREUM_HOSTS',
     description: 'URL of the ethereum host.',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
   },
   l1Mnemonic: {
     env: 'BOT_L1_MNEMONIC',

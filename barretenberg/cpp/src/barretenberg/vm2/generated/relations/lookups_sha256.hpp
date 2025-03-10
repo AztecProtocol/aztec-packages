@@ -27,26 +27,27 @@ class lookup_sha256_round_constant_settings {
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::sha256_sel;
+    static constexpr Column SRC_SELECTOR = Column::sha256_perform_round;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_sha256_compression;
     static constexpr Column COUNTS = Column::lookup_sha256_round_constant_counts;
     static constexpr Column INVERSES = Column::lookup_sha256_round_constant_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::sha256_round_count,
-                                                                           Column::sha256_round_constant };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        Column::precomputed_clk, Column::precomputed_sha256_compression_round_constant
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::sha256_round_count, ColumnAndShifts::sha256_round_constant
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_sha256_compression_round_constant
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._sha256_sel() == 1 || in._precomputed_sel_sha256_compression() == 1);
+        return (in._sha256_perform_round() == 1 || in._precomputed_sel_sha256_compression() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._sha256_sel());
+        const auto is_operation = View(in._sha256_perform_round());
         const auto is_table_entry = View(in._precomputed_sel_sha256_compression());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
@@ -65,7 +66,7 @@ class lookup_sha256_round_constant_settings {
     {
         return std::forward_as_tuple(in._lookup_sha256_round_constant_inv(),
                                      in._lookup_sha256_round_constant_counts(),
-                                     in._sha256_sel(),
+                                     in._sha256_perform_round(),
                                      in._precomputed_sel_sha256_compression(),
                                      in._sha256_round_count(),
                                      in._sha256_round_constant(),

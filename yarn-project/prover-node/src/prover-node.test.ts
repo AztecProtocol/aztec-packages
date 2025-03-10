@@ -1,10 +1,9 @@
-import {
-  EmptyL1RollupConstants,
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
-  type Tx,
-} from '@aztec/circuit-types';
+import { timesParallel } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   type EpochProvingJobState,
@@ -12,16 +11,15 @@ import {
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
-import { timesParallel } from '@aztec/foundation/collection';
-import { type PublicProcessorFactory } from '@aztec/simulator/server';
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type EpochProvingJob } from './job/epoch-proving-job.js';
+import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
-import { type ProverNodePublisher } from './prover-node-publisher.js';
+import type { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 
 describe('prover-node', () => {

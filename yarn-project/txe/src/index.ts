@@ -10,8 +10,10 @@ import {
   loadContractArtifact,
 } from '@aztec/aztec.js';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type Logger } from '@aztec/foundation/log';
-import { type ApiSchemaFor, type ZodFor } from '@aztec/foundation/schemas';
+import type { Logger } from '@aztec/foundation/log';
+import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
+import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
+import type { ApiSchemaFor, ZodFor } from '@aztec/stdlib/schemas';
 
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
@@ -49,7 +51,7 @@ type TXEForeignCallInput = {
 
 const TXEForeignCallInputSchema = z.object({
   // eslint-disable-next-line camelcase
-  session_id: z.number(),
+  session_id: z.number().int().nonnegative(),
   function: z.string() as ZodFor<MethodNames<TXEService> | 'reset'>,
   // eslint-disable-next-line camelcase
   root_path: z.string(),
@@ -59,6 +61,8 @@ const TXEForeignCallInputSchema = z.object({
 }) satisfies ZodFor<TXEForeignCallInput>;
 
 class TXEDispatcher {
+  private protocolContracts!: ProtocolContract[];
+
   constructor(private logger: Logger) {}
 
   async #processDeployInputs({ inputs, root_path: rootPath, package_name: packageName }: TXEForeignCallInput) {
@@ -162,7 +166,12 @@ class TXEDispatcher {
 
     if (!TXESessions.has(sessionId) && functionName != 'reset') {
       this.logger.debug(`Creating new session ${sessionId}`);
-      TXESessions.set(sessionId, await TXEService.init(this.logger));
+      if (!this.protocolContracts) {
+        this.protocolContracts = await Promise.all(
+          protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
+        );
+      }
+      TXESessions.set(sessionId, await TXEService.init(this.logger, this.protocolContracts));
     }
 
     switch (functionName) {

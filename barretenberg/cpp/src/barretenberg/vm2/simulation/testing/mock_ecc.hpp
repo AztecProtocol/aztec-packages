@@ -2,6 +2,7 @@
 
 #include <gmock/gmock.h>
 
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
 
 namespace bb::avm2::simulation {
@@ -11,7 +12,7 @@ class MockEcc : public EccInterface {
     MockEcc();
     ~MockEcc() override;
 
-    MOCK_METHOD(AffinePoint, add, (const AffinePoint& p, const AffinePoint& q), (override));
+    MOCK_METHOD(EmbeddedCurvePoint, add, (const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q), (override));
 };
 
 } // namespace bb::avm2::simulation

@@ -1,13 +1,10 @@
-import {
-  type ContractClassIdPreimage,
-  type PublicCallRequest,
-  type PublicLog,
-  type SerializableContractInstance,
-} from '@aztec/circuits.js';
-import { type AvmNullifierReadTreeHint, type AvmPublicDataReadTreeHint } from '@aztec/circuits.js/avm';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { type NullifierLeafPreimage, type PublicDataTreeLeafPreimage } from '@aztec/circuits.js/trees';
-import { type Fr } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
+import type { AvmPublicDataReadTreeHint } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassWithCommitment, SerializableContractInstance } from '@aztec/stdlib/contract';
+import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import type { PublicLog } from '@aztec/stdlib/logs';
+import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
@@ -63,20 +60,10 @@ export interface PublicSideEffectTraceInterface {
     contractAddress: AztecAddress,
     exists: boolean,
     instance?: SerializableContractInstance,
-    nullifierMembershipHint?: AvmNullifierReadTreeHint,
     updateMembershipHint?: AvmPublicDataReadTreeHint,
     updatePreimage?: Fr[],
   ): void;
-  traceGetBytecode(
-    contractAddress: AztecAddress,
-    exists: boolean,
-    bytecode?: Buffer,
-    contractInstance?: SerializableContractInstance,
-    contractClass?: ContractClassIdPreimage,
-    nullifierMembershipHint?: AvmNullifierReadTreeHint,
-    updateMembershipHint?: AvmPublicDataReadTreeHint,
-    updatePreimage?: Fr[],
-  ): void;
+  traceGetContractClass(contractClassId: Fr, exists: boolean, contractClass?: ContractClassWithCommitment): void;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,

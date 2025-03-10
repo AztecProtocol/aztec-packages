@@ -2,21 +2,24 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
+  AztecAddress,
+  type AztecNode,
   BatchCall,
+  ContractFunctionInteraction,
   type DeployMethod,
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   L1FeeJuicePortalManager,
+  type PXE,
   createLogger,
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type AztecNode, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
@@ -93,7 +96,8 @@ export class BotFactory {
 
       const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
 
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
+      const wallet = await account.getWallet();
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
       const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
@@ -101,7 +105,7 @@ export class BotFactory {
       this.log.verbose('Waiting for account deployment to settle');
       await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
       this.log.info(`Account deployed at ${address}`);
-      return account.getWallet();
+      return wallet;
     }
   }
 
@@ -178,20 +182,20 @@ export class BotFactory {
       privateBalance = await getPrivateBalance(token, sender);
     }
 
-    const calls: FunctionCall[] = [];
+    const calls: ContractFunctionInteraction[] = [];
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
 
-      const from = sender; // we are setting from to sender here because of TODO(#9887)
+      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
-          ? await token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
-          : await token.methods.mint(MINT_BALANCE, sender).request(),
+          ? token.methods.mint_to_private(from, sender, MINT_BALANCE)
+          : token.methods.mint(MINT_BALANCE, sender),
       );
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {
       this.log.info(`Minting public tokens for ${sender.toString()}`);
-      calls.push(await token.methods.mint_to_public(sender, MINT_BALANCE).request());
+      calls.push(token.methods.mint_to_public(sender, MINT_BALANCE));
     }
     if (calls.length === 0) {
       this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);
@@ -206,11 +210,11 @@ export class BotFactory {
   }
 
   private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint) {
-    const l1RpcUrl = this.config.l1RpcUrl;
-    if (!l1RpcUrl) {
+    const l1RpcUrls = this.config.l1RpcUrls;
+    if (!l1RpcUrls?.length) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
     }
-    const mnemonicOrPrivateKey = this.config.l1Mnemonic || this.config.l1PrivateKey;
+    const mnemonicOrPrivateKey = this.config.l1PrivateKey || this.config.l1Mnemonic;
     if (!mnemonicOrPrivateKey) {
       throw new Error(
         'Either a mnemonic or private key of an L1 account is required to bridge the fee juice to fund the deployment of the account.',
@@ -218,12 +222,16 @@ export class BotFactory {
     }
 
     const { l1ChainId } = await this.pxe.getNodeInfo();
-    const chain = createEthereumChain(l1RpcUrl, l1ChainId);
-    const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
+    const chain = createEthereumChain(l1RpcUrls, l1ChainId);
+    const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
     const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
     const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
-    this.log.info('Created a claim for L1 fee juice.');
+
+    const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+
+    this.log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
 
     // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
     await this.advanceL2Block();

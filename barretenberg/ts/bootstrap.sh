@@ -41,13 +41,7 @@ function test {
 }
 
 function release {
-  local version=${REF_NAME#v}
-  deploy_npm $(dist_tag) $version
-}
-
-function release_commit {
-  local version="$CURRENT_VERSION-commit.$COMMIT_HASH"
-  deploy_npm next $version
+  deploy_npm $(dist_tag) ${REF_NAME#v}
 }
 
 case "$cmd" in
@@ -64,7 +58,10 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  test|test_cmds|release|release_commit)
+  "bench")
+    echo "ts/bootstrap.sh bench is empty"
+    ;;
+  test|test_cmds|release)
     $cmd
     ;;
   *)

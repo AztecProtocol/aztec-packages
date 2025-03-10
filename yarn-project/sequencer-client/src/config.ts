@@ -1,11 +1,4 @@
 import {
-  type AllowedElement,
-  type ChainConfig,
-  type SequencerConfig,
-  chainConfigMappings,
-} from '@aztec/circuit-types/config';
-import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import {
   type L1ContractsConfig,
   type L1ReaderConfig,
   l1ContractsConfigMappings,
@@ -19,6 +12,10 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type AllowedElement, type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import {
   type PublisherConfig,
@@ -68,7 +65,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   coinbase: {
     env: 'COINBASE',
-    parseEnv: (val: string) => EthAddress.fromString(val),
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
     description: 'Recipient of block reward.',
   },
   feeRecipient: {

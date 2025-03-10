@@ -1,15 +1,15 @@
-import {
-  type ContractClassPublic,
-  type ContractClassPublicWithBlockNumber,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  Fr,
-  FunctionSelector,
-  type UnconstrainedFunctionWithMembershipProof,
-  Vector,
-} from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type {
+  ContractClassPublic,
+  ContractClassPublicWithBlockNumber,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/stdlib/contract';
+import { Vector } from '@aztec/stdlib/types';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.

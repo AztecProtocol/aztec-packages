@@ -1,13 +1,13 @@
 // @attribution: lodestar impl for inspiration
-import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
+import type { IncomingStreamData, PeerId, Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
-import { type Libp2p } from 'libp2p';
-import { type Uint8ArrayList } from 'uint8arraylist';
+import type { Libp2p } from 'libp2p';
+import type { Uint8ArrayList } from 'uint8arraylist';
 
 import {
   CollectiveReqRespTimeoutError,
@@ -15,8 +15,8 @@ import {
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
-import { type PeerScoring } from '../peer-manager/peer_scoring.js';
-import { type P2PReqRespConfig } from './config.js';
+import type { PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from './config.js';
 import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
 import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
@@ -606,8 +606,6 @@ export class ReqResp {
 
       const handler = this.subProtocolHandlers[protocol];
       const transform = this.snappyTransform;
-
-      this.logger.info(`Stream handler for ${protocol}`);
 
       await pipe(
         stream,
