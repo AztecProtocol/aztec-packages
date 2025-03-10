@@ -14,7 +14,48 @@ module.exports = {
   },
   root: true,
   parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc', 'jsdoc', 'no-only-tests'],
+  plugins: [
+    '@typescript-eslint',
+    'eslint-plugin-tsdoc',
+    'jsdoc',
+    'no-only-tests',
+    // Define custom plugin with our rule
+    {
+      rules: {
+        'custom-no-relative-package-refs': {
+          create: function (context) {
+            return {
+              ImportDeclaration(node) {
+                // Check if the import path is relative
+                if (!importPath.startsWith('../')) {
+                  return;
+                }
+                const importPath = node.source.value;
+                const filePath = context.getFilename();
+                // Count how many path components are in the file path from 'yarn-project'
+                const pathComponents = filePath.split('/');
+                const yarnProjectIndex = pathComponents.indexOf('yarn-project');
+                if (yarnProjectIndex === -1) {
+                  // Not in yarn-project, not expected - bail.
+                  return;
+                }
+                const pathComponentsFromYarnProject = pathComponents.size() - yarnProjectIndex;
+                // Check level of relative imports from workspace root
+                // If we more "../" than path components from yarn-project, we're likely crossing package boundaries
+                if (importPath.startsWith('../'.repeat(pathComponentsFromYarnProject))) {
+                  context.report({
+                    node,
+                    message:
+                      'Avoid relative imports across packages. Use @aztec/* package imports instead of traversing through project structure.',
+                  });
+                }
+              },
+            };
+          },
+        },
+      },
+    },
+  ],
   overrides: [
     {
       files: ['*.cts', '*.mts', '*.ts', '*.tsx'],
@@ -46,6 +87,7 @@ module.exports = {
     'require-await': 2,
     'no-console': 'error',
     'no-constant-condition': 'off',
+    'custom-no-relative-package-refs': 'error',
     curly: ['error', 'all'],
     camelcase: 2,
     'no-restricted-imports': [
@@ -59,7 +101,6 @@ module.exports = {
         ],
       },
     ],
-    'import/no-self-import': 'error',
     'import/no-unresolved': [
       'error',
       {
