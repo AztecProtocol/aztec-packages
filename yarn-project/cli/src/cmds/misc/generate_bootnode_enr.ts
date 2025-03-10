@@ -3,10 +3,11 @@ import { createBootnodeENRandPeerId } from '@aztec/p2p/enr';
 
 export async function generateEncodedBootnodeENR(
   privateKey: string,
-  udpAnnounceAddress: string,
+  p2pIp: string,
+  p2pPort: number,
   l1ChainId: number,
   log: LogFn,
 ) {
-  const { enr } = await createBootnodeENRandPeerId(privateKey, udpAnnounceAddress, l1ChainId);
+  const { enr } = await createBootnodeENRandPeerId(privateKey, p2pIp, p2pPort, l1ChainId);
   log(`ENR: ${enr.encodeTxt()}`);
 }
