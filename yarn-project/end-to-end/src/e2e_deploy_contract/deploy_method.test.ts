@@ -9,12 +9,12 @@ import {
   createPXEClient,
   getContractClassFromArtifact,
   makeFetch,
-  sleep,
 } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { GasFees } from '@aztec/stdlib/gas';
 
 import { DeployTest } from './deploy_test.js';
 
@@ -153,10 +153,11 @@ describe('e2e_deploy_contract deploy method', () => {
     const publicCall = contract.methods.increment_public_value(owner, 84);
 
     // First send the deploy transaction
-    const deployTxPromise = deployTx.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
-
-    // Wait a bit to ensure the deployment transaction gets processed first
-    await sleep(5000);
+    // Pay priority fee to ensure the deployment transaction gets processed first.
+    const maxPriorityFeesPerGas = new GasFees(1n, 0n);
+    const deployTxPromise = deployTx
+      .send({ skipPublicSimulation: true, fee: { gasSettings: { maxPriorityFeesPerGas } } })
+      .wait({ timeout: 600 });
 
     // Then send the public call transaction
     const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });

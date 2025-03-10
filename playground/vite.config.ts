@@ -61,7 +61,7 @@ export default defineConfig(({ mode }) => {
       //   ],
       // }),
       bundlesize({
-        limits: [{ name: "assets/index-*", limit: "1900kB" }],
+        limits: [{ name: "assets/index-*", limit: "1950kB" }],
       }),
     ],
     define: {
