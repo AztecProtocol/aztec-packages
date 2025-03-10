@@ -1,5 +1,5 @@
 #!/bin/bash
-# set -eu
+set -eu
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
@@ -11,7 +11,7 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 PORT="$1"
 P2P_PORT="$2"
 ADDRESS="${3:-${ADDRESS:-}}"
-export VALIDATOR_PRIVATE_KEY="${4:-${VALIDATOR_PRIVATE_KEY:-}}"
+validator_private_key="${4:-${VALIDATOR_PRIVATE_KEY:-}}"
 
 # Starts the Validator Node
 REPO=$(git rev-parse --show-toplevel)
@@ -47,12 +47,15 @@ export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
 echo "BOOTSTRAP_NODES: $BOOTSTRAP_NODES"
 
 # Generate a private key for the validator only if not already set
-if [ -z "${VALIDATOR_PRIVATE_KEY:-}" ] || [ -z "${ADDRESS:-}" ]; then
+if [ -z "${validator_private_key:-}" ] || [ -z "${ADDRESS:-}" ]; then
   echo "Generating new L1 Validator account..."
   json_account=$(node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js generate-l1-account)
   export ADDRESS=$(echo $json_account | jq -r '.address')
   validator_private_key=$(echo $json_account | jq -r '.privateKey')
 fi
+
+## We want to use the private key from the cli
+unset VALIDATOR_PRIVATE_KEY
 
 export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
