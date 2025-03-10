@@ -26,7 +26,8 @@ use std::aes128::aes128_encrypt;
 
 pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address (32) + ciphertext_length (2) + 16 bytes pkcs#7 AES padding.
 
-// TODO: Should this be somehow derived from MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN?
+// TODO(benesjan): Is this correct? Should this be somehow derived from MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN? This is
+// expected to be tackled as part of #11634
 pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS: u32 = 15;
 
 /// Computes an encrypted log using AES-128 encryption in CBC mode.

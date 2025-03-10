@@ -1,6 +1,5 @@
-use dep::protocol_types::{
-    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, debug_log::debug_log,
-};
+use super::encrypted_logs::log_assembly_strategies::default_aes128::log::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
+use dep::protocol_types::{address::AztecAddress, debug_log::debug_log};
 
 pub mod private_logs;
 pub mod partial_notes;
@@ -14,7 +13,8 @@ global NOTE_PRIVATE_LOG_RESERVED_FIELDS: u32 = 2;
 /// fields in the log (e.g. the combined log and note type ID).
 // TODO (#11634): we're assuming here that the entire log is plaintext, which is not true due to headers, encryption
 // padding, etc. Notes can't actually be this large.
-pub global MAX_NOTE_PACKED_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_PRIVATE_LOG_RESERVED_FIELDS;
+pub global MAX_NOTE_PACKED_LEN: u32 =
+    PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS - NOTE_PRIVATE_LOG_RESERVED_FIELDS;
 
 pub struct NoteHashAndNullifier {
     /// The result of NoteHash::compute_note_hash
