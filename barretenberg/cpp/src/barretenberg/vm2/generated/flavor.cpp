@@ -85,6 +85,15 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
     }
 }
 
+AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials,
+                                                                            size_t circuit_size)
+{
+    for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+        size_t desired_size = std::min(full_poly.end_index(), circuit_size / 2);
+        poly = Polynomial(desired_size, circuit_size / 2);
+    }
+}
+
 AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
     : circuit_size(circuit_size)
     , evaluation_domain(bb::EvaluationDomain<FF>(circuit_size, circuit_size))
