@@ -3,6 +3,7 @@ set -eu
 
 # Commands related to syncing with the noir-repo.
 
+NOIR_REPO_URL=https://github.com/noir-lang/noir.git
 # Special message we use to indicate the commit we do after the fixup.
 # This commit has changes we do *not* want to migrate back to Noir,
 # they exist only to make the Noir codebase work with the projects
@@ -169,6 +170,11 @@ function needs_switch {
   fi
 }
 
+# Find the latest nightly tag in the upstream repo
+function latest_nightly {
+  git ls-remote --tags --sort -refname $NOIR_REPO_URL nightly-* | head -n 1 | awk '{split($2,a,"/"); print a[3]}'
+}
+
 # Create an empty marker commit to show that patches have been applied or put in a patch file.
 function commit_patch_marker {
   git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
@@ -194,7 +200,7 @@ function patch_repo {
 # Clone the repository if it doesn't exist.
 function init_repo {
   if [ ! -d noir-repo ]; then
-    url=https://github.com/noir-lang/noir.git
+    url=$NOIR_REPO_URL
     ref=$(read_wanted_ref)
     log Initializing noir-repo to $ref
     # If we're cloning from a tag with --depth=1, we won't be able to switch to a branch later.
@@ -329,6 +335,7 @@ function info {
   echo_info "Has patch commit" $(yesno has_patch_commit)
   echo_info "Last commit is patch" $(yesno is_last_commit_patch)
   echo_info "Has fixup and patch" $(yesno has_fixup_and_patch)
+  echo_info "Latest nightly" $(latest_nightly)
 }
 
 cmd=${1:-}
@@ -346,6 +353,9 @@ case "$cmd" in
     ;;
   "needs-patch")
     needs_patch && exit 0 || exit 1
+    ;;
+  "latest-nightly")
+    echo $(latest_nightly)
     ;;
   "info")
     info
