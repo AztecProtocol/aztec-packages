@@ -117,7 +117,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // We want to update our tcp port to match the udp port
     const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pPort, 'tcp'));
     this.enr.setLocationMultiaddr(multiAddrTcp);
-    this.logger.info('\n\n\n\nMultiaddr updated', { multiaddr: multiaddr.toString() });
+    this.logger.info('Multiaddr updated', { multiaddr: multiaddr.toString() });
   }
 
   public async start(): Promise<void> {
