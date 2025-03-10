@@ -7,9 +7,8 @@ import {
   encodeArguments,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
-import type { TxProfileResult } from '../../../stdlib/src/tx/profiled_tx.js';
 import type { Wallet } from '../account/wallet.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';

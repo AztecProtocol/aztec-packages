@@ -1,9 +1,8 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
-import type { TxProvingResult } from '../../../stdlib/src/tx/proven_tx.js';
 import type { Wallet } from '../account/wallet.js';
 import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import type { FeeOptions, UserFeeOptions } from '../entrypoint/payload.js';

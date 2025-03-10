@@ -23,12 +23,12 @@ import type {
   Tx,
   TxExecutionRequest,
   TxHash,
+  TxProfileResult,
+  TxProvingResult,
   TxReceipt,
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
-import type { TxProfileResult } from '../../../stdlib/src/tx/profiled_tx.js';
-import type { TxProvingResult } from '../../../stdlib/src/tx/proven_tx.js';
 import type { Wallet } from '../account/wallet.js';
 import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
