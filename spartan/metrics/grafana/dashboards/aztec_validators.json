@@ -552,7 +552,7 @@
         "y": 12
       },
       "id": 105,
-      "interval": "30s",
+      "interval": "1m",
       "options": {
         "legend": {
           "calcs": [
@@ -577,7 +577,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "delta(aztec_sequencer_block_count{k8s_namespace_name=\"$namespace\", aztec_status=\"built\"}[$__rate_interval])",
+          "expr": "delta(aztec_sequencer_block_count{k8s_namespace_name=\"$namespace\", aztec_status=\"built\"}[1m])",
           "hide": false,
           "legendFormat": "{{k8s_pod_name}}",
           "range": true,
@@ -606,6 +606,7 @@
         "type": "prometheus",
         "uid": "spartan-metrics-prometheus"
       },
+      "description": "Count of blocks that fall within each bucket",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -628,14 +629,20 @@
         "y": 21
       },
       "id": 201,
+      "interval": "36s",
+      "maxDataPoints": 64,
       "options": {
         "calculate": false,
         "cellGap": 1,
+        "cellValues": {
+          "decimals": 0,
+          "unit": "none"
+        },
         "color": {
           "exponent": 0.5,
           "fill": "dark-orange",
           "mode": "scheme",
-          "reverse": false,
+          "reverse": true,
           "scale": "exponential",
           "scheme": "Purples",
           "steps": 64
@@ -650,7 +657,8 @@
           "show": true
         },
         "rowsFrame": {
-          "layout": "auto"
+          "layout": "auto",
+          "value": "Block count"
         },
         "tooltip": {
           "mode": "single",
@@ -659,7 +667,8 @@
         },
         "yAxis": {
           "axisPlacement": "left",
-          "reverse": false
+          "reverse": false,
+          "unit": "ms"
         }
       },
       "pluginVersion": "11.2.1",
@@ -670,8 +679,9 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(aztec_sequencer_block_build_duration_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[5m])) by (le)",
+          "expr": "sum(increase(aztec_sequencer_block_build_duration_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__interval])) by (le)",
           "format": "heatmap",
+          "interval": "",
           "legendFormat": "{{le}}",
           "range": true,
           "refId": "A"
@@ -1091,19 +1101,6 @@
       "type": "timeseries"
     },
     {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 38
-      },
-      "id": 300,
-      "panels": [],
-      "title": "State Machine Performance",
-      "type": "row"
-    },
-    {
       "datasource": {
         "default": true,
         "type": "prometheus",
@@ -1164,7 +1161,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 39
+        "y": 38
       },
       "id": 303,
       "interval": "1m",
@@ -1271,7 +1268,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 39
+        "y": 38
       },
       "id": 304,
       "options": {
@@ -1312,7 +1309,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 47
+        "y": 46
       },
       "id": 400,
       "panels": [],
@@ -1396,7 +1393,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 48
+        "y": 47
       },
       "id": 401,
       "options": {
@@ -1518,7 +1515,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 48
+        "y": 47
       },
       "id": 402,
       "options": {
@@ -1659,7 +1656,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 48
+        "y": 47
       },
       "id": 403,
       "options": {
@@ -1754,7 +1751,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 56
+        "y": 55
       },
       "id": 404,
       "interval": "1m",
@@ -1863,7 +1860,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 56
+        "y": 55
       },
       "id": 405,
       "options": {
@@ -1958,7 +1955,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 56
+        "y": 55
       },
       "id": 406,
       "interval": "5m",
@@ -2066,7 +2063,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 64
+        "y": 63
       },
       "id": 505,
       "interval": "5m",
@@ -2177,7 +2174,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 64
+        "y": 63
       },
       "id": 506,
       "interval": "5m",
@@ -2218,7 +2215,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 72
+        "y": 71
       },
       "id": 500,
       "panels": [],
@@ -2286,7 +2283,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 73
+        "y": 72
       },
       "id": 501,
       "options": {
@@ -2381,7 +2378,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 73
+        "y": 72
       },
       "id": 502,
       "options": {
@@ -2476,7 +2473,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 81
+        "y": 80
       },
       "id": 503,
       "options": {
@@ -2570,7 +2567,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 81
+        "y": 80
       },
       "id": 504,
       "options": {
@@ -2693,6 +2690,6 @@
   "timezone": "",
   "title": "Validator node overview",
   "uid": "aztec-validators",
-  "version": 5,
+  "version": 7,
   "weekStart": ""
 }

@@ -111,7 +111,7 @@ export class RollupCheatCodes {
       blockNumber = pending;
     }
     if (blockNumber <= proven) {
-      this.logger.warn(`Block ${blockNumber} is already proven`);
+      this.logger.debug(`Block ${blockNumber} is already proven`);
       return;
     }
 

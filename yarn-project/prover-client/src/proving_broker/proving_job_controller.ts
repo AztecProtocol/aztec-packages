@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import type {
   ProvingJobId,
   ProvingJobInputs,
@@ -34,26 +35,48 @@ export class ProvingJobController {
     private startedAt: number,
     private circuitProver: ServerCircuitProver,
     private onComplete: ProvingJobCompletionCallback,
+    private log = createLogger('prover-client:proving-agent:job-controller'),
   ) {}
 
   public start(): void {
     if (this.status !== ProvingJobControllerStatus.IDLE) {
+      this.log.verbose(
+        `Job controller for jobId=${this.jobId} not starting because it is not idle currentStatus=${this.status}`,
+        {
+          currentStatus: this.status,
+          jobId: this.jobId,
+        },
+      );
       return;
     }
 
     this.status = ProvingJobControllerStatus.PROVING;
+    this.log.verbose(`Job controller started jobId=${this.jobId}`, {
+      jobId: this.jobId,
+    });
 
     this.promise = this.generateProof()
       .then(
         result => {
           if (this.status === ProvingJobControllerStatus.ABORTED) {
+            this.log.warn(`Job controller for jobId=${this.jobId} completed successfully but job was aborted`, {
+              currentStatus: this.status,
+              jobId: this.jobId,
+            });
             return;
           }
           this.status = ProvingJobControllerStatus.DONE;
+          this.log.verbose(`Job controller for jobId=${this.jobId} completed successfully`, {
+            jobId: this.jobId,
+          });
           return this.onComplete(this.jobId, this.inputs.type, undefined, result);
         },
         error => {
           if (this.status === ProvingJobControllerStatus.ABORTED) {
+            this.log.warn(`Job controller for jobId=${this.jobId} finished with an error but job was aborted`, {
+              currentStatus: this.status,
+              jobId: this.jobId,
+            });
             return;
           }
 
@@ -62,12 +85,19 @@ export class ProvingJobController {
             return;
           }
 
+          this.log.verbose(`Job controller for jobId=${this.jobId} finished with an error`, {
+            jobId: this.jobId,
+            err: error,
+          });
+
           this.status = ProvingJobControllerStatus.DONE;
           return this.onComplete(this.jobId, this.inputs.type, error, undefined);
         },
       )
-      .catch(_ => {
-        // ignore completion errors
+      .catch(err => {
+        this.log.error(`Job constroller failed to send result for jobId=${this.jobId}: ${err}`, err, {
+          jobId: this.jobId,
+        });
       });
   }
 
@@ -77,11 +107,18 @@ export class ProvingJobController {
 
   public abort(): void {
     if (this.status !== ProvingJobControllerStatus.PROVING) {
+      this.log.warn(`Tried to abort job controller for jobId=${this.jobId} but it is not running`, {
+        currentStatus: this.status,
+        jobId: this.jobId,
+      });
       return;
     }
 
     this.status = ProvingJobControllerStatus.ABORTED;
     this.abortController.abort();
+    this.log.verbose(`Aborted job controller for jobId=${this.jobId}`, {
+      jobId: this.jobId,
+    });
   }
 
   public getJobId(): ProvingJobId {
