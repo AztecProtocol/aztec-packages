@@ -16,7 +16,7 @@ export async function captureIvcInputs(
     //   const result = await this.simulator.run(txRequest, contractAddress, functionSelector, msgSender, scopes);
     //   this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
     //   return result;
-    wallet.simulateTx(
+    await wallet.simulateTx(
       txExecutionRequest,
       /* simulate public */ false,
       /* sender */ undefined,

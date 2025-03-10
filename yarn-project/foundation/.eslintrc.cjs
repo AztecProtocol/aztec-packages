@@ -59,6 +59,7 @@ module.exports = {
         ],
       },
     ],
+    'import/no-self-import': 'error',
     'import/no-unresolved': [
       'error',
       {
