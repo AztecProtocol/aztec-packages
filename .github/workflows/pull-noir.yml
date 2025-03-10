@@ -30,7 +30,7 @@ jobs:
           # Enable gh executable. We spread out the API requests between the github actions bot token, and aztecbot
           export GH_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           # Do we have a PR active?
-          PR_URL=$(gh pr list --repo AztecProtocol/aztec-packages --head sync-noir --json url --jq ".[0].url")
+          PR_URL=$(gh pr list --repo AztecProtocol/aztec-packages --head bump-noir --json url --jq ".[0].url")
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
           # Get the current Noir target
           CURRENT_NOIR_REF=$(cat noir/noir-repo-ref)
@@ -63,11 +63,11 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      # Push a commit to the `sync-noir` branch that overrides the Noir ref.
+      # Push a commit to the `bump-noir` branch that overrides the Noir ref.
       - name: Push to branch
         run: |
           set -xue # print commands
-          BRANCH=sync-noir
+          BRANCH=bump-noir
           git checkout $BRANCH || git checkout -b $BRANCH
           echo $LATEST_NOIR_NIGHTLY > noir/noir-repo-ref
           git add .
@@ -75,7 +75,7 @@ jobs:
           git commit -m 'chore: Update noir-repo-ref to the latest nightly'
           git push --set-upstream origin $BRANCH --force
 
-      # Update the PR from `sync-noir` to `master` with the latest message body.
+      # Update the PR from `bump-noir` to `master` with the latest message body.
       - name: Update PR
         env:
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
@@ -90,7 +90,7 @@ jobs:
           # for cross-opening PR in noir repo, we use aztecbot's token
           export GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           if [[ "$PR_URL" == "" ]]; then
-            gh pr create --repo AztecProtocol/aztec-packages --title "feat: Sync from noir" --body "$PR_BODY" --base $BRANCH_NAME --head sync-noir
+            gh pr create --repo AztecProtocol/aztec-packages --title "feat: Sync from noir" --body "$PR_BODY" --base $BRANCH_NAME --head bump-noir
           else
             echo "Updating existing PR."
             gh pr edit "$PR_URL" --body "$PR_BODY"
