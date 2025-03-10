@@ -121,6 +121,8 @@ where
 {
     let packed_note = note.pack();
 
+    // TODO(benesjan): Instead of the following, implement fields_to_be_bytes_32 and use it here.
+
     let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
 
     // TODO(#10952): The following can be reduced to 7 bits

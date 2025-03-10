@@ -23,6 +23,7 @@ use crate::discovery::{
 };
 use crate::encrypted_logs::log_assembly_strategies::default_aes128::log::decrypt_log;
 use crate::encrypted_logs::log_assembly_strategies::default_aes128::log::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
+use crate::encrypted_logs::log_assembly_strategies::default_aes128::utils_to_nuke::be_bytes_32_to_fields;
 
 pub global PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN: u32 = 1;
 /// Partial notes have a maximum packed length of their private fields bound by extra content in their private log (i.e.
@@ -57,7 +58,10 @@ pub unconstrained fn do_process_log<Env>(
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    let log_plaintext = decrypt_log(log, recipient);
+    let log_plaintext_bytes = decrypt_log(log, recipient);
+
+    // Each field of the original note log was serialized to 32 bytes. Below we convert the bytes back to fields.
+    let log_plaintext = be_bytes_32_to_fields(log_plaintext_bytes);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
     // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and

@@ -85,3 +85,37 @@ pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(
 
     bytes
 }
+
+pub fn be_bytes_32_to_fields<let N: u32>(
+    bytes: BoundedVec<u8, N>,
+) -> BoundedVec<Field, (N + 31) / 32> {
+    let mut fields = BoundedVec::new();
+
+    // There are "bytes.len() / 32" whole fields that can be populated.
+    for i in 0..bytes.len() / 32 {
+        let mut field = 0;
+        for j in 0..32 {
+            // Shift the existing value left by 8 bits and add the new byte
+            field = field * 256 + bytes.get(i * 32 + j) as Field;
+        }
+        fields.push(field);
+    }
+
+    // Note: if 32 divides bytes.len(), then this loop does not execute.
+    // ceil(bytes.len()/32) - floor(bytes.len()/32) = 1, unless 32 divides bytes.len(), in which case it's 0.
+    for _ in 0..((bytes.len() + 31) / 32) - (bytes.len() / 32) {
+        let mut final_field = 0;
+        let final_field_idx = fields.len();
+        let final_offset = final_field_idx * 32;
+        // bytes.len() - ((bytes.len() / 32) * 32) = bytes.len() - floor(bytes.len()/32) * 32 = the number of bytes
+        // to go in the final field.
+        for j in 0..bytes.len() - ((bytes.len() / 32) * 32) {
+            // Shift the existing value left by 8 bits and add the new byte
+            final_field = final_field * 256 + bytes.get(final_offset + j) as Field;
+        }
+
+        fields.push(final_field);
+    }
+
+    fields
+}

@@ -26,9 +26,17 @@ use std::aes128::aes128_encrypt;
 
 pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address (32) + ciphertext_length (2) + 16 bytes pkcs#7 AES padding.
 
-// TODO(benesjan): Is this correct? Should this be somehow derived from MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN? This is
-// expected to be tackled as part of #11634
-pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS: u32 = 15;
+global TAG_AND_EPH_PK_X_SIZE_IN_FIELDS: u32 = 2;
+global EPH_PK_SIGN_BYTE_SIZE_IN_BYTES: u32 = 1;
+pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 = (
+    PRIVATE_LOG_SIZE_IN_FIELDS - TAG_AND_EPH_PK_X_SIZE_IN_FIELDS
+)
+    * 31
+    - HEADER_CIPHERTEXT_SIZE_IN_BYTES
+    - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES;
+// Each field of the original note log was serialized to 32 bytes. Below we convert the bytes back to fields.
+pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS: u32 =
+    (PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + 31) / 32;
 
 /// Computes an encrypted log using AES-128 encryption in CBC mode.
 ///
@@ -220,15 +228,17 @@ pub fn encrypt_log<let PT: u32>(
 pub unconstrained fn decrypt_log(
     log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
     recipient: AztecAddress,
-) -> BoundedVec<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS> {
+) -> BoundedVec<u8, PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES> {
     // let tag = log.get(0);
     let eph_pk_x = log.get(1);
 
-    let log_ciphertext_fields =
-        array::subbvec::<Field, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS - 2>(log, 2);
+    let log_ciphertext_fields = array::subbvec::<Field, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS - TAG_AND_EPH_PK_X_SIZE_IN_FIELDS>(
+        log,
+        TAG_AND_EPH_PK_X_SIZE_IN_FIELDS,
+    );
 
     // Convert the ciphertext represented as fields to a byte representation (its original format)
-    let log_ciphertext = utils_to_nuke::fields_to_be_bytes_31::<(PRIVATE_LOG_SIZE_IN_FIELDS - 2), (PRIVATE_LOG_SIZE_IN_FIELDS - 2) * 31>(
+    let log_ciphertext = utils_to_nuke::fields_to_be_bytes_31::<(PRIVATE_LOG_SIZE_IN_FIELDS - TAG_AND_EPH_PK_X_SIZE_IN_FIELDS), (PRIVATE_LOG_SIZE_IN_FIELDS - TAG_AND_EPH_PK_X_SIZE_IN_FIELDS) * 31>(
         log_ciphertext_fields,
     );
 
@@ -244,7 +254,7 @@ pub unconstrained fn decrypt_log(
     );
 
     // Extract the header ciphertext
-    let header_start = 1; // Skip eph_pk_sign byte
+    let header_start = EPH_PK_SIGN_BYTE_SIZE_IN_BYTES; // Skip eph_pk_sign byte
     let header_ciphertext: [u8; HEADER_CIPHERTEXT_SIZE_IN_BYTES] =
         array::subarray(log_ciphertext.storage(), header_start);
     // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to work
@@ -262,24 +272,20 @@ pub unconstrained fn decrypt_log(
 
     // Extract and decrypt main ciphertext
     let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
-    let ciphertext_with_padding: [u8; (PRIVATE_LOG_SIZE_IN_FIELDS - 2) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - 1] =
+    let ciphertext_with_padding: [u8; (PRIVATE_LOG_SIZE_IN_FIELDS - TAG_AND_EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES] =
         array::subarray(log_ciphertext.storage(), ciphertext_start);
-    let ciphertext: BoundedVec<u8, (PRIVATE_LOG_SIZE_IN_FIELDS - 2) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - 1> =
+    let ciphertext: BoundedVec<u8, (PRIVATE_LOG_SIZE_IN_FIELDS - TAG_AND_EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES> =
         BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
-    // Decrypt main ciphertext
-    let plaintext_bytes = aes128_decrypt_oracle(ciphertext, iv, sym_key);
-
-    // Convert plaintext bytes back to fields
-    utils_to_nuke::be_bytes_31_to_fields(plaintext_bytes)
+    // Decrypt main ciphertext and return it
+    aes128_decrypt_oracle(ciphertext, iv, sym_key)
 }
 
 mod test {
     use crate::keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address;
     use crate::test::helpers::test_environment::TestEnvironment;
-    use crate::utils::bytes::be_bytes_31_to_fields;
     use crate::utils::bytes::fields_to_be_bytes_31;
-    use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
+    use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES};
     use dep::protocol_types::address::AztecAddress;
     use dep::protocol_types::traits::FromField;
     use std::test::OracleMock;
@@ -333,13 +339,12 @@ mod test {
         // Decrypt the log
         let decrypted = decrypt_log(encrypted_log, recipient);
 
-        // The decryption function spits out a BoundedVec and the log is represented as fields and not as bytes. This
-        // inconsistent as the original input to the encryption function was bytes. Not dealing with this for now.
-        let plaintext = BoundedVec::<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>::from_array(
-            be_bytes_31_to_fields(plaintext_bytes),
-        );
+        // The decryption function spits out a BoundedVec because it's designed to work with logs with unknown length
+        // at compile time. For this reason we need to convert the original input to a BoundedVec.
+        let plaintext_bvec =
+            BoundedVec::<u8, PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES>::from_array(plaintext_bytes);
 
         // Verify decryption matches original plaintext
-        assert_eq(decrypted, plaintext, "Decrypted bytes should match original plaintext");
+        assert_eq(decrypted, plaintext_bvec, "Decrypted bytes should match original plaintext");
     }
 }
