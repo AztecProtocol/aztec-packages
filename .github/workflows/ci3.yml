@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: if it is a pull request target only run if it is NOT a fork.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     strategy:
       fail-fast: false
       matrix:

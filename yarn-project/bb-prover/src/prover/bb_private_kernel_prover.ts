@@ -15,6 +15,7 @@ import {
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
 import type { ArtifactProvider, ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { Abi, WitnessMap } from '@aztec/noir-types';
 import type { SimulationProvider } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
@@ -29,8 +30,6 @@ import type {
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
-
-import type { Abi, WitnessMap } from '@noir-lang/types';
 
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 

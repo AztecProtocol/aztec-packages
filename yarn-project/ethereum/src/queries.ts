@@ -1,4 +1,7 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+
+import type { Hex } from 'viem';
 
 import type { L1ContractsConfig } from './config.js';
 import { GovernanceContract } from './contracts/governance.js';
@@ -55,4 +58,26 @@ export async function getL1ContractsConfig(
     slashingQuorum: Number(slashingQuorum),
     slashingRoundSize: Number(slashingRoundSize),
   };
+}
+
+export type L2BlockProposedEvent = {
+  versionedBlobHashes: readonly Hex[];
+  archive: Hex;
+  blockNumber: bigint;
+};
+
+export async function getL2BlockProposalEvents(
+  client: ViemPublicClient,
+  blockId: Hex,
+  rollupAddress?: EthAddress,
+): Promise<L2BlockProposedEvent[]> {
+  return (
+    await client.getContractEvents({
+      abi: RollupAbi,
+      address: rollupAddress?.toString(),
+      blockHash: blockId,
+      eventName: 'L2BlockProposed',
+      strict: true,
+    })
+  ).map(log => log.args);
 }

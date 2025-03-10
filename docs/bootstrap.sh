@@ -83,10 +83,6 @@ function release {
   fi
 }
 
-function release_commit {
-  yarn netlify deploy --site aztec-docs-dev
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx

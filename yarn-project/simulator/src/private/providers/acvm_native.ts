@@ -1,9 +1,9 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { WitnessMap } from '@aztec/noir-types';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
-import type { WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 

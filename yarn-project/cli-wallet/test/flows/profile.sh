@@ -11,7 +11,7 @@ warn ///////////////////////////////////////////////////////////////////////////
 echo
 
 source $TEST_FOLDER/shared/deploy_main_account_and_token.sh
-source $TEST_FOLDER/shared/mint_to_private.sh 100
+source $TEST_FOLDER/shared/mint_to_private.sh 100 main
 source $TEST_FOLDER/shared/create_funded_account.sh operator
 
 # Create an authwit for the operator to transfer tokens from the main account to operator's own account.

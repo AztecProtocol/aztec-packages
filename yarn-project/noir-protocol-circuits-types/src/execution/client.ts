@@ -1,4 +1,7 @@
 import { pushTestData } from '@aztec/foundation/testing';
+import type { WitnessMap } from '@aztec/noir-acvm_js';
+import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
+import type { Abi, InputMap } from '@aztec/noir-types';
 import type {
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
@@ -7,10 +10,6 @@ import type {
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-
-import type { WitnessMap } from '@noir-lang/acvm_js';
-import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
-import type { Abi, InputMap } from '@noir-lang/types';
 
 import {
   mapPrivateCallDataToNoir,

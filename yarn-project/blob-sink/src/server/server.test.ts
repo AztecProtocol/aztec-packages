@@ -1,6 +1,7 @@
 import { Blob } from '@aztec/blob-lib';
 import { makeEncodedBlob } from '@aztec/blob-lib/testing';
-import { hexToBuffer } from '@aztec/foundation/string';
+import type { L2BlockProposedEvent, ViemPublicClient } from '@aztec/ethereum';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFile } from 'fs/promises';
@@ -18,8 +19,10 @@ import { BlobSinkServer } from './server.js';
 describe('BlobSinkService', () => {
   let service: BlobSinkServer;
 
-  const startServer = async (config: Partial<BlobSinkConfig & { blobArchiveClient: BlobArchiveClient }> = {}) => {
-    service = new BlobSinkServer({ ...config, port: 0 }, undefined, config.blobArchiveClient);
+  const startServer = async (
+    config: Partial<BlobSinkConfig & { blobArchiveClient: BlobArchiveClient; l1Client: ViemPublicClient }> = {},
+  ) => {
+    service = new BlobSinkServer({ ...config, port: 0 }, undefined, config.blobArchiveClient, config.l1Client);
     await service.start();
   };
 
@@ -160,6 +163,63 @@ describe('BlobSinkService', () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Invalid block_id parameter');
+    });
+  });
+
+  describe('with l1 client', () => {
+    let l1Client: MockProxy<ViemPublicClient>;
+    let blob: Blob;
+    let blob2: Blob;
+
+    const blockId = '0x1234';
+
+    beforeEach(async () => {
+      blob = await makeEncodedBlob(3);
+      blob2 = await makeEncodedBlob(3);
+      l1Client = mock<ViemPublicClient>();
+      l1Client.getContractEvents.mockResolvedValue([
+        {
+          args: {
+            versionedBlobHashes: [bufferToHex(blob.getEthVersionedBlobHash())],
+            archive: '0x5678',
+            blockNumber: 1234n,
+          } satisfies L2BlockProposedEvent,
+        } as any,
+      ]);
+
+      await startServer({ l1Client });
+    });
+
+    afterEach(() => {
+      expect(l1Client.getContractEvents).toHaveBeenCalledTimes(1);
+      expect(l1Client.getContractEvents).toHaveBeenCalledWith(expect.objectContaining({ blockHash: blockId }));
+    });
+
+    it('should accept blobs emitted by rollup contract', async () => {
+      const postResponse = await request(service.getApp())
+        .post('/blob_sidecar')
+        .send({
+          // eslint-disable-next-line camelcase
+          block_id: blockId,
+          blobs: [{ index: 0, blob: outboundTransform(blob.toBuffer()) }],
+        });
+
+      expect(postResponse.status).toBe(200);
+    });
+
+    it('should reject blobs not emitted by rollup contract', async () => {
+      const postResponse = await request(service.getApp())
+        .post('/blob_sidecar')
+        .send({
+          // eslint-disable-next-line camelcase
+          block_id: blockId,
+          blobs: [
+            { index: 0, blob: outboundTransform(blob.toBuffer()) },
+            { index: 1, blob: outboundTransform(blob2.toBuffer()) },
+          ],
+        });
+
+      expect(postResponse.status).toBe(400);
     });
   });
 

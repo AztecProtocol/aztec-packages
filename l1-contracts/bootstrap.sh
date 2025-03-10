@@ -138,11 +138,6 @@ function release {
   release_git_push $branch $REF_NAME ${REF_NAME#v}
 }
 
-function release_commit {
-  echo_header "l1-contracts release commit"
-  release_git_push "$CURRENT_VERSION" "commit-$COMMIT_HASH" "$CURRENT_VERSION-commit.$COMMIT_HASH"
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -157,7 +152,7 @@ case "$cmd" in
   "test")
     test
     ;;
-  test_cmds|release|release_commit)
+  test_cmds|release)
     $cmd
     ;;
   "hash")

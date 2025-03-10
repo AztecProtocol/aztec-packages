@@ -38,6 +38,7 @@ import {
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import type { WitnessMap } from '@aztec/noir-types';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { ProvingError } from '@aztec/stdlib/errors';
@@ -68,7 +69,6 @@ import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import type { WitnessMap } from '@noir-lang/types';
 import { assert } from 'console';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';

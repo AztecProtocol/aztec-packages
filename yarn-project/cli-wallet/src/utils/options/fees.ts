@@ -15,6 +15,7 @@ import { Option } from 'commander';
 
 import type { WalletDB } from '../../storage/wallet_db.js';
 import { createOrRetrieveAccount } from '../accounts.js';
+import { SponsoredFeePaymentMethod } from '../sponsored_fee_payment.js';
 import { aliasedAddressParser } from './options.js';
 
 export type CliFeeArgs = {
@@ -85,13 +86,13 @@ function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
   return {
     method: {
       type: 'name',
-      description: 'Valid values: "fee_juice", "fpc-public", "fpc-private".',
+      description: 'Valid values: "fee_juice", "fpc-public", "fpc-private", "fpc-sponsored"',
       default: 'fee_juice',
     },
     ...(feePayer ? { feePayer } : {}),
     asset: {
       type: 'address',
-      description: 'The asset used for fee payment. Not required for the "fee_juice" method.',
+      description: 'The asset used for fee payment. Required for "fpc-public" and "fpc-private".',
     },
     fpc: {
       type: 'address',
@@ -260,17 +261,18 @@ export function parsePaymentMethod(
     return acc;
   }, {} as Record<string, string>);
 
-  const getFpcOpts = (parsed: Record<string, string>, db?: WalletDB) => {
+  const getFpc = () => {
     if (!parsed.fpc) {
       throw new Error('Missing "fpc" in payment option');
     }
+    return aliasedAddressParser('contracts', parsed.fpc, db);
+  };
+
+  const getAsset = () => {
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
-
-    const fpc = aliasedAddressParser('contracts', parsed.fpc, db);
-
-    return [AztecAddress.fromString(parsed.asset), fpc];
+    return AztecAddress.fromString(parsed.asset);
   };
 
   return async (sender: AccountWallet) => {
@@ -308,16 +310,22 @@ export function parsePaymentMethod(
         }
       }
       case 'fpc-public': {
-        const [asset, fpc] = getFpcOpts(parsed, db);
+        const fpc = getFpc();
+        const asset = getAsset();
         log(`Using public fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PublicFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PublicFeePaymentMethod(fpc, sender);
       }
       case 'fpc-private': {
-        const [asset, fpc] = getFpcOpts(parsed, db);
+        const fpc = getFpc();
+        const asset = getAsset();
         log(`Using private fee payment with asset ${asset} via paymaster ${fpc}`);
         const { PrivateFeePaymentMethod } = await import('@aztec/aztec.js/fee');
         return new PrivateFeePaymentMethod(fpc, sender);
+      }
+      case 'fpc-sponsored': {
+        const sponsor = getFpc();
+        return new SponsoredFeePaymentMethod(sponsor);
       }
       case undefined:
         throw new Error('Missing "method" in payment option');

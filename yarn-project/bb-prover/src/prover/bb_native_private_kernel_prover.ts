@@ -1,12 +1,12 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { serializeWitness } from '@aztec/noir-noirc_abi';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
+import type { WitnessMap } from '@aztec/noir-types';
 import type { SimulationProvider } from '@aztec/simulator/server';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { encode } from '@msgpack/msgpack';
-import { serializeWitness } from '@noir-lang/noirc_abi';
-import type { WitnessMap } from '@noir-lang/types';
 import { promises as fs } from 'fs';
 import path from 'path';
 

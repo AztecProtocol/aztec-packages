@@ -28,8 +28,8 @@
   "dependencies": {
     "@aztec/bb.js": "../../ts",
     "@aztec/foundation": "workspace:^",
-    "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",
-    "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
+    "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen",
+    "@aztec/noir-noir_js": "file:../../noir/packages/noir_js"
   },
   "devDependencies": {
     "@aztec/bb-prover": "workspace:^",

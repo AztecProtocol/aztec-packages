@@ -171,8 +171,7 @@ template <typename Flavor> class SumcheckProver {
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , transcript(transcript)
-        , round(multivariate_n)
-        , partially_evaluated_polynomials(multivariate_n){};
+        , round(multivariate_n){};
 
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
@@ -189,7 +188,6 @@ template <typename Flavor> class SumcheckProver {
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges)
     {
-
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
         multivariate_challenge.reserve(multivariate_d);
@@ -197,9 +195,12 @@ template <typename Flavor> class SumcheckProver {
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the zk_sumcheck_data.
         auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alpha);
+        // Initialize the partially evaluated polynomials which will be used in the following rounds.
+        // This will use the information in the structured full polynomials to save memory if possible.
+        partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
+
         vinfo("starting sumcheck rounds...");
         {
-
             PROFILE_THIS_NAME("rest of sumcheck round 1");
 
             // Place the evaluations of the round univariate into transcript.
@@ -210,11 +211,10 @@ template <typename Flavor> class SumcheckProver {
             partially_evaluate(full_polynomials, multivariate_n, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
-                                                      // release memory?        // All but final round
-                                                      // We operate on partially_evaluated_polynomials in place.
+            // release memory?        // All but final round
+            // We operate on partially_evaluated_polynomials in place.
         }
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
-
             PROFILE_THIS_NAME("sumcheck loop");
 
             // Write the round univariate to the transcript
@@ -224,8 +224,8 @@ template <typename Flavor> class SumcheckProver {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
-            // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
+            // Prepare sumcheck book-keeping table for the next round.
+            partially_evaluate(partially_evaluated_polynomials, multivariate_n >> round_idx, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
         }
@@ -296,9 +296,12 @@ template <typename Flavor> class SumcheckProver {
                                                          alpha,
                                                          zk_sumcheck_data,
                                                          row_disabling_polynomial);
+        // Initialize the partially evaluated polynomials which will be used in the following rounds.
+        // This will use the information in the structured full polynomials to save memory if possible.
+        partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
+
         vinfo("starting sumcheck rounds...");
         {
-
             PROFILE_THIS_NAME("rest of sumcheck round 1");
 
             if constexpr (!IsGrumpkinFlavor<Flavor>) {
@@ -350,8 +353,8 @@ template <typename Flavor> class SumcheckProver {
             const FF round_challenge =
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
-            // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
+            // Prepare sumcheck book-keeping table for the next round.
+            partially_evaluate(partially_evaluated_polynomials, multivariate_n >> round_idx, round_challenge);
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -450,8 +453,11 @@ template <typename Flavor> class SumcheckProver {
         auto poly_view = polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(poly_view.size(), [&](size_t j) {
-            for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j].at(i >> 1) = poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]);
+            const auto& poly = poly_view[j];
+            // If the polynomial is shorter than the round size, we do a little optimization.
+            size_t limit = std::min(poly.end_index(), round_size);
+            for (size_t i = 0; i < limit; i += 2) {
+                pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
         });
     };
@@ -465,24 +471,26 @@ template <typename Flavor> class SumcheckProver {
         auto pep_view = partially_evaluated_polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
-            for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j].at(i >> 1) =
-                    polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
+            const auto& poly = polynomials[j];
+            // If the polynomial is shorter than the round size, we do a little optimization.
+            size_t limit = std::min(poly.end_index(), round_size);
+            for (size_t i = 0; i < limit; i += 2) {
+                pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
         });
     };
 
     /**
-    * @brief This method takes the book-keeping table containing partially evaluated prover polynomials and creates a
-    * vector containing the evaluations of all prover polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$.
-    * For ZK Flavors: this method takes the book-keeping table containing partially evaluated prover polynomials
-and creates a vector containing the evaluations of all witness polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$
-masked by the terms \f$ \texttt{eval_masking_scalars}_j\cdot \sum u_i(1-u_i)\f$ and the evaluations of all non-witness
-polynomials that are sent in clear.
-    *
-    * @param partially_evaluated_polynomials
-    * @param multivariate_evaluations
-    */
+     * @brief This method takes the book-keeping table containing partially evaluated prover polynomials and creates a
+     * vector containing the evaluations of all prover polynomials at the point \f$ (u_0, \ldots, u_{d-1} )\f$.
+     * For ZK Flavors: this method takes the book-keeping table containing partially evaluated prover polynomials
+     * and creates a vector containing the evaluations of all witness polynomials at the point \f$ (u_0, \ldots, u_{d-1}
+     * )\f$ masked by the terms \f$ \texttt{eval_masking_scalars}_j\cdot \sum u_i(1-u_i)\f$ and the evaluations of all
+     * non-witness polynomials that are sent in clear.
+     *
+     * @param partially_evaluated_polynomials
+     * @param multivariate_evaluations
+     */
     ClaimedEvaluations extract_claimed_evaluations(PartiallyEvaluatedMultivariates& partially_evaluated_polynomials)
     {
         ClaimedEvaluations multivariate_evaluations;
@@ -513,7 +521,6 @@ polynomials that are sent in clear.
                                     std::vector<bb::Polynomial<FF>>& round_univariates,
                                     std::vector<std::array<FF, 3>>& round_univariate_evaluations)
     {
-
         const std::string idx = std::to_string(round_idx);
 
         // Transform to monomial form and commit to it

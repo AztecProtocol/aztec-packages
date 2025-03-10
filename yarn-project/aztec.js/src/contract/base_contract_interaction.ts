@@ -1,7 +1,8 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../account/wallet.js';
 import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
@@ -33,7 +34,9 @@ export type SendMethodOptions = {
 export abstract class BaseContractInteraction {
   protected log = createLogger('aztecjs:contract_interaction');
 
-  private capsules: Capsule[] = [];
+  protected authWitnesses: AuthWitness[] = [];
+  protected hashedArguments: HashedValues[] = [];
+  protected capsules: Capsule[] = [];
 
   constructor(protected wallet: Wallet) {}
 
@@ -43,6 +46,14 @@ export abstract class BaseContractInteraction {
    * @returns A transaction execution request.
    */
   public abstract create(options?: SendMethodOptions): Promise<TxExecutionRequest>;
+
+  /**
+   * Returns an execution request that represents this operation.
+   * Can be used as a building block for constructing batch requests.
+   * @param options - An optional object containing additional configuration for the transaction.
+   * @returns An execution request wrapped in promise.
+   */
+  public abstract request(options?: SendMethodOptions): Promise<Omit<ExecutionRequestInit, 'fee'>>;
 
   /**
    * Creates a transaction execution request, simulates and proves it. Differs from .prove in
@@ -168,6 +179,52 @@ export abstract class BaseContractInteraction {
   }
 
   /**
+   * Add authWitness used in this contract interaction.
+   * @param authWitness - authWitness used in the contract interaction.
+   */
+  public addAuthWitness(authWitness: AuthWitness) {
+    this.authWitnesses.push(authWitness);
+  }
+
+  /**
+   * Add authWitness used in this contract interaction.
+   * @param authWitnesses - authWitnesses used in the contract interaction.
+   */
+  public addAuthWitnesses(authWitnesses: AuthWitness[]) {
+    this.authWitnesses.push(...authWitnesses);
+  }
+
+  /**
+   * Return all authWitnesses added for this interaction.
+   */
+  public getAuthWitnesses() {
+    return this.authWitnesses;
+  }
+
+  /**
+   * Add hashedArgument used in this contract interaction.
+   * @param hashedArgument - hashedArgument used in the contract interaction.
+   */
+  public addHashedArgument(hashedArgument: HashedValues) {
+    this.hashedArguments.push(hashedArgument);
+  }
+
+  /**
+   * Add hashedArguments used in this contract interaction.
+   * @param hashedArguments - hashedArguments used in the contract interaction.
+   */
+  public addHashedArguments(hashedArguments: HashedValues[]) {
+    this.hashedArguments.push(...hashedArguments);
+  }
+
+  /**
+   * Return all hashedArguments added for this interaction.
+   */
+  public getHashedArguments() {
+    return this.hashedArguments;
+  }
+
+  /**
    * Add data passed to the oracle calls during this contract interaction.
    * @param capsule - Data passed to oracle calls.
    */
@@ -184,7 +241,7 @@ export abstract class BaseContractInteraction {
   }
 
   /**
-   * Return all capsules added for this function interaction.
+   * Return all capsules added for this contract interaction.
    */
   public getCapsules() {
     return this.capsules;

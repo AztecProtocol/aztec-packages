@@ -102,11 +102,6 @@ function release {
   release_git_push $branch $REF_NAME ${REF_NAME#v}
 }
 
-function release_commit {
-  echo_header "boxes release commit"
-  release_git_push "$CURRENT_VERSION" "commit-$COMMIT_HASH" "$CURRENT_VERSION-commit.$COMMIT_HASH"
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -118,7 +113,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  test|test_cmds|release|release_commit)
+  test|test_cmds|release)
     $cmd
     ;;
   "hash")

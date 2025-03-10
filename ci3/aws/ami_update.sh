@@ -48,9 +48,6 @@ ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip '
   mkdir .aws
 '
 
-# Copy aws credentials onto machine.
-scp -F build_instance_ssh_config $HOME/.aws/build_instance_credentials ubuntu@$ip:.aws/credentials
-
 # Download crs onto machine.
 ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/download_bb_crs.sh
 

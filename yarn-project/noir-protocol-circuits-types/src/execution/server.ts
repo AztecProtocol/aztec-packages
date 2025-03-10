@@ -1,4 +1,6 @@
 import { pushTestData } from '@aztec/foundation/testing';
+import type { WitnessMap } from '@aztec/noir-acvm_js';
+import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import type {
   BaseOrMergeRollupPublicInputs,
@@ -13,9 +15,6 @@ import type {
   RootRollupPublicInputs,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
-
-import type { WitnessMap } from '@noir-lang/acvm_js';
-import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
 import { ServerCircuitArtifacts, SimulatedServerCircuitArtifacts } from '../artifacts/server.js';
 import {

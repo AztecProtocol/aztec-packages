@@ -25,14 +25,6 @@ if [ -z "${REF_NAME:-}" ]; then
     REF_NAME="${REF_NAME#heads/}"
   fi
 
-  # Strip off any leading "release/"
-  REF_NAME="${REF_NAME#release/}"
-
-  # If this is github merge queue, just keep the queue name.
-  if [[ "$REF_NAME" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
-    REF_NAME=${BASH_REMATCH[1]}
-  fi
-
   [ -z "$REF_NAME" ] && exit 1
 
   export REF_NAME
