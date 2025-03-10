@@ -6,13 +6,15 @@
 #pragma clang diagnostic push
 // TODO(luke/kesha): Add a comment explaining why we need this ignore and what the solution is.
 // TODO(alex): resolve this todo in current pr
+// TODO
 #pragma clang diagnostic ignored "-Wc99-designator"
 
 #define HAVOC_TESTING
 
 #include "barretenberg/common/fuzzer.hpp"
+// TODO: figure out how to detect w + w = c
 
-#define SHOW_INFORMATION
+//#define SHOW_INFORMATION
 
 #ifdef SHOW_INFORMATION
 #define PRINT_SINGLE_ARG_INSTRUCTION(first_index, vector, operation_name, preposition)                                 \
@@ -98,7 +100,7 @@ template <typename Builder> class CycleGroupBase {
             SUBTRACT,
             NEG,
             DBL,
-            MUL,
+            MULTIPLY,
             BATCH_MUL,
             RANDOMSEED,
             _LAST
@@ -231,7 +233,7 @@ template <typename Builder> class CycleGroupBase {
                          .arguments.fourArgs.in2 = in2,
                          .arguments.fourArgs.in3 = in3,
                          .arguments.fourArgs.out = out };
-            case OPCODE::MUL:
+            case OPCODE::MULTIPLY:
                 in = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode,
@@ -525,7 +527,7 @@ template <typename Builder> class CycleGroupBase {
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.in);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.out);
                 break;
-            case OPCODE::MUL:
+            case OPCODE::MULTIPLY:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.mulArgs.in);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.mulArgs.out);
                 if (rng.next() & 1) {
@@ -597,7 +599,7 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t ADD = 3;
         static constexpr size_t SUBTRACT = 3;
         static constexpr size_t COND_ASSIGN = 4;
-        static constexpr size_t MUL = sizeof(typename Instruction::MulArgs);
+        static constexpr size_t MULTIPLY = sizeof(typename Instruction::MulArgs);
         static constexpr size_t BATCH_MUL = sizeof(typename Instruction::BatchMulArgs);
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
     };
@@ -621,7 +623,7 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t NEG = 1;
         static constexpr size_t COND_ASSIGN = 1;
 
-        static constexpr size_t MUL = 2;
+        static constexpr size_t MULTIPLY = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
         static constexpr size_t SET_INF = 2;
 
@@ -668,7 +670,7 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::COND_ASSIGN:
                 instr.arguments.fourArgs = { .in1 = *Data, .in2 = *(Data + 1), .in3 = *(Data + 2), .out = *(Data + 3) };
                 break;
-            case Instruction::OPCODE::MUL:
+            case Instruction::OPCODE::MULTIPLY:
                 instr.arguments.mulArgs.in = *Data;
                 instr.arguments.mulArgs.out = *(Data + 1);
                 instr.arguments.mulArgs.scalar = ScalarField::serialize_from_buffer(Data + 2);
@@ -721,7 +723,7 @@ template <typename Builder> class CycleGroupBase {
                 *(Data + 3) = instruction.arguments.fourArgs.in3;
                 *(Data + 4) = instruction.arguments.fourArgs.out;
                 return;
-            case Instruction::OPCODE::MUL:
+            case Instruction::OPCODE::MULTIPLY:
                 *(Data + 1) = instruction.arguments.mulArgs.in;
                 *(Data + 2) = instruction.arguments.mulArgs.out;
                 ScalarField::serialize_to_buffer(instruction.arguments.mulArgs.scalar, Data + 3);
@@ -749,8 +751,15 @@ template <typename Builder> class CycleGroupBase {
              * in that case, the function that handles the predicate
              * will use the context of another input parameter
              */
-            const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
-            return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
+            const bool predicate_is_const = static_cast<bool>(VarianceRNG.next() & 1);
+#ifdef SHOW_INFORMATION
+            std::cout << "Constant predicate? " << predicate_is_const << std::endl;
+#endif
+            if(predicate_is_const){
+                const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
+                return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
+            }
+            return bool_t(witness_t(builder, predicate));
         }
 
         cycle_group_t cg() const
@@ -777,14 +786,13 @@ template <typename Builder> class CycleGroupBase {
             , cycle_group(w_g)
         {}
 
-        ExecutionHandler operator+(const ExecutionHandler& other)
+        ExecutionHandler operator_add(Builder* builder, const ExecutionHandler& other)
         {
             ScalarField base_scalar_res = this->base_scalar + other.base_scalar;
             GroupElement base_res = this->base + other.base;
 
-            bool can_fail = false;
             if (other.cg().get_value() == this->cg().get_value()) {
-                uint8_t dbl_path = VarianceRNG.next() % 3;
+                uint8_t dbl_path = VarianceRNG.next() % 4;
 #ifdef SHOW_INFORMATION
                 std::cout << " using " << size_t(dbl_path) << " dbl path" << std::endl;
 #endif
@@ -794,11 +802,12 @@ template <typename Builder> class CycleGroupBase {
                 case 1:
                     return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
                 case 2:
-                    can_fail = true;
-                    break;
+                    return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+                case 3:
+                    return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
                 }
             } else if (other.cg().get_value() == -this->cg().get_value()) {
-                uint8_t inf_path = VarianceRNG.next() % 3;
+                uint8_t inf_path = VarianceRNG.next() % 4;
                 cycle_group_t res;
 #ifdef SHOW_INFORMATION
                 std::cout << " using " << size_t(inf_path) << " inf path" << std::endl;
@@ -806,58 +815,46 @@ template <typename Builder> class CycleGroupBase {
                 switch (inf_path) {
                 case 0:
                     res = this->cg();
-                    res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
+                    res.set_point_at_infinity(this->construct_predicate(builder, true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 1:
                     res = other.cg();
-                    res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
+                    res.set_point_at_infinity(this->construct_predicate(builder, true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
-                    can_fail = true;
-                    break;
+                    return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+                case 3:
+                    return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
                 }
             }
-
-#ifdef SHOW_INFORMATION
-            std::cout << "Edge case? " << can_fail << std::endl;
-#endif
-
-            uint8_t add_option = VarianceRNG.next() % 5;
+            bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() || other.cycle_group.is_point_at_infinity().get_value();
+            uint8_t add_option = smth_inf ? 4 + (VarianceRNG.next() % 2) : VarianceRNG.next() % 6;
 #ifdef SHOW_INFORMATION
             std::cout << " using " << size_t(add_option) << " add path" << std::endl;
 #endif
 
             switch (add_option) {
             case 0:
-                circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_add(other.cg()));
             case 1:
-                circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().unconditional_add(this->cg()));
             case 2:
-                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
-                    circuit_should_fail = circuit_should_fail | can_fail;
-                    return ExecutionHandler(
-                        base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
-                }
+                return ExecutionHandler(base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
             case 3:
-                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
-                    circuit_should_fail = circuit_should_fail | can_fail;
-                    return ExecutionHandler(
-                        base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
-                }
+                return ExecutionHandler(base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
             case 4:
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+            case 5:
+                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
             return {};
         }
 
-        ExecutionHandler operator-(const ExecutionHandler& other)
+        ExecutionHandler operator_sub(Builder* builder, const ExecutionHandler& other)
         {
             ScalarField base_scalar_res = this->base_scalar - other.base_scalar;
             GroupElement base_res = this->base - other.base;
 
-            bool can_fail = false;
             if (other.cg().get_value() == -this->cg().get_value()) {
                 uint8_t dbl_path = VarianceRNG.next() % 3;
 #ifdef SHOW_INFORMATION
@@ -868,10 +865,9 @@ template <typename Builder> class CycleGroupBase {
                 case 0:
                     return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
                 case 1:
-                    return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
+                    return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
                 case 2:
-                    can_fail = true;
-                    break;
+                    return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
                 }
             } else if (other.cg().get_value() == this->cg().get_value()) {
                 uint8_t inf_path = VarianceRNG.next() % 3;
@@ -883,36 +879,28 @@ template <typename Builder> class CycleGroupBase {
                 switch (inf_path) {
                 case 0:
                     res = this->cg();
-                    res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
+                    res.set_point_at_infinity(this->construct_predicate(builder, true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 1:
                     res = other.cg();
-                    res.set_point_at_infinity(this->construct_predicate(this->cycle_group.get_context(), true));
+                    res.set_point_at_infinity(this->construct_predicate(builder, true));
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
-                    can_fail = true;
-                    break;
+                    return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
                 }
             }
-#ifdef SHOW_INFORMATION
-            std::cout << "Edge case? " << can_fail << std::endl;
-#endif
-
-            uint8_t add_option = VarianceRNG.next() % 3;
+            bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() || other.cycle_group.is_point_at_infinity().get_value();
+            uint8_t add_option = smth_inf ? 2: VarianceRNG.next() % 3;
 #ifdef SHOW_INFORMATION
             std::cout << " using " << size_t(add_option) << " sub path" << std::endl;
 #endif
 
             switch (add_option) {
             case 0:
-                circuit_should_fail = circuit_should_fail | can_fail;
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_subtract(other.cg()));
             case 1:
-                if (!(this->cycle_group.is_constant() && other.cycle_group.is_constant())) {
-                    circuit_should_fail = circuit_should_fail | can_fail;
-                    return ExecutionHandler(
-                        base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
-                }
+                return ExecutionHandler(
+                    base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
             case 2:
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
             }
@@ -986,12 +974,10 @@ template <typename Builder> class CycleGroupBase {
                     // Assert equal does nothing in this case
                     return;
                 }
-                auto to_add = cycle_group_t::from_witness(builder, AffineElement(this->base - other.base));
-                this->cycle_group.assert_equal(other.cg() + to_add);
-            } else {
-                auto to_add = cycle_group_t::from_witness(builder, AffineElement(this->base - other.base));
-                this->cg().assert_equal(other.cg() + to_add);
             }
+            auto to_add = cycle_group_t::from_witness(builder, AffineElement(this->base - other.base));
+            auto to_ae = other.cg() + to_add;
+            this->cg().assert_equal(to_ae);
         }
 
         /* Explicit re-instantiation using the various cycle_group_t constructors */
@@ -1033,7 +1019,8 @@ template <typename Builder> class CycleGroupBase {
         ExecutionHandler set_inf(Builder* builder)
         {
             auto res = this->set(builder);
-            res.set_point_at_infinity(this->construct_predicate(builder, true));
+            const bool set_inf = static_cast<bool>(VarianceRNG.next() & 1);
+            res.set_point_at_infinity(this->construct_predicate(builder, set_inf));
             return res;
         }
 
@@ -1296,7 +1283,7 @@ template <typename Builder> class CycleGroupBase {
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Adding", "+")
 
             ExecutionHandler result;
-            result = stack[first_index] + stack[second_index];
+            result = stack[first_index].operator_add(builder, stack[second_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -1331,7 +1318,7 @@ template <typename Builder> class CycleGroupBase {
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Subtracting", "-")
 
             ExecutionHandler result;
-            result = stack[first_index] - stack[second_index];
+            result = stack[first_index].operator_sub(builder, stack[second_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
