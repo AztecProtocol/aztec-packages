@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741466530198,
+  "lastUpdate": 1741601441306,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "80c9b4e2e34e70d423622ea0391a6d0a1785ddf9",
-          "message": "fix: update bbup to match new release naming (#12495)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
-          "timestamp": "2025-03-05T13:34:44-05:00",
-          "tree_id": "d06252237772e0bac6f062fd0f56ea75951df62c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/80c9b4e2e34e70d423622ea0391a6d0a1785ddf9"
-        },
-        "date": 1741202459337,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18011.361953000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15900.820964 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18651.774841999897,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16304.77351 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3836.4296879997255,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3087.183767 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54779.418416,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54779418000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9978.066083,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9978071000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1885849924,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1885849924 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 211532938,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 211532938 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 214123328,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 214123328 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "106527861+sthwnd@users.noreply.github.com",
+            "name": "Lisa",
+            "username": "sthwnd"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d45dac9b69c55cdaaffb648350fbdf09972ba9d4",
+          "message": "chore(docs): Updated accounts page (#12019)\n\ncloses https://github.com/AztecProtocol/aztec-packages/issues/10498\n\n---------\n\nCo-authored-by: Cat McGee <helloworld@mcgee.cat>\nCo-authored-by: Rahul Kothari <rahul.kothari.201@gmail.com>\nCo-authored-by: josh crites <critesjosh@gmail.com>\nCo-authored-by: josh crites <jc@joshcrites.com>",
+          "timestamp": "2025-03-10T11:31:44+02:00",
+          "tree_id": "68580536d53ab9555910204d513e8e8e706759dd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d45dac9b69c55cdaaffb648350fbdf09972ba9d4"
+        },
+        "date": 1741601433198,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18488.02552799998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16215.443111000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18988.339747000282,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16468.885732 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3909.9979989996427,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3125.8927259999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55798.450211999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55798450000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11084.440498,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11084447000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1610527221,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1610527221 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 214865419,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 214865419 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
