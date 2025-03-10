@@ -16,13 +16,9 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
 void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel);
 
-std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
-                                                  const size_t num_public_inputs,
-                                                  const size_t pub_inputs_offset);
+std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs);
 
-std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t dyadic_size,
-                                                const size_t num_public_inputs,
-                                                const size_t pub_inputs_offset);
+std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t num_public_inputs);
 
 std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t dyadic_size,
                                                                     const size_t num_public_inputs,

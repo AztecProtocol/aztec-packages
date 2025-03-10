@@ -183,11 +183,6 @@ TEST_F(ClientIVCTests, BadProofFailure)
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            if (idx == 3) { // At idx = 3, we've tampered with the one of the folding proofs so create the recursive
-                            // folding verifier will throw an error.
-                EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
-                break;
-            }
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
 
@@ -196,6 +191,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
                 tamper_with_proof(ivc.verification_queue[0].proof); // tamper with first proof
             }
         }
+        EXPECT_FALSE(ivc.prove_and_verify());
     }
 
     // The IVC fails if the SECOND fold proof is tampered with
@@ -207,11 +203,6 @@ TEST_F(ClientIVCTests, BadProofFailure)
         // Construct and accumulate a set of mocked private function execution circuits
         size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            if (idx == 3) { // At idx = 3, we've tampered with the one of the folding proofs so create the recursive
-                            // folding verifier will throw an error.
-                EXPECT_ANY_THROW(circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5));
-                break;
-            }
             auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
             ivc.accumulate(circuit);
 
@@ -220,6 +211,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
                 tamper_with_proof(ivc.verification_queue[1].proof); // tamper with second proof
             }
         }
+        EXPECT_FALSE(ivc.prove_and_verify());
     }
 
     // The IVC fails if the 3rd/FINAL fold proof is tampered with
@@ -239,7 +231,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
         EXPECT_EQ(ivc.verification_queue.size(), 1);
         tamper_with_proof(ivc.verification_queue[0].proof); // tamper with the final fold proof
 
-        EXPECT_ANY_THROW(ivc.prove_and_verify());
+        EXPECT_FALSE(ivc.prove_and_verify());
     }
 
     EXPECT_TRUE(true);

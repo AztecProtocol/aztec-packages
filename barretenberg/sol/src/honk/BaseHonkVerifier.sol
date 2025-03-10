@@ -45,7 +45,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     error ShpleminiFailed();
 
     // Number of field elements in a ultra honk  proof
-    uint256 constant PROOF_SIZE = 443;
+    uint256 constant PROOF_SIZE = 440;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -62,12 +62,13 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         // Generate the fiat shamir challenges for the whole protocol
-        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, numPublicInputs);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
+        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, /*pubInputsOffset=*/1);
 
         // Derive public input delta
-        t.relationParameters.publicInputsDelta = computePublicInputDelta(
-            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
-        );
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
+        t.relationParameters.publicInputsDelta =
+            computePublicInputDelta(publicInputs, t.relationParameters.beta, t.relationParameters.gamma, /*pubInputsOffset=*/1);
 
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);

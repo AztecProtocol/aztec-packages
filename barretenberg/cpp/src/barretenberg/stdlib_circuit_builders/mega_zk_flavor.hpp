@@ -56,14 +56,10 @@ class MegaZKFlavor : public bb::MegaFlavor {
             return verifier_transcript;
         };
 
-        void deserialize_full_transcript()
+        void deserialize_full_transcript(size_t public_input_size)
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
-            this->circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-
-            this->public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             for (size_t i = 0; i < public_input_size; ++i) {
                 this->public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
@@ -125,11 +121,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
         {
             size_t old_proof_length = proof_data.size();
             proof_data.clear();
-            serialize_to_buffer(this->circuit_size, proof_data);
-            serialize_to_buffer(this->public_input_size, proof_data);
-            serialize_to_buffer(this->pub_inputs_offset, proof_data);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                serialize_to_buffer(this->public_inputs[i], proof_data);
+            for (const auto& public_input : public_inputs) {
+                serialize_to_buffer(public_input, proof_data);
             }
             serialize_to_buffer(this->w_l_comm, proof_data);
             serialize_to_buffer(this->w_r_comm, proof_data);

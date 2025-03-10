@@ -91,8 +91,8 @@ library Add2HonkVerificationKey {
                 y: uint256(0x195266ac0788c227762333892ad282a4679450ae72e8e8b4a1ead0e63d4f4e04)
             }),
             t3: Honk.G1Point({
-                x: uint256(0x1eb529bdb867a986cca8b8c0119e679b5712f4503e5d00698de6b6ae49092404),
-                y: uint256(0x20886f9e098437ea65110f5591661e37ac720779a376a6155f132dcd6c301a52)
+                x: uint256(0x192a87ba208ab02639f2453bde4d15e8c489e522f16c07fd8e312a10142484d8),
+                y: uint256(0x0978af3f655d807c77436eec1810420c3170702a20ae32933baa816253797b15)
             }),
             t4: Honk.G1Point({
                 x: uint256(0x1a552bd8d3265d1f23e7ff166cf20fffa5c0688c867cfd3a2ea65452d8ad60a4),

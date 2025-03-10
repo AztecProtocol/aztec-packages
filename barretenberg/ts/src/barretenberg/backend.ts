@@ -157,8 +157,6 @@ export class UltraPlonkBackend {
 // Buffers are prepended with their size. The size takes 4 bytes.
 const serializedBufferSize = 4;
 const fieldByteSize = 32;
-const publicInputOffset = 3;
-const publicInputsOffsetBytes = publicInputOffset * fieldByteSize;
 
 /**
  * Options for the UltraHonkBackend.
@@ -213,24 +211,31 @@ export class UltraHonkBackend {
       gunzip(compressedWitness),
     );
 
-    const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
+    // Write VK to get the number of public inputs
+    const writeVKUltraHonk = options?.keccak
+      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
 
-    const numPublicInputs = Number(proofAsStrings[1]);
+    const vk = await writeVKUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
+
+    // Item at index 1 in VK is the number of public inputs
+    const numPublicInputs = Number(vkAsFields[1].toString());
+
 
     // Account for the serialized buffer size at start
-    const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
     // Get the part before and after the public inputs
-    const proofStart = proofWithPublicInputs.slice(0, publicInputsOffset);
+    const proofStart = proofWithPublicInputs.slice(0, serializedBufferSize);
     const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
-    const proofEnd = proofWithPublicInputs.slice(publicInputsOffset + publicInputsSplitIndex);
+    const proofEnd = proofWithPublicInputs.slice(serializedBufferSize + publicInputsSplitIndex);
 
     // Construct the proof without the public inputs
     const proof = new Uint8Array([...proofStart, ...proofEnd]);
 
     // Fetch the number of public inputs out of the proof string
     const publicInputsConcatenated = proofWithPublicInputs.slice(
-      publicInputsOffset,
-      publicInputsOffset + publicInputsSplitIndex,
+      serializedBufferSize,
+      serializedBufferSize + publicInputsSplitIndex,
     );
     const publicInputs = deflattenFields(publicInputsConcatenated);
 
@@ -252,40 +257,35 @@ export class UltraHonkBackend {
       this.circuitOptions.recursive,
       gunzip(compressedWitness),
     );
+    // Write VK to get the number of public inputs
+    const writeVKUltraHonk = options?.keccak
+      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
+
+    const vk = await writeVKUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
 
     // proofWithPublicInputs starts with a four-byte size
     const numSerdeHeaderBytes = 4;
     // some public inputs are handled specially
     const numKZGAccumulatorFieldElements = 16;
-    // proof begins with: size, num public inputs, public input offset
-    const numProofPreambleElements = 3;
-    const publicInputsSizeIndex = 1;
+    const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
 
-    // Slice serde header and convert to fields
-    const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(numSerdeHeaderBytes));
-    const numPublicInputs = Number(proofAsStrings[publicInputsSizeIndex]) - numKZGAccumulatorFieldElements;
-
-    // Account for the serialized buffer size at start
-    const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
-    const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
+    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - numKZGAccumulatorFieldElements;
 
     // Construct the proof without the public inputs
     const numPublicInputsBytes = numPublicInputs * fieldByteSize;
-    const numHeaderPlusPreambleBytes = numSerdeHeaderBytes + numProofPreambleElements * fieldByteSize;
     const proofNoPIs = new Uint8Array(proofWithPublicInputs.length - numPublicInputsBytes);
     // copy the elements before the public inputs
-    proofNoPIs.set(proofWithPublicInputs.subarray(0, numHeaderPlusPreambleBytes), 0);
+    proofNoPIs.set(proofWithPublicInputs.subarray(0, numSerdeHeaderBytes), 0);
     // copy the elements after the public inputs
-    proofNoPIs.set(
-      proofWithPublicInputs.subarray(numHeaderPlusPreambleBytes + numPublicInputsBytes),
-      numHeaderPlusPreambleBytes,
-    );
+    proofNoPIs.set(proofWithPublicInputs.subarray(numSerdeHeaderBytes + numPublicInputsBytes), numSerdeHeaderBytes);
     const proof: string[] = deflattenFields(proofNoPIs.slice(numSerdeHeaderBytes));
 
     // Fetch the number of public inputs out of the proof string
     const publicInputsConcatenated = proofWithPublicInputs.slice(
-      publicInputsOffset,
-      publicInputsOffset + publicInputsSplitIndex,
+      serializedBufferSize,
+      serializedBufferSize + numPublicInputsBytes,
     );
     const publicInputs = deflattenFields(publicInputsConcatenated);
 
@@ -386,8 +386,8 @@ export class AztecClientBackend {
     await this.instantiate();
     const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
     const [proof, vk] = proofAndVk;
-    if (!await this.verify(proof, vk)) {
-      throw new AztecClientBackendError("Failed to verify the private (ClientIVC) transaction proof!");
+    if (!(await this.verify(proof, vk))) {
+      throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
     }
     return proofAndVk;
   }
