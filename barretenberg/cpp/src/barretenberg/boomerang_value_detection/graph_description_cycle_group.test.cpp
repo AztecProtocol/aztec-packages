@@ -23,9 +23,9 @@ TEST(boomerang_cycle_group, sasha_test)
     auto left = cycle_group_t::from_witness(&builder, AffineElement::random_element());
     auto right = cycle_group_t::from_witness(&builder, AffineElement::random_element());
     [[maybe_unused]]auto res = left + right;
-    [[maybe_unused]]auto res2 = res * cycle_scalar_t(ScalarField(7));
     auto graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     if (variables_in_one_gate.size() > 0) {
         for (const auto& elem: variables_in_one_gate) {
