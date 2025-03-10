@@ -239,10 +239,10 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const batch = new BatchCall(this.wallets[i], [
-          await this.spam.methods.spam(this.seed, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 16n, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 32n, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 48n, 15, true).request(),
+          this.spam.methods.spam(this.seed, 16, false),
+          this.spam.methods.spam(this.seed + 16n, 16, false),
+          this.spam.methods.spam(this.seed + 32n, 16, false),
+          this.spam.methods.spam(this.seed + 48n, 15, true),
         ]);
 
         this.seed += 100n;

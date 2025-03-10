@@ -5,12 +5,10 @@ import {
   AnvilTestWatcher,
   type AztecAddress,
   BatchCall,
-  type Capsule,
   CheatCodes,
   type CompleteAddress,
   type ContractFunctionInteraction,
   type DeployL1ContractsReturnType,
-  type FunctionCall,
   type Logger,
   type PXE,
   type Wallet,
@@ -616,14 +614,12 @@ export async function publicDeployAccounts(
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
-  const fns: ContractFunctionInteraction[] = await Promise.all([
+  const calls: ContractFunctionInteraction[] = await Promise.all([
     ...(!alreadyRegistered ? [registerContractClass(sender, SchnorrAccountContractArtifact)] : []),
     ...instances.map(instance => deployInstance(sender, instance!)),
   ]);
-  const calls: FunctionCall[] = await Promise.all(fns.map(fn => fn.request()));
-  const capsules: Capsule[] = fns.map(fn => fn.getCapsules()).flat();
 
   const batch = new BatchCall(sender, calls);
-  batch.addCapsules(capsules);
+
   await batch.send().wait({ proven: waitUntilProven });
 }
