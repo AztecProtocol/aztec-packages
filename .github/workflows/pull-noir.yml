@@ -92,7 +92,7 @@ jobs:
           # for cross-opening PR in noir repo, we use aztecbot's token
           export GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           if [[ "$PR_URL" == "" ]]; then
-            gh pr create --repo AztecProtocol/aztec-packages --title "feat: Sync from noir" --body "$PR_BODY" --base $BRANCH_NAME --head bump-noir
+            gh pr create --repo AztecProtocol/aztec-packages --title "chore: Bump Noir reference" --body "$PR_BODY" --base $BRANCH_NAME --head bump-noir
           else
             echo "Updating existing PR."
             gh pr edit "$PR_URL" --body "$PR_BODY"
