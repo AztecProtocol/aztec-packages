@@ -1,4 +1,4 @@
-# Create a pull request from current Noir master.
+# Create a pull request from current Noir nightly.
 name: Pull from noir repo
 
 # Don't allow multiple of these running at once:
@@ -56,6 +56,8 @@ jobs:
             cd ..
           }
           echo "$(compute_commit_message)" >> .PR_BODY_MESSAGE
+          # Remove the temporary clone we made to calculate the message
+          rm -rf noir-repo
 
       - name: Set git configure for commits
         run: |
