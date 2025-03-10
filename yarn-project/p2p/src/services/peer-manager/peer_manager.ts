@@ -247,6 +247,8 @@ export class PeerManager {
       ...this.peerScoring.getStats(),
     });
 
+    this.metrics.recordPeerCount(healthyConnections.length);
+
     // Exit if no peers to connect
     if (peersToConnect <= 0) {
       return;

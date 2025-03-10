@@ -578,7 +578,6 @@ export function mapPrivateVerificationKeyHintsToNoir(
       privateVerificationKeyHints.protocolContractMembershipWitness,
     ),
     protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateVerificationKeyHints.protocolContractLeaf),
-    acir_hash: mapFieldToNoir(privateVerificationKeyHints.acirHash),
     updated_class_id_witness: mapMembershipWitnessToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdWitness,
     ),
