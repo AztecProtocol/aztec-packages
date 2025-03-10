@@ -13,6 +13,11 @@ while [ "$#" -gt 0 ]; do
       AZTEC_PORT="$2"
       shift 2
       ;;
+    -a | --anvil-port)
+      # Override default port exposed on container.
+      ANVIL_PORT="$2"
+      shift 2
+      ;;
     --pxe.network)
       # Set version to user-specified network (e.g. 'devnet')
       VERSION="$2"
@@ -51,6 +56,7 @@ case ${1:-} in
     export ENV_VARS_TO_INJECT="$(get_env_vars)"
     # Opens the requested port on the container.
     export AZTEC_PORT=${AZTEC_PORT:-8080}
+    export ANVIL_PORT=${ANVIL_PORT:-8545}
     if [ "${2:-}" == "--sandbox" ]; then
       # TODO: This entire special case should go away.
       # Sandbox mode should start it's own anvil.

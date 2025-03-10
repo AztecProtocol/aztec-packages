@@ -17,6 +17,7 @@ CONTAINER_NAME=$1
 shift
 
 VERSION=${VERSION:-"latest"}
+ANVIL_PORT=${ANVIL_PORT:-8545}
 
 # We default to colored logs.
 FORCE_COLOR=${FORCE_COLOR:-1}
@@ -110,7 +111,7 @@ for env in ${ENV_VARS_TO_INJECT:-}; do
   fi
 done
 
-arg_port_assignment=""
+arg_port_assignment="-p $ANVIL_PORT:8545"
 
 # Dynamic port assignment.
 if [ -n "${AZTEC_PORT:-}" ]; then
