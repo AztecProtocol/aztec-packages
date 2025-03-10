@@ -1,6 +1,5 @@
-import { bufferSchema } from '@aztec/foundation/schemas';
+import { bufferSchema, mapSchema } from '@aztec/foundation/schemas';
 
-import type { WitnessMap } from '@noir-lang/acvm_js';
 import { z } from 'zod';
 
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
@@ -12,7 +11,7 @@ export const PrivateExecutionStepSchema = z.object({
   functionName: z.string(),
   gateCount: z.number().optional(),
   bytecode: bufferSchema,
-  witness: z.map(z.number(), z.string()),
+  witness: mapSchema(z.number(), z.string()),
 });
 
 /**
