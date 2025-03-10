@@ -54,7 +54,7 @@ function check_toolchains {
     exit 1
   fi
   # Check rustup installed.
-  local rust_version=$(yq '.toolchain.channel' ./noir/noir-repo/rust-toolchain.toml)
+  local rust_version=$(yq '.toolchain.channel' ./avm-transpiler/rust-toolchain.toml)
   if ! command -v rustup > /dev/null; then
     encourage_dev_container
     echo "Rustup not installed."
@@ -114,6 +114,8 @@ function install_hooks {
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
   echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
+  echo "(cd noir && ./postcheckout.sh $@)" >$hooks_dir/post-checkout
+  chmod +x $hooks_dir/post-checkout
 }
 
 function test_cmds {

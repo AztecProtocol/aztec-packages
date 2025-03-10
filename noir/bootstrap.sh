@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+set -eou pipefail
+
 cmd=${1:-}
 [ -n "$cmd" ] && shift
+
+# Update the noir-repo before we hash its content, unless the command is exempt.
+no_update=(clean make-patch)
+if [[ -z "$cmd" || ! ${no_update[*]} =~ "$cmd" ]]; then
+  scripts/sync.sh init
+  scripts/sync.sh update
+fi
 
 export hash=$(cache_content_hash .rebuild_patterns)
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
@@ -185,7 +194,8 @@ function release_commit {
 
 case "$cmd" in
   "clean")
-    git clean -fdx
+    # Double `f` needed to delete the nested git repository.
+    git clean -ffdx
     ;;
   "ci")
     build
@@ -202,6 +212,9 @@ case "$cmd" in
     ;;
   "hash-test")
     echo $test_hash
+    ;;
+  "make-patch")
+    scripts/sync.sh make-patch
     ;;
   *)
     echo "Unknown command: $cmd"
