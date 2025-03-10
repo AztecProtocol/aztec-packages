@@ -57,9 +57,7 @@ case ${1:-} in
 
     # Dynamic port assignments, .aztec-run will expose the array PORTS_TO_EXPOSE as a space-separated string.
     AZTEC_PORT=${AZTEC_PORT:-8080}
-    aztec_port_assignment="$AZTEC_PORT:$AZTEC_PORT"
-
-    export PORTS_TO_EXPOSE="$aztec_port_assignment"
+    export PORTS_TO_EXPOSE="$AZTEC_PORT:$AZTEC_PORT"
 
     if [ "${2:-}" == "--sandbox" ]; then
       # TODO: This entire special case should go away.
@@ -81,7 +79,7 @@ case ${1:-} in
       ANVIL_PORT=${ANVIL_PORT:-8545}
       anvil_port_assignment="$ANVIL_PORT:8545"
 
-      export PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
+      PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
 
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
         anvil --host 0.0.0.0 --silent &
