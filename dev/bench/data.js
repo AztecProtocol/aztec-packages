@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741615091814,
+  "lastUpdate": 1741617787456,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "domuradical@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "domuradical@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "distinct": true,
-          "id": "b11c2117713bd38028975373b6dc8726f5c4214b",
-          "message": "chore: repair release-please PR for 0.77.1\n\nRelease-As: 0.77.1",
-          "timestamp": "2025-03-05T21:15:52Z",
-          "tree_id": "d9c2f5be94099cddcc67a7197985758ae102871c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b11c2117713bd38028975373b6dc8726f5c4214b"
-        },
-        "date": 1741210894080,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18034.433885999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16019.332876 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18580.447092999973,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16206.131461000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3822.7982049999127,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3049.343333 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54975.106273000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54975107000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10144.30805,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10144325000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1952114979,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1952114979 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 216852817,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 216852817 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 218007656,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 218007656 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd0b3b69c57e9ed225b3a8b8e5dfba65edb31977",
+          "message": "fix!: aggregate data for batch calls (#12562)\n\n- `BatchCall` now takes an array of `BaseContractInteraction`, which has\nall the information including `functionCall`, `authwit` and `capsules`.\nBefore it took an array of `functionCall` and users would have to set\nother data to it seperately.\n- `BaseContractInteraction` has a method `request` that returns\n`<Omit<ExecutionRequestInit, 'fee'>>`. This is called by `BatchCall` to\ngather all the data, and used for simulation to estimate fee.",
+          "timestamp": "2025-03-10T14:02:59Z",
+          "tree_id": "2cc532c69da3761e332ae1389e0cd600c118b6bd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bd0b3b69c57e9ed225b3a8b8e5dfba65edb31977"
+        },
+        "date": 1741617779048,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18293.49905500021,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16220.779099999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18989.844000000176,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16379.084727000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3950.8375239997804,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3091.9362690000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55542.255637,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55542255000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10520.341719999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10520350000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1605785753,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1605785753 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 217209269,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 217209269 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
