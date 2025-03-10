@@ -1,8 +1,7 @@
+import { type ExecutionError, executeCircuit } from '@aztec/noir-acvm_js';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/server';
+import type { WitnessMap } from '@aztec/noir-types';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
-
-import { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
-import type { WitnessMap } from '@noir-lang/types';
 
 import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';

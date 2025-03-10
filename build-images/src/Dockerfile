@@ -79,6 +79,7 @@ ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
+ENV RUSTFLAGS="-C target-cpu=generic"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN curl -L https://foundry.paradigm.xyz | bash \
     && $FOUNDRY_BIN_DIR/foundryup -b nightly-$FOUNDRY_TAG \
@@ -88,7 +89,6 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
         strip /opt/foundry/bin/$t; \
     done \
     && rm -rf $FOUNDRY_BIN_DIR
-ENV PATH="/opt/foundry/bin:$PATH"
 
 
 ########################################################################################################################
