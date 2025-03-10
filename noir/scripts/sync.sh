@@ -43,7 +43,7 @@ function read_wanted_ref {
 
 # Return the current branch name, or fail if we're not on a branch.
 function branch_name {
-  git -C noir-repo symbolic-ref -q HEAD
+  git -C noir-repo symbolic-ref --short -q HEAD
 }
 
 # Check if we are on a branch.
@@ -214,10 +214,11 @@ function update_repo {
     if is_on_branch; then
       # If we're on a branch, then we there might be new commits.
       # Rebasing so our local patch commit ends up on top.
-      git -C noir-repo pull --rebase
+      # Quiet so we don't interfere with `test_cmds`
+      git -C noir-repo pull --rebase --quiet
       return
     elif ! has_tag $want; then
-      # If the last thing we checked out was the commit we wanted, then we're okay.
+      # We are on what we wanted and it's _not_ a tag, so it must be a commit, and we have nothing more to do.
       return
     elif has_tag_commit $want; then
       # We checked out a tag, and it looks like it hasn't been moved to a different commit.
@@ -230,13 +231,13 @@ function update_repo {
   # We need to switch branches.
 
   if has_uncommitted_changes; then
-    echo "noir-repo has uncommitted changes which could get lost if we switch to $want"
+    echo "Warning: noir-repo has uncommitted changes which could get lost if we switch to $want"
     echo "Please commit these changes and consider pushing them upstream to make sure they are not lost."
     exit 1
   fi
 
   if needs_patch; then
-    echo "noir-repo is on a detached HEAD and the last commit is not the patch marker commit;"
+    echo "Warning: noir-repo is on a detached HEAD and the last commit is not the patch marker commit;"
     echo "switching from to $want could meand losing those commits."
     echo "Please use the 'make-patch' command to create a $NOIR_REPO_PATCH file and commit it in aztec-packages, "
     echo "so that it is applied after each checkout; make sure to commit the patch on the branch where it should be."
