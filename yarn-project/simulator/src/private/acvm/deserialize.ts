@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { hexToBuffer } from '@aztec/foundation/string';
 
 import type { ACVMField, ACVMWitness } from './acvm_types.js';
 
@@ -49,4 +50,18 @@ export function fromBoundedVec(storage: ACVMField[], length: ACVMField): Fr[] {
 export function witnessMapToFields(witness: ACVMWitness): Fr[] {
   const sortedKeys = [...witness.keys()].sort((a, b) => a - b);
   return sortedKeys.map(key => witness.get(key)!).map(fromACVMField);
+}
+
+/**
+ * Converts an array of Noir unsigned integers to a single tightly-packed buffer.
+ * @param uintBitSize If it's an array of Noir u8's, put `8`, etc.
+ * @returns A buffer where each byte is correctly represented as a single byte in the buffer.
+ * Copy of the function in txe/src/util/encoding.ts.
+ */
+export function fromUintArray(obj: ACVMField[], uintBitSize: number): Buffer {
+  if (uintBitSize % 8 !== 0) {
+    throw new Error(`u${uintBitSize} is not a supported type in Noir`);
+  }
+  const uintByteSize = uintBitSize / 8;
+  return Buffer.concat(obj.map(str => hexToBuffer(str).slice(-uintByteSize)));
 }

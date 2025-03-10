@@ -5,8 +5,8 @@ import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { ACVMField } from '../acvm_types.js';
-import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
-import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
+import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec, fromUintArray } from '../deserialize.js';
+import { bufferToBoundedVec, toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
@@ -455,17 +455,18 @@ export class Oracle {
 
   async aes128Decrypt(
     ciphertext: ACVMField[],
-    [_iv_length]: ACVMField[],
+    [ciphertextLength]: ACVMField[],
     iv: ACVMField[],
-    [_sym_key_length]: ACVMField[],
-    sym_key: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const ciphertextBuffer = Buffer.from(ciphertext.map(f => Number(fromACVMField(f))));
-    const ivBuffer = Buffer.from(iv.map(f => Number(fromACVMField(f))));
-    const symKeyBuffer = Buffer.from(sym_key.map(f => Number(fromACVMField(f))));
+    symKey: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const ciphertextBufferWithPadding = fromUintArray(ciphertext, 8);
+    // TODO(benesjan): Use the fromBoundedVec functionality for this?
+    const ciphertextBuffer = ciphertextBufferWithPadding.subarray(0, frToNumber(fromACVMField(ciphertextLength)));
+    const ivBuffer = fromUintArray(iv, 8);
+    const symKeyBuffer = fromUintArray(symKey, 8);
 
     const plaintext = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
-    return Array.from(plaintext).map(b => toACVMField(BigInt(b)));
+    return bufferToBoundedVec(plaintext, ciphertextBufferWithPadding.length);
   }
 
   // TODO(benesjan): When I had the ephPk input defined only as "ephPk: ACVMField[]" then ephPk was only 1 Field

@@ -31,7 +31,7 @@ export function fromArray(obj: ForeignCallArray) {
 /**
  * Converts an array of Noir unsigned integers to a single tightly-packed buffer.
  * @param uintBitSize If it's an array of Noir u8's, put `8`, etc.
- * @returns
+ * @returns A buffer where each byte is correctly represented as a single byte in the buffer.
  */
 export function fromUintArray(obj: ForeignCallArray, uintBitSize: number): Buffer {
   if (uintBitSize % 8 !== 0) {
