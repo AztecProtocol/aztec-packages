@@ -20,4 +20,10 @@ class MockBytecodeManager : public BytecodeManagerInterface {
     MOCK_METHOD(BytecodeId, get_bytecode_id, (), (const, override));
 };
 
+class MockTxBytecodeManager : public TxBytecodeManagerInterface {
+  public:
+    MOCK_METHOD(BytecodeId, get_bytecode, (const AztecAddress& address), (override));
+    MOCK_METHOD(Instruction, read_instruction, (BytecodeId bytecode_id, uint32_t pc), (override));
+};
+
 } // namespace bb::avm2::simulation

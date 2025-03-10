@@ -5,10 +5,12 @@
 
 #include <memory>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -19,6 +21,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_stack.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -38,12 +41,10 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockAddressing> addressing;
     StrictMock<MockMemory> memory;
     StrictMock<MockContextProvider> context_provider;
-    StrictMock<MockContextStack> context_stack;
     InstructionInfoDB instruction_info_db; // Using the real thing.
     StrictMock<MockContext> context;
     EventEmitter<ExecutionEvent> execution_event_emitter;
-    Execution execution =
-        Execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_event_emitter);
+    Execution execution = Execution(alu, addressing, context_provider, instruction_info_db, execution_event_emitter);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -52,29 +53,48 @@ TEST_F(ExecutionSimulationTest, Add)
     execution.add(context, 4, 5, 6);
 }
 
-TEST_F(ExecutionSimulationTest, ReturnNotTopLevel)
+// TEST_F(ExecutionSimulationTest, ReturnNotTopLevel)
+// {
+//     MemoryAddress ret_offset = 1;
+//     MemoryAddress ret_size_offset = 2;
+//     size_t ret_size = 7;
+//     FF ret_size_ff = ret_size;
+//     std::vector<FF> returndata = { 1, 2, 3, 4, 5 };
+//
+//     // The context that we have already set up will be the CHILD context.
+//     EXPECT_CALL(context, get_memory);
+//     EXPECT_CALL(memory, get(ret_size_offset)).WillOnce(Return<ValueRefAndTag>({ ret_size_ff, MemoryTag::U32 }));
+//     EXPECT_CALL(memory, get_slice(ret_offset, ret_size)).WillOnce(Return<SliceWithTags>({ returndata, {} }));
+//     EXPECT_CALL(context_stack, pop);
+//
+//     // After popping, we expect to get the parent context (since we are not at the top level).
+//     StrictMock<MockContext> parent_context;
+//     EXPECT_CALL(context_stack, empty).WillOnce(Return(false));
+//     EXPECT_CALL(context_stack, current).WillOnce(ReturnRef(parent_context));
+//     EXPECT_CALL(parent_context, set_nested_returndata(returndata));
+//
+//     execution.ret(context, 1, 2);
+// }
+
+TEST_F(ExecutionSimulationTest, Call)
 {
-    MemoryAddress ret_offset = 1;
-    MemoryAddress ret_size_offset = 2;
-    size_t ret_size = 7;
-    FF ret_size_ff = ret_size;
-    std::vector<FF> returndata = { 1, 2, 3, 4, 5 };
+    // Enqueued call context
+    AztecAddress contract_address = 1;
+    // Nested call context (not top level)
+    AztecAddress nested_address = 0xdeadbeef;
 
-    // The context that we have already set up will be the CHILD context.
+    // Enqueued call
     EXPECT_CALL(context, get_memory);
-    EXPECT_CALL(memory, get(ret_size_offset)).WillOnce(Return<ValueRefAndTag>({ ret_size_ff, MemoryTag::U32 }));
-    EXPECT_CALL(memory, get_slice(ret_offset, ret_size)).WillOnce(Return<SliceWithTags>({ returndata, {} }));
-    EXPECT_CALL(context_stack, pop);
+    EXPECT_CALL(memory, get).WillOnce(Return(ValueRefAndTag({ .value = nested_address, .tag = MemoryTag::U32 })));
+    EXPECT_CALL(context, reserve_context_event);
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(contract_address));
+    EXPECT_CALL(context_provider, make_nested_ctx(_, nested_address, contract_address, _, _, _))
+        .WillOnce(Return(std::make_unique<MockContext>()));
 
-    // After popping, we expect to get the parent context (since we are not at the top level).
-    StrictMock<MockContext> parent_context;
-    EXPECT_CALL(context_stack, empty).WillOnce(Return(false));
-    EXPECT_CALL(context_stack, current).WillOnce(ReturnRef(parent_context));
-    EXPECT_CALL(parent_context, set_nested_returndata(returndata));
-
-    execution.ret(context, 1, 2);
+    EXPECT_CALL(context, get_last_context_event);
+    EXPECT_CALL(context, absorb_child_context);
+    execution.call(context, 1);
 }
-
 // FIXME: Way too long and complicated.
 // TEST_F(ExecutionSimulationTest, ExecutionLoop)
 // {
