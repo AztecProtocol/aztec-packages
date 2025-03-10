@@ -10,13 +10,18 @@ set -eu
 FIXUP_COMMIT_MSG="Noir local fixup commit."
 # Special message we use to indicate the commit we do after applying
 # any patch file committed in aztec-packages, which contains changes
-# Aztec developer made to Noir. These are changes we do want to see
+# Aztec developers made to Noir. These are changes we do want to see
 # migrated back to Noir eventually, after which the patch file can
 # be removed.
 PATCH_COMMIT_MSG="Noir local patch commit."
-# We either have a patch file or we don't - once applied, any further
-# if we add new commits and create a new patch, we can override it
-# so that it includes all previous patches.
+# There can be a patch file committed in `aztec-packages` with commits
+# to be applied on top of any Noir checkout.
+# The `noir/bootstrap.sh make-patch` commands takes all commits since
+# the local fixup commit and compiles them into this single patch file,
+# (so it will include previously applied patch commits as well as new ones),
+# replacing any previous value.
+# The patch commits can be pushed to Noir if they represent bugfixes;
+# to do so we have to rebase on the origin and remove the fixup commit.
 NOIR_REPO_PATCH=noir-repo.patch
 # Certain commands such as `noir/bootstrap.sh test_cmds` are expected to print
 # executable scripts, which would be corrupted by any extra logs coming from here.
