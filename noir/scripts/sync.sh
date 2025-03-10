@@ -41,22 +41,14 @@ function read_wanted_ref {
   cat noir-repo-ref
 }
 
-# Read the commitish that we last checked out.
-function read_last_ref {
-  cat .noir-repo-last-ref
-}
-
-# Write the last ref we checked out to a file. This will be the same
-# value as in `noir-repo-ref`. Having this file makes it easier to
-# decide if we need to a new checkout after we have potentially added
-# new commits on top of `noir-repo-ref`.
-function write_last_ref {
-  echo $1 > .noir-repo-last-ref
+# Return the current branch name, or fail if we're not on a branch.
+function branch_name {
+  git -C noir-repo symbolic-ref -q HEAD
 }
 
 # Check if we are on a branch.
 function is_on_branch {
-  test $(git -C noir-repo symbolic-ref -q HEAD)
+  test $(branch_name)
 }
 
 # Check if we are on a detached HEAD, which means if we switch branches
@@ -104,8 +96,13 @@ function find_fixup_commit {
   git -C noir-repo log --oneline --no-abbrev-commit --grep "$FIXUP_COMMIT_MSG" --max-count=1 | awk '{print $1}'
 }
 
-# Check if a ref is a tag
-function is_tag {
+# Find the commit hash of the last checkout.
+function find_checkout_commit {
+  git -C noir-repo rev-parse "$(find_fixup_commit)~1"
+}
+
+# Check if a ref is a tag we have locally
+function has_tag {
   tag=$1
   test $(git -C noir-repo tag --list $tag)
 }
@@ -131,8 +128,19 @@ function needs_patch {
 # Indicate that we have to switch to the wanted branch.
 function needs_switch {
   want=$(read_wanted_ref)
-  have=$(read_last_ref)
-  [ "$want" != "$have" ]
+  # Are we on the wanted branch?
+  if is_on_branch && [ "$(branch_name)" == "$want" ]; then
+    return 1
+  fi
+  # Are we descending from the wanted commit?
+  if [ "$(find_checkout_commit)" == "$want" ]; then
+    return 1
+  fi
+  # Are we descending from the wanted tag?
+  if has_tag "$want" && has_tag_commit "$want"; then
+    return 1
+  fi
+  return 0 # true
 }
 
 # Create an empty marker commit to show that patches have been applied or put in a patch file.
@@ -170,7 +178,6 @@ function init_repo {
     git clone $depth --branch $ref $url noir-repo \
     || git clone $url noir-repo && git -C noir-repo checkout $ref
     patch_repo
-    write_last_ref $ref
   fi
 }
 
@@ -197,7 +204,6 @@ function switch_repo {
   else
     log "Patches already applied"
   fi
-  write_last_ref $ref
 }
 
 # Bring the noir-repo in line with the commit marker.
@@ -210,7 +216,7 @@ function update_repo {
       # Rebasing so our local patch commit ends up on top.
       git -C noir-repo pull --rebase
       return
-    elif ! is_tag $want; then
+    elif ! has_tag $want; then
       # If the last thing we checked out was the commit we wanted, then we're okay.
       return
     elif has_tag_commit $want; then
@@ -283,17 +289,18 @@ function info {
     $@ && echo "yes" || echo "no"
   }
   want=$(read_wanted_ref)
-  have=$(read_last_ref)
+  echo_info "Checkout commit" $(find_checkout_commit || echo "n/a")
+  echo_info "Fixup commit" $(find_fixup_commit || echo "n/a")
   echo_info "Wanted" $want
-  echo_info "Have" $have
-  echo_info "On branch" $(yesno is_on_branch)
-  echo_info "Deteached" $(yesno is_detached_head)
-  echo_info "Is on tag" $(yesno is_tag $have)
-  echo_info "Has tag commit" $(yesno has_tag_commit $have)
-  echo_info "Last commit is patch" $(yesno is_last_commit_patch)
-  echo_info "Has patch commit" $(yesno has_patch_commit)
-  echo_info "Needs patch" $(yesno needs_patch)
   echo_info "Needs switch" $(yesno needs_switch)
+  echo_info "Needs patch" $(yesno needs_patch)
+  echo_info "Deteached" $(yesno is_detached_head)
+  echo_info "On branch" $(yesno is_on_branch)
+  echo_info "Branch name" $(branch_name || echo "n/a")
+  echo_info "Has wanted tag" $(yesno has_tag $want)
+  echo_info "Has tag commit" $(yesno has_tag_commit $want)
+  echo_info "Has patch commit" $(yesno has_patch_commit)
+  echo_info "Last commit is patch" $(yesno is_last_commit_patch)
 }
 
 cmd=${1:-}
