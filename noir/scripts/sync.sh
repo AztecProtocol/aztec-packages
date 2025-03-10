@@ -265,11 +265,23 @@ function make_patch {
   fi
 }
 
-function testme {
-  is_on_branch && echo "on branch" || echo "not on branch"
-  is_detached_head && echo "detached" || echo "not detached"
-  is_last_commit_patch && echo "patch commit" || echo "other commit"
-  needs_patch && echo "patch needed" || echo "no patch needed"
+# Show debug information
+function info {
+  function pad {
+    printf "%$2.${2#-}s" "$1";
+  }
+  function echo_info {
+    echo "$(pad "$1:" -25)" $2
+  }
+  function yesno {
+    $1 && echo "yes" || echo "no"
+  }
+  echo_info "Wanted" $(read_wanted_ref)
+  echo_info "Have" $(read_last_ref)
+  echo_info "On branch" $(yesno is_on_branch)
+  echo_info "Deteached" $(yesno is_detached_head)
+  echo_info "Last commit is patch" $(yesno is_last_commit_patch)
+  echo_info "Needs patch" $(yesno needs_patch)
 }
 
 cmd=${1:-}
@@ -288,8 +300,8 @@ case "$cmd" in
   "needs-patch")
     needs_patch && exit 0 || exit 1
     ;;
-  "testme")
-    testme
+  "info")
+    info
     ;;
   *)
     echo "Unknown command: $cmd"
