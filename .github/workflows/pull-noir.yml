@@ -65,7 +65,6 @@ jobs:
 
       # Push a commit to the `bump-noir` branch that overrides the Noir ref.
       # If a branch already exists then push to that one; it might contain some merge conflict fixes with the patch file.
-      # If there was no change in the ref then this step will fail.
       - name: Push to branch
         run: |
           set -xue # print commands
@@ -74,7 +73,7 @@ jobs:
           git checkout --track origin/$BRANCH || git checkout $BRANCH || git checkout -b $BRANCH
           echo $LATEST_NOIR_NIGHTLY > noir/noir-repo-ref
           git add noir
-          git commit -m 'chore: Update noir-repo-ref to the latest nightly'
+          git commit -m 'chore: Update noir-repo-ref to the latest nightly' || true
           git push --set-upstream origin $BRANCH
 
       # Update the PR from `bump-noir` to `master` with the latest message body.
