@@ -1,6 +1,6 @@
 /// This file is largely a copy of the `array.nr` file, but with the `BoundedVec` type instead of the `[u8; N]` type.
 /// Some functions (e.g. get_random_bytes) from `array.nr` are missing though as they were not yet needed and I am not
-/// sure if they ever will be.
+/// sure if they ever will be. A be_bytes_32_to_fields function was implemented here but is not present in `array.nr`.
 
 /// Converts the input bytes into a BoundedVec of fields. A Field is ~254 bits meaning that each field can store 31
 /// whole bytes.
@@ -106,6 +106,47 @@ pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(
     }
 
     bytes
+}
+
+/// A variant of be_bytes_31_to_fields that handles 32-byte chunks instead of 31-byte chunks. This function
+/// is specifically designed for cases where the original data exists as Field elements. Since each Field contains
+/// approximately 254 bits of information, 32 bytes are required for complete representation. While the functions above
+/// facilitate bytes->fields->bytes conversions, this function is used for bytes->fields transformations.
+///
+/// Note that this function does not exist in the `array.nr` file. It only exists here because we needed it when
+/// processing logs that were decrypted as an array of bytes.
+pub fn be_bytes_32_to_fields<let N: u32>(
+    bytes: BoundedVec<u8, N>,
+) -> BoundedVec<Field, (N + 31) / 32> {
+    let mut fields = BoundedVec::new();
+
+    // There are "bytes.len() / 32" whole fields that can be populated.
+    for i in 0..bytes.len() / 32 {
+        let mut field = 0;
+        for j in 0..32 {
+            // Shift the existing value left by 8 bits and add the new byte
+            field = field * 256 + bytes.get(i * 32 + j) as Field;
+        }
+        fields.push(field);
+    }
+
+    // Note: if 32 divides bytes.len(), then this loop does not execute.
+    // ceil(bytes.len()/32) - floor(bytes.len()/32) = 1, unless 32 divides bytes.len(), in which case it's 0.
+    for _ in 0..((bytes.len() + 31) / 32) - (bytes.len() / 32) {
+        let mut final_field = 0;
+        let final_field_idx = fields.len();
+        let final_offset = final_field_idx * 32;
+        // bytes.len() - ((bytes.len() / 32) * 32) = bytes.len() - floor(bytes.len()/32) * 32 = the number of bytes
+        // to go in the final field.
+        for j in 0..bytes.len() - ((bytes.len() / 32) * 32) {
+            // Shift the existing value left by 8 bits and add the new byte
+            final_field = final_field * 256 + bytes.get(final_offset + j) as Field;
+        }
+
+        fields.push(final_field);
+    }
+
+    fields
 }
 
 mod tests_shared_with_array {
@@ -282,6 +323,69 @@ mod tests_shared_with_array {
     }
 }
 
+mod tests_of_be_bytes_32_to_fields {
+    use crate::utils::bytes::bounded_vec::be_bytes_32_to_fields;
+
+    #[test]
+    fn test_be_bytes_32_to_1_field() {
+        let input = BoundedVec::<u8, 32>::from_array([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ]);
+        let output = be_bytes_32_to_fields(input);
+
+        assert_eq(
+            output.get(0),
+            0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20,
+        );
+    }
+
+    #[test]
+    fn test_be_bytes_32_to_2_fields() {
+        let input = BoundedVec::<u8, 64>::from_array([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
+            47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+        ]);
+        let output = be_bytes_32_to_fields(input);
+
+        assert_eq(
+            output.get(0),
+            0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20,
+        );
+        assert_eq(
+            output.get(1),
+            0x2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40,
+        );
+    }
+
+    #[test]
+    fn test_be_bytes_32_to_fields_partial() {
+        let input = BoundedVec::<u8, 40>::from_array([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+        ]);
+        let output = be_bytes_32_to_fields(input);
+
+        assert_eq(
+            output.get(0),
+            0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20,
+        );
+        assert_eq(output.get(1), 0x2122232425262728);
+    }
+
+    #[test]
+    fn test_be_bytes_32_to_fields_max_value() {
+        let mut input = BoundedVec::<u8, 32>::new();
+        for _ in 0..32 {
+            input.push(255);
+        }
+        let output = be_bytes_32_to_fields(input);
+
+        assert_eq(output.get(0), 2.pow_32(256) - 1);
+    }
+}
+
 mod bounded_vec_specific {
     use crate::utils::bytes::bounded_vec::{be_bytes_31_to_fields, fields_to_be_bytes_31};
 
@@ -318,5 +422,23 @@ mod bounded_vec_specific {
         ]);
 
         assert_eq(output, expected);
+    }
+
+    #[test]
+    fn test_be_bytes_31_to_fields_long_input() {
+        let input = BoundedVec::<u8, 447>::from_array([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 26, 89, 20, 23, 177, 69, 135, 166, 49, 232, 132, 64, 213, 124, 163, 163,
+            60, 177, 225, 155, 177, 198, 199, 238, 55, 179, 21, 230, 93, 167, 255, 44, 29, 203, 50,
+            194, 89, 128, 138, 118, 126, 165, 9, 35, 233, 172, 11, 245, 27, 197, 132, 122, 240, 135,
+            241, 5, 52, 5, 102, 242, 37, 97, 64, 138, 26, 246, 63, 45, 34, 250, 76, 186, 113, 179,
+            213, 136, 155, 78, 173, 10, 43, 221, 3, 78, 143, 15, 141, 59, 223, 114, 121, 140, 243,
+            218, 18, 140,
+        ]);
+
+        let output = be_bytes_31_to_fields(input);
+
+        std::println(output);
     }
 }
