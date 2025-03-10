@@ -19,6 +19,49 @@ export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
 
 export type ConfigMappingsType<T> = Record<keyof T, ConfigMapping>;
 
+/**
+ * Shared utility function to get a value from environment variables with fallback support.
+ * This can be used by both getConfigFromMappings and CLI utilities.
+ *
+ * @param env - The primary environment variable name
+ * @param fallback - Optional array of fallback environment variable names
+ * @param parseFunc - Optional function to parse the environment variable value
+ * @param defaultValue - Optional default value to use if no environment variable is set
+ * @returns The parsed value from environment variables or the default value
+ */
+export function getValueFromEnvWithFallback<T>(
+  env: EnvVar | undefined,
+  parseFunc: ((val: string) => T) | undefined,
+  defaultValue: T | undefined,
+  fallback?: EnvVar[],
+): T | undefined {
+  let value: string | undefined;
+
+  // Try primary env var
+  if (env) {
+    value = process.env[env];
+  }
+
+  // If primary not found, try fallbacks
+  if (value === undefined && fallback && fallback.length > 0) {
+    for (const fallbackEnv of fallback) {
+      const fallbackVal = process.env[fallbackEnv];
+      if (fallbackVal !== undefined) {
+        value = fallbackVal;
+        break;
+      }
+    }
+  }
+
+  // Parse the value if needed
+  if (value !== undefined) {
+    return parseFunc ? parseFunc(value) : (value as unknown as T);
+  }
+
+  // Return default if no env var found
+  return defaultValue;
+}
+
 export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>): T {
   const config = {} as T;
 
@@ -27,24 +70,8 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
     if (nested) {
       (config as any)[key] = getConfigFromMappings(nested);
     } else {
-      let value;
-      const val = env ? process.env[env] : undefined;
-
-      if (val !== undefined) {
-        value = parseEnv ? parseEnv(val) : val;
-      } else if (fallback && fallback.length > 0) {
-        // Try each fallback env var in order
-        for (const fallbackEnv of fallback) {
-          const fallbackVal = process.env[fallbackEnv];
-          if (fallbackVal !== undefined) {
-            value = parseEnv ? parseEnv(fallbackVal) : fallbackVal;
-            break;
-          }
-        }
-      }
-
-      // Assign the found value or default
-      (config as any)[key] = value !== undefined ? value : defaultValue;
+      // Use the shared utility function
+      (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback);
     }
   }
 
