@@ -18,6 +18,7 @@ process.env.AVM_PROVING_STRICT = '1';
 describe('full_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
+  const NUM_INVALID_TXS = 50;
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
   let { provenAssets, accounts, tokenSim, logger, cheatCodes } = t;
@@ -283,4 +284,60 @@ describe('full_prover', () => {
     expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
     expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
   });
+
+  it.only(
+    'should prevent large influxes of txs with invalid proofs from causing ddos attacks',
+    async () => {
+      if (!REAL_PROOFS) {
+        t.logger.warn(`Skipping test with fake proofs`);
+        return;
+      }
+
+      // Create an prove the tx
+      logger.info(`Creating and proving tx`);
+      const sendAmount = 1n;
+      const interaction = provenAssets[0].methods.transfer(recipient, sendAmount);
+      const provenTx = await interaction.prove({ skipPublicSimulation: true });
+
+      // Verify the tx proof
+      logger.info(`Verifying the tx proof`);
+      await expect(t.circuitProofVerifier?.verifyProof(provenTx)).resolves.not.toThrow();
+
+      // Spam node with invalid txs
+      logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
+      const invalidTxPromises = [];
+      for (let i = 0; i < NUM_INVALID_TXS; i++) {
+        const sentTx = interaction.send({ skipPublicSimulation: true });
+        invalidTxPromises.push(sentTx.wait({ timeout: 10, interval: 0.1 }));
+      }
+
+      logger.info(`Sending proven tx`);
+      const validTx = provenTx.send();
+
+      await validTx.wait({ timeout: 300, interval: 10, proven: false });
+      logger.info(`Valid tx has been mined`);
+
+      // Flag the valid transfer on the token simulator
+      tokenSim.transferPrivate(sender, recipient, sendAmount);
+
+      // Warp to the next epoch
+      const epoch = await cheatCodes.rollup.getEpoch();
+      logger.info(`Advancing from epoch ${epoch} to next epoch`);
+      await cheatCodes.rollup.advanceToNextEpoch();
+
+      const results = await Promise.allSettled([
+        ...invalidTxPromises,
+        validTx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 }),
+      ]);
+
+      // Assert that the large influx of invalid txs does not ddos the node and that the valid tx is successfully sent to the P2P node
+      for (let i = 0; i < NUM_INVALID_TXS; i++) {
+        expect(String((results[i] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
+      }
+      expect(results[NUM_INVALID_TXS].status).toBe('fulfilled');
+
+      logger.info(`Valid tx was proven and invalid txs were dropped by P2P node`);
+    },
+    TIMEOUT,
+  );
 });
