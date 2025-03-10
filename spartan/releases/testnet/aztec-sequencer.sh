@@ -22,6 +22,7 @@ ETHEREUM_HOSTS=
 IMAGE=
 BOOTNODE_URL=
 DEFAULT_L1_CONSENSUS_HOST_URL="https://eth-beacon-chain-sepolia.drpc.org/rest"
+LOG_LEVEL=info
 # Parse command line arguments
 parse_args() {
   while [[ $# -gt 0 ]]; do
@@ -69,6 +70,10 @@ parse_args() {
     -pk | --p2p-id-private-key)
       PEER_ID_PRIVATE_KEY="$2"
       shift 2
+      ;;
+    -v | --verbose)
+      LOG_LEVEL=debug
+      shift
       ;;
     *)
       shift
@@ -241,7 +246,7 @@ VALIDATOR_PRIVATE_KEY=${KEY}
 SEQ_PUBLISHER_PRIVATE_KEY=${KEY}
 L1_PRIVATE_KEY=${KEY}
 DEBUG=aztec:*,-aztec:avm_simulator*,-aztec:circuits:artifact_hash,-aztec:libp2p_service,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*
-LOG_LEVEL=debug
+LOG_LEVEL=${LOG_LEVEL:-info}
 AZTEC_PORT=${PORT}
 P2P_ENABLED=true
 L1_CHAIN_ID=11155111
