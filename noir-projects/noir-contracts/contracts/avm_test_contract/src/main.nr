@@ -27,11 +27,16 @@ pub contract AvmTest {
     };
     use dep::aztec::protocol_types::{
         constants::MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-        contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
+        contract_class_id::ContractClassId,
+        storage::map::derive_storage_slot_in_map,
+        traits::{Empty, FromField, ToField},
     };
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
+    use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
+
+    use std::ops::Add;
 
     #[storage]
     struct Storage<Context> {

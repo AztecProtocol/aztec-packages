@@ -15,8 +15,8 @@ import { formatEther } from 'viem';
 export class ProverNodeMetrics {
   proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
-  provingJobBlocks: Histogram;
-  provingJobTransactions: Histogram;
+  provingJobBlocks: Gauge;
+  provingJobTransactions: Gauge;
 
   gasPrice: Histogram;
   txCount: UpDownCounter;
@@ -45,11 +45,11 @@ export class ProverNodeMetrics {
       unit: 's',
       valueType: ValueType.DOUBLE,
     });
-    this.provingJobBlocks = meter.createHistogram(Metrics.PROVER_NODE_JOB_BLOCKS, {
+    this.provingJobBlocks = meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS, {
       description: 'Number of blocks in a proven epoch',
       valueType: ValueType.INT,
     });
-    this.provingJobTransactions = meter.createHistogram(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
+    this.provingJobTransactions = meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
       description: 'Number of transactions in a proven epoch',
       valueType: ValueType.INT,
     });

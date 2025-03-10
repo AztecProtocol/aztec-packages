@@ -21,16 +21,13 @@ function build {
   echo_header "acir_tests build"
 
   if ! cache_download $tests_tar; then
-    # rm -rf acir_tests
-    # denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
-    # cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
-    # # Running these requires extra gluecode so they're skipped.
-    # rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
-    # # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
-    # # TODO: Check if resolved. Move to .test_skip_patterns if not.
-    # rm -rf acir_tests/regression_5045
-    # # Don't compile these until we generate their inputs
-    # rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}
+    rm -rf acir_tests
+    denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
+    cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
+    # Running these requires extra gluecode so they're skipped.
+    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
+    # Don't compile these until we generate their inputs
+    rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}
 
     # # COMPILE=2 only compiles the test.
     # denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"

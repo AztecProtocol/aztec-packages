@@ -85,7 +85,6 @@ template <typename Flavor>
 SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename Flavor::Transcript>& translation_data,
                                                        const FF evaluation_challenge_x,
                                                        const FF batching_challenge_v,
-                                                       const FF claimed_inner_product,
                                                        const std::shared_ptr<typename Flavor::Transcript>& transcript,
                                                        std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
     : SmallSubgroupIPAProver(transcript, commitment_key)
@@ -93,7 +92,6 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
 {
     // TranslationData is Grumpkin-specific
     if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
-        this->claimed_inner_product = claimed_inner_product;
         label_prefix = "Translation:";
         interpolation_domain = translation_data.interpolation_domain;
         concatenated_polynomial = translation_data.masked_concatenated_polynomial;
@@ -101,6 +99,12 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
 
         // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
         compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
+
+        // The prover computes the inner product of the challenge polynomial and the concatenation of
+        // the masking terms. This value is used to "denoise" the masked batched evaluation of
+        // `translation_polynomials` contained in `translation_data`.
+        claimed_inner_product = compute_claimed_translation_inner_product(translation_data);
+        transcript->send_to_verifier(label_prefix + "masking_term_eval", claimed_inner_product);
     }
 }
 
@@ -396,17 +400,10 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
  */
 template <typename Flavor>
 typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_claimed_translation_inner_product(
-    TranslationData<typename Flavor::Transcript>& translation_data,
-    const FF& evaluation_challenge_x,
-    const FF& batching_challenge_v)
+    TranslationData<typename Flavor::Transcript>& translation_data)
 {
     FF claimed_inner_product{ 0 };
     if constexpr (IsAnyOf<Flavor, ECCVMFlavor, GrumpkinSettings>) {
-        const std::vector<FF> coeffs_lagrange_basis =
-            compute_eccvm_challenge_coeffs<typename Flavor::Curve>(evaluation_challenge_x, batching_challenge_v);
-
-        Polynomial<FF> challenge_polynomial_lagrange(coeffs_lagrange_basis);
-
         for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
             claimed_inner_product +=
                 translation_data.concatenated_polynomial_lagrange.at(idx) * challenge_polynomial_lagrange.at(idx);

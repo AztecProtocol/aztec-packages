@@ -79,7 +79,9 @@ case "$cmd" in
       # Sometimes, kubectl does not have our kind context yet kind registers it as existing
       # Ensure our context exists in kubectl
       # As well if kind-control-plane has been killed, just recreate the cluster
-      flock scripts/logs/kind-boot.lock bash -c "kind delete cluster; kind create cluster"
+      flock scripts/logs/kind-boot.lock bash -c "kind delete cluster; kind create cluster --config scripts/kind-config.yaml"
+      # Patch the kubeconfig to replace any invalid API server address (0.0.0.0) with 127.0.0.1
+      sed -i 's/https:\/\/0\.0\.0\.0:/https:\/\/127.0.0.1:/' "$HOME/.kube/config"
     fi
     kubectl config use-context kind-kind >/dev/null || true
     docker update --restart=no kind-control-plane >/dev/null || true
@@ -128,7 +130,7 @@ case "$cmd" in
       ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-upgrade-rollup-version")
-    OVERRIDES="bot.enabled=false" \
+    OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
     ;;

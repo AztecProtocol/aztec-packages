@@ -206,6 +206,9 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
         trace.set(C::precomputed_exec_opcode,
                   static_cast<uint32_t>(wire_opcode),
                   static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
+        trace.set(C::precomputed_instr_size_in_bytes,
+                  static_cast<uint32_t>(wire_opcode),
+                  wire_instruction_spec.size_in_bytes);
     }
 }
 

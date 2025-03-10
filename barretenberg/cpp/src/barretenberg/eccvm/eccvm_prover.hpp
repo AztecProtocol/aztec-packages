@@ -18,6 +18,7 @@ class ECCVMProver {
     using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
+    using Commitment = typename Flavor::Commitment;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -45,18 +46,24 @@ class ECCVMProver {
 
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
-    OpeningClaim compute_translation_opening_claim();
+    void compute_translation_opening_claims();
+    void commit_to_witness_polynomial(Polynomial& polynomial,
+                                      const std::string& label,
+                                      CommitmentKey::CommitType commit_type = CommitmentKey::CommitType::Default,
+                                      const std::vector<std::pair<size_t, size_t>>& active_ranges = {});
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
     bool fixed_size;
+    size_t unmasked_witness_size;
+
+    // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a
+    // `multivariate_to_univariate_opening_claim`
+    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
+    std::array<OpeningClaim, NUM_OPENING_CLAIMS> opening_claims;
 
     TranslationEvaluations translation_evaluations;
-
-    std::array<std::string, 5> translation_labels = {
-        "Translation:op", "Translation:Px", "Translation:Py", "Translation:z1", "Translation:z2"
-    };
 
     std::vector<FF> public_inputs;
 
@@ -68,7 +75,7 @@ class ECCVMProver {
     ZKData zk_sumcheck_data;
 
     FF evaluation_challenge_x;
-    FF translation_batching_challenge_v;
+    FF batching_challenge_v;
 
     SumcheckOutput<Flavor> sumcheck_output;
 };

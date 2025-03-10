@@ -19,11 +19,6 @@ export type TxSenderConfig = L1ReaderConfig & {
   publisherPrivateKey: `0x${string}`;
 
   /**
-   * The number of confirmations required.
-   */
-  requiredConfirmations: number;
-
-  /**
    * The address of the custom forwarder contract.
    */
   customForwarderContractAddress: EthAddress;
@@ -51,16 +46,10 @@ export const getTxSenderConfigMappings: (
     defaultValue: EthAddress.ZERO,
   },
   publisherPrivateKey: {
-    env: `${scope}_PUBLISHER_PRIVATE_KEY`,
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`,
     description: 'The private key to be used by the publisher.',
     parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
     defaultValue: NULL_KEY,
-  },
-  requiredConfirmations: {
-    env: `${scope}_REQUIRED_CONFIRMATIONS`,
-    parseEnv: (val: string) => +val,
-    defaultValue: 1,
-    description: 'The number of confirmations required.',
   },
 });
 
@@ -72,7 +61,7 @@ export const getPublisherConfigMappings: (
   scope: 'PROVER' | 'SEQ',
 ) => ConfigMappingsType<PublisherConfig & L1TxUtilsConfig> = scope => ({
   l1PublishRetryIntervalMS: {
-    env: `${scope}_PUBLISH_RETRY_INTERVAL_MS`,
+    env: scope === `PROVER` ? `PROVER_PUBLISH_RETRY_INTERVAL_MS` : `SEQ_PUBLISH_RETRY_INTERVAL_MS`,
     parseEnv: (val: string) => +val,
     defaultValue: 1000,
     description: 'The interval to wait between publish retries.',

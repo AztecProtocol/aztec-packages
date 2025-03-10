@@ -14,7 +14,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Token {
     // Libs
-    use std::meta::derive;
+    use std::{meta::derive, ops::{Add, Sub}};
 
     use dep::compressed_string::FieldCompressedString;
 
@@ -24,15 +24,19 @@ pub contract Token {
             event::encode_and_encrypt_event_unconstrained,
             note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
+        event::event_interface::EventInterface,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, view},
             storage::storage,
         },
+        note::note_interface::PartialNote,
         oracle::random::random,
         prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
         protocol_types::{point::Point, traits::Serialize},
     };
+
+    use aztec::protocol_types::traits::ToField;
 
     use dep::uint_note::uint_note::UintNote;
 

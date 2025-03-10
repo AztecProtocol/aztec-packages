@@ -22,22 +22,18 @@ if [ -z "${REF_NAME:-}" ]; then
     REF_NAME="${REF_NAME#refs/tags/}"      # Extract tag name
   else
     REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
-    export REF_NAME="${REF_NAME#heads/}"
+    REF_NAME="${REF_NAME#heads/}"
   fi
-  export REF_NAME="${REF_NAME#release/}"
-  # echo "REF_NAME=$REF_NAME"
-  [ -z "${REF_NAME:-}" ] && exit 1
+
+  [ -z "$REF_NAME" ] && exit 1
+
+  export REF_NAME
 fi
 
 if [ -z "${CI_FULL:-}" ]; then
-  if [ "$CI" -eq 0 ]; then
-    export CI_FULL=0
-  elif semver check "$REF_NAME"; then
+  export CI_FULL=0
+  if [ "$CI" -eq 1 ] && { semver check "$REF_NAME" || [ "$REF_NAME" == "master" ]; }; then
     export CI_FULL=1
-  elif [ "$REF_NAME" == "master" ]; then
-    export CI_FULL=1
-  else
-    export CI_FULL=0
   fi
 fi
 

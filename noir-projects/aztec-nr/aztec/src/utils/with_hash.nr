@@ -4,7 +4,10 @@ use crate::{
     oracle,
 };
 use dep::protocol_types::{
-    address::AztecAddress, block_header::BlockHeader, hash::poseidon2_hash, traits::Packable,
+    address::AztecAddress,
+    block_header::BlockHeader,
+    hash::poseidon2_hash,
+    traits::{Packable, ToField},
 };
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.
@@ -121,6 +124,7 @@ mod test {
         utils::with_hash::WithHash,
     };
     use dep::protocol_types::hash::poseidon2_hash;
+    use dep::protocol_types::traits::{Packable, ToField};
     use dep::std::{mem, test::OracleMock};
 
     global storage_slot: Field = 47;

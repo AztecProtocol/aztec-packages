@@ -240,7 +240,6 @@ function release {
 
   echo_header "release all"
   set -x
-  check_release
 
   # Ensure we have a github release for our REF_NAME, if not on latest.
   # On latest we rely on release-please to create this for us.
@@ -255,8 +254,8 @@ function release {
     l1-contracts
     yarn-project
     boxes
-    playground
     aztec-up
+    playground
     docs
     release-image
   )
@@ -275,29 +274,6 @@ function release {
 
 function release_dryrun {
   DRY_RUN=1 release
-}
-
-function release_commit {
-  export REF_NAME="commit-$COMMIT_HASH"
-
-  release_github
-
-  projects=(
-    barretenberg/cpp
-    barretenberg/ts
-    noir
-    l1-contracts
-    yarn-project
-    # Should publish at least one of our boxes to it's own repo.
-    #boxes
-    playground
-    docs
-    release-image
-  )
-
-  for project in "${projects[@]}"; do
-    $project/bootstrap.sh release_commit
-  done
 }
 
 case "$cmd" in
@@ -330,11 +306,16 @@ case "$cmd" in
   ;;
   "ci")
     build
-    test
-    bench
-    release
+    if ! semver check $REF_NAME; then
+      test
+      bench
+      echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
+    else
+      echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
+      release
+    fi
     ;;
-  test|test_cmds|bench|release|release_dryrun|release_commit)
+  test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
     ;;
   *)
