@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
+cd ..
+
 TEST_NAME=$1
 
 COMPILE=${COMPILE:-0}

@@ -25,7 +25,8 @@ function build_and_preview {
     processed-docs-cache \
     docs/reference/developer_references/aztecjs \
     docs/reference/developer_references/smart_contract_reference/aztec-nr
-  denoise "yarn install && yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
+  npm_install_deps
+  denoise "yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
   cache_upload docs-$hash.tar.gz build
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
