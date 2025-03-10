@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741617787456,
+  "lastUpdate": 1741625542075,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "domuradical@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "domuradical@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "distinct": true,
-          "id": "0c7d36305895988a6a1a1baab31ed87f1c51da9e",
-          "message": "releases: fix txe running with sandbox",
-          "timestamp": "2025-03-05T21:33:28Z",
-          "tree_id": "30a3a92cf40de56425b01630e06de06ab9cf81ef",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c7d36305895988a6a1a1baab31ed87f1c51da9e"
-        },
-        "date": 1741211291955,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18175.115942999924,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16049.057840000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18535.199615000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16186.707269000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3777.000396999938,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 2988.106441 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54822.014206,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54822013000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10757.124852,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10757131000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1888541803,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1888541803 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 215832819,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 215832819 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 217209269,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 217209269 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "abd22cd21ce7201583f897c70591503a77db519a",
+          "message": "feat(bb): consider polynomial end_index when constructing partially evaluated multivariates (#12530)\n\nThis fixes the sumcheck memory peak.\n\nTakes AVM memory usage for a trivial transaction from `33GB` (projected `100GB` on full VM) to `5GB`.\n\nHopefully also useful for other flavors, when the trace is not full.\n\nBTW, this also gives a massive sumcheck performance gain\n* AVM (16 cores, short trace) - Before: 9s\n* AVM (16 cores, short trace) - After: 3s\n\nPartly due to less memory allocation (and Fr zeroing) and partly due to @jeanmon's suggestions.",
+          "timestamp": "2025-03-10T16:03:35Z",
+          "tree_id": "48a56f1a668cfcc4d96609f59137fc6f4faccb33",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/abd22cd21ce7201583f897c70591503a77db519a"
+        },
+        "date": 1741625534919,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18365.208806999817,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16049.461823000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18804.653215000144,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16267.076668000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3958.6665199999516,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3100.775792 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55332.974456,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55332974000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10303.252193,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10303258000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1634785392,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1634785392 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 229850698,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 229850698 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
