@@ -325,8 +325,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr shplonk_batching_pos = Fr{ 0 };
         Fr shplonk_batching_neg = Fr{ 0 };
         if (claim_batcher.interleaved) {
-            shplonk_batching_pos = shplonk_batching_challenge_powers[2 * log_circuit_size - 1];
-            shplonk_batching_neg = shplonk_batching_challenge_powers[2 * log_circuit_size];
+            shplonk_batching_pos = shplonk_batching_challenge_powers[2 * log_circuit_size];
+            shplonk_batching_neg = shplonk_batching_challenge_powers[2 * log_circuit_size + 1];
             constant_term_accumulator += p_pos * interleaving_vanishing_eval * shplonk_batching_pos +
                                          p_neg * interleaving_vanishing_eval * shplonk_batching_neg;
         }
@@ -613,7 +613,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         size_t power = NUM_GEMINI_FOLD_CLAIMS + 2;
         for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
             Fr scaling_factor = denominators[idx] * shplonk_batching_challenge_powers[power++];
-            info(" ver scal factor ", scaling_factor);
             batching_scalars[idx] = -scaling_factor;
             constant_term_accumulator += scaling_factor * libra_evaluations[idx];
         }

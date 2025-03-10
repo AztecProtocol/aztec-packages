@@ -181,7 +181,6 @@ template <typename Curve> class ShplonkProver_ {
             if (claim.gemini_fold) {
                 tmp = claim.polynomial;
                 tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx];
-                info("prover ", fold_idx, "  eval ", gemini_fold_pos_evaluations[fold_idx]);
                 Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
                 // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
                 G.add_scaled(tmp, -scaling_factor);
@@ -197,15 +196,14 @@ template <typename Curve> class ShplonkProver_ {
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
-            info("zk current nu ", current_nu);
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-            info(scaling_factor);
+
             // Add the claim quotient to the batched quotient polynomial
             G.add_scaled(tmp, -scaling_factor);
             current_nu *= nu_challenge;
         }
-        info("prover nu before sumcheck op claims ", current_nu);
+
         for (const auto& claim : sumcheck_opening_claims) {
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
