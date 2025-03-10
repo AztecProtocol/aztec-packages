@@ -98,12 +98,20 @@ function has_patch_commit {
 # Find the commit hash of the last applied fixup commit.
 # This is a commit we don't want to include in a patch file.
 function find_fixup_commit {
-  git -C noir-repo log --oneline --no-abbrev-commit --grep "$FIXUP_COMMIT_MSG" --max-count=1 | awk '{print $1}'
+  fixup=$(git -C noir-repo log --oneline --no-abbrev-commit --grep "$FIXUP_COMMIT_MSG" --max-count=1 | awk '{print $1}')
+  if [ -z "$fixup" ]; then
+    return 1
+  fi
+  echo $fixup
 }
 
 # Find the commit hash of the last checkout.
 function find_checkout_commit {
-  git -C noir-repo rev-parse "$(find_fixup_commit)~1"
+  fixup=$(find_fixup_commit)
+  if [ -z "$fixup" ]; then
+    return 1
+  fi
+  git -C noir-repo rev-parse "$fixup~1"
 }
 
 # Check if a ref is a tag we have locally
@@ -130,22 +138,35 @@ function needs_patch {
   is_detached_head && ! is_last_commit_patch
 }
 
+# Indicate that both the fixup and the patch has been applied.
+function has_fixup_and_patch {
+  find_fixup_commit>/dev/null && has_patch_commit
+}
+
 # Indicate that we have to switch to the wanted branch.
 function needs_switch {
   want=$(read_wanted_ref)
+  have=false
   # Are we on the wanted branch?
   if is_on_branch && [ "$(branch_name)" == "$want" ]; then
-    return 1
+    have=true
   fi
   # Are we descending from the wanted commit?
   if [ "$(find_checkout_commit)" == "$want" ]; then
-    return 1
+    have=true
   fi
   # Are we descending from the wanted tag?
   if has_tag "$want" && has_tag_commit "$want"; then
-    return 1
+    have=true
   fi
-  return 0 # true
+  # If we're on the wanted checkout, it could be that we rebased on origin in order
+  # to push the branch without the fixup commit. In that case we'd need to do a fresh
+  # checkout to re-apply the fixup and the patches.
+  if [ $have == true ] && has_fixup_and_patch; then
+    return 1 # false
+  else
+    return 0 # true
+  fi
 }
 
 # Create an empty marker commit to show that patches have been applied or put in a patch file.
@@ -295,18 +316,19 @@ function info {
     $@ && echo "yes" || echo "no"
   }
   want=$(read_wanted_ref)
-  echo_info "Checkout commit" $(find_checkout_commit || echo "n/a")
   echo_info "Fixup commit" $(find_fixup_commit || echo "n/a")
+  echo_info "Checkout commit" $(find_checkout_commit || echo "n/a")
   echo_info "Wanted" $want
   echo_info "Needs switch" $(yesno needs_switch)
   echo_info "Needs patch" $(yesno needs_patch)
-  echo_info "Deteached" $(yesno is_detached_head)
+  echo_info "Detached" $(yesno is_detached_head)
   echo_info "On branch" $(yesno is_on_branch)
   echo_info "Branch name" $(branch_name || echo "n/a")
   echo_info "Has wanted tag" $(yesno has_tag $want)
   echo_info "Has tag commit" $(yesno has_tag_commit $want)
   echo_info "Has patch commit" $(yesno has_patch_commit)
   echo_info "Last commit is patch" $(yesno is_last_commit_patch)
+  echo_info "Has fixup and patch" $(yesno has_fixup_and_patch)
 }
 
 cmd=${1:-}
