@@ -155,7 +155,7 @@ impl ChunkFormatter<'_, '_> {
 
         group.text(self.chunk(|formatter| {
             if is_slice {
-                formatter.write_token(Token::Ampersand);
+                formatter.write_token(Token::SliceStart);
             }
             formatter.write_left_bracket();
         }));
@@ -715,7 +715,7 @@ impl ChunkFormatter<'_, '_> {
     fn format_prefix(&mut self, prefix: PrefixExpression) -> ChunkGroup {
         let mut group = ChunkGroup::new();
         group.text(self.chunk(|formatter| {
-            if let UnaryOp::MutableReference = prefix.operator {
+            if let UnaryOp::Reference { mutable: true } = prefix.operator {
                 formatter.write_current_token();
                 formatter.bump();
                 formatter.skip_comments_and_whitespace();
@@ -1344,7 +1344,7 @@ fn force_if_chunks_to_multiple_lines(group: &mut ChunkGroup, group_tag: GroupTag
 
 #[cfg(test)]
 mod tests {
-    use crate::{assert_format, assert_format_with_config, assert_format_with_max_width, Config};
+    use crate::{Config, assert_format, assert_format_with_config, assert_format_with_max_width};
 
     #[test]
     fn format_unit() {

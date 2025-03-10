@@ -11,6 +11,9 @@ use dep::protocol_types::{
     utils::field::{full_field_greater_than, full_field_less_than},
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
+use protocol_types::traits::Hash;
+
+mod test;
 
 trait ProveNullifierNonInclusion {
     fn prove_nullifier_non_inclusion(header: BlockHeader, nullifier: Field);

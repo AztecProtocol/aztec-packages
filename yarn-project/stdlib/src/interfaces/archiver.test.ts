@@ -19,8 +19,8 @@ import {
 } from '../contract/index.js';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
+import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import type { LogFilter } from '../logs/log_filter.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
@@ -75,11 +75,6 @@ describe('ArchiverApiSchema', () => {
 
   it('getProvenBlockNumber', async () => {
     const result = await context.client.getProvenBlockNumber();
-    expect(result).toBe(1);
-  });
-
-  it('getProvenL2EpochNumber', async () => {
-    const result = await context.client.getProvenL2EpochNumber();
     expect(result).toBe(1);
   });
 
@@ -172,7 +167,7 @@ describe('ArchiverApiSchema', () => {
       txHash: TxHash.random(),
       contractAddress: await AztecAddress.random(),
     });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    expect(result).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
   });
 
   it('getPublicFunction', async () => {
@@ -270,9 +265,6 @@ class MockArchiver implements ArchiverApi {
   getProvenBlockNumber(): Promise<number> {
     return Promise.resolve(1);
   }
-  getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(1);
-  }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
@@ -311,6 +303,10 @@ class MockArchiver implements ArchiverApi {
       finalized: { number: 1, hash: `0x01` },
     });
   }
+  getL2BlockHash(blockNumber: number): Promise<string | undefined> {
+    expect(blockNumber).toEqual(1);
+    return Promise.resolve(`0x01`);
+  }
   findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
     expect(blockNumber).toEqual(1);
     expect(nullifiers).toHaveLength(2);
@@ -333,7 +329,7 @@ class MockArchiver implements ArchiverApi {
   async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
+    return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
   getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);

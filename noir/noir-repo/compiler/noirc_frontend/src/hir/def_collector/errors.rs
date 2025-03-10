@@ -2,7 +2,6 @@ use crate::ast::{Ident, ItemVisibility, Path, UnsupportedNumericGenericType};
 use crate::hir::resolution::import::PathResolutionError;
 use crate::hir::type_check::generics::TraitGenerics;
 
-use noirc_errors::FileDiagnostic;
 use noirc_errors::{CustomDiagnostic as Diagnostic, Location};
 use thiserror::Error;
 
@@ -38,8 +37,8 @@ pub enum DefCollectorErrorKind {
     CannotReexportItemWithLessVisibility { item_name: Ident, desired_visibility: ItemVisibility },
     #[error("Non-struct type used in impl")]
     NonStructTypeInImpl { location: Location },
-    #[error("Cannot implement trait on a mutable reference type")]
-    MutableReferenceInTraitImpl { location: Location },
+    #[error("Cannot implement trait on a reference type")]
+    ReferenceInTraitImpl { location: Location },
     #[error("Impl for type `{typ}` overlaps with existing impl")]
     OverlappingImpl { typ: crate::Type, location: Location, prev_location: Location },
     #[error("Cannot `impl` a type defined outside the current crate")]
@@ -56,9 +55,7 @@ pub enum DefCollectorErrorKind {
     ModuleAlreadyPartOfCrate { mod_name: Ident, location: Location },
     #[error("Module was originally declared here")]
     ModuleOriginallyDefined { mod_name: Ident, location: Location },
-    #[error(
-        "Either the type or the trait must be from the same crate as the trait implementation"
-    )]
+    #[error("Either the type or the trait must be from the same crate as the trait implementation")]
     TraitImplOrphaned { location: Location },
     #[error("impl has stricter requirements than trait")]
     ImplIsStricterThanTrait {
@@ -78,13 +75,9 @@ pub enum DefCollectorErrorKind {
 }
 
 impl DefCollectorErrorKind {
-    pub fn into_file_diagnostic(&self, file: fm::FileId) -> FileDiagnostic {
-        Diagnostic::from(self).in_file(file)
-    }
-
     pub fn location(&self) -> Location {
         match self {
-            DefCollectorErrorKind::Duplicate { first_def: ident, .. }
+            DefCollectorErrorKind::Duplicate { second_def: ident, .. }
             | DefCollectorErrorKind::UnresolvedModuleDecl { mod_name: ident, .. }
             | DefCollectorErrorKind::CannotReexportItemWithLessVisibility {
                 item_name: ident,
@@ -104,7 +97,7 @@ impl DefCollectorErrorKind {
             | DefCollectorErrorKind::TestOnAssociatedFunction { location }
             | DefCollectorErrorKind::ExportOnAssociatedFunction { location }
             | DefCollectorErrorKind::NonStructTypeInImpl { location }
-            | DefCollectorErrorKind::MutableReferenceInTraitImpl { location }
+            | DefCollectorErrorKind::ReferenceInTraitImpl { location }
             | DefCollectorErrorKind::OverlappingImpl { location, .. }
             | DefCollectorErrorKind::ModuleAlreadyPartOfCrate { location, .. }
             | DefCollectorErrorKind::ModuleOriginallyDefined { location, .. }
@@ -167,10 +160,10 @@ impl<'a> From<&'a DefCollectorErrorKind> for Diagnostic {
                     let second_location = second_def.0.location();
                     let mut diag = Diagnostic::simple_error(
                         primary_message,
-                        format!("First {} found here", &typ),
-                        first_location,
+                        format!("Second {} found here", &typ),
+                        second_location,
                     );
-                    diag.add_secondary(format!("Second {} found here", &typ), second_location);
+                    diag.add_secondary(format!("First {} found here", &typ), first_location);
                     diag
                 }
             }
@@ -206,8 +199,8 @@ impl<'a> From<&'a DefCollectorErrorKind> for Diagnostic {
                 "Only struct types may have implementation methods".into(),
                 *location,
             ),
-            DefCollectorErrorKind::MutableReferenceInTraitImpl { location } => Diagnostic::simple_error(
-                "Trait impls are not allowed on mutable reference types".into(),
+            DefCollectorErrorKind::ReferenceInTraitImpl { location } => Diagnostic::simple_error(
+                "Trait impls are not allowed on reference types".into(),
                 "Try using a struct type here instead".into(),
                 *location,
             ),

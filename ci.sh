@@ -91,7 +91,7 @@ case "$cmd" in
     export DENOISE=1
     num=${1:-5}
     seq 0 $((num - 1)) | parallel --tag --line-buffered \
-      "denoise 'INSTANCE_POSTFIX={} bootstrap_ec2 \"USE_TEST_CACHE=0 ./bootstrap.sh ci\"'"
+      'INSTANCE_POSTFIX={} bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci" 2>&1 | cache_log "Grind {}"'
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
@@ -231,6 +231,9 @@ case "$cmd" in
     ;;
   "deploy")
     VERSION_TAG=$1
+    ;;
+  "watch")
+    watch_ci "$@"
     ;;
   "help"|"")
     print_usage

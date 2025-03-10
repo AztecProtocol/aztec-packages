@@ -271,14 +271,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_op5, get_operand(4) },
                       { C::instr_fetching_op6, get_operand(5) },
                       { C::instr_fetching_op7, get_operand(6) },
-                      // From instruction table.
-                      // FIXME: This one is wrong, it's the wire opcode.
-                      // { C::instr_fetching_ex_opcode, event.instruction.opcode },
-                      // TODO: add the rest.
                       // Single bytes.
                       { C::instr_fetching_bd0, wire_opcode },
-                      { C::instr_fetching_exec_opcode,
-                        static_cast<uint32_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode) },
                       { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
                       { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
                       { C::instr_fetching_bd3, bytecode_at(event.pc + 3) },
@@ -316,6 +310,10 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_bd35, bytecode_at(event.pc + 35) },
                       { C::instr_fetching_bd36, bytecode_at(event.pc + 36) },
 
+                      // From instruction table.
+                      { C::instr_fetching_exec_opcode,
+                        static_cast<uint32_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode) },
+                      { C::instr_fetching_instr_size_in_bytes, WIRE_INSTRUCTION_SPEC.at(w_opcode).size_in_bytes },
                       // Fill operand decomposition selectors
                       { C::instr_fetching_sel_op_dc_0, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(0) },
                       { C::instr_fetching_sel_op_dc_1, WIRE_INSTRUCTION_SPEC.at(w_opcode).op_dc_selectors.at(1) },

@@ -16,6 +16,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type AllowedElement, type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
 
 import {
   type PublisherConfig,
@@ -31,6 +32,7 @@ export type { SequencerConfig };
  * Configuration settings for the SequencerClient.
  */
 export type SequencerClientConfig = PublisherConfig &
+  ValidatorClientConfig &
   TxSenderConfig &
   SequencerConfig &
   L1ReaderConfig &
@@ -65,7 +67,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   coinbase: {
     env: 'COINBASE',
-    parseEnv: (val: string) => EthAddress.fromString(val),
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
     description: 'Recipient of block reward.',
   },
   feeRecipient: {
@@ -113,6 +115,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
+  ...validatorClientConfigMappings,
   ...sequencerConfigMappings,
   ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),

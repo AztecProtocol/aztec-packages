@@ -32,6 +32,12 @@ function check_toolchains {
       exit 1
     fi
   done
+  if ! yq --version | grep "version v4" > /dev/null; then
+    encourage_dev_container
+    echo "yq v4 not installed."
+    echo "Installation: https://github.com/mikefarah/yq/#install"
+    exit 1
+  fi
   # Check cmake version.
   local cmake_min_version="3.24"
   local cmake_installed_version=$(cmake --version | head -n1 | awk '{print $3}')
@@ -47,13 +53,19 @@ function check_toolchains {
     echo "Installation: sudo apt install clang-16"
     exit 1
   fi
-  # Check rust version.
-  if ! rustup show | grep "1.75" > /dev/null; then
+  # Check rustup installed.
+  local rust_version=$(yq '.toolchain.channel' ./noir/noir-repo/rust-toolchain.toml)
+  if ! command -v rustup > /dev/null; then
     encourage_dev_container
-    echo "Rust version 1.75 not installed."
+    echo "Rustup not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain $rust_version"
     exit 1
+  fi
+  if ! rustup show | grep $rust_version > /dev/null; then
+    # Cargo will download necessary version of rust at runtime but warn to alert that an update to the build-image
+    # is desirable.
+    echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
   fi
   # Check wasi-sdk version.
   if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 22.0 > /dev/null; then
@@ -107,10 +119,30 @@ function install_hooks {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes barretenberg l1-contracts noir
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
+
+function start_txes {
+  # Starting txe servers with incrementing port numbers.
+  trap 'kill -SIGTERM $(jobs -p) &>/dev/null || true' EXIT
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    existing_pid=$(lsof -ti :$((45730 + i)) || true)
+    [ -n "$existing_pid" ] && kill -9 $existing_pid
+    dump_fail "cd $root/yarn-project/txe && LOG_LEVEL=info TXE_PORT=$((45730 + i)) node --no-warnings ./dest/bin/index.js" &
+  done
+  echo "Waiting for TXE's to start..."
+  for i in $(seq 0 $((NUM_TXES-1))); do
+      local j=0
+      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
+        [ $j == 15 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
+        sleep 1
+        j=$((j+1))
+      done
+  done
+}
+export -f start_txes
 
 function test {
   echo_header "test all"
@@ -118,23 +150,7 @@ function test {
   # Make sure KIND starts so it is running by the time we do spartan tests.
   spartan/bootstrap.sh kind &>/dev/null &
 
-  # Starting txe servers with incrementing port numbers.
-  trap 'kill $(jobs -p) &>/dev/null || true' EXIT
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    existing_pid=$(lsof -ti :$((45730 + i)) || true)
-    [ -n "$existing_pid" ] && kill -9 $existing_pid
-    # TODO: I'd like to use dump_fail here, but TXE needs to exit 0 on receiving a SIGTERM.
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) retry yarn start) &>/dev/null &
-  done
-  echo "Waiting for TXE's to start..."
-  for i in $(seq 0 $((NUM_TXES-1))); do
-      local j=0
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 60 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
-        sleep 1
-        j=$((j+1))
-      done
-  done
+  start_txes
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
@@ -142,7 +158,10 @@ function test {
   echo "Gathering tests to run..."
   local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
-  echo "Gathered $(echo -n "$tests" | wc -l) tests."
+  # Note: Capturing strips last newline. The echo re-adds it.
+  local num
+  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
+  echo "Gathered $num tests."
   echo -n "$tests" | parallelise $((num_cpus / 2))
 }
 
@@ -164,6 +183,7 @@ function build {
     l1-contracts
     yarn-project
     boxes
+    playground
     docs
     release-image
     aztec-up
@@ -181,7 +201,7 @@ function bench {
   fi
   denoise "barretenberg/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
-  denoise "yarn-project/p2p/bootstrap.sh bench"
+  # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
 function release_github {
@@ -220,7 +240,6 @@ function release {
 
   echo_header "release all"
   set -x
-  check_release
 
   # Ensure we have a github release for our REF_NAME, if not on latest.
   # On latest we rely on release-please to create this for us.
@@ -236,6 +255,7 @@ function release {
     yarn-project
     boxes
     aztec-up
+    playground
     docs
     release-image
   )
@@ -254,28 +274,6 @@ function release {
 
 function release_dryrun {
   DRY_RUN=1 release
-}
-
-function release_commit {
-  export REF_NAME="commit-$COMMIT_HASH"
-
-  release_github
-
-  projects=(
-    barretenberg/cpp
-    barretenberg/ts
-    noir
-    l1-contracts
-    yarn-project
-    # Should publish at least one of our boxes to it's own repo.
-    #boxes
-    docs
-    release-image
-  )
-
-  for project in "${projects[@]}"; do
-    $project/bootstrap.sh release_commit
-  done
 }
 
 case "$cmd" in
@@ -308,11 +306,16 @@ case "$cmd" in
   ;;
   "ci")
     build
-    test
-    bench
-    release
+    if ! semver check $REF_NAME; then
+      test
+      bench
+      echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
+    else
+      echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
+      release
+    fi
     ;;
-  test|test_cmds|bench|release|release_dryrun|release_commit)
+  test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
     ;;
   *)

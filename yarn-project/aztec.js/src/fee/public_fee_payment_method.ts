@@ -99,7 +99,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     );
 
     return [
-      await setPublicAuthWitInteraction.request(),
+      ...(await setPublicAuthWitInteraction.request()).calls,
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,

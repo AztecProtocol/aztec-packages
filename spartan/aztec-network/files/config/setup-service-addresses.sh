@@ -99,8 +99,8 @@ else
 fi
 
 # Configure Boot Node address
-if [ "${BOOT_NODE_EXTERNAL_HOST}" != "" ]; then
-  BOOT_NODE_ADDR="${BOOT_NODE_EXTERNAL_HOST}"
+if [ "${EXTERNAL_BOOT_NODE_HOST}" != "" ]; then
+  BOOT_NODE_ADDR="${EXTERNAL_BOOT_NODE_HOST}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
   BOOT_NODE_ADDR=$(get_service_address "boot-node" "${BOOT_NODE_PORT}")
 else

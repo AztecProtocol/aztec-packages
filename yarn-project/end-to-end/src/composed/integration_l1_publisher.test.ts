@@ -200,7 +200,6 @@ describe('L1Publisher integration', () => {
     publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
-        requiredConfirmations: 1,
         l1Contracts: l1ContractAddresses,
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
@@ -487,8 +486,6 @@ describe('L1Publisher integration', () => {
               txHashes: [],
             },
             [],
-            // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob:
-            `0x${block.body.toBuffer().toString('hex')}`,
             Blob.getEthBlobEvaluationInputs(blobs),
           ],
         });

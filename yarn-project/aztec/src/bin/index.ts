@@ -9,13 +9,11 @@ import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
 import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
-import { fileURLToPath } from '@aztec/foundation/url';
 
 import { Command } from 'commander';
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
 
 import { injectAztecCommands } from '../cli/index.js';
+import { getCliVersion } from '../cli/release_version.js';
 
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('cli');
@@ -28,8 +26,7 @@ async function main() {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
-  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const cliVersion = getCliVersion();
   let program = new Command('aztec');
   program.description('Aztec command line interface').version(cliVersion);
   program = injectAztecCommands(program, userLog, debugLogger);

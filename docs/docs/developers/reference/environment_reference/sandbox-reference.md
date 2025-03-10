@@ -14,23 +14,18 @@ For a quick start, follow the [guide](../../getting_started.md) to install the s
 
 There are various environment variables you can use when running the whole sandbox or when running on of the available modes.
 
-To change them, you can open `~/.aztec/docker-compose.sandbox.yml` and edit them directly.
-
 **Sandbox**
 
 ```sh
 LOG_LEVEL=debug # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
 HOST_WORKDIR='${PWD}' # The location to store log outputs. Will use ~/.aztec where the docker-compose.yml file is stored by default.
-ETHEREUM_HOSTS=http://ethereum:8545 # List of Ethereum JSON RPC URLs. We use an anvil instance that runs in parallel to the sandbox on docker by default.
+ETHEREUM_HOSTS=http://127.0.0.1:8545 # List of Ethereum JSON RPC URLs. We use an anvil instance that runs in parallel to the sandbox on docker by default.
+ANVIL_PORT=8545 # The port that docker will forward to the anvil instance (default: 8545)
 L1_CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
 MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 AZTEC_NODE_PORT=8080 # The port that Aztec Node will be listening to (default: 8080)
-
-# Ethereum Forking (Optional: not enabled by default) #
-FORK_BLOCK_NUMBER=0 # The block number to fork from
-FORK_URL="" # The URL of the Ethereum node to fork from
 
 ## Polling intervals ##
 ARCHIVER_POLLING_INTERVAL_MS=50
@@ -133,7 +128,6 @@ EscrowContractArtifact
 FPCContractArtifact
 FeeJuiceContractArtifact
 ImportTestContractArtifact
-InclusionProofsContractArtifact
 LendingContractArtifact
 MultiCallEntrypointContractArtifact
 ParentContractArtifact

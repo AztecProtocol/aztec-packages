@@ -19,6 +19,11 @@ import { EcdsaKBaseAccountContract } from './account_contract.js';
  * @returns The contract artifact for the ecdsa K account contract
  */
 export async function getEcdsaKAccountContractArtifact() {
+  // Cannot assert this import as it's incompatible with browsers
+  // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
+  // Use the new "with" syntax once supported by firefox
+  // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+  // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
   const { default: ecdsaKAccountContractJson } = await import('../../../artifacts/EcdsaKAccount.json');
   return loadContractArtifact(ecdsaKAccountContractJson);
 }

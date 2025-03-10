@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
-import type { Logger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
@@ -43,6 +43,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeDeployData,
+  encodeFunctionData,
   fallback,
   getAddress,
   getContract,
@@ -60,7 +61,13 @@ import type { L1ContractsConfig } from './config.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
-import { L1TxUtils, type L1TxUtilsConfig, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import {
+  type GasPrice,
+  type L1TxRequest,
+  L1TxUtils,
+  type L1TxUtilsConfig,
+  defaultL1TxUtilsConfig,
+} from './l1_tx_utils.js';
 import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
@@ -204,6 +211,8 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   initialValidators?: EthAddress[];
   /** Configuration for the L1 tx utils module. */
   l1TxConfig?: Partial<L1TxUtilsConfig>;
+  /** Enable fast mode for deployments (fire and forget transactions) */
+  acceleratedTestDeployments?: boolean;
 }
 
 /**
@@ -255,7 +264,14 @@ export const deployRollupAndPeriphery = async (
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
 ) => {
-  const deployer = new L1Deployer(clients.walletClient, clients.publicClient, args.salt, logger, txUtilsConfig);
+  const deployer = new L1Deployer(
+    clients.walletClient,
+    clients.publicClient,
+    args.salt,
+    args.acceleratedTestDeployments,
+    logger,
+    txUtilsConfig,
+  );
 
   const addresses = await RegistryContract.collectAddresses(clients.publicClient, registryAddress, 'canonical');
 
@@ -305,16 +321,19 @@ export const deployRollup = async (
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
   };
+  const genesisStateArgs = {
+    vkTreeRoot: args.vkTreeRoot.toString(),
+    protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
+    genesisArchiveRoot: args.genesisArchiveRoot.toString(),
+    genesisBlockHash: args.genesisBlockHash.toString(),
+  };
   logger.verbose(`Rollup config args`, rollupConfigArgs);
   const rollupArgs = [
     addresses.feeJuicePortalAddress.toString(),
     addresses.rewardDistributorAddress.toString(),
     addresses.stakingAssetAddress.toString(),
-    args.vkTreeRoot.toString(),
-    args.protocolContractTreeRoot.toString(),
-    args.genesisArchiveRoot.toString(),
-    args.genesisBlockHash.toString(),
     clients.walletClient.account.address.toString(),
+    genesisStateArgs,
     rollupConfigArgs,
   ];
 
@@ -334,31 +353,48 @@ export const deployRollup = async (
 
   if (args.initialValidators && args.initialValidators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
-    const validatorsInfo = await Promise.all(
-      args.initialValidators.map(async address => ({ address, ...(await rollup.read.getInfo([address.toString()])) })),
-    );
-    const existingValidators = validatorsInfo.filter(v => v.status !== 0);
-    if (existingValidators.length > 0) {
-      logger.warn(
-        `Validators ${existingValidators.map(v => v.address).join(', ')} already exist. Skipping from initialization.`,
+    let newValidatorsAddresses = args.initialValidators.map(v => v.toString());
+    if (!args.acceleratedTestDeployments) {
+      const validatorsInfo = await Promise.all(
+        args.initialValidators.map(async address => ({
+          address,
+          ...(await rollup.read.getInfo([address.toString()])),
+        })),
       );
+      const existingValidators = validatorsInfo.filter(v => v.status !== 0);
+      if (existingValidators.length > 0) {
+        logger.warn(
+          `Validators ${existingValidators
+            .map(v => v.address)
+            .join(', ')} already exist. Skipping from initialization.`,
+        );
+      }
+
+      newValidatorsAddresses = validatorsInfo.filter(v => v.status === 0).map(v => v.address.toString());
     }
 
-    const newValidatorsAddresses = validatorsInfo.filter(v => v.status === 0).map(v => v.address.toString());
-
     if (newValidatorsAddresses.length > 0) {
-      const stakingAsset = getContract({
-        address: addresses.stakingAssetAddress.toString(),
-        abi: l1Artifacts.stakingAsset.contractAbi,
-        client: clients.walletClient,
-      });
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
       const stakeNeeded = args.minimumStake * BigInt(newValidatorsAddresses.length);
       await Promise.all(
         [
-          await stakingAsset.write.mint([clients.walletClient.account.address, stakeNeeded], {} as any),
-          await stakingAsset.write.approve([rollupAddress.toString(), stakeNeeded], {} as any),
-        ].map(txHash => clients.publicClient.waitForTransactionReceipt({ hash: txHash })),
+          await deployer.sendTransaction({
+            to: addresses.stakingAssetAddress.toString(),
+            data: encodeFunctionData({
+              abi: l1Artifacts.stakingAsset.contractAbi,
+              functionName: 'mint',
+              args: [clients.walletClient.account.address, stakeNeeded],
+            }),
+          }),
+          await deployer.sendTransaction({
+            to: addresses.stakingAssetAddress.toString(),
+            data: encodeFunctionData({
+              abi: l1Artifacts.stakingAsset.contractAbi,
+              functionName: 'approve',
+              args: [rollupAddress.toString(), stakeNeeded],
+            }),
+          }),
+        ].map(tx => clients.publicClient.waitForTransactionReceipt({ hash: tx.txHash })),
       );
 
       const validators = newValidatorsAddresses.map(v => ({
@@ -367,7 +403,13 @@ export const deployRollup = async (
         withdrawer: v,
         amount: args.minimumStake,
       }));
-      const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([validators]);
+      // const initiateValidatorSetTxHash = await rollup.write.cheat__InitialiseValidatorSet([validators]);
+      const initiateValidatorSetTxHash = await deployer.walletClient.writeContract({
+        address: rollupAddress.toString(),
+        abi: l1Artifacts.rollup.contractAbi,
+        functionName: 'cheat__InitialiseValidatorSet',
+        args: [validators],
+      });
       txHashes.push(initiateValidatorSetTxHash);
       logger.info(`Initialized validator set`, {
         validators,
@@ -398,9 +440,11 @@ export const deployL1Contracts = async (
   args: DeployL1ContractsArgs,
   txUtilsConfig: L1TxUtilsConfig = defaultL1TxUtilsConfig,
 ): Promise<DeployL1ContractsReturnType> => {
+  const clients = createL1Clients(rpcUrls, account, chain);
+  const { walletClient, publicClient } = clients;
+
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
-  const { walletClient, publicClient } = createL1Clients(rpcUrls, account, chain);
 
   const rpcCall = async (method: string, params: any[]) => {
     logger.info(`Calling ${method} with params: ${JSON.stringify(params)}`);
@@ -422,7 +466,14 @@ export const deployL1Contracts = async (
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
   // Governance stuff
-  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger, txUtilsConfig);
+  const deployer = new L1Deployer(
+    walletClient,
+    publicClient,
+    args.salt,
+    args.acceleratedTestDeployments,
+    logger,
+    txUtilsConfig,
+  );
 
   const registryAddress = await deployer.deploy(l1Artifacts.registry, [account.address.toString()]);
   logger.verbose(`Deployed Registry at ${registryAddress}`);
@@ -491,14 +542,28 @@ export const deployL1Contracts = async (
   // Transaction hashes to await
   const txHashes: Hex[] = [];
 
-  if (!(await feeAsset.read.freeForAll())) {
-    const txHash = await feeAsset.write.setFreeForAll([true], {} as any);
+  if (args.acceleratedTestDeployments || !(await feeAsset.read.freeForAll())) {
+    const { txHash } = await deployer.sendTransaction({
+      to: feeAssetAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.feeAsset.contractAbi,
+        functionName: 'setFreeForAll',
+        args: [true],
+      }),
+    });
     logger.verbose(`Fee asset set to free for all in ${txHash}`);
     txHashes.push(txHash);
   }
 
-  if ((await feeAsset.read.owner()) !== getAddress(coinIssuerAddress.toString())) {
-    const txHash = await feeAsset.write.transferOwnership([coinIssuerAddress.toString()], { account });
+  if (args.acceleratedTestDeployments || (await feeAsset.read.owner()) !== getAddress(coinIssuerAddress.toString())) {
+    const { txHash } = await deployer.sendTransaction({
+      to: feeAssetAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.feeAsset.contractAbi,
+        functionName: 'transferOwnership',
+        args: [coinIssuerAddress.toString()],
+      }),
+    });
     logger.verbose(`Fee asset transferred ownership to coin issuer in ${txHash}`);
     txHashes.push(txHash);
   }
@@ -508,21 +573,47 @@ export const deployL1Contracts = async (
   // @todo  #8084
   // fund the portal contract with Fee Juice
   const FEE_JUICE_INITIAL_MINT = 200000000000000000000000n;
-  const mintTxHash = await feeAsset.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
+
+  // In fast mode, use the L1TxUtils to send transactions with nonce management
+  const { txHash: mintTxHash } = await deployer.sendTransaction({
+    to: feeAssetAddress.toString(),
+    data: encodeFunctionData({
+      abi: l1Artifacts.feeAsset.contractAbi,
+      functionName: 'mint',
+      args: [feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT],
+    }),
+  });
+  logger.verbose(`Funding fee juice portal contract with fee juice in ${mintTxHash} (accelerated test deployments)`);
+  txHashes.push(mintTxHash);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
   //        otherwise we execute subsequent transactions too soon
-  await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
-  logger.verbose(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
+  if (!args.acceleratedTestDeployments) {
+    await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
+    logger.verbose(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
+  }
 
-  if (!(await feeJuicePortal.read.initialized())) {
-    const initPortalTxHash = await feeJuicePortal.write.initialize();
+  // Check if portal needs initialization
+  let needsInitialization = args.acceleratedTestDeployments;
+  if (!args.acceleratedTestDeployments) {
+    // Only check if not in fast mode and not already known to need initialization
+    needsInitialization = !(await feeJuicePortal.read.initialized());
+  }
+  if (needsInitialization) {
+    const { txHash: initPortalTxHash } = await deployer.sendTransaction({
+      to: feeJuicePortalAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.feeJuicePortal.contractAbi,
+        functionName: 'initialize',
+        args: [],
+      }),
+    });
+
     txHashes.push(initPortalTxHash);
     logger.verbose(`Fee juice portal initializing in tx ${initPortalTxHash}`);
   } else {
     logger.verbose(`Fee juice portal is already initialized`);
   }
-
   logger.verbose(
     `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeAssetAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
@@ -550,8 +641,18 @@ export const deployL1Contracts = async (
     client: walletClient,
   });
 
-  if (!(await registryContract.read.isRollupRegistered([getAddress(rollup.address.toString())]))) {
-    const upgradeTxHash = await registryContract.write.upgrade([getAddress(rollup.address.toString())], { account });
+  if (
+    args.acceleratedTestDeployments ||
+    !(await registryContract.read.isRollupRegistered([getAddress(rollup.address.toString())]))
+  ) {
+    const { txHash: upgradeTxHash } = await deployer.sendTransaction({
+      to: registryAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.registry.contractAbi,
+        functionName: 'upgrade',
+        args: [getAddress(rollup.address.toString())],
+      }),
+    });
     logger.verbose(
       `Upgrading registry contract at ${registryAddress} to rollup ${rollup.address} in tx ${upgradeTxHash}`,
     );
@@ -561,13 +662,19 @@ export const deployL1Contracts = async (
   }
 
   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if ((await registryContract.read.owner()) !== getAddress(governanceAddress.toString())) {
-    const transferOwnershipTxHash = await registryContract.write.transferOwnership(
-      [getAddress(governanceAddress.toString())],
-      {
-        account,
-      },
-    );
+  if (
+    args.acceleratedTestDeployments ||
+    (await registryContract.read.owner()) !== getAddress(governanceAddress.toString())
+  ) {
+    // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
+    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
+      to: registryAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.registry.contractAbi,
+        functionName: 'transferOwnership',
+        args: [getAddress(governanceAddress.toString())],
+      }),
+    });
     logger.verbose(
       `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
     );
@@ -617,16 +724,24 @@ export const deployL1Contracts = async (
 class L1Deployer {
   private salt: Hex | undefined;
   private txHashes: Hex[] = [];
-  private l1TxUtils: L1TxUtils;
+  public readonly l1TxUtils: L1TxUtils;
+
   constructor(
-    private walletClient: ViemWalletClient,
+    public readonly walletClient: ViemWalletClient,
     private publicClient: ViemPublicClient,
     maybeSalt: number | undefined,
-    private logger: Logger,
+    private acceleratedTestDeployments: boolean = false,
+    private logger: Logger = createLogger('L1Deployer'),
     private txUtilsConfig?: L1TxUtilsConfig,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
-    this.l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient, this.logger, this.txUtilsConfig);
+    this.l1TxUtils = new L1TxUtils(
+      this.publicClient,
+      this.walletClient,
+      this.logger,
+      this.txUtilsConfig,
+      this.acceleratedTestDeployments,
+    );
   }
 
   async deploy(params: ContractArtifacts, args: readonly unknown[] = []): Promise<EthAddress> {
@@ -640,6 +755,7 @@ class L1Deployer {
       params.libraries,
       this.logger,
       this.l1TxUtils,
+      this.acceleratedTestDeployments,
     );
     if (txHash) {
       this.txHashes.push(txHash);
@@ -648,7 +764,21 @@ class L1Deployer {
   }
 
   async waitForDeployments(): Promise<void> {
+    if (this.acceleratedTestDeployments) {
+      this.logger.info('Accelerated test deployments - skipping waiting for deployments');
+      return;
+    }
+    if (this.txHashes.length === 0) {
+      return;
+    }
+
+    this.logger.info(`Waiting for ${this.txHashes.length} transactions to be mined...`);
     await Promise.all(this.txHashes.map(txHash => this.publicClient.waitForTransactionReceipt({ hash: txHash })));
+    this.logger.info('All transactions mined successfully');
+  }
+
+  sendTransaction(tx: L1TxRequest): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
+    return this.l1TxUtils.sendTransaction(tx);
   }
 }
 
@@ -672,14 +802,14 @@ export async function deployL1Contract(
   maybeSalt?: Hex,
   libraries?: Libraries,
   logger?: Logger,
-  _l1TxUtils?: L1TxUtils,
+  l1TxUtils?: L1TxUtils,
+  acceleratedTestDeployments: boolean = false,
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
-  let l1TxUtils: L1TxUtils | undefined = _l1TxUtils;
 
   if (!l1TxUtils) {
-    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
+    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger, undefined, acceleratedTestDeployments);
   }
 
   if (libraries) {
@@ -709,6 +839,7 @@ export async function deployL1Contract(
         undefined,
         logger,
         l1TxUtils,
+        acceleratedTestDeployments,
       );
 
       if (txHash) {
@@ -743,9 +874,16 @@ export async function deployL1Contract(
 
     // Reth fails gas estimation if the deployed contract attempts to call a library that is not yet deployed,
     // so we wait for all library deployments to be mined before deploying the contract.
-    if (libraryTxs.length > 0) {
+    // However, if we are in fast mode or using debugMaxGasLimit, we will skip simulation, so we can skip waiting.
+    if (libraryTxs.length > 0 && !acceleratedTestDeployments) {
       logger?.verbose(`Awaiting for linked libraries to be deployed`);
       await Promise.all(libraryTxs.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
+    } else {
+      logger?.verbose(
+        `Skipping waiting for linked libraries to be deployed ${
+          acceleratedTestDeployments ? '(accelerated test deployments)' : ''
+        }`,
+      );
     }
   }
 

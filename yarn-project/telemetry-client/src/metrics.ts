@@ -37,6 +37,7 @@ export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
 
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_L1_BLOCKS_SYNCED = 'aztec.archiver.l1_blocks_synced';
+export const ARCHIVER_L1_BLOCK_HEIGHT = 'aztec.archiver.l1_block_height';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_TX_COUNT = 'aztec.archiver.tx_count';
 export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
@@ -68,9 +69,11 @@ export const L1_PUBLISHER_BLOB_COUNT = 'aztec.l1_publisher.blob_count';
 export const L1_PUBLISHER_BLOB_INCLUSION_BLOCKS = 'aztec.l1_publisher.blob_inclusion_blocks';
 export const L1_PUBLISHER_BLOB_TX_SUCCESS = 'aztec.l1_publisher.blob_tx_success';
 export const L1_PUBLISHER_BLOB_TX_FAILURE = 'aztec.l1_publisher.blob_tx_failure';
+export const L1_PUBLISHER_BALANCE = 'aztec.l1_publisher.balance';
 
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
+export const PEER_MANAGER_PEER_COUNT = 'aztec.peer_manager.peer_count';
 
 export const P2P_REQ_RESP_SENT_REQUESTS = 'aztec.p2p.req_resp.sent_requests';
 export const P2P_REQ_RESP_RECEIVED_REQUESTS = 'aztec.p2p.req_resp.received_requests';

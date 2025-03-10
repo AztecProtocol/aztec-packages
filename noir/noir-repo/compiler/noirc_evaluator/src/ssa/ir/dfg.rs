@@ -18,12 +18,12 @@ use super::{
     value::{Value, ValueId},
 };
 
-use acvm::{acir::AcirField, FieldElement};
+use acvm::{FieldElement, acir::AcirField};
 use fxhash::FxHashMap as HashMap;
 use iter_extended::vecmap;
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
 use serde_with::DisplayFromStr;
+use serde_with::serde_as;
 
 /// The DataFlowGraph contains most of the actual data in a function including
 /// its blocks, instructions, and values. This struct is largely responsible for
@@ -239,10 +239,9 @@ impl DataFlowGraph {
                 instruction,
                 Instruction::IncrementRc { .. } | Instruction::DecrementRc { .. }
             ),
-            RuntimeType::Brillig(_) => !matches!(
-                instruction,
-                Instruction::EnableSideEffectsIf { .. } | Instruction::IfElse { .. }
-            ),
+            RuntimeType::Brillig(_) => {
+                !matches!(instruction, Instruction::EnableSideEffectsIf { .. })
+            }
         }
     }
 
@@ -375,6 +374,11 @@ impl DataFlowGraph {
                 )
             }
         }
+    }
+
+    /// Replace an existing instruction with a new one.
+    pub(crate) fn set_instruction(&mut self, id: InstructionId, instruction: Instruction) {
+        self.instructions[id] = instruction;
     }
 
     /// Set the value of value_to_replace to refer to the value referred to by new_value.
@@ -671,6 +675,20 @@ impl DataFlowGraph {
             _ => false,
         }
     }
+
+    /// Arrays are represented as `[RC, ...items]` where RC stands for reference count.
+    /// By the time of Brillig generation we expect all constant indices
+    /// to already account for the extra offset from the RC.
+    pub(crate) fn is_safe_brillig_index(&self, index: ValueId, array: ValueId) -> bool {
+        #[allow(clippy::match_like_matches_macro)]
+        match (self.type_of_value(array), self.get_numeric_constant(index)) {
+            (Type::Array(elements, len), Some(index)) => {
+                (index.to_u128() - 1) < (len as u128 * elements.len() as u128)
+            }
+            _ => false,
+        }
+    }
+
     /// Sets the terminator instruction for the given basic block
     pub(crate) fn set_block_terminator(
         &mut self,

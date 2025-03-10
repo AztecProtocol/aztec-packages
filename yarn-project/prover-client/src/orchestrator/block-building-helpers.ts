@@ -1,6 +1,7 @@
 import { Blob, type SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   NOTE_HASH_SUBTREE_HEIGHT,
@@ -24,6 +25,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import { PublicDataHint } from '@aztec/stdlib/avm';
 import { Body } from '@aztec/stdlib/block';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { ContractClassLog } from '@aztec/stdlib/logs';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -139,6 +141,11 @@ export const buildBaseRollupHints = runInSpan(
     const inputSpongeBlob = startSpongeBlob.clone();
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
+    const contractClassLogsPreimages = makeTuple(
+      MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed() || ContractClassLog.empty(),
+    );
+
     if (tx.avmProvingRequest) {
       const blockHash = await tx.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
@@ -151,6 +158,7 @@ export const buildBaseRollupHints = runInSpan(
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
         archiveRootMembershipWitness,
+        contractClassLogsPreimages,
         constants,
       });
     } else {
@@ -205,6 +213,7 @@ export const buildBaseRollupHints = runInSpan(
         stateDiffHints,
         feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
+        contractClassLogsPreimages,
         constants,
       });
     }

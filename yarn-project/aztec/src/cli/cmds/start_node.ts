@@ -14,7 +14,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
+import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
 import { getL1Config } from '../get_l1_config.js';
 import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
 
@@ -26,10 +26,17 @@ export async function startNode(
 ): Promise<{ config: AztecNodeConfig }> {
   // options specifically namespaced with --node.<option>
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
+
+  // All options set from environment variables
+  const configFromEnvVars = getConfigEnvVars();
+
+  // Extract relevant options from command line arguments
+  const relevantOptions = extractRelevantOptions(options, aztecNodeConfigMappings, 'node');
+
   // All options that are relevant to the Aztec Node
   let nodeConfig: AztecNodeConfig = {
-    ...getConfigEnvVars(),
-    ...extractRelevantOptions(options, aztecNodeConfigMappings, 'node'),
+    ...configFromEnvVars,
+    ...relevantOptions,
   };
 
   if (options.proverNode) {
@@ -96,10 +103,15 @@ export async function startNode(
   if (!options.sequencer) {
     nodeConfig.disableValidator = true;
   } else {
-    const sequencerConfig = extractNamespacedOptions(options, 'sequencer');
+    const sequencerConfig = {
+      ...configFromEnvVars,
+      ...extractNamespacedOptions(options, 'sequencer'),
+    };
     let account;
     if (!sequencerConfig.publisherPrivateKey || sequencerConfig.publisherPrivateKey === NULL_KEY) {
-      if (!options.l1Mnemonic) {
+      if (sequencerConfig.validatorPrivateKey) {
+        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKey as `0x${string}`;
+      } else if (!options.l1Mnemonic) {
         userLog(
           '--sequencer.publisherPrivateKey or --l1-mnemonic is required to start Aztec Node with --sequencer option',
         );
@@ -107,11 +119,10 @@ export async function startNode(
       } else {
         account = mnemonicToAccount(options.l1Mnemonic);
         const privKey = account.getHdKey().privateKey;
-        nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+        sequencerConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
       }
-    } else {
-      nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
     }
+    nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
   }
 
   if (nodeConfig.p2pEnabled) {

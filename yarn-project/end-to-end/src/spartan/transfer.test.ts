@@ -3,6 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
+import type { ChildProcess } from 'child_process';
 
 import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
 import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
@@ -18,33 +19,39 @@ describe('token transfer test', () => {
   const ROUNDS = 1n;
 
   let testWallets: TestWallets;
+  let PXE_URL: string;
+  let ETHEREUM_HOSTS: string[];
+  const forwardProcesses: ChildProcess[] = [];
+
+  afterAll(() => {
+    forwardProcesses.forEach(p => p.kill());
+  });
 
   beforeAll(async () => {
-    let PXE_URL;
     if (isK8sConfig(config)) {
-      await startPortForward({
+      const { process: pxeProcess, port: pxePort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
-        hostPort: config.HOST_PXE_PORT,
       });
-      PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
+      forwardProcesses.push(pxeProcess);
+      PXE_URL = `http://127.0.0.1:${pxePort}`;
 
-      await startPortForward({
+      const { process: ethProcess, port: ethPort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_ETHEREUM_PORT,
-        hostPort: config.HOST_ETHEREUM_PORT,
       });
-      const ETHEREUM_HOSTS = `http://127.0.0.1:${config.HOST_ETHEREUM_PORT}`;
+      forwardProcesses.push(ethProcess);
+      ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
-      await startPortForward({
+      const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_SEQUENCER_PORT,
-        hostPort: config.HOST_SEQUENCER_PORT,
       });
-      const NODE_URL = `http://127.0.0.1:${config.HOST_SEQUENCER_PORT}`;
+      forwardProcesses.push(sequencerProcess);
+      const NODE_URL = `http://127.0.0.1:${sequencerPort}`;
 
       const L1_ACCOUNT_MNEMONIC = config.L1_ACCOUNT_MNEMONIC;
 

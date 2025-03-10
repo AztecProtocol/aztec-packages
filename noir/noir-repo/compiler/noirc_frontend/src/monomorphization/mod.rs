@@ -15,6 +15,7 @@ use crate::node_interner::{ExprId, GlobalValue, ImplSearchErrorKind};
 use crate::signed_field::SignedField;
 use crate::token::FmtStrFragment;
 use crate::{
+    Kind, Type, TypeBinding, TypeBindings,
     debug::DebugInstrumenter,
     hir_def::{
         expr::*,
@@ -23,9 +24,8 @@ use crate::{
         types,
     },
     node_interner::{self, DefinitionKind, NodeInterner, StmtId, TraitImplKind, TraitMethodId},
-    Kind, Type, TypeBinding, TypeBindings,
 };
-use acvm::{acir::AcirField, FieldElement};
+use acvm::{FieldElement, acir::AcirField};
 use ast::{GlobalId, While};
 use fxhash::FxHashMap as HashMap;
 use iter_extended::{btree_map, try_vecmap, vecmap};
@@ -1182,7 +1182,7 @@ impl<'interner> Monomorphizer<'interner> {
                 unreachable!("All TraitAsType should be replaced before calling convert_type");
             }
             HirType::NamedGeneric(binding, _) => {
-                if let TypeBinding::Bound(ref binding) = &*binding.borrow() {
+                if let TypeBinding::Bound(binding) = &*binding.borrow() {
                     return Self::convert_type(binding, location);
                 }
 
@@ -1198,12 +1198,12 @@ impl<'interner> Monomorphizer<'interner> {
                 Self::convert_type(to, location)?
             }
 
-            HirType::TypeVariable(ref binding) => {
+            HirType::TypeVariable(binding) => {
                 let type_var_kind = match &*binding.borrow() {
-                    TypeBinding::Bound(ref binding) => {
+                    TypeBinding::Bound(binding) => {
                         return Self::convert_type(binding, location);
                     }
-                    TypeBinding::Unbound(_, ref type_var_kind) => type_var_kind.clone(),
+                    TypeBinding::Unbound(_, type_var_kind) => type_var_kind.clone(),
                 };
 
                 // Default any remaining unbound type variables.
@@ -1280,7 +1280,8 @@ impl<'interner> Monomorphizer<'interner> {
                 }
             }
 
-            HirType::MutableReference(element) => {
+            // Lower both mutable & immutable references to the same reference type
+            HirType::Reference(element, _mutable) => {
                 let element = Self::convert_type(element, location)?;
                 ast::Type::MutableReference(Box::new(element))
             }
@@ -1328,18 +1329,18 @@ impl<'interner> Monomorphizer<'interner> {
             HirType::Array(_length, element) => Self::check_type(element.as_ref(), location),
             HirType::Slice(element) => Self::check_type(element.as_ref(), location),
             HirType::NamedGeneric(binding, _) => {
-                if let TypeBinding::Bound(ref binding) = &*binding.borrow() {
+                if let TypeBinding::Bound(binding) = &*binding.borrow() {
                     return Self::check_type(binding, location);
                 }
 
                 Ok(())
             }
-            HirType::TypeVariable(ref binding) => {
+            HirType::TypeVariable(binding) => {
                 let type_var_kind = match &*binding.borrow() {
                     TypeBinding::Bound(binding) => {
                         return Self::check_type(binding, location);
                     }
-                    TypeBinding::Unbound(_, ref type_var_kind) => type_var_kind.clone(),
+                    TypeBinding::Unbound(_, type_var_kind) => type_var_kind.clone(),
                 };
 
                 // Default any remaining unbound type variables.
@@ -1386,7 +1387,7 @@ impl<'interner> Monomorphizer<'interner> {
                 Self::check_type(env, location)
             }
 
-            HirType::MutableReference(element) => Self::check_type(element, location),
+            HirType::Reference(element, _mutable) => Self::check_type(element, location),
             HirType::InfixExpr(lhs, _, rhs, _) => {
                 Self::check_type(lhs, location)?;
                 Self::check_type(rhs, location)
@@ -1601,8 +1602,8 @@ impl<'interner> Monomorphizer<'interner> {
     fn append_printable_type_info_inner(typ: &Type, arguments: &mut Vec<ast::Expression>) {
         // Disallow printing slices and mutable references for consistency,
         // since they cannot be passed from ACIR into Brillig
-        if matches!(typ, HirType::MutableReference(_)) {
-            unreachable!("println and format strings do not support mutable references.");
+        if matches!(typ, HirType::Reference(..)) {
+            unreachable!("println and format strings do not support references.");
         }
 
         let printable_type: PrintableType = typ.into();
@@ -1995,7 +1996,7 @@ impl<'interner> Monomorphizer<'interner> {
     ) -> Result<ast::Expression, MonomorphizationError> {
         match match_expr {
             HirMatch::Success(id) => self.expr(id),
-            HirMatch::Failure => {
+            HirMatch::Failure { .. } => {
                 let false_ = Box::new(ast::Expression::Literal(ast::Literal::Bool(false)));
                 let msg = "match failure";
                 let msg_expr = ast::Expression::Literal(ast::Literal::Str(msg.to_string()));
@@ -2102,13 +2103,13 @@ impl<'interner> Monomorphizer<'interner> {
                 }))
             }
             ast::Type::MutableReference(element) => {
-                use crate::ast::UnaryOp::MutableReference;
+                use crate::ast::UnaryOp::Reference;
                 let rhs = Box::new(self.zeroed_value_of_type(element, location));
                 let result_type = typ.clone();
                 ast::Expression::Unary(ast::Unary {
                     rhs,
                     result_type,
-                    operator: MutableReference,
+                    operator: Reference { mutable: true },
                     location,
                 })
             }

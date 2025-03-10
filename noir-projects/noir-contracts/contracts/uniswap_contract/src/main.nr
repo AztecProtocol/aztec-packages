@@ -20,6 +20,8 @@ pub contract Uniswap {
     use dep::token::Token;
     use dep::token_bridge::TokenBridge;
 
+    use dep::aztec::protocol_types::traits::ToField;
+
     #[storage]
     struct Storage<Context> {
         portal_address: PublicImmutable<EthAddress, Context>,
@@ -197,15 +199,14 @@ pub contract Uniswap {
         // every interaction. In practice, the authwit should be squashed, so this is also cheap!
         let nonce = 0xdeadbeef;
 
-        let selector = FunctionSelector::from_signature("burn_public((Field),Field,Field)");
-        let serialized_amount = amount.serialize();
+        let selector = FunctionSelector::from_signature("burn_public((Field),u128,Field)");
         let message_hash = compute_authwit_message_hash_from_call(
             token_bridge,
             token,
             context.chain_id(),
             context.version(),
             selector,
-            [context.this_address().to_field(), serialized_amount[0], serialized_amount[1], nonce],
+            [context.this_address().to_field(), amount as Field, nonce],
         );
 
         // We need to make a call to update it.

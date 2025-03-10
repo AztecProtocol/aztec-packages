@@ -13,6 +13,7 @@ use petgraph::prelude::DiGraph;
 use petgraph::prelude::NodeIndex as PetGraphIndex;
 use rustc_hash::FxHashMap as HashMap;
 
+use crate::QuotedType;
 use crate::ast::{
     ExpressionKind, Ident, LValue, Pattern, StatementKind, UnaryOp, UnresolvedTypeData,
 };
@@ -26,8 +27,9 @@ use crate::hir::type_check::generics::TraitGenerics;
 use crate::hir_def::traits::NamedType;
 use crate::hir_def::traits::ResolvedTraitBound;
 use crate::locations::AutoImportEntry;
-use crate::QuotedType;
 
+use crate::GenericTypeVars;
+use crate::Generics;
 use crate::ast::{BinaryOpKind, FunctionDefinition, ItemVisibility};
 use crate::hir::resolution::errors::ResolverError;
 use crate::hir_def::expr::HirIdent;
@@ -42,8 +44,6 @@ use crate::hir_def::{
 };
 use crate::locations::LocationIndices;
 use crate::token::{Attributes, SecondaryAttribute};
-use crate::GenericTypeVars;
-use crate::Generics;
 use crate::{Shared, TypeAlias, TypeBindings, TypeVariable, TypeVariableId};
 
 /// An arbitrary number to limit the recursion depth when searching for trait impls.
@@ -725,6 +725,15 @@ impl NodeInterner {
         ExprId(self.nodes.insert(Node::Expression(expr)))
     }
 
+    /// Intern an expression with everything needed for it (location & Type)
+    /// instead of requiring they be pushed later.
+    pub fn push_expr_full(&mut self, expr: HirExpression, location: Location, typ: Type) -> ExprId {
+        let id = self.push_expr(expr);
+        self.push_expr_location(id, location);
+        self.push_expr_type(id, typ);
+        id
+    }
+
     /// Stores the span for an interned expression.
     pub fn push_expr_location(&mut self, expr_id: ExprId, location: Location) {
         self.id_to_location.insert(expr_id.into(), location);
@@ -756,7 +765,7 @@ impl NodeInterner {
             id: type_id,
             name: unresolved_trait.trait_def.name.clone(),
             crate_id: unresolved_trait.crate_id,
-            location: unresolved_trait.trait_def.location,
+            location: unresolved_trait.trait_def.name.location(),
             generics,
             visibility: ItemVisibility::Private,
             self_type_typevar: TypeVariable::unbound(self.next_type_variable_id(), Kind::Normal),
@@ -1280,7 +1289,11 @@ impl NodeInterner {
 
     /// Returns the type of an item stored in the Interner or Error if it was not found.
     pub fn id_type(&self, index: impl Into<Index>) -> Type {
-        self.id_to_type.get(&index.into()).cloned().unwrap_or(Type::Error)
+        self.try_id_type(index).cloned().unwrap_or(Type::Error)
+    }
+
+    pub fn try_id_type(&self, index: impl Into<Index>) -> Option<&Type> {
+        self.id_to_type.get(&index.into())
     }
 
     /// Returns the type of the definition or `Type::Error` if it was not found.
@@ -1398,7 +1411,7 @@ impl NodeInterner {
     ) -> Option<FuncId> {
         match self_type {
             Type::Error => None,
-            Type::MutableReference(element) => {
+            Type::Reference(element, _mutable) => {
                 self.add_method(element, method_name, method_id, trait_id)
             }
             _ => {
@@ -2402,8 +2415,8 @@ impl Methods {
                             return true;
                         }
 
-                        // Handle auto-dereferencing `&mut T` into `T`
-                        if let Type::MutableReference(object) = object {
+                        // Handle auto-dereferencing `&T` and `&mut T` into `T`
+                        if let Type::Reference(object, _mutable) = object {
                             if object.unify(typ).is_ok() {
                                 return true;
                             }
@@ -2417,8 +2430,8 @@ impl Methods {
                         return true;
                     }
 
-                    // Handle auto-dereferencing `&mut T` into `T`
-                    if let Type::MutableReference(method_type) = method_type {
+                    // Handle auto-dereferencing `&T` and `&mut T` into `T`
+                    if let Type::Reference(method_type, _mutable) = method_type {
                         if method_type.unify(typ).is_ok() {
                             return true;
                         }
@@ -2475,7 +2488,7 @@ fn get_type_method_key(typ: &Type) -> Option<TypeMethodKey> {
         Type::Function(_, _, _, _) => Some(Function),
         Type::NamedGeneric(_, _) => Some(Generic),
         Type::Quoted(quoted) => Some(Quoted(*quoted)),
-        Type::MutableReference(element) => get_type_method_key(element),
+        Type::Reference(element, _) => get_type_method_key(element),
         Type::Alias(alias, _) => get_type_method_key(&alias.borrow().typ),
         Type::DataType(struct_type, _) => Some(Struct(struct_type.borrow().id)),
 

@@ -8,16 +8,16 @@ use crate::{
         IndexExpression, Literal, MatchExpression, MemberAccessExpression, MethodCallExpression,
         Statement, TypePath, UnaryOp, UnresolvedType, UnsafeExpression,
     },
-    parser::{labels::ParsingRuleLabel, parser::parse_many::separated_by_comma, ParserErrorReason},
+    parser::{ParserErrorReason, labels::ParsingRuleLabel, parser::parse_many::separated_by_comma},
     token::{Keyword, Token, TokenKind},
 };
 
 use super::{
+    Parser,
     parse_many::{
         separated_by_comma_until_right_brace, separated_by_comma_until_right_paren,
         without_separator,
     },
-    Parser,
 };
 
 impl Parser<'_> {
@@ -79,10 +79,14 @@ impl Parser<'_> {
 
     /// UnaryOp = '&' 'mut' | '-' | '!' | '*'
     fn parse_unary_op(&mut self) -> Option<UnaryOp> {
-        if self.at(Token::Ampersand) && self.next_is(Token::Keyword(Keyword::Mut)) {
+        if self.at(Token::Ampersand) {
+            let mut mutable = false;
+            if self.next_is(Token::Keyword(Keyword::Mut)) {
+                mutable = true;
+                self.bump();
+            }
             self.bump();
-            self.bump();
-            Some(UnaryOp::MutableReference)
+            Some(UnaryOp::Reference { mutable })
         } else if self.eat(Token::Minus) {
             Some(UnaryOp::Minus)
         } else if self.eat(Token::Bang) {
@@ -388,20 +392,23 @@ impl Parser<'_> {
     /// UnsafeExpression = 'unsafe' Block
     fn parse_unsafe_expr(&mut self) -> Option<ExpressionKind> {
         let start_location = self.current_token_location;
+        let comments_before_unsafe = self.current_token_comments.clone();
 
         if !self.eat_keyword(Keyword::Unsafe) {
             return None;
         }
 
-        if self.current_token_comments.is_empty() {
-            if let Some(statement_comments) = &mut self.statement_comments {
-                if !statement_comments.trim().to_lowercase().starts_with("safety:") {
-                    self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
-                }
+        let comments: &str = if comments_before_unsafe.is_empty() {
+            if let Some(statement_comments) = &self.statement_comments {
+                statement_comments
             } else {
-                self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
+                ""
             }
-        } else if !self.current_token_comments.trim().to_lowercase().starts_with("safety:") {
+        } else {
+            &comments_before_unsafe
+        };
+
+        if !comments.lines().any(|line| line.trim().to_lowercase().starts_with("safety:")) {
             self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
         }
 
@@ -735,7 +742,7 @@ impl Parser<'_> {
 
     /// SliceExpression = '&' ArrayLiteral
     fn parse_slice_literal(&mut self) -> Option<ArrayLiteral> {
-        if !(self.at(Token::Ampersand) && self.next_is(Token::LeftBracket)) {
+        if !(self.at(Token::SliceStart) && self.next_is(Token::LeftBracket)) {
             return None;
         }
 
@@ -887,11 +894,11 @@ mod tests {
             StatementKind, UnaryOp, UnresolvedTypeData,
         },
         parser::{
+            Parser, ParserErrorReason,
             parser::tests::{
                 expect_no_errors, get_single_error, get_single_error_reason,
                 get_source_with_error_span,
             },
-            Parser, ParserErrorReason,
         },
         signed_field::SignedField,
         token::Token,
@@ -1079,7 +1086,9 @@ mod tests {
         let src = "
         // Safety: test
         unsafe { 1 }";
-        let expr = parse_expression_no_errors(src);
+        let mut parser = Parser::for_str_with_dummy_file(src);
+        let expr = parser.parse_expression_or_error();
+        assert!(parser.errors.is_empty());
         let ExpressionKind::Unsafe(unsafe_expression) = expr.kind else {
             panic!("Expected unsafe expression");
         };
@@ -1252,7 +1261,7 @@ mod tests {
         let ExpressionKind::Prefix(prefix) = expr.kind else {
             panic!("Expected prefix expression");
         };
-        assert!(matches!(prefix.operator, UnaryOp::MutableReference));
+        assert!(matches!(prefix.operator, UnaryOp::Reference { mutable: true }));
 
         let ExpressionKind::Variable(path) = prefix.rhs.kind else {
             panic!("Expected variable");

@@ -78,10 +78,8 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /** Whether to execute the version check in the bootstrap node ENR. */
   bootstrapNodeEnrVersionCheck: boolean;
 
-  /**
-   * Protocol identifier for transaction gossiping.
-   */
-  transactionProtocol: string;
+  /** Whether to consider any configured bootnodes as full peers, e.g. for transaction gossiping */
+  bootstrapNodesAsFullPeers: boolean;
 
   /**
    * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
@@ -142,7 +140,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /**
    * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
    */
-  severePeerPenaltyBlockLength: number;
+  doubleSpendSeverePeerPenaltyWindow: number;
 
   /**
    * The weight of the tx topic for the gossipsub protocol.  This determines how much the score for this specific topic contributes to the overall peer score.
@@ -166,6 +164,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
+
+  /**
+   * A list of trusted peers.
+   */
+  trustedPeers: string[];
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -228,10 +231,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Whether to check the version of the bootstrap node ENR.',
     ...booleanConfigHelper(),
   },
-  transactionProtocol: {
-    env: 'P2P_TX_PROTOCOL',
-    description: 'Protocol identifier for transaction gossiping.',
-    defaultValue: '/aztec/0.1.0',
+  bootstrapNodesAsFullPeers: {
+    env: 'P2P_BOOTSTRAP_NODES_AS_FULL_PEERS',
+    description: 'Whether to consider our configured bootnodes as full peers',
+    ...booleanConfigHelper(false),
   },
   maxPeerCount: {
     env: 'P2P_MAX_PEERS',
@@ -278,7 +281,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubDLazy: {
     env: 'P2P_GOSSIPSUB_DLAZY',
     description: 'The Dlazy parameter for the gossipsub protocol.',
-    ...numberConfigHelper(6),
+    ...numberConfigHelper(8),
   },
   gossipsubFloodPublish: {
     env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
@@ -317,8 +320,8 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
   },
-  severePeerPenaltyBlockLength: {
-    env: 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH',
+  doubleSpendSeverePeerPenaltyWindow: {
+    env: 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW',
     description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
     ...numberConfigHelper(30),
   },
@@ -332,6 +335,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.',
     ...numberConfigHelper(0),
+  },
+  trustedPeers: {
+    env: 'P2P_TRUSTED_PEERS',
+    parseEnv: (val: string) => val.split(','),
+    description: 'A list of trusted peers ENRs. Separated by commas.',
+    defaultValue: [],
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
@@ -352,21 +361,22 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'maxPeerCount'> &
+export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'bootstrapNodes'> &
   Required<Pick<P2PConfig, 'udpListenAddress'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
-  ChainConfig;
+  Pick<ChainConfig, 'l1ChainId'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
   'peerIdPrivateKey',
-  'maxPeerCount',
   'udpListenAddress',
   'dataDirectory',
   'dataStoreMapSizeKB',
+  'bootstrapNodes',
+  'l1ChainId',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
-  { ...p2pConfigMappings, ...dataConfigMappings },
+  { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
   bootnodeConfigKeys,
 );

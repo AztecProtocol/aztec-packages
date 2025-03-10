@@ -1,9 +1,12 @@
 use crate::{
     context::PrivateContext,
+    history::{note_inclusion::ProveNoteInclusion, nullifier_non_inclusion::ProveNoteNotNullified},
     note::{note_interface::NoteHash, retrieved_note::RetrievedNote},
 };
 
 use dep::protocol_types::block_header::BlockHeader;
+
+mod test;
 
 trait ProveNoteValidity {
     fn prove_note_validity<Note>(

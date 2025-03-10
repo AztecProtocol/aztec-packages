@@ -49,6 +49,7 @@ import {
   MetadataTxValidator,
   TxProofValidator,
 } from '../../msg_validators/tx_validator/index.js';
+import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
@@ -60,7 +61,6 @@ import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
-import { GossipSubEvent } from '../types.js';
 
 interface MessageValidator {
   validator: {
@@ -91,6 +91,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
   // Request and response sub service
   public reqresp: ReqResp;
+
+  // Trusted peers ids
+  private trustedPeersIds: PeerId[] = [];
 
   /**
    * Callback for when a block is received from a peer.
@@ -137,7 +140,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
-      this.logger.warn(
+      this.logger.debug(
         `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber.toNumber()} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageIdentifier() },
       );
@@ -174,10 +177,15 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
+    const bootstrapNodes = peerDiscoveryService.bootstrapNodes;
+
+    // If trusted peers are provided, also provide them to the p2p service
+    bootstrapNodes.push(...config.trustedPeers);
+
     // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
-    if (peerDiscoveryService.bootstrapNodes.length > 0) {
-      peerDiscovery.push(bootstrap({ list: peerDiscoveryService.bootstrapNodes }));
+    if (bootstrapNodes.length > 0) {
+      peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
     }
 
     const node = await createLibp2p({
@@ -299,6 +307,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
+
+    await this.peerManager.initializeTrustedPeers();
     await this.peerDiscoveryService.start();
     await this.node.start();
 
@@ -679,15 +689,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     if (outcome.allPassed) {
       return true;
     }
-
-    const { name, severity } = outcome.failure;
+    const { name } = outcome.failure;
+    let { severity } = outcome.failure;
 
     // Double spend validator has a special case handler
     if (name === 'doubleSpendValidator') {
-      const isValid = await this.handleDoubleSpendFailure(tx, blockNumber, peerId);
-      if (isValid) {
-        return true;
-      }
+      severity = await this.handleDoubleSpendFailure(tx, blockNumber);
     }
 
     this.peerManager.penalizePeer(peerId, severity);
@@ -775,17 +782,17 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param tx - The tx that failed the double spend validator.
    * @param blockNumber - The block number of the tx.
    * @param peerId - The peer ID of the peer that sent the tx.
-   * @returns True if the tx is valid, false otherwise.
+   * @returns Severity
    */
-  private async handleDoubleSpendFailure(tx: Tx, blockNumber: number, peerId: PeerId): Promise<boolean> {
-    if (blockNumber <= this.config.severePeerPenaltyBlockLength) {
-      return false;
+  private async handleDoubleSpendFailure(tx: Tx, blockNumber: number): Promise<PeerErrorSeverity> {
+    if (blockNumber <= this.config.doubleSpendSeverePeerPenaltyWindow) {
+      return PeerErrorSeverity.HighToleranceError;
     }
 
     const snapshotValidator = new DoubleSpendTxValidator({
       nullifiersExist: async (nullifiers: Buffer[]) => {
         const merkleTree = this.worldStateSynchronizer.getSnapshot(
-          blockNumber - this.config.severePeerPenaltyBlockLength,
+          blockNumber - this.config.doubleSpendSeverePeerPenaltyWindow,
         );
         const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
         return indices.map(index => index !== undefined);
@@ -794,11 +801,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     const validSnapshot = await snapshotValidator.validateTx(tx);
     if (validSnapshot.result !== 'valid') {
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-      return false;
+      return PeerErrorSeverity.LowToleranceError;
     }
 
-    return true;
+    return PeerErrorSeverity.HighToleranceError;
   }
 
   /**

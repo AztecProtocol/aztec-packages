@@ -19,9 +19,9 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
-  ContractClass2BlockL2Logs,
+  ContractClassLog,
+  ExtendedContractClassLog,
   ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
   type LogFilter,
   LogId,
   type PrivateLog,
@@ -60,7 +60,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private publicLogsPerBlock: Map<number, PublicLog[]> = new Map();
 
-  private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
+  private contractClassLogsPerBlock: Map<number, ContractClassLog[]> = new Map();
 
   private blockScopedNullifiers: Map<string, { blockNumber: number; blockHash: string; index: bigint }> = new Map();
 
@@ -350,7 +350,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       this.#storeTaggedLogsFromPublic(block);
       this.privateLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       this.publicLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.publicLogs).flat());
-      this.contractClassLogsPerBlock.set(block.number, block.body.contractClassLogs);
+      this.contractClassLogsPerBlock.set(
+        block.number,
+        block.body.txEffects.map(txEffect => txEffect.contractClassLogs).flat(),
+      );
     });
     return Promise.resolve(true);
   }
@@ -698,34 +701,36 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     const contractAddress = filter.contractAddress;
 
-    const logs: ExtendedUnencryptedL2Log[] = [];
+    const logs: ExtendedContractClassLog[] = [];
 
     for (; fromBlock < toBlock; fromBlock++) {
       const block = this.l2Blocks[fromBlock - INITIAL_L2_BLOCK_NUM];
       const blockLogs = this.contractClassLogsPerBlock.get(fromBlock);
 
       if (blockLogs) {
-        for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
-          const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
-          for (; logIndexInTx < txLogs.length; logIndexInTx++) {
-            const log = txLogs[logIndexInTx];
-            if (
-              (!txHash || block.data.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
-              (!contractAddress || log.contractAddress.equals(contractAddress))
-            ) {
-              logs.push(new ExtendedUnencryptedL2Log(new LogId(block.data.number, txIndexInBlock, logIndexInTx), log));
-              if (logs.length === this.maxLogs) {
-                return Promise.resolve({
-                  logs,
-                  maxLogsHit: true,
-                });
-              }
+        for (let logIndex = 0; logIndex < blockLogs.length; logIndex++) {
+          const log = blockLogs[logIndex];
+          const thisTxEffect = block.data.body.txEffects.filter(effect => effect.contractClassLogs.includes(log))[0];
+          const thisTxIndexInBlock = block.data.body.txEffects.indexOf(thisTxEffect);
+          const thisLogIndexInTx = thisTxEffect.contractClassLogs.indexOf(log);
+          if (
+            (!txHash || thisTxEffect.txHash.equals(txHash)) &&
+            (!contractAddress || log.contractAddress.equals(contractAddress)) &&
+            thisTxIndexInBlock >= txIndexInBlock &&
+            thisLogIndexInTx >= logIndexInTx
+          ) {
+            logs.push(
+              new ExtendedContractClassLog(new LogId(block.data.number, thisTxIndexInBlock, thisLogIndexInTx), log),
+            );
+            if (logs.length === this.maxLogs) {
+              return Promise.resolve({
+                logs,
+                maxLogsHit: true,
+              });
             }
           }
-          logIndexInTx = 0;
         }
       }
-      txIndexInBlock = 0;
     }
 
     return Promise.resolve({
@@ -753,17 +758,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.lastProvenL2BlockNumber);
   }
 
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.lastProvenL2EpochNumber);
-  }
-
   public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
     this.lastProvenL2BlockNumber = l2BlockNumber;
-    return Promise.resolve();
-  }
-
-  public setProvenL2EpochNumber(l2EpochNumber: number): Promise<void> {
-    this.lastProvenL2EpochNumber = l2EpochNumber;
     return Promise.resolve();
   }
 

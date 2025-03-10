@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
-import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
-import type { InputValue } from '@noir-lang/noirc_abi';
+import { type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
+import type { InputValue } from '@aztec/noir-noirc_abi';
+
 import createDebug from 'debug';
 
 // these files are generated

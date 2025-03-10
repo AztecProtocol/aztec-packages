@@ -1,12 +1,12 @@
 import { AztecClientBackend } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { serializeWitness } from '@aztec/noir-noirc_abi';
 import type { ArtifactProvider } from '@aztec/noir-protocol-circuits-types/types';
+import type { WitnessMap } from '@aztec/noir-types';
 import type { SimulationProvider } from '@aztec/simulator/client';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 
-import { serializeWitness } from '@noir-lang/noirc_abi';
-import type { WitnessMap } from '@noir-lang/types';
 import { ungzip } from 'pako';
 
 import { BBPrivateKernelProver } from '../prover/bb_private_kernel_prover.js';
@@ -38,5 +38,18 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
       vkSize: vk.length,
     });
     return new ClientIvcProof(Buffer.from(proof), Buffer.from(vk));
+  }
+
+  public override async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+    const backend = new AztecClientBackend([ungzip(_bytecode)], {
+      threads: this.threads,
+      logger: this.log.verbose,
+      wasmPath: process.env.BB_WASM_PATH,
+    });
+
+    const gateCount = await backend.gates();
+    await backend.destroy();
+
+    return gateCount[0];
   }
 }

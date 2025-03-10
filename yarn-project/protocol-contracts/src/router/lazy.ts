@@ -8,7 +8,12 @@ let protocolContractArtifact: ContractArtifact;
 
 export async function getRouterArtifact(): Promise<ContractArtifact> {
   if (!protocolContractArtifact) {
-    const { default: routerJson } = await import('../../artifacts/Router.json', { assert: { type: 'json' } });
+    // Cannot assert this import as it's incompatible with browsers
+    // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
+    // Use the new "with" syntax once supported by firefox
+    // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
+    // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
+    const { default: routerJson } = await import('../../artifacts/Router.json');
     protocolContractArtifact = loadContractArtifact(routerJson);
   }
   return protocolContractArtifact;
