@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741609209657,
+  "lastUpdate": 1741612456457,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8932dd69bfd9579a3d350fa1557f5bee54616289",
-          "message": "chore: Fix MEMORY argument to yarn project test run (#12488)\n\n[Here](https://github.com/AztecProtocol/aztec-packages/pull/12283/files#diff-d4325b1e4d1032ba0c018e993395c3f8ceed45001f4ced5388977b2c90c26618)\nthe argument for setting max memory for a yarn project test was changed\nfrom MEM to MEMORY, which broke tests that dependend on it.\n\nThis PR rolls it back to MEM, for consistency with other scripts.",
-          "timestamp": "2025-03-05T19:31:26Z",
-          "tree_id": "0225e774dda11dda46090b3c7c95c9d274c44329",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8932dd69bfd9579a3d350fa1557f5bee54616289"
-        },
-        "date": 1741205245209,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18369.415395000033,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16101.081646 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18884.307804999935,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16526.288998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3980.6723690001036,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3197.5170560000006 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55492.315007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55492316000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10609.068629,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10609072000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1921019107,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1921019107 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 232539619,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 232539619 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 218208943,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 218208943 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "657299bfa0addf1279051d55a47289574536986a",
+          "message": "feat: Resolve callstacks in protocol circuit errors on wasm (#12573)\n\nIf you face an error in a protocol circuit, you can bootstrap with\nDEBUG=1 and the noir call stack should be resolved now:\n```\n[14:50:16.470] ERROR: pxe:service Error: Error: Circuit execution failed: push out of bounds\n    at Object.<anonymous>.module.exports.__wbg_constructor_c456dcccc52847dd (/mnt/user-data/alvaro/aztec-packages-2/noir/packages/acvm_js/nodejs/acvm_js.js:563:17)\n    at __wbg_constructor_c456dcccc52847dd externref shim (wasm://wasm/acvm_js.wasm-0094b602:1:1581928)\n    at acvm_js::js_execution_error::JsExecutionError::new::h93c0d36e943058c5 (wasm://wasm/acvm_js.wasm-0094b602:1:1194110)\n    at acvm_js::execute::ProgramExecutor<B>::execute_circuit::{{closure}}::he0b31dde1fab7349 (wasm://wasm/acvm_js.wasm-0094b602:1:428587)\n    at acvm_js::execute::execute_program_with_native_program_and_return::{{closure}}::h907e9f3645570aaa (wasm://wasm/acvm_js.wasm-0094b602:1:1064646)\n    at acvm_js::execute::execute_program_with_native_type_return::{{closure}}::hda8478769597cad2 (wasm://wasm/acvm_js.wasm-0094b602:1:1142954)\n    at wasm_bindgen_futures::future_to_promise::{{closure}}::{{closure}}::hb42baa03d2f91f89 (wasm://wasm/acvm_js.wasm-0094b602:1:995186)\n    at wasm_bindgen_futures::queue::Queue::new::{{closure}}::he554c69357740b54 (wasm://wasm/acvm_js.wasm-0094b602:1:1288461)\n    at <dyn core::ops::function::FnMut<(A,)>+Output = R as wasm_bindgen::closure::WasmClosure>::describe::invoke::h01c6856463f9cac8 (wasm://wasm/acvm_js.wasm-0094b602:1:1580227)\n    at closure265 externref shim (wasm://wasm/acvm_js.wasm-0094b602:1:1583586)\n    at __wbg_adapter_30 (/mnt/user-data/alvaro/aztec-packages-2/noir/packages/acvm_js/nodejs/acvm_js.js:531:10)\n    at real (/mnt/user-data/alvaro/aztec-packages-2/noir/packages/acvm_js/nodejs/acvm_js.js:125:20)\n    at node:internal/process/task_queues:140:7\n    at AsyncResource.runInAsyncScope (node:async_hooks:203:9)\n    at AsyncResource.runMicrotask (node:internal/process/task_queues:137:8) {\n  callStack: [ '0.2691', '0.18971', '0.20148' ],\n  rawAssertionPayload: { selector: '5727012404371710682', data: [] },\n  brilligFunctionId: 0,\n  noirCallStack: [\n    'at private_inputs.execute (/home/aztec-dev/aztec-packages/noir-projects/noir-protocol-circuits/crates/private-kernel-inner-simulated/src/main.nr:19:5)',\n    'at self.generate_output (/home/aztec-dev/aztec-packages/noir-projects/noir-protocol-circuits/crates/private-kernel-lib/src/private_kernel_inner.nr:58:31)',\n    'at PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(\\n' +\n      '            self.previous_kernel.public_inputs,\\n' +\n      '        )\\n' +\n      '            .pop_top_call_request()\\n' +\n      '            .with_private_call (/home/aztec-dev/aztec-packages/noir-projects/noir-protocol-circuits/crates/private-kernel-lib/src/private_kernel_inner.nr:42:9)',\n    'at self.propagate_from_private_call (/home/aztec-dev/aztec-packages/noir-projects/noir-protocol-circuits/crates/private-kernel-lib/src/components/private_kernel_circuit_public_inputs_composer.nr:129:9)',\n    'at self.propagate_logs (/home/aztec-dev/aztec-packages/noir-projects/noir-protocol-circuits/crates/private-kernel-lib/src/components/private_kernel_circuit_public_inputs_composer.nr:159:9)',\n    'at self.public_inputs.end.private_logs.push (/home/aztec-dev/aztec-packages/noir-projects/noir-protocol-circuits/crates/private-kernel-lib/src/components/private_kernel_circuit_public_inputs_composer.nr:299:17)',\n    'at self.len < MaxLen (std/collections/bounded_vec.nr:187:16)'\n  ]\n}\n```",
+          "timestamp": "2025-03-10T13:27:52+01:00",
+          "tree_id": "4b6d8611fccb7d8a173d0776a37c5b5af30f46f8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/657299bfa0addf1279051d55a47289574536986a"
+        },
+        "date": 1741612448282,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18214.376096999786,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15977.578339999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18885.34940999989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16421.952672 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3858.272507000038,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3051.448113000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55206.786960000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55206788000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11099.65623,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11099659000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1603849045,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1603849045 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 227499424,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 227499424 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
