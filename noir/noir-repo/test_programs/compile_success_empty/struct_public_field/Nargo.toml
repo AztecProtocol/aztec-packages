@@ -1,7 +1,0 @@
-[package]
-name = "struct_public_field"
-type = "bin"
-authors = [""]
-
-[dependencies]
-dependency = {path = "dependency"}

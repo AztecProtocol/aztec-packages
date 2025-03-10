@@ -1,7 +1,0 @@
-[package]
-name = "attribute_order"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.36.0"
-
-[dependencies]

@@ -1,7 +1,0 @@
-global N: Field = 2;
-
-struct barStruct {
-    val: Field,
-    array: [Field; 2],
-    message: str<5>,
-}

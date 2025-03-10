@@ -1,7 +1,0 @@
-[package]
-name = "u128_multiplication_overflow"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.23.0"
-
-[dependencies]
