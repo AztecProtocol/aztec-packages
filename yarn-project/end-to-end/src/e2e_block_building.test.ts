@@ -3,10 +3,8 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
-  type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
@@ -20,6 +18,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';

@@ -37,7 +37,6 @@ import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   BatchCall,
   type Contract,
   Fr,
@@ -46,6 +45,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { AnvilTestWatcher } from '@aztec/aztec.js/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {

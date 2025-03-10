@@ -1,4 +1,5 @@
-import { EthCheatCodes, RollupCheatCodes, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import { createPXEClient, makeFetch } from '@aztec/aztec.js';
+import { EthCheatCodes, RollupCheatCodes } from '@aztec/aztec.js/testing';
 import type { LogFn } from '@aztec/foundation/log';
 
 export async function assumeProvenThrough(

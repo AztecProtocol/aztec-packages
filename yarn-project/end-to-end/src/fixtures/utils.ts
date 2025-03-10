@@ -10,13 +10,10 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
   BatchCall,
-  CheatCodes,
   type ContractMethod,
-  type DeployL1ContractsReturnType,
   FeeJuicePaymentMethod,
   type Logger,
   type PXE,
@@ -25,20 +22,22 @@ import {
   createAztecNodeClient,
   createLogger,
   createPXEClient,
-  deployL1Contracts,
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import type { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
+  type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
   createL1Clients,
+  deployL1Contracts,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
   l1Artifacts,

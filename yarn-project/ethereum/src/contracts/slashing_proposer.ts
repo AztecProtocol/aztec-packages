@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { SlashingProposerAbi } from '@aztec/l1-artifacts';
+import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 
 import { type GetContractReturnType, type Hex, getContract } from 'viem';
 

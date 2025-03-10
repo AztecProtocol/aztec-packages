@@ -1,6 +1,6 @@
 import { type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { TestProverNode } from '@aztec/prover-node/test';

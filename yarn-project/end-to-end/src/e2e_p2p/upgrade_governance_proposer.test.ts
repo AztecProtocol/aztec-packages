@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { deployL1Contract, sleep } from '@aztec/aztec.js';
+import { sleep } from '@aztec/aztec.js';
+import { deployL1Contract } from '@aztec/ethereum';
 import {
   TestERC20Abi as FeeJuiceAbi,
   GovernanceAbi,

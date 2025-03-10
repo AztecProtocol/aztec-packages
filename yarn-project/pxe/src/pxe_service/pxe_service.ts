@@ -71,7 +71,7 @@ import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
-import { PXEOracleInterface } from '../pxe_oracle_interface/index.js';
+import { PXEOracleInterface } from '../pxe_oracle_interface/pxe_oracle_interface.js';
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';

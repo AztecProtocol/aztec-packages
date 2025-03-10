@@ -15,10 +15,14 @@ import {
   type SiblingPath,
   type TxReceipt,
   type Wallet,
-  deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
-import type { L1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  type ViemPublicClient,
+  type ViemWalletClient,
+  deployL1Contract,
+} from '@aztec/ethereum';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';

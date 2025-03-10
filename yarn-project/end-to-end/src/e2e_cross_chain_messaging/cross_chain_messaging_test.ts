@@ -4,13 +4,13 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
-  CheatCodes,
   type CompleteAddress,
   EthAddress,
   type Logger,
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { type ViemPublicClient, createL1Clients, deployL1Contract } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, RollupAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';

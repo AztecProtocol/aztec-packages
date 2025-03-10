@@ -1,6 +1,6 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { GovernanceProposerAbi } from '@aztec/l1-artifacts';
+import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 
 import { type GetContractReturnType, type Hex, type TransactionReceipt, encodeFunctionData, getContract } from 'viem';
 

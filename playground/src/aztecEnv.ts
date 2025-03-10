@@ -1,15 +1,19 @@
-import { createAztecNodeClient, type AztecNode } from '@aztec/aztec.js/utils';
+import {
+  createAztecNodeClient,
+  type AztecNode,
+  AztecAddress,
+  AccountWalletWithSecretKey,
+  Contract,
+  type PXE,
+  type Logger,
+  createLogger,
+} from '@aztec/aztec.js';
 
-import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
-import { Contract } from '@aztec/aztec.js/contracts';
-import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
 import { createPXEService, type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/client/lazy';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { createContext } from 'react';
 import { NetworkDB, WalletDB } from './utils/storage';
 import { type ContractFunctionInteractionTx } from './utils/txs';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
 
 const logLevel = ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
 
@@ -155,7 +159,7 @@ export class AztecEnv {
         store: WebLogger.getInstance().createLogger('pxe:data:indexeddb'),
         pxe: WebLogger.getInstance().createLogger('pxe:service'),
         prover: WebLogger.getInstance().createLogger('bb:wasm:lazy'),
-      }
+      },
     });
     return pxe;
   }
