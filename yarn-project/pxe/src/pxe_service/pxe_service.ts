@@ -1,6 +1,7 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { KeyStore } from '@aztec/key-store';
@@ -103,6 +104,7 @@ export class PXEService implements PXE {
     private proofCreator: PrivateKernelProver,
     private protocolContractsProvider: ProtocolContractsProvider,
     private log: Logger,
+    private jobQueue: SerialQueue,
   ) {}
 
   /**
@@ -160,6 +162,8 @@ export class PXEService implements PXE {
       log,
     );
     const simulator = new AcirSimulator(pxeOracleInterface, simulationProvider);
+    const jobQueue = new SerialQueue();
+    jobQueue.start();
     const pxeService = new PXEService(
       node,
       synchronizer,
@@ -177,6 +181,7 @@ export class PXEService implements PXE {
       proofCreator,
       protocolContractsProvider,
       log,
+      jobQueue,
     );
     await pxeService.#registerProtocolContracts();
     const info = await pxeService.getNodeInfo();
@@ -456,24 +461,37 @@ export class PXEService implements PXE {
     return await this.node.getCurrentBaseFees();
   }
 
-  public async proveTx(
+  public proveTx(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
-    try {
-      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-        simulate: false,
-        skipFeeEnforcement: false,
-        profile: false,
-      });
-      return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
-    } catch (err: any) {
-      throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
+    if (this.jobQueue.length() != 0) {
+      this.log.warn(
+        `PXE service job queue is not empty (${this.jobQueue.length()} entries) - concurrency is not supported, do not rely on it`,
+      );
     }
+
+    return this.jobQueue.put(async () => {
+      try {
+        const { publicInputs, clientIvcProof } = await this.#prove(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+          {
+            simulate: false,
+            skipFeeEnforcement: false,
+            profile: false,
+          },
+        );
+        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
+      } catch (err: any) {
+        throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
+      }
+    });
   }
 
   // TODO(#7456) Prevent msgSender being defined here for the first call
-  public async simulateTx(
+  public simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
@@ -482,74 +500,87 @@ export class PXEService implements PXE {
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
-    try {
-      const txInfo = {
-        origin: txRequest.origin,
-        functionSelector: txRequest.functionSelector,
-        simulatePublic,
-        msgSender,
-        chainId: txRequest.txContext.chainId,
-        version: txRequest.txContext.version,
-        authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
-      };
-      this.log.info(
-        `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
-        txInfo,
-      );
-      const timer = new Timer();
-      await this.synchronizer.sync();
-      const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
-
-      const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-        simulate: !profile,
-        skipFeeEnforcement,
-        profile,
-      });
-
-      const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
-      const simulatedTx = privateSimulationResult.toSimulatedTx();
-      let publicOutput: PublicSimulationOutput | undefined;
-      if (simulatePublic && publicInputs.forPublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
-      }
-
-      if (!skipTxValidation) {
-        const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
-        if (validationResult.result === 'invalid') {
-          throw new Error('The simulated transaction is unable to be added to state and is invalid.');
-        }
-      }
-
-      const txHash = await simulatedTx.getTxHash();
-      this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
-        txHash,
-        ...txInfo,
-        ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
-        ...(publicOutput
-          ? {
-              gasUsed: publicOutput.gasUsed,
-              revertCode: publicOutput.txEffect.revertCode.getCode(),
-              revertReason: publicOutput.revertReason,
-            }
-          : {}),
-      });
-
-      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
-        privateSimulationResult,
-        publicOutput,
-        profileResult,
-      );
-    } catch (err: any) {
-      throw this.contextualizeError(
-        err,
-        inspect(txRequest),
-        `simulatePublic=${simulatePublic}`,
-        `msgSender=${msgSender?.toString() ?? 'undefined'}`,
-        `skipTxValidation=${skipTxValidation}`,
-        `profile=${profile}`,
-        `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+    if (this.jobQueue.length() != 0) {
+      this.log.warn(
+        `PXE service job queue already has ${this.jobQueue.length()} entries - PXE does not support concurrency and so you should not try to use it this way!`,
       );
     }
+
+    return this.jobQueue.put(async () => {
+      try {
+        const txInfo = {
+          origin: txRequest.origin,
+          functionSelector: txRequest.functionSelector,
+          simulatePublic,
+          msgSender,
+          chainId: txRequest.txContext.chainId,
+          version: txRequest.txContext.version,
+          authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
+        };
+        this.log.info(
+          `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
+          txInfo,
+        );
+        const timer = new Timer();
+        await this.synchronizer.sync();
+        const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
+
+        const { publicInputs, profileResult } = await this.#prove(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+          {
+            simulate: !profile,
+            skipFeeEnforcement,
+            profile,
+          },
+        );
+
+        const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
+        const simulatedTx = privateSimulationResult.toSimulatedTx();
+        let publicOutput: PublicSimulationOutput | undefined;
+        if (simulatePublic && publicInputs.forPublic) {
+          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
+        }
+
+        if (!skipTxValidation) {
+          const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+          if (validationResult.result === 'invalid') {
+            throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+          }
+        }
+
+        const txHash = await simulatedTx.getTxHash();
+        this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
+          txHash,
+          ...txInfo,
+          ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
+          ...(publicOutput
+            ? {
+                gasUsed: publicOutput.gasUsed,
+                revertCode: publicOutput.txEffect.revertCode.getCode(),
+                revertReason: publicOutput.revertReason,
+              }
+            : {}),
+        });
+
+        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
+          privateSimulationResult,
+          publicOutput,
+          profileResult,
+        );
+      } catch (err: any) {
+        throw this.contextualizeError(
+          err,
+          inspect(txRequest),
+          `simulatePublic=${simulatePublic}`,
+          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+          `skipTxValidation=${skipTxValidation}`,
+          `profile=${profile}`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
+      }
+    });
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
@@ -565,29 +596,37 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public async simulateUnconstrained(
+  public simulateUnconstrained(
     functionName: string,
     args: any[],
     to: AztecAddress,
     _from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded> {
-    try {
-      await this.synchronizer.sync();
-      // TODO - Should check if `from` has the permission to call the view function.
-      const functionCall = await this.#getFunctionCall(functionName, args, to);
-      const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
-
-      // TODO - Return typed result based on the function artifact.
-      return executionResult;
-    } catch (err: any) {
-      const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
-      throw this.contextualizeError(
-        err,
-        `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
-        `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+    if (this.jobQueue.length() != 0) {
+      this.log.warn(
+        `PXE service job queue already has ${this.jobQueue.length()} entries - PXE does not support concurrency and so you should not try to use it this way!`,
       );
     }
+
+    return this.jobQueue.put(async () => {
+      try {
+        await this.synchronizer.sync();
+        // TODO - Should check if `from` has the permission to call the view function.
+        const functionCall = await this.#getFunctionCall(functionName, args, to);
+        const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
+
+        // TODO - Return typed result based on the function artifact.
+        return executionResult;
+      } catch (err: any) {
+        const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
+        throw this.contextualizeError(
+          err,
+          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
+      }
+    });
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
