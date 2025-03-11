@@ -1,6 +1,6 @@
 use std::static_assert;
 
-/// These functions facilitate the conversion of log ciphertext between byte and field representations.
+/// These functions are used to facilitate the conversion of log ciphertext between byte and field representations.
 ///
 /// `to_fields` uses fixed-size arrays since encryption contexts have compile-time size information.
 /// `to_bytes` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
@@ -63,12 +63,10 @@ mod tests {
 
     #[test]
     fn test_random_bytes_to_fields_and_back(input: [u8; 93]) {
-        // Test case with all max values
         let fields = to_fields(input);
-        assert(fields.len() == 3);
 
-        // At this point, the log flies through the system and we get a BoundedVec on the other end.
-        // So we need to convert the field array to a BoundedVec.
+        // At this point in production, the log flies through the system and we get a BoundedVec on the other end.
+        // So we need to convert the field array to a BoundedVec to be able to feed it to the `to_bytes` function.
         let fields_as_bounded_vec = BoundedVec::<_, 6>::from_array(fields);
 
         let bytes_back = to_bytes(fields_as_bounded_vec);

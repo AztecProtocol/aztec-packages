@@ -1,4 +1,4 @@
-/// These functions facilitate the conversion of log plaintext represented as fields into bytes and back.
+/// These functions are used to facilitate the conversion of log plaintext represented as fields into bytes and back.
 ///
 /// `to_bytes` uses fixed-size arrays since encryption contexts have compile-time size information.
 /// `to_fields` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
@@ -57,8 +57,8 @@ mod tests {
         // Convert to bytes
         let bytes = to_bytes(input);
 
-        // At this point, the log flies through the system and we get a BoundedVec on the other end.
-        // So we need to convert the field array to a BoundedVec.
+        // At this point in production, the log flies through the system and we get a BoundedVec on the other end.
+        // So we need to convert the field array to a BoundedVec to be able to feed it to the `to_fields` function.
         // 113 is an arbitrary max length that is larger than the input length of 96.
         let bytes_as_bounded_vec = BoundedVec::<_, 113>::from_array(bytes);
 
