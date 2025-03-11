@@ -8,9 +8,9 @@ use crate::{
     note::{note_emission::NoteEmission, note_interface::NoteType},
     oracle::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::random,
+        random::{get_random_bytes, random},
     },
-    utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
+    utils::{bytes::be_31, point::get_sign_of_point},
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash,
@@ -377,7 +377,7 @@ where
     // Convert bytes back to fields
     // *****************************************************************************
 
-    let log_bytes_as_fields = be_bytes_31_to_fields(log_bytes);
+    let log_bytes_as_fields = be_31::to_fields(log_bytes);
 
     // *****************************************************************************
     // Prepend / append fields, to create the final log
