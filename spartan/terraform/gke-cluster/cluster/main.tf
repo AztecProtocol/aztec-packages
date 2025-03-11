@@ -37,7 +37,7 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 640
+    max_node_count = 512
   }
 
   # Node configuration
