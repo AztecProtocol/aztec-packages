@@ -47,6 +47,15 @@ function read_wanted_ref {
   cat noir-repo-ref
 }
 
+function write_wanted_ref {
+  ref=$1
+  if [ -z "$ref" ]; then
+    echo "noir-repo-ref cannot be empty"
+    exit 1
+  fi
+  echo $ref > noir-repo-ref
+}
+
 # Return the current branch name, or fail if we're not on a branch.
 function branch_name {
   git -C noir-repo symbolic-ref --short -q HEAD
@@ -124,7 +133,7 @@ function has_tag {
 # Get the commit a tag *currently* refers to on the remote and check if we have it in our local history.
 function has_tag_commit {
   tag=$1
-  rev=$(git -C noir-repo ls-remote --tags origin $1 | awk '{print $1}')
+  rev=$(git -C noir-repo ls-remote --tags origin $tag | awk '{print $1}')
   if [ ! -z "$rev" ]; then
     # NB `git show` would tell if we have the commit, but it would not necessarily be an ancestor.
     if git -C noir-repo log --oneline --no-abbrev-commit | grep -q --max-count=1 "$rev"; then
@@ -356,6 +365,12 @@ case "$cmd" in
     ;;
   "latest-nightly")
     echo $(latest_nightly)
+    ;;
+  "read-noir-repo-ref")
+    echo $(read_wanted_ref)
+    ;;
+  "write-noir-repo-ref")
+    write_wanted_ref $1
     ;;
   "info")
     info

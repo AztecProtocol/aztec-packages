@@ -33,7 +33,7 @@ jobs:
           PR_URL=$(gh pr list --repo AztecProtocol/aztec-packages --head bump-noir --json url --jq ".[0].url")
           echo "PR_URL=$PR_URL" >> $GITHUB_ENV
           # Get the current Noir target
-          CURRENT_NOIR_REF=$(cat noir/noir-repo-ref)
+          CURRENT_NOIR_REF=$(noir/scripts/sync.sh read-noir-repo-ref)
           echo "CURRENT_NOIR_REF=$CURRENT_NOIR_REF" >> $GITHUB_ENV
           # Get the latest nightly tag we can point to in Noir
           LATEST_NOIR_NIGHTLY=$(noir/scripts/sync.sh latest-nightly)
@@ -64,17 +64,12 @@ jobs:
           git config --global user.email tech@aztecprotocol.com
 
       # Push a commit to the `bump-noir` branch that overrides the Noir ref.
-      # If a branch already exists then push to that one; it might contain some merge conflict fixes with the patch file.
       - name: Push to branch
         run: |
           set -xue # print commands
           BRANCH=bump-noir
-          git fetch --depth 1 origin $BRANCH || true
-          git checkout --track origin/$BRANCH || git checkout $BRANCH || git checkout -b $BRANCH
-          echo $LATEST_NOIR_NIGHTLY > noir/noir-repo-ref
-          git add noir
-          git commit -m 'chore: Update noir-repo-ref to the latest nightly' || true
-          git push --set-upstream origin $BRANCH
+          cd noir
+          ./boostrap.sh bump-noir-repo-ref $BRANCH $LATEST_NOIR_NIGHTLY
 
       # Update the PR from `bump-noir` to `master` with the latest message body.
       - name: Update PR

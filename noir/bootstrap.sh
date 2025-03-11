@@ -7,7 +7,7 @@ cmd=${1:-}
 [ -n "$cmd" ] && shift
 
 # Update the noir-repo before we hash its content, unless the command is exempt.
-no_update=(clean make-patch)
+no_update=(clean make-patch bump-noir-repo-ref)
 if [[ -z "$cmd" || ! ${no_update[*]} =~ "$cmd" ]]; then
   scripts/sync.sh init
   scripts/sync.sh update
@@ -192,6 +192,23 @@ function release_commit {
   release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
 }
 
+# Bump the Noir repo reference on a given branch to a given ref.
+# The branch might already exist, e.g. this could be a daily job bumping the version to the
+# latest nightly, and we might have to deal with updating the patch file because the latest
+# Noir code conflicts with the contents of the patch, or we're debugging some integration
+# test failure on CI. In that case just push another commit to the branch to bump the version
+# further without losing any other commit on the branch.
+function bump_noir_repo_ref {
+  branch=$1
+  ref=$2
+  git fetch --depth 1 origin $branch || true
+  git checkout --track origin/$branch || git checkout $branch || git checkout -b $branch
+  scripts/sync.sh write-noir-repo-ref $ref
+  git add .
+  git commit -m "chore: Update noir-repo-ref to $ref" || true
+  do_or_dryrun git push --set-upstream origin $branch
+}
+
 case "$cmd" in
   "clean")
     # Double `f` needed to delete the nested git repository.
@@ -215,6 +232,9 @@ case "$cmd" in
     ;;
   "make-patch")
     scripts/sync.sh make-patch
+    ;;
+  "bump-noir-repo-ref")
+    bump_noir_repo_ref $@
     ;;
   *)
     echo "Unknown command: $cmd"
