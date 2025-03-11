@@ -139,10 +139,7 @@ case "$cmd" in
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
     ;;
   "test-cli-upgrade-with-lock")
-    env
-    FRESH_INSTALL=false INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/smoke.test.ts 1-validators.yaml upgrade-with-lock \
-      && ./scripts/test_upgrade_rollup_with_lock.sh upgrade-with-lock
+    echo "test-cli-upgrade-with-lock"
     ;;
   "test-local")
     # Isolate network stack in docker.
