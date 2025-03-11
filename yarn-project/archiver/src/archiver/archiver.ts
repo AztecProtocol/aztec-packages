@@ -90,8 +90,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
   private store: ArchiverStoreHelper;
 
-  public l1BlockNumber: bigint | undefined;
-  public l1Timestamp: bigint | undefined;
+  private l1BlockNumber: bigint | undefined;
+  private l1Timestamp: bigint | undefined;
 
   public readonly tracer: Tracer;
 
@@ -270,11 +270,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     // ********** Events that are processed per L1 block **********
     await this.handleL1ToL2Messages(messagesSynchedTo, currentL1BlockNumber);
 
-    // Store latest l1 block number and timestamp seen. Used for epoch and slots calculations.
-    if (!this.l1BlockNumber || this.l1BlockNumber < currentL1BlockNumber) {
-      this.l1Timestamp = (await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber })).timestamp;
-      this.l1BlockNumber = currentL1BlockNumber;
-    }
+    // Get L1 timestamp for the current block
+    const currentL1Timestamp =
+      !this.l1Timestamp || !this.l1BlockNumber || this.l1BlockNumber !== currentL1BlockNumber
+        ? (await this.publicClient.getBlock({ blockNumber: currentL1BlockNumber })).timestamp
+        : this.l1Timestamp;
 
     // ********** Events that are processed per L2 block **********
     if (currentL1BlockNumber > blocksSynchedTo) {
@@ -285,10 +285,15 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       // blocks from more than 2 epochs ago, so we want to make sure we have the latest view of
       // the chain locally before we start unwinding stuff. This can be optimized by figuring out
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
-      await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber);
-
+      await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber, currentL1Timestamp);
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
+
+    // After syncing has completed, update the current l1 block number and timestamp,
+    // otherwise we risk announcing to the world that we've synced to a given point,
+    // but the corresponding blocks have not been processed (see #12631).
+    this.l1Timestamp = currentL1Timestamp;
+    this.l1BlockNumber = currentL1BlockNumber;
 
     if (initialRun) {
       this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
@@ -300,18 +305,19 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   }
 
   /** Queries the rollup contract on whether a prune can be executed on the immediatenext L1 block. */
-  private async canPrune(currentL1BlockNumber: bigint) {
-    const time = (this.l1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
+  private async canPrune(currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
+    const time = (currentL1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
     return await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber });
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
-  private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint) {
+  private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
-    const canPrune = localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber));
+    const canPrune =
+      localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber, currentL1Timestamp));
 
     if (canPrune) {
-      const localPendingSlotNumber = await this.getL2SlotNumber();
+      const localPendingSlotNumber = getSlotAtTimestamp(currentL1Timestamp, this.l1constants);
       const localPendingEpochNumber = getEpochAtSlot(localPendingSlotNumber, this.l1constants);
 
       // Emit an event for listening services to react to the chain prune
