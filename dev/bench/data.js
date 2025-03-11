@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741651494720,
+  "lastUpdate": 1741654237430,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9f57048a90ceb402df128d1033c81ab6f0eb1a51",
-          "message": "chore: cleanup committing and masking utility (#12514)\n\nTransfer the masking function to the polynomial class itself and create a `commit_to_witness` function for translator which will implicitly handle masking when ZK is enabled.",
-          "timestamp": "2025-03-06T13:34:58Z",
-          "tree_id": "dfc05a883c7bfdbf46164d0e79485f30c246bb25",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9f57048a90ceb402df128d1033c81ab6f0eb1a51"
-        },
-        "date": 1741270836910,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18435.43948300021,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16241.901034000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18859.94210700028,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16433.251722 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3932.0303320000676,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3138.2082280000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55309.956425000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55309955000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11042.584718999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11042591000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1968549731,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1968549731 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 222007098,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 222007098 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2185.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 234740635,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 234740635 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9ac518b4ca154a37ae625bc8d53df2982ce18d61",
+          "message": "chore(ci3): add helper for uncached test introspection (#12618)",
+          "timestamp": "2025-03-10T20:38:04-04:00",
+          "tree_id": "6bf0dbcd5ce06cccd1e09d6ea2eae3d4bda603f8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9ac518b4ca154a37ae625bc8d53df2982ce18d61"
+        },
+        "date": 1741654229937,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17921.010966000038,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15937.286141999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18595.513608000034,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16192.323325 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3973.904588000096,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3008.1585580000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54983.987881,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54983987000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11083.933449,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11083936000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1590742660,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1590742660 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 220038778,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 220038778 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
