@@ -12,15 +12,25 @@ import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
 export class AvmEnqueuedCallHint {
-  constructor(public readonly contractAddress: AztecAddress, public readonly calldata: Fr[]) {}
+  constructor(
+    public readonly msgSender: AztecAddress,
+    public readonly contractAddress: AztecAddress,
+    public readonly calldata: Fr[],
+    public isStaticCall: boolean,
+  ) {}
 
   static get schema() {
     return z
       .object({
+        msgSender: AztecAddress.schema,
         contractAddress: AztecAddress.schema,
         calldata: schemas.Fr.array(),
+        isStaticCall: z.boolean(),
       })
-      .transform(({ contractAddress, calldata }) => new AvmEnqueuedCallHint(contractAddress, calldata));
+      .transform(
+        ({ msgSender, contractAddress, calldata, isStaticCall }) =>
+          new AvmEnqueuedCallHint(msgSender, contractAddress, calldata, isStaticCall),
+      );
   }
 }
 

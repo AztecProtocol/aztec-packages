@@ -300,8 +300,16 @@ export class PublicTxSimulator {
 
     // The reason we need enqueued hints at all (and cannot just use the public inputs) is
     // because they don't have the actual calldata, just the hash of it.
+    // If/when we pass the whole TX to C++, we can remove this class of hints.
     stateManager.traceEnqueuedCall(callRequest);
-    context.hints.enqueuedCalls.push(new AvmEnqueuedCallHint(address, executionRequest.args));
+    context.hints.enqueuedCalls.push(
+      new AvmEnqueuedCallHint(
+        executionRequest.callContext.msgSender,
+        executionRequest.callContext.contractAddress,
+        executionRequest.args,
+        executionRequest.callContext.isStaticCall,
+      ),
+    );
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),

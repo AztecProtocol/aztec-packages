@@ -1370,7 +1370,9 @@ export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmByteco
 export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   return new AvmEnqueuedCallHint(
     new AztecAddress(new Fr(seed)),
+    new AztecAddress(new Fr(seed + 2)),
     makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+    /*isStaticCall=*/ false,
   );
 }
 
