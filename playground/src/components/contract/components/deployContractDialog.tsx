@@ -14,8 +14,8 @@ import { css } from '@mui/styled-engine';
 import { useContext, useEffect, useState } from 'react';
 import {
   type ContractArtifact,
-  type FunctionArtifact,
   encodeArguments,
+  type FunctionAbi,
   getDefaultInitializer,
   getInitializer,
 } from '@aztec/stdlib/abi';
@@ -41,7 +41,7 @@ export function DeployContractDialog({
   onClose: (contract?: ContractInstanceWithAddress, alias?: string) => void;
 }) {
   const [alias, setAlias] = useState('');
-  const [initializer, setInitializer] = useState<FunctionArtifact>(null);
+  const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
   const [deploying, setDeploying] = useState(false);
   const { wallet, setLogsOpen } = useContext(AztecContext);

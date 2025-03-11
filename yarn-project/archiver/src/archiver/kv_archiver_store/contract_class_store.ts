@@ -97,7 +97,7 @@ function serializeContractClassPublic(contractClass: Omit<ContractClassPublicWit
     numToUInt8(contractClass.version),
     contractClass.artifactHash,
     contractClass.publicFunctions.length,
-    // bytecode ref?
+    // TODO(MW): the below will be removed (only public_dispatch will remain)
     contractClass.publicFunctions?.map(f => serializeToBuffer(f.selector, f.bytecode.length, f.bytecode)) ?? [],
     contractClass.privateFunctions.length,
     contractClass.privateFunctions.map(serializePrivateFunction),

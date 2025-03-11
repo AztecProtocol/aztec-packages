@@ -44,7 +44,6 @@ export function abiChecker(artifact: ContractArtifact) {
     });
   });
 
-  // TODO: implement a better check for constructor (right now only checks if it has it or not)
   if (!getDefaultInitializer(artifact)) {
     throw new Error('ABI has no constructor');
   }
