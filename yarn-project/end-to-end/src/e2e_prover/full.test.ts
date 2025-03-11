@@ -1,13 +1,18 @@
-import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, Tx, TxReceipt, TxStatus } from '@aztec/aztec.js';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { FeeJuicePortalAbi, RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { Gas } from '@aztec/stdlib/gas';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
 
+import { ProvenTx } from '../../../aztec.js/src/contract/proven_tx.js';
 import { FullProverTest } from './e2e_prover_test.js';
 
 const TIMEOUT = 5_000_000;
@@ -18,7 +23,7 @@ process.env.AVM_PROVING_STRICT = '1';
 describe('full_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
-  const NUM_INVALID_TXS = 50;
+  const NUM_INVALID_TXS = 25;
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
   let { provenAssets, accounts, tokenSim, logger, cheatCodes } = t;
@@ -293,22 +298,43 @@ describe('full_prover', () => {
         return;
       }
 
-      // Create an prove the tx
+      // Create and prove a tx
       logger.info(`Creating and proving tx`);
       const sendAmount = 1n;
       const interaction = provenAssets[0].methods.transfer(recipient, sendAmount);
       const provenTx = await interaction.prove({ skipPublicSimulation: true });
+      const wallet = (provenTx as any).wallet;
 
       // Verify the tx proof
-      logger.info(`Verifying the tx proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(provenTx)).resolves.not.toThrow();
+      logger.info(`Verifying the valid tx proof`);
+      await expect(t.circuitProofVerifier?.verifyProof(provenTx)).resolves.toBeTrue();
 
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
       const invalidTxPromises = [];
+      const data = provenTx.data;
       for (let i = 0; i < NUM_INVALID_TXS; i++) {
-        const sentTx = interaction.send({ skipPublicSimulation: true });
-        invalidTxPromises.push(sentTx.wait({ timeout: 10, interval: 0.1 }));
+        // Use a random client proof and alter the tx data to generate a unique invalid tx hash
+        const invalidProvenTx = new ProvenTx(
+          wallet,
+          new Tx(
+            new PrivateKernelTailCircuitPublicInputs(
+              data.constants,
+              data.rollupValidationRequests,
+              data.gasUsed.add(new Gas(i + 1, 0)),
+              data.feePayer,
+              data.forPublic,
+              data.forRollup,
+            ),
+            ClientIvcProof.random(),
+            provenTx.contractClassLogs,
+            provenTx.enqueuedPublicFunctionCalls,
+            provenTx.publicTeardownFunctionCall,
+          ),
+        );
+
+        const sentTx = invalidProvenTx.send();
+        invalidTxPromises.push(sentTx.wait({ timeout: 10, interval: 0.1, dontThrowOnRevert: true }));
       }
 
       logger.info(`Sending proven tx`);
@@ -330,11 +356,16 @@ describe('full_prover', () => {
         validTx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 }),
       ]);
 
-      // Assert that the large influx of invalid txs does not ddos the node and that the valid tx is successfully sent to the P2P node
+      // Assert that the large influx of invalid txs are rejected and do not ddos the node
       for (let i = 0; i < NUM_INVALID_TXS; i++) {
-        expect(String((results[i] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
+        const invalidTxReceipt = (results[i] as PromiseFulfilledResult<FieldsOf<TxReceipt>>).value;
+        expect(invalidTxReceipt.status).toBe(TxStatus.DROPPED);
+        expect(invalidTxReceipt.error).toMatch(/Tx dropped by P2P node/);
       }
-      expect(results[NUM_INVALID_TXS].status).toBe('fulfilled');
+
+      // Assert that the valid tx is successfully sent and proven
+      const validTxReceipt = (results[NUM_INVALID_TXS] as PromiseFulfilledResult<FieldsOf<TxReceipt>>).value;
+      expect(validTxReceipt.status).toBe(TxStatus.SUCCESS);
 
       logger.info(`Valid tx was proven and invalid txs were dropped by P2P node`);
     },
