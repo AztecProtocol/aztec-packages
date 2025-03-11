@@ -131,6 +131,8 @@ library StakingLib {
 
     // Note that the "amount" is not stored here, but reusing the `validators`
     // We always exit fully.
+    // @note The attester might be chosen for the epoch, so the delay must be long enough
+    //       to allow for that.
     store.exits[_attester] =
       Exit({exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay, recipient: _recipient});
     validator.status = Status.EXITING;

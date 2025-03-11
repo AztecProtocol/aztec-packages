@@ -333,7 +333,12 @@ pub comptime fn generate_serialize_to_fields(
             let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
 
             // We add the individual fields to the fields array
-            let packed_struct = quote { let $packed_struct_name = $name.pack() };
+            let pack_method = get_trait_impl_method(
+                typ,
+                quote { crate::traits::Packable<$packed_len> },
+                quote { pack },
+            );
+            let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
             for i in 0..packed_len {
                 fields = fields.push_back(quote { $packed_struct_name[$i] });
             }

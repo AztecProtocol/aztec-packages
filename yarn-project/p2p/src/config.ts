@@ -164,6 +164,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
+
+  /**
+   * A list of trusted peers.
+   */
+  trustedPeers: string[];
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -330,6 +335,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.',
     ...numberConfigHelper(0),
+  },
+  trustedPeers: {
+    env: 'P2P_TRUSTED_PEERS',
+    parseEnv: (val: string) => val.split(','),
+    description: 'A list of trusted peers ENRs. Separated by commas.',
+    defaultValue: [],
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

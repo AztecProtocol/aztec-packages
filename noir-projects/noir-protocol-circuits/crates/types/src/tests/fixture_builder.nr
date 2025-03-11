@@ -158,7 +158,6 @@ pub struct FixtureBuilder {
     pub contract_class_artifact_hash: Field,
     pub contract_class_public_bytecode_commitment: Field,
     pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    pub acir_hash: Field,
 
     // Public call.
     pub bytecode_hash: Field,
@@ -312,7 +311,6 @@ impl FixtureBuilder {
     ) -> Self {
         self.function_data = function_data.data;
         self.function_leaf_membership_witness = function_data.membership_witness;
-        self.acir_hash = function_data.acir_hash;
         self.client_ivc_vk = VerificationKey { key: vk, hash: function_data.vk_hash };
         *self
     }
@@ -436,7 +434,6 @@ impl FixtureBuilder {
                 .contract_class_public_bytecode_commitment,
             protocol_contract_membership_witness: self.protocol_contract_membership_witness,
             protocol_contract_leaf: self.protocol_contract_leaf,
-            acir_hash: self.acir_hash,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
             updated_class_id_shared_mutable_values: SharedMutableValues::new(
@@ -1251,7 +1248,6 @@ impl Empty for FixtureBuilder {
             public_keys: PublicKeys::default(),
             contract_class_artifact_hash: 0,
             contract_class_public_bytecode_commitment: 0,
-            acir_hash: 0,
             bytecode_hash: 0,
             prover_address: AztecAddress::zero(),
             proof: NestedRecursiveProof::empty(),

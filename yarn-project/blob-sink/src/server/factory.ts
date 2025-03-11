@@ -1,7 +1,9 @@
+import { getPublicClient } from '@aztec/ethereum';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
+import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobSinkConfig } from './config.js';
 import { BlobSinkServer } from './server.js';
 
@@ -18,10 +20,13 @@ async function getDataStoreConfig(config?: BlobSinkConfig): Promise<AztecAsyncKV
  * Creates a blob sink service from the provided config.
  */
 export async function createBlobSinkServer(
-  config?: BlobSinkConfig,
+  config: BlobSinkConfig = {},
   telemetry?: TelemetryClient,
 ): Promise<BlobSinkServer> {
   const store = await getDataStoreConfig(config);
+  const archiveClient = createBlobArchiveClient(config);
+  const { l1ChainId, l1RpcUrls } = config;
+  const l1PublicClient = l1ChainId && l1RpcUrls ? getPublicClient({ l1ChainId, l1RpcUrls }) : undefined;
 
-  return new BlobSinkServer(config, store, telemetry);
+  return new BlobSinkServer(config, store, archiveClient, l1PublicClient, telemetry);
 }

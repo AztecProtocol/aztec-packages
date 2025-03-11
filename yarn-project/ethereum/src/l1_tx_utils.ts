@@ -2,10 +2,11 @@ import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import type { Logger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -158,6 +159,10 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
 
 export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtilsConfigMappings);
 
+export function getL1TxUtilsConfigEnvVars(): L1TxUtilsConfig {
+  return getConfigFromMappings(l1TxUtilsConfigMappings);
+}
+
 export interface L1TxRequest {
   to: Address | null;
   data?: Hex;
@@ -190,14 +195,15 @@ export type TransactionStats = {
 };
 
 export class L1TxUtils {
-  protected readonly config: L1TxUtilsConfig;
+  public readonly config: L1TxUtilsConfig;
   private interrupted = false;
 
   constructor(
     public publicClient: ViemPublicClient,
     public walletClient: ViemWalletClient,
-    protected readonly logger?: Logger,
+    protected logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
+    private debugMaxGasLimit: boolean = false,
   ) {
     this.config = {
       ...defaultL1TxUtilsConfig,
@@ -248,7 +254,9 @@ export class L1TxUtils {
       const account = this.walletClient.account;
       let gasLimit: bigint;
 
-      if (gasConfig.gasLimit) {
+      if (this.debugMaxGasLimit) {
+        gasLimit = LARGE_GAS_LIMIT;
+      } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
         gasLimit = await this.estimateGas(account, request);
@@ -288,7 +296,9 @@ export class L1TxUtils {
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
       const viemError = formatViemError(err);
-      this.logger?.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
+      this.logger?.error(`Failed to send L1 transaction`, viemError.message, {
+        metaMessages: viemError.metaMessages,
+      });
       throw viemError;
     }
   }

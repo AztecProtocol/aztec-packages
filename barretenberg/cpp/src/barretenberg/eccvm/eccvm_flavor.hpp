@@ -112,9 +112,8 @@ class ECCVMFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities {
+    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
-        bool operator==(const PrecomputedEntities& other) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               lagrange_first,  // column 0
@@ -384,22 +383,6 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
-     */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
-      public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
-        {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
-    };
-
-    /**
      * @brief A container for univariates used during sumcheck.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
@@ -559,6 +542,7 @@ class ECCVMFlavor {
             }
 
             dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;
+            size_t unmasked_witness_size = dyadic_num_rows - MASKING_OFFSET;
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -573,7 +557,7 @@ class ECCVMFlavor {
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
-            lagrange_last.at(lagrange_last.size() - 1) = 1;
+            lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
@@ -630,13 +614,13 @@ class ECCVMFlavor {
             // values must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column
             // values that are all zero (issue #2217)
             if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
-                for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+                for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
                     transcript_accumulator_empty.set_if_valid_index(i, 1);
                 }
             }
             // in addition, unless the accumulator is reset, it contains the value from the previous row so this
             // must be propagated
-            for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+            for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
                 transcript_accumulator_x.set_if_valid_index(i, transcript_accumulator_x[i - 1]);
                 transcript_accumulator_y.set_if_valid_index(i, transcript_accumulator_y[i - 1]);
             }
@@ -715,6 +699,29 @@ class ECCVMFlavor {
     };
 
     /**
+     * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
+     */
+    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
+
+      public:
+        PartiallyEvaluatedMultivariates() = default;
+        PartiallyEvaluatedMultivariates(const size_t circuit_size)
+        {
+            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
+            for (auto& poly : this->get_all()) {
+                poly = Polynomial(circuit_size / 2);
+            }
+        }
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+                size_t desired_size = std::min(full_poly.end_index(), circuit_size / 2);
+                poly = Polynomial(desired_size, circuit_size / 2);
+            }
+        }
+    };
+
+    /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
@@ -751,9 +758,8 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)

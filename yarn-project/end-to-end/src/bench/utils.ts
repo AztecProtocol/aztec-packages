@@ -1,9 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
-import { mean, stdDev, timesParallel } from '@aztec/foundation/collection';
+import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
 import type { MetricsType } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
@@ -126,7 +126,7 @@ export function getFolderSize(path: string): number {
  * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns A BatchCall instance.
  */
-export async function makeCall(
+function makeCall(
   index: number,
   context: EndToEndContext,
   contract: BenchmarkingContract,
@@ -135,13 +135,11 @@ export async function makeCall(
   const owner = context.wallet.getAddress();
   const sender = owner;
   if (heavyPublicCompute) {
-    return new BatchCall(context.wallet, [
-      await contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048)).request(),
-    ]);
+    return new BatchCall(context.wallet, [contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048))]);
   } else {
     return new BatchCall(context.wallet, [
-      await contract.methods.create_note(owner, sender, index + 1).request(),
-      await contract.methods.increment_balance(owner, index + 1).request(),
+      contract.methods.create_note(owner, sender, index + 1),
+      contract.methods.increment_balance(owner, index + 1),
     ]);
   }
 }
@@ -161,7 +159,7 @@ export async function sendTxs(
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean = false,
 ): Promise<SentTx[]> {
-  const calls = await timesParallel(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
+  const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
   const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   context.logger.info(`Sending ${txCount} txs`);

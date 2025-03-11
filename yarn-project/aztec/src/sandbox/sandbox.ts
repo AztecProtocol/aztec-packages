@@ -2,7 +2,8 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
+import { SignerlessWallet } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
@@ -17,7 +18,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {

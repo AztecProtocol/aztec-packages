@@ -8,23 +8,22 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
-  type CheatCodes,
   type CompleteAddress,
-  type DeployL1ContractsReturnType,
   EthAddress,
   type Logger,
   type PXE,
   createLogger,
-  deployL1Contract,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
+import { type DeployL1ContractsReturnType, deployL1Contract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import type { PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';

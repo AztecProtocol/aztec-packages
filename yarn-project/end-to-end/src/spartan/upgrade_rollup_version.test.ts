@@ -1,6 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type NodeInfo, type PXE, createCompatibleClient, retryUntil, sleep } from '@aztec/aztec.js';
 import {
+  GovernanceContract,
   GovernanceProposerContract,
   type L1ContractAddresses,
   L1TxUtils,
@@ -9,10 +10,9 @@ import {
   createEthereumChain,
   createL1Clients,
   defaultL1TxUtilsConfig,
-  deployRollupAndPeriphery,
+  deployRollupForUpgrade,
 } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
-import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
 import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -99,14 +99,13 @@ describe('spartan_upgrade_rollup_version', () => {
 
       const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialTestAccounts.map(a => a.address));
 
-      const { rollup: newRollup, payloadAddress } = await deployRollupAndPeriphery(
+      const { rollup: newRollup, payloadAddress } = await deployRollupForUpgrade(
         {
           walletClient: l1WalletClient,
           publicClient: l1PublicClient,
         },
         {
-          // TODO(#12301): magic number
-          salt: 3,
+          salt: Math.floor(Math.random() * 1000000),
           vkTreeRoot: getVKTreeRoot(),
           protocolContractTreeRoot,
           l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
@@ -174,10 +173,10 @@ describe('spartan_upgrade_rollup_version', () => {
       debugLogger.info(`Executing proposal ${info.round}`);
 
       const l1TxUtils = new L1TxUtils(l1PublicClient, l1WalletClient, debugLogger);
-      const { receipt } = await governanceProposer.executeProposal(executableRound, l1TxUtils);
+      const { receipt, proposalId } = await governanceProposer.executeProposal(executableRound, l1TxUtils);
       expect(receipt).toBeDefined();
       expect(receipt.status).toEqual('success');
-      debugLogger.info(`Executed proposal ${info.round}`);
+      debugLogger.info(`Executed proposal ${info.round}`, receipt);
 
       const addresses = await RegistryContract.collectAddresses(
         l1PublicClient,
@@ -192,14 +191,8 @@ describe('spartan_upgrade_rollup_version', () => {
         client: l1PublicClient,
       });
 
-      const governance = getContract({
-        address: addresses.governanceAddress.toString(),
-        abi: GovernanceAbi,
-        client: l1PublicClient,
-      });
-
-      // TODO(#12301): magic number
-      const voteAmount = 10_000n * 10n ** 18n;
+      const governance = new GovernanceContract(addresses.governanceAddress.toString(), l1PublicClient, l1WalletClient);
+      const { minimumVotes: voteAmount } = await governance.getConfiguration();
 
       const mintTx = await token.write.mint([l1WalletClient.account.address, voteAmount], {
         account: l1WalletClient.account,
@@ -211,43 +204,34 @@ describe('spartan_upgrade_rollup_version', () => {
       });
       await l1PublicClient.waitForTransactionReceipt({ hash: approveTx });
 
-      const depositTx = await governance.write.deposit([l1WalletClient.account.address, voteAmount], {
-        account: l1WalletClient.account,
-      });
-      await l1PublicClient.waitForTransactionReceipt({ hash: depositTx });
+      await governance.deposit(l1WalletClient.account.address, voteAmount);
 
-      // Wait for the proposal to be in the voting phase
-      let proposalState = await governance.read.getProposalState([0n]);
-      expect(proposalState).toBeLessThan(2);
-      debugLogger.info(`Got proposal state`, proposalState);
-      while (proposalState !== 1) {
-        await sleep(5000);
-        debugLogger.info(`Waiting for proposal to be in the voting phase`);
-        proposalState = await governance.read.getProposalState([0n]);
-      }
-      debugLogger.info(`Proposal is in the voting phase`);
-      // Vote for the proposal
-      const voteTx = await governance.write.vote([0n, voteAmount, true], {
-        account: l1WalletClient.account,
+      await governance.awaitProposalActive({
+        proposalId,
+        logger: debugLogger,
       });
-      await l1PublicClient.waitForTransactionReceipt({ hash: voteTx });
-      debugLogger.info(`Voted for the proposal`);
+
+      // Vote for the proposal
+      await governance.vote({
+        proposalId,
+        voteAmount,
+        inFavor: true,
+        retries: 10,
+        logger: debugLogger,
+      });
 
       // Wait for the proposal to be in the executable phase
-      proposalState = await governance.read.getProposalState([0n]);
-      while (proposalState !== 3) {
-        await sleep(5000);
-        debugLogger.info(`Waiting for proposal to be in the executable phase`);
-        proposalState = await governance.read.getProposalState([0n]);
-      }
-      debugLogger.info(`Proposal is in the executable phase`);
+      await governance.awaitProposalExecutable({
+        proposalId,
+        logger: debugLogger,
+      });
 
       // Execute the proposal
-      const executeTx = await governance.write.execute([0n], {
-        account: l1WalletClient.account,
+      await governance.executeProposal({
+        proposalId,
+        retries: 10,
+        logger: debugLogger,
       });
-      await l1PublicClient.waitForTransactionReceipt({ hash: executeTx });
-      debugLogger.info(`Executed the proposal`);
 
       const newAddresses = await newRollup.getRollupAddresses();
 

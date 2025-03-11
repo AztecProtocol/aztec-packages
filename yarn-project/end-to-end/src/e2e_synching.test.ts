@@ -37,7 +37,6 @@ import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   BatchCall,
   type Contract,
   Fr,
@@ -46,6 +45,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { AnvilTestWatcher } from '@aztec/aztec.js/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -61,7 +61,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe/server';
 import { SequencerPublisher } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
@@ -239,10 +239,10 @@ class TestVariant {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const batch = new BatchCall(this.wallets[i], [
-          await this.spam.methods.spam(this.seed, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 16n, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 32n, 16, false).request(),
-          await this.spam.methods.spam(this.seed + 48n, 15, true).request(),
+          this.spam.methods.spam(this.seed, 16, false),
+          this.spam.methods.spam(this.seed + 16n, 16, false),
+          this.spam.methods.spam(this.seed + 32n, 16, false),
+          this.spam.methods.spam(this.seed + 48n, 15, true),
         ]);
 
         this.seed += 100n;
