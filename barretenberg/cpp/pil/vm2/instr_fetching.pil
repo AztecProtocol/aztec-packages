@@ -72,6 +72,27 @@ abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_o
 #[ABS_DIFF_POSITIVE]
 sel {abs_diff} in precomputed.sel_range_8 {precomputed.clk};
 
+// We have to enforce that: pc < bytecode_size <==> pc_out_of_range == 0
+// We use same trick as above by using an absolute difference value.
+
+// pc - bytecode_size       if bytecode_size <= pc
+// bytecode_size - pc - 1   if bytecode_size > pc
+pol commit pc_abs_diff;
+pc_abs_diff = sel * ((2 * pc_out_of_range - 1) * (pc - bytecode_size) - 1 + pc_out_of_range);
+
+// pc_abs_diff might take 32 bits and we decompose into 2 16-bit limbs
+pol commit pc_abs_diff_lo;
+pol commit pc_abs_diff_hi;
+
+#[PC_ABS_DIFF_LIMBS]
+pc_abs_diff = pc_abs_diff_lo + 2**16 * pc_abs_diff_hi;
+
+#[ABS_DIFF_POSITIVE_LO]
+sel {pc_abs_diff_lo} in precomputed.sel_range_16 {precomputed.clk};
+
+#[ABS_DIFF_POSITIVE_HI]
+sel {pc_abs_diff_hi} in precomputed.sel_range_16 {precomputed.clk};
+
 // bytecode[pc] to bytecode[pc + 36]
 pol commit bd0, bd1, bd2, bd3, bd4,
            bd5, bd6, bd7, bd8, bd9, bd10,
