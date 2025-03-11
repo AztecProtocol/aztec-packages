@@ -1,5 +1,6 @@
 #pragma once
 #include "acir_format.hpp"
+#include "convert/proto_to_serde.hpp"
 #include "serde/index.hpp"
 
 namespace acir_format {
