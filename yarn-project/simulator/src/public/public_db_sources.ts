@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
@@ -13,11 +14,19 @@ import {
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type {
+  BatchInsertionResult,
+  IndexedTreeId,
+  MerkleTreeLeafType,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  SequentialInsertionResult,
+  TreeInfo,
+} from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
-import { ForwardMerkleTree, MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import type { Tx } from '@aztec/stdlib/tx';
+import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import type { BlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 
 import type { PublicContractsDBInterface, PublicStateDBInterface } from '../common/db_interfaces.js';
 import { TxContractCache } from './tx_contract_cache.js';
@@ -256,6 +265,118 @@ export class PublicContractsDB implements PublicContractsDBInterface {
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return await this.dataSource.getContractFunctionName(address, selector);
+  }
+}
+
+/**
+ * Proxy class that forwards all merkle tree operations to the underlying object.
+ *
+ * NOTE: It might be possible to prune this to just the methods used in public.
+ * Then we'd need to define a new interface, instead of MerkleTreeWriteOperations,
+ * to be used by all our classes (that could be PublicStateDBInterface).
+ */
+class ForwardMerkleTree implements MerkleTreeWriteOperations {
+  constructor(private readonly operations: MerkleTreeWriteOperations) {}
+
+  getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
+    return this.operations.getTreeInfo(treeId);
+  }
+
+  getStateReference(): Promise<StateReference> {
+    return this.operations.getStateReference();
+  }
+
+  getInitialHeader(): BlockHeader {
+    return this.operations.getInitialHeader();
+  }
+
+  getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
+    return this.operations.getSiblingPath(treeId, index);
+  }
+
+  getPreviousValueIndex<ID extends IndexedTreeId>(
+    treeId: ID,
+    value: bigint,
+  ): Promise<
+    | {
+        index: bigint;
+        alreadyPresent: boolean;
+      }
+    | undefined
+  > {
+    return this.operations.getPreviousValueIndex(treeId, value);
+  }
+
+  getLeafPreimage<ID extends IndexedTreeId>(treeId: ID, index: bigint): Promise<IndexedTreeLeafPreimage | undefined> {
+    return this.operations.getLeafPreimage(treeId, index);
+  }
+
+  findLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(bigint | undefined)[]> {
+    return this.operations.findLeafIndices(treeId, values);
+  }
+
+  findLeafIndicesAfter<ID extends MerkleTreeId>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+    startIndex: bigint,
+  ): Promise<(bigint | undefined)[]> {
+    return this.operations.findLeafIndicesAfter(treeId, values, startIndex);
+  }
+
+  getLeafValue<ID extends MerkleTreeId>(
+    treeId: ID,
+    index: bigint,
+  ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
+    return this.operations.getLeafValue(treeId, index);
+  }
+
+  getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]> {
+    return this.operations.getBlockNumbersForLeafIndices(treeId, leafIndices);
+  }
+
+  createCheckpoint(): Promise<void> {
+    return this.operations.createCheckpoint();
+  }
+
+  commitCheckpoint(): Promise<void> {
+    return this.operations.commitCheckpoint();
+  }
+
+  revertCheckpoint(): Promise<void> {
+    return this.operations.revertCheckpoint();
+  }
+
+  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
+    return this.operations.appendLeaves(treeId, leaves);
+  }
+
+  updateArchive(header: BlockHeader): Promise<void> {
+    return this.operations.updateArchive(header);
+  }
+
+  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number, ID extends IndexedTreeId>(
+    treeId: ID,
+    leaves: Buffer[],
+    subtreeHeight: number,
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+    return this.operations.batchInsert(treeId, leaves, subtreeHeight);
+  }
+
+  sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
+    treeId: ID,
+    leaves: Buffer[],
+  ): Promise<SequentialInsertionResult<TreeHeight>> {
+    return this.operations.sequentialInsert(treeId, leaves);
+  }
+
+  close(): Promise<void> {
+    return this.operations.close();
   }
 }
 
