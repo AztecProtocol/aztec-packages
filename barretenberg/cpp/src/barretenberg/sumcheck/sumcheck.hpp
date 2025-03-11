@@ -459,6 +459,13 @@ template <typename Flavor> class SumcheckProver {
             for (size_t i = 0; i < limit; i += 2) {
                 pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
+
+            // We resize pep_view[j] to have the exact size required for the next round which is
+            // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
+            // virtually zeroize any leftover values beyond the limit (in-place computation).
+            // This is important to zeroize leftover values to not mess up with compute_univariate().
+            // Note that the virtual size of pep_view[j] remains unchanged.
+            pep_view[j].shrink(limit / 2 + limit % 2);
         });
     };
     /**
@@ -477,6 +484,13 @@ template <typename Flavor> class SumcheckProver {
             for (size_t i = 0; i < limit; i += 2) {
                 pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
+
+            // We resize pep_view[j] to have the exact size required for the next round which is
+            // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
+            // virtually zeroize any leftover values beyond the limit (in-place computation).
+            // This is important to zeroize leftover values to not mess up with compute_univariate().
+            // Note that the virtual size of pep_view[j] remains unchanged.
+            pep_view[j].shrink(limit / 2 + limit % 2);
         });
     };
 
