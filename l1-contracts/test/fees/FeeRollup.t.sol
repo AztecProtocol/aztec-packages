@@ -28,9 +28,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor, IRegistry} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {
-  ProposeArgs, OracleInput, ProposeLib
-} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeMath,
@@ -41,7 +39,7 @@ import {
   FeeHeader,
   L1FeeData,
   ManaBaseFeeComponents
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeMath.sol";
 
 import {
   FeeModelTestPoints,
@@ -156,7 +154,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(fakeCanonical), "FAKE CANONICAL");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.getCuauhxicalli(), "CUAUHXICALLI");
+    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -454,7 +452,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           fees[feeIndex * 2 + 1] = bytes32(fee);
         }
 
-        uint256 cuauhxicalliBalanceBefore = asset.balanceOf(rollup.getCuauhxicalli());
+        uint256 burnAddressBalanceBefore = asset.balanceOf(rollup.getBurnAddress());
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
 
         PublicInputArgs memory args = PublicInputArgs({
@@ -489,7 +487,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           );
         }
 
-        uint256 burned = asset.balanceOf(rollup.getCuauhxicalli()) - cuauhxicalliBalanceBefore;
+        uint256 burned = asset.balanceOf(rollup.getBurnAddress()) - burnAddressBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
 
         // The reward is not yet distributed, but only accumulated.

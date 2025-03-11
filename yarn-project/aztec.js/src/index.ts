@@ -20,32 +20,12 @@
  * TODO: Ultimately reimplement this mega exporter by mega exporting a granular api (then deprecate it).
  */
 
-export { ContractDeployer } from './deployment/index.js';
-
-export { NoteSelector } from '@aztec/stdlib/abi';
-
-export { createCompatibleClient, createPXEClient } from './rpc_clients/index.js';
-
-export { type DeployAccountOptions } from './account_manager/index.js';
-
-export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet } from './wallet/index.js';
-
-export { EthAddress } from '@aztec/foundation/eth-address';
-
 export { Fq, Fr, Point, GrumpkinScalar } from '@aztec/foundation/fields';
 
 export { SiblingPath } from '@aztec/foundation/trees';
 
 export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
-export {
-  type PartialAddress,
-  type ContractClassWithId,
-  type ContractInstanceWithAddress,
-  getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
-  type NodeInfo,
-} from '@aztec/stdlib/contract';
 export { MerkleTreeId, merkleTreeIds } from '@aztec/stdlib/trees';
 export { type PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 export { computeSecretHash } from '@aztec/stdlib/hash';
@@ -57,7 +37,6 @@ export {
 } from '@aztec/stdlib/keys';
 export { AuthWitness } from '@aztec/stdlib/auth-witness';
 export { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-export { FunctionCall } from '@aztec/stdlib/abi';
 export {
   Tx,
   TxExecutionRequest,
@@ -80,7 +59,6 @@ export { ProtocolContractAddress } from '@aztec/protocol-contracts';
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
-export { decodeFromAbi, encodeArguments, type AbiType } from '@aztec/stdlib/abi';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { sha256, Grumpkin, Schnorr } from '@aztec/foundation/crypto';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
@@ -97,10 +75,12 @@ export { fileURLToPath } from '@aztec/foundation/url';
 export * from './api/abi.js';
 export * from './api/account.js';
 export * from './api/addresses.js';
-export * from './api/cheat_codes.js';
-export * from './api/ethereum/index.js';
+export * from './api/deployment.js';
+export * from './api/ethereum.js';
+export * from './api/eth_address.js';
 export * from './api/fee.js';
 export * from './api/log.js';
-// Granular export, even if not in the api folder
-export * from './contract/index.js';
-export * from './utils/index.js';
+export * from './api/contract.js';
+export * from './api/utils.js';
+export * from './api/rpc.js';
+export * from './api/wallet.js';

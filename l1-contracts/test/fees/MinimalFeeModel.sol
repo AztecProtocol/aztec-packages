@@ -16,7 +16,7 @@ import {
   FeeHeader,
   L1FeeData,
   ManaBaseFeeComponents
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeMath.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
   ManaBaseFeeComponentsModel,

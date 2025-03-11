@@ -4,13 +4,13 @@ pragma solidity >=0.8.27;
 
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingLib} from "./../staking/StakingLib.sol";
-import {ValidatorSelectionLib} from "./../ValidatorSelectionLib/ValidatorSelectionLib.sol";
+import {ValidatorSelectionLib} from "./../validator-selection/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {ProposeLib, ProposeArgs, Signature} from "./ProposeLib.sol";
+
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
-
 library ExtRollupLib {
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofLib.submitEpochRootProof(_args);

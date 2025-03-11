@@ -11,7 +11,7 @@ import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
