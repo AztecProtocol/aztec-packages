@@ -8,8 +8,6 @@ import {
   ITestRollup,
   CheatDepositArgs,
   RollupStore,
-  L1GasOracleValues,
-  L1FeeData,
   SubmitEpochRootProofArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
@@ -21,7 +19,7 @@ import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CheatLib} from "@aztec/core/libraries/rollup/CheatLib.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
-import {EthValue} from "@aztec/core/libraries/rollup/FeeMath.sol";
+import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -105,12 +103,7 @@ contract RollupCore is
       IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     rollupStore.config.outbox = IOutbox(address(new Outbox(address(this))));
 
-    rollupStore.provingCostPerMana = EthValue.wrap(100);
-    rollupStore.l1GasOracleValues = L1GasOracleValues({
-      pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
-      post: L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee()}),
-      slotOfChange: ProposeLib.LIFETIME
-    });
+    FeeLib.initialize();
   }
 
   /* -------------------------------------------------------------------------- */
@@ -151,7 +144,7 @@ contract RollupCore is
     override(IRollupCore)
     onlyOwner
   {
-    STFLib.getStorage().provingCostPerMana = _provingCostPerMana;
+    FeeLib.getStorage().provingCostPerMana = _provingCostPerMana;
   }
 
   function claimSequencerRewards(address _recipient)
@@ -224,6 +217,6 @@ contract RollupCore is
    * @dev     This function is called by the `propose` function
    */
   function updateL1GasFeeOracle() public override(IRollupCore) {
-    ProposeLib.updateL1GasFeeOracle();
+    FeeLib.updateL1GasFeeOracle();
   }
 }

@@ -9,8 +9,8 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
-} from "@aztec/core/libraries/rollup/FeeMath.sol";
-import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -37,7 +37,6 @@ struct SubmitEpochRootProofArgs {
 }
 
 struct BlockLog {
-  FeeHeader feeHeader;
   bytes32 archive;
   bytes32 blockHash;
   Slot slotNumber;
@@ -46,12 +45,6 @@ struct BlockLog {
 struct ChainTips {
   uint256 pendingBlockNumber;
   uint256 provenBlockNumber;
-}
-
-struct L1GasOracleValues {
-  L1FeeData pre;
-  L1FeeData post;
-  Slot slotOfChange;
 }
 
 struct SubEpochRewards {
@@ -96,8 +89,6 @@ struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
-  L1GasOracleValues l1GasOracleValues;
-  EthValue provingCostPerMana;
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
   // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
@@ -205,6 +196,7 @@ interface IRollup is IRollupCore {
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
   function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
+  function getFeeHeader(uint256 _blockNumber) external view returns (FeeHeader memory);
   function getBlobPublicInputsHash(uint256 _blockNumber) external view returns (bytes32);
 
   function getSequencerRewards(address _sequencer) external view returns (uint256);
