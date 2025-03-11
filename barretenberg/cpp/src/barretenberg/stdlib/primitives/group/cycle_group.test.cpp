@@ -156,6 +156,29 @@ TYPED_TEST(CycleGroupTest, TestOperatorNegRegression)
 }
 
 /**
+ * @brief Checks the mixup bad behavior found by fuzzer.
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestConstantWitnessMixupRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto c1 = cycle_group_ct(AffineElement::one());
+    auto cw8 = cycle_group_ct::from_constant_witness(&builder, AffineElement::one() * 0);
+    auto w11 = cycle_group_ct::from_witness(&builder, TestFixture::generators[0]);
+
+    auto w9 = cw8 + c1; // mixup happens here due to _is_infinity being a constant
+    auto w26 = w9 + w11; // and here the circuit checker crashes
+
+    auto w10 = cw8 - c1;
+    auto w27 = w10 - w11; // and here
+    (void)w26;
+    (void)w27;
+    EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
+}
+
+/**
  * @brief Checks that a point on the curve passes the validate_is_on_curve check
  *
  */
