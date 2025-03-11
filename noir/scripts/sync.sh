@@ -248,7 +248,7 @@ function init_repo {
     depth=$([ ! -z "${CI_FULL:-}" ] && echo "--depth 1" || echo "")
     # `--branch` doesn't work for commit hashes
     git clone $depth --branch $ref $url noir-repo \
-    || git clone $url noir-repo && git -C noir-repo checkout $ref
+    || git clone $url noir-repo && git -C noir-repo checkout -c $ref
     patch_repo
   fi
 }
