@@ -47,7 +47,7 @@ and witness stack. The schemas are [defined](https://github.com/noir-lang/noir/t
 and the C++ code is generated for them here by running the following command:
 
 ```shell
-make -C barretenberg/cpp/src/barretenberg/dsl --no-print-directory
+barretenberg/cpp/scripts/codegen_dsl.sh
 ```
 
 The resulting `.pb.c` and `.pb.h` files are written to `./acir_format/proto/acir` but aren't checked into source control.
@@ -55,7 +55,7 @@ The resulting `.pb.c` and `.pb.h` files are written to `./acir_format/proto/acir
 For example:
 
 ```console
-% make -C barretenberg/cpp/src/barretenberg/dsl --no-print-directory                                                                                                                                ~/aztec-packages af/bb-dsl-acir-proto+ akosh-box
+% barretenberg/cpp/scripts/codegen_dsl.sh
 mkdir -p acir_format/proto
 protoc --cpp_out ./acir_format/proto -I ../../../../../noir/noir-repo/acvm-repo/acir/src/proto ../../../../../noir/noir-repo/acvm-repo/acir/src/proto/acir/program.proto
 protoc --cpp_out ./acir_format/proto -I ../../../../../noir/noir-repo/acvm-repo/acir/src/proto ../../../../../noir/noir-repo/acvm-repo/acir/src/proto/acir/witness.proto
