@@ -1,7 +1,9 @@
 export {
   type ContractArtifact,
   type FunctionArtifact,
+  type FunctionAbi,
   EventSelector,
+  FunctionType,
   FunctionSelector,
   FunctionCall,
   NoteSelector,
@@ -16,6 +18,7 @@ export {
   isFunctionSelectorStruct,
   loadContractArtifact,
   loadContractArtifactForPublic,
+  getAllFunctionAbis,
   contractArtifactToBuffer,
   contractArtifactFromBuffer,
 } from '@aztec/stdlib/abi';
