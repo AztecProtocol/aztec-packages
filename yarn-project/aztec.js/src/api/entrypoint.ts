@@ -1,1 +1,1 @@
-export * from '../entrypoint/entrypoint.js';
+export * from '../../../entrypoints/src/interfaces.js';

@@ -7,11 +7,11 @@ import {
 } from '@aztec/stdlib/abi';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 
+import { EntrypointPayload, computeCombinedPayloadHash } from '../../../entrypoints/src/payload.js';
 import type { AuthWitnessProvider } from '../account/interface.js';
 import type { ExecutionRequestInit } from '../api/entrypoint.js';
 import { Contract } from '../contract/contract.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
-import { EntrypointPayload, computeCombinedPayloadHash } from '../entrypoint/payload.js';
 import type { Wallet } from '../wallet/wallet.js';
 
 /**

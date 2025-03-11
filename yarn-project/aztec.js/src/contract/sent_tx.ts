@@ -1,7 +1,9 @@
 import { retryUntil } from '@aztec/foundation/retry';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AztecNode, GetPublicLogsResponse, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+
+import type { Wallet } from '../wallet/wallet.js';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
@@ -13,10 +15,6 @@ export type WaitOpts = {
   provenTimeout?: number;
   /** The time interval (in seconds) between retries to fetch the transaction receipt. Defaults to 1. */
   interval?: number;
-  /** Whether to wait for the tx to be proven. */
-  proven?: boolean;
-  /** Whether to include information useful for debugging/testing in the receipt. */
-  debug?: boolean;
   /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */
   dontThrowOnRevert?: boolean;
 };
@@ -24,9 +22,7 @@ export type WaitOpts = {
 export const DefaultWaitOpts: WaitOpts = {
   ignoreDroppedReceiptsFor: 5,
   timeout: 60,
-  provenTimeout: 600,
   interval: 1,
-  debug: false,
 };
 
 /**
@@ -34,7 +30,7 @@ export const DefaultWaitOpts: WaitOpts = {
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected pxeOrNode: PXE | AztecNode, protected txHashPromise: Promise<TxHash>) {}
+  constructor(protected walletOrNode: Wallet | AztecNode, protected txHashPromise: Promise<TxHash>) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
@@ -56,7 +52,7 @@ export class SentTx {
    */
   public async getReceipt(): Promise<TxReceipt> {
     const txHash = await this.getTxHash();
-    return await this.pxeOrNode.getTxReceipt(txHash);
+    return await this.walletOrNode.getTxReceipt(txHash);
   }
 
   /**
@@ -71,30 +67,7 @@ export class SentTx {
         `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
       );
     }
-    if (opts?.proven && receipt.blockNumber !== undefined) {
-      await this.waitForProven(receipt.blockNumber, opts);
-    }
-    if (opts?.debug) {
-      const txHash = await this.getTxHash();
-      const { data: tx } = (await this.pxeOrNode.getTxEffect(txHash))!;
-      receipt.debugInfo = {
-        noteHashes: tx.noteHashes,
-        nullifiers: tx.nullifiers,
-        publicDataWrites: tx.publicDataWrites,
-        l2ToL1Msgs: tx.l2ToL1Msgs,
-      };
-    }
     return receipt;
-  }
-
-  /**
-   * Gets public logs emitted by this tx.
-   * @remarks This function will wait for the tx to be mined if it hasn't been already.
-   * @returns The requested logs.
-   */
-  public async getPublicLogs(): Promise<GetPublicLogsResponse> {
-    await this.wait();
-    return this.pxeOrNode.getPublicLogs({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {
@@ -104,7 +77,7 @@ export class SentTx {
 
     return await retryUntil(
       async () => {
-        const txReceipt = await this.pxeOrNode.getTxReceipt(txHash);
+        const txReceipt = await this.walletOrNode.getTxReceipt(txHash);
         // If receipt is not yet available, try again
         if (txReceipt.status === TxStatus.PENDING) {
           return undefined;
@@ -123,18 +96,6 @@ export class SentTx {
       },
       'isMined',
       opts?.timeout ?? DefaultWaitOpts.timeout,
-      opts?.interval ?? DefaultWaitOpts.interval,
-    );
-  }
-
-  protected async waitForProven(minedBlock: number, opts?: WaitOpts) {
-    return await retryUntil(
-      async () => {
-        const provenBlock = await this.pxeOrNode.getProvenBlockNumber();
-        return provenBlock >= minedBlock ? provenBlock : undefined;
-      },
-      'isProven',
-      opts?.provenTimeout ?? DefaultWaitOpts.provenTimeout,
       opts?.interval ?? DefaultWaitOpts.interval,
     );
   }

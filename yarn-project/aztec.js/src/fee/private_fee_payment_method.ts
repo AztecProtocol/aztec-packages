@@ -3,10 +3,10 @@ import { type FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
+import type { FeePaymentMethod } from '../../../entrypoints/src/fee_payment_method.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { SignerlessWallet } from '../wallet/signerless_wallet.js';
 import type { Wallet } from '../wallet/wallet.js';
-import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.

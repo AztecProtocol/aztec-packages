@@ -8,7 +8,7 @@ import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import type { ExecutionRequestInit } from '../entrypoint/interfaces.js';
 import {
   type IntentAction,
   type IntentInnerHash,
@@ -35,10 +35,6 @@ export class AccountWallet extends BaseWallet {
 
   getVersion(): Fr {
     return this.account.getVersion();
-  }
-
-  override isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    return this.pxe.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
   /**
@@ -150,7 +146,7 @@ export class AccountWallet extends BaseWallet {
     const results = { isValidInPrivate: false, isValidInPublic: false };
 
     // Check private
-    const witness = await this.getAuthWitness(messageHash);
+    const witness = await this.pxe.getAuthWitness(messageHash);
     if (witness !== undefined) {
       results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
         consumer,

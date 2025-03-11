@@ -1,11 +1,16 @@
-import { Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
-import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
+import { Fr } from '@aztec/foundation/fields';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
+import {
+  type AuthWitnessProvider,
+  type EntrypointInterface,
+  EntrypointPayload,
+  type ExecutionRequestInit,
+} from './interfaces.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -37,9 +42,11 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       functionSelector.toField(),
       entrypointHashedArgs.hash,
     ]);
-    const outerHash = await computeAuthWitMessageHash(
-      { consumer: this.dappEntrypointAddress, innerHash },
-      { chainId: new Fr(this.chainId), version: new Fr(this.version) },
+    const outerHash = await computeOuterAuthWitHash(
+      this.dappEntrypointAddress,
+      new Fr(this.chainId),
+      new Fr(this.version),
+      innerHash,
     );
 
     const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);

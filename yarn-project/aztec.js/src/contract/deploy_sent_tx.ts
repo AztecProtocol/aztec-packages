@@ -29,7 +29,7 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   private log = createLogger('aztecjs:deploy_sent_tx');
 
   constructor(
-    pxeOrWallet: PXE | Wallet,
+    pxeOrWallet: Wallet,
     txHashPromise: Promise<TxHash>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     /** A getter for the deployed contract instance */
@@ -62,9 +62,9 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   }
 
   protected async getContractObject(wallet?: Wallet): Promise<TContract> {
-    const isWallet = (pxeOrWallet: PXE | Wallet | AztecNode): pxeOrWallet is Wallet =>
-      !!(pxeOrWallet as Wallet).createTxExecutionRequest;
-    const contractWallet = wallet ?? (isWallet(this.pxeOrNode) && this.pxeOrNode);
+    const isWallet = (walletOrNode: Wallet | AztecNode): walletOrNode is Wallet =>
+      !!(walletOrNode as Wallet).createTxExecutionRequest;
+    const contractWallet = wallet ?? (isWallet(this.walletOrNode) && this.walletOrNode);
     if (!contractWallet) {
       throw new Error(`A wallet is required for creating a contract instance`);
     }

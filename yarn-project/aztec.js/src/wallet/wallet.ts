@@ -8,6 +8,24 @@ import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
  * The wallet interface.
  */
 export type Wallet = AccountInterface &
-  PXE & {
+  Pick<
+    PXE,
+    | 'simulateTx'
+    | 'simulateUnconstrained'
+    | 'sendTx'
+    | 'getContractClassMetadata'
+    | 'getContractMetadata'
+    | 'registerContract'
+    | 'registerContractClass'
+    | 'proveTx'
+    | 'getNodeInfo'
+    | 'getPXEInfo'
+    | 'getCurrentBaseFees'
+    | 'updateContract'
+    | 'registerSender'
+    | 'getSenders'
+    | 'removeSender'
+    | 'getTxReceipt'
+  > & {
     createAuthWit(intent: IntentInnerHash | IntentAction): Promise<AuthWitness>;
   };

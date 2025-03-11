@@ -1,11 +1,11 @@
+import { DefaultEntrypoint } from '@aztec/entrypoints';
+import type { EntrypointInterface, ExecutionRequestInit } from '@aztec/entrypoints';
 import type { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
-import type { EntrypointInterface, ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
@@ -44,9 +44,5 @@ export class SignerlessWallet extends BaseWallet {
 
   createAuthWit(_intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness> {
     throw new Error('SignerlessWallet: Method createAuthWit not implemented.');
-  }
-
-  override isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    return this.pxe.isL1ToL2MessageSynced(l1ToL2Message);
   }
 }

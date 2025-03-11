@@ -645,7 +645,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/entrypoints@workspace:entrypoints"
   dependencies:
-    "@aztec/aztec.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"

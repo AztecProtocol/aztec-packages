@@ -9,7 +9,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { HashedValues } from '@aztec/stdlib/tx';
 
-import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
+import type { FeePaymentMethod } from './interfaces.js';
 
 /**
  * Fee payment options for a transaction.

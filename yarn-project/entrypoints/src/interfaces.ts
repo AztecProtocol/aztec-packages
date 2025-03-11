@@ -1,14 +1,13 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, HashedValues, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash } from './payload.js';
 
 export { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash };
-
-export { DefaultEntrypoint } from './default_entrypoint.js';
-export { DefaultMultiCallEntrypoint } from './default_multi_call_entrypoint.js';
 
 /** Encodes the calls to be done in a transaction. */
 export type ExecutionRequestInit = {
@@ -36,4 +35,33 @@ export interface EntrypointInterface {
    * @returns The authenticated transaction execution request.
    */
   createTxExecutionRequest(execution: ExecutionRequestInit): Promise<TxExecutionRequest>;
+}
+
+/** Creates authorization witnesses. */
+export interface AuthWitnessProvider {
+  /**
+   * Computes an authentication witness from either a message hash
+   * @param messageHash - The message hash to approve
+   * @returns The authentication witness
+   */
+  createAuthWit(messageHash: Fr | Buffer): Promise<AuthWitness>;
+}
+
+/**
+ * Holds information about how the fee for a transaction is to be paid.
+ */
+export interface FeePaymentMethod {
+  /** The asset used to pay the fee. */
+  getAsset(): Promise<AztecAddress>;
+  /**
+   * Creates a function call to pay the fee in the given asset.
+   * @param gasSettings - The gas limits and max fees.
+   * @returns The function call to pay the fee.
+   */
+  getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]>;
+  /**
+   * The expected fee payer for this tx.
+   * @param gasSettings - The gas limits and max fees.
+   */
+  getFeePayer(gasSettings: GasSettings): Promise<AztecAddress>;
 }
