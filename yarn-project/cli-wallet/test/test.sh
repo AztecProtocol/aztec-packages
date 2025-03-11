@@ -1,5 +1,6 @@
 #!/bin/bash
-source $(git rev-parse --show-toplevel)/ci3/source
+set -euo pipefail
+cd "$(dirname "$0")"
 
 POSITIONAL_ARGS=()
 
