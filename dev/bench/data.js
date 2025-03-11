@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741720950172,
+  "lastUpdate": 1741726721355,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a3c11287ca66bf5189c1ecc58681de4a7af1844",
-          "message": "feat: Sync from noir (#12545)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nfix: FunctionDefinition::as_typed_expr didn't work well for trait imp…\n(https://github.com/noir-lang/noir/pull/7611)\nfeat(experimental): Enable ownership syntax\n(https://github.com/noir-lang/noir/pull/7603)\nchore: add underscore parameter documentation\n(https://github.com/noir-lang/noir/pull/7562)\nfix: compare Quoted by expanding interned values\n(https://github.com/noir-lang/noir/pull/7602)\nfix: TokensPrettyPrinter was missing some spaces between tokens\n(https://github.com/noir-lang/noir/pull/7607)\nfix(experimental): Fix execution of match expressions with multiple\nbranches (https://github.com/noir-lang/noir/pull/7570)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2025-03-06T20:45:39Z",
-          "tree_id": "b1fd2406bffa307e773880ea11739a7b1e153d5a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a3c11287ca66bf5189c1ecc58681de4a7af1844"
-        },
-        "date": 1741296410649,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18248.018858999785,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16166.098242 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18797.319371999947,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16453.975092 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3943.9553319998595,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3168.922482 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56028.81328,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56028813000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9974.843866,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9974852000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1993982205,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1993982205 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 240383172,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 240383172 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 222444889,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 222444889 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f815ea3a25bf157d49afc9c3948341fbda89f34",
+          "message": "chore: downgrade undici so its engine spec is compatible (#12659)\n\nDowngrade undici so its node engine specification is compatible with\nNode 18 (LTS).\n\nRef https://undici.nodejs.org/#/?id=long-term-support\n\nFix #12645",
+          "timestamp": "2025-03-11T20:24:07Z",
+          "tree_id": "79620ab40c8651ec8fcce9a31b98ba544f68b439",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4f815ea3a25bf157d49afc9c3948341fbda89f34"
+        },
+        "date": 1741726713040,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18415.39371199997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15950.224271000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19090.97223499998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16414.835265 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3883.3806010002263,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3058.14109 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55985.635084,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55985635000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10435.586287,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10435595000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1630960164,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1630960164 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 230606822,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 230606822 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
