@@ -17,6 +17,54 @@ tests_hash=$(cache_content_hash \
     ../cpp/.rebuild_patterns \
     ../ts/.rebuild_patterns)
 
+# Generate inputs for a given recursively verifying program.
+function run_proof_generation() {
+    local program=$1
+    local outdir=$(mktemp -d)
+    trap "rm -rf $outdir" EXIT
+    local adjustment=16
+    local ipa_accumulation_flag=""
+
+    # Adjust settings based on program type
+    if [[ $program == *"rollup"* ]]; then
+        adjustment=26
+        ipa_accumulation_flag="--ipa_accumulation"
+    fi
+    local prove_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+    echo_stderr "$prove_cmd"
+    dump_fail "$prove_cmd"
+
+    local vk_fields=$(cat "$outdir/vk_fields.json")
+    local proof_fields=$(cat "$outdir/proof_fields.json")
+    local num_inner_public_inputs=$(( 16#$(echo "$vk_fields" | jq -r '.[1] | ltrimstr("0x")') - adjustment ))
+
+    echo "num_inner_public_inputs for $program = $num_inner_public_inputs"
+
+    generate_toml "$program" "$vk_fields" "$proof_fields" "$num_inner_public_inputs"
+}
+
+function generate_toml() {
+    local program=$1
+    local vk_fields=$2
+    local proof_fields=$3
+    local num_inner_public_inputs=$4
+    local output_file="../$program/Prover.toml"
+    local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
+
+    jq -nr \
+        --arg key_hash "$key_hash" \
+        --argjson vkf "$vk_fields" \
+        --argjson prooff "$proof_fields" \
+        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
+        '[
+          "key_hash = \($key_hash)",
+          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
+          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
+          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
+          '"$( [[ $program == *"double"* ]] && echo ',"proof_b = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]"' )"'
+        ] | join("\n")' > "$output_file"
+}
+
 function build {
   echo_header "acir_tests build"
 
@@ -29,76 +77,18 @@ function build {
     # Don't compile these until we generate their inputs
     rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}
 
-    # # COMPILE=2 only compiles the test.
-    # denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
+    # COMPILE=2 only compiles the test.
+    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
     cp -R ../../noir/noir-repo/test_programs/execution_success/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof} acir_tests
     echo "Regenerating verify_honk_proof, double_verify_honk_proof, verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
     cd ./acir_tests/assert_statement
-
-      outdir=$(mktemp -d)
-      trap "rm -rf $outdir" EXIT
-      local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
-
-      local prove_uh_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
-      echo_stderr $prove_uh_cmd
-      dump_fail "$prove_uh_cmd"
-      vk_fields=$(cat $outdir/vk_fields.json)
-      proof_fields=$(cat $outdir/proof_fields.json)
-      num_inner_public_inputs=$(( 16#$(echo $vk_fields | jq -r '.[1] | ltrimstr("0x")') - 16 ))
-      echo "num_inner_public_inputs = $num_inner_public_inputs"
-
-      jq -nr \
-        --arg key_hash "$key_hash" \
-        --argjson vkf "$vk_fields" \
-        --argjson prooff "$proof_fields" \
-        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
-        '[
-          "key_hash = \($key_hash)",
-          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
-          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
-          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
-        ] | join("\n")' > ../verify_honk_proof/Prover.toml
-
-      jq -nr \
-        --arg key_hash "$key_hash" \
-        --argjson vkf "$vk_fields" \
-        --argjson prooff "$proof_fields" \
-        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
-        '[
-          "key_hash = \($key_hash)",
-          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
-          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
-          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]",
-          "proof_b = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]"
-        ] | join("\n")' > ../double_verify_honk_proof/Prover.toml
-
-
-      local prove_rollup_honk_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator --ipa_accumulation --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
-      echo_stderr $prove_rollup_honk_cmd
-      dump_fail "$prove_rollup_honk_cmd"
-      vk_fields=$(cat $outdir/vk_fields.json)
-      proof_fields=$(cat $outdir/proof_fields.json)
-      num_inner_public_inputs=$(( 16#$(echo $vk_fields | jq -r '.[1] | ltrimstr("0x")') - 26 ))
-      echo "num_inner_public_inputs = $num_inner_public_inputs"
-
-      jq -nr \
-        --arg key_hash "$key_hash" \
-        --argjson vkf "$vk_fields" \
-        --argjson prooff "$proof_fields" \
-        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
-        '[
-          "key_hash = \($key_hash)",
-          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
-          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
-          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
-        ] | join("\n")' > ../verify_rollup_honk_proof/Prover.toml
-  cd ../..
-
-
-      # $bb OLD_API write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive
-      # $bb OLD_API write_recursion_inputs_ultra_honk --ipa_accumulation -b ./target/program.json -o ../verify_rollup_honk_proof --recursive
+    for program in verify_honk_proof double_verify_honk_proof verify_rollup_honk_proof; do
+      echo $program
+      run_proof_generation "$program"
+    done
+    cd ../..
 
     denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}"
 
