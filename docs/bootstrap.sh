@@ -8,7 +8,7 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; |
+    $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
@@ -94,7 +94,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  "" | "full" | "fast")
+  ""|"full"|"fast")
     build_and_preview
     ;;
   "hash")
@@ -109,5 +109,4 @@ case "$cmd" in
   *)
     echo "Unknown command: $cmd"
     exit 1
-    ;;
 esac
