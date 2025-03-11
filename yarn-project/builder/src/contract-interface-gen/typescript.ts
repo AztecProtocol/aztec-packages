@@ -155,10 +155,10 @@ function generateAt(name: string) {
 }
 
 /**
- * Generates a static getter for the contract's artifact.
+ * Generates static getters for the contract's artifact.
  * @param name - Name of the contract used to derive name of the artifact import.
  */
-function generateArtifactGetter(name: string) {
+function generateArtifactGetters(name: string) {
   const artifactName = `${name}ContractArtifact`;
   return `
   /**
@@ -166,6 +166,13 @@ function generateArtifactGetter(name: string) {
    */
   public static get artifact(): ContractArtifact {
     return ${artifactName};
+  }
+
+  /**
+   * Returns this contract's artifact with public bytecode.
+   */
+  public static get artifactForPublic(): ContractArtifact {
+    return loadContractArtifactForPublic(${artifactName}Json as NoirCompiledContract);
   }
   `;
 }
@@ -177,11 +184,9 @@ function generateArtifactGetter(name: string) {
  * @returns Code.
  */
 function generateAbiStatement(name: string, artifactImportPath: string) {
-  // TODO(MW): fix hack - AVM needs some public fns bytecode for ts testing
-  const loadPublic = name.includes('Avm') ? `Public` : ``;
   const stmts = [
     `import ${name}ContractArtifactJson from '${artifactImportPath}' assert { type: 'json' };`,
-    `export const ${name}ContractArtifact = load${loadPublic}ContractArtifact(${name}ContractArtifactJson as NoirCompiledContract);`,
+    `export const ${name}ContractArtifact = loadContractArtifact(${name}ContractArtifactJson as NoirCompiledContract);`,
   ];
   return stmts.join('\n');
 }
@@ -309,7 +314,7 @@ export async function generateTypescriptContractInterface(input: ContractArtifac
   const ctor = artifactImportPath && generateConstructor(input.name);
   const at = artifactImportPath && generateAt(input.name);
   const artifactStatement = artifactImportPath && generateAbiStatement(input.name, artifactImportPath);
-  const artifactGetter = artifactImportPath && generateArtifactGetter(input.name);
+  const artifactGetter = artifactImportPath && generateArtifactGetters(input.name);
   const storageLayoutGetter = artifactImportPath && generateStorageLayoutGetter(input);
   const notesGetter = artifactImportPath && generateNotesGetter(input);
   const { eventDefs, events } = await generateEvents(input.outputs.structs?.events);
@@ -341,7 +346,7 @@ import {
   type FunctionSelectorLike,
   L1EventPayload,
   loadContractArtifact,
-  loadPublicContractArtifact,
+  loadContractArtifactForPublic,
   type NoirCompiledContract,
   NoteSelector,
   Point,

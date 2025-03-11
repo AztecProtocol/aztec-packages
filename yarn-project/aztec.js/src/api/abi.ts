@@ -15,7 +15,7 @@ export {
   isWrappedFieldStruct,
   isFunctionSelectorStruct,
   loadContractArtifact,
-  loadPublicContractArtifact,
+  loadContractArtifactForPublic,
   contractArtifactToBuffer,
   contractArtifactFromBuffer,
 } from '@aztec/stdlib/abi';
