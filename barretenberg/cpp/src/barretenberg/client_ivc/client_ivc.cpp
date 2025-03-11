@@ -150,7 +150,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * @param precomputed_vk
  */
 void ClientIVC::accumulate(ClientCircuit& circuit,
-                           const bool _one_circuit,
+                           [[maybe_unused]] const bool _one_circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
@@ -183,20 +183,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("set honk vk metadata");
     }
 
-    if (_one_circuit) {
-        // The initial stack consisted of only one circuit, so construct a proof for it.
-        one_circuit = _one_circuit;
-        MegaProver prover{ proving_key };
-        vinfo("computing mega proof...");
-        mega_proof = prover.prove();
-        vinfo("mega proof computed");
-
-        proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
-        // Initialize the gate challenges to zero for use in first round of folding
-        proving_key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
-
-        fold_output.accumulator = proving_key;
-    } else if (!initialized) {
+    if (!initialized) {
         // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
         // proof
         MegaOinkProver oink_prover{ proving_key };
@@ -301,16 +288,7 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    HonkProof mega_proof;
-    MergeProof merge_proof;
-    if (!one_circuit) {
-        auto [mega_proof_hiding, merge_proof_hiding] = construct_and_prove_hiding_circuit();
-        mega_proof = mega_proof_hiding;
-        merge_proof = merge_proof_hiding;
-    } else {
-        mega_proof = verification_queue[0].proof;
-        merge_proof = verification_queue[0].merge_proof;
-    }
+    auto [mega_proof, merge_proof] = construct_and_prove_hiding_circuit();
 
     return { mega_proof, goblin.prove(merge_proof) };
 };

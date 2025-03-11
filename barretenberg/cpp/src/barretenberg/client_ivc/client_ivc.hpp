@@ -130,10 +130,6 @@ class ClientIVC {
 
     GoblinProver goblin;
 
-    // We dynamically detect whether the input stack consists of one circuit, in which case we do not construct the
-    // hiding circuit and instead simply prove the single input circuit.
-    bool one_circuit = false;
-
     bool initialized = false; // Is the IVC accumulator initialized
 
     ClientIVC(TraceSettings trace_settings = {})
