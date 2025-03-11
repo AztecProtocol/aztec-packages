@@ -69,7 +69,7 @@ jobs:
           set -xue # print commands
           BRANCH=bump-noir
           cd noir
-          ./boostrap.sh bump-noir-repo-ref $BRANCH $LATEST_NOIR_NIGHTLY
+          ./bootstrap.sh bump-noir-repo-ref $BRANCH $LATEST_NOIR_NIGHTLY
 
       # Update the PR from `bump-noir` to `master` with the latest message body.
       - name: Update PR
