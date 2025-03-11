@@ -46,7 +46,7 @@ export async function updateProject(
       projectDependencyChanges.push(
         await updateAztecNr(
           resolve(process.cwd(), projectPath, contract),
-          `${GITHUB_TAG_PREFIX}-v${targetAztecVersion.version}`,
+          `v${targetAztecVersion.version}`,
           log,
         ),
       );
