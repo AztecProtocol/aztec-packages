@@ -19,4 +19,4 @@ You will need to import these libraries:
 
 #include_code create_wallet yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
 
-Now you have a new wallet in your PXE! To learn how to use this wallet to deploy a contract, read [this guide](./deploy_contract.md).
+Now you have a new wallet in your PXE! To learn how to use this wallet to deploy a contract, read [this guide](../smart_contracts/how_to_deploy_contract.md).

@@ -144,7 +144,6 @@ You can then use the `warp` function on the EthCheatCodes to progress the underl
 
 - [How to call a view transactions in Aztec.js](./call_view_function.md)
 - [How to send a transactions in Aztec.js](./send_transaction.md)
-- [How to deploy a contract in Aztec.js](./deploy_contract.md)
 - [How to create an account in Aztec.js](./create_account.md)
 - [Cheat codes](../../reference/environment_reference/cheat_codes.md)
 - [How to compile a contract](../smart_contracts/how_to_compile_contract.md).
