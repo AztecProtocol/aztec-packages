@@ -21,7 +21,7 @@ describe('e2e_token_contract transfer_to_private', () => {
     await t.tokenSim.check();
   });
 
-  it.only('to self', async () => {
+  it('to self', async () => {
     const balancePub = await asset.methods.balance_of_public(accounts[0].address).simulate();
     const amount = balancePub / 2n;
     expect(amount).toBeGreaterThan(0n);
@@ -30,8 +30,6 @@ describe('e2e_token_contract transfer_to_private', () => {
 
     // Check that the result matches token sim
     tokenSim.transferToPrivate(accounts[0].address, accounts[0].address, amount);
-
-    console.log('ABOUT TO CALL TOKEN SIM');
 
     await tokenSim.check();
   });
