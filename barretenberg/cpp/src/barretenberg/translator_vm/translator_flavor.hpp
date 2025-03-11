@@ -64,7 +64,7 @@ class TranslatorFlavor {
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
-    // The step in the DeltaRangeConstraint relation
+    // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
 
     // The bitness of the range constraint
@@ -621,6 +621,7 @@ class TranslatorFlavor {
             z_perm = Polynomial{ /*size*/ circuit_size - 1,
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
+
             // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
             // circuit
             for (auto& poly : get_to_be_shifted()) {
