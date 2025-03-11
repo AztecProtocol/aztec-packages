@@ -56,10 +56,6 @@ case "$cmd" in
       docker manifest push aztecprotocol/aztec:$(dist_tag)
     fi
     ;;
-  "release_commit")
-    echo_header "release-image release commit"
-    docker push aztecprotocol/aztec:$(git rev-parse HEAD)
-    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

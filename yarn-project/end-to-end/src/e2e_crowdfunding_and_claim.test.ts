@@ -1,6 +1,5 @@
 import {
   type AccountWallet,
-  type CheatCodes,
   Fr,
   HashedValues,
   type Logger,
@@ -9,6 +8,7 @@ import {
   type UniqueNote,
   deriveKeys,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -328,7 +328,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow('Assertion failed: Not an operator');
 
     // Instead, we construct a call and impersonate operator by skipping the usual account contract entrypoint...
-    const call = await crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
+    const [call] = (await crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request())
+      .calls;
     // ...using the withdraw fn as our entrypoint
     const entrypointHashedValues = await HashedValues.fromValues(call.args);
     const maxFeesPerGas = await pxe.getCurrentBaseFees();
