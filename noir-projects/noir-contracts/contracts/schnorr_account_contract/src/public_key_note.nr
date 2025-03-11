@@ -1,13 +1,4 @@
-use dep::aztec::{
-    keys::getters::{get_nsk_app, get_public_keys},
-    macros::notes::note,
-    note::utils::compute_note_hash_for_nullify,
-    protocol_types::{
-        address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        hash::poseidon2_hash_with_separator, traits::Packable,
-    },
-};
-use dep::aztec::prelude::{NoteHeader, NullifiableNote, PrivateContext};
+use aztec::{macros::notes::note, protocol_types::address::AztecAddress};
 
 // Stores a public key composed of two fields
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
@@ -18,33 +9,8 @@ pub struct PublicKeyNote {
     owner: AztecAddress,
 }
 
-impl NullifiableNote for PublicKeyNote {
-    fn compute_nullifier(
-        self,
-        context: &mut PrivateContext,
-        note_hash_for_nullify: Field,
-    ) -> Field {
-        let owner_npk_m_hash: Field = get_public_keys(self.owner).npk_m.hash();
-        let secret = context.request_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        )
-    }
-
-    unconstrained fn compute_nullifier_without_context(self, storage_slot: Field) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_nullify(self, storage_slot);
-        let owner_npk_m_hash: Field = get_public_keys(self.owner).npk_m.hash();
-        let secret = get_nsk_app(owner_npk_m_hash);
-        poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
-        )
-    }
-}
-
 impl PublicKeyNote {
     pub fn new(x: Field, y: Field, owner: AztecAddress) -> Self {
-        PublicKeyNote { x, y, owner, header: NoteHeader::empty() }
+        PublicKeyNote { x, y, owner }
     }
 }

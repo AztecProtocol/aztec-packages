@@ -1,51 +1,75 @@
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type ArchiverApi, type Service, getComponentsVersionsFromConfig } from '@aztec/circuit-types';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { createLogger } from '@aztec/foundation/log';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { createStore } from '@aztec/kv-store/lmdb-v2';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractNames, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
+import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
+import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { FunctionType, decodeFunctionSignature } from '@aztec/foundation/abi';
-import { createLogger } from '@aztec/foundation/log';
-import { type Maybe } from '@aztec/foundation/types';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/lmdb-v2';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { protocolContractNames, protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
+} from '@aztec/stdlib/contract';
+import type { ArchiverApi, Service } from '@aztec/stdlib/interfaces/server';
+import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Archiver } from './archiver/archiver.js';
-import { type ArchiverConfig } from './archiver/config.js';
+import type { ArchiverConfig } from './archiver/config.js';
 import { KVArchiverDataStore } from './archiver/index.js';
 import { createArchiverClient } from './rpc/index.js';
 
+/**
+ * Creates a local archiver.
+ * @param config - The archiver configuration.
+ * @param blobSinkClient - The blob sink client.
+ * @param opts - The options.
+ * @param telemetry - The telemetry client.
+ * @returns The local archiver.
+ */
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
   blobSinkClient: BlobSinkClientInterface,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
   telemetry: TelemetryClient = getTelemetryClient(),
-): Promise<ArchiverApi & Maybe<Service>> {
+): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
+  const store = await createStore(
+    'archiver',
+    KVArchiverDataStore.SCHEMA_VERSION,
+    config,
+    createLogger('archiver:lmdb'),
+  );
+  const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
+  await registerProtocolContracts(archiverStore);
+  await registerCommonContracts(archiverStore);
+  return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
+}
+
+/**
+ * Creates a remote archiver client.
+ * @param config - The archiver configuration.
+ * @returns The remote archiver client.
+ */
+export function createRemoteArchiver(config: ArchiverConfig): ArchiverApi {
   if (!config.archiverUrl) {
-    const store = await createStore('archiver', config, createLogger('archiver:lmdb'));
-    const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
-    await registerProtocolContracts(archiverStore);
-    await registerCommonContracts(archiverStore);
-    return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
-  } else {
-    return createArchiverClient(
-      config.archiverUrl,
-      getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot()),
-    );
+    throw new Error('Archiver URL is required');
   }
+
+  return createArchiverClient(
+    config.archiverUrl,
+    getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot()),
+  );
 }
 
 async function registerProtocolContracts(store: KVArchiverDataStore) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
-    const contract = await getCanonicalProtocolContract(name);
+    const provider = new BundledProtocolContractsProvider();
+    const contract = await provider.getProtocolContractArtifact(name);
     const contractClassPublic: ContractClassPublic = {
       ...contract.contractClass,
       privateFunctions: [],

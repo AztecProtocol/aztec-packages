@@ -1,11 +1,10 @@
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
-  type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
@@ -19,25 +18,26 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-// eslint-disable-next-line no-restricted-imports
-import { type MerkleTreeWriteOperations, type Tx } from '@aztec/circuit-types';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { type TestDateProvider } from '@aztec/foundation/timer';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type SequencerClient } from '@aztec/sequencer-client';
-import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
   PublicProcessorFactory,
   type PublicTxResult,
   PublicTxSimulator,
   type WorldStateDB,
 } from '@aztec/simulator/server';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { Tx } from '@aztec/stdlib/tx';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -56,6 +56,7 @@ describe('e2e_block_building', () => {
   let sequencer: TestSequencerClient;
   let dateProvider: TestDateProvider | undefined;
   let cheatCodes: CheatCodes;
+  let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
 
   const { aztecProofSubmissionWindow } = getL1ContractsConfigEnvVars();
@@ -538,19 +539,21 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
-      ({
-        teardown,
-        aztecNode,
-        pxe,
-        logger,
-        wallet: owner,
-        cheatCodes,
-      } = await setup(1, { assumeProvenThrough: undefined }));
+      ({ teardown, aztecNode, pxe, logger, wallet: owner, cheatCodes, watcher } = await setup(1));
 
       ownerAddress = owner.getCompleteAddress().address;
       contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
       initialBlockNumber = await pxe.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
+
+      await cheatCodes.rollup.advanceToNextEpoch();
+
+      const bn = await aztecNode.getBlockNumber();
+      while ((await aztecNode.getProvenBlockNumber()) < bn) {
+        await sleep(1000);
+      }
+
+      watcher!.setIsMarkingAsProven(false);
     });
 
     afterEach(() => teardown());

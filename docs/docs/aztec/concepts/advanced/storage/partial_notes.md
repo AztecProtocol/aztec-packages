@@ -2,7 +2,7 @@
 title: Partial Notes
 description: Describes how partial notes are used in Aztec
 tags: [notes, storage]
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 Partial notes are a concept that allows users to commit to an encrypted value, and allows a counterparty to update that value without knowing the specific details of the encrypted value.
@@ -139,7 +139,7 @@ This is implemented by applying the `partial_note` attribute:
 
 #include_code UintNote noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
-Those `G_x` are generators that generated [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-projects/aztec-nr/aztec/src/generators.nr). Anyone can use them for separating different fields in a "partial note".
+Those `G_x` are generators that are generated [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir/noir-repo/compiler/noirc_frontend/src/hir/comptime/interpreter/builtin.rs) (at the bottom of the file). Anyone can use them for separating different fields in a "partial note".
 
 We can see the complete implementation of creating and completing partial notes in an Aztec contract in the `setup_refund` and `complete_refund` functions.
 
@@ -153,6 +153,10 @@ This ensures that the refund partial note will be completed for the user.
 #### `complete_refund`
 
 #include_code complete_refund noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
+
+## Note discovery
+
+Note discovery is detailed [here](./note_discovery.md). Partial notes are handled very similarly, where the partial note creator will add a tag to the beginning of the encrypted log, like a regular note, but the contract knows that it is a partial note and is missing a public component. The contract puts the unfinished note and the public log that will be emitted to complete the note into the PXE's database. When the public log is emitted, the recipient's PXE has all of the info about the note and the partial note is completed. This method of discovery allows partial notes to be started and completed in separate transactions.
 
 ## Future work
 

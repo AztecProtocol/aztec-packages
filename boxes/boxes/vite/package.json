@@ -18,12 +18,8 @@
   "dependencies": {
     "@aztec/accounts": "latest",
     "@aztec/aztec.js": "latest",
-    "@aztec/bb-prover": "latest",
-    "@aztec/circuit-types": "latest",
-    "@aztec/key-store": "latest",
-    "@aztec/kv-store": "latest",
     "@aztec/pxe": "latest",
-    "@aztec/simulator": "latest",
+    "@aztec/stdlib": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-toastify": "^10.0.6"

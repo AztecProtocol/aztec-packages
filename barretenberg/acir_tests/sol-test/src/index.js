@@ -60,14 +60,13 @@ const [test, verifier] = await Promise.all([
 const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
 const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
 
-const verifierContract = hasZK ? "ZKVerifier.sol" : "Verifier.sol";
 export const compilationInput = {
   language: "Solidity",
   sources: {
     "Test.sol": {
       content: test,
     },
-    [verifierContract]: {
+    "Verifier.sol": {
       content: verifier,
     },
   },
@@ -262,7 +261,7 @@ try {
     switch (errorType) {
       case WRONG_PROOF_LENGTH:
         throw new Error(
-          "Proof length wrong. Check the constant and the proof surgery."
+          "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_* constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
         );
       case WRONG_PUBLIC_INPUTS_LENGTH:
         throw new Error("Number of inputs in the proof is wrong");

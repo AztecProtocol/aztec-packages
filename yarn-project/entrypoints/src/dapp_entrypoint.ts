@@ -1,9 +1,9 @@
-import { computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 
@@ -21,7 +21,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee, capsules = [] } = exec;
+    const { calls, fee, authWitnesses = [], capsules = [] } = exec;
     if (calls.length !== 1) {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
@@ -50,7 +50,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       functionSelector,
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
       argsOfCalls: [...payload.hashedArguments, entrypointHashedArgs],
-      authWitnesses: [authWitness],
+      authWitnesses: [...authWitnesses, authWitness],
       capsules,
     });
 

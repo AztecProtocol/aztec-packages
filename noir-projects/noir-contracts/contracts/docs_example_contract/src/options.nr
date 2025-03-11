@@ -1,18 +1,24 @@
-use crate::types::card_note::{CARD_NOTE_LEN, CardNote};
-use dep::aztec::prelude::NoteGetterOptions;
+use crate::types::card_note::CardNote;
+use dep::aztec::prelude::{NoteGetterOptions, RetrievedNote};
 
-use dep::aztec::{note::note_getter_options::SortOrder, utils::comparison::Comparator};
+use dep::aztec::{
+    note::{note_getter_options::SortOrder, note_interface::NoteProperties},
+    utils::comparison::Comparator,
+};
 use dep::aztec::protocol_types::{
-    address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
 };
 
 // Shows how to use NoteGetterOptions and query for notes.
 
 // docs:start:state_vars-NoteGetterOptionsSelectSortOffset
-pub fn create_npk_card_getter_options(
+pub fn create_npk_card_getter_options<let N: u32>(
     account: AztecAddress,
     offset: u32,
-) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, Field> {
+) -> NoteGetterOptions<CardNote, N, Field, Field>
+where
+    CardNote: Packable<N>,
+{
     let mut options = NoteGetterOptions::new();
     options
         .select(CardNote::properties().owner, Comparator.EQ, account)
@@ -22,11 +28,14 @@ pub fn create_npk_card_getter_options(
 // docs:end:state_vars-NoteGetterOptionsSelectSortOffset
 
 // docs:start:state_vars-NoteGetterOptionsMultiSelects
-pub fn create_exact_card_getter_options(
+pub fn create_exact_card_getter_options<let N: u32>(
     points: u8,
     secret: Field,
     account: AztecAddress,
-) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, Field> {
+) -> NoteGetterOptions<CardNote, N, Field, Field>
+where
+    CardNote: Packable<N>,
+{
     let mut options = NoteGetterOptions::new();
     options
         .select(CardNote::properties().points, Comparator.EQ, points as Field)
@@ -37,13 +46,13 @@ pub fn create_exact_card_getter_options(
 
 // docs:start:state_vars-OptionFilter
 pub fn filter_min_points(
-    cards: [Option<CardNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    cards: [Option<RetrievedNote<CardNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_points: u8,
-) -> [Option<CardNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> [Option<RetrievedNote<CardNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected_cards = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut num_selected = 0;
     for i in 0..cards.len() {
-        if cards[i].is_some() & cards[i].unwrap_unchecked().points >= min_points {
+        if cards[i].is_some() & cards[i].unwrap_unchecked().note.points >= min_points {
             selected_cards[num_selected] = cards[i];
             num_selected += 1;
         }
@@ -53,9 +62,12 @@ pub fn filter_min_points(
 // docs:end:state_vars-OptionFilter
 
 // docs:start:state_vars-NoteGetterOptionsFilter
-pub fn create_cards_with_min_points_getter_options(
+pub fn create_cards_with_min_points_getter_options<let N: u32>(
     min_points: u8,
-) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, u8> {
+) -> NoteGetterOptions<CardNote, N, Field, u8>
+where
+    CardNote: Packable<N>,
+{
     NoteGetterOptions::with_filter(filter_min_points, min_points).sort(
         CardNote::properties().points,
         SortOrder.ASC,
@@ -64,7 +76,10 @@ pub fn create_cards_with_min_points_getter_options(
 // docs:end:state_vars-NoteGetterOptionsFilter
 
 // docs:start:state_vars-NoteGetterOptionsPickOne
-pub fn create_largest_card_getter_options() -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, Field> {
+pub fn create_largest_card_getter_options<let N: u32>() -> NoteGetterOptions<CardNote, N, Field, Field>
+where
+    CardNote: Packable<N>,
+{
     let mut options = NoteGetterOptions::new();
     options.sort(CardNote::properties().points, SortOrder.DESC).set_limit(1)
 }

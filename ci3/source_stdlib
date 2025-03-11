@@ -9,11 +9,11 @@ function hash_str_orig {
 
 function hash_str {
   set -eu
-  if [[ "$1" == *"disabled-cache"* ]]; then
+  if [[ "$*" == *"disabled-cache"* ]]; then
     # We want to propagate cache being disabled so that cache_upload and cache_download can catch this
     echo "disabled-cache"
   else
-    echo $1 | git hash-object --stdin | cut -c1-16 | tr -d '\n'
+    echo "$*" | git hash-object --stdin | cut -c1-16 | tr -d '\n'
   fi
 }
 
@@ -42,6 +42,10 @@ function get_num_cpus_max {
   local jobs=$(get_num_cpus)
   [ -n "${1:-}" ] && [ "$1" -lt $jobs ] && jobs=$1
   echo $jobs
+}
+
+function aws_get_meta_data {
+  curl -fs -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/$1 || true
 }
 
 export -f hash_str hash_str_orig echo_stderr uuid get_num_cpus get_num_cpus_max

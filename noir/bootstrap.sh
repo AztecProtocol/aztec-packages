@@ -71,6 +71,9 @@ function build_packages {
     mv packages/package packages/${project#*/}
   done
 
+  # Find all files in packages dir and use sed to in-place replace @noir-lang with @aztec/noir-
+  find packages -type f -exec sed -i 's|@noir-lang/|@aztec/noir-|g' {} \;
+
   cache_upload noir-packages-$hash.tar.gz \
     packages \
     noir-repo/acvm-repo/acvm_js/nodejs \
@@ -133,7 +136,7 @@ function test_cmds {
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
   # We need to include these as they will go out of date otherwise and externals use these examples.
-  local example_test_hash=$(hash_str $test_hash-$(../barretenberg/cpp/bootstrap.sh hash))
+  local example_test_hash=$(hash_str $test_hash-$(../../barretenberg/cpp/bootstrap.sh hash))
   echo "$example_test_hash noir/bootstrap.sh test_example codegen_verifier"
   echo "$example_test_hash noir/bootstrap.sh test_example prove_and_verify"
   echo "$example_test_hash noir/bootstrap.sh test_example recursion"
@@ -179,10 +182,6 @@ function release {
   release_packages $(dist_tag) ${REF_NAME#v}
 }
 
-function release_commit {
-  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -194,7 +193,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  test_cmds|build_native|build_packages|format|test|release|release_commit|test_example)
+  test_cmds|build_native|build_packages|format|test|release|test_example)
     $cmd "$@"
     ;;
   "hash")

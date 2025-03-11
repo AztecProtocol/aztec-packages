@@ -6,7 +6,7 @@ contract Updated {
     use aztec::macros::{functions::{private, public}, storage::storage};
     use aztec::prelude::{PrivateMutable, PublicMutable};
 
-    use aztec::protocol_types::{constants::DEPLOYER_CONTRACT_ADDRESS, traits::Hash};
+    use aztec::protocol_types::constants::DEPLOYER_CONTRACT_ADDRESS;
     use contract_instance_deployer::ContractInstanceDeployer;
     use value_note::value_note::ValueNote;
 
@@ -24,8 +24,8 @@ contract Updated {
     #[private]
     fn set_private_value() {
         let owner = context.msg_sender();
-        let mut new_note = ValueNote::new(27, owner);
-        storage.private_value.replace(&mut new_note).emit(encode_and_encrypt_note(
+        let new_note = ValueNote::new(27, owner);
+        storage.private_value.replace(new_note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             owner,

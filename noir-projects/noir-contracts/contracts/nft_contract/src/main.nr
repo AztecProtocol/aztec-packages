@@ -20,7 +20,7 @@ pub contract NFT {
             functions::{initializer, internal, private, public, view},
             storage::storage,
         },
-        note::constants::MAX_NOTES_PER_PAGE,
+        note::{constants::MAX_NOTES_PER_PAGE, note_interface::{NoteProperties, PartialNote}},
         oracle::random::random,
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
@@ -30,6 +30,7 @@ pub contract NFT {
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
+    use aztec::protocol_types::traits::ToField;
     use std::meta::derive;
 
     // docs:end:imports
@@ -333,9 +334,9 @@ pub contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
-        let mut new_note = NFTNote::new(token_id, to);
+        let new_note = NFTNote::new(token_id, to);
 
-        nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
+        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to, from));
     }
     // docs:end:transfer_in_private
 
@@ -399,4 +400,3 @@ pub contract NFT {
     }
     // docs:end:get_private_nfts
 }
-

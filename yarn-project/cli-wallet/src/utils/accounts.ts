@@ -1,11 +1,11 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import { type AccountManager, type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { type PXE } from '@aztec/circuit-types/interfaces';
-import { deriveSigningKey } from '@aztec/circuits.js/keys';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import type { AccountManager, AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { type WalletDB } from '../storage/wallet_db.js';
+import type { WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
 
 export const AccountTypes = ['schnorr', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;
@@ -25,7 +25,7 @@ export async function createOrRetrieveAccount(
   salt ??= Fr.ZERO;
 
   if (db && address) {
-    ({ type, secretKey, salt } = db.retrieveAccount(address));
+    ({ type, secretKey, salt } = await db.retrieveAccount(address));
   }
 
   if (!salt) {
@@ -45,7 +45,7 @@ export async function createOrRetrieveAccount(
     case 'ecdsasecp256r1ssh': {
       let publicSigningKey;
       if (db && address) {
-        publicSigningKey = db.retrieveAccountMetadata(address, 'publicSigningKey');
+        publicSigningKey = await db.retrieveAccountMetadata(address, 'publicSigningKey');
       } else if (publicKey) {
         const identities = await getIdentities();
         const foundIdentity = identities.find(
@@ -89,7 +89,7 @@ export async function getWalletWithScopes(account: AccountManager, db?: WalletDB
     const address = wallet.getAddress().toString();
     let storedScopes: string[] = [];
     try {
-      storedScopes = (db.retrieveAccountMetadata(wallet.getAddress(), 'scopes') ?? '').toString().split(',');
+      storedScopes = ((await db.retrieveAccountMetadata(wallet.getAddress(), 'scopes')) ?? '').toString().split(',');
       // eslint-disable-next-line no-empty
     } catch {}
     const currentScopes = wallet.getScopes()?.map(scopes => scopes.toString()) ?? [];

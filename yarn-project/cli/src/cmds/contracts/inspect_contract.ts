@@ -1,18 +1,18 @@
-import { getContractClassFromArtifact } from '@aztec/circuits.js';
+import { sha256 } from '@aztec/foundation/crypto';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import {
   type FunctionArtifact,
   FunctionSelector,
   decodeFunctionSignature,
   decodeFunctionSignatureWithParameterNames,
-} from '@aztec/foundation/abi';
-import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+} from '@aztec/stdlib/abi';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { getContractArtifact } from '../../utils/aztec.js';
 
 export async function inspectContract(contractArtifactFile: string, debugLogger: Logger, log: LogFn) {
   const contractArtifact = await getContractArtifact(contractArtifactFile, log);
-  const contractFns = contractArtifact.functions.filter(f => f.name !== 'compute_note_hash_and_optionally_a_nullifier');
+  const contractFns = contractArtifact.functions;
   if (contractFns.length === 0) {
     log(`No functions found for contract ${contractArtifact.name}`);
   }

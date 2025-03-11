@@ -35,8 +35,18 @@ void TranslatorProver::execute_preamble_round()
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[1]) * SHIFTx2 +
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[1]) * SHIFTx3);
     transcript->send_to_verifier("circuit_size", circuit_size);
-    transcript->send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
+}
+
+/**
+ * @brief Utility to commit to witness polynomial and send the commitment to verifier.
+ *
+ * @param polynomial
+ * @param label
+ */
+void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
+{
+    transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(polynomial));
 }
 
 /**
@@ -49,13 +59,13 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     for (const auto& [wire, label] :
          zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
 
-        transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(wire));
+        commit_to_witness_polynomial(wire, label);
     }
 
     // The ordered range constraints are of full circuit size.
     for (const auto& [ordered_range_constraint, label] : zip_view(
              key->proving_key->polynomials.get_ordered_constraints(), commitment_labels.get_ordered_constraints())) {
-        transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(ordered_range_constraint));
+        commit_to_witness_polynomial(ordered_range_constraint, label);
     }
 }
 
@@ -106,8 +116,7 @@ void TranslatorProver::execute_grand_product_computation_round()
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->proving_key->polynomials, relation_parameters);
 
-    transcript->send_to_verifier(commitment_labels.z_perm,
-                                 key->proving_key->commitment_key->commit(key->proving_key->polynomials.z_perm));
+    commit_to_witness_polynomial(key->proving_key->polynomials.z_perm, commitment_labels.z_perm);
 }
 
 /**
@@ -150,10 +159,13 @@ void TranslatorProver::execute_pcs_rounds()
                                                sumcheck_output.claimed_libra_evaluation,
                                                transcript,
                                                key->proving_key->commitment_key);
+    small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
-    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());
+    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_interleaved());
     polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
+    polynomial_batcher.set_interleaved(key->proving_key->polynomials.get_interleaved(),
+                                       key->proving_key->polynomials.get_groups_to_be_interleaved());
 
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
@@ -161,11 +173,7 @@ void TranslatorProver::execute_pcs_rounds()
                                        sumcheck_output.challenge,
                                        key->proving_key->commitment_key,
                                        transcript,
-                                       small_subgroup_ipa_prover.get_witness_polynomials(),
-                                       {},
-                                       {},
-                                       key->proving_key->polynomials.get_concatenated(),
-                                       key->proving_key->polynomials.get_groups_to_be_concatenated());
+                                       small_subgroup_ipa_prover.get_witness_polynomials());
 
     PCS::compute_opening_proof(key->proving_key->commitment_key, prover_opening_claim, transcript);
 }

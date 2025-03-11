@@ -1,3 +1,21 @@
-export { type ContractArtifact, type FunctionArtifact, EventSelector, FunctionSelector } from '@aztec/foundation/abi';
-export { loadContractArtifact, contractArtifactToBuffer, contractArtifactFromBuffer } from '@aztec/types/abi';
-export { type NoirCompiledContract } from '@aztec/types/noir';
+export {
+  type ContractArtifact,
+  type FunctionArtifact,
+  EventSelector,
+  FunctionSelector,
+  FunctionCall,
+  NoteSelector,
+  type ABIParameter,
+  decodeFromAbi,
+  encodeArguments,
+  type AbiType,
+  isAddressStruct,
+  isAztecAddressStruct,
+  isEthAddressStruct,
+  isWrappedFieldStruct,
+  isFunctionSelectorStruct,
+  loadContractArtifact,
+  contractArtifactToBuffer,
+  contractArtifactFromBuffer,
+} from '@aztec/stdlib/abi';
+export { type NoirCompiledContract } from '@aztec/stdlib/noir';

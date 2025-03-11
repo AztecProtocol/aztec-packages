@@ -2,6 +2,7 @@ import {
   type AztecAddress,
   type AztecNode,
   EthAddress,
+  Fr,
   L1FeeJuicePortalManager,
   type L1TokenManager,
   type L2AmountClaim,
@@ -10,10 +11,9 @@ import {
   type Wallet,
   retryUntil,
 } from '@aztec/aztec.js';
+import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-
-import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient } from 'viem';
 
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;
@@ -26,8 +26,8 @@ export interface IGasBridgingTestHarness {
 export interface FeeJuicePortalTestingHarnessFactoryConfig {
   aztecNode: AztecNode;
   pxeService: PXE;
-  publicClient: PublicClient<HttpTransport, Chain>;
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  publicClient: ViemPublicClient;
+  walletClient: ViemWalletClient;
   wallet: Wallet;
   logger: Logger;
   mockL1?: boolean;
@@ -75,8 +75,8 @@ export class FeeJuicePortalTestingHarnessFactory {
  * shared between cross chain tests.
  */
 export class GasBridgingTestHarness implements IGasBridgingTestHarness {
-  private readonly l1TokenManager: L1TokenManager;
-  private readonly feeJuicePortalManager: L1FeeJuicePortalManager;
+  public readonly l1TokenManager: L1TokenManager;
+  public readonly feeJuicePortalManager: L1FeeJuicePortalManager;
 
   constructor(
     /** Aztec node */
@@ -97,9 +97,9 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     /** Underlying token for portal tests. */
     public l1FeeJuiceAddress: EthAddress,
     /** Viem Public client instance. */
-    public publicClient: PublicClient<HttpTransport, Chain>,
+    public publicClient: ViemPublicClient,
     /** Viem Wallet Client instance. */
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    public walletClient: ViemWalletClient,
   ) {
     this.feeJuicePortalManager = new L1FeeJuicePortalManager(
       this.feeJuicePortalAddress,
@@ -143,6 +143,9 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
 
   async prepareTokensOnL1(bridgeAmount: bigint, owner: AztecAddress) {
     const claim = await this.sendTokensToPortalPublic(bridgeAmount, owner, true);
+
+    const isSynced = async () => await this.aztecNode.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
 
     // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
     await this.advanceL2Block();

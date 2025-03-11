@@ -6,13 +6,13 @@ import {
   type Wallet,
   createLogger,
 } from '@aztec/aztec.js';
-import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
-import { Gas } from '@aztec/circuits.js';
-import { timesParallel } from '@aztec/foundation/collection';
-import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
-import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import { times } from '@aztec/foundation/collection';
+import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { Gas } from '@aztec/stdlib/gas';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 
-import { type BotConfig } from './config.js';
+import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
@@ -54,25 +54,12 @@ export class Bot {
       logCtx,
     );
 
-    const calls: FunctionCall[] = [];
-    if (isStandardTokenContract(token)) {
-      calls.push(
-        ...(await timesParallel(privateTransfersPerTx, () =>
-          token.methods.transfer(recipient, TRANSFER_AMOUNT).request(),
-        )),
-      );
-      calls.push(
-        ...(await timesParallel(publicTransfersPerTx, () =>
-          token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
-        )),
-      );
-    } else {
-      calls.push(
-        ...(await timesParallel(privateTransfersPerTx, () =>
-          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request(),
-        )),
-      );
-    }
+    const calls = isStandardTokenContract(token)
+      ? [
+          times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT)),
+          times(publicTransfersPerTx, () => token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0)),
+        ].flat()
+      : times(privateTransfersPerTx, () => token.methods.transfer(TRANSFER_AMOUNT, sender, recipient));
 
     const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);

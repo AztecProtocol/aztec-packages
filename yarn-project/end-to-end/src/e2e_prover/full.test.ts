@@ -1,4 +1,5 @@
 import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { FeeJuicePortalAbi, RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -9,15 +10,16 @@ import { type Chain, type GetContractReturnType, type HttpTransport, type Public
 
 import { FullProverTest } from './e2e_prover_test.js';
 
-const TIMEOUT = 5_000_000;
+// Set a very long 20 minute timeout.
+const TIMEOUT = 1_200_000;
 
 // This makes AVM proving throw if there's a failure.
 process.env.AVM_PROVING_STRICT = '1';
 
 describe('full_prover', () => {
-  const realProofs = !['true', '1'].includes(process.env.FAKE_PROOFS ?? '');
+  const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
-  const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, realProofs);
+  const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
   let { provenAssets, accounts, tokenSim, logger, cheatCodes } = t;
   let sender: AztecAddress;
@@ -29,6 +31,8 @@ describe('full_prover', () => {
   let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, PublicClient<HttpTransport, Chain>>;
 
   beforeAll(async () => {
+    t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
+
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
@@ -176,7 +180,7 @@ describe('full_prover', () => {
   );
 
   it('generates sample Prover.toml files if generate test data is on', async () => {
-    if (!isGenerateTestDataEnabled() || realProofs) {
+    if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
 
@@ -261,7 +265,7 @@ describe('full_prover', () => {
   });
 
   it('rejects txs with invalid proofs', async () => {
-    if (!realProofs) {
+    if (!REAL_PROOFS) {
       t.logger.warn(`Skipping test with fake proofs`);
       return;
     }

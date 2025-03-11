@@ -1,6 +1,5 @@
 import { createPXEClient, PXE } from '@aztec/aztec.js';
-import { BoxReactContractArtifact } from '../artifacts/BoxReact';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing/lazy';
 
 export class PrivateEnv {
   private constructor(private pxe: PXE) {}
@@ -22,6 +21,3 @@ export class PrivateEnv {
 }
 
 export const deployerEnv = await PrivateEnv.create(process.env.PXE_URL || 'http://localhost:8080');
-
-const IGNORE_FUNCTIONS = ['constructor', 'compute_note_hash_and_optionally_a_nullifier'];
-export const filteredInterface = BoxReactContractArtifact.functions.filter(f => !IGNORE_FUNCTIONS.includes(f.name));

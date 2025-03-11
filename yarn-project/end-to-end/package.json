@@ -8,8 +8,7 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -b && webpack",
-    "build:e2e": "yarn clean && tsc -b",
+    "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -36,8 +35,7 @@
     "@aztec/blob-lib": "workspace:^",
     "@aztec/blob-sink": "workspace:^",
     "@aztec/bot": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
@@ -54,8 +52,8 @@
     "@aztec/pxe": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",
@@ -86,6 +84,7 @@
     "lodash.chunk": "^4.2.0",
     "lodash.compact": "^3.0.1",
     "lodash.every": "^4.6.0",
+    "lodash.omit": "^4.5.0",
     "memdown": "^6.1.1",
     "process": "^0.11.10",
     "stream-browserify": "^3.0.0",
@@ -95,7 +94,7 @@
     "tslib": "^2.4.0",
     "typescript": "^5.0.4",
     "util": "^0.12.5",
-    "viem": "2.22.8",
+    "viem": "2.23.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -146,12 +145,7 @@
       ]
     },
     "reporters": [
-      [
-        "summary",
-        {
-          "summaryThreshold": 0
-        }
-      ]
+      "default"
     ],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"

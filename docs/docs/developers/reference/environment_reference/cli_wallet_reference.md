@@ -156,15 +156,5 @@ This example mints and bridges 1000 units of fee juice and bridges it to the `ma
 aztec-wallet bridge-fee-juice --mint 1000 master_yoda
 ```
 
-### Add Note
-
-The Add Note method makes it easy to store notes on your local PXE if they haven't been broadcasted yet. For example, if a JediMember note was sent to you, and you want to spend it on another transaction, you can use this method with the `--transaction-hash` flag to pass the transaction hash that contains the note.
-
-It expects `name` and `storageFieldName`. For example, if the `#[storage]` struct had a `available_members: PrivateMutable<JediMember>` property:
-
-```bash
-aztec-wallet add-note JediMember available_members -a master_yoda -ca jedi_order -h 0x00000
-```
-
 ## Proving
 You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/local_env/sandbox_proving.md#proving-with-aztec-wallet)

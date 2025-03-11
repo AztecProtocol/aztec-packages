@@ -1,6 +1,9 @@
-import { type FunctionCall, HashedValues } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
+import { GeneratorIndex } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { HashedValues } from '@aztec/stdlib/tx';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 
@@ -55,7 +58,8 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const action = intent.action instanceof ContractFunctionInteraction ? await intent.action.request() : intent.action;
+    const action =
+      intent.action instanceof ContractFunctionInteraction ? (await intent.action.request()).calls[0] : intent.action;
     return computeOuterAuthWitHash(
       action.to,
       chainId,

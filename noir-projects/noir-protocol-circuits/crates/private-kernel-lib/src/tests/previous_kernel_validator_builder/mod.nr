@@ -2,7 +2,7 @@ mod validate_common;
 mod validate_no_transient_data;
 
 use crate::components::previous_kernel_validator::PreviousKernelValidator;
-use dep::types::{address::AztecAddress, tests::fixture_builder::FixtureBuilder};
+use dep::types::{address::AztecAddress, tests::fixture_builder::FixtureBuilder, traits::FromField};
 
 pub struct PreviousKernelValidatorBuilder {
     previous_kernel: FixtureBuilder,
