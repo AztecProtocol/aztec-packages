@@ -28,6 +28,9 @@ NOIR_REPO_PATCH=noir-repo.patch
 # executable scripts, which would be corrupted by any extra logs coming from here.
 NOIR_REPO_VERBOSE=${NOIR_REPO_VERBOSE:-0}
 
+# Switch off detached head warnings
+ADVICE="-c advice.detachedHead=false"
+
 cd $(dirname $0)/..
 
 function log {
@@ -214,14 +217,14 @@ function switch_repo {
   # If we try to switch to some random commit after a branch it might not find it locally.
   git -C noir-repo fetch --depth 1 origin $ref || true
   # Try to check out an existing branch, or remote commit.
-  if git -C noir-repo checkout -c $ref; then
+  if git -C noir-repo checkout $ADVICE $ref; then
     # If it's a branch we just need to pull the latest changes.
     if is_on_branch; then
       git -C noir-repo pull --rebase
     fi
   else
     # If the checkout failed, then it should be a remote branch or tag
-    git -C noir-repo checkout -c --track origin/$ref
+    git -C noir-repo checkout $ADVICE --track origin/$ref
   fi
   # If we haven't applied the patch yet, we have to do it (again).
   if ! has_patch_commit; then
@@ -247,8 +250,8 @@ function init_repo {
     # On CI we won't be switching branches, but on dev machines we can, so there make a full checkout.
     depth=$([ ! -z "${CI_FULL:-}" ] && echo "--depth 1" || echo "")
     # `--branch` doesn't work for commit hashes
-    git clone $depth --branch $ref $url noir-repo \
-    || git clone $url noir-repo && git -C noir-repo checkout -c $ref
+    git clone $ADVICE $depth --branch $ref $url noir-repo \
+    || git clone $ADVICE $url noir-repo && git -C noir-repo checkout $ADVICE $ref
     patch_repo
   fi
 }
