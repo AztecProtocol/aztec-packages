@@ -6,6 +6,7 @@ import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import type { WitnessMap } from '@aztec/noir-types';
 import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
@@ -34,8 +35,6 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
-
-import type { WitnessMap } from '@noir-lang/types';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
 import type { ProvingDataOracle } from './proving_data_oracle.js';
@@ -308,10 +307,6 @@ export class KernelProver {
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
-    // TODO(#262): Use real acir hash
-    // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
-    const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
-
     // This will be the address computed in the kernel by the executed class. We need to provide non membership of it in the protocol contract tree.
     // This would only be equal to contractAddress if the currentClassId is equal to the original class id (no update happened).
     const computedAddress = await computeContractAddressFromInstance({
@@ -335,7 +330,6 @@ export class KernelProver {
         functionLeafMembershipWitness,
         protocolContractMembershipWitness,
         protocolContractLeaf,
-        acirHash,
         updatedClassIdHints,
       }),
     });

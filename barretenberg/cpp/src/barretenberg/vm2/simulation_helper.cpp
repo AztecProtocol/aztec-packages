@@ -23,12 +23,14 @@
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
+#include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/sha256.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
+#include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
 
 namespace bb::avm2 {
@@ -70,6 +72,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
     typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
 
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
 
@@ -98,7 +101,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Execution execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
-    Ecc ecc_add(ecc_add_emitter, scalar_mul_emitter);
+    ToRadix to_radix(to_radix_emitter);
+    Ecc ecc_add(to_radix, ecc_add_emitter, scalar_mul_emitter);
 
     tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
 
@@ -118,7 +122,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              ecc_add_emitter.dump_events(),
              scalar_mul_emitter.dump_events(),
              poseidon2_hash_emitter.dump_events(),
-             poseidon2_perm_emitter.dump_events() };
+             poseidon2_perm_emitter.dump_events(),
+             to_radix_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

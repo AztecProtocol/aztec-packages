@@ -1,7 +1,11 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+
+import type { Hex } from 'viem';
 
 import type { L1ContractsConfig } from './config.js';
 import { GovernanceContract } from './contracts/governance.js';
+import { GovernanceProposerContract } from './contracts/governance_proposer.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { ViemPublicClient } from './types.js';
 
@@ -11,8 +15,9 @@ export async function getL1ContractsConfig(
   addresses: { governanceAddress: EthAddress; rollupAddress?: EthAddress },
 ): Promise<Omit<L1ContractsConfig, 'ethereumSlotDuration'> & { l1StartBlock: bigint; l1GenesisTime: bigint }> {
   const governance = new GovernanceContract(addresses.governanceAddress.toString(), publicClient, undefined);
-  const governanceProposer = await governance.getProposer();
-  const rollupAddress = addresses.rollupAddress ?? (await governance.getGovernanceAddresses()).rollupAddress;
+  const governanceProposerAddress = await governance.getGovernanceProposerAddress();
+  const governanceProposer = new GovernanceProposerContract(publicClient, governanceProposerAddress.toString());
+  const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());
   const rollup = new RollupContract(publicClient, rollupAddress.toString());
   const slasherProposer = await rollup.getSlashingProposer();
 
@@ -55,4 +60,26 @@ export async function getL1ContractsConfig(
     slashingQuorum: Number(slashingQuorum),
     slashingRoundSize: Number(slashingRoundSize),
   };
+}
+
+export type L2BlockProposedEvent = {
+  versionedBlobHashes: readonly Hex[];
+  archive: Hex;
+  blockNumber: bigint;
+};
+
+export async function getL2BlockProposalEvents(
+  client: ViemPublicClient,
+  blockId: Hex,
+  rollupAddress?: EthAddress,
+): Promise<L2BlockProposedEvent[]> {
+  return (
+    await client.getContractEvents({
+      abi: RollupAbi,
+      address: rollupAddress?.toString(),
+      blockHash: blockId,
+      eventName: 'L2BlockProposed',
+      strict: true,
+    })
+  ).map(log => log.args);
 }

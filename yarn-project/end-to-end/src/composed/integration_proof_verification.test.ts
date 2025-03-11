@@ -1,6 +1,6 @@
-import { deployL1Contract, fileURLToPath } from '@aztec/aztec.js';
+import { fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { type ViemPublicClient, type ViemWalletClient, createL1Clients } from '@aztec/ethereum';
+import { type ViemPublicClient, type ViemWalletClient, createL1Clients, deployL1Contract } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
 import { Proof } from '@aztec/stdlib/proofs';
