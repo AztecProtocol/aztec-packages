@@ -613,6 +613,24 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return blocks.reverse();
   }
 
+  public async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1constants);
+    const blocks: BlockHeader[] = [];
+
+    // Walk the list of blocks backwards and filter by slots matching the requested epoch.
+    // We'll typically ask for blocks for a very recent epoch, so we shouldn't need an index here.
+    let number = await this.store.getSynchedL2BlockNumber();
+    let header = await this.getBlockHeader(number);
+    const slot = (b: BlockHeader) => b.globalVariables.slotNumber.toBigInt();
+    while (header && slot(header) >= start) {
+      if (slot(header) <= end) {
+        blocks.push(header);
+      }
+      header = await this.getBlockHeader(--number);
+    }
+    return blocks.reverse();
+  }
+
   public async isEpochComplete(epochNumber: bigint): Promise<boolean> {
     // The epoch is complete if the current L2 block is the last one in the epoch (or later)
     const header = await this.getBlockHeader('latest');
