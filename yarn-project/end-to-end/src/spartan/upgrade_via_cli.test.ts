@@ -54,14 +54,6 @@ describe('upgrade via cli', () => {
     async () => {
       const info = await pxe.getNodeInfo();
 
-      debugLogger.info('got node info', info);
-      // spartan/scripts/upgrade_rollup_with_lock.sh \
-      // --aztec-bin $AZTEC_BIN \
-      // --registry $registry \
-      // --address $ADDRESS \
-      // --deposit-amount 200000000000000000000000 \
-      // --mint
-
       const chain = createEthereumChain([ETHEREUM_HOSTS], info.l1ChainId);
       const { walletClient: l1WalletClient, publicClient: l1PublicClient } = createL1Clients(
         [ETHEREUM_HOSTS],

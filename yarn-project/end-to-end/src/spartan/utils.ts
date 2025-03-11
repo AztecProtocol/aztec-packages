@@ -625,11 +625,9 @@ export async function rollAztecPods(namespace: string) {
 
 /**
  * Returns the absolute path to the git repository root
- * @returns The absolute path to the git repository root
  */
 export function getGitProjectRoot(): string {
   try {
-    // Use git rev-parse command to find the repository root directory
     const rootDir = execSync('git rev-parse --show-toplevel', {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
