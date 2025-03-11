@@ -1,4 +1,4 @@
-include "./poseidon2_full.pil";
+include "./poseidon2_hash.pil";
 
 // Handles membership and insertion into a merkle tree
 namespace merkle_check(256);
@@ -68,4 +68,4 @@ namespace merkle_check(256);
     // Permutation to the full poseidon2 gadget
     #[PERM_MERKLE_POSEIDON2]
     sel { clk, left_hash, right_hash, output_hash } is
-    poseidon2_full.sel {poseidon2_full.clk, poseidon2_full.input_0, poseidon2_full.input_1, poseidon2_full.output };
+    poseidon2_hash.sel {poseidon2_hash.clk, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
