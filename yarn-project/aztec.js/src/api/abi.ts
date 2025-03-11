@@ -4,6 +4,7 @@ export {
   EventSelector,
   FunctionSelector,
   loadContractArtifact,
+  loadPublicContractArtifact,
   contractArtifactToBuffer,
   contractArtifactFromBuffer,
 } from '@aztec/stdlib/abi';

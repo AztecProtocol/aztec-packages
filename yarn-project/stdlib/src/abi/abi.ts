@@ -340,6 +340,10 @@ export interface ContractArtifact {
   /** The functions of the contract. */
   functions: FunctionArtifact[];
 
+  // TODO(MW): below is WIP
+  /** The public functions of the contract, excluding dispatch. */
+  publicFunctions: FunctionAbi[];
+
   /** The outputs of the contract. */
   outputs: {
     structs: Record<string, AbiType[]>;
@@ -360,6 +364,7 @@ export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
   name: z.string(),
   aztecNrVersion: z.string().optional(),
   functions: z.array(FunctionArtifactSchema),
+  publicFunctions: z.array(FunctionAbiSchema),
   outputs: z.object({
     structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
       for (const [key, value] of Object.entries(structs)) {
@@ -419,6 +424,11 @@ export async function getFunctionArtifact(
   return { ...functionArtifact, debug: debugMetadata };
 }
 
+/** Gets all function abis */
+export function getAllFunctionAbis(artifact: ContractArtifact): FunctionAbi[] {
+  return artifact.functions.map(f => f as FunctionAbi).concat(artifact.publicFunctions || []);
+}
+
 /**
  * Gets the debug metadata of a given function from the contract artifact
  * @param artifact - The contract build artifact
@@ -465,8 +475,9 @@ export function getFunctionDebugMetadata(
  * @param contractArtifact - The contract artifact.
  * @returns An initializer function, or none if there are no functions flagged as initializers in the contract.
  */
-export function getDefaultInitializer(contractArtifact: ContractArtifact): FunctionArtifact | undefined {
-  const initializers = contractArtifact.functions.filter(f => f.isInitializer);
+export function getDefaultInitializer(contractArtifact: ContractArtifact): FunctionAbi | undefined {
+  const functionAbis = getAllFunctionAbis(contractArtifact);
+  const initializers = functionAbis.filter(f => f.isInitializer);
   return initializers.length > 1
     ? initializers.find(f => f.name === 'constructor') ??
         initializers.find(f => f.name === 'initializer') ??
@@ -484,9 +495,10 @@ export function getDefaultInitializer(contractArtifact: ContractArtifact): Funct
 export function getInitializer(
   contract: ContractArtifact,
   initializerNameOrArtifact: string | undefined | FunctionArtifact,
-): FunctionArtifact | undefined {
+): FunctionAbi | undefined {
   if (typeof initializerNameOrArtifact === 'string') {
-    const found = contract.functions.find(f => f.name === initializerNameOrArtifact);
+    const functionAbis = getAllFunctionAbis(contract);
+    const found = functionAbis.find(f => f.name === initializerNameOrArtifact);
     if (!found) {
       throw new Error(`Constructor method ${initializerNameOrArtifact} not found in contract artifact`);
     } else if (!found.isInitializer) {

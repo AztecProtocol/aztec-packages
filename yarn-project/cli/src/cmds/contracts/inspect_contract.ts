@@ -5,6 +5,7 @@ import {
   FunctionSelector,
   decodeFunctionSignature,
   decodeFunctionSignatureWithParameterNames,
+  getAllFunctionAbis,
 } from '@aztec/stdlib/abi';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
@@ -13,7 +14,7 @@ import { getContractArtifact } from '../../utils/aztec.js';
 export async function inspectContract(contractArtifactFile: string, debugLogger: Logger, log: LogFn) {
   const contractArtifact = await getContractArtifact(contractArtifactFile, log);
   const contractFns = contractArtifact.functions;
-  if (contractFns.length === 0) {
+  if (getAllFunctionAbis(contractArtifact).length === 0) {
     log(`No functions found for contract ${contractArtifact.name}`);
   }
   const contractClass = await getContractClassFromArtifact(contractArtifact);
@@ -26,6 +27,7 @@ export async function inspectContract(contractArtifactFile: string, debugLogger:
   log(`\tpublic bytecode commitment: ${contractClass.publicBytecodeCommitment.toString()}`);
   log(`\tpublic bytecode length: ${contractClass.packedBytecode.length} bytes (${bytecodeLengthInFields} fields)`);
 
+  // TODO(MW): include public fns and convert below to FunctionAbi
   const externalFunctions = contractFns.filter(f => !f.isInternal);
   if (externalFunctions.length > 0) {
     log(`\nExternal functions:`);

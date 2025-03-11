@@ -228,6 +228,7 @@ export const mockSimulatedTx = async (seed = 1) => {
 export const randomContractArtifact = (): ContractArtifact => ({
   name: randomBytes(4).toString('hex'),
   functions: [],
+  publicFunctions: [],
   outputs: {
     structs: {},
     globals: {},

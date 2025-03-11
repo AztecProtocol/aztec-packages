@@ -3,8 +3,9 @@ import {
   type ABIVariable,
   type ContractArtifact,
   EventSelector,
-  type FunctionArtifact,
+  type FunctionAbi,
   decodeFunctionSignature,
+  getAllFunctionAbis,
   getDefaultInitializer,
   isAztecAddressStruct,
   isEthAddressStruct,
@@ -62,7 +63,7 @@ function generateParameter(param: ABIParameter) {
  * @param param - A Noir function.
  * @returns The corresponding ts code.
  */
-function generateMethod(entry: FunctionArtifact) {
+function generateMethod(entry: FunctionAbi) {
   const args = entry.parameters.map(generateParameter).join(', ');
   return `
     /** ${entry.name}(${entry.parameters.map(p => `${p.name}: ${p.type.kind}`).join(', ')}) */
@@ -176,9 +177,11 @@ function generateArtifactGetter(name: string) {
  * @returns Code.
  */
 function generateAbiStatement(name: string, artifactImportPath: string) {
+  // TODO(MW): fix hack - AVM needs some public fns bytecode for ts testing
+  const loadPublic = name.includes('Avm') ? `Public` : ``;
   const stmts = [
     `import ${name}ContractArtifactJson from '${artifactImportPath}' assert { type: 'json' };`,
-    `export const ${name}ContractArtifact = loadContractArtifact(${name}ContractArtifactJson as NoirCompiledContract);`,
+    `export const ${name}ContractArtifact = load${loadPublic}ContractArtifact(${name}ContractArtifactJson as NoirCompiledContract);`,
   ];
   return stmts.join('\n');
 }
@@ -298,7 +301,7 @@ async function generateEvents(events: any[] | undefined) {
  * @returns The corresponding ts code.
  */
 export async function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
-  const methods = input.functions
+  const methods = getAllFunctionAbis(input)
     .filter(f => !f.isInternal)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(generateMethod);
@@ -338,6 +341,7 @@ import {
   type FunctionSelectorLike,
   L1EventPayload,
   loadContractArtifact,
+  loadPublicContractArtifact,
   type NoirCompiledContract,
   NoteSelector,
   Point,

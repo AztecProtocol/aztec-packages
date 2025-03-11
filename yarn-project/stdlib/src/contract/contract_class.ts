@@ -20,6 +20,7 @@ export async function getContractClassFromArtifact(
 ): Promise<ContractClassWithId & ContractClassIdPreimage> {
   const artifactHash = 'artifactHash' in artifact ? artifact.artifactHash : await computeArtifactHash(artifact);
   const publicFunctions = artifact.functions.filter(f => f.functionType === FunctionType.PUBLIC);
+  // TODO(MW): make clear the only pub fn in artifact.functions is the dispatch
   const artifactPublicFunctions: ContractClass['publicFunctions'] = await Promise.all(
     publicFunctions.map(async f => ({
       selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters),
