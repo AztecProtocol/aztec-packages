@@ -8,6 +8,8 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 library BlobLib {
+  address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
+
   /**
    * @notice  Get the blob base fee
    *
@@ -16,9 +18,9 @@ library BlobLib {
    *
    * @return uint256 - The blob base fee
    */
-  function getBlobBaseFee(address _vmAddress) internal view returns (uint256) {
-    if (_vmAddress.code.length > 0) {
-      return Vm(_vmAddress).getBlobBaseFee();
+  function getBlobBaseFee() internal view returns (uint256) {
+    if (VM_ADDRESS.code.length > 0) {
+      return Vm(VM_ADDRESS).getBlobBaseFee();
     }
     return block.blobbasefee;
   }
@@ -33,12 +35,17 @@ library BlobLib {
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     internal
     view
-    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
+    returns (
+      // All of the blob hashes included in this blob
+      bytes32[] memory blobHashes,
+      bytes32 blobsHashesCommitment,
+      bytes32 blobPublicInputsHash
+    )
   {
     // We cannot input the incorrect number of blobs below, as the blobsHash
     // and epoch proof verification will fail.
     uint8 numBlobs = uint8(_blobsInput[0]);
-    bytes32[] memory blobHashes = new bytes32[](numBlobs);
+    blobHashes = new bytes32[](numBlobs);
     bytes memory blobPublicInputs;
     for (uint256 i = 0; i < numBlobs; i++) {
       // Add 1 for the numBlobs prefix
@@ -59,7 +66,7 @@ library BlobLib {
     // Return the hash of all z, y, and Cs, so we can use them in proof verification later
     blobPublicInputsHash = sha256(blobPublicInputs);
     // Hash the EVM blob hashes for the block header
-    blobsHash = Hash.sha256ToField(abi.encodePacked(blobHashes));
+    blobsHashesCommitment = Hash.sha256ToField(abi.encodePacked(blobHashes));
   }
 
   /**

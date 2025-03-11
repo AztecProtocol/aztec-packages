@@ -1,23 +1,24 @@
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness, type CompleteAddress, type GrumpkinScalar } from '@aztec/circuit-types';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type Fr } from '@aztec/foundation/fields';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { Schnorr } from '@aztec/foundation/crypto';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
-import { SchnorrAccountContractArtifact } from './artifact.js';
 
 /**
  * Account contract that authenticates transactions using Schnorr signatures
  * verified against a Grumpkin public key stored in an immutable encrypted note.
+ * This abstract version does not provide a way to retrieve the artifact, as it
+ * can be implemented with or without lazy loading.
  */
-export class SchnorrAccountContract extends DefaultAccountContract {
+export abstract class SchnorrBaseAccountContract extends DefaultAccountContract {
   constructor(private signingPrivateKey: GrumpkinScalar) {
-    super(SchnorrAccountContractArtifact as ContractArtifact);
+    super();
   }
 
-  getDeploymentArgs() {
-    const signingPublicKey = new Schnorr().computePublicKey(this.signingPrivateKey);
+  async getDeploymentArgs() {
+    const signingPublicKey = await new Schnorr().computePublicKey(this.signingPrivateKey);
     return [signingPublicKey.x, signingPublicKey.y];
   }
 
@@ -27,12 +28,12 @@ export class SchnorrAccountContract extends DefaultAccountContract {
 }
 
 /** Creates auth witnesses using Schnorr signatures. */
-class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
+export class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private signingPrivateKey: GrumpkinScalar) {}
 
-  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+  async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), this.signingPrivateKey).toBuffer();
-    return Promise.resolve(new AuthWitness(messageHash, [...signature]));
+    const signature = await schnorr.constructSignature(messageHash.toBuffer(), this.signingPrivateKey);
+    return new AuthWitness(messageHash, [...signature.toBuffer()]);
   }
 }

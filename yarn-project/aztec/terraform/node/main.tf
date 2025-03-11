@@ -58,7 +58,7 @@ locals {
   node_p2p_private_keys  = var.NODE_P2P_PRIVATE_KEYS
   node_count             = length(local.sequencer_private_keys)
   data_dir               = "/usr/src/yarn-project/aztec"
-  eth_host               = var.ETHEREUM_HOST != "" ? var.ETHEREUM_HOST : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.FORK_ADMIN_API_KEY}"
+  eth_host               = var.ETHEREUM_HOSTS != "" ? var.ETHEREUM_HOSTS : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.FORK_ADMIN_API_KEY}"
 }
 
 output "node_count" {
@@ -253,7 +253,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "80"
         },
         {
-          name  = "ETHEREUM_HOST"
+          name  = "ETHEREUM_HOSTS"
           value = "${local.eth_host}"
         },
         {
@@ -369,10 +369,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = local.node_p2p_private_keys[count.index]
         },
         {
-          name  = "P2P_MIN_PEERS"
-          value = var.P2P_MIN_PEERS
-        },
-        {
           name  = "P2P_MAX_PEERS"
           value = var.P2P_MAX_PEERS
         },
@@ -389,8 +385,8 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.P2P_TX_POOL_KEEP_PROVEN_FOR)
         },
         {
-          name  = "P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH"
-          value = tostring(var.P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH)
+          name  = "P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW"
+          value = tostring(var.P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW)
         },
         {
           name  = "P2P_GOSSIPSUB_INTERVAL_MS"

@@ -1,4 +1,4 @@
-use acvm::{acir::brillig::ForeignCallResult, pwg::ForeignCallWaitInfo, AcirField};
+use acvm::{AcirField, acir::brillig::ForeignCallResult, pwg::ForeignCallWaitInfo};
 
 use super::{ForeignCallError, ForeignCallExecutor};
 
@@ -118,6 +118,28 @@ impl<T> Layering for T {
         L: ForeignCallExecutor<F>,
     {
         Layer::new(other, self)
+    }
+}
+
+/// A case where we can have either this or that type of handler.
+pub enum Either<L, R> {
+    Left(L),
+    Right(R),
+}
+
+impl<L, R, F> ForeignCallExecutor<F> for Either<L, R>
+where
+    L: ForeignCallExecutor<F>,
+    R: ForeignCallExecutor<F>,
+{
+    fn execute(
+        &mut self,
+        foreign_call: &ForeignCallWaitInfo<F>,
+    ) -> Result<ForeignCallResult<F>, ForeignCallError> {
+        match self {
+            Either::Left(left) => left.execute(foreign_call),
+            Either::Right(right) => right.execute(foreign_call),
+        }
     }
 }
 

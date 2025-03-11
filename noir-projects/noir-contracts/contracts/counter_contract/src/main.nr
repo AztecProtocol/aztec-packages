@@ -1,13 +1,14 @@
+mod test;
 // docs:start:setup
 use dep::aztec::macros::aztec;
-mod test;
 
 #[aztec]
-contract Counter {
+pub contract Counter {
     // docs:end:setup
     // docs:start:imports
     use aztec::macros::{functions::{initializer, private}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
+    use aztec::protocol_types::traits::{FromField, ToField};
     use easy_private_state::EasyPrivateUint;
     use value_note::{balance_utils, value_note::ValueNote};
     // docs:end:imports
@@ -89,11 +90,9 @@ contract Counter {
 
     // docs:end:get_counter
     // docs:start:test_imports
-    use dep::aztec::note::lifecycle::destroy_note;
+    use crate::test;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
-
-    use crate::test;
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::test::helpers::test_environment::TestEnvironment;
 
@@ -103,8 +102,8 @@ contract Counter {
     unconstrained fn test_increment() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
-        let owner = env.create_account();
-        let sender = env.create_account();
+        let owner = env.create_account(1);
+        let sender = env.create_account(2);
         let initial_value: Field = 5;
         env.impersonate(owner);
         // Deploy contract and initialize
@@ -115,9 +114,10 @@ contract Counter {
         // Read the stored value in the note
         env.impersonate(contract_address);
         let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
+        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         let initial_note_value = notes.get(0).value;
         assert(
             initial_note_value == initial_value,
@@ -137,38 +137,6 @@ contract Counter {
     // docs:end:txe_test_increment
 
     #[test]
-    unconstrained fn inclusion_proofs() {
-        let initial_value = 5;
-        let (env, contract_address, owner) = test::setup(initial_value);
-        env.advance_block_by(1);
-
-        env.impersonate(contract_address);
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
-        let initial_note_value = notes.get(0).value;
-        assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
-        );
-
-        let old_note = notes.get(0);
-
-        env.private().get_block_header().prove_note_validity(old_note, &mut env.private());
-
-        destroy_note(&mut env.private(), old_note);
-        env.advance_block_by(1);
-
-        env.private().get_block_header().prove_note_is_nullified(old_note, &mut env.private());
-        env.private().get_block_header().prove_note_inclusion(old_note);
-
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
-
-        assert(notes.len() == 0);
-    }
-
-    #[test]
     unconstrained fn extended_incrementing_and_decrementing() {
         let initial_value = 5;
         let (env, contract_address, owner, sender) = test::setup(initial_value);
@@ -176,9 +144,10 @@ contract Counter {
         // Checking from the note cache
         env.impersonate(contract_address);
         let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
+        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         let initial_note_value = notes.get(0).value;
         assert(
             initial_note_value == initial_value,
@@ -187,11 +156,13 @@ contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
+        sync_notes();
         env.impersonate(contract_address);
         let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
+        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         let initial_note_value = notes.get(0).value;
         assert(
             initial_note_value == initial_value,
@@ -201,60 +172,48 @@ contract Counter {
         Counter::at(contract_address).increment_twice(owner, sender).call(&mut env.private());
 
         // Checking from the note cache
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         assert(notes.len() == 3);
         assert(get_counter(owner) == 7);
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        sync_notes();
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 7);
         assert(notes.len() == 3);
 
         // Checking from the note cache
         Counter::at(contract_address).increment_and_decrement(owner, sender).call(&mut env.private());
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 7);
         // We have a change note of 0
         assert(notes.len() == 4);
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        sync_notes();
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         assert(notes.len() == 4);
         assert(get_counter(owner) == 7);
 
         // Checking from the note cache
         Counter::at(contract_address).decrement(owner, sender).call(&mut env.private());
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 6);
         assert(notes.len() == 4);
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
+        sync_notes();
+        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
+            view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 6);
         assert(notes.len() == 4);
-    }
-
-    #[test(should_fail)]
-    unconstrained fn inclusion_proofs_failure() {
-        let initial_value = 5;
-        let (env, contract_address, owner) = test::setup(initial_value);
-
-        env.impersonate(contract_address);
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
-        let initial_note_value = notes.get(0).value;
-        assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
-        );
-
-        let old_note = notes.get(0);
-
-        env.private().get_block_header().prove_note_validity(old_note, &mut env.private());
     }
 }

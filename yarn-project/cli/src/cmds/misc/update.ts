@@ -1,16 +1,16 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { relative, resolve } from 'path';
 import { parse } from 'semver';
 
-import { type DependencyChanges } from './update/common.js';
+import type { DependencyChanges } from './update/common.js';
 import { GITHUB_TAG_PREFIX } from './update/github.js';
 import { updateAztecNr } from './update/noir.js';
 import { getNewestVersion, updateAztecDeps, updateLockfile } from './update/npm.js';
 
 const AZTECJS_PACKAGE = '@aztec/aztec.js';
-const UPDATE_DOCS_URL = 'https://docs.aztec.network/developers/updating';
+const UPDATE_DOCS_URL = 'https://docs.aztec.network/developers/guides/local_env/versions-updating';
 
 export async function updateProject(
   projectPath: string,

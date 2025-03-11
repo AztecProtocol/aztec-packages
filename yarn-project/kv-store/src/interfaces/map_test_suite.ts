@@ -2,9 +2,9 @@ import { toArray } from '@aztec/foundation/iterable';
 
 import { expect } from 'chai';
 
-import { type Key, type Range } from './common.js';
-import { type AztecAsyncMap, type AztecAsyncMultiMap, type AztecMap, type AztecMultiMap } from './map.js';
-import { type AztecAsyncKVStore, type AztecKVStore } from './store.js';
+import type { Key, Range } from './common.js';
+import type { AztecAsyncMap, AztecAsyncMultiMap, AztecMap, AztecMultiMap } from './map.js';
+import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isSyncStore } from './utils.js';
 
 export function describeAztecMap(
@@ -18,7 +18,7 @@ export function describeAztecMap(
 
     beforeEach(async () => {
       store = await getStore();
-      map = store.openMultiMap<string | [number, string], string>('test');
+      map = store.openMultiMap<string, string>('test');
     });
 
     afterEach(async () => {
@@ -123,21 +123,6 @@ export function describeAztecMap(
       await map.deleteValue('foo', 'bar');
 
       expect(await getValues('foo')).to.deep.equal(['baz']);
-    });
-
-    it('supports tuple keys', async () => {
-      // Use a new map because key structure has changed
-      const tupleMap = store.openMap<[number, string], string>('test-tuple');
-
-      await tupleMap.set([5, 'bar'], 'val');
-      await tupleMap.set([0, 'foo'], 'val');
-
-      expect(await keys(undefined, tupleMap)).to.deep.equal([
-        [0, 'foo'],
-        [5, 'bar'],
-      ]);
-
-      expect(await get([5, 'bar'], tupleMap)).to.equal('val');
     });
 
     it('supports range queries', async () => {

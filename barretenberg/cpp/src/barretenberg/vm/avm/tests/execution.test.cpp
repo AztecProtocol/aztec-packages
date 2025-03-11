@@ -122,9 +122,11 @@ class AvmExecutionTests : public ::testing::Test {
         auto tagging_key = grumpkin::g1::affine_one;
         PublicKeysHint public_keys{ nullifier_key, incoming_viewing_key, outgoing_viewing_key, tagging_key };
         ContractInstanceHint contract_instance = {
-            FF::one() /* temp address */,    true /* exists */, FF(2) /* salt */, FF(3) /* deployer_addr */, class_id,
+            FF::one() /* temp address */,    true /* exists */, FF(2) /* salt */, FF(3) /* deployer_addr */, class_id, class_id,
             FF(8) /* initialisation_hash */, public_keys,
             /*membership_hint=*/ { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+            /* update_hint*/ { .leaf_preimage = { .slot = 0, .value = 0,  .next_index = 0, .next_slot = 0, }, .leaf_index = 0, .sibling_path = {} },
+            /* update_preimage */ {},
         };
         FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
         contract_instance.address = address;
@@ -1232,101 +1234,6 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
-// Positive test with MSM
-TEST_F(AvmExecutionTests, msmOpCode)
-{
-    grumpkin::g1::affine_element a = grumpkin::g1::affine_element::random_element();
-    FF a_is_inf = a.is_point_at_infinity();
-    grumpkin::g1::affine_element b = grumpkin::g1::affine_element::random_element();
-    FF b_is_inf = b.is_point_at_infinity();
-
-    grumpkin::g1::Fr scalar_a = grumpkin::g1::Fr::random_element();
-    FF scalar_a_lo = uint256_t::from_uint128(uint128_t(scalar_a));
-    FF scalar_a_hi = uint256_t(scalar_a) >> 128;
-    grumpkin::g1::Fr scalar_b = grumpkin::g1::Fr::random_element();
-    FF scalar_b_lo = uint256_t::from_uint128(uint128_t(scalar_b));
-    FF scalar_b_hi = uint256_t(scalar_b) >> 128;
-    auto expected_result = a * scalar_a + b * scalar_b;
-    std::vector<FF> expected_output = { expected_result.x, expected_result.y, expected_result.is_point_at_infinity() };
-    // Send all the input as Fields and cast them to U8 later
-    std::vector<FF> calldata = { FF(a.x),  FF(a.y),     a_is_inf,    FF(b.x),     FF(b.y),
-                                 b_is_inf, scalar_a_lo, scalar_a_hi, scalar_b_lo, scalar_b_hi };
-
-    std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
-                               "00"                             // Indirect flag
-                               "00"                             // dst_offset
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "00"                             // val
-                               + to_hex(OpCode::SET_8) +        // opcode SET
-                               "00"                             // Indirect flag
-                               "01"                             //
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "0A"                             // val
-                               + to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
-                               "00"                             // Indirect flag
-                               "0000"                           // cd_offset 0
-                               "0001"                           // copy_size (10 elements)
-                               "0000"                           // dst_offset 0
-                               + to_hex(OpCode::CAST_8) +       // opcode CAST inf to U8
-                               "00"                             // Indirect flag
-                               "02"                             // a_is_inf
-                               "02"                             //
-                               + to_hex(AvmMemoryTag::U1) +     //
-                               to_hex(OpCode::CAST_8) +         // opcode CAST inf to U8
-                               "00"                             // Indirect flag
-                               "05"                             // b_is_inf
-                               "05"                             //
-                               + to_hex(AvmMemoryTag::U1) +     //
-                               to_hex(OpCode::SET_8) +          // opcode SET for length
-                               "00"                             // Indirect flag
-                               "0b"                             // dst offset (11)
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "06"                             // Length of point elements (6)
-                               + to_hex(OpCode::SET_8) +        // SET Indirects
-                               "00"                             // Indirect flag
-                               "0d"                             // dst offset +
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "00"                             // points offset
-                               + to_hex(OpCode::SET_8) +        // SET Indirects
-                               "00"                             // Indirect flag
-                               "0e"                             // dst offset
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "06"                             // scalars offset
-                               + to_hex(OpCode::SET_8) +        // SET Indirects
-                               "00"                             // Indirect flag
-                               "0f"                             // dst offset
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "0c"                             // output offset
-                               + to_hex(OpCode::MSM) +          // opcode MSM
-                               "07"                             // Indirect flag (first 3 indirect)
-                               "000d"                           // points offset
-                               "000e"                           // scalars offset
-                               "000f"                           // output offset
-                               "000b"                           // length offset
-                               + to_hex(OpCode::SET_16) +       // opcode SET (for return size)
-                               "00"                             // Indirect flag
-                               "0200"                           // dst_offset=512
-                               + to_hex(AvmMemoryTag::U32) +    //
-                               "0003"                           // val: 3
-                               + to_hex(OpCode::RETURN) +       // opcode RETURN
-                               "00"                             // Indirect flag
-                               "000c"                           // ret offset 12 (this overwrites)
-                               "0200";                          // ret size offset 512
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto [instructions, error] = Deserialization::parse_bytecode_statically(bytecode);
-    ASSERT_TRUE(is_ok(error));
-
-    // Assign a vector that we will mutate internally in gen_trace to store the return values;
-    std::vector<FF> returndata;
-    ExecutionHints execution_hints;
-    auto trace = gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints);
-
-    EXPECT_EQ(returndata, expected_output);
-
-    validate_trace(std::move(trace), public_inputs, calldata, returndata);
-}
-
 // Positive test for Kernel Input opcodes
 TEST_F(AvmExecutionTests, getEnvOpcode)
 {
@@ -1799,46 +1706,48 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // EXPECT_EQ(emit_nullifier_kernel_out_row->main_kernel_side_effect_out, 1);
     // feed_output(emit_nullifier_out_offset, 1, 1, 0);
 
+    // TODO(#11124): Rewrite for field based public logs
     // CHECK EMIT UNENCRYPTED LOG
     // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
-    auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
-    FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
+    // auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
+    // FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
 
-    std::vector<uint8_t> contract_address_bytes = address.to_buffer();
-    // Test log is empty, so just have to hash the contract address with 0
-    //
-    std::vector<uint8_t> bytes_to_hash;
-    bytes_to_hash.insert(bytes_to_hash.end(),
-                         std::make_move_iterator(contract_address_bytes.begin()),
-                         std::make_move_iterator(contract_address_bytes.end()));
-    uint32_t num_bytes = 0;
-    std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
-    // Add the log size to the hash to bytes
-    bytes_to_hash.insert(bytes_to_hash.end(),
-                         std::make_move_iterator(log_size_bytes.begin()),
-                         std::make_move_iterator(log_size_bytes.end()));
+    // std::vector<uint8_t> contract_address_bytes = address.to_buffer();
+    // // Test log is empty, so just have to hash the contract address with 0
+    // //
+    // std::vector<uint8_t> bytes_to_hash;
+    // bytes_to_hash.insert(bytes_to_hash.end(),
+    //                      std::make_move_iterator(contract_address_bytes.begin()),
+    //                      std::make_move_iterator(contract_address_bytes.end()));
+    // uint32_t num_bytes = 0;
+    // std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
+    // // Add the log size to the hash to bytes
+    // bytes_to_hash.insert(bytes_to_hash.end(),
+    //                      std::make_move_iterator(log_size_bytes.begin()),
+    //                      std::make_move_iterator(log_size_bytes.end()));
 
-    std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
-    // Truncate the hash to 31 bytes so it will be a valid field element
-    FF expected_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
+    // std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
+    // // Truncate the hash to 31 bytes so it will be a valid field element
+    // FF expected_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
 
-    auto emit_log_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
-    ASSERT_TRUE(emit_log_row != trace.end());
+    // auto emit_log_row =
+    //     std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1;
+    //     });
+    // ASSERT_TRUE(emit_log_row != trace.end());
 
-    EXPECT_EQ(emit_log_row->main_ia, expected_hash);
-    // EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
-    // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
-    EXPECT_EQ(emit_log_row->main_ib, 40);
+    // EXPECT_EQ(emit_log_row->main_ia, expected_hash);
+    // // EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
+    // // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
+    // EXPECT_EQ(emit_log_row->main_ib, 40);
 
-    uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
-    auto emit_log_kernel_out_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
-    ASSERT_TRUE(emit_log_kernel_out_row != trace.end());
-    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, expected_hash);
-    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_side_effect_out, 2);
-    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_metadata_out, 40);
-    // feed_output(emit_log_out_offset, expected_hash, 2, 40);
+    // uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
+    // auto emit_log_kernel_out_row =
+    //     std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
+    // ASSERT_TRUE(emit_log_kernel_out_row != trace.end());
+    // EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, expected_hash);
+    // EXPECT_EQ(emit_log_kernel_out_row->main_kernel_side_effect_out, 2);
+    // EXPECT_EQ(emit_log_kernel_out_row->main_kernel_metadata_out, 40);
+    // // feed_output(emit_log_out_offset, expected_hash, 2, 40);
 
     // CHECK SEND L2 TO L1 MSG
     auto send_row =
@@ -2291,10 +2200,13 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
         .exists = true,
         .salt = 2,
         .deployer_addr = 42,
-        .contract_class_id = 66,
+        .current_contract_class_id = 66,
+        .original_contract_class_id = 66,
         .initialisation_hash = 99,
         .public_keys = public_keys_hints,
-        .membership_hint = { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+        .initialization_membership_hint = { .low_leaf_preimage = { .nullifier = 0, .next_nullifier = 0, .next_index = 0, }, .low_leaf_index = 0, .low_leaf_sibling_path = {} },
+        .update_membership_hint = { .leaf_preimage = { .slot = 0, .value = 0,  .next_index = 0, .next_slot = 0, }, .leaf_index = 0, .sibling_path = {} },
+        .update_preimage = {}
     };
     auto execution_hints = ExecutionHints().with_contract_instance_hints({ { address, instance } });
 
@@ -2339,7 +2251,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcode)
     std::vector<FF> const calldata{};
     // alternating member value, exists bool
     std::vector<FF> const expected_returndata = {
-        instance.deployer_addr, 1, instance.contract_class_id, 1, instance.initialisation_hash, 1,
+        instance.deployer_addr, 1, instance.current_contract_class_id, 1, instance.initialisation_hash, 1,
     };
 
     std::vector<FF> returndata{};

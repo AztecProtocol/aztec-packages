@@ -125,6 +125,16 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
         info("overflow :\t", this->overflow.size());
     }
 
+    // Get cumulative size of all blocks
+    size_t get_total_content_size()
+    {
+        size_t total_size(0);
+        for (const auto& block : this->get()) {
+            total_size += block.size();
+        }
+        return total_size;
+    }
+
     size_t get_structured_dyadic_size()
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk

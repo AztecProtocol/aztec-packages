@@ -23,8 +23,8 @@ describe('e2e_token_contract private transfer recursion', () => {
     const notesPerIteration = 3;
     for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
       const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);
-      const from = wallets[0].getAddress(); // we are setting from to sender here because of TODO(#9887)
-      const actions = toMint.map(amt => asset.methods.mint_to_private(from, wallets[0].getAddress(), amt).request());
+      const from = wallets[0].getAddress(); // we are setting from to sender here because we need a sender to calculate the tag
+      const actions = toMint.map(amt => asset.methods.mint_to_private(from, wallets[0].getAddress(), amt));
       await new BatchCall(wallets[0], actions).send().wait();
     }
 
@@ -45,7 +45,7 @@ describe('e2e_token_contract private transfer recursion', () => {
     // We should have created a single new note, for the recipient
     expect(tx.debugInfo?.noteHashes.length).toBe(1);
 
-    const events = await wallets[1].getEncryptedEvents<Transfer>(TokenContract.events.Transfer, tx.blockNumber!, 1);
+    const events = await wallets[1].getPrivateEvents<Transfer>(TokenContract.events.Transfer, tx.blockNumber!, 1);
 
     expect(events[0]).toEqual({
       from: accounts[0].address,
@@ -71,7 +71,7 @@ describe('e2e_token_contract private transfer recursion', () => {
     const senderBalance = await asset.methods.balance_of_private(accounts[0].address).simulate();
     expect(senderBalance).toEqual(expectedChange);
 
-    const events = await wallets[1].getEncryptedEvents(TokenContract.events.Transfer, tx.blockNumber!, 1);
+    const events = await wallets[1].getPrivateEvents(TokenContract.events.Transfer, tx.blockNumber!, 1);
 
     expect(events[0]).toEqual({
       from: accounts[0].address,

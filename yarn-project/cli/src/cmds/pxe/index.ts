@@ -1,7 +1,7 @@
-import { Fr } from '@aztec/circuits.js';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { Fr } from '@aztec/foundation/fields';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
-import { type Command } from 'commander';
+import type { Command } from 'commander';
 
 import {
   logJson,
@@ -82,7 +82,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
 
   program
     .command('get-logs')
-    .description('Gets all the unencrypted logs from an intersection of all the filter params.')
+    .description('Gets all the public logs from an intersection of all the filter params.')
     .option('-tx, --tx-hash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
     .option(
       '-fb, --from-block <blockNum>',

@@ -1,9 +1,11 @@
-import type { BlockAttestation, BlockProposal, Gossipable, PeerInfo, TxHash } from '@aztec/circuit-types';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
-import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
+import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
 import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**
@@ -62,6 +64,19 @@ export class DummyP2PService implements P2PService {
   }
 
   /**
+   * Sends a batch request to a peer.
+   * @param _protocol - The protocol to send the request on.
+   * @param _requests - The requests to send.
+   * @returns The responses from the peer, otherwise undefined.
+   */
+  public sendBatchRequest<Protocol extends ReqRespSubProtocol>(
+    _protocol: Protocol,
+    _requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
+  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[]> {
+    return Promise.resolve([]);
+  }
+
+  /**
    * Returns the ENR of the peer.
    * @returns The ENR of the peer, otherwise undefined.
    */
@@ -75,6 +90,8 @@ export class DummyP2PService implements P2PService {
  */
 export class DummyPeerDiscoveryService extends EventEmitter implements PeerDiscoveryService {
   private currentState = PeerDiscoveryState.STOPPED;
+  public bootstrapNodes: string[] = [];
+
   /**
    * Starts the dummy implementation.
    * @returns A resolved promise.

@@ -5,9 +5,16 @@ import {
   deflattenFields,
   flattenFieldsAsArray,
   ProofData,
+  ProofDataForRecursion,
   reconstructHonkProof,
   reconstructUltraPlonkProof,
 } from '../proof/index.js';
+
+export class AztecClientBackendError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
 
 export class UltraPlonkBackend {
   // These type assertions are used so that we don't
@@ -216,8 +223,64 @@ export class UltraHonkBackend {
     const proofStart = proofWithPublicInputs.slice(0, publicInputsOffset);
     const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
     const proofEnd = proofWithPublicInputs.slice(publicInputsOffset + publicInputsSplitIndex);
+
     // Construct the proof without the public inputs
     const proof = new Uint8Array([...proofStart, ...proofEnd]);
+
+    // Fetch the number of public inputs out of the proof string
+    const publicInputsConcatenated = proofWithPublicInputs.slice(
+      publicInputsOffset,
+      publicInputsOffset + publicInputsSplitIndex,
+    );
+    const publicInputs = deflattenFields(publicInputsConcatenated);
+
+    return { proof, publicInputs };
+  }
+
+  async generateProofForRecursiveAggregation(
+    compressedWitness: Uint8Array,
+    options?: UltraHonkBackendOptions,
+  ): Promise<ProofDataForRecursion> {
+    await this.instantiate();
+
+    const proveUltraHonk = options?.keccak
+      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+      : this.api.acirProveUltraHonk.bind(this.api);
+
+    const proofWithPublicInputs = await proveUltraHonk(
+      this.acirUncompressedBytecode,
+      this.circuitOptions.recursive,
+      gunzip(compressedWitness),
+    );
+
+    // proofWithPublicInputs starts with a four-byte size
+    const numSerdeHeaderBytes = 4;
+    // some public inputs are handled specially
+    const numKZGAccumulatorFieldElements = 16;
+    // proof begins with: size, num public inputs, public input offset
+    const numProofPreambleElements = 3;
+    const publicInputsSizeIndex = 1;
+
+    // Slice serde header and convert to fields
+    const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(numSerdeHeaderBytes));
+    const numPublicInputs = Number(proofAsStrings[publicInputsSizeIndex]) - numKZGAccumulatorFieldElements;
+
+    // Account for the serialized buffer size at start
+    const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
+    const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
+
+    // Construct the proof without the public inputs
+    const numPublicInputsBytes = numPublicInputs * fieldByteSize;
+    const numHeaderPlusPreambleBytes = numSerdeHeaderBytes + numProofPreambleElements * fieldByteSize;
+    const proofNoPIs = new Uint8Array(proofWithPublicInputs.length - numPublicInputsBytes);
+    // copy the elements before the public inputs
+    proofNoPIs.set(proofWithPublicInputs.subarray(0, numHeaderPlusPreambleBytes), 0);
+    // copy the elements after the public inputs
+    proofNoPIs.set(
+      proofWithPublicInputs.subarray(numHeaderPlusPreambleBytes + numPublicInputsBytes),
+      numHeaderPlusPreambleBytes,
+    );
+    const proof: string[] = deflattenFields(proofNoPIs.slice(numSerdeHeaderBytes));
 
     // Fetch the number of public inputs out of the proof string
     const publicInputsConcatenated = proofWithPublicInputs.slice(
@@ -245,9 +308,11 @@ export class UltraHonkBackend {
     return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
   }
 
-  async getVerificationKey(): Promise<Uint8Array> {
+  async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
     await this.instantiate();
-    return await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    return options?.keccak
+      ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive)
+      : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
   }
 
   /** @description Returns a solidity verifier */
@@ -319,7 +384,12 @@ export class AztecClientBackend {
 
   async prove(witnessMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
     await this.instantiate();
-    return this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+    const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+    const [proof, vk] = proofAndVk;
+    if (!await this.verify(proof, vk)) {
+      throw new AztecClientBackendError("Failed to verify the private (ClientIVC) transaction proof!");
+    }
+    return proofAndVk;
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
@@ -330,6 +400,12 @@ export class AztecClientBackend {
   async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
     await this.instantiate();
     return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
+  }
+
+  async gates(): Promise<number[]> {
+    // call function on API
+    await this.instantiate();
+    return this.api.acirGatesAztecClient(this.acirMsgpack);
   }
 
   async destroy(): Promise<void> {

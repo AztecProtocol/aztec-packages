@@ -1,21 +1,21 @@
-import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import {
-  type AztecAddress,
-  type ContractDataSource,
-  Fr,
-  PublicDataTreeLeaf,
-  type PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { WorldStateDB } from '@aztec/simulator';
+import { Fr } from '@aztec/foundation/fields';
+import { WorldStateDB } from '@aztec/simulator/server';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+
+import type { TXE } from '../oracle/txe_oracle.js';
 
 export class TXEWorldStateDB extends WorldStateDB {
-  constructor(private merkleDb: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
+  constructor(private merkleDb: MerkleTreeWriteOperations, dataSource: ContractDataSource, private txe: TXE) {
     super(merkleDb, dataSource);
   }
 
   override async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot).toBigInt();
+    const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
 
     const lowLeafResult = await this.merkleDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
 
@@ -30,25 +30,9 @@ export class TXEWorldStateDB extends WorldStateDB {
     return value;
   }
 
-  override async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint> {
-    await this.merkleDb.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      [new PublicDataTreeLeaf(computePublicDataTreeLeafSlot(contract, slot), newValue).toBuffer()],
-      0,
-    );
-    return newValue.toBigInt();
-  }
-
-  override checkpoint(): Promise<void> {
-    return Promise.resolve();
-  }
-  override rollbackToCheckpoint(): Promise<void> {
-    throw new Error('Cannot rollback');
-  }
-  override commit(): Promise<void> {
-    return Promise.resolve();
-  }
-  override rollbackToCommit(): Promise<void> {
-    throw new Error('Cannot rollback');
+  override async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void> {
+    await this.txe.addPublicDataWrites([
+      new PublicDataWrite(await computePublicDataTreeLeafSlot(contract, slot), newValue),
+    ]);
   }
 }

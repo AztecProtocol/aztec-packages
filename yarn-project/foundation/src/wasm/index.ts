@@ -1,1 +1,1 @@
-export { WasmModule, IWasmModule } from './wasm_module.js';
+export { WasmModule, type IWasmModule } from './wasm_module.js';

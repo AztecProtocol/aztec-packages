@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {TestBase} from "@test/base/Base.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 contract Static is TestBase {
   using ProposalLib for DataStructures.Proposal;

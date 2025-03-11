@@ -115,8 +115,8 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       const action = asset
         .withWallet(wallets[2])
         .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
-      const expectedMessageHash = computeAuthWitMessageHash(
-        { caller: wallets[2].getAddress(), action: action.request() },
+      const expectedMessageHash = await computeAuthWitMessageHash(
+        { caller: wallets[2].getAddress(), action },
         { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
       );
 

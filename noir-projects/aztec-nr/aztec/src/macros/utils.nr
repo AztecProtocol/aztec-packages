@@ -1,4 +1,4 @@
-use std::meta::{typ::fresh_type_variable, unquote};
+use std::meta::unquote;
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     if f.has_named_attribute("private") {
@@ -59,12 +59,16 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $slice_name = $slice_name.push_back($name as Field); }
     } else if typ.as_struct().is_some() {
-        quote { $slice_name = $slice_name.append($name.serialize()); }
+        // We invoke serialize as a static trait function rather than calling $name.serialize() directly in the quote
+        // to avoid "trait not in scope" compiler warnings.
+        quote { $slice_name = $slice_name.append(aztec::protocol_types::traits::Serialize::serialize($name)); }
     } else if typ.as_array().is_some() {
         let (element_type, _) = typ.as_array().unwrap();
         let serialized_name = f"{name}_serialized".quoted_contents();
+        // We invoke serialize as a static trait function rather than calling x.serialize() directly in the quote
+        // to avoid "trait not in scope" compiler warnings.
         quote {
-            let $serialized_name = $name.map(|x: $element_type | x.serialize());
+            let $serialized_name = $name.map(|x: $element_type | aztec::protocol_types::traits::Serialize::serialize(x));
             for i in 0..$name.len() {
                 $slice_name = $slice_name.append($serialized_name[i].as_slice());
             }
@@ -85,12 +89,12 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $hasher_name.add($name as Field); }
     } else if typ.as_struct().is_some() {
-        quote { $hasher_name.add_multiple($name.serialize()); }
+        quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name)); }
     } else if typ.as_array().is_some() {
         let (element_type, _) = typ.as_array().unwrap();
         let serialized_name = f"{name}_serialized".quoted_contents();
         quote {
-           let $serialized_name = $name.map(|x: $element_type | x.serialize());
+           let $serialized_name = $name.map(|x: $element_type | dep::aztec::protocol_types::traits::Serialize::serialize(x));
             for i in 0..$name.len() {
                 $hasher_name.add_multiple($serialized_name[i]);
             }
@@ -128,9 +132,11 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         let element_typ_quote = signature_of_type(element_type);
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_struct().is_some() {
-        let (s, _) = typ.as_struct().unwrap();
-        let field_signatures =
-            s.fields().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
+        let (s, generics) = typ.as_struct().unwrap();
+        let field_signatures = s
+            .fields(generics)
+            .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
+            .join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -142,7 +148,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
     }
 }
 
-trait AsStrQuote {
+pub(crate) trait AsStrQuote {
     fn as_str_quote(self) -> (Self, u32);
 }
 
@@ -184,7 +190,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote).to_field()
+        protocol_types::traits::ToField::to_field(protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -201,32 +207,34 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     // The signature will be "Foo(Field,AztecAddress)".
     let event_name = s.name();
     let args_signatures = s
-        .fields()
+        .fields_as_written()
         .map(|(_, typ): (Quoted, Type)| {
-            signature_of_type(typ) // signature_of_type can handle structs, so this supports nested structs
+            // signature_of_type can handle structs, so this supports nested structs
+            // FIXME: Field generics are not handled here!
+            signature_of_type(typ)
         })
         .join(quote {,});
     let signature_quote = quote { $event_name($args_signatures) };
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote).to_field()
+        protocol_types::traits::ToField::to_field(protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote))
     };
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
-    let any = fresh_type_variable();
-    let maybe_serialize_impl =
-        typ.get_trait_impl(quote { protocol_types::traits::Serialize<$any> }.as_trait_constraint());
+/// Returns how many storage slots a type needs to reserve for itself. State variables must implement the Storage trait
+/// for slots to be allocated for them.
+pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
+    // We create a type variable for the storage size. We can't simply read the value used in the implementation because
+    // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
+    let storage_size = std::meta::typ::fresh_type_variable();
+    assert(
+        typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()),
+        f"Attempted to fetch storage size, but {typ} does not implement the Storage trait",
+    );
 
-    maybe_serialize_impl
-        .expect(
-            f"Attempted to fetch serialization length, but {typ} does not implement the Serialize trait",
-        )
-        .trait_generic_args()[0]
-        .as_constant()
-        .unwrap()
+    storage_size.as_constant().unwrap()
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {
@@ -244,6 +252,31 @@ pub(crate) comptime fn is_note(typ: Type) -> bool {
         let (def, _) = struc;
         def.has_named_attribute("note")
             | def.has_named_attribute("partial_note")
-            | def.has_named_attribute("note_custom_interface")
+            | def.has_named_attribute("custom_note")
     })
+}
+
+/// Returns the typed expression of a trait method implementation.
+///
+/// This helper function is preferred over directly inlining with `$typ::target_method()` in a quote,
+/// as direct inlining would result in missing import warnings in the generated code (specifically,
+/// warnings that the trait implementation is not in scope).
+///
+/// # Note
+/// A copy of this function exists in `noir-protocol-circuits/crates/types/src/meta/mod.nr`. We maintain separate
+/// copies because importing it here from there would cause the `target_trait` to be interpreted in the context
+/// of the protocol circuits types crate, making it impossible to compile code for traits from this crate
+/// (e.g. NoteType).
+pub(crate) comptime fn get_trait_impl_method(
+    typ: Type,
+    target_trait: Quoted,
+    target_method: Quoted,
+) -> TypedExpr {
+    let trait_constraint = target_trait.as_trait_constraint();
+    typ
+        .get_trait_impl(trait_constraint)
+        .expect(f"Could not find impl for {target_trait} for type {typ}")
+        .methods()
+        .filter(|m| m.name() == target_method)[0]
+        .as_typed_expr()
 }

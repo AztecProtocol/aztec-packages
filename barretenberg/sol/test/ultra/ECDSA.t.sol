@@ -12,7 +12,7 @@ contract EcdsaUltraTest is TestBaseUltra {
         super.setUp();
 
         verifier = IVerifier(address(new EcdsaUltraVerifier()));
-        fuzzer = fuzzer.with_circuit_flavour(DifferentialFuzzer.CircuitFlavour.Ecdsa);
+        fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Ecdsa);
 
         PUBLIC_INPUT_COUNT = 6;
 

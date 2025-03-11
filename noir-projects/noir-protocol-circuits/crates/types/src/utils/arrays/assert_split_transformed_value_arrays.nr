@@ -13,8 +13,11 @@ where
     S: Empty + Eq,
 {
     if num_non_revertibles != 0 {
+        // If num_non_revertibles == 0, then the below can still underflow and cause 'Failed constraint' error,
+        // even though it shouldn't reach here. If statement branches aren't isolated?
+        let is_non_zero = (num_non_revertibles != 0) as u32;
         assert(
-            sorted_array[num_non_revertibles - 1].counter() < split_counter,
+            sorted_array[num_non_revertibles - 1].counter() * is_non_zero < split_counter,
             "counter of last non-revertible item is not less than the split counter",
         );
     }
@@ -59,6 +62,7 @@ where
     T: Ordered + Empty + Eq,
     S: Empty + Eq,
 {
+    // Safety: The value is constrained by `assert_split_transformed_value_arrays_with_hint`.
     let num_non_revertibles =
         unsafe { find_index_hint(sorted_array, |n: T| n.counter() >= split_counter) };
 
@@ -75,6 +79,7 @@ where
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
+        traits::Empty,
         utils::arrays::assert_split_transformed_value_arrays::{
             assert_split_transformed_value_arrays, assert_split_transformed_value_arrays_with_hint,
         },

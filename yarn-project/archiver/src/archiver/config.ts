@@ -1,3 +1,4 @@
+import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import {
   type L1ContractAddresses,
   type L1ContractsConfig,
@@ -6,6 +7,7 @@ import {
   l1ReaderConfigMappings,
 } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 /**
  * There are 2 polling intervals used in this configuration. The first is the archiver polling interval, archiverPollingIntervalMS.
@@ -22,7 +24,7 @@ export type ArchiverConfig = {
   archiverUrl?: string;
 
   /** URL for an L1 consensus client */
-  l1ConsensusClientUrl: string;
+  l1ConsensusHostUrl?: string;
 
   /** The polling interval in ms for retrieving new L2 blocks and encrypted logs. */
   archiverPollingIntervalMS?: number;
@@ -36,26 +38,29 @@ export type ArchiverConfig = {
   /** The deployed L1 contract addresses */
   l1Contracts: L1ContractAddresses;
 
-  /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+  /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 } & L1ReaderConfig &
-  L1ContractsConfig;
+  L1ContractsConfig &
+  BlobSinkConfig &
+  ChainConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
+  ...blobSinkConfigMapping,
   archiverUrl: {
     env: 'ARCHIVER_URL',
     description:
       'URL for an archiver service. If set, will return an archiver client as opposed to starting a new one.',
   },
-  l1ConsensusClientUrl: {
-    env: 'L1_CONSENSUS_CLIENT_URL',
+  l1ConsensusHostUrl: {
+    env: 'L1_CONSENSUS_HOST_URL',
     description: 'URL for an L1 consensus client.',
-    parseEnv: (val: string) => (val ? val : 'http://localhost:5052'),
+    parseEnv: (val: string) => val,
   },
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(500),
   },
   archiverBatchSize: {
     env: 'ARCHIVER_BATCH_SIZE',
@@ -64,9 +69,10 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   },
   maxLogs: {
     env: 'ARCHIVER_MAX_LOGS',
-    description: 'The max number of logs that can be obtained in 1 "getUnencryptedLogs" call.',
+    description: 'The max number of logs that can be obtained in 1 "getPublicLogs" call.',
     ...numberConfigHelper(1_000),
   },
+  ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {
     env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',

@@ -2,6 +2,8 @@
 set -eu
 set -o pipefail
 
+# Helper script for deploying to production.
+
 TAG=$1
 VALUES=$2
 NAMESPACE=${3:-spartan}
@@ -18,6 +20,16 @@ if [ -z "$TAG" ]; then
   exit 1
 fi
 
+# Ensure we have GKE auth setup with kubernetes, trying to automate it to the extent possible then
+# giving instructions.
+../bootstrap.sh gke
+
+current_context="$(kubectl config current-context)"
+if [[ "$current_context" =~ ^kind- ]]; then
+  echo "Error: current cluster is a KIND cluster ($current_context). Exiting. Use deploy_kind.sh instead for KIND deployments."
+  exit 1
+fi
+
 function cleanup() {
   set +x
   # kill everything in our process group except our process
@@ -25,7 +37,7 @@ function cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-function show_status_until_pxe_ready() {
+function show_status_until_pxe_ready {
   set +x
   sleep 15 # let helm upgrade start
   kubectl get pods -n $NAMESPACE
@@ -37,32 +49,24 @@ function show_status_until_pxe_ready() {
 }
 show_status_until_pxe_ready &
 
-function log_stern() {
+function log_stern {
   set +x
   stern $NAMESPACE -n $NAMESPACE 2>&1 > "$SCRIPT_DIR/logs/$NAMESPACE-deploy.log"
 }
 log_stern &
 
-function upgrade() {
+function upgrade {
   # pull and resolve the image just to be absolutely sure k8s gets the latest image in the tag we want
   docker pull --platform linux/amd64 aztecprotocol/aztec:$TAG
   IMAGE=$(docker inspect --format='{{index .RepoDigests 0}}' aztecprotocol/aztec:$TAG)
-  if ! [ -z "${PRINT_ONLY:-}" ] ; then
-    helm template $NAMESPACE $SCRIPT_DIR/../aztec-network \
-          --namespace $NAMESPACE \
-          --create-namespace \
-          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
-          --set images.aztec.image="$IMAGE"
-  else
-    helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
-          --namespace $NAMESPACE \
-          --create-namespace \
-          --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
-          --set images.aztec.image="$IMAGE" \
-          --wait \
-          --wait-for-jobs=true \
-          --timeout=30m 2>&1
-  fi
+  helm upgrade --install $NAMESPACE $SCRIPT_DIR/../aztec-network \
+    --namespace $NAMESPACE \
+    --create-namespace \
+    --values $SCRIPT_DIR/../aztec-network/values/$VALUES.yaml $PROD_ARGS \
+    --set images.aztec.image="$IMAGE" \
+    --wait \
+    --wait-for-jobs=true \
+    --timeout=30m 2>&1
 }
 
 # running the helm upgrade, but will try again if the setup l2 contracts job complains about being immutable

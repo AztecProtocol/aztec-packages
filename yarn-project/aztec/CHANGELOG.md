@@ -1,5 +1,132 @@
 # Changelog
 
+## [0.77.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.4...aztec-package-v0.77.0) (2025-02-14)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.76.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.3...aztec-package-v0.76.4) (2025-02-13)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.76.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.2...aztec-package-v0.76.3) (2025-02-13)
+
+
+### Features
+
+* Add undici ([#11818](https://github.com/AztecProtocol/aztec-packages/issues/11818)) ([8503c7a](https://github.com/AztecProtocol/aztec-packages/commit/8503c7a068da820d532fb78e3633379e1b86fbb1))
+* Initial multi-proof test ([#11779](https://github.com/AztecProtocol/aztec-packages/issues/11779)) ([f54db75](https://github.com/AztecProtocol/aztec-packages/commit/f54db75ad6fdac774ad141093622a4f6c64e3f6b))
+
+## [0.76.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.1...aztec-package-v0.76.2) (2025-02-11)
+
+
+### Miscellaneous
+
+* **logging:** Support explicit FORCE_COLOR parameter ([#11902](https://github.com/AztecProtocol/aztec-packages/issues/11902)) ([3b3f859](https://github.com/AztecProtocol/aztec-packages/commit/3b3f859f53bba6aa5cabf9f79dd210d326045e70))
+
+## [0.76.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.76.0...aztec-package-v0.76.1) (2025-02-10)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.76.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.75.0...aztec-package-v0.76.0) (2025-02-10)
+
+
+### Features
+
+* **spartan:** Blob sink in spartan ([#11307](https://github.com/AztecProtocol/aztec-packages/issues/11307)) ([d8e5bcc](https://github.com/AztecProtocol/aztec-packages/commit/d8e5bccfe674b4abfa6b645af4d62de976e7bf13))
+
+
+### Miscellaneous
+
+* Check versioning ([#11611](https://github.com/AztecProtocol/aztec-packages/issues/11611)) ([b33f1da](https://github.com/AztecProtocol/aztec-packages/commit/b33f1da9438672766ae8e266b2aa3bf7b5a8964f))
+* **p2p:** Remove min peers option ([#11789](https://github.com/AztecProtocol/aztec-packages/issues/11789)) ([cfb6797](https://github.com/AztecProtocol/aztec-packages/commit/cfb6797ec91a24052498236221372a607d7299be))
+
+## [0.75.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.74.0...aztec-package-v0.75.0) (2025-02-06)
+
+
+### Miscellaneous
+
+* Playground name change ([#11720](https://github.com/AztecProtocol/aztec-packages/issues/11720)) ([c5cbf65](https://github.com/AztecProtocol/aztec-packages/commit/c5cbf659ffebff15d3609c0cb92d732133691ea0))
+
+## [0.74.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.73.0...aztec-package-v0.74.0) (2025-02-04)
+
+
+### Miscellaneous
+
+* Ensure new kv-store is used on the server ([#11662](https://github.com/AztecProtocol/aztec-packages/issues/11662)) ([aee1420](https://github.com/AztecProtocol/aztec-packages/commit/aee14208a42f9b5b7f9aef4b6e0d92e303a265c1))
+
+## [0.73.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.72.1...aztec-package-v0.73.0) (2025-02-01)
+
+
+### Features
+
+* **archiver:** Read blobs from cl ([#11273](https://github.com/AztecProtocol/aztec-packages/issues/11273)) ([8cf4982](https://github.com/AztecProtocol/aztec-packages/commit/8cf4982175da82575087bb28590a3a71b88aaf6e))
+* Lazy wasm pt4 ([#11491](https://github.com/AztecProtocol/aztec-packages/issues/11491)) ([f553f58](https://github.com/AztecProtocol/aztec-packages/commit/f553f58ee5f405414a7d0c402c679ffe5c4d62ef))
+* Proposer forwarder contract ([#11403](https://github.com/AztecProtocol/aztec-packages/issues/11403)) ([76f25b6](https://github.com/AztecProtocol/aztec-packages/commit/76f25b6d674c658bc01a42267f4fb232a35d5551))
+* Validate L1 config against L1 on startup ([#11540](https://github.com/AztecProtocol/aztec-packages/issues/11540)) ([48b7ac4](https://github.com/AztecProtocol/aztec-packages/commit/48b7ac4dd823533843018e177e0cf2bd00d1bdba))
+
+
+### Miscellaneous
+
+* Enable no-misused-promises ([#11629](https://github.com/AztecProtocol/aztec-packages/issues/11629)) ([a420466](https://github.com/AztecProtocol/aztec-packages/commit/a420466cfb0a387e98a932be8982fe25f02b90db))
+
+## [0.72.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.72.0...aztec-package-v0.72.1) (2025-01-24)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.72.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.71.0...aztec-package-v0.72.0) (2025-01-24)
+
+
+### Features
+
+* Aztec Playground ([#11229](https://github.com/AztecProtocol/aztec-packages/issues/11229)) ([79f810d](https://github.com/AztecProtocol/aztec-packages/commit/79f810dc682d41154eb723e5bdf4c54c0681becb))
+* Lazy wasm pt. 2 ([#11410](https://github.com/AztecProtocol/aztec-packages/issues/11410)) ([01510f4](https://github.com/AztecProtocol/aztec-packages/commit/01510f45aa5d385a08584df674d9caf9522e6be2))
+* Lazy wasm pt3 ([#11435](https://github.com/AztecProtocol/aztec-packages/issues/11435)) ([7068d05](https://github.com/AztecProtocol/aztec-packages/commit/7068d055d91a6e81e6fbb670e17c77ee209a1a80))
+
+
+### Bug Fixes
+
+* Init fee juice contract in sandbox ([#11379](https://github.com/AztecProtocol/aztec-packages/issues/11379)) ([caab526](https://github.com/AztecProtocol/aztec-packages/commit/caab52671cfcf20b395a9e44a8768dc81d986cb5))
+* Use simulation to estimate gas used ([#11211](https://github.com/AztecProtocol/aztec-packages/issues/11211)) ([63776f0](https://github.com/AztecProtocol/aztec-packages/commit/63776f0d217fad800bf8a6c6144d6bb52844e629))
+
+
+### Miscellaneous
+
+* Trace propagation from json rpc client to server ([#11325](https://github.com/AztecProtocol/aztec-packages/issues/11325)) ([85ccc15](https://github.com/AztecProtocol/aztec-packages/commit/85ccc1512cd9b1c461660ad8127dae848fde1878))
+
+## [0.71.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.70.0...aztec-package-v0.71.0) (2025-01-17)
+
+
+### Features
+
+* Track block building helpers ([#11190](https://github.com/AztecProtocol/aztec-packages/issues/11190)) ([a749dc1](https://github.com/AztecProtocol/aztec-packages/commit/a749dc1656c0b4d1b0715dae90883b800be591ca)), closes [#11184](https://github.com/AztecProtocol/aztec-packages/issues/11184)
+
+## [0.70.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.69.1...aztec-package-v0.70.0) (2025-01-15)
+
+
+### Features
+
+* Blob sink in sandbox without extra process ([#11032](https://github.com/AztecProtocol/aztec-packages/issues/11032)) ([4600f54](https://github.com/AztecProtocol/aztec-packages/commit/4600f540e519e1b80b4e780491be29707ccf9f40))
+* Browser chunking ([#11102](https://github.com/AztecProtocol/aztec-packages/issues/11102)) ([393e843](https://github.com/AztecProtocol/aztec-packages/commit/393e8438b082db7d45a45c78e0bf39719b11c56b))
+
+
+### Miscellaneous
+
+* Greater stability at 1TPS ([#10981](https://github.com/AztecProtocol/aztec-packages/issues/10981)) ([1c23662](https://github.com/AztecProtocol/aztec-packages/commit/1c23662f1bbf132680540fbb61afb49b6ead91f5))
+* Prover db config ([#11126](https://github.com/AztecProtocol/aztec-packages/issues/11126)) ([9d49393](https://github.com/AztecProtocol/aztec-packages/commit/9d49393e66eb38054e0ecf8202aab05919b1bfd4)), closes [#10267](https://github.com/AztecProtocol/aztec-packages/issues/10267)
+* Rpc server cleanup & misc fixes ([#11145](https://github.com/AztecProtocol/aztec-packages/issues/11145)) ([8a927eb](https://github.com/AztecProtocol/aztec-packages/commit/8a927ebad0c70eaf2aecebbfe9d32eff0990d6f4))
+
 ## [0.69.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.69.0...aztec-package-v0.69.1) (2025-01-08)
 
 

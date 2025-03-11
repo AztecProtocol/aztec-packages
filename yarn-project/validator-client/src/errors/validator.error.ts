@@ -1,4 +1,4 @@
-import { type TxHash } from '@aztec/circuit-types/tx_hash';
+import type { TxHash } from '@aztec/stdlib/tx';
 
 export class ValidatorError extends Error {
   constructor(message: string) {
@@ -33,6 +33,18 @@ export class FailedToReExecuteTransactionsError extends ValidatorError {
 export class ReExStateMismatchError extends ValidatorError {
   constructor() {
     super('Re-execution state mismatch');
+  }
+}
+
+export class ReExFailedTxsError extends ValidatorError {
+  constructor(numFailedTxs: number) {
+    super(`Re-execution failed to process ${numFailedTxs} txs`);
+  }
+}
+
+export class ReExTimeoutError extends ValidatorError {
+  constructor() {
+    super('Re-execution timed out or failed to process all txs in the proposal');
   }
 }
 

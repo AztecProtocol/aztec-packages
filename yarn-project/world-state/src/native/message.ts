@@ -1,50 +1,8 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
-import { type Tuple } from '@aztec/foundation/serialize';
-
-export type MessageHeaderInit = {
-  /** The message ID. Optional, if not set defaults to 0 */
-  messageId?: number;
-  /** Identifies the original request. Optional */
-  requestId?: number;
-};
-
-export class MessageHeader {
-  /** An number to identify this message */
-  public readonly messageId: number;
-  /** If this message is a response to a request, the messageId of the request */
-  public readonly requestId: number;
-
-  constructor({ messageId, requestId }: MessageHeaderInit) {
-    this.messageId = messageId ?? 0;
-    this.requestId = requestId ?? 0;
-  }
-
-  static fromMessagePack(data: object): MessageHeader {
-    return new MessageHeader(data as MessageHeaderInit);
-  }
-}
-
-interface TypedMessageLike {
-  msgType: number;
-  header: {
-    messageId?: number;
-    requestId?: number;
-  };
-  value: any;
-}
-
-export class TypedMessage<T, B> {
-  public constructor(public readonly msgType: T, public readonly header: MessageHeader, public readonly value: B) {}
-
-  static fromMessagePack<T, B>(data: TypedMessageLike): TypedMessage<T, B> {
-    return new TypedMessage<T, B>(data['msgType'] as T, MessageHeader.fromMessagePack(data['header']), data['value']);
-  }
-
-  static isTypedMessageLike(obj: any): obj is TypedMessageLike {
-    return typeof obj === 'object' && obj !== null && 'msgType' in obj && 'header' in obj && 'value' in obj;
-  }
-}
+import { Fr } from '@aztec/foundation/fields';
+import type { Tuple } from '@aztec/foundation/serialize';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import type { StateReference } from '@aztec/stdlib/tx';
+import type { UInt32 } from '@aztec/stdlib/types';
 
 export enum WorldStateMessageType {
   GET_TREE_INFO = 100,
@@ -78,6 +36,10 @@ export enum WorldStateMessageType {
   REMOVE_HISTORICAL_BLOCKS,
 
   GET_STATUS,
+
+  CREATE_CHECKPOINT,
+  COMMIT_CHECKPOINT,
+  REVERT_CHECKPOINT,
 
   CLOSE = 999,
 }
@@ -314,6 +276,10 @@ interface WithWorldStateRevision {
   revision: WorldStateRevision;
 }
 
+interface WithCanonicalForkId {
+  canonical: true;
+}
+
 interface WithLeafIndex {
   leafIndex: bigint;
 }
@@ -333,7 +299,7 @@ interface WithLeafValues {
   leaves: SerializedLeafValue[];
 }
 
-interface BlockShiftRequest {
+interface BlockShiftRequest extends WithCanonicalForkId {
   toBlockNumber: bigint;
 }
 
@@ -422,7 +388,7 @@ interface UpdateArchiveRequest extends WithForkId {
   blockHeaderHash: Buffer;
 }
 
-interface SyncBlockRequest {
+interface SyncBlockRequest extends WithCanonicalForkId {
   blockNumber: number;
   blockStateRef: BlockStateReference;
   blockHeaderHash: Fr;
@@ -432,7 +398,7 @@ interface SyncBlockRequest {
   publicDataWrites: readonly SerializedLeafValue[];
 }
 
-interface CreateForkRequest {
+interface CreateForkRequest extends WithCanonicalForkId {
   latest: boolean;
   blockNumber: number;
 }
@@ -441,22 +407,26 @@ interface CreateForkResponse {
   forkId: number;
 }
 
-interface DeleteForkRequest {
-  forkId: number;
+interface DeleteForkRequest extends WithForkId {}
+
+export type WorldStateRequestCategories = WithForkId | WithWorldStateRevision | WithCanonicalForkId;
+
+export function isWithForkId(body: WorldStateRequestCategories): body is WithForkId {
+  return body && 'forkId' in body;
 }
 
-interface CreateForkResponse {
-  forkId: number;
+export function isWithRevision(body: WorldStateRequestCategories): body is WithWorldStateRevision {
+  return body && 'revision' in body;
 }
 
-interface DeleteForkRequest {
-  forkId: number;
+export function isWithCanonical(body: WorldStateRequestCategories): body is WithCanonicalForkId {
+  return body && 'canonical' in body;
 }
 
 export type WorldStateRequest = {
   [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoRequest;
   [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceRequest;
-  [WorldStateMessageType.GET_INITIAL_STATE_REFERENCE]: void;
+  [WorldStateMessageType.GET_INITIAL_STATE_REFERENCE]: WithCanonicalForkId;
 
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafRequest;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageRequest;
@@ -472,8 +442,8 @@ export type WorldStateRequest = {
 
   [WorldStateMessageType.UPDATE_ARCHIVE]: UpdateArchiveRequest;
 
-  [WorldStateMessageType.COMMIT]: void;
-  [WorldStateMessageType.ROLLBACK]: void;
+  [WorldStateMessageType.COMMIT]: WithCanonicalForkId;
+  [WorldStateMessageType.ROLLBACK]: WithCanonicalForkId;
 
   [WorldStateMessageType.SYNC_BLOCK]: SyncBlockRequest;
 
@@ -484,9 +454,13 @@ export type WorldStateRequest = {
   [WorldStateMessageType.UNWIND_BLOCKS]: BlockShiftRequest;
   [WorldStateMessageType.FINALISE_BLOCKS]: BlockShiftRequest;
 
-  [WorldStateMessageType.GET_STATUS]: void;
+  [WorldStateMessageType.GET_STATUS]: WithCanonicalForkId;
 
-  [WorldStateMessageType.CLOSE]: void;
+  [WorldStateMessageType.CREATE_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
+  [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
+
+  [WorldStateMessageType.CLOSE]: WithCanonicalForkId;
 };
 
 export type WorldStateResponse = {
@@ -521,6 +495,10 @@ export type WorldStateResponse = {
   [WorldStateMessageType.FINALISE_BLOCKS]: WorldStateStatusSummary;
 
   [WorldStateMessageType.GET_STATUS]: WorldStateStatusSummary;
+
+  [WorldStateMessageType.CREATE_CHECKPOINT]: void;
+  [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
+  [WorldStateMessageType.REVERT_CHECKPOINT]: void;
 
   [WorldStateMessageType.CLOSE]: void;
 };

@@ -1,5 +1,9 @@
-import { AztecAddress, EthAddress, Fr, FunctionData, FunctionSelector, Point } from '@aztec/circuits.js';
-import { makeHeader } from '@aztec/circuits.js/testing';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { makeHeader } from '@aztec/stdlib/testing';
+import { FunctionData } from '@aztec/stdlib/tx';
 
 import { mapFunctionDataFromNoir, mapFunctionDataToNoir } from './client.js';
 import {
@@ -17,7 +21,7 @@ import {
   mapPointToNoir,
 } from './common.js';
 
-describe('Noir<>Circuits.js type conversion test suite', () => {
+describe('Noir<>stdlib type conversion test suite', () => {
   describe('Round trip', () => {
     it('should map fields', () => {
       const field = new Fr(27n);
@@ -30,8 +34,8 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
       expect(mapPointFromNoir(mapPointToNoir(point))).toEqual(point);
     });
 
-    it('should map aztec addresses', () => {
-      const aztecAddress = AztecAddress.random();
+    it('should map aztec addresses', async () => {
+      const aztecAddress = await AztecAddress.random();
       expect(mapAztecAddressFromNoir(mapAztecAddressToNoir(aztecAddress))).toEqual(aztecAddress);
     });
 

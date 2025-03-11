@@ -1,4 +1,5 @@
 use crate::{context::PublicContext, event::event_interface::EventInterface};
+use protocol_types::traits::ToField;
 
 fn emit<Event, let N: u32>(context: &mut PublicContext, event: Event)
 where
@@ -16,7 +17,7 @@ where
 
     emitted_log[serialized_event.len()] = selector.to_field();
 
-    context.emit_unencrypted_log(emitted_log);
+    context.emit_public_log(emitted_log);
 }
 
 pub fn encode_event<Event, let N: u32>(

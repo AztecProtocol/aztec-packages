@@ -124,8 +124,8 @@ void AvmGasTraceBuilder::constrain_gas_for_halt(bool exceptional_halt,
                                                 uint32_t l2_gas_allocated_to_nested_call,
                                                 uint32_t da_gas_allocated_to_nested_call)
 {
-    debug("Resetting to parent's L2 gas left (", parent_l2_gas_left, ") before consuming gas allocated to nested call");
-    debug("Resetting to parent's DA gas left (", parent_da_gas_left, ") before consuming gas allocated to nested call");
+    debug("Resetting to parent's L2 gas left (", parent_l2_gas_left, ") before consuming gas used by nested call");
+    debug("Resetting to parent's DA gas left (", parent_da_gas_left, ") before consuming gas used by nested call");
     // how much gas did the nested call consume
     auto l2_gas_consumed = l2_gas_allocated_to_nested_call - remaining_l2_gas;
     auto da_gas_consumed = da_gas_allocated_to_nested_call - remaining_da_gas;

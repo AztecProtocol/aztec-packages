@@ -3,21 +3,21 @@
 use std::collections::BTreeMap;
 
 use acvm::acir::{
+    AcirField, BlackBoxFunc,
     circuit::{
+        AssertionPayload, BrilligOpcodeLocation, ErrorSelector, OpcodeLocation,
         brillig::{BrilligFunctionId, BrilligInputs, BrilligOutputs},
         opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
-        AssertionPayload, BrilligOpcodeLocation, ErrorSelector, OpcodeLocation,
     },
     native_types::{Expression, Witness},
-    AcirField, BlackBoxFunc,
 };
 
 use super::brillig_directive;
 use crate::{
+    ErrorType,
     brillig::brillig_ir::artifact::GeneratedBrillig,
     errors::{InternalError, RuntimeError, SsaReport},
     ssa::ir::call_stack::CallStack,
-    ErrorType,
 };
 
 use iter_extended::vecmap;
@@ -186,16 +186,11 @@ impl<F: AcirField> GeneratedAcir<F> {
         inputs: &[Vec<FunctionInput<F>>],
         constant_inputs: Vec<F>,
         constant_outputs: Vec<F>,
-        output_count: usize,
-    ) -> Result<Vec<Witness>, InternalError> {
+        outputs: Vec<Witness>,
+    ) -> Result<(), InternalError> {
         let input_count = inputs.iter().fold(0usize, |sum, val| sum + val.len());
         intrinsics_check_inputs(func_name, input_count);
-        intrinsics_check_outputs(func_name, output_count);
-
-        let outputs = vecmap(0..output_count, |_| self.next_witness_index());
-
-        // clone is needed since outputs is moved when used in blackbox function.
-        let outputs_clone = outputs.clone();
+        intrinsics_check_outputs(func_name, outputs.len());
 
         let black_box_func_call = match func_name {
             BlackBoxFunc::AES128Encrypt => BlackBoxFuncCall::AES128Encrypt {
@@ -347,7 +342,7 @@ impl<F: AcirField> GeneratedAcir<F> {
 
         self.push_opcode(AcirOpcode::BlackBoxFuncCall(black_box_func_call));
 
-        Ok(outputs_clone)
+        Ok(())
     }
 
     /// Takes an input expression and returns witnesses that are constrained to be limbs
@@ -361,13 +356,18 @@ impl<F: AcirField> GeneratedAcir<F> {
         limb_count: u32,
         bit_size: u32,
     ) -> Result<Vec<Witness>, RuntimeError> {
+        let radix_range = 2..=256;
+        assert!(
+            radix_range.contains(&radix),
+            "ICE: Radix must be in the range 2..=256, but found: {:?}",
+            radix
+        );
         let radix_big = BigUint::from(radix);
         assert_eq!(
             BigUint::from(2u128).pow(bit_size),
             radix_big,
             "ICE: Radix must be a power of 2"
         );
-
         let limb_witnesses = self.brillig_to_radix(input_expr, radix, limb_count);
 
         let mut composed_limbs = Expression::default();
@@ -479,7 +479,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     pub(crate) fn is_equal(&mut self, lhs: &Expression<F>, rhs: &Expression<F>) -> Witness {
         let t = lhs - rhs;
 
-        self.is_zero(&t)
+        self.is_zero(t)
     }
 
     /// Returns a `Witness` that is constrained to be:
@@ -534,36 +534,32 @@ impl<F: AcirField> GeneratedAcir<F> {
     /// By setting `z` to be `0`, we can make `y` equal to `1`.
     /// This is easily observed: `y = 1 - t * 0`
     /// Now since `y` is one, this means that `t` needs to be zero, or else `y * t == 0` will fail.
-    fn is_zero(&mut self, t_expr: &Expression<F>) -> Witness {
-        // We're checking for equality with zero so we can negate the expression without changing the result.
-        // This is useful as it will sometimes allow us to simplify an expression down to a witness.
-        let t_witness = if let Some(witness) = t_expr.to_witness() {
-            witness
+    fn is_zero(&mut self, t_expr: Expression<F>) -> Witness {
+        // We're going to be multiplying this expression by two different witnesses in a second so we want to
+        // ensure that this expression only contains a single witness. We can tolerate coefficients and constant terms however.
+        let linear_t = if t_expr.is_degree_one_univariate() {
+            t_expr
         } else {
-            let negated_expr = t_expr * -F::one();
-            self.get_or_create_witness(&negated_expr)
+            Expression::<F>::from(self.get_or_create_witness(&t_expr))
         };
 
         // Call the inversion directive, since we do not apply a constraint
         // the prover can choose anything here.
-        let z = self.brillig_inverse(t_witness.into());
+        let z = self.brillig_inverse(linear_t.clone());
+        let z_expr = Expression::<F>::from(z);
 
         let y = self.next_witness_index();
+        let y_expr = Expression::<F>::from(y);
 
         // Add constraint y == 1 - tz => y + tz - 1 == 0
-        let y_is_boolean_constraint = Expression {
-            mul_terms: vec![(F::one(), t_witness, z)],
-            linear_combinations: vec![(F::one(), y)],
-            q_c: -F::one(),
-        };
+        let mut y_is_boolean_constraint =
+            (&z_expr * &linear_t).expect("multiplying two linear expressions");
+        y_is_boolean_constraint.push_addition_term(F::one(), y);
+        let y_is_boolean_constraint = y_is_boolean_constraint - F::one();
         self.assert_is_zero(y_is_boolean_constraint);
 
         // Add constraint that y * t == 0;
-        let ty_zero_constraint = Expression {
-            mul_terms: vec![(F::one(), t_witness, y)],
-            linear_combinations: vec![],
-            q_c: F::zero(),
-        };
+        let ty_zero_constraint = (&y_expr * &linear_t).expect("multiplying two linear expressions");
         self.assert_is_zero(ty_zero_constraint);
 
         y
@@ -792,7 +788,10 @@ fn intrinsics_check_inputs(name: BlackBoxFunc, input_count: usize) {
         None => return,
     };
 
-    assert_eq!(expected_num_inputs,input_count,"Tried to call black box function {name} with {input_count} inputs, but this function's definition requires {expected_num_inputs} inputs");
+    assert_eq!(
+        expected_num_inputs, input_count,
+        "Tried to call black box function {name} with {input_count} inputs, but this function's definition requires {expected_num_inputs} inputs"
+    );
 }
 
 /// Checks that the number of outputs being used to call the blackbox function
@@ -822,5 +821,8 @@ fn intrinsics_check_outputs(name: BlackBoxFunc, output_count: usize) {
         None => return,
     };
 
-    assert_eq!(expected_num_outputs,output_count,"Tried to call black box function {name} with {output_count} outputs, but this function's definition requires {expected_num_outputs} outputs");
+    assert_eq!(
+        expected_num_outputs, output_count,
+        "Tried to call black box function {name} with {output_count} outputs, but this function's definition requires {expected_num_outputs} outputs"
+    );
 }

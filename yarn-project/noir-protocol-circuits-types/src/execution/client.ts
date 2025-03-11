@@ -1,16 +1,15 @@
-import {
-  type PrivateKernelCircuitPublicInputs,
-  type PrivateKernelInitCircuitPrivateInputs,
-  type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputsVariants,
-  type PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
-} from '@aztec/circuits.js';
 import { pushTestData } from '@aztec/foundation/testing';
-
-import { type WitnessMap } from '@noir-lang/acvm_js';
-import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
-import { type Abi, type InputMap } from '@noir-lang/types';
+import type { WitnessMap } from '@aztec/noir-acvm_js';
+import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
+import type { Abi, InputMap } from '@aztec/noir-types';
+import type {
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelResetCircuitPrivateInputsVariants,
+  PrivateKernelTailCircuitPrivateInputs,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/stdlib/kernel';
 
 import {
   mapPrivateCallDataToNoir,
@@ -24,14 +23,18 @@ import {
   mapTxRequestToNoir,
 } from '../conversion/client.js';
 import { mapFieldToNoir } from '../conversion/common.js';
-import {
-  type PrivateKernelInitReturnType,
-  type PrivateKernelInnerReturnType,
-  type PrivateKernelResetReturnType,
-  type PrivateKernelTailReturnType,
-  type PrivateKernelTailToPublicReturnType,
+import type {
+  PrivateKernelInitInputType,
+  PrivateKernelInitReturnType,
+  PrivateKernelInnerInputType,
+  PrivateKernelInnerReturnType,
+  PrivateKernelResetReturnType,
+  PrivateKernelTailInputType,
+  PrivateKernelTailReturnType,
+  PrivateKernelTailToPublicInputType,
+  PrivateKernelTailToPublicReturnType,
 } from '../types/index.js';
-import { type DecodedInputs } from '../utils/decoded_inputs.js';
+import type { DecodedInputs } from '../utils/decoded_inputs.js';
 
 /* eslint-disable camelcase */
 
@@ -44,12 +47,13 @@ export function convertPrivateKernelInitInputsToWitnessMapWithAbi(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
   privateKernelInitAbi: Abi,
 ): WitnessMap {
-  const mapped = {
+  const mapped: PrivateKernelInitInputType = {
     tx_request: mapTxRequestToNoir(privateKernelInitCircuitPrivateInputs.txRequest),
     vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
     is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
+    first_nullifier_hint: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.firstNullifierHint),
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
@@ -68,7 +72,7 @@ export function convertPrivateKernelInnerInputsToWitnessMapWithAbi(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
   privateKernelInnerAbi: Abi,
 ): WitnessMap {
-  const mapped = {
+  const mapped: PrivateKernelInnerInputType = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelInnerCircuitPrivateInputs.previousKernel.publicInputs,
@@ -113,7 +117,6 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
     ),
     hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
-  pushTestData('private-kernel-reset', mapped);
   const initialWitnessMap = abiEncode(resetAbi, mapped);
   return initialWitnessMap;
 }
@@ -127,7 +130,7 @@ export function convertPrivateKernelTailInputsToWitnessMapWithAbi(
   privateKernelTailCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
   privateKernelTailAbi: Abi,
 ): WitnessMap {
-  const mapped: InputMap = {
+  const mapped: PrivateKernelTailInputType = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelTailCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailCircuitPrivateInputs.previousKernel.publicInputs,
@@ -147,7 +150,7 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
   privateKernelTailToPublicCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
   privateKernelTailToPublicAbi: Abi,
 ): WitnessMap {
-  const mapped: InputMap = {
+  const mapped: PrivateKernelTailToPublicInputType = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelTailToPublicCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.previousKernel.publicInputs,

@@ -214,11 +214,6 @@ class AvmTraceBuilder {
                        uint32_t rhs_y_offset,
                        uint32_t rhs_is_inf_offset,
                        uint32_t output_offset);
-    AvmError op_variable_msm(uint8_t indirect,
-                             uint32_t points_offset,
-                             uint32_t scalars_offset,
-                             uint32_t output_offset,
-                             uint32_t point_length_offset);
     // Conversions
     AvmError op_to_radix_be(uint16_t indirect,
                             uint32_t src_offset,
@@ -233,16 +228,24 @@ class AvmTraceBuilder {
     void checkpoint_non_revertible_state();
     void rollback_to_non_revertible_checkpoint();
     std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
+    void validate_contract_instance_current_class_id(uint32_t clk, const ContractInstanceHint& instance);
+
     // Used to track the unique class ids, could also be used to cache membership checks of class ids
     std::unordered_set<FF> contract_class_id_cache;
-    std::unordered_set<FF> bytecode_membership_cache;
+    std::unordered_set<FF> contract_instance_membership_cache;
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& unique_note_hashes);
     void insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
                                          const std::vector<FF>& siloed_note_hashes);
+    void update_calldata_size_values(const uint32_t calldata_size)
+    {
+        top_calldata_offset += previous_enqueued_calldata_size;
+        previous_enqueued_calldata_size = calldata_size;
+    }
     void pay_fee();
     void pad_trees();
     void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
     void handle_exceptional_halt();
+    void handle_end_of_teardown(uint32_t pre_teardown_l2_gas_left, uint32_t pre_teardown_da_gas_left);
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -376,6 +379,15 @@ class AvmTraceBuilder {
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
+
+    // Calldata global offset pointing at the top of calldata values which are the concatenated
+    // calldata's of the top-level enqueued function calls.
+    // We might have more than one calldatacopy opcode per top-level function call and therefore we update
+    // top_calldata_offset in execute_enqueued_call(). For this, we need to keep track of the previous
+    // enqueued call calldata size. Note that this mechanism is not required for returndata as there can
+    // be only one RETURN or REVERT opcode.
+    uint32_t top_calldata_offset = 0;
+    uint32_t previous_enqueued_calldata_size = 0;
 
     MemOp constrained_read_from_memory(uint8_t space_id,
                                        uint32_t clk,

@@ -1,16 +1,17 @@
-import { type ClientIvcProof } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { serializeWitness } from '@aztec/noir-noirc_abi';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
+import type { WitnessMap } from '@aztec/noir-types';
+import type { SimulationProvider } from '@aztec/simulator/server';
+import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { encode } from '@msgpack/msgpack';
-import { serializeWitness } from '@noir-lang/noirc_abi';
-import { type WitnessMap } from '@noir-lang/types';
 import { promises as fs } from 'fs';
 import path from 'path';
 
 import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../bb/execute.js';
-import { type BBConfig } from '../config.js';
+import type { BBConfig } from '../config.js';
 import { BBPrivateKernelProver } from './bb_private_kernel_prover.js';
 import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
 
@@ -22,14 +23,21 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private skipCleanup: boolean,
+    protected override simulationProvider: SimulationProvider,
     protected override log = createLogger('bb-prover:native'),
   ) {
-    super(new BundleArtifactProvider(), log);
+    super(new BundleArtifactProvider(), simulationProvider, log);
   }
 
-  public static async new(config: BBConfig, log?: Logger) {
+  public static async new(config: BBConfig, simulationProvider: SimulationProvider, log?: Logger) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
-    return new BBNativePrivateKernelProver(config.bbBinaryPath, config.bbWorkingDirectory, !!config.bbSkipCleanup, log);
+    return new BBNativePrivateKernelProver(
+      config.bbBinaryPath,
+      config.bbWorkingDirectory,
+      !!config.bbSkipCleanup,
+      simulationProvider,
+      log,
+    );
   }
 
   private async _createClientIvcProof(
@@ -105,6 +113,7 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
           throw err;
         }),
       this.skipCleanup,
+      this.log,
     );
   }
 }

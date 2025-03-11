@@ -41,14 +41,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
         &mut env.public(),
     );
 
-    // We need to manually add the note because #8771 has not yet been implemented
-    utils::add_token_note(
-        env,
-        token_contract_address,
-        recipient,
-        amount,
-        note_randomness,
-    );
+    env.advance_block_by(1);
 
     // Recipient's private balance should be equal to the amount
     utils::check_private_balance(token_contract_address, recipient, amount);
@@ -69,7 +62,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     );
 }
 
-#[test(should_fail_with = "Assertion failed: attempt to subtract with underflow 'hi == high'")]
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow 'self - other'")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, not_owner, amount) =

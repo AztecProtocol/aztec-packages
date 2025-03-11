@@ -1,23 +1,24 @@
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness, type CompleteAddress, type GrumpkinScalar } from '@aztec/circuit-types';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type Fr } from '@aztec/foundation/fields';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { Schnorr } from '@aztec/foundation/crypto';
+import { type Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
-import { SchnorrSingleKeyAccountContractArtifact } from './artifact.js';
 
 /**
  * Account contract that authenticates transactions using Schnorr signatures verified against
  * the note encryption key, relying on a single private key for both encryption and authentication.
+ * This abstract version does not provide a way to retrieve the artifact, as it
+ * can be implemented with or without lazy loading.
  */
-export class SingleKeyAccountContract extends DefaultAccountContract {
+export abstract class SingleKeyBaseAccountContract extends DefaultAccountContract {
   constructor(private encryptionPrivateKey: GrumpkinScalar) {
-    super(SchnorrSingleKeyAccountContractArtifact as ContractArtifact);
+    super();
   }
 
-  getDeploymentArgs(): undefined {
-    return undefined;
+  getDeploymentArgs() {
+    return Promise.resolve(undefined);
   }
 
   getAuthWitnessProvider(account: CompleteAddress): AuthWitnessProvider {
@@ -33,9 +34,9 @@ export class SingleKeyAccountContract extends DefaultAccountContract {
 class SingleKeyAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private privateKey: GrumpkinScalar, private account: CompleteAddress) {}
 
-  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+  async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), this.privateKey);
+    const signature = await schnorr.constructSignature(messageHash.toBuffer(), this.privateKey);
     const witness = [...this.account.publicKeys.toFields(), ...signature.toBuffer(), this.account.partialAddress];
     return Promise.resolve(new AuthWitness(messageHash, witness));
   }

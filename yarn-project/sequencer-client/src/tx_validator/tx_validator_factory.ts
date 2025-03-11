@@ -1,12 +1,4 @@
-import {
-  type AllowedElement,
-  type ClientProtocolCircuitVerifier,
-  type MerkleTreeReadOperations,
-  type ProcessedTx,
-  type Tx,
-  type TxValidator,
-} from '@aztec/circuit-types';
-import { type AztecAddress, type ContractDataSource, Fr, type GasFees, type GlobalVariables } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import {
   AggregateTxValidator,
   BlockHeaderTxValidator,
@@ -16,7 +8,16 @@ import {
   TxProofValidator,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { readPublicState } from '@aztec/simulator';
+import { readPublicState } from '@aztec/simulator/server';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { GasFees } from '@aztec/stdlib/gas';
+import type {
+  AllowedElement,
+  ClientProtocolCircuitVerifier,
+  MerkleTreeReadOperations,
+} from '@aztec/stdlib/interfaces/server';
+import { GlobalVariables, type ProcessedTx, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 
 import { ArchiveCache } from './archive_cache.js';
 import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
@@ -27,23 +28,31 @@ export function createValidatorForAcceptingTxs(
   db: MerkleTreeReadOperations,
   contractDataSource: ContractDataSource,
   verifier: ClientProtocolCircuitVerifier | undefined,
-  data: {
+  {
+    blockNumber,
+    l1ChainId,
+    setupAllowList,
+    gasFees,
+    skipFeeEnforcement,
+  }: {
     blockNumber: number;
     l1ChainId: number;
-    enforceFees: boolean;
     setupAllowList: AllowedElement[];
     gasFees: GasFees;
+    skipFeeEnforcement?: boolean;
   },
 ): TxValidator<Tx> {
-  const { blockNumber, l1ChainId, enforceFees, setupAllowList, gasFees } = data;
   const validators: TxValidator<Tx>[] = [
     new DataTxValidator(),
     new MetadataTxValidator(new Fr(l1ChainId), new Fr(blockNumber)),
     new DoubleSpendTxValidator(new NullifierCache(db)),
     new PhasesTxValidator(contractDataSource, setupAllowList),
-    new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, enforceFees, gasFees),
     new BlockHeaderTxValidator(new ArchiveCache(db)),
   ];
+
+  if (!skipFeeEnforcement) {
+    validators.push(new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, gasFees));
+  }
 
   if (verifier) {
     validators.push(new TxProofValidator(verifier));
@@ -56,7 +65,6 @@ export function createValidatorsForBlockBuilding(
   db: MerkleTreeReadOperations,
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
-  enforceFees: boolean,
   setupAllowList: AllowedElement[],
 ): {
   preprocessValidator: TxValidator<Tx>;
@@ -73,7 +81,6 @@ export function createValidatorsForBlockBuilding(
       archiveCache,
       publicStateSource,
       contractDataSource,
-      enforceFees,
       globalVariables,
       setupAllowList,
     ),
@@ -95,7 +102,6 @@ function preprocessValidator(
   archiveCache: ArchiveCache,
   publicStateSource: PublicStateSource,
   contractDataSource: ContractDataSource,
-  enforceFees: boolean,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
 ): TxValidator<Tx> {
@@ -104,7 +110,7 @@ function preprocessValidator(
     new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
     new DoubleSpendTxValidator(nullifierCache),
     new PhasesTxValidator(contractDataSource, setupAllowList),
-    new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, enforceFees, globalVariables.gasFees),
+    new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );
 }

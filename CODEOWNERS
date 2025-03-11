@@ -1,4 +1,13 @@
+/.devcontainer/ @charlielye
+/.github/ @charlielye
+/aztec-up/ @charlielye
+/release-image/ @charlielye
 /build-images/ @charlielye
+/ci3/ @charlielye
+**/bootstrap.sh @charlielye
+**/run_test.sh @charlielye
+/release-please-config @charlielye
+/.test_patterns.yml @charlielye
 
 # Notify the Noir team of any changes to ACIR serialization
 /noir/noir-repo/acvm-repo/acir/codegen/* @TomAFrench @vezenovm @guipublic
@@ -30,3 +39,5 @@
 /avm-transpiler/src @fcarreiro @dbanks12
 #####################################################
 
+# Notify fairies of changes to playground bundler config
+/playground/vite.config.ts @Thunkar

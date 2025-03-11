@@ -13,17 +13,7 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
         7, // grand product construction sub-relation
         3  // left-shiftable polynomial sub-relation
     };
-    /**
-     * @brief The degrees of subrelations considered as polynomials only in witness polynomials,
-     * i.e. all selectors and public polynomials are treated as constants.
-     *
-     */
-    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
-        6, // grand product construction sub-relation
-        1  // left-shiftable polynomial sub-relation
-    };
-    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
-    static constexpr size_t ZK_RELATION_LENGTH = 13;
+
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
@@ -32,16 +22,16 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
     {
         using View = typename Accumulator::View;
 
-        auto concatenated_range_constraints_0 = View(in.concatenated_range_constraints_0);
-        auto concatenated_range_constraints_1 = View(in.concatenated_range_constraints_1);
-        auto concatenated_range_constraints_2 = View(in.concatenated_range_constraints_2);
-        auto concatenated_range_constraints_3 = View(in.concatenated_range_constraints_3);
+        auto interleaved_range_constraints_0 = View(in.interleaved_range_constraints_0);
+        auto interleaved_range_constraints_1 = View(in.interleaved_range_constraints_1);
+        auto interleaved_range_constraints_2 = View(in.interleaved_range_constraints_2);
+        auto interleaved_range_constraints_3 = View(in.interleaved_range_constraints_3);
 
         auto ordered_extra_range_constraints_numerator = View(in.ordered_extra_range_constraints_numerator);
 
         const auto& gamma = params.gamma;
-        return (concatenated_range_constraints_0 + gamma) * (concatenated_range_constraints_1 + gamma) *
-               (concatenated_range_constraints_2 + gamma) * (concatenated_range_constraints_3 + gamma) *
+        return (interleaved_range_constraints_0 + gamma) * (interleaved_range_constraints_1 + gamma) *
+               (interleaved_range_constraints_2 + gamma) * (interleaved_range_constraints_3 + gamma) *
                (ordered_extra_range_constraints_numerator + gamma);
     }
 
@@ -74,7 +64,7 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
      *         - ( z_perm_shift(X) + lagrange_last(X))*Q(X),
      * where P(X) = Prod_{i=0:4} numerator_polynomial_i(X) + γ
      *       Q(X) = Prod_{i=0:4} ordered_range_constraint_i(X) + γ
-     * the first 4 numerator polynomials are concatenated range constraint polynomials and the last one is the constant
+     * the first 4 numerator polynomials are interleaved range constraint polynomials and the last one is the constant
      * extra numerator
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`

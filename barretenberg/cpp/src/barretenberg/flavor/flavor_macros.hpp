@@ -34,9 +34,9 @@ template <typename T, typename... BaseClass> auto _concatenate_base_class_get_al
 {
     return concatenate(static_cast<const BaseClass&>(arg).get_all()...);
 }
-template <typename T, typename... BaseClass> auto _concatenate_base_class_get_labels(const T& arg)
+template <typename... BaseClass> auto _static_concatenate_base_class_get_labels()
 {
-    return concatenate(static_cast<const BaseClass&>(arg).get_labels()...);
+    return concatenate(BaseClass::get_labels()...);
 }
 
 } // namespace bb::detail
@@ -90,7 +90,8 @@ template <typename T, typename... BaseClass> auto _concatenate_base_class_get_la
     {                                                                                                                  \
         return bb::detail::_sum_base_class_size<decltype(*this), __VA_ARGS__>(*this);                                  \
     }                                                                                                                  \
-    std::vector<std::string> get_labels() const                                                                        \
+    static const std::vector<std::string>& get_labels()                                                                \
     {                                                                                                                  \
-        return bb::detail::_concatenate_base_class_get_labels<decltype(*this), __VA_ARGS__>(*this);                    \
+        static const auto labels = bb::detail::_static_concatenate_base_class_get_labels<__VA_ARGS__>();               \
+        return labels;                                                                                                 \
     }

@@ -71,7 +71,8 @@ describe('e2e_token_contract transfer public', () => {
       .withWallet(wallets[1])
       .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
-    await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+    const validateActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true);
+    await validateActionInteraction.send().wait();
     // docs:end:authwit_public_transfer_example
 
     // Perform the transfer
@@ -138,7 +139,11 @@ describe('e2e_token_contract transfer public', () => {
       );
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: accounts[1].address, action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
       expect(await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action })).toEqual(
         {
@@ -166,7 +171,11 @@ describe('e2e_token_contract transfer public', () => {
         .withWallet(wallets[1])
         .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
-      await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: accounts[0].address, action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
       // Perform the transfer
       await expect(action.simulate()).rejects.toThrow(/unauthorized/);
@@ -186,7 +195,11 @@ describe('e2e_token_contract transfer public', () => {
       const action = asset
         .withWallet(wallets[1])
         .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
-      await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: accounts[0].address, action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
       // Perform the transfer
       await expect(action.simulate()).rejects.toThrow(/unauthorized/);
@@ -205,9 +218,14 @@ describe('e2e_token_contract transfer public', () => {
         .withWallet(wallets[1])
         .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
-      await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: accounts[1].address, action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
-      await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, false).send().wait();
+      const cancelActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, false);
+      await cancelActionInteraction.send().wait();
 
       await expect(
         asset
@@ -227,9 +245,14 @@ describe('e2e_token_contract transfer public', () => {
         .withWallet(wallets[1])
         .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
 
-      await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: accounts[1].address, action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
-      await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, false).send().wait();
+      const cancelActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, false);
+      await cancelActionInteraction.send().wait();
 
       await expect(action.simulate()).rejects.toThrow(/unauthorized/);
     });

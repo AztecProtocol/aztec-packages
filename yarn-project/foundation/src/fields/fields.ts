@@ -99,11 +99,24 @@ abstract class BaseField {
     return Boolean(this.toBigInt());
   }
 
+  /**
+   * Converts this field to a number.
+   * Throws if the underlying value is greater than MAX_SAFE_INTEGER.
+   */
   toNumber(): number {
     const value = this.toBigInt();
     if (value > Number.MAX_SAFE_INTEGER) {
       throw new Error(`Value ${value.toString(16)} greater than than max safe integer`);
     }
+    return Number(value);
+  }
+
+  /**
+   * Converts this field to a number.
+   * May cause loss of precision if the underlying value is greater than MAX_SAFE_INTEGER.
+   */
+  toNumberUnsafe(): number {
+    const value = this.toBigInt();
     return Number(value);
   }
 
@@ -153,7 +166,7 @@ export function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f
 }
 
 /**
- * Constructs a field from a Buffer, but reduces it first.
+ * Constructs a field from a Buffer, but reduces it first, modulo the field modulus.
  * This requires a conversion to a bigint first so the initial underlying representation will be a bigint.
  */
 function fromBufferReduce<T extends BaseField>(buffer: Buffer, f: DerivedField<T>) {
@@ -248,7 +261,7 @@ export class Fr extends BaseField {
       return fromHexString(buf, Fr);
     }
 
-    throw new Error('Tried to create a Fr from an invalid string');
+    throw new Error(`Tried to create a Fr from an invalid string: ${buf}`);
   }
 
   /**
@@ -305,19 +318,16 @@ export class Fr extends BaseField {
    * Computes a square root of the field element.
    * @returns A square root of the field element (null if it does not exist).
    */
-  sqrt(): Fr | null {
-    const wasm = BarretenbergSync.getSingleton().getWasm();
-    wasm.writeMemory(0, this.toBuffer());
-    wasm.call('bn254_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
-    const isSqrtBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));
-    const isSqrt = isSqrtBuf[0] === 1;
+  async sqrt(): Promise<Fr | null> {
+    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
+    const wasm = api.getWasm();
+    const [buf] = wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES + 1]);
+    const isSqrt = buf[0] === 1;
     if (!isSqrt) {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
     }
-
-    const rootBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES + 1, Fr.SIZE_IN_BYTES * 2 + 1));
-    return Fr.fromBuffer(rootBuf);
+    return new Fr(Buffer.from(buf.slice(1)));
   }
 
   toJSON() {
@@ -403,7 +413,7 @@ export class Fq extends BaseField {
       return fromHexString(buf, Fq);
     }
 
-    throw new Error('Tried to create a Fq from an invalid string');
+    throw new Error(`Tried to create a Fq from an invalid string: ${buf}`);
   }
 
   /**

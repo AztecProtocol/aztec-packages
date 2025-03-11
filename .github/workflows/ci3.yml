@@ -1,45 +1,229 @@
+# CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
+# Only for internal devs. For external devs, see ci3-external.yml.
 name: CI3
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches:
-  #     - master
-  # pull_request:
-  #   types:
-  #     - opened
-  #     - synchronize
-  #     - reopened
-  #     - labeled
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group: {}
 
 concurrency:
-  # force parallelism in master
-  group: ci3-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  # If we are pushing a tag, we are doing a release - we should only ever have 1 of those at a time, globally!
+  # On PR's the group id is the ref_name so only 1 can run at a time per PR.
+  group: |
+    ci3-${{ startsWith(github.ref, 'refs/tags/v') && 'release'
+                                                  || (github.event_name == 'pull_request' && github.ref_name
+                                                                                          || github.run_id) }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
-    if: >
-      (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||
-      (github.event.action == 'labeled' && github.event.label.name == 'trigger-workflow')
+    # exclusive with ci3-external.yml: if it is a pull request target only run if it is NOT a fork.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only run arm64 build with arm64-ci label or on master.
+        # The way to do conditions here is to parse full strings as JSON.
+        settings: >-
+          ${{ fromJson(
+            (contains(github.event.pull_request.labels.*.name, 'arm64-ci') || github.event_name == 'push') &&
+            '[{"arch":"amd64"},{"arch":"arm64"}]' ||
+            '[{"arch":"amd64"}]') }}
     steps:
+      #############
+      # Prepare Env
+      #############
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          # Ensure it is not an artificial merge commit
+          # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Fail If Draft
+        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
+        run: echo "CI is not run on drafts." && exit 1
+
+      - name: CI Full Override
+        # TODO consolidate legacy labels to just ci-full.
+        if: |
+          contains(github.event.pull_request.labels.*.name, 'e2e-all') ||
+          contains(github.event.pull_request.labels.*.name, 'network-all') ||
+          contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
+
       - name: Setup
         run: |
-          # Ensure we can SSH into the spot instances we request
+          # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
-          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+
+      #############
+      # Run
+      #############
       - name: Run
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_LOG: 1
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          ARCH: ${{ matrix.settings.arch }}
+          LOG_ID: ${{ github.run_id }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI: 1
         run: |
-          BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }} ./ci.sh ec2
+          ./ci.sh ec2
+
+      - name: Download benchmarks
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        run: |
+          ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
+          ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
+          # ./ci3/cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+
+      - name: Store barretenberg benchmark result
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: C++ Benchmark
+          tool: "googlecpp"
+          output-file-path: ./bench-out/bb-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "105%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@ludamad @codygunton"
+          max-items-in-chart: 50
+
+      - name: Store yarn project benchmark result
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "End-to-end Benchmark"
+          benchmark-data-dir-path: "dev/e2e-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/yp-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "150%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@philwindle @spalladino"
+          max-items-in-chart: 50
+
+      # - name: Store p2p benchmark result
+      #   if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+      #   continue-on-error: true
+      #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+      #   with:
+      #     name: "P2P Testbench"
+      #     tool: "customSmallerIsBetter"
+      #     benchmark-data-dir-path: "dev/p2p-bench"
+      #     output-file-path: ./bench-out/p2p-bench.json
+      #     github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      #     auto-push: true
+      #     alert-threshold: "105%"
+      #     comment-on-alert: true
+      #     fail-on-alert: false
+      #     alert-comment-cc-users: "@Maddiaa0"
+      #     max-items-in-chart: 50
+
+  ci-grind:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'merge_group'
+    steps:
+      #############
+      # Prepare Env
+      #############
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+
+      #############
+      # Run
+      #############
+      - name: Run
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ARCH: amd64
+          LOG_ID: ${{ github.run_id }}
+          DRY_RUN: 1
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI: 1
+          CI_FULL: 1
+        run: |
+          ./ci.sh ec2-grind 5
+
+  # Necessary as github actions won't allow checks on matrix builds.
+  merge-check:
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - ci
+      - ci-grind
+    steps:
+      - name: Failing deploy
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
+
+  notify:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && failure()
+    needs:
+      - ci
+      - ci-grind
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Get Context
+        id: get_context
+        run: |
+          authors=$(git log -1 --pretty=format:'%an <%ae>')
+          echo "authors=${authors}" >> $GITHUB_OUTPUT
+          # Note, we have to make sure double quotes don't break our JSON.
+          title=$(git log -1 --pretty=format:'%s' | sed s/\"/\'/g)
+          echo "commit_title=${title}" >> $GITHUB_OUTPUT
+          failed_jobs=""
+          [ "${{ needs.ci-grind.result }}" = "failure" ] && failed_jobs+="ci-grind"
+          [ "${{ needs.ci.result }}" = "failure" ] && failed_jobs+="ci"
+          echo "failed_jobs=${failed_jobs}" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
+      - name: Send Notification
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "Failure on ${{ github.ref_name }}\nCommit: ${{ steps.get_context.outputs.commit_title }}",
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "authors": "${{ steps.get_context.outputs.authors }}",
+              "failed_jobs": "${{ steps.get_context.outputs.failed_jobs }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL2 }}

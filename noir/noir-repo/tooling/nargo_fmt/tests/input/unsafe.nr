@@ -1,8 +1,15 @@
 fn main(x: pub u8, y: u8) {
-    unsafe {//@safety: testing
+    // Safety: testing
+    unsafe {
     }
 
-    unsafe {//@safety: testing
+    // Safety: testing
+    unsafe {
+        assert_eq(x, y);
+    }
+
+    /// Safety: testing
+    unsafe {
         assert_eq(x, y);
     }
 }

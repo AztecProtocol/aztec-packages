@@ -1,6 +1,9 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
+  AztecAddress,
   BatchCall,
+  EthAddress,
+  Fr,
   L1FeeJuicePortalManager,
   type PXE,
   type WaitOpts,
@@ -8,7 +11,7 @@ import {
   createCompatibleClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type AztecAddress, type EthAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fq, Fr } from '@aztec/circuits.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
   type ContractArtifacts,
   type L1Clients,
@@ -16,10 +19,10 @@ import {
   createL1Clients,
   deployL1Contract,
 } from '@aztec/ethereum';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { getContract } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 type ContractDeploymentInfo = {
   address: AztecAddress;
@@ -35,24 +38,27 @@ const waitOpts: WaitOpts = {
 
 export async function bootstrapNetwork(
   pxeUrl: string,
-  l1Url: string,
+  l1Urls: string[],
   l1ChainId: string,
   l1PrivateKey: `0x${string}` | undefined,
   l1Mnemonic: string,
+  addressIndex: number,
   json: boolean,
   log: LogFn,
   debugLog: Logger,
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
 
-  // setup a one-off account contract
-  const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
-  const wallet = await account.deploy().getWallet();
+  const [wallet] = await getDeployedTestAccountsWallets(pxe);
 
   const l1Clients = createL1Clients(
-    l1Url,
-    l1PrivateKey ? privateKeyToAccount(l1PrivateKey) : l1Mnemonic,
-    createEthereumChain(l1Url, +l1ChainId).chainInfo,
+    l1Urls,
+    l1PrivateKey
+      ? privateKeyToAccount(l1PrivateKey)
+      : // We need to use a different account that the main "deployer" account because the "deployer" account creates transactions that send blobs.
+        // Note that this account needs to be funded on L1 !
+        mnemonicToAccount(l1Mnemonic, { addressIndex }),
+    createEthereumChain(l1Urls, +l1ChainId).chainInfo,
   );
 
   const { erc20Address, portalAddress } = await deployERC20(l1Clients);
@@ -65,7 +71,7 @@ export async function bootstrapNetwork(
   const fpc = await deployFPC(wallet, token.address, fpcAdmin);
 
   const counter = await deployCounter(wallet);
-  // NOTE: Disabling for now in order to get devnet running
+
   await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
 
   if (json) {
@@ -173,8 +179,8 @@ async function deployToken(
     .deployed(waitOpts);
 
   await new BatchCall(wallet, [
-    devCoin.methods.set_minter(bridge.address, true).request(),
-    devCoin.methods.set_admin(bridge.address).request(),
+    devCoin.methods.set_minter(bridge.address, true),
+    devCoin.methods.set_admin(bridge.address),
   ])
     .send()
     .wait(waitOpts);
@@ -294,13 +300,19 @@ async function fundFPC(
 
   const counter = await CounterContract.at(counterAddress, wallet);
 
+  debugLog.info('Incrementing Counter');
+
   // TODO (alexg) remove this once sequencer builds blocks continuously
   // advance the chain
   await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait(waitOpts);
   await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait(waitOpts);
 
+  debugLog.info('Claiming FPC');
+
   await feeJuiceContract.methods
     .claim(fpcAddress, claimAmount, claimSecret, messageLeafIndex)
     .send()
     .wait({ ...waitOpts, proven: true });
+
+  debugLog.info('Finished claiming FPC');
 }

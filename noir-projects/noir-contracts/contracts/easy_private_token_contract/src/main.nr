@@ -2,7 +2,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract EasyPrivateToken {
+pub contract EasyPrivateToken {
     use dep::aztec::macros::{functions::{initializer, private}, storage::storage};
     use dep::aztec::prelude::{AztecAddress, Map};
     use dep::easy_private_state::EasyPrivateUint;

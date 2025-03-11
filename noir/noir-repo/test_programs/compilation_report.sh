@@ -6,9 +6,9 @@ current_dir=$(pwd)
 base_path="$current_dir/execution_success"
 
 # Tests to be profiled for compilation report
-tests_to_profile=("sha256_regression" "regression_4709" "ram_blowup_regression")
+tests_to_profile=("regression_4709" "ram_blowup_regression" "global_var_regression_entry_points")
 
-echo "{\"compilation_reports\": [ " > $current_dir/compilation_report.json
+echo "[ " > $current_dir/compilation_report.json
 
 # If there is an argument that means we want to generate a report for only the current directory
 if [ "$1" == "1" ]; then
@@ -18,6 +18,7 @@ fi
 
 ITER="1"
 NUM_ARTIFACTS=${#tests_to_profile[@]}
+FLAGS=${FLAGS:- ""}
 
 for dir in ${tests_to_profile[@]}; do 
     if [[ " ${excluded_dirs[@]} " =~ " ${dir} " ]]; then
@@ -37,17 +38,11 @@ for dir in ${tests_to_profile[@]}; do
       PACKAGE_NAME=$(basename $current_dir)
     fi
 
-    NUM_RUNS=1
+    NUM_RUNS=$2
     TOTAL_TIME=0
 
-    # Passing a second argument will take an average of five runs
-    # rather than 
-    if [ "$2" == "1" ]; then
-      NUM_RUNS=5
-    fi
-
     for ((i = 1; i <= NUM_RUNS; i++)); do
-      NOIR_LOG=trace NARGO_LOG_DIR=./tmp nargo compile --force --silence-warnings
+      NOIR_LOG=trace NARGO_LOG_DIR=./tmp nargo compile --force --silence-warnings $FLAGS
     done
 
     TIMES=($(jq -r '. | select(.target == "nargo::cli" and .fields.message == "close") | .fields."time.busy"' ./tmp/*))
@@ -67,7 +62,7 @@ for dir in ${tests_to_profile[@]}; do
                 printf "%.3f\n", 0
         }' <<<"${TIMES[@]}")
 
-    jq -rc "{artifact_name: \"$PACKAGE_NAME\", time: \""$AVG_TIME"s\"}" --null-input >> $current_dir/compilation_report.json
+    jq -rc "{name: \"$PACKAGE_NAME\", value: \""$AVG_TIME"\" | tonumber, unit: \"s\"}" --null-input >> $current_dir/compilation_report.json
 
     if (($ITER != $NUM_ARTIFACTS)); then
         echo "," >> $current_dir/compilation_report.json
@@ -78,4 +73,4 @@ for dir in ${tests_to_profile[@]}; do
     ITER=$(( $ITER + 1 ))
 done
 
-echo "]}" >> $current_dir/compilation_report.json
+echo "]" >> $current_dir/compilation_report.json

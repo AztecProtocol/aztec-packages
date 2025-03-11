@@ -1,43 +1,46 @@
 import {
-  AppendOnlyTreeSnapshot,
-  AztecAddress,
-  BlockHeader,
-  ContentCommitment,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  Gas,
-  GasFees,
-  GasSettings,
-  GlobalVariables,
-  GrumpkinScalar,
-  L2ToL1Message,
-  LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MaxBlockNumber,
-  type MembershipWitness,
-  NUM_BYTES_PER_SHA256,
-  type NullifierLeafPreimage,
+  type PRIVATE_LOG_SIZE_IN_FIELDS,
+} from '@aztec/constants';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import {
+  LogHash,
   OptionalNumber,
-  PartialStateReference,
-  Point,
-  PrivateLog,
   PrivateToRollupAccumulatedData,
   PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
-  type PublicDataWrite,
-  ScopedL2ToL1Message,
   ScopedLogHash,
+} from '@aztec/stdlib/kernel';
+import { PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import {
+  AppendOnlyTreeSnapshot,
+  type NullifierLeafPreimage,
+  type ProtocolContractLeafPreimage,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  ContentCommitment,
+  GlobalVariables,
+  MaxBlockNumber,
+  NUM_BYTES_PER_SHA256,
+  PartialStateReference,
   StateReference,
   TxContext,
-  type VerificationKeyAsFields,
-} from '@aztec/circuits.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+} from '@aztec/stdlib/tx';
+import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
@@ -53,6 +56,7 @@ import type {
   EmbeddedCurveScalar as GrumpkinScalarNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
+  Log as LogNoir,
   MaxBlockNumber as MaxBlockNumberNoir,
   MembershipWitness as MembershipWitnessNoir,
   AztecAddress as NoirAztecAddress,
@@ -62,11 +66,12 @@ import type {
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
-  Log as PrivateLogNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
+  ProtocolContractLeafPreimage as ProtocolContractLeafPreimageNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
+  PublicLog as PublicLogNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   ScopedLogHash as ScopedLogHashNoir,
   StateReference as StateReferenceNoir,
@@ -243,14 +248,28 @@ export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
   return new GasFees(mapFieldFromNoir(gasFees.fee_per_da_gas), mapFieldFromNoir(gasFees.fee_per_l2_gas));
 }
 
-export function mapPrivateLogToNoir(log: PrivateLog): PrivateLogNoir {
+export function mapPrivateLogToNoir(log: PrivateLog): LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS> {
   return {
     fields: mapTuple(log.fields, mapFieldToNoir),
   };
 }
 
-export function mapPrivateLogFromNoir(log: PrivateLogNoir) {
+export function mapPrivateLogFromNoir(log: LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS>) {
   return new PrivateLog(mapTupleFromNoir(log.fields, log.fields.length, mapFieldFromNoir));
+}
+
+export function mapPublicLogToNoir(log: PublicLog): PublicLogNoir {
+  return {
+    contract_address: mapAztecAddressToNoir(log.contractAddress),
+    log: { fields: mapTuple(log.log, mapFieldToNoir) },
+  };
+}
+
+export function mapPublicLogFromNoir(log: PublicLogNoir) {
+  return new PublicLog(
+    mapAztecAddressFromNoir(log.contract_address),
+    mapTupleFromNoir(log.log.fields, log.log.fields.length, mapFieldFromNoir),
+  );
 }
 
 /**
@@ -273,7 +292,7 @@ export function mapTupleFromNoir<T, N extends number, M>(
 
 /**
  * Maps a AOT snapshot to noir.
- * @param snapshot - The circuits.js AOT snapshot.
+ * @param snapshot - The stdlib AOT snapshot.
  * @returns The noir AOT snapshot.
  */
 export function mapAppendOnlyTreeSnapshotFromNoir(snapshot: AppendOnlyTreeSnapshotNoir): AppendOnlyTreeSnapshot {
@@ -284,9 +303,9 @@ export function mapAppendOnlyTreeSnapshotFromNoir(snapshot: AppendOnlyTreeSnapsh
 }
 
 /**
- * Maps a AOT snapshot from noir to the circuits.js type.
+ * Maps a AOT snapshot from noir to the stdlib type.
  * @param snapshot - The noir AOT snapshot.
- * @returns The circuits.js AOT snapshot.
+ * @returns The stdlib AOT snapshot.
  */
 export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot): AppendOnlyTreeSnapshotNoir {
   return {
@@ -544,17 +563,17 @@ export function mapStateReferenceFromNoir(stateReference: StateReferenceNoir): S
 }
 
 /**
- * Maps a nullifier leaf preimage to noir
- * @param nullifierLeafPreimage - The nullifier leaf preimage.
- * @returns The noir nullifier leaf preimage.
+ * Maps a partial state reference to a noir partial state reference.
+ * @param partialStateReference - The partial state reference.
+ * @returns The noir partial state reference.
  */
-export function mapNullifierLeafPreimageToNoir(
-  nullifierLeafPreimage: NullifierLeafPreimage,
-): NullifierLeafPreimageNoir {
+export function mapPartialStateReferenceToNoir(
+  partialStateReference: PartialStateReference,
+): PartialStateReferenceNoir {
   return {
-    nullifier: mapFieldToNoir(nullifierLeafPreimage.nullifier),
-    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
-    next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
+    note_hash_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.noteHashTree),
+    nullifier_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.nullifierTree),
+    public_data_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.publicDataTree),
   };
 }
 
@@ -573,11 +592,18 @@ export function mapPartialStateReferenceFromNoir(
   );
 }
 
-export function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness<N>): MembershipWitnessNoir<N> {
-  const siblingPath = mapTuple(witness.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>;
+/**
+ * Maps a nullifier leaf preimage to noir
+ * @param nullifierLeafPreimage - The nullifier leaf preimage.
+ * @returns The noir nullifier leaf preimage.
+ */
+export function mapNullifierLeafPreimageToNoir(
+  nullifierLeafPreimage: NullifierLeafPreimage,
+): NullifierLeafPreimageNoir {
   return {
-    leaf_index: witness.leafIndex.toString(),
-    sibling_path: siblingPath,
+    nullifier: mapFieldToNoir(nullifierLeafPreimage.nullifier),
+    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
+    next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
   };
 }
 
@@ -594,17 +620,25 @@ export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPrei
 }
 
 /**
- * Maps a partial state reference to a noir partial state reference.
- * @param partialStateReference - The partial state reference.
- * @returns The noir partial state reference.
+ * Maps a protocol contract leaf preimage to noir
+ * @param protocolContractPreimage - The protocol contract leaf preimage.
+ * @returns The noir protocol contract leaf preimage.
+ * Note: the circuit does not use next_index, so it does not exist in the noir struct.
  */
-export function mapPartialStateReferenceToNoir(
-  partialStateReference: PartialStateReference,
-): PartialStateReferenceNoir {
+export function mapProtocolContractLeafPreimageToNoir(
+  protocolContractPreimage: ProtocolContractLeafPreimage,
+): ProtocolContractLeafPreimageNoir {
   return {
-    note_hash_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.noteHashTree),
-    nullifier_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.nullifierTree),
-    public_data_tree: mapAppendOnlyTreeSnapshotToNoir(partialStateReference.publicDataTree),
+    address: mapFieldToNoir(protocolContractPreimage.address),
+    next_address: mapFieldToNoir(protocolContractPreimage.nextAddress),
+  };
+}
+
+export function mapMembershipWitnessToNoir<N extends number>(witness: MembershipWitness<N>): MembershipWitnessNoir<N> {
+  const siblingPath = mapTuple(witness.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>;
+  return {
+    leaf_index: witness.leafIndex.toString(),
+    sibling_path: siblingPath,
   };
 }
 
@@ -613,11 +647,11 @@ export function mapPartialStateReferenceToNoir(
  * @param logHash - The LogHash.
  * @returns The noir log hash.
  */
-function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
+export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
   return {
     value: mapFieldToNoir(logHash.value),
     counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
+    length: mapNumberToNoir(logHash.length),
   };
 }
 
@@ -630,7 +664,7 @@ function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
   return new LogHash(
     mapFieldFromNoir(logHash.value),
     mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
+    mapNumberFromNoir(logHash.length),
   );
 }
 
@@ -651,7 +685,7 @@ export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogH
  * @param logHash - The noir LogHash.
  * @returns The TS log hash.
  */
-function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
+export function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
   return new ScopedLogHash(
     mapLogHashFromNoir(scopedLogHash.log_hash),
     mapAztecAddressFromNoir(scopedLogHash.contract_address),
@@ -666,9 +700,29 @@ export function mapPublicDataWriteToNoir(write: PublicDataWrite): PublicDataWrit
 }
 
 /**
- * Maps combined accumulated data from noir to the parsed type.
- * @param PrivateToRollupAccumulatedData - The noir combined accumulated data.
- * @returns The parsed combined accumulated data.
+ * Maps private to rollup accumulated data to noir to the parsed type.
+ * @param privateToRollupAccumulatedData - The ts private to rollup accumulated data.
+ * @returns The noir private to rollup accumulated data.
+ */
+export function mapPrivateToRollupAccumulatedDataToNoir(
+  privateToRollupAccumulatedData: PrivateToRollupAccumulatedData,
+): PrivateToRollupAccumulatedDataNoir {
+  return {
+    note_hashes: mapTuple(privateToRollupAccumulatedData.noteHashes, mapFieldToNoir),
+    nullifiers: mapTuple(privateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
+    l2_to_l1_msgs: mapTuple(privateToRollupAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
+    private_logs: mapTuple(privateToRollupAccumulatedData.privateLogs, mapPrivateLogToNoir),
+    contract_class_logs_hashes: mapTuple(
+      privateToRollupAccumulatedData.contractClassLogsHashes,
+      mapScopedLogHashToNoir,
+    ),
+  };
+}
+
+/**
+ * Maps private to rollup accumulated data from noir to the parsed type.
+ * @param PrivateToRollupAccumulatedData - The noir private to rollup accumulated data.
+ * @returns The parsed private to rollup accumulated data.
  */
 export function mapPrivateToRollupAccumulatedDataFromNoir(
   privateToRollupAccumulatedData: PrivateToRollupAccumulatedDataNoir,
@@ -688,7 +742,6 @@ export function mapPrivateToRollupAccumulatedDataFromNoir(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
-    mapFieldFromNoir(privateToRollupAccumulatedData.contract_class_log_preimages_length),
   );
 }
 

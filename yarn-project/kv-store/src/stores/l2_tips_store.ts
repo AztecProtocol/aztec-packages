@@ -1,14 +1,14 @@
-import {
-  type L2BlockId,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-  type L2BlockStreamLocalDataProvider,
-  type L2BlockTag,
-  type L2Tips,
-} from '@aztec/circuit-types';
+import type {
+  L2BlockId,
+  L2BlockStreamEvent,
+  L2BlockStreamEventHandler,
+  L2BlockStreamLocalDataProvider,
+  L2BlockTag,
+  L2Tips,
+} from '@aztec/stdlib/block';
 
-import { type AztecAsyncMap } from '../interfaces/map.js';
-import { type AztecAsyncKVStore } from '../interfaces/store.js';
+import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes. */
 export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
@@ -41,6 +41,7 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
     if (!blockHash) {
       throw new Error(`Block hash not found for block number ${blockNumber}`);
     }
+
     return { number: blockNumber, hash: blockHash };
   }
 
@@ -48,7 +49,7 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
     switch (event.type) {
       case 'blocks-added':
         for (const block of event.blocks) {
-          await this.l2BlockHashesStore.set(block.number, block.header.hash().toString());
+          await this.l2BlockHashesStore.set(block.number, (await block.header.hash()).toString());
         }
         await this.l2TipsStore.set('latest', event.blocks.at(-1)!.number);
         break;

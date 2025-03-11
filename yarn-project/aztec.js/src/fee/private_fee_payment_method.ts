@@ -1,13 +1,12 @@
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type GasSettings } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { type FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 
-import { type Wallet } from '../account/wallet.js';
+import type { Wallet } from '../account/wallet.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { SignerlessWallet } from '../wallet/signerless_wallet.js';
-import { type FeePaymentMethod } from './fee_payment_method.js';
+import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -94,9 +93,9 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
-        name: 'setup_refund',
-        args: [this.wallet.getAddress().toField(), maxFee, nonce],
-        selector: FunctionSelector.fromSignature('setup_refund((Field),Field,Field)'),
+        name: 'transfer_to_public',
+        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
+        selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),u128,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: await this.getAsset(),
@@ -108,7 +107,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       {
         name: 'fee_entrypoint_private',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_private(Field,Field)'),
+        selector: await FunctionSelector.fromSignature('fee_entrypoint_private(u128,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         args: [maxFee, nonce],

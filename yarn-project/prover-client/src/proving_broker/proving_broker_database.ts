@@ -1,4 +1,4 @@
-import { type ProofUri, type ProvingJob, type ProvingJobId, type ProvingJobSettledResult } from '@aztec/circuit-types';
+import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
 
 /**
  * A database for storing proof requests and their results
@@ -6,9 +6,9 @@ import { type ProofUri, type ProvingJob, type ProvingJobId, type ProvingJobSettl
 export interface ProvingBrokerDatabase {
   /**
    * Saves a proof request so it can be retrieved later
-   * @param request - The proof request to save
+   * @param job - The proof request to save
    */
-  addProvingJob(request: ProvingJob): Promise<void>;
+  addProvingJob(job: ProvingJob): Promise<void>;
 
   /**
    * Deletes all proving jobs belonging to epochs older than the given epoch
@@ -19,7 +19,7 @@ export interface ProvingBrokerDatabase {
   /**
    * Returns an iterator over all saved proving jobs
    */
-  allProvingJobs(): Iterable<[ProvingJob, ProvingJobSettledResult | undefined]>;
+  allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]>;
 
   /**
    * Saves the result of a proof request

@@ -67,8 +67,9 @@ template <typename Flavor> class SumcheckProverRound {
     using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH =
-        (std::is_same_v<typename Flavor::Curve, curve::BN254>) ? BATCHED_RELATION_PARTIAL_LENGTH : 3;
+    // The length of the polynomials used to mask the Sumcheck Round Univariates.
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Flavor::Curve::LIBRA_UNIVARIATES_LENGTH;
+
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
@@ -595,12 +596,10 @@ template <typename Flavor> class SumcheckVerifierRound {
      * method computes the evaluation of \f$ \tilde{F} \f$ taking these values as arguments.
      *
      */
-    FF compute_full_relation_purported_value(ClaimedEvaluations purported_evaluations,
+    FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_sparators,
-                                             const RelationSeparator alpha,
-                                             const FF full_libra_purported_value = FF{ 0 },
-                                             FF correcting_factor = FF{ 1 })
+                                             const RelationSeparator alpha)
     {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
@@ -609,12 +608,6 @@ template <typename Flavor> class SumcheckVerifierRound {
         FF running_challenge{ 1 };
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
-        if constexpr (Flavor::HasZK) {
-            output = output * correcting_factor + full_libra_purported_value;
-            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
-                output.self_reduce();
-            }
-        };
         return output;
     }
 };

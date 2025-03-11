@@ -11,6 +11,7 @@ class TranslatorProvingKey {
     using BF = typename Flavor::BF;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
     size_t mini_circuit_dyadic_size;
@@ -22,13 +23,13 @@ class TranslatorProvingKey {
 
     TranslatorProvingKey() = default;
 
-    TranslatorProvingKey(std::shared_ptr<ProvingKey>& proving_key, size_t mini_circuit_dyadic_size)
+    TranslatorProvingKey(size_t mini_circuit_dyadic_size)
         : mini_circuit_dyadic_size(mini_circuit_dyadic_size)
-        , dyadic_circuit_size(proving_key->circuit_size)
-        , proving_key(proving_key)
+        , dyadic_circuit_size(mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE)
+        , proving_key(std::make_shared<ProvingKey>(dyadic_circuit_size))
 
     {
-        ASSERT(mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE == dyadic_circuit_size);
+        proving_key->polynomials = Flavor::ProverPolynomials(mini_circuit_dyadic_size);
     }
 
     TranslatorProvingKey(const Circuit& circuit, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
@@ -40,6 +41,7 @@ class TranslatorProvingKey {
         compute_mini_circuit_dyadic_size(circuit);
         compute_dyadic_circuit_size();
         proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, std::move(commitment_key));
+        proving_key->polynomials = Flavor::ProverPolynomials(mini_circuit_dyadic_size);
 
         // Populate the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator
         // wires
@@ -71,38 +73,40 @@ class TranslatorProvingKey {
         // maximum range constraint compute_extra_range_constraint_numerator();
         compute_extra_range_constraint_numerator();
 
-        // We construct concatenated versions of range constraint polynomials, where several polynomials are
-        // concatenated
-        // into one. These polynomials are not commited to.
-        compute_concatenated_polynomials();
+        // Creates the polynomials resulting from interleaving each group of range constraints into one polynomial.
+        // These are not commited to.
+        compute_interleaved_polynomials();
 
-        // We also contruct ordered polynomials, which have the same values as concatenated ones + enough values to
-        // bridge
-        // the range from 0 to maximum range defined by the range constraint.
+        // We also contruct ordered polynomials, which have the same values as interleaved ones + enough values to
+        // bridge the range from 0 to maximum range defined by the range constraint.
         compute_translator_range_constraint_ordered_polynomials();
     };
 
     inline void compute_dyadic_circuit_size()
     {
 
-        // The actual circuit size is several times bigger than the trace in the circuit, because we use concatenation
+        // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
         // to bring the degree of relations down, while extending the length.
-        dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::CONCATENATION_GROUP_SIZE;
+        dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
     }
 
     inline void compute_mini_circuit_dyadic_size(const Circuit& circuit)
     {
-        const size_t total_num_gates = std::max(circuit.num_gates, Flavor::MINIMUM_MINI_CIRCUIT_SIZE);
-        // Next power of 2
-        mini_circuit_dyadic_size = circuit.get_circuit_subgroup_size(total_num_gates);
+        // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
+        // to 10 rounds of folding (i.e. 20 circuits)
+        if (circuit.num_gates > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
+            info("The Translator circuit size has exceeded the fixed upper bound");
+            ASSERT(false);
+        }
+        mini_circuit_dyadic_size = Flavor::TRANSLATOR_VM_FIXED_SIZE;
     }
 
     void compute_lagrange_polynomials();
 
     void compute_extra_range_constraint_numerator();
 
-    void compute_concatenated_polynomials();
-
     void compute_translator_range_constraint_ordered_polynomials();
+
+    void compute_interleaved_polynomials();
 };
 } // namespace bb

@@ -1,6 +1,7 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
+import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
 import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
@@ -10,7 +11,6 @@ import {
   omitConfigMappings,
 } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
-import { proofVerifierConfigMappings } from '@aztec/proof-verifier/config';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
@@ -19,7 +19,7 @@ import {
 } from '@aztec/prover-client/broker';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
-import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { DefaultMnemonic } from '../mnemonic.js';
 
@@ -53,10 +53,18 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
 };
 
 // These are options used by multiple modules so should be inputted once
-export const universalOptions = ['l1RpcUrl', 'l1ChainId', 'l1Contracts', 'p2pEnabled', 'dataDirectory'];
+export const universalOptions = ['l1RpcUrls', 'l1ChainId', 'l1Contracts', 'p2pEnabled', 'dataDirectory'];
 
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
+  NETWORK: [
+    {
+      flag: '--network <value>',
+      description: 'Network to run Aztec on',
+      defaultValue: undefined,
+      envVar: 'NETWORK',
+    },
+  ],
   SANDBOX: [
     {
       flag: '--sandbox',
@@ -69,12 +77,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Deploy test accounts on sandbox start',
       envVar: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(true),
-    },
-    {
-      flag: '--sandbox.enableGas',
-      description: 'Enable gas on sandbox start',
-      envVar: 'ENABLE_GAS',
-      ...booleanConfigHelper(),
     },
     {
       flag: '--sandbox.noPXE',
@@ -100,10 +102,11 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   ETHEREUM: [
     {
-      flag: '--l1-rpc-url <value>',
-      description: 'URL of the Ethereum RPC node that services will connect to',
-      defaultValue: 'http://localhost:8545',
-      envVar: 'ETHEREUM_HOST',
+      flag: '--l1-rpc-urls <value>',
+      description: 'List of URLs of the Ethereum RPC nodes that services will connect to (comma separated)',
+      defaultValue: ['http://localhost:8545'],
+      envVar: 'ETHEREUM_HOSTS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
     },
     {
       flag: '--l1-chain-id <value>',
@@ -187,10 +190,10 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--node.deployAztecContracts',
       description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set.',
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
-      ...booleanConfigHelper(),
+      defaultValue: undefined,
     },
     {
-      flag: '--node.deployAztecContractsSalt',
+      flag: '--node.deployAztecContractsSalt <value>',
       description:
         'Numeric salt for deploying L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set. Implies --node.deployAztecContracts.',
       envVar: 'DEPLOY_AZTEC_CONTRACTS_SALT',
@@ -198,7 +201,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
     {
-      flag: '--node.assumeProvenThroughBlockNumber',
+      flag: '--node.assumeProvenThroughBlockNumber <value>',
       description:
         'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
       envVar: 'ASSUME_PROVEN_THROUGH_BLOCK_NUMBER',
@@ -217,6 +220,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: 100,
       envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
       parseVal: val => parseInt(val, 10),
+    },
+    {
+      flag: '--node.testAccounts',
+      description: 'Populate genesis state with initial fee juice for test accounts',
+      envVar: 'TEST_ACCOUNTS',
+      ...booleanConfigHelper(),
     },
   ],
   'P2P SUBSYSTEM': [
@@ -256,6 +265,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
+  ],
+  BLOB_SINK: [
+    {
+      flag: '--blob-sink',
+      description: 'Starts Aztec Blob Sink with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('blobSink', blobSinkConfigMappings),
   ],
   'PROVER NODE': [
     {
@@ -319,15 +337,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('bot', botConfigMappings),
-  ],
-  'PROOF VERIFIER': [
-    {
-      flag: '--proof-verifier',
-      description: 'Starts Aztec Proof Verifier with options',
-      defaultValue: undefined,
-      envVar: undefined,
-    },
-    ...getOptions('proofVerifier', proofVerifierConfigMappings),
   ],
   TXE: [
     {

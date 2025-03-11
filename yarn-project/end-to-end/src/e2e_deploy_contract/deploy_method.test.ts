@@ -2,6 +2,7 @@ import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   BatchCall,
+  Fr,
   type Logger,
   type PXE,
   type Wallet,
@@ -10,9 +11,10 @@ import {
   makeFetch,
 } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { GasFees } from '@aztec/stdlib/gas';
 
 import { DeployTest } from './deploy_test.js';
 
@@ -23,13 +25,23 @@ describe('e2e_deploy_contract deploy method', () => {
   let logger: Logger;
   let wallet: Wallet;
 
-  const ignoredArg = AztecAddress.random();
+  let ignoredArg: AztecAddress;
 
   beforeAll(async () => {
+    ignoredArg = await AztecAddress.random();
     ({ pxe, logger, wallet } = await t.setup());
   });
 
   afterAll(() => t.teardown());
+
+  it('refused to deploy a contract instance whose contract class is not yet registered', async () => {
+    const owner = wallet.getAddress();
+    const opts = { skipClassRegistration: true };
+    logger.debug(`Trying to deploy contract instance without registering its contract class`);
+    await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait()).rejects.toThrow(
+      /Cannot find the leaf for nullifier/,
+    );
+  });
 
   it('publicly deploys and initializes a contract', async () => {
     const owner = wallet.getAddress();
@@ -39,16 +51,18 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send().wait();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
-    expect(await pxe.isContractClassPubliclyRegistered(contract.instance.contractClassId)).toBeTrue();
+    expect(
+      (await pxe.getContractClassMetadata(contract.instance.currentContractClassId)).isContractClassPubliclyRegistered,
+    ).toBeTrue();
   });
 
   // TODO(#10007): Remove this test. Common contracts (ie token contracts) are only distinguished
   // because we're manually adding them to the archiver to support provernet.
   it('registers a contract class for a common contract', async () => {
-    const { id: tokenContractClass } = getContractClassFromArtifact(TokenContract.artifact);
-    expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeFalse();
+    const { id: tokenContractClass } = await getContractClassFromArtifact(TokenContract.artifact);
+    expect((await pxe.getContractClassMetadata(tokenContractClass)).isContractClassPubliclyRegistered).toBeFalse();
     await TokenContract.deploy(wallet, wallet.getAddress(), 'TOKEN', 'TKN', 18n).send().deployed();
-    expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeTrue();
+    expect((await pxe.getContractClassMetadata(tokenContractClass)).isContractClassPubliclyRegistered).toBeTrue();
   });
 
   it('publicly universally deploys and initializes a contract', async () => {
@@ -95,17 +109,18 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('publicly deploys a contract with no constructor', async () => {
     logger.debug(`Deploying contract with no constructor`);
-    const contract = await TestContract.deploy(wallet).send().deployed();
+    const contract = await DocsExampleContract.deploy(wallet).send().deployed();
+    const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
-    const receipt = await contract.methods.emit_unencrypted(42).send().wait();
-    const logs = await pxe.getUnencryptedLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.data.toString('hex').replace(/^0+/, '')).toEqual('2a');
+    const receipt = await contract.methods.emit_public(arbitraryValue).send().wait();
+    const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
+    expect(logs.logs[0].log.log[0]).toEqual(new Fr(arbitraryValue));
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
     const opts = { skipPublicDeployment: true, skipClassRegistration: true };
-    await expect(TestContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
+    await expect(DocsExampleContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
   });
 
   it('publicly deploys and calls a public contract in the same batched call', async () => {
@@ -113,21 +128,44 @@ describe('e2e_deploy_contract deploy method', () => {
     // Create a contract instance and make the PXE aware of it
     logger.debug(`Initializing deploy method`);
     const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
-    logger.debug(`Creating request/calls to register and deploy contract`);
-    const deploy = await deployMethod.request();
-    logger.debug(`Getting an instance of the not-yet-deployed contract to batch calls to`);
-    const contract = await StatefulTestContract.at(deployMethod.getInstance().address, wallet);
+    logger.debug(`Registering the not-yet-deployed contract to batch calls to`);
+    const contract = await deployMethod.register();
 
     // Batch registration, deployment, and public call into same TX
     logger.debug(`Creating public calls to run in same batch as deployment`);
-    const init = contract.methods.increment_public_value(owner, 84).request();
+    const init = contract.methods.increment_public_value(owner, 84);
     logger.debug(`Deploying a contract and calling a public function in the same batched call`);
-    await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
+    await new BatchCall(wallet, [deployMethod, init]).send().wait();
   }, 300_000);
 
-  it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
-    // TODO(@spalladino): Requires being able to read a nullifier on the same block it was emitted.
-  });
+  it('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
+    await t.aztecNode.setConfig({ minTxsPerBlock: 2 });
+
+    const owner = wallet.getAddress();
+    logger.debug('Initializing deploy method');
+    const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
+    logger.debug('Creating request/calls to register and deploy contract');
+    const deployTx = new BatchCall(wallet, [deployMethod]);
+    logger.debug('Registering the not-yet-deployed contract to batch calls to');
+    const contract = await deployMethod.register();
+
+    logger.debug('Creating public call to run in same block as deployment');
+    const publicCall = contract.methods.increment_public_value(owner, 84);
+
+    // First send the deploy transaction
+    // Pay priority fee to ensure the deployment transaction gets processed first.
+    const maxPriorityFeesPerGas = new GasFees(1n, 0n);
+    const deployTxPromise = deployTx
+      .send({ skipPublicSimulation: true, fee: { gasSettings: { maxPriorityFeesPerGas } } })
+      .wait({ timeout: 600 });
+
+    // Then send the public call transaction
+    const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+
+    logger.debug('Deploying a contract and calling a public function in the same block');
+    const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([deployTxPromise, publicCallTxPromise]);
+    expect(deployTxReceipt.blockNumber).toEqual(publicCallTxReceipt.blockNumber);
+  }, 300_000);
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {
@@ -135,7 +173,7 @@ describe('e2e_deploy_contract deploy method', () => {
       if (!PXE_URL) {
         return;
       }
-      const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], false));
+      const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], false));
       const [wallet] = await getDeployedTestAccountsWallets(pxeClient);
       await expect(
         StatefulTestContract.deployWithOpts({ wallet, method: 'wrong_constructor' }).send().deployed(),

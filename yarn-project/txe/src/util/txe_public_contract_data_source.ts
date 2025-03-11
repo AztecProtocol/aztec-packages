@@ -1,24 +1,23 @@
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { PrivateFunctionsTree } from '@aztec/pxe/server';
+import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type AztecAddress,
   type ContractClassPublic,
   type ContractDataSource,
   type ContractInstanceWithAddress,
-  Fr,
-  FunctionSelector,
-  PUBLIC_DISPATCH_SELECTOR,
   type PublicFunction,
   computePublicBytecodeCommitment,
-} from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { PrivateFunctionsTree } from '@aztec/pxe';
+} from '@aztec/stdlib/contract';
 
-import { type TXE } from '../oracle/txe_oracle.js';
+import type { TXE } from '../oracle/txe_oracle.js';
 
 export class TXEPublicContractDataSource implements ContractDataSource {
   constructor(private txeOracle: TXE) {}
 
   async getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined> {
-    const bytecode = await this.txeOracle.getContractDataOracle().getBytecode(address, selector);
+    const bytecode = await this.txeOracle.getContractDataProvider().getBytecode(address, selector);
     if (!bytecode) {
       return undefined;
     }
@@ -30,10 +29,10 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    const contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
-    const artifact = await this.txeOracle.getContractDataOracle().getContractArtifact(id);
-    const tree = new PrivateFunctionsTree(artifact);
-    const privateFunctionsRoot = tree.getFunctionTreeRoot();
+    const contractClass = await this.txeOracle.getContractDataProvider().getContractClass(id);
+    const artifact = await this.txeOracle.getContractDataProvider().getContractArtifact(id);
+    const tree = await PrivateFunctionsTree.create(artifact);
+    const privateFunctionsRoot = await tree.getFunctionTreeRoot();
 
     const publicFunctions: PublicFunction[] = [];
     if (contractClass!.packedBytecode.length > 0) {
@@ -56,12 +55,12 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
-    const contractClass = await this.txeOracle.getContractDataOracle().getContractClass(id);
-    return Promise.resolve(computePublicBytecodeCommitment(contractClass.packedBytecode));
+    const contractClass = await this.txeOracle.getContractDataProvider().getContractClass(id);
+    return computePublicBytecodeCommitment(contractClass.packedBytecode);
   }
 
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const instance = await this.txeOracle.getContractDataOracle().getContractInstance(address);
+    const instance = await this.txeOracle.getContractDataProvider().getContractInstance(address);
     return { ...instance, address };
   }
 
@@ -70,8 +69,8 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    const instance = await this.txeOracle.getContractDataOracle().getContractInstance(address);
-    return this.txeOracle.getContractDataOracle().getContractArtifact(instance.contractClassId);
+    const instance = await this.txeOracle.getContractDataProvider().getContractInstance(address);
+    return this.txeOracle.getContractDataProvider().getContractArtifact(instance.currentContractClassId);
   }
 
   async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -79,9 +78,14 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     if (!artifact) {
       return undefined;
     }
-    const func = artifact.functions.find(f =>
-      FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
+    const functionSelectorsAndNames = await Promise.all(
+      artifact.functions.map(async f => ({
+        name: f.name,
+        selector: await FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }),
+      })),
     );
+    const func = functionSelectorsAndNames.find(f => f.selector.equals(selector));
+
     return Promise.resolve(func?.name);
   }
 

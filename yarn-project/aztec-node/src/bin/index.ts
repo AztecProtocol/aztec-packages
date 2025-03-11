@@ -32,12 +32,15 @@ async function main() {
     process.exit(0);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGINT', shutdown);
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGTERM', shutdown);
 
   const rpcServer = createAztecNodeRpcServer(aztecNode);
   const app = rpcServer.getApp(API_PREFIX);
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const httpServer = http.createServer(app.callback());
   httpServer.listen(+AZTEC_NODE_PORT);
   logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);

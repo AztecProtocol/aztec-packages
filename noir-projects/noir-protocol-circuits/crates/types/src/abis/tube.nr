@@ -4,6 +4,7 @@ use crate::{
     },
     constants::{PROOF_TYPE_ROLLUP_HONK, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS},
     proof::{traits::Verifiable, tube_proof::TubeProof, vk_data::VkData},
+    traits::Serialize,
 };
 
 pub struct PublicTubeData {

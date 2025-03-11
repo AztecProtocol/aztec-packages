@@ -1,6 +1,9 @@
 # Compiler files
 cache/
+# Artifacts for compile
 out/
+# Artifacts for release process
+release-out/
 
 # Ignores development broadcast logs
 !/broadcast
@@ -10,6 +13,7 @@ out/
 # Dotenv file
 .env
 
+generated
 lcov.info
 
 # Local foundry env

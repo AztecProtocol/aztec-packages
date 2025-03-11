@@ -10,6 +10,7 @@
 namespace bb::avm {
 
 class AvmProver {
+  public:
     using Flavor = AvmFlavor;
     using FF = Flavor::FF;
     using PCS = Flavor::PCS;
@@ -18,10 +19,9 @@ class AvmProver {
     using ProvingKey = Flavor::ProvingKey;
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
-    using CommitmentLabels = Flavor::CommitmentLabels;
     using Transcript = Flavor::Transcript;
+    using Proof = HonkProof;
 
-  public:
     explicit AvmProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
     AvmProver(AvmProver&& prover) = default;
     virtual ~AvmProver() = default;
@@ -49,7 +49,6 @@ class AvmProver {
     // Container for spans of all polynomials required by the prover (i.e. all multivariates evaluated by Sumcheck).
     ProverPolynomials prover_polynomials;
 
-    CommitmentLabels commitment_labels;
     typename Flavor::WitnessCommitments witness_commitments;
 
     Polynomial quotient_W;

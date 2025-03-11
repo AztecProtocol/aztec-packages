@@ -905,6 +905,9 @@ typename Curve::Element pippenger_internal(std::span<const typename Curve::Affin
                                            bool handle_edge_cases)
 {
     PROFILE_THIS();
+
+    ASSERT(scalars.start_index + scalars.size() <= state.num_points / 2 &&
+           "Pippenger runtime state is too small to support this many points");
     // multiplication_runtime_state state;
     compute_wnaf_states<Curve>(state.point_schedule, state.skew_table, state.round_counts, scalars, num_initial_points);
     organize_buckets(state.point_schedule, num_initial_points * 2);
@@ -922,6 +925,9 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
     PROFILE_THIS();
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
+
+    ASSERT(scalars_.start_index + scalars_.size() <= state.num_points / 2 &&
+           "Pippenger runtime state is too small to support this many points");
 
     // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
     // If we fall below this theshold, fall back to the traditional scalar multiplication algorithm.
@@ -984,6 +990,9 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
 {
     PROFILE_THIS();
 
+    ASSERT(scalars.start_index + scalars.size() <= state.num_points / 2 &&
+           "Pippenger runtime state is too small to support this many points");
+
     // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
     const size_t threshold = get_num_cpus_pow2() * 8;
     // Delegate edge-cases to normal pippenger_unsafe().
@@ -1018,6 +1027,8 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
                                          std::span<const typename Curve::AffineElement> points,
                                          pippenger_runtime_state<Curve>& state)
 {
+    ASSERT(scalars.start_index + scalars.size() <= state.num_points / 2 &&
+           "Pippenger runtime state is too small to support this many points");
     return pippenger(scalars, points, state, false);
 }
 
@@ -1030,6 +1041,8 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
     std::vector<typename Curve::AffineElement> G_mod((scalars.start_index + scalars.size()) * 2);
     ASSERT(scalars.start_index + scalars.size() <= points.size());
+    ASSERT(scalars.start_index + scalars.size() <= state.num_points / 2 &&
+           "Pippenger runtime state is too small to support this many points");
     bb::scalar_multiplication::generate_pippenger_point_table<Curve>(
         points.data(), &G_mod[0], scalars.start_index + scalars.size());
     return pippenger(scalars, G_mod, state, false);

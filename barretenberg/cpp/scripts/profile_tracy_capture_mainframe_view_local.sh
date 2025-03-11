@@ -26,6 +26,7 @@ ssh $BOX "
 	mkdir -p build && cd build && cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
 	cd ~/aztec-packages/barretenberg/cpp/ ;
 	cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK ;
+	cd ~/tracy/capture/build ;
 	./tracy-capture -a 127.0.0.1 -f -o trace-$BENCHMARK & ;
 	sleep 0.1 ;
 	cd ~/aztec-packages/barretenberg/cpp/build-$PRESET ;

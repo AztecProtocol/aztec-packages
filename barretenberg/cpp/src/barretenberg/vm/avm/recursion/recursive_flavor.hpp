@@ -99,7 +99,6 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     };
 
     using WitnessCommitments = bb::avm::AvmFlavor::WitnessEntities<Commitment>;
-    using CommitmentLabels = bb::avm::AvmFlavor::CommitmentLabels;
     using VerifierCommitments = bb::avm::AvmFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };

@@ -77,6 +77,7 @@ template <class Curve> class CommitmentKey {
     CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::ProverCrs<Curve>> prover_crs)
         : pippenger_runtime_state(num_points)
         , srs(prover_crs)
+        , dyadic_size(get_num_needed_srs_points(num_points))
     {}
 
     /**
@@ -90,6 +91,7 @@ template <class Curve> class CommitmentKey {
         PROFILE_THIS_NAME("commit");
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
+        ASSERT(dyadic_poly_size <= dyadic_size && "Polynomial size exceeds commitment key size.");
         // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
         // exceed the dyadic_circuit_size. The actual start index of the points will be the smallest it can be so that
         // the window of points is a power of 2 and still contains the scalars. The best we can do is pick a start index
@@ -211,6 +213,7 @@ template <class Curve> class CommitmentKey {
     {
         PROFILE_THIS_NAME("commit_structured");
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+        ASSERT(polynomial.end_index() <= dyadic_size && "Polynomial size exceeds commitment key size.");
 
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
         constexpr size_t NONZERO_THRESHOLD = 75;
@@ -238,7 +241,10 @@ template <class Curve> class CommitmentKey {
         points.reserve(total_num_scalars * 2);
         for (const auto& [first, second] : active_ranges) {
             auto poly_start = &polynomial[first];
-            auto poly_end = &polynomial[second];
+            // Pointer to the first element past the active range. Accessing `&polynomial[second]` directly can trigger
+            // an assertion when `second == polynomial_size`, so we compute the pointer using `polynomial.data()`
+            // to ensure safe range handling.
+            auto poly_end = polynomial.data() + (second - polynomial.start_index);
             scalars.insert(scalars.end(), poly_start, poly_end);
 
             auto pts_start = &point_table[2 * first];
@@ -333,6 +339,26 @@ template <class Curve> class CommitmentKey {
         }
 
         return result;
+    }
+
+    enum class CommitType { Default, Structured, Sparse, StructuredNonZeroComplement };
+
+    Commitment commit_with_type(PolynomialSpan<const Fr> poly,
+                                CommitType type,
+                                const std::vector<std::pair<size_t, size_t>>& active_ranges = {},
+                                size_t final_active_wire_idx = 0)
+    {
+        switch (type) {
+        case CommitType::Structured:
+            return commit_structured(poly, active_ranges, final_active_wire_idx);
+        case CommitType::Sparse:
+            return commit_sparse(poly);
+        case CommitType::StructuredNonZeroComplement:
+            return commit_structured_with_nonzero_complement(poly, active_ranges, final_active_wire_idx);
+        case CommitType::Default:
+        default:
+            return commit(poly);
+        }
     }
 };
 

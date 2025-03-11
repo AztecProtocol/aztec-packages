@@ -1,6 +1,7 @@
-import { type GetUnencryptedLogsResponse, type PXE, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
+import type { AztecNode, GetPublicLogsResponse, PXE } from '@aztec/stdlib/interfaces/client';
+import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
@@ -29,11 +30,11 @@ export const DefaultWaitOpts: WaitOpts = {
 };
 
 /**
- * The SentTx class represents a sent transaction through the PXE, providing methods to fetch
+ * The SentTx class represents a sent transaction through the PXE (or directly to a node) providing methods to fetch
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected pxe: PXE, protected txHashPromise: Promise<TxHash>) {}
+  constructor(protected pxeOrNode: PXE | AztecNode, protected txHashPromise: Promise<TxHash>) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
@@ -55,7 +56,7 @@ export class SentTx {
    */
   public async getReceipt(): Promise<TxReceipt> {
     const txHash = await this.getTxHash();
-    return await this.pxe.getTxReceipt(txHash);
+    return await this.pxeOrNode.getTxReceipt(txHash);
   }
 
   /**
@@ -75,7 +76,7 @@ export class SentTx {
     }
     if (opts?.debug) {
       const txHash = await this.getTxHash();
-      const { data: tx } = (await this.pxe.getTxEffect(txHash))!;
+      const { data: tx } = (await this.pxeOrNode.getTxEffect(txHash))!;
       receipt.debugInfo = {
         noteHashes: tx.noteHashes,
         nullifiers: tx.nullifiers,
@@ -87,13 +88,13 @@ export class SentTx {
   }
 
   /**
-   * Gets unencrypted logs emitted by this tx.
+   * Gets public logs emitted by this tx.
    * @remarks This function will wait for the tx to be mined if it hasn't been already.
    * @returns The requested logs.
    */
-  public async getUnencryptedLogs(): Promise<GetUnencryptedLogsResponse> {
+  public async getPublicLogs(): Promise<GetPublicLogsResponse> {
     await this.wait();
-    return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
+    return this.pxeOrNode.getPublicLogs({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {
@@ -103,7 +104,7 @@ export class SentTx {
 
     return await retryUntil(
       async () => {
-        const txReceipt = await this.pxe.getTxReceipt(txHash);
+        const txReceipt = await this.pxeOrNode.getTxReceipt(txHash);
         // If receipt is not yet available, try again
         if (txReceipt.status === TxStatus.PENDING) {
           return undefined;
@@ -129,7 +130,7 @@ export class SentTx {
   protected async waitForProven(minedBlock: number, opts?: WaitOpts) {
     return await retryUntil(
       async () => {
-        const provenBlock = await this.pxe.getProvenBlockNumber();
+        const provenBlock = await this.pxeOrNode.getProvenBlockNumber();
         return provenBlock >= minedBlock ? provenBlock : undefined;
       },
       'isProven',

@@ -1,6 +1,6 @@
-import { l1ContractAddressesMapping } from '@aztec/ethereum';
+import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 
 export type DataStoreConfig = {
   dataDirectory: string | undefined;
@@ -20,7 +20,7 @@ export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = {
   },
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
-    defaultValue: l1ContractAddressesMapping,
+    nested: l1ContractAddressesMapping,
   },
 };
 

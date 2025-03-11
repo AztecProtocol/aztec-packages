@@ -4,6 +4,13 @@ bootNode:
       memory: "2Gi"
       cpu: "200m"
 
+fullNode:
+  replicas: 1
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
 validator:
   resources:
     requests:
@@ -27,12 +34,34 @@ bot:
     requests:
       memory: "2Gi"
       cpu: "200m"
+  enabled: false
 
 ethereum:
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "200m"
+  acceleratedTestDeployments: true
+  execution:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "200m"
+  beacon:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "200m"
+  validator:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "200m"
 
 proverAgent:
   resources:

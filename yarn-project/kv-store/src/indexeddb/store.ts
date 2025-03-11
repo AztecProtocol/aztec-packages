@@ -1,14 +1,14 @@
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 
-import { type AztecAsyncArray } from '../interfaces/array.js';
-import { type Key } from '../interfaces/common.js';
-import { type AztecAsyncCounter } from '../interfaces/counter.js';
-import { type AztecAsyncMap, type AztecAsyncMultiMap } from '../interfaces/map.js';
-import { type AztecAsyncSet } from '../interfaces/set.js';
-import { type AztecAsyncSingleton } from '../interfaces/singleton.js';
-import { type AztecAsyncKVStore } from '../interfaces/store.js';
+import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { Key, StoreSize } from '../interfaces/common.js';
+import type { AztecAsyncCounter } from '../interfaces/counter.js';
+import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncSet } from '../interfaces/set.js';
+import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
+import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { IndexedDBAztecArray } from './array.js';
 import { IndexedDBAztecMap } from './map.js';
 import { IndexedDBAztecSet } from './set.js';
@@ -124,7 +124,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     return multimap;
   }
 
-  openCounter<K extends Key | Array<string | number>>(_name: string): AztecAsyncCounter<K> {
+  openCounter<K extends Key>(_name: string): AztecAsyncCounter<K> {
     throw new Error('Method not implemented.');
   }
 
@@ -187,7 +187,11 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     return deleteDB(this.#name);
   }
 
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
-    return { mappingSize: 0, actualSize: 0, numItems: 0 };
+  estimateSize(): Promise<StoreSize> {
+    return Promise.resolve({ mappingSize: 0, actualSize: 0, numItems: 0 });
+  }
+
+  close(): Promise<void> {
+    return Promise.resolve();
   }
 }

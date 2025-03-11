@@ -12,7 +12,7 @@ contract BlakeUltraTest is TestBaseUltra {
         super.setUp();
 
         verifier = IVerifier(address(new BlakeUltraVerifier()));
-        fuzzer = fuzzer.with_circuit_flavour(DifferentialFuzzer.CircuitFlavour.Blake);
+        fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Blake);
 
         PUBLIC_INPUT_COUNT = 4;
 

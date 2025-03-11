@@ -1,10 +1,10 @@
-import { type BlockProposal, type P2PValidator, PeerErrorSeverity } from '@aztec/circuit-types';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { type BlockProposal, type P2PValidator, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 export class BlockProposalValidator implements P2PValidator<BlockProposal> {
-  private epochCache: EpochCache;
+  private epochCache: EpochCacheInterface;
 
-  constructor(epochCache: EpochCache) {
+  constructor(epochCache: EpochCacheInterface) {
     this.epochCache = epochCache;
   }
 
@@ -19,7 +19,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
     }
 
     // Check that the block proposal is from the current or next proposer
-    const proposer = block.getSender();
+    const proposer = await block.getSender();
     if (!proposer.equals(currentProposer) && !proposer.equals(nextProposer)) {
       return PeerErrorSeverity.HighToleranceError;
     }

@@ -1,27 +1,47 @@
-import { Tx, TxHash } from '@aztec/circuit-types';
+import { Fr } from '@aztec/foundation/fields';
+import { L2Block } from '@aztec/stdlib/block';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
+
+import type { ReqRespStatus } from './status.js';
 
 /*
  * Request Response Sub Protocols
  */
 export const PING_PROTOCOL = '/aztec/req/ping/0.1.0';
 export const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
+export const GOODBYE_PROTOCOL = '/aztec/req/goodbye/0.1.0';
 export const TX_REQ_PROTOCOL = '/aztec/req/tx/0.1.0';
+export const BLOCK_REQ_PROTOCOL = '/aztec/req/block/0.1.0';
 
-// Sum type for sub protocols
-export type ReqRespSubProtocol = typeof PING_PROTOCOL | typeof STATUS_PROTOCOL | typeof TX_REQ_PROTOCOL;
+export enum ReqRespSubProtocol {
+  PING = PING_PROTOCOL,
+  STATUS = STATUS_PROTOCOL,
+  GOODBYE = GOODBYE_PROTOCOL,
+  TX = TX_REQ_PROTOCOL,
+  BLOCK = BLOCK_REQ_PROTOCOL,
+}
 
 /**
  * A handler for a sub protocol
  * The message will arrive as a buffer, and the handler must return a buffer
  */
-export type ReqRespSubProtocolHandler = (msg: Buffer) => Promise<Buffer>;
+export type ReqRespSubProtocolHandler = (peerId: PeerId, msg: Buffer) => Promise<Buffer>;
 
 /**
  * A type mapping from supprotocol to it's rate limits
  */
 export type ReqRespSubProtocolRateLimits = Record<ReqRespSubProtocol, ProtocolRateLimitQuota>;
+
+/**
+ * The response from the ReqResp protocol
+ * Consists of a status (Error code) and data
+ */
+export interface ReqRespResponse {
+  status: ReqRespStatus;
+  data: Buffer;
+}
 
 /**
  * A rate limit quota
@@ -51,7 +71,7 @@ export interface ProtocolRateLimitQuota {
 export const noopValidator = () => Promise.resolve(true);
 
 /**
- * A type mapping from supprotocol to it's handling funciton
+ * A type mapping from supprotocol to it's handling function
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
 
@@ -66,9 +86,11 @@ export type ReqRespSubProtocolValidators = {
 };
 
 export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [PING_PROTOCOL]: noopValidator,
-  [STATUS_PROTOCOL]: noopValidator,
-  [TX_REQ_PROTOCOL]: noopValidator,
+  [ReqRespSubProtocol.PING]: noopValidator,
+  [ReqRespSubProtocol.STATUS]: noopValidator,
+  [ReqRespSubProtocol.TX]: noopValidator,
+  [ReqRespSubProtocol.GOODBYE]: noopValidator,
+  [ReqRespSubProtocol.BLOCK]: noopValidator,
 };
 
 /**
@@ -91,16 +113,21 @@ const defaultHandler = (_msg: any): Promise<Buffer> => {
  * Default sub protocol handlers - this SHOULD be overwritten by the service,
  */
 export const DEFAULT_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
-  [PING_PROTOCOL]: defaultHandler,
-  [STATUS_PROTOCOL]: defaultHandler,
-  [TX_REQ_PROTOCOL]: defaultHandler,
+  [ReqRespSubProtocol.PING]: defaultHandler,
+  [ReqRespSubProtocol.STATUS]: defaultHandler,
+  [ReqRespSubProtocol.TX]: defaultHandler,
+  [ReqRespSubProtocol.GOODBYE]: defaultHandler,
+  [ReqRespSubProtocol.BLOCK]: defaultHandler,
 };
 
 /**
  * The Request Response Pair interface defines the methods that each
  * request response pair must implement
  */
-interface RequestResponsePair<Req, Res> {
+interface RequestResponsePair<Req extends { toBuffer(): Buffer }, Res> {
+  /**
+   * The request must implement the toBuffer method (generic serialisation)
+   */
   request: new (...args: any[]) => Req;
   /**
    * The response must implement the static fromBuffer method (generic serialisation)
@@ -135,16 +162,24 @@ export class RequestableBuffer {
  * as a type rather than an object
  */
 export const subProtocolMap: SubProtocolMap = {
-  [PING_PROTOCOL]: {
+  [ReqRespSubProtocol.PING]: {
     request: RequestableBuffer,
     response: RequestableBuffer,
   },
-  [STATUS_PROTOCOL]: {
+  [ReqRespSubProtocol.STATUS]: {
     request: RequestableBuffer,
     response: RequestableBuffer,
   },
-  [TX_REQ_PROTOCOL]: {
+  [ReqRespSubProtocol.TX]: {
     request: TxHash,
     response: Tx,
+  },
+  [ReqRespSubProtocol.GOODBYE]: {
+    request: RequestableBuffer,
+    response: RequestableBuffer,
+  },
+  [ReqRespSubProtocol.BLOCK]: {
+    request: Fr, // block number
+    response: L2Block,
   },
 };

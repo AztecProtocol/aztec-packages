@@ -4,12 +4,9 @@ export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
   tracesCollectorUrl?: URL;
   logsCollectorUrl?: URL;
-  serviceName: string;
-  networkName: string;
   otelCollectIntervalMs: number;
   otelExportTimeoutMs: number;
-  k8sPodUid?: string;
-  k8sPodName?: string;
+  otelExcludeMetrics?: string[];
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
@@ -28,16 +25,6 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
     description: 'The URL of the telemetry collector for logs',
     parseEnv: (val: string) => val && new URL(val),
   },
-  serviceName: {
-    env: 'OTEL_SERVICE_NAME',
-    description: 'The name of the service (attached as metadata to collected metrics)',
-    defaultValue: 'aztec',
-  },
-  networkName: {
-    env: 'NETWORK_NAME',
-    description: 'The network ID of the telemetry service',
-    defaultValue: 'local',
-  },
   otelCollectIntervalMs: {
     env: 'OTEL_COLLECT_INTERVAL_MS',
     description: 'The interval at which to collect metrics',
@@ -50,13 +37,17 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
     defaultValue: 30000, // Default extracted from otel client
     parseEnv: (val: string) => parseInt(val),
   },
-  k8sPodUid: {
-    env: 'K8S_POD_UID',
-    description: 'The UID of the Kubernetes pod (injected automatically by k8s)',
-  },
-  k8sPodName: {
-    env: 'K8S_POD_NAME',
-    description: 'The name of the Kubernetes pod (injected automatically by k8s)',
+  otelExcludeMetrics: {
+    env: 'OTEL_EXCLUDE_METRICS',
+    description: 'A list of metric prefixes to exclude from export',
+    parseEnv: (val: string) =>
+      val
+        ? val
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : [],
+    defaultValue: [],
   },
 };
 

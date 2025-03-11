@@ -8,7 +8,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed,before-hook-creation
 spec:
   template:
     metadata:
@@ -17,7 +17,9 @@ spec:
         app: setup-l2-contracts
     spec:
       restartPolicy: OnFailure
+      {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
       volumes:
         - name: scripts
           configMap:
@@ -63,7 +65,7 @@ spec:
               done
               echo "PXE service is ready!"
               set -e
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait --l1-chain-id {{ .Values.ethereum.chainId }}
+              LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait
               echo "L2 contracts initialized"
           env:
             - name: K8S_POD_UID
@@ -74,6 +76,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: TELEMETRY
               value: "{{ .Values.telemetry.enabled }}"
             - name: LOG_LEVEL
@@ -82,10 +88,10 @@ spec:
               value: "{{ .Values.network.public }}"
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
-            - name: EXTERNAL_ETHEREUM_HOST
-              value: "{{ .Values.ethereum.externalHost }}"
+            - name: EXTERNAL_ETHEREUM_HOSTS
+              value: "{{ .Values.ethereum.execution.externalHosts }}"
             - name: ETHEREUM_PORT
-              value: "{{ .Values.ethereum.service.port }}"
+              value: "{{ .Values.ethereum.execution.service.port }}"
             - name: EXTERNAL_BOOT_NODE_HOST
               value: "{{ .Values.bootNode.externalHost }}"
             - name: BOOT_NODE_PORT
@@ -96,4 +102,6 @@ spec:
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: SERVICE_NAME
               value: {{ include "aztec-network.fullname" . }}
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
 {{ end }}

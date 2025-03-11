@@ -2,121 +2,63 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
-import {BlockLog, RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {DataStructures} from "./../DataStructures.sol";
-import {Slot, Epoch} from "./../TimeMath.sol";
+import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {StakingLib} from "./../staking/StakingLib.sol";
+import {ValidatorSelectionLib} from "./../ValidatorSelectionLib/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
-import {
-  EpochProofLib,
-  SubmitEpochRootProofAddresses,
-  SubmitEpochRootProofInterimValues
-} from "./EpochProofLib.sol";
-import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
-import {FeeMath, ManaBaseFeeComponents, FeeHeader, L1FeeData} from "./FeeMath.sol";
-import {HeaderLib, Header} from "./HeaderLib.sol";
-import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
+import {EpochProofLib} from "./EpochProofLib.sol";
+import {ProposeLib, ProposeArgs, Signature} from "./ProposeLib.sol";
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
 
 library ExtRollupLib {
-  function submitEpochRootProof(
-    RollupStore storage _rollupStore,
-    SubmitEpochRootProofArgs calldata _args,
-    SubmitEpochRootProofInterimValues memory _interimValues,
-    IProofCommitmentEscrow _proofCommitmentEscrow,
-    IFeeJuicePortal _feeJuicePortal,
-    IRewardDistributor _rewardDistributor,
-    IERC20 _asset,
-    address _cuauhxicalli
-  ) external returns (uint256) {
-    return EpochProofLib.submitEpochRootProof(
-      _rollupStore,
-      _args,
-      _interimValues,
-      SubmitEpochRootProofAddresses({
-        proofCommitmentEscrow: _proofCommitmentEscrow,
-        feeJuicePortal: _feeJuicePortal,
-        rewardDistributor: _rewardDistributor,
-        asset: _asset,
-        cuauhxicalli: _cuauhxicalli
-      })
-    );
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
+    EpochProofLib.submitEpochRootProof(_args);
   }
 
-  function validateHeaderForSubmissionBase(
-    ValidateHeaderArgs memory _args,
-    mapping(uint256 blockNumber => BlockLog log) storage _blocks
-  ) external view {
-    ValidationLib.validateHeaderForSubmissionBase(_args, _blocks);
+  function propose(
+    ProposeArgs calldata _args,
+    Signature[] memory _signatures,
+    bytes calldata _blobInput,
+    bool _checkBlob
+  ) external {
+    ProposeLib.propose(_args, _signatures, _blobInput, _checkBlob);
   }
 
-  function validateEpochProofRightClaimAtTime(
-    Slot _currentSlot,
-    address _currentProposer,
-    Epoch _epochToProve,
-    uint256 _posInEpoch,
-    SignedEpochProofQuote calldata _quote,
-    bytes32 _digest,
-    DataStructures.EpochProofClaim storage _proofClaim,
-    uint256 _claimDurationInL2Slots,
-    uint256 _proofCommitmentMinBondAmountInTst,
-    IProofCommitmentEscrow _proofCommitmentEscrow
-  ) external view {
-    ValidationLib.validateEpochProofRightClaimAtTime(
-      _currentSlot,
-      _currentProposer,
-      _epochToProve,
-      _posInEpoch,
-      _quote,
-      _digest,
-      _proofClaim,
-      _claimDurationInL2Slots,
-      _proofCommitmentMinBondAmountInTst,
-      _proofCommitmentEscrow
-    );
+  function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
+    ValidatorSelectionLib.initialize(_targetCommitteeSize);
   }
 
-  function getManaBaseFeeComponentsAt(
-    FeeHeader storage _parentFeeHeader,
-    L1FeeData memory _fees,
-    uint256 _feeAssetPrice,
-    uint256 _epochDuration
-  ) external view returns (ManaBaseFeeComponents memory) {
-    return
-      FeeMath.getManaBaseFeeComponentsAt(_parentFeeHeader, _fees, _feeAssetPrice, _epochDuration);
+  function setupEpoch() external {
+    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
   }
 
   function getEpochProofPublicInputs(
-    RollupStore storage _rollupStore,
-    uint256 _epochSize,
-    bytes32[7] calldata _args,
+    uint256 _start,
+    uint256 _end,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory) {
     return EpochProofLib.getEpochProofPublicInputs(
-      _rollupStore, _epochSize, _args, _fees, _blobPublicInputs, _aggregationObject
+      _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
     );
   }
 
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
     external
     view
-    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
+    returns (
+      bytes32[] memory blobHashes,
+      bytes32 blobsHashesCommitment,
+      bytes32 blobPublicInputsHash
+    )
   {
     return BlobLib.validateBlobs(_blobsInput, _checkBlob);
   }
 
-  function getBlobBaseFee(address _vmAddress) external view returns (uint256) {
-    return BlobLib.getBlobBaseFee(_vmAddress);
-  }
-
-  function decodeHeader(bytes calldata _header) external pure returns (Header memory) {
-    return HeaderLib.decode(_header);
+  function getBlobBaseFee() external view returns (uint256) {
+    return BlobLib.getBlobBaseFee();
   }
 }

@@ -23,15 +23,20 @@ void AvmSliceTraceBuilder::create_calldata_copy_slice(std::vector<FF> const& cal
                                                       uint8_t space_id,
                                                       uint32_t col_offset,
                                                       uint32_t copy_size,
-                                                      uint32_t direct_dst_offset)
+                                                      uint32_t direct_dst_offset,
+                                                      uint32_t top_calldata_offset)
 {
-    create_slice(calldata, clk, space_id, col_offset, copy_size, direct_dst_offset, true);
+    create_slice(calldata, clk, space_id, col_offset, copy_size, direct_dst_offset, top_calldata_offset, true);
 }
 
-void AvmSliceTraceBuilder::create_return_slice(
-    std::vector<FF> const& returndata, uint32_t clk, uint8_t space_id, uint32_t direct_ret_offset, uint32_t ret_size)
+void AvmSliceTraceBuilder::create_return_slice(std::vector<FF> const& returndata,
+                                               uint32_t clk,
+                                               uint8_t space_id,
+                                               uint32_t direct_ret_offset,
+                                               uint32_t ret_size,
+                                               uint32_t top_returndata_offset)
 {
-    create_slice(returndata, clk, space_id, 0, ret_size, direct_ret_offset, false);
+    create_slice(returndata, clk, space_id, 0, ret_size, direct_ret_offset, top_returndata_offset, false);
 }
 
 void AvmSliceTraceBuilder::create_slice(std::vector<FF> const& col_data,
@@ -40,6 +45,7 @@ void AvmSliceTraceBuilder::create_slice(std::vector<FF> const& col_data,
                                         uint32_t col_offset,
                                         uint32_t copy_size,
                                         uint32_t addr,
+                                        uint32_t top_column_offset,
                                         bool rw)
 {
     for (uint32_t i = 0; i < copy_size; i++) {
@@ -48,7 +54,7 @@ void AvmSliceTraceBuilder::create_slice(std::vector<FF> const& col_data,
             .space_id = space_id,
             .addr_ff = FF(addr + i),
             .val = col_data.at(col_offset + i),
-            .col_offset = col_offset + i,
+            .col_offset = top_column_offset + col_offset + i,
             .cnt = copy_size - i,
             .one_min_inv = FF(1) - FF(copy_size - i).invert(),
             .sel_start = i == 0,
@@ -56,7 +62,8 @@ void AvmSliceTraceBuilder::create_slice(std::vector<FF> const& col_data,
             .sel_return = !rw,
         });
 
-        rw ? cd_lookup_counts[col_offset + i]++ : ret_lookup_counts[col_offset + i]++;
+        rw ? cd_lookup_counts[top_column_offset + col_offset + i]++
+           : ret_lookup_counts[top_column_offset + col_offset + i]++;
     }
 
     // Last extra row for a slice operation. cnt is zero and we have to add extra dummy

@@ -3,7 +3,7 @@ mod test;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract EasyPrivateVoting {
+pub contract EasyPrivateVoting {
     // docs:end:declaration
     // docs:start:imports
     use dep::aztec::{
@@ -11,6 +11,8 @@ contract EasyPrivateVoting {
         macros::{functions::{initializer, internal, private, public}, storage::storage},
     };
     use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
+    use dep::aztec::protocol_types::traits::{Hash, ToField};
+
     // docs:end:imports
     // docs:start:storage_struct
     #[storage]

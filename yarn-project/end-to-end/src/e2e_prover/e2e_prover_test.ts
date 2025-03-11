@@ -1,38 +1,31 @@
-import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import {
+  SchnorrAccountContractArtifact,
+  getSchnorrAccount,
+  getSchnorrWalletWithSecretKey,
+} from '@aztec/accounts/schnorr';
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
-  type CheatCodes,
   type CompleteAddress,
-  type DeployL1Contracts,
   EthAddress,
-  type Fq,
-  Fr,
   type Logger,
   type PXE,
   createLogger,
-  deployL1Contract,
 } from '@aztec/aztec.js';
-import {
-  BBCircuitVerifier,
-  type ClientProtocolCircuitVerifier,
-  TestCircuitVerifier,
-  type UltraKeccakHonkServerProtocolArtifact,
-} from '@aztec/bb-prover';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type BlobSinkServer } from '@aztec/blob-sink/server';
-import { compileContract } from '@aztec/ethereum';
+import type { BlobSinkServer } from '@aztec/blob-sink/server';
+import { type DeployL1ContractsReturnType, deployL1Contract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { type PXEService } from '@aztec/pxe';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import type { PXEService } from '@aztec/pxe/server';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
-// TODO(#7373): Deploy honk solidity verifier
-// @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
-import solc from 'solc';
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
@@ -41,16 +34,14 @@ import { getBBConfig } from '../fixtures/get_bb_config.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
-
-const SALT = 1;
 
 type ProvenSetup = {
   pxe: PXE;
@@ -70,7 +61,7 @@ export class FullProverTest {
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  keys: Array<[Fr, Fq]> = [];
+  deployedAccounts: InitialAccountData[] = [];
   wallets: AccountWalletWithSecretKey[] = [];
   accounts: CompleteAddress[] = [];
   fakeProofsAsset!: TokenContract;
@@ -87,7 +78,7 @@ export class FullProverTest {
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  public l1Contracts!: DeployL1Contracts;
+  public l1Contracts!: DeployL1ContractsReturnType;
   public proverAddress!: EthAddress;
 
   constructor(
@@ -101,7 +92,7 @@ export class FullProverTest {
       `full_prover_integration/${testName}`,
       dataPath,
       { startProverNode: true, fundRewardDistributor: true, coinbase },
-      { assumeProvenThrough: undefined },
+      {},
     );
   }
 
@@ -111,13 +102,18 @@ export class FullProverTest {
    * 2. Publicly deploy accounts, deploy token contract
    */
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
-      this.keys = accountKeys;
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-    });
+    await this.snapshotManager.snapshot(
+      '2_accounts',
+      deployAccounts(2, this.logger),
+      async ({ deployedAccounts }, { pxe }) => {
+        this.deployedAccounts = deployedAccounts;
+        this.wallets = await Promise.all(
+          deployedAccounts.map(a => getSchnorrWalletWithSecretKey(pxe, a.secret, a.signingKey, a.salt)),
+        );
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
+        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+      },
+    );
 
     await this.snapshotManager.snapshot(
       'client_prover_integration',
@@ -160,6 +156,10 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
+
+    // We don't wish to mark as proven automatically, so we set the flag to false
+    this.context.watcher.setIsMarkingAsProven(false);
+
     this.simulatedProverNode = this.context.proverNode!;
     ({
       pxe: this.pxe,
@@ -169,7 +169,7 @@ export class FullProverTest {
       blobSink: this.blobSink,
     } = this.context);
 
-    const blobSinkClient = createBlobSinkClient(`http://localhost:${this.blobSink.port}`);
+    const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://localhost:${this.blobSink.port}` });
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
@@ -224,11 +224,22 @@ export class FullProverTest {
       await result.pxe.registerContract(this.fakeProofsAsset);
 
       for (let i = 0; i < 2; i++) {
-        await result.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
-        await this.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
+        await result.pxe.registerAccount(
+          this.deployedAccounts[i].secret,
+          this.wallets[i].getCompleteAddress().partialAddress,
+        );
+        await this.pxe.registerAccount(
+          this.deployedAccounts[i].secret,
+          this.wallets[i].getCompleteAddress().partialAddress,
+        );
       }
 
-      const account = getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
+      const account = await getSchnorrAccount(
+        result.pxe,
+        this.deployedAccounts[0].secret,
+        this.deployedAccounts[0].signingKey,
+        this.deployedAccounts[0].salt,
+      );
 
       await result.pxe.registerContract({
         instance: account.getInstance(),
@@ -254,7 +265,6 @@ export class FullProverTest {
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
       blobSinkClient,
-      new NoopTelemetryClient(),
       { blockUntilSync: true },
     );
 
@@ -271,27 +281,28 @@ export class FullProverTest {
       ...this.context.aztecNodeConfig,
       proverCoordinationNodeUrl: undefined,
       dataDirectory: undefined,
-      proverId: new Fr(81),
+      proverId: this.proverAddress.toField(),
       realProofs: this.realProofs,
       proverAgentCount: 2,
       publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
-      quoteProviderBasisPointFee: 100,
-      quoteProviderBondAmount: 1000n,
-      proverMinimumEscrowAmount: 3000n,
-      proverTargetEscrowAmount: 6000n,
       txGatheringTimeoutMs: 60000,
       txGatheringIntervalMs: 1000,
       txGatheringMaxParallelRequests: 100,
     };
-    this.proverNode = await createProverNode(proverConfig, {
-      aztecNodeTxProvider: this.aztecNode,
-      archiver: archiver as Archiver,
-      blobSinkClient,
-    });
-    await this.proverNode.start();
+    const { prefilledPublicData } = await getGenesisValues(this.context.initialFundedAccounts.map(a => a.address));
+    this.proverNode = await createProverNode(
+      proverConfig,
+      {
+        aztecNodeTxProvider: this.aztecNode,
+        archiver: archiver as Archiver,
+        blobSinkClient,
+      },
+      { prefilledPublicData },
+    );
+    this.proverNode.start();
 
     this.logger.warn(`Proofs are now enabled`);
     return this;
@@ -384,7 +395,6 @@ export class FullProverTest {
       throw new Error('No verifier');
     }
 
-    const verifier = this.circuitProofVerifier as BBCircuitVerifier;
     const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
     const rollup = getContract({
       abi: RollupAbi,
@@ -392,18 +402,15 @@ export class FullProverTest {
       client: walletClient,
     });
 
-    // REFACTOR: Extract this method to a common package. We need a package that deals with L1
-    // but also has a reference to L1 artifacts and bb-prover.
-    const setupVerifier = async (artifact: UltraKeccakHonkServerProtocolArtifact) => {
-      const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
-      const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
-      const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
-      this.logger.info(`Deployed real ${artifact} verifier at ${verifierAddress}`);
+    const { address: verifierAddress } = await deployL1Contract(
+      walletClient,
+      publicClient,
+      HonkVerifierAbi,
+      HonkVerifierBytecode,
+    );
+    this.logger.info(`Deployed honk verifier at ${verifierAddress}`);
 
-      await rollup.write.setEpochVerifier([verifierAddress.toString()]);
-    };
-
-    await setupVerifier('RootRollupArtifact');
+    await rollup.write.setEpochVerifier([verifierAddress.toString()]);
 
     this.logger.info('Rollup only accepts valid proofs now');
   }

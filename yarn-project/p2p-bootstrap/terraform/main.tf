@@ -144,10 +144,6 @@ resource "aws_ecs_task_definition" "p2p-bootstrap" {
         "value": "debug"
       },
       {
-        "name": "P2P_MIN_PEERS",
-        "value": "${var.P2P_MIN_PEERS}"
-      },
-      {
         "name": "P2P_MAX_PEERS",
         "value": "${var.P2P_MAX_PEERS}"
       },

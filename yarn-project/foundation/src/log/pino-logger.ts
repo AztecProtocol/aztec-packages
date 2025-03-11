@@ -1,16 +1,18 @@
-import { createColors } from 'colorette';
+import { createColors, isColorSupported } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
-import { type Writable } from 'stream';
+import type { Writable } from 'stream';
 import { inspect } from 'util';
 
 import { compactArray } from '../collection/array.js';
+import { type EnvVar, parseBooleanEnv } from '../config/index.js';
+import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
-import { type LogLevel } from './log-levels.js';
-import { type LogData, type LogFn } from './log_fn.js';
+import type { LogLevel } from './log-levels.js';
+import type { LogData, LogFn } from './log_fn.js';
 
 export function createLogger(module: string): Logger {
-  module = module.replace(/^aztec:/, '');
+  module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
   const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
@@ -56,6 +58,31 @@ function processLogData(data: LogData): LogData {
   return logDataHandlers.reduce((accum, handler) => handler(accum), data);
 }
 
+// Allow global hooks for tweaking module names.
+// Used in tests to add a uid to modules, so we can differentiate multiple nodes in the same process.
+type LogNameHandler = (module: string) => string;
+const logNameHandlers: LogNameHandler[] = [];
+
+export function addLogNameHandler(handler: LogNameHandler): void {
+  logNameHandlers.push(handler);
+}
+
+export function removeLogNameHandler(handler: LogNameHandler) {
+  const index = logNameHandlers.indexOf(handler);
+  if (index !== -1) {
+    logNameHandlers.splice(index, 1);
+  }
+}
+
+/** Creates all loggers within the given callback with the suffix appended to the module name. */
+export async function withLogNameSuffix<T>(suffix: string, callback: () => Promise<T>): Promise<T> {
+  const logNameHandler = (module: string) => `${module}:${suffix}`;
+  addLogNameHandler(logNameHandler);
+  const result = await callback();
+  removeLogNameHandler(logNameHandler);
+  return result;
+}
+
 // Patch isLevelEnabled missing from pino/browser.
 function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel): boolean {
   return typeof logger.isLevelEnabled === 'function'
@@ -65,49 +92,19 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 
 // Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
-const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
+export const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
 
-// inspired by https://github.com/pinojs/pino/issues/726#issuecomment-605814879
-const levelToSeverityFormatter = (label: string, level: number): object => {
-  // Severity labels https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
-  let severity: string;
-
-  switch (label as pino.Level | keyof typeof customLevels) {
-    case 'trace':
-    case 'debug':
-      severity = 'DEBUG';
-      break;
-    case 'verbose':
-    case 'info':
-      severity = 'INFO';
-      break;
-    case 'warn':
-      severity = 'WARNING';
-      break;
-    case 'error':
-      severity = 'ERROR';
-      break;
-    case 'fatal':
-      severity = 'CRITICAL';
-      break;
-    default:
-      severity = 'DEFAULT';
-      break;
-  }
-
-  return { severity, level };
-};
-
+// Global pino options, tweaked for google cloud if running there.
+const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
 const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   customLevels,
+  messageKey: 'msg',
   useOnlyCustomLevels: false,
   level: logLevel,
-  formatters: {
-    level: levelToSeverityFormatter,
-  },
+  ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };
 
 export const levels = {
@@ -116,7 +113,8 @@ export const levels = {
 };
 
 // Transport options for pretty logging to stderr via pino-pretty.
-const useColor = true;
+const colorEnv = process.env['FORCE_COLOR' satisfies EnvVar];
+const useColor = colorEnv === undefined ? isColorSupported : parseBooleanEnv(colorEnv);
 const { bold, reset } = createColors({ useColor });
 export const pinoPrettyOpts = {
   destination: 2,
@@ -127,7 +125,7 @@ export const pinoPrettyOpts = {
   customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
   minimumLevel: 'trace' as const,
-  singleLine: !['1', 'true'].includes(process.env.LOG_MULTILINE ?? ''),
+  singleLine: !parseBooleanEnv(process.env['LOG_MULTILINE' satisfies EnvVar]),
 };
 
 const prettyTransport: pino.TransportTargetOptions = {
@@ -149,35 +147,38 @@ const stdioTransport: pino.TransportTargetOptions = {
 // would mean that all child loggers created before the telemetry-client is initialized would not have
 // this transport configured. Note that the target is defined as the export in the telemetry-client,
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
-const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+const otlpEndpoint = process.env['OTEL_EXPORTER_OTLP_LOGS_ENDPOINT' satisfies EnvVar];
+const otlpEnabled = !!otlpEndpoint && !useGcloudLogging;
 const otelOpts = { levels };
 const otelTransport: pino.TransportTargetOptions = {
   target: '@aztec/telemetry-client/otel-pino-stream',
   options: otelOpts,
   level: 'trace',
 };
-
 function makeLogger() {
   if (!isNode) {
     // We are on the browser.
     return pino({ ...pinoOpts, browser: { asObject: false } });
-  } else if (process.env.JEST_WORKER_ID) {
+  }
+  // If running in a child process then cancel this if statement section by uncommenting below
+  // else if (false) {
+  else if (process.env.JEST_WORKER_ID) {
     // We are on jest, so we need sync logging and stream to stderr.
     // We expect jest/setup.mjs to kick in later and replace set up a pretty logger,
     // but if for some reason it doesn't, at least we're covered with a default logger.
     return pino(pinoOpts, pino.destination(2));
   } else {
     // Regular nodejs with transports on worker thread, using pino-pretty for console logging if LOG_JSON
-    // is not set, and an optional OTLP transport if the OTLP endpoint is provided.
+    // is not set, and an optional OTLP transport if the OTLP endpoint is set.
     const targets: pino.TransportSingleOptions[] = compactArray([
-      ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdioTransport : prettyTransport,
-      otlpEndpoint ? otelTransport : undefined,
+      parseBooleanEnv(process.env.LOG_JSON) ? stdioTransport : prettyTransport,
+      otlpEnabled ? otelTransport : undefined,
     ]);
     return pino(pinoOpts, pino.transport({ targets, levels: levels.values }));
   }
 }
 
-const logger = makeLogger();
+export const logger = makeLogger();
 
 // Log the logger configuration.
 logger.verbose(
@@ -186,7 +187,7 @@ logger.verbose(
     ...logFilters.reduce((accum, [module, level]) => ({ ...accum, [`log.${module}`]: level }), {}),
   },
   isNode
-    ? `Logger initialized with level ${logLevel}` + (otlpEndpoint ? ` with OTLP exporter to ${otlpEndpoint}` : '')
+    ? `Logger initialized with level ${logLevel}` + (otlpEnabled ? ` with OTLP exporter to ${otlpEndpoint}` : '')
     : `Browser console logger initialized with level ${logLevel}`,
 );
 

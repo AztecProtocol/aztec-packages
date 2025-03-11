@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::{
-    ssa::{opt::assert_normalized_ssa_equals, Ssa},
+    ssa::{Ssa, opt::assert_normalized_ssa_equals},
     trim_leading_whitespace_from_lines,
 };
 
@@ -326,11 +326,27 @@ fn test_array_get_set_bug() {
 
 #[test]
 fn test_binary() {
-    for op in ["add", "sub", "mul", "div", "eq", "mod", "lt", "and", "or", "xor", "shl", "shr"] {
+    for op in [
+        "add",
+        "sub",
+        "mul",
+        "div",
+        "eq",
+        "mod",
+        "lt",
+        "and",
+        "or",
+        "xor",
+        "shl",
+        "shr",
+        "unchecked_add",
+        "unchecked_sub",
+        "unchecked_mul",
+    ] {
         let src = format!(
             "
             acir(inline) fn main f0 {{
-              b0(v0: Field, v1: Field):
+              b0(v0: u32, v1: u32):
                 v2 = {op} v0, v1
                 return
             }}
@@ -429,7 +445,7 @@ fn test_dec_rc() {
     let src = "
         brillig(inline) fn main f0 {
           b0(v0: [Field; 3]):
-            dec_rc v0
+            dec_rc v0 v0
             return
         }
         ";
@@ -510,6 +526,22 @@ fn test_does_not_simplify() {
           b0():
             v2 = add Field 1, Field 2
             return v2
+        }
+        ";
+    assert_ssa_roundtrip(src);
+}
+
+#[test]
+fn parses_globals() {
+    let src = "
+        g0 = Field 0
+        g1 = u32 1
+        g2 = make_array [] : [Field; 0]
+        g3 = make_array [g2] : [[Field; 0]; 1]
+
+        acir(inline) fn main f0 {
+          b0():
+            return g3
         }
         ";
     assert_ssa_roundtrip(src);

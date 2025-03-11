@@ -1,16 +1,16 @@
-import { type AztecArray, type AztecAsyncArray } from './array.js';
-import { type Key } from './common.js';
-import { type AztecAsyncCounter, type AztecCounter } from './counter.js';
-import {
-  type AztecAsyncMap,
-  type AztecAsyncMultiMap,
-  type AztecMap,
-  type AztecMapWithSize,
-  type AztecMultiMap,
-  type AztecMultiMapWithSize,
+import type { AztecArray, AztecAsyncArray } from './array.js';
+import type { Key, StoreSize } from './common.js';
+import type { AztecAsyncCounter, AztecCounter } from './counter.js';
+import type {
+  AztecAsyncMap,
+  AztecAsyncMultiMap,
+  AztecMap,
+  AztecMapWithSize,
+  AztecMultiMap,
+  AztecMultiMapWithSize,
 } from './map.js';
-import { type AztecAsyncSet, type AztecSet } from './set.js';
-import { type AztecAsyncSingleton, type AztecSingleton } from './singleton.js';
+import type { AztecAsyncSet, AztecSet } from './set.js';
+import type { AztecAsyncSingleton, AztecSingleton } from './singleton.js';
 
 /** A key-value store */
 export interface AztecKVStore {
@@ -94,7 +94,12 @@ export interface AztecKVStore {
   /**
    * Estimates the size of the store in bytes.
    */
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number };
+  estimateSize(): Promise<StoreSize>;
+
+  /**
+   * Closes the store
+   */
+  close(): Promise<void>;
 }
 
 export interface AztecAsyncKVStore {
@@ -163,5 +168,10 @@ export interface AztecAsyncKVStore {
   /**
    * Estimates the size of the store in bytes.
    */
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number };
+  estimateSize(): Promise<StoreSize>;
+
+  /**
+   * Closes the store
+   */
+  close(): Promise<void>;
 }

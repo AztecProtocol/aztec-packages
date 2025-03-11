@@ -3,7 +3,9 @@
 #include "circuit_builder_base.hpp"
 
 namespace bb {
-template <typename FF_> CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint)
+template <typename FF_>
+CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
+    : has_dummy_witnesses(has_dummy_witnesses)
 {
     variables.reserve(size_hint * 3);
     variable_names.reserve(size_hint * 3);
@@ -286,6 +288,10 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
 
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
+    if (!has_dummy_witnesses) {
+        // We have a builder failure when we have real witnesses which is a mistake.
+        info("Builder failure when we have real witnesses!"); // not a catch-all error
+    }
     _failed = true;
     set_err(std::move(msg));
 }

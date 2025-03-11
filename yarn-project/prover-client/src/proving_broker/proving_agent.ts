@@ -1,20 +1,26 @@
-import {
-  ProvingError,
-  type ProvingJob,
-  type ProvingJobConsumer,
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobResultsMap,
-  ProvingRequestType,
-  type ServerCircuitProver,
-} from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { truncate } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
-import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { ProvingError } from '@aztec/stdlib/errors';
+import type {
+  ProvingJob,
+  ProvingJobConsumer,
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobResultsMap,
+  ServerCircuitProver,
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import {
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
-import { type ProofStore } from './proof_store.js';
+import type { ProofStore } from './proof_store/index.js';
 import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';
 import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 
@@ -36,12 +42,12 @@ export class ProvingAgent implements Traceable {
     private proofStore: ProofStore,
     /** The prover implementation to defer jobs to */
     private circuitProver: ServerCircuitProver,
-    /** A telemetry client through which to emit metrics */
-    client: TelemetryClient,
     /** Optional list of allowed proof types to build */
     private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
+    /** A telemetry client through which to emit metrics */
+    client: TelemetryClient = getTelemetryClient(),
     private log = createLogger('prover-client:proving-agent'),
   ) {
     this.tracer = client.getTracer('ProvingAgent');
@@ -88,20 +94,37 @@ export class ProvingAgent implements Traceable {
       return;
     }
 
+    if (this.idleTimer) {
+      this.instrumentation.recordIdleTime(this.idleTimer);
+    }
+    this.idleTimer = undefined;
+
+    const { job, time } = maybeJob;
+    await this.startJob(job, time);
+  }
+
+  private async startJob(job: ProvingJob, startedAt: number): Promise<void> {
     let abortedProofJobId: string | undefined;
     let abortedProofName: string | undefined;
+
     if (this.currentJobController?.getStatus() === ProvingJobControllerStatus.PROVING) {
       abortedProofJobId = this.currentJobController.getJobId();
       abortedProofName = this.currentJobController.getProofTypeName();
       this.currentJobController?.abort();
     }
 
-    const { job, time } = maybeJob;
     let inputs: ProvingJobInputs;
     try {
       inputs = await this.proofStore.getProofInput(job.inputsUri);
     } catch (err) {
-      await this.broker.reportProvingJobError(job.id, 'Failed to load proof inputs', true);
+      const maybeJob = await this.broker.reportProvingJobError(job.id, 'Failed to load proof inputs', true, {
+        allowList: this.proofAllowList,
+      });
+
+      if (maybeJob) {
+        return this.startJob(maybeJob.job, maybeJob.time);
+      }
+
       return;
     }
 
@@ -109,7 +132,7 @@ export class ProvingAgent implements Traceable {
       job.id,
       inputs,
       job.epochNumber,
-      time,
+      startedAt,
       this.circuitProver,
       this.handleJobResult,
     );
@@ -128,11 +151,6 @@ export class ProvingAgent implements Traceable {
       );
     }
 
-    if (this.idleTimer) {
-      this.instrumentation.recordIdleTime(this.idleTimer);
-    }
-    this.idleTimer = undefined;
-
     this.currentJobController.start();
   }
 
@@ -142,15 +160,22 @@ export class ProvingAgent implements Traceable {
     err: Error | undefined,
     result: ProvingJobResultsMap[T] | undefined,
   ) => {
-    this.idleTimer = new Timer();
+    let maybeJob: { job: ProvingJob; time: number } | undefined;
     if (err) {
       const retry = err.name === ProvingError.NAME ? (err as ProvingError).retry : false;
       this.log.error(`Job id=${jobId} type=${ProvingRequestType[type]} failed err=${err.message} retry=${retry}`, err);
-      return this.broker.reportProvingJobError(jobId, err.message, retry);
+      maybeJob = await this.broker.reportProvingJobError(jobId, err.message, retry, { allowList: this.proofAllowList });
     } else if (result) {
       const outputUri = await this.proofStore.saveProofOutput(jobId, type, result);
       this.log.info(`Job id=${jobId} type=${ProvingRequestType[type]} completed outputUri=${truncate(outputUri)}`);
-      return this.broker.reportProvingJobSuccess(jobId, outputUri);
+      maybeJob = await this.broker.reportProvingJobSuccess(jobId, outputUri, { allowList: this.proofAllowList });
+    }
+
+    if (maybeJob) {
+      const { job, time } = maybeJob;
+      await this.startJob(job, time);
+    } else {
+      this.idleTimer = new Timer();
     }
   };
 }

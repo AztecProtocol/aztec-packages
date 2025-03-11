@@ -1,37 +1,38 @@
 import {
-  Note,
-  NoteAndSlot,
-  PrivateExecutionResult,
-  type PrivateKernelProver,
-  PublicExecutionRequest,
-} from '@aztec/circuit-types';
-import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  FunctionSelector,
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
-  MembershipWitness,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
+import { Fr } from '@aztec/foundation/fields';
+import { MembershipWitness } from '@aztec/foundation/trees';
+import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+import {
   NoteHash,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
-  PublicKeys,
   ScopedNoteHash,
+} from '@aztec/stdlib/kernel';
+import { PublicKeys } from '@aztec/stdlib/keys';
+import { Note } from '@aztec/stdlib/note';
+import { makeTxRequest } from '@aztec/stdlib/testing';
+import {
+  NoteAndSlot,
+  PrivateCallExecutionResult,
+  PrivateExecutionResult,
+  PublicExecutionRequest,
   type TxRequest,
-  VK_TREE_HEIGHT,
-  VerificationKey,
-  VerificationKeyAsFields,
-} from '@aztec/circuits.js';
-import { makeTxRequest } from '@aztec/circuits.js/testing';
-import { NoteSelector } from '@aztec/foundation/abi';
-import { makeTuple } from '@aztec/foundation/array';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+} from '@aztec/stdlib/tx';
+import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
 
 import { KernelProver } from './kernel_prover.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import type { ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;
@@ -51,6 +52,10 @@ describe('Kernel Prover', () => {
   const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateExecutionResult => {
+    return new PrivateExecutionResult(createCallExecutionResult(fnName, newNoteIndices), Fr.zero());
+  };
+
+  const createCallExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateCallExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
     publicInputs.noteHashes = makeTuple(
       MAX_NOTE_HASHES_PER_CALL,
@@ -61,7 +66,8 @@ describe('Kernel Prover', () => {
       0,
     );
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
-    return new PrivateExecutionResult(
+    publicInputs.callContext.contractAddress = contractAddress;
+    return new PrivateCallExecutionResult(
       Buffer.alloc(0),
       VerificationKey.makeFake().toBuffer(),
       new Map(),
@@ -70,7 +76,7 @@ describe('Kernel Prover', () => {
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],
-      (dependencies[fnName] || []).map(name => createExecutionResult(name)),
+      (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
       [],
       PublicExecutionRequest.empty(),
       [],
@@ -128,7 +134,7 @@ describe('Kernel Prover', () => {
 
   const prove = (executionResult: PrivateExecutionResult) => prover.prove(txRequest, executionResult);
 
-  beforeEach(() => {
+  beforeEach(async () => {
     txRequest = makeTxRequest();
 
     oracle = mock<ProvingDataOracle>();
@@ -136,8 +142,9 @@ describe('Kernel Prover', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     oracle.getContractAddressPreimage.mockResolvedValue({
-      contractClassId: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      currentContractClassId: Fr.random(),
+      originalContractClassId: Fr.random(),
+      publicKeys: await PublicKeys.random(),
       saltedInitializationHash: Fr.random(),
     });
     oracle.getContractClassIdPreimage.mockResolvedValue({

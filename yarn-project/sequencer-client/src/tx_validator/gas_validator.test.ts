@@ -1,9 +1,13 @@
-import { type Tx, mockTx } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { type Writeable } from '@aztec/foundation/types';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import type { Writeable } from '@aztec/foundation/types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { mockTx } from '@aztec/stdlib/testing';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -14,7 +18,6 @@ describe('GasTxValidator', () => {
   // Vars for validator.
   let publicStateSource: MockProxy<PublicStateSource>;
   let feeJuiceAddress: AztecAddress;
-  let enforceFees: boolean;
   let gasFees: Writeable<GasFees>;
   // Vars for tx.
   let tx: Tx;
@@ -22,19 +25,18 @@ describe('GasTxValidator', () => {
   let expectedBalanceSlot: Fr;
   let feeLimit: bigint;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     publicStateSource = mock<PublicStateSource>({
       storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => Fr.ZERO),
     });
     feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    enforceFees = false;
     gasFees = new GasFees(11, 22);
 
-    tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.feePayer = AztecAddress.random();
+    tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    tx.data.feePayer = await AztecAddress.random();
     tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: gasFees.clone() });
     payer = tx.data.feePayer;
-    expectedBalanceSlot = poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
+    expectedBalanceSlot = await computeFeePayerBalanceStorageSlot(payer);
     feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();
   });
 
@@ -45,7 +47,7 @@ describe('GasTxValidator', () => {
   };
 
   const validateTx = async (tx: Tx) => {
-    const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, enforceFees, gasFees);
+    const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, gasFees);
     return await validator.validateTx(tx);
   };
 
@@ -68,8 +70,8 @@ describe('GasTxValidator', () => {
 
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
     mockBalance(feeLimit - 1n);
-    const selector = FunctionSelector.fromSignature('_increase_public_balance((Field),Field)');
-    patchNonRevertibleFn(tx, 0, {
+    const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
+    await patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
       args: [selector.toField(), payer.toField(), new Fr(1n)],
@@ -89,22 +91,11 @@ describe('GasTxValidator', () => {
 
   it('rejects txs if fee payer claims balance outside setup', async () => {
     mockBalance(feeLimit - 1n);
-    patchRevertibleFn(tx, 0, {
-      selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
+    await patchRevertibleFn(tx, 0, {
+      selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)'),
       args: [payer.toField(), new Fr(1n)],
     });
     await expectInvalid(tx, 'Insufficient fee payer balance');
-  });
-
-  it('allows txs with no fee payer if fees are not enforced', async () => {
-    tx.data.feePayer = AztecAddress.ZERO;
-    await expectValid(tx);
-  });
-
-  it('rejects txs with no fee payer if fees are enforced', async () => {
-    enforceFees = true;
-    tx.data.feePayer = AztecAddress.ZERO;
-    await expectInvalid(tx, 'Missing fee payer');
   });
 
   it('skips txs with not enough fee per da gas', async () => {

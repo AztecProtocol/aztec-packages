@@ -1,6 +1,6 @@
-import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export interface ArchiveSource {
   getArchiveIndices: (archives: Fr[]) => Promise<(bigint | undefined)[]>;
@@ -15,9 +15,9 @@ export class BlockHeaderTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   async validateTx(tx: T): Promise<TxValidationResult> {
-    const [index] = await this.#archiveSource.getArchiveIndices([tx.data.constants.historicalHeader.hash()]);
+    const [index] = await this.#archiveSource.getArchiveIndices([await tx.data.constants.historicalHeader.hash()]);
     if (index === undefined) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for referencing an unknown block header`);
+      this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)} for referencing an unknown block header`);
       return { result: 'invalid', reason: ['Block header not found'] };
     }
     return { result: 'valid' };

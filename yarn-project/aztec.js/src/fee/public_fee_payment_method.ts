@@ -1,13 +1,13 @@
-import { type FunctionCall } from '@aztec/circuit-types';
-import { type GasSettings } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type AccountWallet } from '../wallet/account_wallet.js';
+import type { AccountWallet } from '../wallet/account_wallet.js';
 import { SignerlessWallet } from '../wallet/signerless_wallet.js';
-import { type FeePaymentMethod } from './fee_payment_method.js';
+import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -82,33 +82,33 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     const nonce = Fr.random();
     const maxFee = gasSettings.getFeeLimit();
 
-    return Promise.resolve([
-      this.wallet
-        .setPublicAuthWit(
-          {
-            caller: this.paymentContract,
-            action: {
-              name: 'transfer_in_public',
-              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
-              selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),Field,Field)'),
-              type: FunctionType.PUBLIC,
-              isStatic: false,
-              to: await this.getAsset(),
-              returnTypes: [],
-            },
-          },
-          true,
-        )
-        .request(),
+    const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
+      {
+        caller: this.paymentContract,
+        action: {
+          name: 'transfer_in_public',
+          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
+          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
+          type: FunctionType.PUBLIC,
+          isStatic: false,
+          to: await this.getAsset(),
+          returnTypes: [],
+        },
+      },
+      true,
+    );
+
+    return [
+      ...(await setPublicAuthWitInteraction.request()).calls,
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,Field)'),
+        selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         args: [maxFee, nonce],
         returnTypes: [],
       },
-    ]);
+    ];
   }
 }

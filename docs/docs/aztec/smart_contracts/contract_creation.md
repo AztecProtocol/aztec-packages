@@ -3,10 +3,10 @@ title: Contract Deployment
 tags: [contracts, protocol]
 ---
 
-import Spec_Placeholder from '/components/snippet';
+import { Spec_Placeholder } from '/components/snippets';
 
 <Spec_Placeholder />
 
 ## Further reading
 
-To see how to deploy a contract in practice, check out the [dapp development tutorial](../../tutorials/codealong/js_tutorials/simple_dapp/index.md).
+To see how to deploy a contract in practice, check out the [dapp development tutorial](../../developers/tutorials/codealong/js_tutorials/simple_dapp/index.md).

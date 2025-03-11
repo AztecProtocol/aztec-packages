@@ -133,7 +133,7 @@
 //!   store v12 at v5         (new store)
 use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
-use acvm::{acir::AcirField, acir::BlackBoxFunc, FieldElement};
+use acvm::{FieldElement, acir::AcirField, acir::BlackBoxFunc};
 use iter_extended::vecmap;
 
 use crate::ssa::{
@@ -176,11 +176,14 @@ impl Ssa {
     }
 }
 
-struct Context<'f> {
-    inserter: FunctionInserter<'f>,
+pub(crate) struct Context<'f> {
+    pub(crate) inserter: FunctionInserter<'f>,
 
     /// This ControlFlowGraph is the graph from before the function was modified by this flattening pass.
     cfg: ControlFlowGraph,
+
+    /// Target block of the flattening
+    pub(crate) target_block: BasicBlockId,
 
     /// Maps start of branch -> end of branch
     branch_ends: HashMap<BasicBlockId, BasicBlockId>,
@@ -213,6 +216,10 @@ struct Context<'f> {
     /// us from unnecessarily inserting extra instructions, and keeps ids unique which
     /// helps simplifications.
     not_instructions: HashMap<ValueId, ValueId>,
+
+    /// Flag to tell the context to not issue 'enable_side_effect' instructions during flattening.
+    /// This should be set to true only by flatten_single(), when no instruction is known to fail.
+    pub(crate) no_predicate: bool,
 }
 
 #[derive(Clone)]
@@ -249,6 +256,7 @@ fn flatten_function_cfg(function: &mut Function, no_predicates: &HashMap<Functio
     }
     let cfg = ControlFlowGraph::with_function(function);
     let branch_ends = branch_analysis::find_branch_ends(function, &cfg);
+    let target_block = function.entry_block();
 
     let mut context = Context {
         inserter: FunctionInserter::new(function),
@@ -258,17 +266,39 @@ fn flatten_function_cfg(function: &mut Function, no_predicates: &HashMap<Functio
         arguments_stack: Vec::new(),
         local_allocations: HashSet::default(),
         not_instructions: HashMap::default(),
+        target_block,
+        no_predicate: false,
     };
     context.flatten(no_predicates);
 }
 
 impl<'f> Context<'f> {
-    fn flatten(&mut self, no_predicates: &HashMap<FunctionId, bool>) {
+    //impl Context<'_> {
+    pub(crate) fn new(
+        function: &'f mut Function,
+        cfg: ControlFlowGraph,
+        branch_ends: HashMap<BasicBlockId, BasicBlockId>,
+        target_block: BasicBlockId,
+    ) -> Self {
+        Context {
+            inserter: FunctionInserter::new(function),
+            cfg,
+            branch_ends,
+            condition_stack: Vec::new(),
+            arguments_stack: Vec::new(),
+            local_allocations: HashSet::default(),
+            not_instructions: HashMap::default(),
+            target_block,
+            no_predicate: false,
+        }
+    }
+
+    pub(crate) fn flatten(&mut self, no_predicates: &HashMap<FunctionId, bool>) {
         // Flatten the CFG by inlining all instructions from the queued blocks
         // until all blocks have been flattened.
         // We follow the terminator of each block to determine which blocks to
         // process next
-        let mut queue = vec![self.inserter.function.entry_block()];
+        let mut queue = vec![self.target_block];
         while let Some(block) = queue.pop() {
             self.inline_block(block, no_predicates);
             let to_process = self.handle_terminator(block, &queue);
@@ -318,10 +348,14 @@ impl<'f> Context<'f> {
         result
     }
 
-    // Inline all instructions from the given block into the entry block, and track slice capacities
-    fn inline_block(&mut self, block: BasicBlockId, no_predicates: &HashMap<FunctionId, bool>) {
-        if self.inserter.function.entry_block() == block {
-            // we do not inline the entry block into itself
+    // Inline all instructions from the given block into the target block, and track slice capacities
+    pub(crate) fn inline_block(
+        &mut self,
+        block: BasicBlockId,
+        no_predicates: &HashMap<FunctionId, bool>,
+    ) {
+        if self.target_block == block {
+            // we do not inline the target block into itself
             // for the outer block before we start inlining
             return;
         }
@@ -354,7 +388,7 @@ impl<'f> Context<'f> {
     /// For a normal block, it would be its successor
     /// For blocks related to a conditional statement, we ensure to process
     /// the 'then-branch', then the 'else-branch' (if it exists), and finally the end block
-    fn handle_terminator(
+    pub(crate) fn handle_terminator(
         &mut self,
         block: BasicBlockId,
         work_list: &[BasicBlockId],
@@ -388,9 +422,9 @@ impl<'f> Context<'f> {
                 let return_values =
                     vecmap(return_values.clone(), |value| self.inserter.resolve(value));
                 let new_return = TerminatorInstruction::Return { return_values, call_stack };
-                let entry = self.inserter.function.entry_block();
+                let target = self.target_block;
 
-                self.inserter.function.dfg.set_block_terminator(entry, new_return);
+                self.inserter.function.dfg.set_block_terminator(target, new_return);
                 vec![]
             }
         }
@@ -544,7 +578,7 @@ impl<'f> Context<'f> {
         } else {
             self.inserter.function.dfg.make_constant(FieldElement::zero(), NumericType::bool())
         };
-        let block = self.inserter.function.entry_block();
+        let block = self.target_block;
 
         // Cannot include this in the previous vecmap since it requires exclusive access to self
         let args = vecmap(args, |(then_arg, else_arg)| {
@@ -568,11 +602,11 @@ impl<'f> Context<'f> {
         destination
     }
 
-    /// Insert a new instruction into the function's entry block.
+    /// Insert a new instruction into the target block.
     /// Unlike push_instruction, this function will not map any ValueIds.
     /// within the given instruction, nor will it modify self.values in any way.
     fn insert_instruction(&mut self, instruction: Instruction, call_stack: CallStackId) -> ValueId {
-        let block = self.inserter.function.entry_block();
+        let block = self.target_block;
         self.inserter
             .function
             .dfg
@@ -580,7 +614,7 @@ impl<'f> Context<'f> {
             .first()
     }
 
-    /// Inserts a new instruction into the function's entry block, using the given
+    /// Inserts a new instruction into the target block, using the given
     /// control type variables to specify result types if needed.
     /// Unlike push_instruction, this function will not map any ValueIds.
     /// within the given instruction, nor will it modify self.values in any way.
@@ -590,7 +624,7 @@ impl<'f> Context<'f> {
         ctrl_typevars: Option<Vec<Type>>,
         call_stack: CallStackId,
     ) -> InsertInstructionResult {
-        let block = self.inserter.function.entry_block();
+        let block = self.target_block;
         self.inserter.function.dfg.insert_instruction_and_results(
             instruction,
             block,
@@ -600,11 +634,14 @@ impl<'f> Context<'f> {
     }
 
     /// Checks the branch condition on the top of the stack and uses it to build and insert an
-    /// `EnableSideEffectsIf` instruction into the entry block.
+    /// `EnableSideEffectsIf` instruction into the target block.
     ///
     /// If the stack is empty, a "true" u1 constant is taken to be the active condition. This is
     /// necessary for re-enabling side-effects when re-emerging to a branch depth of 0.
     fn insert_current_side_effects_enabled(&mut self) {
+        if self.no_predicate {
+            return;
+        }
         let condition = match self.get_last_condition() {
             Some(cond) => cond,
             None => {
@@ -616,7 +653,7 @@ impl<'f> Context<'f> {
         self.insert_instruction_with_typevars(enable_side_effects, None, call_stack);
     }
 
-    /// Push the given instruction to the end of the entry block of the current function.
+    /// Push the given instruction to the end of the target block of the current function.
     ///
     /// Note that each ValueId of the instruction will be mapped via self.inserter.resolve.
     /// As a result, the instruction that will be pushed will actually be a new instruction
@@ -631,8 +668,8 @@ impl<'f> Context<'f> {
         let instruction = self.handle_instruction_side_effects(instruction, call_stack);
 
         let instruction_is_allocate = matches!(&instruction, Instruction::Allocate);
-        let entry = self.inserter.function.entry_block();
-        let results = self.inserter.push_instruction_value(instruction, id, entry, call_stack);
+        let results =
+            self.inserter.push_instruction_value(instruction, id, self.target_block, call_stack);
 
         // Remember an allocate was created local to this branch so that we do not try to merge store
         // values across branches for it later.
@@ -654,20 +691,10 @@ impl<'f> Context<'f> {
                     // Replace constraint `lhs == rhs` with `condition * lhs == condition * rhs`.
 
                     // Condition needs to be cast to argument type in order to multiply them together.
-                    let argument_type = self.inserter.function.dfg.type_of_value(lhs);
-
-                    let cast = Instruction::Cast(condition, argument_type.unwrap_numeric());
-                    let casted_condition = self.insert_instruction(cast, call_stack);
-
-                    let lhs = self.insert_instruction(
-                        Instruction::binary(BinaryOp::Mul, lhs, casted_condition),
-                        call_stack,
-                    );
-                    let rhs = self.insert_instruction(
-                        Instruction::binary(BinaryOp::Mul, rhs, casted_condition),
-                        call_stack,
-                    );
-
+                    let casted_condition =
+                        self.cast_condition_to_value_type(condition, lhs, call_stack);
+                    let lhs = self.mul_by_condition(lhs, casted_condition, call_stack);
+                    let rhs = self.mul_by_condition(rhs, casted_condition, call_stack);
                     Instruction::Constrain(lhs, rhs, message)
                 }
                 Instruction::Store { address, value } => {
@@ -700,28 +727,18 @@ impl<'f> Context<'f> {
                     // Replace value with `value * predicate` to zero out value when predicate is inactive.
 
                     // Condition needs to be cast to argument type in order to multiply them together.
-                    let argument_type = self.inserter.function.dfg.type_of_value(value);
-                    let cast = Instruction::Cast(condition, argument_type.unwrap_numeric());
-                    let casted_condition = self.insert_instruction(cast, call_stack);
-
-                    let value = self.insert_instruction(
-                        Instruction::binary(BinaryOp::Mul, value, casted_condition),
-                        call_stack,
-                    );
+                    let casted_condition =
+                        self.cast_condition_to_value_type(condition, value, call_stack);
+                    let value = self.mul_by_condition(value, casted_condition, call_stack);
                     Instruction::RangeCheck { value, max_bit_size, assert_message }
                 }
                 Instruction::Call { func, mut arguments } => match self.inserter.function.dfg[func]
                 {
                     Value::Intrinsic(Intrinsic::ToBits(_) | Intrinsic::ToRadix(_)) => {
                         let field = arguments[0];
-                        let argument_type = self.inserter.function.dfg.type_of_value(field);
-
-                        let cast = Instruction::Cast(condition, argument_type.unwrap_numeric());
-                        let casted_condition = self.insert_instruction(cast, call_stack);
-                        let field = self.insert_instruction(
-                            Instruction::binary(BinaryOp::Mul, field, casted_condition),
-                            call_stack,
-                        );
+                        let casted_condition =
+                            self.cast_condition_to_value_type(condition, field, call_stack);
+                        let field = self.mul_by_condition(field, casted_condition, call_stack);
 
                         arguments[0] = field;
 
@@ -765,6 +782,30 @@ impl<'f> Context<'f> {
         }
     }
 
+    fn cast_condition_to_value_type(
+        &mut self,
+        condition: ValueId,
+        value: ValueId,
+        call_stack: CallStackId,
+    ) -> ValueId {
+        let argument_type = self.inserter.function.dfg.type_of_value(value);
+        let cast = Instruction::Cast(condition, argument_type.unwrap_numeric());
+        self.insert_instruction(cast, call_stack)
+    }
+
+    fn mul_by_condition(
+        &mut self,
+        value: ValueId,
+        condition: ValueId,
+        call_stack: CallStackId,
+    ) -> ValueId {
+        // Unchecked mul because the condition is always 0 or 1
+        self.insert_instruction(
+            Instruction::binary(BinaryOp::Mul { unchecked: true }, value, condition),
+            call_stack,
+        )
+    }
+
     /// When a MSM is done under a predicate, we need to apply the predicate
     /// to the is_infinity property of the input points in order to ensure
     /// that the points will be on the curve no matter what.
@@ -797,11 +838,11 @@ impl<'f> Context<'f> {
 
     // Computes: if condition { var } else { 1 }
     fn var_or_one(&mut self, var: ValueId, condition: ValueId, call_stack: CallStackId) -> ValueId {
-        let field =
-            self.insert_instruction(Instruction::binary(BinaryOp::Mul, var, condition), call_stack);
+        let field = self.mul_by_condition(var, condition, call_stack);
         let not_condition = self.not_instruction(condition, call_stack);
+        // Unchecked add because of the values is guaranteed to be 0
         self.insert_instruction(
-            Instruction::binary(BinaryOp::Add, field, not_condition),
+            Instruction::binary(BinaryOp::Add { unchecked: true }, field, not_condition),
             call_stack,
         )
     }
@@ -812,13 +853,13 @@ mod test {
     use acvm::acir::AcirField;
 
     use crate::ssa::{
+        Ssa,
         ir::{
             dfg::DataFlowGraph,
             instruction::{Instruction, TerminatorInstruction},
             value::{Value, ValueId},
         },
         opt::assert_normalized_ssa_equals,
-        Ssa,
     };
 
     #[test]
@@ -1279,15 +1320,15 @@ mod test {
             v12 = not v5
             v13 = cast v4 as u8
             v14 = cast v12 as u8
-            v15 = mul v13, v10
-            v16 = mul v14, v11
-            v17 = add v15, v16
+            v15 = unchecked_mul v13, v10
+            v16 = unchecked_mul v14, v11
+            v17 = unchecked_add v15, v16
             store v17 at v6
             enable_side_effects v12
             v18 = load v6 -> u8
             v19 = cast v12 as u8
             v20 = cast v4 as u8
-            v21 = mul v20, v18
+            v21 = unchecked_mul v20, v18
             store v21 at v6
             enable_side_effects u1 1
             constrain v5 == u1 1

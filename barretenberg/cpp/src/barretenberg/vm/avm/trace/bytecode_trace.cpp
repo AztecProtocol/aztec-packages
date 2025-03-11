@@ -32,7 +32,7 @@ FF AvmBytecodeTraceBuilder::compute_address_from_instance(const ContractInstance
                                                       contract_instance.initialisation_hash,
                                                       contract_instance.deployer_addr });
     FF partial_address = poseidon2::hash(
-        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.contract_class_id, salted_initialization_hash });
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.original_contract_class_id, salted_initialization_hash });
 
     std::vector<FF> public_keys_hash_fields = contract_instance.public_keys.to_fields();
     std::vector<FF> public_key_hash_vec{ GENERATOR_INDEX__PUBLIC_KEYS_HASH };
@@ -80,8 +80,9 @@ std::vector<FF> AvmBytecodeTraceBuilder::encode_bytecode(const std::vector<uint8
 // Compute the public bytecode commitment from a given contract bytecode
 FF AvmBytecodeTraceBuilder::compute_public_bytecode_commitment(const std::vector<uint8_t>& contract_bytes)
 {
+    FF bytecode_length_in_bytes = FF(static_cast<uint64_t>(contract_bytes.size()));
     std::vector<FF> contract_bytecode_fields = encode_bytecode(contract_bytes);
-    FF running_hash = FF::zero();
+    FF running_hash = bytecode_length_in_bytes;
     for (auto& contract_bytecode_field : contract_bytecode_fields) {
         running_hash = poseidon2::hash({ contract_bytecode_field, running_hash });
     }
@@ -114,7 +115,8 @@ void AvmBytecodeTraceBuilder::build_bytecode_hash_columns()
         if (contract_bytecode.bytecode.size() == 0) {
             vinfo("Excluding non-existent contract from bytecode hash columns...");
         } else {
-            FF running_hash = FF::zero();
+            auto bytecode_length_in_bytes = FF(static_cast<uint64_t>(contract_bytecode.bytecode.size()));
+            FF running_hash = bytecode_length_in_bytes;
             auto field_encoded_bytecode = encode_bytecode(contract_bytecode.bytecode);
             // This size is already based on the number of fields
             for (size_t i = 0; i < field_encoded_bytecode.size(); ++i) {
@@ -142,7 +144,7 @@ void AvmBytecodeTraceBuilder::build_bytecode_hash_columns()
                                           contract_bytecode.contract_class_id_preimage.private_fn_root,
                                           running_hash);
             // Assert that the computed class id is the same as what we received as the hint
-            ASSERT(last_entry.class_id == contract_bytecode.contract_instance.contract_class_id);
+            ASSERT(last_entry.class_id == contract_bytecode.contract_instance.current_contract_class_id);
 
             last_entry.contract_address = compute_address_from_instance(contract_bytecode.contract_instance);
             // Assert that the computed contract address is the same as what we received as the hint
