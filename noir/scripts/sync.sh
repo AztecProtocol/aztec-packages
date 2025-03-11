@@ -206,22 +206,6 @@ function patch_repo {
   commit_patch_marker
 }
 
-# Clone the repository if it doesn't exist.
-function init_repo {
-  if [ ! -d noir-repo ]; then
-    url=$NOIR_REPO_URL
-    ref=$(read_wanted_ref)
-    log Initializing noir-repo to $ref
-    # If we're cloning from a tag with --depth=1, we won't be able to switch to a branch later.
-    # On CI we won't be switching branches, but on dev machines we can, so there make a full checkout.
-    depth=$([ ! -z "${CI_FULL:-}" ] && echo "--depth 1" || echo "")
-    # `--branch` doesn't work for commit hashes
-    git clone $depth --branch $ref $url noir-repo \
-    || git clone $url noir-repo && git -C noir-repo checkout $ref
-    patch_repo
-  fi
-}
-
 # Check out a tag, branch or commit.
 function switch_repo {
   ref=$1
@@ -244,6 +228,28 @@ function switch_repo {
     patch_repo
   else
     log "Patches already applied"
+  fi
+}
+
+# Clone the repository if it doesn't exist.
+function init_repo {
+  url=$NOIR_REPO_URL
+  ref=$(read_wanted_ref)
+  if [ -d noir-repo ] && [ ! -d noir-repo/.git ]; then
+    # In all probability we just have some build leftovers after switching branches on aztec-packages,
+    # but play it safe and preserve them: instead of deleting `noir-repo` just re-initialize it.
+    git -C noir-repo init
+    git -C noir-repo remote add origin $url
+    switch_repo $ref
+  elif [ ! -d noir-repo ]; then
+    log Initializing noir-repo to $ref
+    # If we're cloning from a tag with --depth=1, we won't be able to switch to a branch later.
+    # On CI we won't be switching branches, but on dev machines we can, so there make a full checkout.
+    depth=$([ ! -z "${CI_FULL:-}" ] && echo "--depth 1" || echo "")
+    # `--branch` doesn't work for commit hashes
+    git clone $depth --branch $ref $url noir-repo \
+    || git clone $url noir-repo && git -C noir-repo checkout $ref
+    patch_repo
   fi
 }
 
