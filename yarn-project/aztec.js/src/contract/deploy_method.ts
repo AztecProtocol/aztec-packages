@@ -11,7 +11,7 @@ import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/index.js';
+import type { Wallet } from '../account/wallet.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
 import { type ExecutionRequestInit, mergeExecutionRequestInits } from '../entrypoint/entrypoint.js';
