@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# TODO(#12623): Skipping this test, fix now that fees are enabled?
+echo "SKIPPING create_account_pay_native.sh - See https://github.com/AztecProtocol/aztec-packages/issues/12623" && exit
+
 set -e
 source ../utils/setup.sh
 

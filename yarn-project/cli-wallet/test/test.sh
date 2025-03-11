@@ -35,23 +35,34 @@ rm -rf data
 mkdir -p data
 export WALLET_DATA_DIRECTORY="$(pwd)/data"
 
-# Note: We rely on 'aztec' being built
-anvil &
-ANVIL_PID=$!
-../../aztec/bin/index.js start --sandbox &
-SANDBOX_PID=$!
 function cleanup {
-  kill $ANVIL_PID
-  kill $SANDBOX_PID
+  docker rm -f cli-wallet-test-sandbox &>/dev/null || true
+  kill ${SANDBOX_PID:-} &>/dev/null || true
 }
-trap cleanup EXIT
-while ! nc -z localhost 8080; do sleep 1; done;
+trap cleanup SIGINT EXIT
+
+function aztec_sandbox_bg {
+  COMMIT_HASH=$(git rev-parse HEAD)
+  if ! docker_has_image aztecprotocol/aztec:$COMMIT_HASH; then
+    echo "release-image/bootstrap.sh has not ran for $COMMIT_HASH!"
+    exit 1
+  fi
+  export CONTAINER_NAME=cli-wallet-test-sandbox
+  docker rm -f cli-wallet-test-sandbox &>/dev/null || true
+  export VERSION=$COMMIT_HASH
+  export LOG_LEVEL=error
+  $root/aztec-up/bin/aztec start --sandbox &
+  SANDBOX_PID=$!
+  while ! curl -fs localhost:8080/status &>/dev/null; do sleep 1; done
+}
 
 COMMAND="node --no-warnings $(pwd)/../dest/bin/index.js"
 
 if [ "${REMOTE_PXE:-}" = "1" ]; then
   echo "Using remote PXE"
   export REMOTE_PXE="1"
+else
+  aztec_sandbox_bg
 fi
 
 if [ "${USE_DOCKER:-}" = "1" ]; then
@@ -62,5 +73,6 @@ fi
 cd ./flows
 
 for file in $(ls *.sh | grep ${FILTER:-"."}); do
+  echo ./$file $COMMAND $root/noir-projects/noir-contracts
   ./$file $COMMAND $root/noir-projects/noir-contracts
 done

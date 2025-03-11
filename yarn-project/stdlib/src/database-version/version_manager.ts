@@ -59,6 +59,10 @@ export class DatabaseVersion {
       .transform(({ schemaVersion, rollupAddress }) => new DatabaseVersion(schemaVersion, rollupAddress));
   }
 
+  public toString(): string {
+    return this.schemaVersion.toString();
+  }
+
   /**
    * Returns an empty instance
    */
