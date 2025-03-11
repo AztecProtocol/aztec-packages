@@ -24,7 +24,7 @@ function encourage_dev_container {
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
   # Check for various required utilities.
-  for util in jq parallel awk git curl; do
+  for util in jq parallel awk git curl protoc; do
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "Utility $util not found."
