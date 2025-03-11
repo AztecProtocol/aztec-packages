@@ -92,7 +92,7 @@ export async function deployNewRollupContracts(
   config: L1ContractsConfig,
   logger: Logger,
 ): Promise<{ payloadAddress: EthAddress; rollup: RollupContract }> {
-  const { createEthereumChain, deployRollupAndPeriphery, createL1Clients } = await import('@aztec/ethereum');
+  const { createEthereumChain, deployRollupForUpgrade, createL1Clients } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
@@ -102,7 +102,7 @@ export async function deployNewRollupContracts(
   const chain = createEthereumChain(rpcUrls, chainId);
   const clients = createL1Clients(rpcUrls, account, chain.chainInfo, mnemonicIndex);
 
-  const { payloadAddress, rollup } = await deployRollupAndPeriphery(
+  const { payloadAddress, rollup } = await deployRollupForUpgrade(
     clients,
     {
       salt,

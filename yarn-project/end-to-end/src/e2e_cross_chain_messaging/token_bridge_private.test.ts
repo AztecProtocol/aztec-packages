@@ -1,4 +1,5 @@
-import { CheatCodes, Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { getContract } from 'viem';
