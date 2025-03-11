@@ -1,16 +1,19 @@
 #!/bin/bash
 set -eu
 
-# Get the hardware memory in GB, useful for setting the memsuspend limit.
-# General rule of thumb:
-# - Allocate 1/4 of total hardware memory for the build.
-# - Max out at 64GB
+# This informs the --memsuspend flag for GNU parallel.
+# Per the documentation:
+# --memsuspend size
+#   If the available memory falls below 2 * size, GNU parallel will suspend some of the running jobs. If the available memory  falls  below  size,
+#   only one job will be running.
+# We aim for one fourth of the total memory, to take at most half the memory when running tests (2 * size).
 if [ -n "${MEMSUSPEND:-}" ]; then
   echo $MEMSUSPEND
   exit
 fi
 os=$(uname -s)
-total_mem_gb=64 # Default to 64GB
+# Default to 64GB memory
+total_mem_gb=64
 
 if [[ "$os" == "Darwin" ]]; then
   total_mem_bytes=$(sysctl -n hw.memsize)
@@ -19,8 +22,5 @@ elif [[ "$os" == "Linux" ]]; then
   total_mem_gb=$(free -g | awk '/^Mem:/ {print $2}')
 fi
 
-# Allocate 1/4 of total hardware memory for the build.
-total_mem_gb=$((total_mem_gb / 4))
-
-# Max out at 64GB
-echo $(( total_mem_gb < 64 ? total_mem_gb : 64 ))G
+# Max out at one fourth of 256GB (64GB memsuspend).
+echo $(( total_mem_gb < 256 ? $((total_mem_gb / 4)) : 64 ))G

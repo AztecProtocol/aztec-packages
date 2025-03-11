@@ -53,7 +53,7 @@ PRICE=$(jq -n "$BID_PER_CPU_HOUR*$CPUS*100000 | round / 100000")
 launch_spec=$(cat <<EOF
 {
   "ImageId": "$AMI",
-  "KeyName": "build-instance",
+  "KeyName": "${KEY_NAME:-build-instance}",
   "SecurityGroupIds": ["sg-0ccd4e5df0dcca0c9"],
   "InstanceType": "$INSTANCE_TYPE",
   "BlockDeviceMappings": [

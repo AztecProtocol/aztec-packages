@@ -1,20 +1,21 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { GovernanceAbi } from '@aztec/l1-artifacts';
+import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
 
 import {
   type EncodeFunctionDataParameters,
   type GetContractReturnType,
   type Hex,
+  type Log,
   encodeFunctionData,
   getContract,
+  parseEventLogs,
 } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemPublicClient, ViemWalletClient } from '../types.js';
-import { GovernanceProposerContract } from './governance_proposer.js';
 
 export type L1GovernanceContractAddresses = Pick<
   L1ContractAddresses,
@@ -31,6 +32,19 @@ export enum ProposalState {
   Executed,
   Dropped,
   Expired,
+}
+
+export function extractProposalIdFromLogs(logs: Log[]): bigint {
+  const parsedLogs = parseEventLogs({
+    abi: GovernanceAbi,
+    logs: logs,
+    eventName: 'Proposed',
+  });
+
+  if (parsedLogs.length === 0) {
+    throw new Error('Proposal log not found');
+  }
+  return parsedLogs[0].args.proposalId;
 }
 
 export class GovernanceContract {
@@ -52,23 +66,12 @@ export class GovernanceContract {
     return EthAddress.fromString(this.publicGovernance.address);
   }
 
-  public async getProposer() {
-    const governanceProposerAddress = EthAddress.fromString(await this.publicGovernance.read.governanceProposer());
-    return new GovernanceProposerContract(this.publicClient, governanceProposerAddress.toString());
+  public async getGovernanceProposerAddress() {
+    return EthAddress.fromString(await this.publicGovernance.read.governanceProposer());
   }
 
-  public async getGovernanceAddresses(): Promise<L1GovernanceContractAddresses> {
-    const governanceProposer = await this.getProposer();
-    const [rollupAddress, registryAddress] = await Promise.all([
-      governanceProposer.getRollupAddress(),
-      governanceProposer.getRegistryAddress(),
-    ]);
-    return {
-      governanceAddress: this.address,
-      rollupAddress,
-      registryAddress,
-      governanceProposerAddress: governanceProposer.address,
-    };
+  public getConfiguration() {
+    return this.publicGovernance.read.getConfiguration();
   }
 
   public getProposal(proposalId: bigint) {
@@ -102,16 +105,14 @@ export class GovernanceContract {
   }: {
     payloadAddress: Hex;
     withdrawAddress: Hex;
-  }): Promise<number> {
+  }): Promise<bigint> {
     const walletGovernance = this.assertWalletGovernance();
     const proposeTx = await walletGovernance.write.proposeWithLock([payloadAddress, withdrawAddress]);
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash: proposeTx });
     if (receipt.status !== 'success') {
       throw new Error(`Proposal failed: ${receipt.status}`);
     }
-
-    const proposalId = Number(receipt.logs[1].topics[1]);
-    return proposalId;
+    return extractProposalIdFromLogs(receipt.logs);
   }
 
   public async awaitProposalActive({ proposalId, logger }: { proposalId: bigint; logger: Logger }) {

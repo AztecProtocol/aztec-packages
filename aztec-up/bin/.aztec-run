@@ -110,9 +110,13 @@ for env in ${ENV_VARS_TO_INJECT:-}; do
   fi
 done
 
+arg_port_assignment=""
+
 # Dynamic port assignment.
-if [ -n "${AZTEC_PORT:-}" ]; then
-  arg_port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
+if [ -n "${PORTS_TO_EXPOSE:-}" ]; then
+  for port in ${PORTS_TO_EXPOSE}; do
+    arg_port_assignment+=" -p $port "
+  done
 fi
 
 # For debugging the aztec-up scripts, can be useful to mount local code into container.

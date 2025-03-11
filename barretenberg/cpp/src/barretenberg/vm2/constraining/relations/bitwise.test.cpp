@@ -8,9 +8,13 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/bitwise.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -21,6 +25,12 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bitwise = bb::avm2::bitwise<FF>;
+
+using tracegen::LookupIntoBitwise;
+using tracegen::LookupIntoIndexedByClk;
+using tracegen::PrecomputedTraceBuilder;
+using lookup_bitwise_byte_operations = bb::avm2::lookup_bitwise_byte_operations_relation<FF>;
+using lookup_bitwise_integral_tag_length = bb::avm2::lookup_bitwise_integral_tag_length_relation<FF>;
 
 TEST(BitwiseConstrainingTest, EmptyRow)
 {
@@ -313,6 +323,35 @@ TEST(BitwiseConstrainingTest, NegativeWrongAccumulation)
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_A), "BITW_ACC_REL_A");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_B), "BITW_ACC_REL_B");
     EXPECT_THROW_WITH_MESSAGE(check_relation<bitwise>(trace, bitwise::SR_BITW_ACC_REL_C), "BITW_ACC_REL_C");
+}
+
+TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    builder.process(
+        {
+            { .operation = BitwiseOperation::OR, .tag = MemoryTag::U1, .a = 1, .b = 0, .res = 1 },
+            { .operation = BitwiseOperation::AND, .tag = MemoryTag::U32, .a = 13793, .b = 10590617, .res = 4481 },
+            { .operation = BitwiseOperation::XOR, .tag = MemoryTag::U16, .a = 5323, .b = 321, .res = 5514 },
+            { .operation = BitwiseOperation::XOR, .tag = MemoryTag::U32, .a = 13793, .b = 10590617, .res = 10595448 },
+            { .operation = BitwiseOperation::AND, .tag = MemoryTag::U8, .a = 85, .b = 175, .res = 5 },
+            { .operation = BitwiseOperation::AND, .tag = MemoryTag::U8, .a = 85, .b = 175, .res = 5 },
+        },
+        trace);
+
+    precomputed_builder.process_misc(trace, 256 * 256 * 3);
+    precomputed_builder.process_bitwise(trace);
+    precomputed_builder.process_integral_tag_length(trace);
+
+    LookupIntoBitwise<lookup_bitwise_byte_operations::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length::Settings>().process(trace);
+
+    check_relation<bitwise>(trace);
+    check_interaction<lookup_bitwise_byte_operations>(trace);
+    check_interaction<lookup_bitwise_integral_tag_length>(trace);
 }
 
 } // namespace

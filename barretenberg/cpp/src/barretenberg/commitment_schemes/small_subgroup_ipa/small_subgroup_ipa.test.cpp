@@ -34,7 +34,7 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
 
     // A helper to evaluate the four IPA witness polynomials at x, x*g, x, x
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluate_small_ipa_witnesses(
-        const std::array<Polynomial<FF>, 4>& witness_polynomials)
+        const std::array<Polynomial<FF>, NUM_SMALL_IPA_EVALUATIONS>& witness_polynomials)
     {
         // Hard-coded pattern of evaluation: (x, x*g, x, x)
         return { witness_polynomials[0].evaluate(evaluation_challenge),
@@ -289,25 +289,19 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistency)
         const FF evaluation_challenge_x = FF::random_element();
         const FF batching_challenge_v = FF::random_element();
 
-        const FF claimed_inner_product = Prover::compute_claimed_translation_inner_product(
-            translation_data, evaluation_challenge_x, batching_challenge_v);
-
-        Prover small_subgroup_ipa_prover(translation_data,
-                                         evaluation_challenge_x,
-                                         batching_challenge_v,
-                                         claimed_inner_product,
-                                         prover_transcript,
-                                         ck);
+        Prover small_subgroup_ipa_prover(
+            translation_data, evaluation_challenge_x, batching_challenge_v, prover_transcript, ck);
         small_subgroup_ipa_prover.prove();
 
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
-        bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
-                                                                                 this->evaluation_challenge,
-                                                                                 evaluation_challenge_x,
-                                                                                 batching_challenge_v,
-                                                                                 claimed_inner_product);
+        bool consistency_checked =
+            Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
+                                                          this->evaluation_challenge,
+                                                          evaluation_challenge_x,
+                                                          batching_challenge_v,
+                                                          small_subgroup_ipa_prover.claimed_inner_product);
 
         EXPECT_TRUE(consistency_checked);
     }
@@ -348,24 +342,19 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
         const FF evaluation_challenge_x = FF::random_element();
         const FF batching_challenge_v = FF::random_element();
 
-        const FF claimed_inner_product = FF::random_element();
-
-        Prover small_subgroup_ipa_prover(translation_data,
-                                         evaluation_challenge_x,
-                                         batching_challenge_v,
-                                         claimed_inner_product,
-                                         prover_transcript,
-                                         ck);
+        Prover small_subgroup_ipa_prover(
+            translation_data, evaluation_challenge_x, batching_challenge_v, prover_transcript, ck);
         small_subgroup_ipa_prover.prove();
 
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
             this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
 
-        bool consistency_checked = Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
-                                                                                 this->evaluation_challenge,
-                                                                                 evaluation_challenge_x,
-                                                                                 batching_challenge_v,
-                                                                                 claimed_inner_product);
+        bool consistency_checked =
+            Verifier::check_eccvm_evaluations_consistency(small_ipa_evaluations,
+                                                          this->evaluation_challenge,
+                                                          evaluation_challenge_x,
+                                                          batching_challenge_v,
+                                                          /*tampered claimed inner product = */ FF::random_element());
 
         EXPECT_TRUE(!consistency_checked);
     }
