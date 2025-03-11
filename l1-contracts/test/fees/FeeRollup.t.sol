@@ -31,15 +31,13 @@ import {IRewardDistributor, IRegistry} from "@aztec/governance/interfaces/IRewar
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
-  FeeMath,
-  MANA_TARGET,
-  MINIMUM_CONGESTION_MULTIPLIER,
+  FeeLib,
   FeeAssetPerEthE9,
   EthValue,
   FeeHeader,
   L1FeeData,
   ManaBaseFeeComponents
-} from "@aztec/core/libraries/rollup/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
 
 import {
   FeeModelTestPoints,
@@ -84,13 +82,23 @@ contract FakeCanonical is IRewardDistributor {
   function updateRegistry(IRegistry _registry) external {}
 }
 
+contract FeeLibWrapper {
+  constructor() {
+    FeeLib.initialize();
+  }
+
+  function congestionMultiplier(uint256 _numerator) external view returns (uint256) {
+    return FeeLib.congestionMultiplier(_numerator);
+  }
+}
+
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;
 
   using SlotLib for Slot;
   using EpochLib for Epoch;
-  using FeeMath for uint256;
-  using FeeMath for ManaBaseFeeComponents;
+  using FeeLib for uint256;
+  using FeeLib for ManaBaseFeeComponents;
   // We need to build a block that we can submit. We will be using some values from
   // the empty blocks, but otherwise populate using the fee model test points.
 
@@ -105,6 +113,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   DecoderBase.Full full = load("empty_block_1");
+
+  uint256 internal constant MANA_TARGET = 100000000;
+
+  FeeLibWrapper internal feeLibWrapper = new FeeLibWrapper();
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
@@ -268,13 +280,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       }
     }
 
-    FeeHeader memory parentFeeHeaderNoPrune =
-      rollup.getBlock(rollup.getPendingBlockNumber()).feeHeader;
+    FeeHeader memory parentFeeHeaderNoPrune = rollup.getFeeHeader(rollup.getPendingBlockNumber());
     uint256 excessManaNoPrune = (
       parentFeeHeaderNoPrune.excessMana + parentFeeHeaderNoPrune.manaUsed
     ).clampedAdd(-int256(MANA_TARGET));
 
-    FeeHeader memory parentFeeHeaderPrune = rollup.getBlock(rollup.getProvenBlockNumber()).feeHeader;
+    FeeHeader memory parentFeeHeaderPrune = rollup.getFeeHeader(rollup.getProvenBlockNumber());
     uint256 excessManaPrune = (parentFeeHeaderPrune.excessMana + parentFeeHeaderPrune.manaUsed)
       .clampedAdd(-int256(MANA_TARGET));
 
@@ -306,14 +317,15 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       "congestion multiplier should be higher if we do not prune"
     );
 
+    // @todo We are doing an underflow here
     assertEq(
       componentsPrune.congestionMultiplier,
-      FeeMath.congestionMultiplier(excessManaPrune),
+      feeLibWrapper.congestionMultiplier(excessManaPrune),
       "congestion multiplier mismatch for prune"
     );
     assertEq(
       componentsNoPrune.congestionMultiplier,
-      FeeMath.congestionMultiplier(excessManaNoPrune),
+      feeLibWrapper.congestionMultiplier(excessManaNoPrune),
       "congestion multiplier mismatch for no-prune"
     );
   }
@@ -350,7 +362,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
         ManaBaseFeeComponents memory componentsFeeAsset =
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-        BlockLog memory parentBlockLog = rollup.getBlock(nextSlot.unwrap() - 1);
+        FeeHeader memory parentFeeHeader = rollup.getFeeHeader(nextSlot.unwrap() - 1);
 
         Block memory b = getBlock();
 
@@ -369,14 +381,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           b.blobInputs
         );
 
-        BlockLog memory blockLog = rollup.getBlock(nextSlot.unwrap());
+        FeeHeader memory feeHeader = rollup.getFeeHeader(nextSlot.unwrap());
 
         assertEq(baseFeePrediction, componentsFeeAsset.summedBaseFee(), "mana base fee mismatch");
 
         assertEq(
-          componentsFeeAsset.congestionCost,
-          blockLog.feeHeader.congestionCost,
-          "congestion cost mismatch"
+          componentsFeeAsset.congestionCost, feeHeader.congestionCost, "congestion cost mismatch"
         );
         // Want to check the fee header to see if they are as we want them.
 
@@ -385,7 +395,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         assertEq(point.block_header.slot_number, nextSlot, "invalid l2 slot number");
         assertEq(point.block_header.timestamp, block.timestamp, "invalid timestamp");
 
-        assertEq(point.fee_header, blockLog.feeHeader);
+        assertEq(point.fee_header, feeHeader);
 
         assertEq(
           point.outputs.fee_asset_price_at_execution, feeAssetPrice, "fee asset price mismatch"
@@ -398,7 +408,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           point.outputs.mana_base_fee_components_in_fee_asset, componentsFeeAsset, "in_fee_asset"
         );
 
-        assertEq(point.parent_fee_header, parentBlockLog.feeHeader);
+        assertEq(point.parent_fee_header, parentFeeHeader);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -432,7 +442,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             + point.outputs.mana_base_fee_components_in_fee_asset.proving_cost
             + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
 
-          uint256 manaUsed = rollup.getBlock(start + feeIndex).feeHeader.manaUsed;
+          uint256 manaUsed = rollup.getFeeHeader(start + feeIndex).manaUsed;
           uint256 fee = manaUsed * baseFee;
 
           proverFees +=
