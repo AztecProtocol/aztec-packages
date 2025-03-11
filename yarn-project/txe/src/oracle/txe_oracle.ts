@@ -780,6 +780,8 @@ export class TXE implements TypedOracle {
     // This essentially commits the state updates to the unforked state and sanity checks the roots.
     await this.nativeWorldStateService.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 
+    await this.syncDataProvider.setHeader(header);
+
     this.publicDataWrites = [];
     this.privateLogs = [];
     this.publicLogs = [];
