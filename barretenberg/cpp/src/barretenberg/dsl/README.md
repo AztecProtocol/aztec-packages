@@ -6,11 +6,17 @@ This package adds support to use [ACIR](https://github.com/noir-lang/noir/tree/m
 
 There are two types of breaking serialization changes. One that alters the internal ACIR structure passed to barretenberg, and one that changes how we serialize the buffer passed to barretenberg.
 
+### `serde`
+
+We use `serde` to generate C++ code the domain classes used in Noir. These can be serialized using `bincode`, however this for format is generally
+not backwards or forwards compatible, which is why we use `protobuf` as well (see further below).
+
 1. Internal Structure Change
 
 Go to the ACVM `acir` crate and re-run the [serde reflection test](../../../../../noir/noir-repo/acvm-repo/acir/src/lib.rs#L51). Remember to comment out the hash check to write the updated C++ serde file. Copy that file into the `dsl` package's [serde folder](./acir_format/serde/) where you will see an `acir.hpp` file.
 
 You will have to update a couple things in the new `acir.hpp`:
+
 - Replace all `throw serde::deserialization_error` with `throw_or_abort`
 - The top-level struct (such as `Program`) will still use its own namespace for its internal fields. This extra `Program::` can be removed from the top-level `struct Program { .. }` object.
 
@@ -28,7 +34,33 @@ In the context of Aztec we need to regenerate all the artifacts in [noir-project
 
 The Aztec artifacts can be individually regenerated as well using `yarn test -u`.
 You can also run the command on the relevant workspaces, which at the time are the following:
-```
+
+```shell
 yarn workspace @aztec/stdlib test -u
 yarn workspace @aztec/protocol-contracts test -u
+```
+
+### `protobuf`
+
+To combat the problems with breaking changes described under `serde` above, we can use [protobuf](https://protobuf.dev) to serialize the ACIR program
+and witness stack. The schemas are [defined](https://github.com/noir-lang/noir/tree/master/acvm-repo/acir/src/proto) in the Noir repository,
+and the C++ code is generated for them here by running the following command:
+
+```shell
+make -C barretenberg/cpp/src/barretenberg/dsl --no-print-directory
+```
+
+The resulting `.pb.c` and `.pb.h` files are written to `./acir_format/proto/acir` but aren't checked into source control.
+
+For example:
+
+```console
+% make -C barretenberg/cpp/src/barretenberg/dsl --no-print-directory                                                                                                                                ~/aztec-packages af/bb-dsl-acir-proto+ akosh-box
+mkdir -p acir_format/proto
+protoc --cpp_out ./acir_format/proto -I ../../../../../noir/noir-repo/acvm-repo/acir/src/proto ../../../../../noir/noir-repo/acvm-repo/acir/src/proto/acir/program.proto
+protoc --cpp_out ./acir_format/proto -I ../../../../../noir/noir-repo/acvm-repo/acir/src/proto ../../../../../noir/noir-repo/acvm-repo/acir/src/proto/acir/witness.proto
+protoc --cpp_out ./acir_format/proto -I ../../../../../noir/noir-repo/acvm-repo/acir/src/proto ../../../../../noir/noir-repo/acvm-repo/acir/src/proto/acir/circuit.proto
+protoc --cpp_out ./acir_format/proto -I ../../../../../noir/noir-repo/acvm-repo/acir/src/proto ../../../../../noir/noir-repo/acvm-repo/acir/src/proto/acir/native.proto
+% ls barretenberg/cpp/src/barretenberg/dsl/acir_format/proto/acir
+circuit.pb.cc  circuit.pb.h  native.pb.cc  native.pb.h  program.pb.cc  program.pb.h  witness.pb.cc  witness.pb.h
 ```

@@ -13,4 +13,5 @@ go*.tar.gz
 barretenberg_modules.dot
 barretenberg_modules.png
 src/barretenberg/bb/config.hpp
+src/barretenberg/dsl/acir_format/proto
 bench-out
