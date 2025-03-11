@@ -259,7 +259,6 @@ async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
       const tag = process.env.COMMIT_TAG
         ? `${process.env.COMMIT_TAG}`
         : "master";
-
       const url = `https://github.com/AztecProtocol/aztec-packages/blob/${tag}/${urlText}`;
 
       const title = noTitle ? "" : `title="${identifier}"`;
