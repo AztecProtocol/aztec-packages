@@ -3,7 +3,10 @@
 pragma solidity >=0.8.27;
 
 import {
-  RollupStore, IRollupCore, BlockLog, ExecutionFlags
+  RollupStore,
+  IRollupCore,
+  BlockLog,
+  BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -56,7 +59,7 @@ struct ValidateHeaderArgs {
   Timestamp currentTime;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
-  ExecutionFlags flags;
+  BlockHeaderValidationFlags flags;
 }
 
 library ProposeLib {
@@ -123,7 +126,7 @@ library ProposeLib {
         currentTime: Timestamp.wrap(block.timestamp),
         manaBaseFee: FeeMath.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
-        flags: ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
+        flags: BlockHeaderValidationFlags({ignoreDA: false, ignoreSignatures: false})
       })
     );
 

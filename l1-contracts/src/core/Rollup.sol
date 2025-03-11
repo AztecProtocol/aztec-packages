@@ -11,7 +11,7 @@ import {
   FeeAssetPerEthE9,
   EpochRewards,
   BlockLog,
-  ExecutionFlags
+  BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking,
@@ -190,7 +190,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,
-    ExecutionFlags memory _flags
+    BlockHeaderValidationFlags memory _flags
   ) external view override(IRollup) {
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
@@ -581,7 +581,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       slot.epochFromSlot(),
       sigs,
       _archive,
-      ExecutionFlags({ignoreDA: true, ignoreSignatures: true})
+      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
     );
 
     return (slot, pendingBlockNumber + 1);
@@ -600,8 +600,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.canPruneAtTime(_ts);
   }
 
-  function getCuauhxicalli() external pure override(IRollup) returns (address) {
-    return EpochProofLib.CUAUHXICALLI;
+  function getBurnAddress() external pure override(IRollup) returns (address) {
+    return EpochProofLib.BURN_ADDRESS;
   }
 
   /**

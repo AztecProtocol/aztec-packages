@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ExecutionFlags} from "@aztec/core/interfaces/IRollup.sol";
+import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {
   EpochData, ValidatorSelectionStorage
@@ -72,7 +72,7 @@ library ValidatorSelectionLib {
     Epoch _epochNumber,
     Signature[] memory _signatures,
     bytes32 _digest,
-    ExecutionFlags memory _flags
+    BlockHeaderValidationFlags memory _flags
   ) internal view {
     // Same logic as we got in getProposerAt
     // Done do avoid duplicate computing the committee

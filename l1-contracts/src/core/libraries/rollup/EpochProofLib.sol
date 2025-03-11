@@ -41,7 +41,7 @@ library EpochProofLib {
 
   // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
   // such as sacrificial hearts, during rituals performed within temples.
-  address public constant CUAUHXICALLI = address(bytes20("CUAUHXICALLI"));
+  address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
   /**
    * @notice  Submit a proof for an epoch in the pending chain
@@ -333,7 +333,7 @@ library EpochProofLib {
         }
 
         if (t.totalBurn > 0) {
-          rollupStore.config.feeAsset.transfer(CUAUHXICALLI, t.totalBurn);
+          rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
         }
       }
     }

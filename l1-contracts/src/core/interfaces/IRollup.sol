@@ -70,7 +70,7 @@ struct EpochRewards {
  * @param ignoreDA - True will ignore DA check, otherwise checks
  * @param ignoreSignature - True will ignore the signatures, otherwise checks
  */
-struct ExecutionFlags {
+struct BlockHeaderValidationFlags {
   bool ignoreDA;
   bool ignoreSignatures;
 }
@@ -179,7 +179,7 @@ interface IRollup is IRollupCore {
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,
-    ExecutionFlags memory _flags
+    BlockHeaderValidationFlags memory _flags
   ) external view;
 
   function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
@@ -227,7 +227,7 @@ interface IRollup is IRollupCore {
   function getFeeAsset() external view returns (IERC20);
   function getFeeAssetPortal() external view returns (IFeeJuicePortal);
   function getRewardDistributor() external view returns (IRewardDistributor);
-  function getCuauhxicalli() external view returns (address);
+  function getBurnAddress() external view returns (address);
 
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
