@@ -9,8 +9,6 @@ namespace merkle_check(256);
     #[skippable_if]
     sel = 0;
 
-    // Gotta stop using clk for things that are more like foreign keys
-    pol commit clk;
     // Inputs to the gadget
     pol commit leaf_value;
     pol commit leaf_index;
@@ -67,5 +65,5 @@ namespace merkle_check(256);
 
     // Permutation to the full poseidon2 gadget
     #[PERM_MERKLE_POSEIDON2]
-    sel { clk, left_hash, right_hash, output_hash } is
-    poseidon2_hash.sel {poseidon2_hash.clk, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
+    sel { left_hash, right_hash, output_hash } is
+    poseidon2_hash.sel {poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };

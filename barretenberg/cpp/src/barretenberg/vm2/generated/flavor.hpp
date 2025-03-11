@@ -27,6 +27,7 @@
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/merkle_check.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/range_check.hpp"
@@ -46,6 +47,7 @@
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
 #include "relations/lookups_to_radix.hpp"
+#include "relations/perms_merkle_check.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -88,12 +90,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 806;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 115;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 819;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 118;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 965;
+    static constexpr size_t NUM_ALL_ENTITIES = 981;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -108,6 +110,7 @@ class AvmFlavor {
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::merkle_check<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
@@ -154,7 +157,8 @@ class AvmFlavor {
         lookup_to_radix_fetch_safe_limbs_relation<FF_>,
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
-        lookup_to_radix_limb_range_relation<FF_>>;
+        lookup_to_radix_limb_range_relation<FF_>,
+        perm_merkle_check_perm_merkle_poseidon2_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
 
