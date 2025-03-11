@@ -31,9 +31,8 @@ function get_projects {
 }
 
 function format {
-  arg=${1:-"-w"}
   find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
 }
 
 function lint {
@@ -66,7 +65,7 @@ function compile_all {
 
   get_projects | compile_project
 
-  cmds=('format --check')
+  cmds=(format)
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
     cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
@@ -166,7 +165,7 @@ function release_packages {
 
 function release {
   echo_header "yarn-project release"
-  release_packages $(dist_tag) ${REF_NAME#v}
+  release_packages "$(dist_tag)" "${REF_NAME#v}"
 }
 
 case "$cmd" in
@@ -197,8 +196,8 @@ case "$cmd" in
       get_projects | compile_project
     fi
     ;;
-  lint|format)
-    $cmd "$@"
+  "lint")
+    lint "$@"
     ;;
   test|test_cmds|hash|release|format)
     $cmd
