@@ -14,10 +14,6 @@ PROTO_DST := $(patsubst %, $(PROTO_DST_DIR)/%, $(PROTO_CPP))
 .PHONY: all
 all: $(PROTO_DST)
 
-
-test:
-	@echo $(PROTO_DST)
-
 # Compile an ACIR protobuf schema to C++
 $(PROTO_DST_DIR)/%.pb.h: $(PROTO_SRC_DIR)/%.proto $(PROTO_DST_DIR) | .protoc
 	protoc --cpp_out $(PROTO_DST_DIR) -I $(PROTO_SRC_DIR) $<
