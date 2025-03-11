@@ -4,8 +4,8 @@ import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { AuthWitnessProvider } from '../account/interface.js';
 import type { Wallet } from '../account/wallet.js';
 import { Contract } from '../contract/contract.js';
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
-import { ContractFunctionInteraction } from '../contract/index.js';
 import { EntrypointPayload, computeCombinedPayloadHash } from '../entrypoint/payload.js';
 
 /**
