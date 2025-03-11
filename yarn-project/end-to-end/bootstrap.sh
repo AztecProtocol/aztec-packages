@@ -125,6 +125,9 @@ function test_cmds {
   echo "$prefix compose guides/writing_an_account_contract"
   echo "$prefix compose e2e_token_bridge_tutorial_test"
   echo "$prefix compose uniswap_trade_on_l1_from_l2"
+
+  # compose-based tests with custom test scripts
+  echo "$prefix compose '' '' scripts/test_cli_wallet.sh"
 }
 
 function test {

@@ -160,11 +160,6 @@ tests:
     owners:
       - *leila
 
-  - regex: "spartan/bootstrap.sh test-local"
-    skip: true
-    owners:
-      - *adam
-
   # Slack testing.
   - regex: "nonsense to match"
     owners:

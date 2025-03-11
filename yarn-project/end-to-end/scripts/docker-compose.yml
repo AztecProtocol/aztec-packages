@@ -64,7 +64,7 @@ services:
     entrypoint: >
       bash -c '
         while ! nc -z sandbox 8080; do sleep 1; done;
-        setsid ./scripts/test_simple.sh ${TEST:-./src/e2e_deploy_contract.test.ts} &
+        setsid ${TEST_SCRIPT:-./scripts/test_simple.sh} ${TEST:-./src/e2e_deploy_contract.test.ts} &
         pid=$$!
         pgid=$$(($$(ps -o pgid= -p $$pid)))
         trap "kill -SIGTERM -$$pgid" SIGTERM
