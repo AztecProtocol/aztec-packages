@@ -425,7 +425,7 @@ template <typename Curve> class ShplonkVerifier_ {
             denominators.emplace_back(shplonk_eval_challenge - gemini_eval_challenge_power);
         }
 
-        if constexpr (Curve::is_stdlib_type) {
+        if constexpr (!Curve::is_stdlib_type) {
             Fr::batch_invert(denominators);
         } else {
             for (auto& denominator : denominators) {

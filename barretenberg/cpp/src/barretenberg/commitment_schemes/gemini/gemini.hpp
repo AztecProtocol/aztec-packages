@@ -521,7 +521,7 @@ template <typename Curve> class GeminiVerifier_ {
      */
     static std::vector<Fr> compute_fold_pos_evaluations(
         const size_t num_variables,
-        Fr& batched_eval_accumulator,
+        const Fr& batched_evaluation,
         std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
         std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
         std::span<const Fr> fold_polynomial_evals,
@@ -529,8 +529,17 @@ template <typename Curve> class GeminiVerifier_ {
     {
         std::vector<Fr> evals(fold_polynomial_evals.begin(), fold_polynomial_evals.end());
 
+        Fr eval_pos_prev = batched_evaluation;
+
+        Fr zero{ 0 };
+        if constexpr (Curve::is_stdlib_type) {
+            zero.convert_constant_to_fixed_witness(fold_polynomial_evals[0].get_context());
+        }
+
         std::vector<Fr> gemini_fold_pos_evaluations;
-        gemini_fold_pos_evaluations.reserve(CONST_PROOF_SIZE_LOG_N - 1); //?
+        gemini_fold_pos_evaluations.reserve(CONST_PROOF_SIZE_LOG_N);
+        // Either a computed eval of A_i at r^{2^i}, or 0
+        Fr value_to_emplace;
 
         // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
         evals[0] += p_neg;
@@ -544,26 +553,30 @@ template <typename Curve> class GeminiVerifier_ {
             const Fr& eval_neg = evals[l - 1];
             // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
             // Compute the numerator
-            Fr batched_eval_round_acc =
-                ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
+            Fr eval_pos = ((challenge_power * eval_pos_prev * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
             // Divide by the denominator
-            batched_eval_round_acc *= (challenge_power * (Fr(1) - u) + u).invert();
+            eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
+
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > num_variables);
-                batched_eval_accumulator =
-                    Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);
+                // If current index is bigger than log_circuit_size, we propagate `batched_evaluation` to the next
+                // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+                eval_pos_prev = Fr::conditional_assign(dummy_round, eval_pos_prev, eval_pos);
+                // If current index is bigger than log_circuit_size, we emplace 0, which is later multiplied against
+                // Commitment::one().
+                value_to_emplace = Fr::conditional_assign(dummy_round, zero, eval_pos_prev);
 
             } else {
-                if (l <= num_variables) {
-                    batched_eval_accumulator = batched_eval_round_acc;
-                    gemini_fold_pos_evaluations.emplace_back(batched_eval_accumulator);
-                } else {
-                    gemini_fold_pos_evaluations.emplace_back(Fr(0));
-                }
-            }
+                // Perform the same logic as above natively
+                bool dummy_round = l > num_variables;
+                eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
+                value_to_emplace = dummy_round ? zero : eval_pos_prev;
+            };
+            gemini_fold_pos_evaluations.emplace_back(value_to_emplace);
         }
+
         std::reverse(gemini_fold_pos_evaluations.begin(), gemini_fold_pos_evaluations.end());
 
         return gemini_fold_pos_evaluations;
