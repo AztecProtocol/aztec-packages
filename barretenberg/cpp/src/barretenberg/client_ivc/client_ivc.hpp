@@ -169,7 +169,7 @@ class ClientIVC {
 
     Proof prove();
 
-    std::pair<HonkProof, HonkProof> construct_and_prove_hiding_circuit();
+    std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 

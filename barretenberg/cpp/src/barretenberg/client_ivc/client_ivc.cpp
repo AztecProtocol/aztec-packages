@@ -232,8 +232,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
  *
  * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
  * @return HonkProof - a Mega proof
+ * @return MergeProof - a Merge proof
  */
-std::pair<HonkProof, HonkProof> ClientIVC::construct_and_prove_hiding_circuit()
+std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hiding_circuit()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);

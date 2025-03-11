@@ -38,7 +38,7 @@ class GoblinProver {
 
     using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
-    using MergeProof = std::vector<FF>;
+    using MergeProof = MergeProver::MergeProof;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
@@ -75,7 +75,7 @@ class GoblinProver {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge(MegaBuilder& circuit_builder) const
+    MergeProof prove_merge(MegaBuilder& circuit_builder)
     {
         PROFILE_THIS_NAME("Goblin::merge");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
@@ -88,7 +88,8 @@ class GoblinProver {
         }
 
         MergeProver merge_prover{ circuit_builder.op_queue, commitment_key };
-        return merge_prover.construct_proof();
+        merge_proof = merge_prover.construct_proof();
+        return merge_proof;
     };
 
     /**
