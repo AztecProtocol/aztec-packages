@@ -151,6 +151,11 @@ describe('PXESchema', () => {
     expect(result).toEqual([address]);
   });
 
+  it('profileTx', async () => {
+    const result = await context.client.profileTx(await TxExecutionRequest.random(), 'gates');
+    expect(result).toBeInstanceOf(TxProfileResult);
+  });
+
   it('proveTx', async () => {
     const result = await context.client.proveTx(
       await TxExecutionRequest.random(),

@@ -8,9 +8,11 @@ export class TxProfileResult {
   constructor(public executionSteps: PrivateExecutionStep[]) {}
 
   static get schema(): ZodFor<TxProfileResult> {
-    return z.object({
-      executionSteps: z.array(PrivateExecutionStepSchema),
-    });
+    return z
+      .object({
+        executionSteps: z.array(PrivateExecutionStepSchema),
+      })
+      .transform(({ executionSteps }) => new TxProfileResult(executionSteps));
   }
 
   static random(): TxProfileResult {
