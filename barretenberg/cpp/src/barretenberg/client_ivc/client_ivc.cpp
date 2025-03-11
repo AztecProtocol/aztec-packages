@@ -44,31 +44,23 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * case, the verifier accumulator is updated in place via the verification algorithm. Databus commitment consistency
  * checks are performed on the witness commitments and public inputs extracted from the proof by the verifier.
  *
- * @param circuit The circuit to which the constraints are appended
- * @param proof A stdlib proof to be recursively verified (either oink or PG)
- * @param vkey The stdlib verification key associated with the proof
- * @param type The type of the proof (equivalently, the type of the verifier)
+ * @param circuit
+ * @param verifier_inputs {proof, merge_proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
  */
 void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs)
 {
-
-    const StdlibProof<ClientCircuit>& proof = verifier_inputs.proof;
-    const StdlibProof<ClientCircuit>& merge_proof = verifier_inputs.merge_proof;
-    const std::shared_ptr<RecursiveVerificationKey>& vkey = verifier_inputs.honk_verification_key;
-    const QUEUE_TYPE type = verifier_inputs.type;
-
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
     std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
 
-    switch (type) {
+    switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG: {
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
 
         // Perform folding recursive verification to update the verifier accumulator
-        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { vkey } };
-        auto verifier_accum = verifier.verify_folding_proof(proof);
+        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { verifier_inputs.honk_verification_key } };
+        auto verifier_accum = verifier.verify_folding_proof(verifier_inputs.proof);
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
@@ -79,11 +71,12 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     case QUEUE_TYPE::OINK: {
         // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
-        auto verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, vkey);
+        auto verifier_accum =
+            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_verification_key);
 
         // Perform oink recursive verification to complete the initial verifier accumulator
         OinkRecursiveVerifier oink{ &circuit, verifier_accum };
-        oink.verify_proof(proof);
+        oink.verify_proof(verifier_inputs.proof);
         verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
@@ -99,7 +92,7 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
     // Recursively verify the merge proof for the circuit being recursively verified
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(circuit, merge_proof);
+    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(circuit, verifier_inputs.merge_proof);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
