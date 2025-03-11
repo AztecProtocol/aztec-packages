@@ -93,8 +93,8 @@ describe('e2e_escrow_contract', () => {
     await expectTokenBalance(wallet, token, owner, 50n, logger);
 
     await new BatchCall(wallet, [
-      await token.methods.transfer(recipient, 10).request(),
-      await escrowContract.methods.withdraw(token.address, 20, recipient).request(),
+      token.methods.transfer(recipient, 10),
+      escrowContract.methods.withdraw(token.address, 20, recipient),
     ])
       .send()
       .wait();

@@ -8,7 +8,7 @@ MINT_AMOUNT=42
 TRANSFER_AMOUNT=21
 
 source $TEST_FOLDER/shared/deploy_main_account_and_token.sh
-source $TEST_FOLDER/shared/mint_to_public.sh $MINT_AMOUNT
+source $TEST_FOLDER/shared/mint_to_public.sh $MINT_AMOUNT main
 source $TEST_FOLDER/shared/create_funded_account.sh operator
 
 aztec-wallet create-secret -a auth_nonce

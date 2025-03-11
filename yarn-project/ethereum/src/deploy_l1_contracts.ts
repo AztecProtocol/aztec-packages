@@ -66,7 +66,7 @@ import {
   type L1TxRequest,
   L1TxUtils,
   type L1TxUtilsConfig,
-  defaultL1TxUtilsConfig,
+  getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { L1Clients, ViemPublicClient, ViemWalletClient } from './types.js';
 
@@ -438,7 +438,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: Logger,
   args: DeployL1ContractsArgs,
-  txUtilsConfig: L1TxUtilsConfig = defaultL1TxUtilsConfig,
+  txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
 ): Promise<DeployL1ContractsReturnType> => {
   const clients = createL1Clients(rpcUrls, account, chain);
   const { walletClient, publicClient } = clients;
@@ -809,7 +809,8 @@ export async function deployL1Contract(
   let resultingAddress: Hex | null | undefined = undefined;
 
   if (!l1TxUtils) {
-    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger, undefined, acceleratedTestDeployments);
+    const config = getL1TxUtilsConfigEnvVars();
+    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger, config, acceleratedTestDeployments);
   }
 
   if (libraries) {
