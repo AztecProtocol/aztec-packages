@@ -1,6 +1,7 @@
 #!/bin/bash
-set -euo pipefail
-cd "$(dirname "$0")"
+set -e
+
+LOCATION=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 POSITIONAL_ARGS=()
 
@@ -31,12 +32,12 @@ done
 
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
-# Set up wallet data directory
-rm -rf data
-mkdir -p data
-export WALLET_DATA_DIRECTORY="$(pwd)/data"
+export WALLET_DATA_DIRECTORY="${LOCATION}/data"
 
-COMMAND="node --no-warnings $(pwd)/../dest/bin/index.js"
+rm -rf $WALLET_DATA_DIRECTORY
+mkdir -p $WALLET_DATA_DIRECTORY
+
+COMMAND="node --no-warnings $(realpath ../dest/bin/index.js)"
 
 if [ "${REMOTE_PXE:-}" = "1" ]; then
   echo "Using remote PXE"
@@ -44,13 +45,13 @@ if [ "${REMOTE_PXE:-}" = "1" ]; then
 fi
 
 if [ "${USE_DOCKER:-}" = "1" ]; then
-  echo "Using docker"
-  COMMAND="aztec-wallet"
+    echo "Using docker"
+    COMMAND="aztec-wallet"
 fi
 
 cd ./flows
 
 for file in $(ls *.sh | grep ${FILTER:-"."}); do
-  echo ./$file $COMMAND $root/noir-projects/noir-contracts
-  ./$file $COMMAND $root/noir-projects/noir-contracts
+    ./$file $COMMAND
 done
+

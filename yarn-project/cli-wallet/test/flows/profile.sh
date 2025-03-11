@@ -1,6 +1,6 @@
 #!/bin/bash
-set -e
-source ../utils/setup.sh
+source $(git rev-parse --show-toplevel)/ci3/source
+source shared/setup.sh
 
 test_title "Profile private transfer with authwit"
 
@@ -10,9 +10,9 @@ warn // Note: this test requires proving to be enabled to show meaningful output
 warn //////////////////////////////////////////////////////////////////////////////
 echo
 
-source $TEST_FOLDER/shared/deploy_main_account_and_token.sh
-source $TEST_FOLDER/shared/mint_to_private.sh 100 main
-source $TEST_FOLDER/shared/create_funded_account.sh operator
+source $flows/shared/deploy_main_account_and_token.sh
+source $flows/shared/mint_to_private.sh 100 main
+source $flows/shared/create_funded_account.sh operator
 
 # Create an authwit for the operator to transfer tokens from the main account to operator's own account.
 aztec-wallet create-secret -a auth_nonce
