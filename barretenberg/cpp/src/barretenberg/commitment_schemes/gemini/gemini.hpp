@@ -447,11 +447,6 @@ template <typename Curve> class GeminiVerifier_ {
         std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
             num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
 
-        size_t idx = 0;
-        for (auto eval : gemini_fold_pos_evaluations) {
-            info("verifier ", idx, "  ", eval);
-            idx++;
-        }
         auto full_a_0_pos = gemini_fold_pos_evaluations[0];
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
         fold_polynomial_opening_claims.reserve(2 * num_variables + 2);
