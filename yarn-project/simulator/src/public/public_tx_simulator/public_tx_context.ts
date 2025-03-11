@@ -39,6 +39,7 @@ import { inspect } from 'util';
 
 import type { PublicContractsDBInterface } from '../../server.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
+import { HintingPublicContractsDB } from '../hinting_db_sources.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from '../utils.js';
@@ -61,14 +62,6 @@ export class PublicTxContext {
   /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
 
-  /***
-   * Hints for this Tx.
-   *
-   * I don't like that this is public, but we need to
-   * add enqueued calls to it from the PublicTxSimulator.
-   **/
-  public readonly hints: AvmExecutionHints = new AvmExecutionHints();
-
   private constructor(
     public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
@@ -86,7 +79,8 @@ export class PublicTxContext {
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
-    public trace: SideEffectTrace, // FIXME(dbanks12): should be private
+    private readonly trace: SideEffectTrace,
+    public readonly hints: AvmExecutionHints, // This is public due to enqueued call hinting.
   ) {
     this.log = createLogger(`simulator:public_tx_context`);
   }
@@ -113,10 +107,15 @@ export class PublicTxContext {
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
+    // We wrap the DB to collect AVM hints.
+    const hints = new AvmExecutionHints();
+    const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
+    // TODO: Wrap merkle db.
+
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = AvmPersistableStateManager.create(
       treesDB,
-      contractsDB,
+      hintingContractsDB,
       trace,
       doMerkleOperations,
       firstNullifier,
@@ -146,6 +145,7 @@ export class PublicTxContext {
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
       trace,
+      hints,
     );
   }
 

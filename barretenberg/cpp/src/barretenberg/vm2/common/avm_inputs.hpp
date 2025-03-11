@@ -29,7 +29,6 @@ struct PublicKeysHint {
 
 struct ContractInstanceHint {
     AztecAddress address;
-    bool exists;
     FF salt;
     AztecAddress deployer;
     ContractClassId currentContractClassId;
@@ -40,26 +39,28 @@ struct ContractInstanceHint {
 
     bool operator==(const ContractInstanceHint& other) const = default;
 
-    MSGPACK_FIELDS(address,
-                   exists,
-                   salt,
-                   deployer,
-                   currentContractClassId,
-                   originalContractClassId,
-                   initializationHash,
-                   publicKeys);
+    MSGPACK_FIELDS(
+        address, salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys);
 };
 
 struct ContractClassHint {
     FF classId;
     FF artifactHash;
     FF privateFunctionsRoot;
-    FF publicBytecodeCommitment;
     std::vector<uint8_t> packedBytecode;
 
     bool operator==(const ContractClassHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode);
+    MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, packedBytecode);
+};
+
+struct BytecodeCommitmentHint {
+    FF classId;
+    FF commitment;
+
+    bool operator==(const BytecodeCommitmentHint& other) const = default;
+
+    MSGPACK_FIELDS(classId, commitment);
 };
 
 // The reason we need EnqueuedCall hints at all (and cannot just use the public inputs) is
@@ -79,10 +80,11 @@ struct ExecutionHints {
     std::vector<EnqueuedCallHint> enqueuedCalls;
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
+    std::vector<BytecodeCommitmentHint> bytecodeCommitments;
 
     bool operator==(const ExecutionHints& other) const = default;
 
-    MSGPACK_FIELDS(enqueuedCalls, contractInstances, contractClasses);
+    MSGPACK_FIELDS(enqueuedCalls, contractInstances, contractClasses, bytecodeCommitments);
 };
 
 ////////////////////////////////////////////////////////////////////////////
