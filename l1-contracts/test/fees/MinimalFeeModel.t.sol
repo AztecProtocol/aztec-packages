@@ -18,7 +18,7 @@ import {
   MINIMUM_CONGESTION_MULTIPLIER,
   EthValue,
   FeeAssetPerEthE9
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 contract MinimalFeeModelTest is FeeModelTestPoints {

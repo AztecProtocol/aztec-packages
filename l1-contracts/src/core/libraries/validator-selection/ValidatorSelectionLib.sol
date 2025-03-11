@@ -2,13 +2,13 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {
   EpochData, ValidatorSelectionStorage
 } from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
@@ -66,13 +66,13 @@ library ValidatorSelectionLib {
    * @param _signatures - The signatures of the committee members
    * @param _digest - The digest of the block
    */
-  function validateValidatorSelection(
+  function verify(
     StakingStorage storage _stakingStore,
     Slot _slot,
     Epoch _epochNumber,
     Signature[] memory _signatures,
     bytes32 _digest,
-    DataStructures.ExecutionFlags memory _flags
+    BlockHeaderValidationFlags memory _flags
   ) internal view {
     // Same logic as we got in getProposerAt
     // Done do avoid duplicate computing the committee
@@ -90,7 +90,6 @@ library ValidatorSelectionLib {
       return;
     }
 
-    // @todo We should allow to provide a signature instead of needing the proposer to broadcast.
     require(
       proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
