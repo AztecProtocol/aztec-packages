@@ -255,7 +255,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 _storage_slot: Field,
                 _note_type_id: Field,
                 _contract_address: aztec::protocol_types::address::AztecAddress,
-            ) -> pub Option<aztec::discovery::NoteHashAndNullifier> {
+            ) -> Option<aztec::discovery::NoteHashAndNullifier> {
                 panic(f"This contract does not use private notes")
             }
         }
