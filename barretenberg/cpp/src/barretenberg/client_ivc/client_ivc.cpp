@@ -98,6 +98,7 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
 
     // Recursively verify the merge proof for the circuit being recursively verified
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
     [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(circuit, merge_proof);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
@@ -197,8 +198,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
         // Add oink proof and corresponding verification key to the verification queue
-        verification_queue.push_back(
-            bb::ClientIVC::VerifierInputs{ oink_proof, merge_proof, honk_vk, QUEUE_TYPE::OINK });
+        verification_queue.push_back(VerifierInputs{ oink_proof, merge_proof, honk_vk, QUEUE_TYPE::OINK });
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
@@ -208,8 +208,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("constructed folding proof");
 
         // Add fold proof and corresponding verification key to the verification queue
-        verification_queue.push_back(
-            bb::ClientIVC::VerifierInputs{ fold_output.proof, merge_proof, honk_vk, QUEUE_TYPE::PG });
+        verification_queue.push_back(VerifierInputs{ fold_output.proof, merge_proof, honk_vk, QUEUE_TYPE::PG });
     }
 }
 
@@ -247,6 +246,7 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
     const StdlibProof<ClientCircuit> stdlib_merge_proof =
         bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
     [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(builder, stdlib_merge_proof);
 
     // Construct stdlib accumulator, decider vkey and folding proof
