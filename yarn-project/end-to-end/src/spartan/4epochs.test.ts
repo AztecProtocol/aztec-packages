@@ -27,7 +27,7 @@ describe('token transfer test', () => {
 
   let testWallets: TestWallets;
   let PXE_URL: string;
-  let ETHEREUM_HOSTS: string;
+  let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
 
   beforeAll(async () => {
@@ -47,12 +47,12 @@ describe('token transfer test', () => {
           containerPort: config.CONTAINER_ETHEREUM_PORT,
         });
         forwardProcesses.push(ethProcess);
-        ETHEREUM_HOSTS = `http://127.0.0.1:${ethPort}`;
+        ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
       } else {
         if (!config.ETHEREUM_HOSTS) {
           throw new Error('ETHEREUM_HOSTS must be set for sepolia runs');
         }
-        ETHEREUM_HOSTS = config.ETHEREUM_HOSTS;
+        ETHEREUM_HOSTS = config.ETHEREUM_HOSTS.split(',');
       }
 
       const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
@@ -75,7 +75,7 @@ describe('token transfer test', () => {
       );
     } else {
       PXE_URL = config.PXE_URL;
-      ETHEREUM_HOSTS = config.ETHEREUM_HOSTS;
+      ETHEREUM_HOSTS = config.ETHEREUM_HOSTS.split(',');
       testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     }
 
@@ -94,7 +94,7 @@ describe('token transfer test', () => {
   });
 
   it('transfer tokens for 4 epochs', async () => {
-    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOSTS]);
+    const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOSTS);
     const l1ContractAddresses = await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses);
     // Get 4 epochs
     const rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);

@@ -51,8 +51,8 @@ describe('E2E Outbox Tests', () => {
     ];
 
     const call = new BatchCall(wallets[0], [
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1).request(),
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2),
     ]);
 
     // TODO (#5104): When able to guarantee multiple txs in a single block, make this populate a full tree. Right now we are
@@ -171,9 +171,9 @@ describe('E2E Outbox Tests', () => {
     ];
 
     const call0 = new BatchCall(wallets[0], [
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1).request(),
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2).request(),
-      await contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content3, recipient3).request(),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content2, recipient2),
+      contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content3, recipient3),
     ]);
 
     const call1 = contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content4, recipient4);

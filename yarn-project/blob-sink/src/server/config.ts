@@ -1,14 +1,17 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
-import { pickConfigMappings } from '@aztec/foundation/config';
+import {
+  type L1ContractAddresses,
+  type L1ReaderConfig,
+  l1ContractAddressesMapping,
+  l1ReaderConfigMappings,
+} from '@aztec/ethereum';
+import { type ConfigMappingsType, getConfigFromMappings, pickConfigMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import type { ChainConfig } from '@aztec/stdlib/config';
-import { chainConfigMappings } from '@aztec/stdlib/config';
 
 export type BlobSinkConfig = {
   port?: number;
   archiveApiUrl?: string;
   dataStoreConfig?: DataStoreConfig;
-} & Partial<Pick<ChainConfig, 'l1ChainId'>>;
+} & Partial<Pick<L1ReaderConfig, 'l1ChainId' | 'l1RpcUrls'> & Pick<L1ContractAddresses, 'rollupAddress'>>;
 
 export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
   port: {
@@ -23,7 +26,8 @@ export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
     env: 'BLOB_SINK_ARCHIVE_API_URL',
     description: 'The URL of the archive API',
   },
-  ...pickConfigMappings(chainConfigMappings, ['l1ChainId']),
+  ...pickConfigMappings(l1ReaderConfigMappings, ['l1ChainId', 'l1RpcUrls']),
+  ...pickConfigMappings(l1ContractAddressesMapping, ['rollupAddress']),
 };
 
 /**

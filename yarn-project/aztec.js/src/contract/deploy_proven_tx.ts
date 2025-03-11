@@ -13,7 +13,7 @@ import { ProvenTx } from './proven_tx.js';
  */
 export class DeployProvenTx<TContract extends Contract = Contract> extends ProvenTx {
   constructor(
-    wallet: PXE | Wallet,
+    wallet: Wallet,
     tx: Tx,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private instanceGetter: () => Promise<ContractInstanceWithAddress>,
