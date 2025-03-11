@@ -2,11 +2,12 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RollupStore, IRollupCore, BlockLog} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  RollupStore, IRollupCore, BlockLog, ExecutionFlags
+} from "@aztec/core/interfaces/IRollup.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   OracleInput,
@@ -15,14 +16,14 @@ import {
   L1FeeData,
   FeeAssetPerEthE9,
   FeeHeader
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeMath.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {ValidatorSelectionLib} from
-  "@aztec/core/libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
+  "@aztec/core/libraries/validator-selection/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
-import {STFLib} from "./core/STFLib.sol";
 import {Header, HeaderLib} from "./HeaderLib.sol";
+import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
   bytes32 archive;
@@ -32,19 +33,30 @@ struct ProposeArgs {
   bytes32[] txHashes;
 }
 
-struct ValidateHeaderArgs {
-  Header header;
-  Timestamp currentTime;
-  uint256 manaBaseFee;
-  bytes32 blobsHashesCommitment;
-  uint256 pendingBlockNumber;
-  DataStructures.ExecutionFlags flags;
-}
-
 struct InterimProposeValues {
   bytes32[] blobHashes;
   bytes32 blobsHashesCommitment;
   bytes32 blobPublicInputsHash;
+  bytes32 inHash;
+  uint256 outboxMinsize;
+}
+
+/**
+ * @param header - The proposed block header
+ * @param attestations - The signatures for the attestations
+ * @param digest - The digest that signatures signed
+ * @param currentTime - The time of execution
+ * @param blobsHashesCommitment - The blobs hash for this block, provided for simpler future simulation
+ * @param flags - Flags specific to the execution, whether certain checks should be skipped
+ */
+struct ValidateHeaderArgs {
+  Header header;
+  Signature[] attestations;
+  bytes32 digest;
+  Timestamp currentTime;
+  uint256 manaBaseFee;
+  bytes32 blobsHashesCommitment;
+  ExecutionFlags flags;
 }
 
 library ProposeLib {
@@ -71,6 +83,14 @@ library ProposeLib {
     rollupStore.l1GasOracleValues.slotOfChange = slot + LAG;
   }
 
+  /**
+   * @notice  Publishes the body and propose the block
+   * @dev     `eth_log_handlers` rely on this function
+   *
+   * @param _args - The arguments to propose the block
+   * @param _signatures - Signatures from the validators
+   * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
+   */
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
@@ -95,44 +115,39 @@ library ProposeLib {
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
 
-    {
-      uint256 manaBaseFee = FeeMath.summedBaseFee(components);
-      validateHeader({
-        _header: header,
-        _signatures: _signatures,
-        _digest: digest(_args),
-        _currentTime: Timestamp.wrap(block.timestamp),
-        _manaBaseFee: manaBaseFee,
-        _blobsHashesCommitment: v.blobsHashesCommitment,
-        _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
-      });
-    }
+    validateHeader(
+      ValidateHeaderArgs({
+        header: header,
+        attestations: _signatures,
+        digest: digest(_args),
+        currentTime: Timestamp.wrap(block.timestamp),
+        manaBaseFee: FeeMath.summedBaseFee(components),
+        blobsHashesCommitment: v.blobsHashesCommitment,
+        flags: ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
+      })
+    );
 
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
-    {
-      // @note The components are measured in the fee asset.
-      rollupStore.blocks[blockNumber] =
-        toBlockLog(_args, blockNumber, components.congestionCost, components.provingCost);
-    }
+    rollupStore.blocks[blockNumber] =
+      toBlockLog(_args, header, blockNumber, components.congestionCost, components.provingCost);
 
     rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
-    {
-      bytes32 inHash = rollupStore.config.inbox.consume(blockNumber);
-      require(
-        header.contentCommitment.inHash == inHash,
-        Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash)
-      );
-    }
-    {
-      // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
-      // Min size = smallest path of the rollup tree + 1
-      (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
-      rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash, min + 1);
-    }
+    v.inHash = rollupStore.config.inbox.consume(blockNumber);
+    require(
+      header.contentCommitment.inHash == v.inHash,
+      Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
+    );
+
+    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
+    // Min size = smallest path of the rollup tree + 1
+    (v.outboxMinsize,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
+    rollupStore.config.outbox.insert(
+      blockNumber, header.contentCommitment.outHash, v.outboxMinsize + 1
+    );
 
     emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
   }
@@ -151,6 +166,16 @@ library ProposeLib {
     );
   }
 
+  /**
+   * @notice  Gets the mana base fee components
+   *          For more context, consult:
+   *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
+   *
+   * @param _timestamp - The timestamp of the block
+   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
+   *
+   * @return The mana base fee components
+   */
   function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     internal
     view
@@ -185,56 +210,13 @@ library ProposeLib {
     );
   }
 
-  /**
-   * @notice  Validates the header for submission
-   *
-   * @param _header - The proposed block header
-   * @param _signatures - The signatures for the attestations
-   * @param _digest - The digest that signatures signed
-   * @param _currentTime - The time of execution
-   * @param _blobsHashesCommitment - The blobs hash for this block
-   * @dev                - This value is provided to allow for simple simulation of future
-   * @param _flags - Flags specific to the execution, whether certain checks should be skipped
-   */
-  function validateHeader(
-    Header memory _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    uint256 _manaBaseFee,
-    bytes32 _blobsHashesCommitment,
-    DataStructures.ExecutionFlags memory _flags
-  ) internal view {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 pendingBlockNumber = STFLib.canPruneAtTime(_currentTime)
-      ? rollupStore.tips.provenBlockNumber
-      : rollupStore.tips.pendingBlockNumber;
-
-    validateHeaderForSubmissionBase(
-      ValidateHeaderArgs({
-        header: _header,
-        currentTime: _currentTime,
-        manaBaseFee: _manaBaseFee,
-        blobsHashesCommitment: _blobsHashesCommitment,
-        pendingBlockNumber: pendingBlockNumber,
-        flags: _flags
-      })
-    );
-    validateHeaderForSubmissionSequencerSelection(
-      Slot.wrap(_header.globalVariables.slotNumber), _signatures, _digest, _currentTime, _flags
-    );
-  }
-
-  function digest(ProposeArgs memory _args) internal pure returns (bytes32) {
-    return keccak256(abi.encode(SignatureLib.SignatureDomainSeparator.blockAttestation, _args));
-  }
-
-  function validateHeaderForSubmissionBase(ValidateHeaderArgs memory _args) private view {
-    RollupStore storage rollupStore = STFLib.getStorage();
+  function validateHeader(ValidateHeaderArgs memory _args) internal view {
     require(
       block.chainid == _args.header.globalVariables.chainId,
       Errors.Rollup__InvalidChainId(block.chainid, _args.header.globalVariables.chainId)
     );
+
+    RollupStore storage rollupStore = STFLib.getStorage();
 
     require(
       _args.header.globalVariables.version == rollupStore.config.version,
@@ -243,42 +225,40 @@ library ProposeLib {
       )
     );
 
+    uint256 pendingBlockNumber = STFLib.canPruneAtTime(_args.currentTime)
+      ? rollupStore.tips.provenBlockNumber
+      : rollupStore.tips.pendingBlockNumber;
+
     require(
-      _args.header.globalVariables.blockNumber == _args.pendingBlockNumber + 1,
+      _args.header.globalVariables.blockNumber == pendingBlockNumber + 1,
       Errors.Rollup__InvalidBlockNumber(
-        _args.pendingBlockNumber + 1, _args.header.globalVariables.blockNumber
+        pendingBlockNumber + 1, _args.header.globalVariables.blockNumber
       )
     );
 
-    bytes32 tipArchive = rollupStore.blocks[_args.pendingBlockNumber].archive;
+    bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(
       tipArchive == _args.header.lastArchive.root,
       Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchive.root)
     );
 
-    Slot slot = Slot.wrap(_args.header.globalVariables.slotNumber);
-    Slot lastSlot = rollupStore.blocks[_args.pendingBlockNumber].slotNumber;
+    Slot slot = _args.header.globalVariables.slotNumber;
+    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+
+    Slot currentSlot = _args.currentTime.slotFromTimestamp();
+    require(slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot));
 
     Timestamp timestamp = TimeLib.toTimestamp(slot);
     require(
-      Timestamp.wrap(_args.header.globalVariables.timestamp) == timestamp,
-      Errors.Rollup__InvalidTimestamp(
-        timestamp, Timestamp.wrap(_args.header.globalVariables.timestamp)
-      )
+      _args.header.globalVariables.timestamp == timestamp,
+      Errors.Rollup__InvalidTimestamp(timestamp, _args.header.globalVariables.timestamp)
     );
 
-    // @note  If you are hitting this error, it is likely because the chain you use have a blocktime that differs
-    //        from the value that we have in the constants.
-    //        When you are encountering this, it will likely be as the sequencer expects to be able to include
-    //        an Aztec block in the "next" ethereum block based on a timestamp that is 12 seconds in the future
-    //        from the last block. However, if the actual will only be 1 second in the future, you will end up
-    //        expecting this value to be in the future.
     require(
       timestamp <= _args.currentTime, Errors.Rollup__TimestampInFuture(_args.currentTime, timestamp)
     );
 
-    // Check if the data is available
     require(
       _args.flags.ignoreDA
         || _args.header.contentCommitment.blobsHash == _args.blobsHashesCommitment,
@@ -292,68 +272,41 @@ library ProposeLib {
         _args.manaBaseFee, _args.header.globalVariables.gasFees.feePerL2Gas
       )
     );
+
+    ValidatorSelectionLib.verify(
+      StakingLib.getStorage(),
+      slot,
+      slot.epochFromSlot(),
+      _args.attestations,
+      _args.digest,
+      _args.flags
+    );
   }
 
-  /**
-   * @notice  Validate a header for submission to the pending chain (sequencer selection checks)
-   *
-   *          These validation checks are directly related to sequencer selection.
-   *          Note that while these checks are strict, they can be relaxed with some changes to
-   *          message boxes.
-   *
-   *          Each of the following validation checks must pass, otherwise an error is thrown and we revert.
-   *          - The slot MUST be the current slot
-   *            This might be relaxed for allow consensus set to better handle short-term bursts of L1 congestion
-   *          - The slot MUST be in the current epoch
-   *
-   * @param _slot - The slot of the header to validate
-   * @param _signatures - The signatures to validate
-   * @param _digest - The digest that signatures sign over
-   */
-  function validateHeaderForSubmissionSequencerSelection(
-    Slot _slot,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    DataStructures.ExecutionFlags memory _flags
-  ) private view {
-    // Ensure that the slot proposed is NOT in the future
-    Slot currentSlot = _currentTime.slotFromTimestamp();
-    require(_slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, _slot));
-
-    // @note  We are currently enforcing that the slot is in the current epoch
-    //        If this is not the case, there could potentially be a weird reorg
-    //        of an entire epoch if no-one from the new epoch committee have seen
-    //        those blocks or behaves as if they did not.
-
-    Epoch epochNumber = _slot.epochFromSlot();
-    Epoch currentEpoch = _currentTime.epochFromTimestamp();
-    require(epochNumber == currentEpoch, Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber));
-
-    ValidatorSelectionLib.validateValidatorSelection(
-      StakingLib.getStorage(), _slot, epochNumber, _signatures, _digest, _flags
-    );
+  function digest(ProposeArgs memory _args) internal pure returns (bytes32) {
+    return keccak256(abi.encode(SignatureLib.SignatureDomainSeparator.blockAttestation, _args));
   }
 
   // Helper to avoid stack too deep
   function toBlockLog(
     ProposeArgs calldata _args,
+    Header memory _header,
     uint256 _blockNumber,
     uint256 _congestionCost,
     uint256 _provingCost
   ) private view returns (BlockLog memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    FeeHeader memory parentFeeHeader = rollupStore.blocks[_blockNumber - 1].feeHeader;
+    FeeHeader storage parentFeeHeader = rollupStore.blocks[_blockNumber - 1].feeHeader;
     return BlockLog({
       archive: _args.archive,
       blockHash: _args.blockHash,
-      slotNumber: Slot.wrap(uint256(bytes32(_args.header[0x0194:0x01b4]))),
+      slotNumber: _header.globalVariables.slotNumber,
       feeHeader: FeeHeader({
         excessMana: FeeMath.computeExcessMana(parentFeeHeader),
         feeAssetPriceNumerator: FeeMath.clampedAdd(
           parentFeeHeader.feeAssetPriceNumerator, _args.oracleInput.feeAssetPriceModifier
         ),
-        manaUsed: uint256(bytes32(_args.header[0x0268:0x0288])),
+        manaUsed: _header.totalManaUsed,
         congestionCost: _congestionCost,
         provingCost: _provingCost
       })

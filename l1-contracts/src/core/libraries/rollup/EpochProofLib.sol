@@ -11,11 +11,9 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Converter} from "@aztec/core/libraries/Converter.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {STFLib, RollupStore} from "@aztec/core/libraries/RollupLibs/core/STFLib.sol";
-import {FeeHeader} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {FeeHeader} from "@aztec/core/libraries/rollup/FeeMath.sol";
+import {STFLib, RollupStore} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -45,6 +43,28 @@ library EpochProofLib {
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant CUAUHXICALLI = address(bytes20("CUAUHXICALLI"));
 
+  /**
+   * @notice  Submit a proof for an epoch in the pending chain
+   *
+   * @dev     Will emit `L2ProofVerified` if the proof is valid
+   *
+   * @dev     Will throw if:
+   *          - The block number is past the pending chain
+   *          - The last archive root of the header does not match the archive root of parent block
+   *          - The archive root of the header does not match the archive root of the proposed block
+   *          - The proof is invalid
+   *
+   * @dev     We provide the `_archive` and `_blockHash` even if it could be read from storage itself because it allow for
+   *          better error messages. Without passing it, we would just have a proof verification failure.
+   *
+   * @param _args - The arguments to submit the epoch root proof:
+   *          _epochSize - The size of the epoch (to be promoted to a constant)
+   *          _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   *          _fees - Array of recipient-value pairs with fees to be distributed for the epoch
+   *          _blobPublicInputs - The blob public inputs for the proof
+   *          _aggregationObject - The aggregation object for the proof
+   *          _proof - The proof to verify
+   */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
@@ -200,7 +220,7 @@ library EpochProofLib {
     offset += 1;
 
     // prover_id: id of current epoch's prover
-    publicInputs[offset] = Converter.addressToField(_args.proverId);
+    publicInputs[offset] = addressToField(_args.proverId);
     offset += 1;
 
     {
@@ -301,7 +321,7 @@ library EpochProofLib {
           v.sequencerFee = fee - burn - v.proverFee;
 
           {
-            v.sequencer = Converter.fieldToAddress(_args.fees[i * 2]);
+            v.sequencer = fieldToAddress(_args.fees[i * 2]);
             rollupStore.sequencerRewards[v.sequencer] += (v.sequencerBlockReward + v.sequencerFee);
           }
         }
@@ -427,5 +447,13 @@ library EpochProofLib {
     firstLimb = bytes32(uint256(uint120(bytes15(_input << 136))));
     secondLimb = bytes32(uint256(uint120(bytes15(_input << 16))));
     thirdLimb = bytes32(uint256(uint16(bytes2(_input))));
+  }
+
+  function addressToField(address _a) private pure returns (bytes32) {
+    return bytes32(uint256(uint160(_a)));
+  }
+
+  function fieldToAddress(bytes32 _f) private pure returns (address) {
+    return address(uint160(uint256(_f)));
   }
 }
