@@ -143,6 +143,9 @@ export -f build_native build_darwin build_nodejs_module build_wasm build_wasm_th
 
 function build {
   echo_header "bb cpp build"
+
+  ./scripts/codegen_dsl.sh
+
   builds=(
     build_native
     build_nodejs_module
