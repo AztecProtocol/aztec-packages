@@ -1,7 +1,7 @@
 include "./poseidon2_full.pil";
 
 // Handles membership and insertion into a merkle tree
-namespace merkle_tree(256);
+namespace merkle_check(256);
     pol commit sel;
     #[MERKLE_SEL_IS_BOOL]
     sel * (1 - sel) = 0;
