@@ -3,12 +3,10 @@ import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
 import { foundry } from 'viem/chains';
-
-export { EthCheatCodes };
 
 /** Cheat codes for the L1 rollup contract. */
 export class RollupCheatCodes {
@@ -113,7 +111,7 @@ export class RollupCheatCodes {
       blockNumber = pending;
     }
     if (blockNumber <= proven) {
-      this.logger.warn(`Block ${blockNumber} is already proven`);
+      this.logger.debug(`Block ${blockNumber} is already proven`);
       return;
     }
 
