@@ -91,23 +91,23 @@ function release {
 }
 
 case "$cmd" in
-"clean")
-  git clean -fdx
-  ;;
-"" | "full" | "fast")
-  build_and_preview
-  ;;
-"hash")
-  echo "$hash"
-  ;;
-"release-preview")
-  release_preview
-  ;;
-"release")
-  release
-  ;;
-*)
-  echo "Unknown command: $cmd"
-  exit 1
-  ;;
+  "clean")
+    git clean -fdx
+    ;;
+  "" | "full" | "fast")
+    build_and_preview
+    ;;
+  "hash")
+    echo "$hash"
+    ;;
+  "release-preview")
+    release_preview
+    ;;
+  "release")
+    release
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
+    ;;
 esac
