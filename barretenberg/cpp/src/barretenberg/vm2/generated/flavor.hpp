@@ -88,12 +88,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 819;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 826;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 120;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 983;
+    static constexpr size_t NUM_ALL_ENTITIES = 990;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -134,6 +134,8 @@ class AvmFlavor {
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_instr_fetching_abs_diff_positive_relation<FF_>,
+        lookup_instr_fetching_abs_diff_positive_hi_relation<FF_>,
+        lookup_instr_fetching_abs_diff_positive_lo_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,

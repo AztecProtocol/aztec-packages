@@ -12,8 +12,8 @@ template <typename FF_> class instr_fetchingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 4, 3, 5, 3, 3, 4,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 4, 3, 5, 3, 3, 4, 3,
+                                                                            4, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -115,22 +115,40 @@ template <typename FF_> class instr_fetchingImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = (new_term.instr_fetching_sel_lookup_bc_decomposition -
-                        new_term.instr_fetching_sel * (FF(1) - new_term.instr_fetching_pc_out_of_range));
+            auto tmp = (new_term.instr_fetching_pc_abs_diff -
+                        new_term.instr_fetching_sel *
+                            (((FF(2) * new_term.instr_fetching_pc_out_of_range - FF(1)) *
+                                  (new_term.instr_fetching_pc - new_term.instr_fetching_bytecode_size) -
+                              FF(1)) +
+                             new_term.instr_fetching_pc_out_of_range));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (new_term.instr_fetching_indirect -
-                        (new_term.instr_fetching_sel_op_dc_0 *
-                             (new_term.instr_fetching_bd1 * FF(256) + new_term.instr_fetching_bd2 * FF(1)) +
-                         instr_fetching_SEL_OP_DC_18 * new_term.instr_fetching_bd1 * FF(1)));
+            auto tmp = (new_term.instr_fetching_pc_abs_diff -
+                        (new_term.instr_fetching_pc_abs_diff_lo + FF(65536) * new_term.instr_fetching_pc_abs_diff_hi));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+            auto tmp = (new_term.instr_fetching_sel_lookup_bc_decomposition -
+                        new_term.instr_fetching_sel * (FF(1) - new_term.instr_fetching_pc_out_of_range));
+            tmp *= scaling_factor;
+            std::get<13>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+            auto tmp = (new_term.instr_fetching_indirect -
+                        (new_term.instr_fetching_sel_op_dc_0 *
+                             (new_term.instr_fetching_bd1 * FF(256) + new_term.instr_fetching_bd2 * FF(1)) +
+                         instr_fetching_SEL_OP_DC_18 * new_term.instr_fetching_bd1 * FF(1)));
+            tmp *= scaling_factor;
+            std::get<14>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op1 -
                         (new_term.instr_fetching_sel_op_dc_0 *
                              (new_term.instr_fetching_bd3 * FF(256) + new_term.instr_fetching_bd4 * FF(1)) +
@@ -141,10 +159,10 @@ template <typename FF_> class instr_fetchingImpl {
                              (new_term.instr_fetching_bd1 * FF(16777216) + new_term.instr_fetching_bd2 * FF(65536) +
                               new_term.instr_fetching_bd3 * FF(256) + new_term.instr_fetching_bd4 * FF(1))));
             tmp *= scaling_factor;
-            std::get<13>(evals) += typename Accumulator::View(tmp);
+            std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op2 -
                         (new_term.instr_fetching_sel_op_dc_0 *
                              (new_term.instr_fetching_bd5 * FF(256) + new_term.instr_fetching_bd6 * FF(1)) +
@@ -156,10 +174,10 @@ template <typename FF_> class instr_fetchingImpl {
                              (new_term.instr_fetching_bd4 * FF(16777216) + new_term.instr_fetching_bd5 * FF(65536) +
                               new_term.instr_fetching_bd6 * FF(256) + new_term.instr_fetching_bd7 * FF(1))));
             tmp *= scaling_factor;
-            std::get<14>(evals) += typename Accumulator::View(tmp);
+            std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op3 -
                         (new_term.instr_fetching_sel_op_dc_0 *
                              (new_term.instr_fetching_bd7 * FF(256) + new_term.instr_fetching_bd8 * FF(1)) +
@@ -226,10 +244,10 @@ template <typename FF_> class instr_fetchingImpl {
                          new_term.instr_fetching_sel_op_dc_14 * new_term.instr_fetching_bd4 * FF(1) +
                          new_term.instr_fetching_sel_op_dc_17 * new_term.instr_fetching_bd6 * FF(1)));
             tmp *= scaling_factor;
-            std::get<15>(evals) += typename Accumulator::View(tmp);
+            std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op4 -
                         (new_term.instr_fetching_sel_op_dc_0 *
                              (new_term.instr_fetching_bd9 * FF(256) + new_term.instr_fetching_bd10 * FF(1)) +
@@ -237,31 +255,31 @@ template <typename FF_> class instr_fetchingImpl {
                              (new_term.instr_fetching_bd8 * FF(256) + new_term.instr_fetching_bd9 * FF(1)) +
                          new_term.instr_fetching_sel_op_dc_7 * new_term.instr_fetching_bd8 * FF(1)));
             tmp *= scaling_factor;
-            std::get<16>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = (new_term.instr_fetching_op5 -
-                        new_term.instr_fetching_sel_op_dc_0 *
-                            (new_term.instr_fetching_bd11 * FF(256) + new_term.instr_fetching_bd12 * FF(1)));
-            tmp *= scaling_factor;
-            std::get<17>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = (new_term.instr_fetching_op6 -
-                        new_term.instr_fetching_sel_op_dc_1 *
-                            (new_term.instr_fetching_bd13 * FF(256) + new_term.instr_fetching_bd14 * FF(1)));
-            tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
+            auto tmp = (new_term.instr_fetching_op5 -
+                        new_term.instr_fetching_sel_op_dc_0 *
+                            (new_term.instr_fetching_bd11 * FF(256) + new_term.instr_fetching_bd12 * FF(1)));
+            tmp *= scaling_factor;
+            std::get<19>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
+            auto tmp = (new_term.instr_fetching_op6 -
+                        new_term.instr_fetching_sel_op_dc_1 *
+                            (new_term.instr_fetching_bd13 * FF(256) + new_term.instr_fetching_bd14 * FF(1)));
+            tmp *= scaling_factor;
+            std::get<20>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op7 -
                         new_term.instr_fetching_sel_op_dc_1 *
                             (new_term.instr_fetching_bd15 * FF(256) + new_term.instr_fetching_bd16 * FF(1)));
             tmp *= scaling_factor;
-            std::get<19>(evals) += typename Accumulator::View(tmp);
+            std::get<21>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -280,20 +298,22 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
         case 9:
             return "SAME_BYTECODE_SIZE";
         case 12:
-            return "INDIRECT_BYTES_DECOMPOSITION";
-        case 13:
-            return "OP1_BYTES_DECOMPOSITION";
+            return "PC_ABS_DIFF_LIMBS";
         case 14:
-            return "OP2_BYTES_DECOMPOSITION";
+            return "INDIRECT_BYTES_DECOMPOSITION";
         case 15:
-            return "OP3_BYTES_DECOMPOSITION";
+            return "OP1_BYTES_DECOMPOSITION";
         case 16:
-            return "OP4_BYTES_DECOMPOSITION";
+            return "OP2_BYTES_DECOMPOSITION";
         case 17:
-            return "OP5_BYTES_DECOMPOSITION";
+            return "OP3_BYTES_DECOMPOSITION";
         case 18:
-            return "OP6_BYTES_DECOMPOSITION";
+            return "OP4_BYTES_DECOMPOSITION";
         case 19:
+            return "OP5_BYTES_DECOMPOSITION";
+        case 20:
+            return "OP6_BYTES_DECOMPOSITION";
+        case 21:
             return "OP7_BYTES_DECOMPOSITION";
         }
         return std::to_string(index);
@@ -303,14 +323,15 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
     static constexpr size_t SR_TRACE_CONTINUITY = 4;
     static constexpr size_t SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW = 7;
     static constexpr size_t SR_SAME_BYTECODE_SIZE = 9;
-    static constexpr size_t SR_INDIRECT_BYTES_DECOMPOSITION = 12;
-    static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 13;
-    static constexpr size_t SR_OP2_BYTES_DECOMPOSITION = 14;
-    static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 15;
-    static constexpr size_t SR_OP4_BYTES_DECOMPOSITION = 16;
-    static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 17;
-    static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 18;
-    static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 19;
+    static constexpr size_t SR_PC_ABS_DIFF_LIMBS = 12;
+    static constexpr size_t SR_INDIRECT_BYTES_DECOMPOSITION = 14;
+    static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 15;
+    static constexpr size_t SR_OP2_BYTES_DECOMPOSITION = 16;
+    static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 17;
+    static constexpr size_t SR_OP4_BYTES_DECOMPOSITION = 18;
+    static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 19;
+    static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 20;
+    static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 21;
 };
 
 } // namespace bb::avm2
