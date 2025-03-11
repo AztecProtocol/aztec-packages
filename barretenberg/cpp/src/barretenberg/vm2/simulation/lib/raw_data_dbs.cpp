@@ -59,7 +59,6 @@ ContractInstance HintedRawContractDB::get_contract_instance(const AztecAddress& 
 
 ContractClass HintedRawContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    vinfo("Getting contract class ", class_id);
     assert(contract_classes.contains(class_id));
     auto contract_class_hint = contract_classes.at(class_id);
 
@@ -74,7 +73,6 @@ ContractClass HintedRawContractDB::get_contract_class(const ContractClassId& cla
 
 FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
 {
-    vinfo("Getting bytecode commitment for class ", class_id);
     assert(bytecode_commitments.contains(class_id));
     return bytecode_commitments.at(class_id);
 }
