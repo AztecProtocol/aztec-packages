@@ -38,3 +38,6 @@
 # on changes to the AVM transpiler
 /avm-transpiler/src @fcarreiro @dbanks12
 #####################################################
+
+# Notify fairies of changes to playground bundler config
+/playground/vite.config.ts @Thunkar

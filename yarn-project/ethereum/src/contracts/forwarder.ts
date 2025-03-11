@@ -1,6 +1,7 @@
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import type { Logger } from '@aztec/foundation/log';
-import { ForwarderAbi, ForwarderBytecode } from '@aztec/l1-artifacts';
+import { ForwarderAbi } from '@aztec/l1-artifacts/ForwarderAbi';
+import { ForwarderBytecode } from '@aztec/l1-artifacts/ForwarderBytecode';
 
 import {
   type EncodeFunctionDataParameters,

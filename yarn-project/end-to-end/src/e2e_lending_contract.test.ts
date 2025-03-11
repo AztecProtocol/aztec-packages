@@ -1,10 +1,6 @@
-import {
-  type AccountWallet,
-  type CheatCodes,
-  type DeployL1ContractsReturnType,
-  Fr,
-  type Logger,
-} from '@aztec/aztec.js';
+import { type AccountWallet, Fr, type Logger } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';

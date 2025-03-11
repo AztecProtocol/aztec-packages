@@ -2,21 +2,25 @@ import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccounts, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  AnvilTestWatcher,
   type AztecAddress,
   BatchCall,
-  CheatCodes,
   type CompleteAddress,
   type ContractFunctionInteraction,
-  type DeployL1ContractsReturnType,
   type Logger,
   type PXE,
   type Wallet,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsArgs,
+  type DeployL1ContractsReturnType,
+  createL1Clients,
+  getL1ContractsConfigEnvVars,
+  l1Artifacts,
+} from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { randomBytes } from '@aztec/foundation/crypto';
