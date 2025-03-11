@@ -64,14 +64,4 @@ library DataStructures {
     bytes32 content;
   }
   // docs:end:l2_to_l1_msg
-
-  /**
-   * @notice Struct for storing flags for block header validation
-   * @param ignoreDA - True will ignore DA check, otherwise checks
-   * @param ignoreSignature - True will ignore the signatures, otherwise checks
-   */
-  struct ExecutionFlags {
-    bool ignoreDA;
-    bool ignoreSignatures;
-  }
 }
