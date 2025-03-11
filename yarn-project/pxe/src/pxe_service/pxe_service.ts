@@ -163,7 +163,7 @@ export class PXEService implements PXE {
     );
     const simulator = new AcirSimulator(pxeOracleInterface, simulationProvider);
     const jobQueue = new SerialQueue();
-    jobQueue.start();
+
     const pxeService = new PXEService(
       node,
       synchronizer,
@@ -183,10 +183,30 @@ export class PXEService implements PXE {
       log,
       jobQueue,
     );
+
+    pxeService.jobQueue.start();
+
     await pxeService.#registerProtocolContracts();
     const info = await pxeService.getNodeInfo();
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
     return pxeService;
+  }
+
+  /**
+   * Enqueues a job for execution once no other jobs are running. Returns a promise that will resolve once the job is
+   * complete.
+   *
+   * Useful for tasks that cannot run concurrently, such as contract function simulation.
+   */
+  #putInJobQueue<T>(fn: () => Promise<T>): Promise<T> {
+    // TODO(#12636): relax the conditions under which we forbid concurrency.
+    if (this.jobQueue.length() != 0) {
+      this.log.warn(
+        `PXE is already processing ${this.jobQueue.length()} jobs, concurrent execution is not supported. Will run once those are complete.`,
+      );
+    }
+
+    return this.jobQueue.put(fn);
   }
 
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
@@ -369,35 +389,39 @@ export class PXEService implements PXE {
     );
   }
 
-  public async updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    const currentInstance = await this.contractDataProvider.getContractInstance(contractAddress);
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await this.synchronizer.sync();
+  public updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    // We disable concurrently updating contracts to avoid concurrently syncing with the node, or changing a contract's
+    // class while we're simulating it.
+    return this.#putInJobQueue(async () => {
+      const currentInstance = await this.contractDataProvider.getContractInstance(contractAddress);
+      const contractClass = await getContractClassFromArtifact(artifact);
+      await this.synchronizer.sync();
 
-    const header = await this.syncDataProvider.getBlockHeader();
+      const header = await this.syncDataProvider.getBlockHeader();
 
-    const currentClassId = await readCurrentClassId(
-      contractAddress,
-      currentInstance,
-      this.node,
-      header.globalVariables.blockNumber.toNumber(),
-    );
-    if (!contractClass.id.equals(currentClassId)) {
-      throw new Error('Could not update contract to a class different from the current one.');
-    }
+      const currentClassId = await readCurrentClassId(
+        contractAddress,
+        currentInstance,
+        this.node,
+        header.globalVariables.blockNumber.toNumber(),
+      );
+      if (!contractClass.id.equals(currentClassId)) {
+        throw new Error('Could not update contract to a class different from the current one.');
+      }
 
-    await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
+      await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
 
-    const publicFunctionSignatures = artifact.functions
-      .filter(fn => fn.functionType === FunctionType.PUBLIC)
-      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-    await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+      const publicFunctionSignatures = artifact.functions
+        .filter(fn => fn.functionType === FunctionType.PUBLIC)
+        .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+      await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
 
-    // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
-    await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
-    currentInstance.currentContractClassId = contractClass.id;
-    await this.contractDataProvider.addContractInstance(currentInstance);
-    this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
+      // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
+      await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
+      currentInstance.currentContractClassId = contractClass.id;
+      await this.contractDataProvider.addContractInstance(currentInstance);
+      this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
+    });
   }
 
   public getContracts(): Promise<AztecAddress[]> {
@@ -465,13 +489,9 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
-    if (this.jobQueue.length() != 0) {
-      this.log.warn(
-        `PXE service job queue is not empty (${this.jobQueue.length()} entries) - concurrency is not supported, do not rely on it`,
-      );
-    }
-
-    return this.jobQueue.put(async () => {
+    // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
+    // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
+    return this.#putInJobQueue(async () => {
       try {
         const { publicInputs, clientIvcProof } = await this.#prove(
           txRequest,
@@ -500,13 +520,10 @@ export class PXEService implements PXE {
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
-    if (this.jobQueue.length() != 0) {
-      this.log.warn(
-        `PXE service job queue already has ${this.jobQueue.length()} entries - PXE does not support concurrency and so you should not try to use it this way!`,
-      );
-    }
-
-    return this.jobQueue.put(async () => {
+    // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
+    // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
+    // delete the same read value, or reading values that another simulation is currently modifying).
+    return this.#putInJobQueue(async () => {
       try {
         const txInfo = {
           origin: txRequest.origin,
@@ -603,13 +620,10 @@ export class PXEService implements PXE {
     _from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded> {
-    if (this.jobQueue.length() != 0) {
-      this.log.warn(
-        `PXE service job queue already has ${this.jobQueue.length()} entries - PXE does not support concurrency and so you should not try to use it this way!`,
-      );
-    }
-
-    return this.jobQueue.put(async () => {
+    // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
+    // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
+    // delete the same read value, or reading values that another simulation is currently modifying).
+    return this.#putInJobQueue(async () => {
       try {
         await this.synchronizer.sync();
         // TODO - Should check if `from` has the permission to call the view function.
