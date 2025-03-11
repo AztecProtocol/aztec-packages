@@ -214,14 +214,14 @@ function switch_repo {
   # If we try to switch to some random commit after a branch it might not find it locally.
   git -C noir-repo fetch --depth 1 origin $ref || true
   # Try to check out an existing branch, or remote commit.
-  if git -C noir-repo checkout $ref; then
+  if git -C noir-repo checkout -c $ref; then
     # If it's a branch we just need to pull the latest changes.
     if is_on_branch; then
       git -C noir-repo pull --rebase
     fi
   else
     # If the checkout failed, then it should be a remote branch or tag
-    git -C noir-repo checkout --track origin/$ref
+    git -C noir-repo checkout -c --track origin/$ref
   fi
   # If we haven't applied the patch yet, we have to do it (again).
   if ! has_patch_commit; then
