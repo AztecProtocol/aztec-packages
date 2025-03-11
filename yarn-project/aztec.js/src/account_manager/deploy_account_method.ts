@@ -1,4 +1,6 @@
-import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import { type AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import { EntrypointPayload } from '@aztec/entrypoints/payload';
+import { computeCombinedPayloadHash } from '@aztec/entrypoints/utils';
 import { type ContractArtifact, type FunctionArtifact, getFunctionArtifactByName } from '@aztec/stdlib/abi';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 

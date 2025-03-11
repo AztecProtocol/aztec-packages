@@ -1,6 +1,6 @@
 import { retryUntil } from '@aztec/foundation/retry';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
@@ -30,7 +30,7 @@ export const DefaultWaitOpts: WaitOpts = {
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected walletOrNode: Wallet | AztecNode, protected txHashPromise: Promise<TxHash>) {}
+  constructor(protected pxeWalletOrNode: Wallet | AztecNode | PXE, protected txHashPromise: Promise<TxHash>) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
@@ -52,7 +52,7 @@ export class SentTx {
    */
   public async getReceipt(): Promise<TxReceipt> {
     const txHash = await this.getTxHash();
-    return await this.walletOrNode.getTxReceipt(txHash);
+    return await this.pxeWalletOrNode.getTxReceipt(txHash);
   }
 
   /**
@@ -77,7 +77,7 @@ export class SentTx {
 
     return await retryUntil(
       async () => {
-        const txReceipt = await this.walletOrNode.getTxReceipt(txHash);
+        const txReceipt = await this.pxeWalletOrNode.getTxReceipt(txHash);
         // If receipt is not yet available, try again
         if (txReceipt.status === TxStatus.PENDING) {
           return undefined;

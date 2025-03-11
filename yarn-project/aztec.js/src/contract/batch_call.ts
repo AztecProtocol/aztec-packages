@@ -1,4 +1,5 @@
-import { type ExecutionRequestInit, mergeExecutionRequestInits } from '@aztec/entrypoints/interfaces';
+import { type ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
+import { mergeExecutionRequestInits } from '@aztec/entrypoints/utils';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 

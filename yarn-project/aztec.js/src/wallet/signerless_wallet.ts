@@ -1,5 +1,5 @@
-import { DefaultEntrypoint } from '@aztec/entrypoints';
-import type { EntrypointInterface, ExecutionRequestInit } from '@aztec/entrypoints';
+import { DefaultEntrypoint } from '@aztec/entrypoints/default';
+import type { EntrypointInterface, ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
 import type { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { CompleteAddress } from '@aztec/stdlib/contract';

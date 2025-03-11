@@ -1,8 +1,7 @@
+import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-
-import type { FeePaymentMethod } from '../../../entrypoints/src/fee_payment_method.js';
 
 // docs:start:fee_juice_method
 /**

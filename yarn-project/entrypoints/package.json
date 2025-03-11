@@ -8,7 +8,9 @@
     "./dapp": "./dest/dapp_entrypoint.js",
     "./account": "./dest/account_entrypoint.js",
     "./default": "./dest/default_entrypoint.js",
-    "./interfaces": "./dest/interfaces.js"
+    "./interfaces": "./dest/interfaces.js",
+    "./payload": "./dest/payload.js",
+    "./utils": "./dest/utils.js"
   },
   "typedocOptions": {
     "entryPoints": [

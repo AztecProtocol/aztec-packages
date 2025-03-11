@@ -1,23 +1,11 @@
-import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr, Point } from '@aztec/foundation/fields';
-import type { SiblingPath } from '@aztec/foundation/trees';
+import type { ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
+import type { Fr } from '@aztec/foundation/fields';
 import type { AbiDecoded, ContractArtifact } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstanceWithAddress, NodeInfo, PartialAddress } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstanceWithAddress, NodeInfo } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
-import type {
-  ContractClassMetadata,
-  ContractMetadata,
-  EventMetadataDefinition,
-  GetContractClassLogsResponse,
-  GetPublicLogsResponse,
-  PXE,
-  PXEInfo,
-} from '@aztec/stdlib/interfaces/client';
-import type { LogFilter } from '@aztec/stdlib/logs';
-import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import type { ContractClassMetadata, ContractMetadata, PXE, PXEInfo } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionResult,
   Tx,
@@ -28,7 +16,6 @@ import type {
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
-import type { ExecutionRequestInit } from '../../../entrypoints/src/interfaces.js';
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 import type { Wallet } from './wallet.js';
 

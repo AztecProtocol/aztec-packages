@@ -1,3 +1,4 @@
+import type { ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
@@ -8,7 +9,6 @@ import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import type { ExecutionRequestInit } from '../entrypoint/interfaces.js';
 import {
   type IntentAction,
   type IntentInnerHash,

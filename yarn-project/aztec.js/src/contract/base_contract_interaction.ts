@@ -1,11 +1,10 @@
+import type { ExecutionRequestInit, FeeOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, HashedValues, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
-import type { ExecutionRequestInit } from '../../../entrypoints/src/interfaces.js';
-import type { FeeOptions, UserFeeOptions } from '../../../entrypoints/src/payload.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { getGasLimits } from './get_gas_limits.js';

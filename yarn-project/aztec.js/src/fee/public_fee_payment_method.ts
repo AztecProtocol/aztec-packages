@@ -1,13 +1,12 @@
+import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { GasSettings } from '@aztec/stdlib/gas';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasSettings } from '@aztec/stdlib/gas';
 
-import type { FeePaymentMethod } from '../../../entrypoints/src/fee_payment_method.js';
-import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type { AccountWallet } from '../wallet/account_wallet.js';
-import { SignerlessWallet } from '../wallet/signerless_wallet.js';
+import { simulateWithoutSignature } from './utils.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -30,41 +29,32 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    * The asset used to pay the fee.
    * @returns The asset used to pay the fee.
    */
-  getAsset(): Promise<AztecAddress> {
+  async getAsset(): Promise<AztecAddress> {
     if (!this.assetPromise) {
-      // We use signer-less wallet because this function could be triggered before the associated account is deployed.
-      const signerlessWallet = new SignerlessWallet(this.wallet);
-
-      const interaction = new ContractFunctionInteraction(
-        signerlessWallet,
-        this.paymentContract,
-        {
-          name: 'get_accepted_asset',
-          functionType: FunctionType.PRIVATE,
-          isInternal: false,
-          isStatic: false,
-          parameters: [],
-          returnTypes: [
-            {
-              kind: 'struct',
-              path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
-              fields: [
-                {
-                  name: 'inner',
-                  type: {
-                    kind: 'field',
-                  },
+      // We use the utility method to avoid a signature because this function could be triggered before the associated account is deployed.
+      this.assetPromise = simulateWithoutSignature(this.wallet, this.paymentContract, {
+        name: 'get_accepted_asset',
+        functionType: FunctionType.PRIVATE,
+        isInternal: false,
+        isStatic: false,
+        parameters: [],
+        returnTypes: [
+          {
+            kind: 'struct',
+            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+            fields: [
+              {
+                name: 'inner',
+                type: {
+                  kind: 'field',
                 },
-              ],
-            },
-          ],
-          errorTypes: {},
-          isInitializer: false,
-        },
-        [],
-      );
-
-      this.assetPromise = interaction.simulate();
+              },
+            ],
+          },
+        ],
+        errorTypes: {},
+        isInitializer: false,
+      }) as Promise<AztecAddress>;
     }
     return this.assetPromise!;
   }

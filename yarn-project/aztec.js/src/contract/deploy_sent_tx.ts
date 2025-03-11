@@ -62,9 +62,9 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   }
 
   protected async getContractObject(wallet?: Wallet): Promise<TContract> {
-    const isWallet = (walletOrNode: Wallet | AztecNode): walletOrNode is Wallet =>
-      !!(walletOrNode as Wallet).createTxExecutionRequest;
-    const contractWallet = wallet ?? (isWallet(this.walletOrNode) && this.walletOrNode);
+    const isWallet = (pxeWalletOrNode: Wallet | AztecNode | PXE): pxeWalletOrNode is Wallet =>
+      !!(pxeWalletOrNode as Wallet).createTxExecutionRequest;
+    const contractWallet = wallet ?? (isWallet(this.pxeWalletOrNode) && this.pxeWalletOrNode);
     if (!contractWallet) {
       throw new Error(`A wallet is required for creating a contract instance`);
     }

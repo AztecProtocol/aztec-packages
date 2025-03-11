@@ -1,4 +1,5 @@
-import { type ExecutionRequestInit, mergeExecutionRequestInits } from '@aztec/entrypoints/interfaces';
+import { type ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
+import { mergeExecutionRequestInits } from '@aztec/entrypoints/utils';
 import type { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';

@@ -167,7 +167,6 @@ describe('Contract Class', () => {
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
-    wallet.getRegisteredAccounts.mockResolvedValue([account]);
     wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 

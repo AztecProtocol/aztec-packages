@@ -1,12 +1,13 @@
+import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { type FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
-import type { FeePaymentMethod } from '../../../entrypoints/src/fee_payment_method.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { SignerlessWallet } from '../wallet/signerless_wallet.js';
 import type { Wallet } from '../wallet/wallet.js';
+import { simulateWithoutSignature } from './utils.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -39,38 +40,29 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
   getAsset(): Promise<AztecAddress> {
     if (!this.assetPromise) {
       // We use signer-less wallet because this function could be triggered before the associated account is deployed.
-      const signerlessWallet = new SignerlessWallet(this.wallet);
-
-      const interaction = new ContractFunctionInteraction(
-        signerlessWallet,
-        this.paymentContract,
-        {
-          name: 'get_accepted_asset',
-          functionType: FunctionType.PRIVATE,
-          isInternal: false,
-          isStatic: false,
-          parameters: [],
-          returnTypes: [
-            {
-              kind: 'struct',
-              path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
-              fields: [
-                {
-                  name: 'inner',
-                  type: {
-                    kind: 'field',
-                  },
+      this.assetPromise = simulateWithoutSignature(this.wallet, this.paymentContract, {
+        name: 'get_accepted_asset',
+        functionType: FunctionType.PRIVATE,
+        isInternal: false,
+        isStatic: false,
+        parameters: [],
+        returnTypes: [
+          {
+            kind: 'struct',
+            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+            fields: [
+              {
+                name: 'inner',
+                type: {
+                  kind: 'field',
                 },
-              ],
-            },
-          ],
-          errorTypes: {},
-          isInitializer: false,
-        },
-        [],
-      );
-
-      this.assetPromise = interaction.simulate();
+              },
+            ],
+          },
+        ],
+        errorTypes: {},
+        isInitializer: false,
+      }) as Promise<AztecAddress>;
     }
     return this.assetPromise!;
   }
