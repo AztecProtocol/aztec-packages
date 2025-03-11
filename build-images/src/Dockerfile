@@ -226,6 +226,7 @@ RUN apt update && \
         vim \
         zsh \
         inotify-tools \
+        protobuf-compiler \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install osxcross. Requires developer to mount SDK from their mac host.
