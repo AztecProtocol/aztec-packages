@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741720226257,
+  "lastUpdate": 1741720950172,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8ede7b12b4d5ad6d5053e41c266ee84595b04f1a",
-          "message": "chore(spartan): kind test speedup (#12478)",
-          "timestamp": "2025-03-06T15:13:36-05:00",
-          "tree_id": "fc3e66a6306aecf396f0eb93ef5dc9fa1fc0ec63",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8ede7b12b4d5ad6d5053e41c266ee84595b04f1a"
-        },
-        "date": 1741294412750,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18377.78857300009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16100.642231000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18941.064604000076,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16412.338674000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3906.9772339998963,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3088.5597709999993 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55717.611983,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55717611000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10267.444379999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10267447000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1921502769,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1921502769 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 230133692,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 230133692 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 215662095,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 215662095 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "27168983deb9346aacc68b43938a86a442aa01e4",
+          "message": "feat!: disable PXE concurrency (#12637)\n\nDebugging https://github.com/AztecProtocol/aztec-packages/pull/12391 led\nme to discover that we cannot have concurrent simulations due to\ncontracts now being allowed to read and write to PXE's stores at\narbitrary moments. E.g.\nhttps://github.com/AztecProtocol/aztec-packages/pull/12391 was failing\nCI due to multiple concurrent simulations deleting the same pending\npartial note from a capsule array.\n\nThis PR disables that behavior by putting the problematic tasks in a\nserial queue. Multiple tests still call PXE expecting concurrency\n(typically via usage of `await Promise.all`), but I thought it made more\nsense to disable the behavior this way and issue a warning (to unblock\nhttps://github.com/AztecProtocol/aztec-packages/pull/12391) and then\nworry about removing attempts to achieve concurrent behavior.\n\nI considered putting _all_ PXE functions in the serial queue, but\nrefrained from doing so to avoid introducing a larger than strictly\nneeded change. We may want to do this automatically via e.g.\nmonkey-patching to avoid accidentally forgetting a case.",
+          "timestamp": "2025-03-11T18:48:04Z",
+          "tree_id": "bdfa72012a899605d0dfcac37aa822cd35209152",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/27168983deb9346aacc68b43938a86a442aa01e4"
+        },
+        "date": 1741720942728,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18347.307196999966,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16162.820423 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18628.98519700002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16336.402362999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3872.9640219999055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3109.9187680000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56066.345175999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56066345000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10496.748318,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10496754000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1611100843,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1611100843 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 222444889,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 222444889 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
