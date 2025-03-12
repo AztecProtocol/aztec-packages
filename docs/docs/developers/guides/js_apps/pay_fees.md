@@ -61,7 +61,11 @@ First get the node info and create a public client pointing to the sandbox's anv
 
 #include_code get_node_info_pub_client yarn-project/end-to-end/src/spartan/smoke.test.ts javascript
 
-Note: You'll need to: `import { createPublicClient } from 'viem';`
+Note: You'll need these imports from viem:
+```
+import { createPublicClient, http } from 'viem';
+import { foundry } from 'viem/chains';
+```
 
 Now use these to create the L1FeeJuicePortalManager
 
