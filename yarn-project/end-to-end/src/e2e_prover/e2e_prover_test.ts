@@ -265,7 +265,6 @@ export class FullProverTest {
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
       blobSinkClient,
-      { blockUntilSync: true },
     );
 
     // The simulated prover node (now shutdown) used private key index 2
