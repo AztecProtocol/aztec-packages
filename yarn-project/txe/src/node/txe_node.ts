@@ -138,7 +138,7 @@ export class TXENode implements AztecNode {
 
     const nullifiersInBlock: Fr[] = [];
     for (const [key, val] of this.#blockNumberToNullifiers.entries()) {
-      if (key < parsedBlockNumber) {
+      if (key <= parsedBlockNumber) {
         nullifiersInBlock.push(...val);
       }
     }

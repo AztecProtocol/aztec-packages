@@ -1096,17 +1096,26 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  deliverNote(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _nonce: Fr,
-    _content: Fr[],
-    _noteHash: Fr,
-    _nullifier: Fr,
-    _txHash: Fr,
-    _recipient: AztecAddress,
+  public async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
   ): Promise<void> {
-    throw new Error('deliverNote');
+    await this.pxeOracleInterface.deliverNote(
+      contractAddress,
+      storageSlot,
+      nonce,
+      content,
+      noteHash,
+      nullifier,
+      txHash,
+      recipient,
+    );
   }
 
   async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
