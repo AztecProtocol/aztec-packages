@@ -501,14 +501,20 @@ The view will likely be cluttered with a lot of information. This is because we 
 
 The Find Zone tab is also of use to locate specific zones you care about. Searching for zones will highlight them in the GUI.
 
-The Memory tab is very useful. It allows you to limit a range (Limit Range checkbox), look at all of the allocations (things that got allocated in the range) and active allocations (allocations that were not freed), and a rough memory map so you can get a sense of fragmentation. You can also see the stack trace for a particular memory alloc or free, if you click "alloc" or "free" while looking at the allocations or active allocations list, which is extremely useful. There's also a more global bottom up and top down allocation tree which can show the locations of major allocations.
+The Statistics tab will tell you about time spent in each zone and an overall breakdown of time. Note that time may be inaccurate since tracy adds overhead.
 
-Lastly, you should be able to use scrolling or the WASD keys to zoom in/out and go left and right in the GUI.
+The Memory tab is very useful. It allows you to limit a range (Limit Range checkbox), look at all of the allocations (things that got allocated in the range) and active allocations (allocations that were not freed), and a rough Memory Map so you can get a sense of fragmentation. You can also see the stack trace for a particular memory alloc or free, if you click "alloc" or "free" while looking at the allocations or active allocations list, which is extremely useful. There's also a more global bottom up and top down allocation tree which can show the locations of major allocations.
+
+In terms of general usage, you should be able to use scrolling or the WASD keys to zoom in/out and go left and right in the GUI. You can also Command/Ctrl + click + drag to look at particular range, which tells you the time of that range, and allows you to better pick the zone you want to limit to.
 
 ##### Adding Zones
 
 Zones are how you can keep track of where you are relative in the code and how you can bucket allocations together. All of the colored blocks in the Main Thread row and other threads' rows refer to zones. You can nest zones in deeper and deeper scopes, which leads to stacks of these zones. To add a named zone, all you have to do is add PROFILE_THIS() or PROFILE_THIS_NAME(<name>) to a scope and it will create a zone. Note that you can't create multiple zones in the same scope.
 
+##### Analyzing Fragmentation
+
+The main memory graph will only keep track of a sum of active allocations, which can be misleading as it omits possible fragmentation. The most useful tools for analyzing fragmentation are in the Memory tab. Here, in the active allocations/allocations subtabs, you can see the exact addresses that certain allocations are located at. Moreover, you can look at when they are allocated and freed exactly, and the stack traces of those allocate/free calls. The Memory map also gives a more visual layout of memory, as it shows the layout of allocations in memory.
+
 ##### Final Thoughts
 
-It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only tracy; please account for real memory usage which must include memory fragmentation.
+It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only this displayed Memory usage number; please account for real memory usage which must include memory fragmentation.
