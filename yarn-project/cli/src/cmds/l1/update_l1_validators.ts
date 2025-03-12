@@ -135,7 +135,7 @@ export async function addL1Validator({
         data: encodedDepositData,
       });
 
-      if (depositReceipt === `success`) {
+      if (depositReceipt.status === `success`) {
         success = true;
         dualLog(`Validator ${validatorAddress} added successfully`);
         break;
