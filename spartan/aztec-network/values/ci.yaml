@@ -32,7 +32,7 @@ ethereum:
         cpu: "200m"
 
 telemetry:
-  enabled: false
+  enabled: true
 
 validator:
   replicas: 4
