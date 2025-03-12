@@ -21,6 +21,47 @@ function bytes32ToString(bytes32 value) pure returns (string memory result) {
     result = string(str);
 }
 
+function logAsmG1(string memory name, uint256 startPointer) pure {
+    bytes32 x0;
+    bytes32 x1;
+    bytes32 y0;
+    bytes32 y1;
+    assembly {
+        x0 := mload(startPointer)
+        x1 := mload(add(startPointer, 0x20))
+        y0 := mload(add(startPointer, 0x40))
+        y1 := mload(add(startPointer, 0x60))
+    }
+
+    string memory x0_str = bytes32ToString(x0);
+    string memory x1_str = bytes32ToString(x1);
+    string memory y0_str = bytes32ToString(y0);
+    string memory y1_str = bytes32ToString(y1);
+
+    string memory message = string(abi.encodePacked(name, " x: ", x0_str, x1_str, " y: ", y0_str, y1_str));
+    console2.log(message);
+}
+
+function logG1(string memory name, Honk.G1ProofPoint memory point) pure {
+    string memory x_0 = bytes32ToString(bytes32(point.x_0));
+    string memory x_1 = bytes32ToString(bytes32(point.x_1));
+    string memory y_0 = bytes32ToString(bytes32(point.y_0));
+    string memory y_1 = bytes32ToString(bytes32(point.y_1));
+
+    string memory message = string(abi.encodePacked(name, " x: ", x_0, x_1, " y: ", y_0, y_1));
+    console2.log(message);
+}
+
+function logG1(string memory name, uint256 i, Honk.G1ProofPoint memory point) pure {
+    string memory x_0 = bytes32ToString(bytes32(point.x_0));
+    string memory x_1 = bytes32ToString(bytes32(point.x_1));
+    string memory y_0 = bytes32ToString(bytes32(point.y_0));
+    string memory y_1 = bytes32ToString(bytes32(point.y_1));
+
+    string memory message = string(abi.encodePacked(" x: ", x_0, x_1, " y: ", y_0, y_1));
+    console2.log(name, i, message);
+}
+
 function logG(string memory name, Honk.G1ProofPoint memory p) pure {
     Honk.G1Point memory point = convertProofPoint(p);
 
