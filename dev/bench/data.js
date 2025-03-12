@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741800582671,
+  "lastUpdate": 1741803525033,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "miranda@aztecprotocol.com",
-            "name": "Miranda Wood",
-            "username": "MirandaWood"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1ead89921d0e8ad8c63e9d3a5d4a6a3deae15b58",
-          "message": "fix: fix `assert_split_transformed_value_arrays` conditional access index underflow (#12540)\n\nCloses #10592\n\n## Bug\n\nWe previously commented out the array checks for private logs in tail to\npublic (https://github.com/AztecProtocol/aztec-packages/pull/10593/)\nbecause a constraint was mysteriously failing\n(https://github.com/AztecProtocol/aztec-packages/issues/10530).\n\nIt failed because of an attempted underflow array access e.g. `array[i -\n1]` where `i = 0`. The thing is that the array access shouldn't have\nbeen called because it was wrapped in an if statement.\n\nI don't think this has anything to do with logs, it just so happened\nthat logs were the first tx effect array to have `num_non_revertibles =\n0` in the above bot run.\n\n## Fix\n\nIn this case we had a private log with `.counter() = 8`, `split_counter\n= 3`, and `num_non_revertibles = 0`. However the constraint failure* was\ncoming from `sorted_array[num_non_revertibles - 1]` below:\n```rust\n if num_non_revertibles != 0 {\n        assert(\n            sorted_array[num_non_revertibles - 1].counter() < split_counter,\n            \"counter of last non-revertible item is not less than the split counter\",\n        );\n    }\n```\nI added a hacky fix which prevents the constraint failure by simply\nmultiplying the LHS by zero if the array access will fail:\n```rust\n   if num_non_revertibles != 0 {\n        let is_non_zero = (num_non_revertibles != 0) as u32;\n        assert(\n            sorted_array[num_non_revertibles - 1].counter()*is_non_zero < split_counter,\n            \"counter of last non-revertible item is not less than the split counter\",\n        );\n    }\n```\n\n*(If we had incorrectly entered the if statement and the assertion\nfailed, the error would be `Assertion failed`, but the error was\n`Constraint failure`).\n\n## Repro\n\nI included the `Prover.toml` which came from the above failure - it's\nvalid and should pass. To see the failure remove `is_non_zero` from the\nabove code (in `assert_split_transformed_value_arrays.nr`), then run:\n\n`nargo execute --package private_kernel_tail_to_public`\n\nAdd back the fix and run the same to see it passing.",
-          "timestamp": "2025-03-07T09:36:11Z",
-          "tree_id": "bea544a9a232b43b63247f53d671d47ec2679125",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1ead89921d0e8ad8c63e9d3a5d4a6a3deae15b58"
-        },
-        "date": 1741342307219,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18556.139680999877,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16423.819374000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18870.68400599992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16462.685553 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3985.7101890002014,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3113.2222399999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55600.984955,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55600985000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9567.782203,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9567785000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1900633180,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1900633180 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 214415760,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 214415760 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 228760200,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 228760200 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2297.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "47e5bc0bff4d41051a75b5a41e87423fa4637e2d",
+          "message": "refactor: storing recipient address instead of recipient address point (#12684)",
+          "timestamp": "2025-03-12T18:30:57+01:00",
+          "tree_id": "36c7136a39ce76b03b084b1dac4506f6909abb26",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/47e5bc0bff4d41051a75b5a41e87423fa4637e2d"
+        },
+        "date": 1741803516867,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18178.116490999855,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15941.593843 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18965.704278999965,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16435.547475 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3955.1680090003174,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3069.705422 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55372.562074,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55372562000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10878.479430999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10878480000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1610632112,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1610632112 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 226186411,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 226186411 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
