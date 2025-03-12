@@ -1,0 +1,5 @@
+#include "../proto/acir/circuit.pb.h"
+#include "../proto/acir/native.pb.h"
+#include "../proto/acir/program.pb.h"
+#include "../proto/acir/witness.pb.h"
+#include "../serde/index.hpp"
