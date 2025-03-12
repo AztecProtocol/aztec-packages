@@ -1,4 +1,4 @@
-import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import { PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -38,8 +38,8 @@ export class PrivateLog {
     return new PrivateLog(reader.readArray(PRIVATE_LOG_SIZE_IN_FIELDS, Fr));
   }
 
-  static random() {
-    return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random));
+  static random(tag = Fr.random()) {
+    return PrivateLog.fromFields([tag, ...Array.from({ length: PRIVATE_LOG_SIZE_IN_FIELDS - 1 }, () => Fr.random())]);
   }
 
   getEmittedLength() {
@@ -54,6 +54,12 @@ export class PrivateLog {
   }
 
   static get schema() {
+    if (PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1 == PRIVATE_LOG_SIZE_IN_FIELDS) {
+      throw new Error(
+        'Constants got updated and schema for PublicLog matches that of PrivateLog. This needs to be updated now as Zod is no longer able to differentiate the 2 in TxScopedL2Log.',
+      );
+    }
+
     return z
       .object({
         fields: z.array(schemas.Fr),
@@ -69,5 +75,9 @@ export class PrivateLog {
     return `PrivateLog {
       fields: [${this.fields.map(x => inspect(x)).join(', ')}],
     }`;
+  }
+
+  equals(other: PrivateLog) {
+    return this.fields.every((field, index) => field.equals(other.fields[index]));
   }
 }

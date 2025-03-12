@@ -1,4 +1,4 @@
-import { type ContractInstanceWithAddress, Fr } from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -24,6 +24,7 @@ import {
   fromArray,
   fromSingle,
   fromUintArray,
+  fromUintBoundedVec,
   toArray,
   toForeignCallResult,
   toSingle,
@@ -604,15 +605,31 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts. The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need to implement this function here. Isn't there a way to programmatically identify that this is missing, given the existence of a txe_oracle method?
-  async aes128Decrypt(ciphertext: ForeignCallArray, iv: ForeignCallArray, symKey: ForeignCallArray) {
-    const ciphertextBuffer = fromUintArray(ciphertext, 8);
+  // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts.
+  // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
+  // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
+  // existence of a txe_oracle method?
+  async aes128Decrypt(
+    ciphertextBVecStorage: ForeignCallArray,
+    ciphertextLength: ForeignCallSingle,
+    iv: ForeignCallArray,
+    symKey: ForeignCallArray,
+  ) {
+    const ciphertext = fromUintBoundedVec(ciphertextBVecStorage, ciphertextLength, 8);
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    const plaintextBuffer = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
+    const plaintextBuffer = await this.typedOracle.aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
 
-    return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBuffer.length));
+    return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBVecStorage.length));
+  }
+
+  async getSharedSecret(address: ForeignCallSingle, ephPk: ForeignCallArray) {
+    const secret = await this.typedOracle.getSharedSecret(
+      AztecAddress.fromField(fromSingle(address)),
+      Point.fromFields(fromArray(ephPk)),
+    );
+    return toForeignCallResult([toArray(secret.toFields())]);
   }
 
   // AVM opcodes

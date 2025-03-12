@@ -31,7 +31,7 @@ export function fromArray(obj: ForeignCallArray) {
 /**
  * Converts an array of Noir unsigned integers to a single tightly-packed buffer.
  * @param uintBitSize If it's an array of Noir u8's, put `8`, etc.
- * @returns
+ * @returns A buffer where each byte is correctly represented as a single byte in the buffer.
  */
 export function fromUintArray(obj: ForeignCallArray, uintBitSize: number): Buffer {
   if (uintBitSize % 8 !== 0) {
@@ -39,6 +39,24 @@ export function fromUintArray(obj: ForeignCallArray, uintBitSize: number): Buffe
   }
   const uintByteSize = uintBitSize / 8;
   return Buffer.concat(obj.map(str => hexToBuffer(str).slice(-uintByteSize)));
+}
+
+/**
+ * Converts a Noir BoundedVec of unsigned integers into a Buffer. Note that BoundedVecs are structs, and therefore
+ * translated as two separate ForeignCallArray and ForeignCallSingle values (an array and a single field).
+ *
+ * @param storage The array with the BoundedVec's storage (i.e. BoundedVec::storage())
+ * @param length The length of the BoundedVec (i.e. BoundedVec::len())
+ * @param uintBitSize If it's an array of Noir u8's, put `8`, etc.
+ * @returns A buffer containing the unsigned integers tightly packed
+ */
+export function fromUintBoundedVec(storage: ForeignCallArray, length: ForeignCallSingle, uintBitSize: number): Buffer {
+  if (uintBitSize % 8 !== 0) {
+    throw new Error(`u${uintBitSize} is not a supported type in Noir`);
+  }
+  const uintByteSize = uintBitSize / 8;
+  const boundedStorage = storage.slice(0, fromSingle(length).toNumber());
+  return Buffer.concat(boundedStorage.map(str => hexToBuffer(str).slice(-uintByteSize)));
 }
 
 export function toSingle(obj: Fr | AztecAddress): ForeignCallSingle {

@@ -12,7 +12,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -75,8 +75,13 @@ import {
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
-import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
-import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  IndexedTaggingSecret,
+  LogWithTxData,
+  type PrivateLog,
+  type PublicLog,
+} from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import {
@@ -1086,7 +1091,11 @@ export class TXE implements TypedOracle {
     );
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.pxeOracleInterface.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+      await this.pxeOracleInterface.processTaggedLogs(
+        this.contractAddress,
+        taggedLogs,
+        AztecAddress.fromString(recipient),
+      );
     }
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -1246,5 +1255,9 @@ export class TXE implements TypedOracle {
   aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
+  }
+
+  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+    return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 }

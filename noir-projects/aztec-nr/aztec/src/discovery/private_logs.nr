@@ -21,6 +21,9 @@ use crate::discovery::{
         DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT, DeliveredPendingPartialNote,
     },
 };
+use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::decrypt_log;
+use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
+use crate::encrypted_logs::log_assembly_strategies::default_aes128::utils_to_nuke::be_bytes_32_to_fields;
 
 pub global PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN: u32 = 1;
 /// Partial notes have a maximum packed length of their private fields bound by extra content in their private log (i.e.
@@ -42,22 +45,24 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     sync_notes();
 }
 
-/// Processes a log's plaintext, searching for private notes or partial notes. Private notes result in nonce discovery
-/// being performed prior to delivery, which requires knowledge of the transaction hash in which the notes would've been
-/// created (typically the same transaction in which the log was emitted), along with the list of unique note hashes in
-/// said transaction and the `compute_note_hash_and_nullifier` function.
+/// Processes a log's ciphertext by decrypting it and then searching the plaintext for private notes or partial notes. Private
+/// notes result in nonce discovery being performed prior to delivery, which requires knowledge of the transaction hash in
+/// which the notes would've been created (typically the same transaction in which the log was emitted), along with the
+/// list of unique note hashes in said transaction and the `compute_note_hash_and_nullifier` function.
 pub unconstrained fn do_process_log<Env>(
     contract_address: AztecAddress,
-    log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
+    log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    // The first thing to do is to determine what type of private log we're processing. We currently just have two log
-    // types: 0 for private notes and 1 for partial notes. This will likely be expanded and improved upon in the future
-    // to also handle events, etc.
+    let log_plaintext = decrypt_log(log, recipient);
+
+    // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
+    // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and
+    // improved upon in the future to also handle events, etc.
 
     let (storage_slot, note_type_id, log_type_id, log_payload) =
         destructure_log_plaintext(log_plaintext);
@@ -92,7 +97,7 @@ pub unconstrained fn do_process_log<Env>(
 }
 
 unconstrained fn destructure_log_plaintext(
-    log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
+    log_plaintext: BoundedVec<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>,
 ) -> (Field, Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>) {
     assert(log_plaintext.len() >= NOTE_PRIVATE_LOG_RESERVED_FIELDS);
 

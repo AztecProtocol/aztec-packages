@@ -1,12 +1,19 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { ACVMField } from '../acvm_types.js';
-import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
-import { toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
+import {
+  frToBoolean,
+  frToNumber,
+  fromACVMField,
+  fromBoundedVec,
+  fromUintArray,
+  fromUintBoundedVec,
+} from '../deserialize.js';
+import { bufferToBoundedVec, toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
@@ -451,5 +458,32 @@ export class Oracle {
       fromACVMField(dstSlot),
       frToNumber(fromACVMField(numEntries)),
     );
+  }
+
+  async aes128Decrypt(
+    ciphertextBVecStorage: ACVMField[],
+    [ciphertextLength]: ACVMField[],
+    iv: ACVMField[],
+    symKey: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const ciphertext = fromUintBoundedVec(ciphertextBVecStorage, ciphertextLength, 8);
+    const ivBuffer = fromUintArray(iv, 8);
+    const symKeyBuffer = fromUintArray(symKey, 8);
+
+    const plaintext = await this.typedOracle.aes128Decrypt(ciphertext, ivBuffer, symKeyBuffer);
+    return bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
+  }
+
+  async getSharedSecret(
+    [address]: ACVMField[],
+    [ephPKField0]: ACVMField[],
+    [ephPKField1]: ACVMField[],
+    [ephPKField2]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const secret = await this.typedOracle.getSharedSecret(
+      AztecAddress.fromField(fromACVMField(address)),
+      Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(fromACVMField)),
+    );
+    return secret.toFields().map(toACVMField);
   }
 }

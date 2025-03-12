@@ -374,27 +374,6 @@ pub contract Test {
         }
     }
 
-    #[private]
-    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress, sender: AztecAddress) {
-        let mut storage_slot =
-            aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant) + 1;
-        Test::at(context.this_address()).call_create_note(value, owner, sender, storage_slot).call(
-            &mut context,
-        );
-        storage_slot += 1;
-
-        let note = ValueNote::new(value + 1, owner);
-        create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            sender,
-        ));
-        storage_slot += 1;
-        Test::at(context.this_address())
-            .call_create_note(value + 2, owner, sender, storage_slot)
-            .call(&mut context);
-    }
-
     // docs:start:is-time-equal
     #[public]
     fn is_time_equal(time: u64) -> u64 {
