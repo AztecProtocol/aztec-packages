@@ -43,10 +43,7 @@ describe('NoteDataProvider', () => {
 
     [
       () => Promise.resolve({ owner: owners[0].address }),
-      async () => {
-        const ownerAddressPoint = await owners[0].address.toAddressPoint();
-        return notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
-      },
+      () => Promise.resolve(notes.filter(note => note.encryptionAddress.equals(owners[0].address))),
     ],
 
     [
@@ -69,12 +66,11 @@ describe('NoteDataProvider', () => {
     contractAddresses = await timesParallel(2, () => AztecAddress.random());
     storageSlots = times(2, () => Fr.random());
 
-    notes = await timesParallel(10, async i => {
-      const addressPoint = await owners[i % owners.length].address.toAddressPoint();
+    notes = await timesParallel(10, i => {
       return NoteDao.random({
         contractAddress: contractAddresses[i % contractAddresses.length],
         storageSlot: storageSlots[i % storageSlots.length],
-        addressPoint,
+        encryptionAddress: owners[i % owners.length].address,
         index: BigInt(i),
         l2BlockNumber: i,
       });
@@ -97,16 +93,13 @@ describe('NoteDataProvider', () => {
 
     // Nullify all notes and use the same filter as other test cases
     for (const owner of owners) {
-      const ownerAddressPoint = await owner.address.toAddressPoint();
-      const notesToNullify = notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
+      const notesToNullify = notes.filter(note => note.encryptionAddress.equals(owner.address));
       const nullifiers = notesToNullify.map(note => ({
         data: note.siloedNullifier,
         l2BlockNumber: note.l2BlockNumber,
         l2BlockHash: note.l2BlockHash,
       }));
-      await expect(noteDataProvider.removeNullifiedNotes(nullifiers, ownerAddressPoint)).resolves.toEqual(
-        notesToNullify,
-      );
+      await expect(noteDataProvider.removeNullifiedNotes(nullifiers, owner.address)).resolves.toEqual(notesToNullify);
     }
     const filter = await getFilter();
     const returnedNotes = await noteDataProvider.getNotes({ ...filter, status: NoteStatus.ACTIVE_OR_NULLIFIED });
@@ -116,16 +109,15 @@ describe('NoteDataProvider', () => {
 
   it('skips nullified notes by default or when requesting active', async () => {
     await noteDataProvider.addNotes(notes);
-    const ownerAddressPoint = await owners[0].address.toAddressPoint();
-    const notesToNullify = notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
+    const notesToNullify = notes.filter(note => note.encryptionAddress.equals(owners[0].address));
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: note.l2BlockNumber,
       l2BlockHash: note.l2BlockHash,
     }));
-    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
-      notesToNullify,
-    );
+    await expect(
+      noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].encryptionAddress),
+    ).resolves.toEqual(notesToNullify);
 
     const actualNotesWithDefault = await noteDataProvider.getNotes({});
     const actualNotesWithActive = await noteDataProvider.getNotes({ status: NoteStatus.ACTIVE });
@@ -136,17 +128,16 @@ describe('NoteDataProvider', () => {
 
   it('handles note unnullification', async () => {
     await noteDataProvider.addNotes(notes);
-    const ownerAddressPoint = await owners[0].address.toAddressPoint();
 
-    const notesToNullify = notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
+    const notesToNullify = notes.filter(note => note.encryptionAddress.equals(owners[0].address));
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: 99,
       l2BlockHash: Fr.random().toString(),
     }));
-    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
-      notesToNullify,
-    );
+    await expect(
+      noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].encryptionAddress),
+    ).resolves.toEqual(notesToNullify);
     await expect(noteDataProvider.unnullifyNotesAfter(98)).resolves.toEqual(undefined);
 
     const result = await noteDataProvider.getNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
@@ -156,17 +147,16 @@ describe('NoteDataProvider', () => {
 
   it('returns active and nullified notes when requesting either', async () => {
     await noteDataProvider.addNotes(notes);
-    const ownerAddressPoint = await owners[0].address.toAddressPoint();
 
-    const notesToNullify = notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
+    const notesToNullify = notes.filter(note => note.encryptionAddress.equals(owners[0].address));
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: note.l2BlockNumber,
       l2BlockHash: note.l2BlockHash,
     }));
-    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
-      notesToNullify,
-    );
+    await expect(
+      noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].encryptionAddress),
+    ).resolves.toEqual(notesToNullify);
 
     const result = await noteDataProvider.getNotes({
       status: NoteStatus.ACTIVE_OR_NULLIFIED,
@@ -215,7 +205,6 @@ describe('NoteDataProvider', () => {
         scopes: [owners[1].address],
       }),
     ).resolves.toEqual([notes[0]]);
-    const ownerAddressPoint = await owners[0].address.toAddressPoint();
     await expect(
       noteDataProvider.removeNullifiedNotes(
         [
@@ -225,7 +214,7 @@ describe('NoteDataProvider', () => {
             l2BlockNumber: notes[0].l2BlockNumber,
           },
         ],
-        ownerAddressPoint,
+        owners[0].address,
       ),
     ).resolves.toEqual([notes[0]]);
 

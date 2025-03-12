@@ -749,8 +749,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
     }
 
-    // TODO(#12549): does it make sense to store the recipient's address point instead of just its address?
-    const recipientAddressPoint = await recipient.toAddressPoint();
     const noteDao = new NoteDao(
       new Note(content),
       contractAddress,
@@ -762,7 +760,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       txReceipt.blockNumber!,
       txReceipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
-      recipientAddressPoint,
+      recipient,
       NoteSelector.empty(), // TODO(#12013): remove
     );
 
@@ -777,10 +775,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const [nullifierIndex] = await this.aztecNode.findNullifiersIndexesWithBlock(syncedBlockNumber, [siloedNullifier]);
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
-      await this.noteDataProvider.removeNullifiedNotes(
-        [{ data: siloedNullifier, ...blockHashAndNum }],
-        recipientAddressPoint,
-      );
+      await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
 
       this.log.verbose(`Removed just-added note`, {
         contract: contractAddress,
@@ -844,10 +839,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         })
         .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-      const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(
-        foundNullifiers,
-        await recipient.toAddressPoint(),
-      );
+      const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers, recipient);
       nullifiedNotes.forEach(noteDao => {
         this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,

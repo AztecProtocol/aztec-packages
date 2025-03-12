@@ -439,12 +439,12 @@ export class PXEService implements PXE {
       let owner = filter.owner;
       if (owner === undefined) {
         const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
-        const completeAddressIndex = (
-          await Promise.all(completeAddresses.map(completeAddresses => completeAddresses.address.toAddressPoint()))
-        ).findIndex(addressPoint => addressPoint.equals(dao.addressPoint));
+        const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
+          completeAddress.address.equals(dao.encryptionAddress),
+        );
         const completeAddress = completeAddresses[completeAddressIndex];
         if (completeAddress === undefined) {
-          throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
+          throw new Error(`Cannot find complete address for addressPoint ${dao.encryptionAddress.toString()}`);
         }
         owner = completeAddress.address;
       }
