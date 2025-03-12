@@ -11,7 +11,7 @@ There are multiple ways to inject data into smart contracts.
 
 ## Oracles
 
-In the world of EVM, you can read data directly from storage. However, when we are working with circuits for private execution, this becomes more tricky as you cannot just read the storage directly from your state tree, because there are only commitments (e.g. hashes) there. The pre-images (content) of your commitments need to be provided to the function to prove that you actually allowed to modify them.
+In the world of EVM, you can read data directly from storage. However, when we are working with circuits for private execution, this becomes more tricky as you cannot just read the storage directly from your state tree, because there are only commitments (e.g. hashes) there. The pre-images (content) of your commitments need to be provided to the function to prove that you know value that the commitments represent and that you are actually allowed to modify them.
 
 If we fetch the notes using an oracle call, we can keep the function signature independent of the underlying data and make it easier to use. See [oracles](./oracles.md) for more information.
 
@@ -21,6 +21,6 @@ The same mechanism used in oracles is also used for the Authentication Witnesses
 
 ## Capsules
 
-Capsules are used to store data in the PXE and inject this data into smart contracts. They can be useful for arbitrary data that does not have a dedicated oracle.
+Capsules are used to store contract-scoped data in the PXE and inject this data into smart contracts. They can be useful for arbitrary data that does not have a dedicated oracle.
 
 You can learn more about using capsules in contracts in the [reference docs](../../../developers/reference/smart_contract_reference/aztec-nr/aztec/oracle/capsules.md)
