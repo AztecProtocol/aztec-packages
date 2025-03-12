@@ -2,17 +2,11 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RollupStore, IRollupCore, BlockLog} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  RollupStore, IRollupCore, BlockLog, GenesisState
+} from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {FeeHeader} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-
-struct GenesisState {
-  bytes32 vkTreeRoot;
-  bytes32 protocolContractTreeRoot;
-  bytes32 genesisArchiveRoot;
-  bytes32 genesisBlockHash;
-}
 
 library STFLib {
   using TimeLib for Slot;

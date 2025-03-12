@@ -133,14 +133,12 @@ library FeeLib {
 
   bytes32 private constant FEE_STORE_POSITION = keccak256("aztec.fee.storage");
 
-  function initialize() internal {
-    uint256 magicManaTarget = 100000000;
-
+  function initialize(uint256 _manaTarget) internal {
     FeeStore storage feeStore = getStorage();
 
-    feeStore.manaTarget = magicManaTarget;
+    feeStore.manaTarget = _manaTarget;
     feeStore.congestionUpdateFraction =
-      magicManaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR;
+      _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR;
     feeStore.provingCostPerMana = EthValue.wrap(100);
 
     feeStore.feeHeaders[0] = FeeHeader({
@@ -208,9 +206,18 @@ library FeeLib {
     bool _inFeeAsset
   ) internal view returns (ManaBaseFeeComponents memory) {
     FeeStore storage feeStore = getStorage();
-    FeeHeader storage parentFeeHeader = feeStore.feeHeaders[_blockOfInterest];
 
     uint256 manaTarget = feeStore.manaTarget;
+
+    if (manaTarget == 0) {
+      return ManaBaseFeeComponents({
+        dataCost: 0,
+        gasCost: 0,
+        provingCost: 0,
+        congestionCost: 0,
+        congestionMultiplier: 0
+      });
+    }
 
     EthValue gasCostPerMana;
     EthValue dataCostPerMana;
@@ -230,6 +237,7 @@ library FeeLib {
       total = dataCostPerMana + gasCostPerMana + feeStore.provingCostPerMana;
     }
 
+    FeeHeader storage parentFeeHeader = feeStore.feeHeaders[_blockOfInterest];
     uint256 excessMana =
       FeeLib.clampedAdd(parentFeeHeader.excessMana + parentFeeHeader.manaUsed, -int256(manaTarget));
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);

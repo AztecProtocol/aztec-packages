@@ -15,9 +15,12 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup, RollupConfig, GenesisState, BlockLog} from "@aztec/core/Rollup.sol";
+import {Rollup, BlockLog} from "@aztec/core/Rollup.sol";
 import {
-  IRollup, SubmitEpochRootProofArgs, PublicInputArgs
+  IRollup,
+  SubmitEpochRootProofArgs,
+  PublicInputArgs,
+  RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -51,6 +54,8 @@ import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/T
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 // solhint-disable comprehensive-interface
 
+uint256 constant MANA_TARGET = 100000000;
+
 contract FakeCanonical is IRewardDistributor {
   uint256 public constant BLOCK_REWARD = 50e18;
   IERC20 public immutable UNDERLYING;
@@ -82,16 +87,6 @@ contract FakeCanonical is IRewardDistributor {
   function updateRegistry(IRegistry _registry) external {}
 }
 
-contract FeeLibWrapper {
-  constructor() {
-    FeeLib.initialize();
-  }
-
-  function congestionMultiplier(uint256 _numerator) external view returns (uint256) {
-    return FeeLib.congestionMultiplier(_numerator);
-  }
-}
-
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;
 
@@ -114,10 +109,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   DecoderBase.Full full = load("empty_block_1");
 
-  uint256 internal constant MANA_TARGET = 100000000;
-
-  FeeLibWrapper internal feeLibWrapper = new FeeLibWrapper();
-
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
 
@@ -126,6 +117,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
   FakeCanonical internal fakeCanonical;
+
+  constructor() {
+    FeeLib.initialize(MANA_TARGET);
+  }
 
   function setUp() public {
     // We deploy a the rollup and sets the time and all to
@@ -144,20 +139,16 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       IRewardDistributor(address(fakeCanonical)),
       asset,
       address(this),
-      GenesisState({
-        vkTreeRoot: bytes32(0),
-        protocolContractTreeRoot: bytes32(0),
-        genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-        genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH)
-      }),
-      RollupConfig({
+      TestConstants.getGenesisState(),
+      RollupConfigInput({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
         aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
+        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
+        manaTarget: MANA_TARGET
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
@@ -320,12 +311,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // @todo We are doing an underflow here
     assertEq(
       componentsPrune.congestionMultiplier,
-      feeLibWrapper.congestionMultiplier(excessManaPrune),
+      FeeLib.congestionMultiplier(excessManaPrune),
       "congestion multiplier mismatch for prune"
     );
     assertEq(
       componentsNoPrune.congestionMultiplier,
-      feeLibWrapper.congestionMultiplier(excessManaNoPrune),
+      FeeLib.congestionMultiplier(excessManaNoPrune),
       "congestion multiplier mismatch for no-prune"
     );
   }

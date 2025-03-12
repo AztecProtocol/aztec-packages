@@ -53,7 +53,7 @@ contract MinimalFeeModel {
 
   constructor(uint256 _slotDuration, uint256 _epochDuration) {
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration);
-    FeeLib.initialize();
+    FeeLib.initialize(MANA_TARGET);
   }
 
   function getL1GasOracleValues() public view returns (L1GasOracleValuesModel memory) {

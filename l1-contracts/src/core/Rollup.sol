@@ -12,7 +12,8 @@ import {
   EpochRewards,
   BlockLog,
   BlockHeaderValidationFlags,
-  FeeHeader
+  FeeHeader,
+  RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking,
@@ -29,7 +30,6 @@ import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol"
 import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
 import {
   RollupCore,
-  RollupConfig,
   GenesisState,
   IRewardDistributor,
   IFeeJuicePortal,
@@ -70,7 +70,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IERC20 _stakingAsset,
     address _governance,
     GenesisState memory _genesisState,
-    RollupConfig memory _config
+    RollupConfigInput memory _config
   )
     RollupCore(
       _fpcJuicePortal,
