@@ -92,6 +92,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   // Request and response sub service
   public reqresp: ReqResp;
 
+  // Trusted peers ids
+  private trustedPeersIds: PeerId[] = [];
+
   /**
    * Callback for when a block is received from a peer.
    * @param block - The block received from the peer.
@@ -172,10 +175,15 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
+    const bootstrapNodes = peerDiscoveryService.bootstrapNodes;
+
+    // If trusted peers are provided, also provide them to the p2p service
+    bootstrapNodes.push(...config.trustedPeers);
+
     // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
-    if (peerDiscoveryService.bootstrapNodes.length > 0) {
-      peerDiscovery.push(bootstrap({ list: peerDiscoveryService.bootstrapNodes }));
+    if (bootstrapNodes.length > 0) {
+      peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
     }
 
     const node = await createLibp2p({
@@ -297,6 +305,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
+
+    await this.peerManager.initializeTrustedPeers();
     await this.peerDiscoveryService.start();
     await this.node.start();
 

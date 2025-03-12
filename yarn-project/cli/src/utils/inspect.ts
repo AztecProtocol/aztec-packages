@@ -144,7 +144,7 @@ function inspectNote(note: ExtendedNote, artifactMap: ArtifactMap, log: LogFn, t
   const contract = artifact?.name ?? note.contractAddress.toString();
   const type = artifact?.notes[note.noteTypeId.toString()]?.typ ?? note.noteTypeId.toField().toShortString();
   log(`  ${text} type ${type} at ${contract}`);
-  log(`    Owner: ${toFriendlyAddress(note.owner, artifactMap)}`);
+  log(`    Recipient: ${toFriendlyAddress(note.recipient, artifactMap)}`);
   for (const field of note.note.items) {
     log(`    ${field.toString()}`);
   }

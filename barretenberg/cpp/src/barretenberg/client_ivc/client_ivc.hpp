@@ -86,6 +86,7 @@ class ClientIVC {
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or PG
+        std::vector<FF> merge_proof;
         std::shared_ptr<MegaVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
@@ -94,6 +95,7 @@ class ClientIVC {
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
         StdlibProof<ClientCircuit> proof; // oink or PG
+        StdlibProof<ClientCircuit> merge_proof;
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
@@ -117,8 +119,6 @@ class ClientIVC {
     VerificationQueue verification_queue;
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     StdlibVerificationQueue stdlib_verification_queue;
-    // Set of merge proofs to be recursively verified
-    std::vector<MergeProof> merge_verification_queue;
 
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
@@ -129,10 +129,6 @@ class ClientIVC {
     std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
 
     GoblinProver goblin;
-
-    // We dynamically detect whether the input stack consists of one circuit, in which case we do not construct the
-    // hiding circuit and instead simply prove the single input circuit.
-    bool one_circuit = false;
 
     bool initialized = false; // Is the IVC accumulator initialized
 
@@ -148,13 +144,8 @@ class ClientIVC {
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
 
-    void perform_recursive_verification_and_databus_consistency_checks(
-        ClientCircuit& circuit,
-        const StdlibProof<ClientCircuit>& proof,
-        const std::shared_ptr<RecursiveVerificationKey>& vkey,
-        const QUEUE_TYPE type);
-
-    void process_recursive_merge_verification_queue(ClientCircuit& circuit);
+    void perform_recursive_verification_and_databus_consistency_checks(ClientCircuit& circuit,
+                                                                       const StdlibVerifierInputs& verifier_inputs);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
@@ -174,7 +165,7 @@ class ClientIVC {
 
     Proof prove();
 
-    HonkProof construct_and_prove_hiding_circuit();
+    std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 

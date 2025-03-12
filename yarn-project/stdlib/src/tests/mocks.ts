@@ -46,7 +46,7 @@ export const randomTxHash = (): TxHash => TxHash.random();
 
 export const randomExtendedNote = async ({
   note = Note.random(),
-  owner = undefined,
+  recipient = undefined,
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
@@ -54,7 +54,7 @@ export const randomExtendedNote = async ({
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(
     note,
-    owner ?? (await AztecAddress.random()),
+    recipient ?? (await AztecAddress.random()),
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
     noteTypeId,
@@ -64,7 +64,7 @@ export const randomExtendedNote = async ({
 
 export const randomUniqueNote = async ({
   note = Note.random(),
-  owner = undefined,
+  recipient = undefined,
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
@@ -73,7 +73,7 @@ export const randomUniqueNote = async ({
 }: Partial<UniqueNote> = {}) => {
   return new UniqueNote(
     note,
-    owner ?? (await AztecAddress.random()),
+    recipient ?? (await AztecAddress.random()),
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
     noteTypeId,
@@ -228,6 +228,7 @@ export const mockSimulatedTx = async (seed = 1) => {
 export const randomContractArtifact = (): ContractArtifact => ({
   name: randomBytes(4).toString('hex'),
   functions: [],
+  nonDispatchPublicFunctions: [],
   outputs: {
     structs: {},
     globals: {},

@@ -1,6 +1,7 @@
 // docs:start:imports
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { type AccountWallet, CheatCodes, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { type AccountWallet, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 // docs:end:imports
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -81,7 +82,7 @@ describe('guides/dapp/testing', () => {
         // docs:start:private-storage
         await token.methods.sync_notes().simulate();
         const notes = await pxe.getNotes({
-          owner: owner.getAddress(),
+          recipient: owner.getAddress(),
           contractAddress: token.address,
           storageSlot: ownerSlot,
           scopes: [owner.getAddress()],

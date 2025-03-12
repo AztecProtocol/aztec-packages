@@ -32,7 +32,7 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
  *
  * @return honk::proof
  */
-template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
+template <typename Flavor> MergeProver_<Flavor>::MergeProof MergeProver_<Flavor>::construct_proof()
 {
     transcript = std::make_shared<Transcript>();
 

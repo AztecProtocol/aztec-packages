@@ -18,19 +18,18 @@ EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoin
 
 EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& scalar)
 {
-    uint256_t scalar_integer = static_cast<uint256_t>(scalar);
     auto intermediate_states = std::vector<ScalarMulIntermediateState>(254);
+    auto bits = to_radix.to_le_bits(scalar, 254);
 
     // First iteration does conditional assignment instead of addition
     EmbeddedCurvePoint temp = point;
-    // TODO(Alvaro): Call to radix here when it is implemented.
-    bool bit = scalar_integer.get_bit(0);
+    bool bit = bits[0];
 
     EmbeddedCurvePoint result = bit ? temp : EmbeddedCurvePoint::infinity();
     intermediate_states[0] = { result, temp, bit };
 
     for (size_t i = 1; i < 254; i++) {
-        bit = scalar_integer.get_bit(i);
+        bit = bits[i];
         temp = add(temp, temp);
 
         if (bit) {

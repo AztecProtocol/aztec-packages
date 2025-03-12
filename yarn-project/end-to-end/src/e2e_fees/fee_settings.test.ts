@@ -2,10 +2,10 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  type CheatCodes,
   FeeJuicePaymentMethod,
   retryUntil,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import type { GasSettings } from '@aztec/stdlib/gas';

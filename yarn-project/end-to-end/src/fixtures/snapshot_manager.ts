@@ -2,23 +2,25 @@ import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccounts, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  AnvilTestWatcher,
   type AztecAddress,
   BatchCall,
-  type Capsule,
-  CheatCodes,
   type CompleteAddress,
   type ContractFunctionInteraction,
-  type DeployL1ContractsReturnType,
-  type FunctionCall,
   type Logger,
   type PXE,
   type Wallet,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsArgs,
+  type DeployL1ContractsReturnType,
+  createL1Clients,
+  getL1ContractsConfigEnvVars,
+  l1Artifacts,
+} from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -306,16 +308,6 @@ async function setupFromFresh(
   }
   aztecNodeConfig.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
-  // Setup blob sink service
-  const blobSink = await createBlobSinkServer({
-    port: blobSinkPort,
-    dataStoreConfig: {
-      dataDirectory: aztecNodeConfig.dataDirectory,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-    },
-  });
-  await blobSink.start();
-
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
   const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
@@ -401,6 +393,22 @@ async function setupFromFresh(
 
   const telemetry = getEndToEndTestTelemetryClient(opts.metricsPort);
 
+  // Setup blob sink service
+  const blobSink = await createBlobSinkServer(
+    {
+      l1ChainId: aztecNodeConfig.l1ChainId,
+      l1RpcUrls: aztecNodeConfig.l1RpcUrls,
+      rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
+      port: blobSinkPort,
+      dataStoreConfig: {
+        dataDirectory: aztecNodeConfig.dataDirectory,
+        dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+      },
+    },
+    telemetry,
+  );
+  await blobSink.start();
+
   logger.verbose('Creating and synching an aztec node...');
   const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(
@@ -475,15 +483,6 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];
   const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
 
-  const blobSink = await createBlobSinkServer({
-    port: blobSinkPort,
-    dataStoreConfig: {
-      dataDirectory: statePath,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-    },
-  });
-  await blobSink.start();
-
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const { anvil, rpcUrl } = await startAnvil();
   aztecNodeConfig.l1RpcUrls = [rpcUrl];
@@ -515,9 +514,24 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   );
   await watcher.start();
 
-  logger.verbose('Creating aztec node...');
   const telemetry = initTelemetryClient(getTelemetryConfig());
   const dateProvider = new TestDateProvider();
+  const blobSink = await createBlobSinkServer(
+    {
+      l1ChainId: aztecNodeConfig.l1ChainId,
+      l1RpcUrls: aztecNodeConfig.l1RpcUrls,
+      rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
+      port: blobSinkPort,
+      dataStoreConfig: {
+        dataDirectory: statePath,
+        dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+      },
+    },
+    telemetry,
+  );
+  await blobSink.start();
+
+  logger.verbose('Creating aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
     { telemetry, dateProvider },
@@ -604,14 +618,12 @@ export async function publicDeployAccounts(
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
-  const fns: ContractFunctionInteraction[] = await Promise.all([
+  const calls: ContractFunctionInteraction[] = await Promise.all([
     ...(!alreadyRegistered ? [registerContractClass(sender, SchnorrAccountContractArtifact)] : []),
     ...instances.map(instance => deployInstance(sender, instance!)),
   ]);
-  const calls: FunctionCall[] = await Promise.all(fns.map(fn => fn.request()));
-  const capsules: Capsule[] = fns.map(fn => fn.getCapsules()).flat();
 
   const batch = new BatchCall(sender, calls);
-  batch.addCapsules(capsules);
+
   await batch.send().wait({ proven: waitUntilProven });
 }
