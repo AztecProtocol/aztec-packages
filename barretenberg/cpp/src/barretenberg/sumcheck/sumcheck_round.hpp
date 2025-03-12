@@ -119,7 +119,12 @@ template <typename Flavor> class SumcheckProverRound {
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                 extended_edge = edge;
             } else {
-                extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                if (multivariate.end_index() < edge_idx) {
+                    extended_edge =
+                        bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>(std::array<FF, MAX_PARTIAL_RELATION_LENGTH>{});
+                } else {
+                    extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                }
             }
         }
     }
