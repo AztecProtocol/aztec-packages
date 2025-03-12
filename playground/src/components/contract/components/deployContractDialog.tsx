@@ -21,7 +21,6 @@ import {
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/fnParameter';
-import { GITHUB_TAG_PREFIX } from '../../../utils/constants';
 
 const creationForm = css({
   display: 'flex',

@@ -10,7 +10,6 @@ import Typography from '@mui/material/Typography';
 import { css } from '@mui/styled-engine';
 import { useContext, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
-import { GITHUB_TAG_PREFIX } from '../../../utils/constants';
 
 const creationForm = css({
   display: 'flex',
