@@ -1,6 +1,6 @@
 #!/bin/bash
-source $(git rev-parse --show-toplevel)/source
-source $source_redis
+source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_redis
 
 cmd=${1:-}
 arch=${ARCH:-$(arch)}
@@ -240,16 +240,15 @@ case "$cmd" in
     print_usage
     ;;
   "gh-bench")
-    bb_hash=$(barretenberg/bootstrap.sh hash)
     # Run benchmark logic for github actions.
-    published_status=$(redis_cli --raw GET publish-bb-$bb_hash)
-    if [ -n "$published_status" ]; then
-      echo "No changes since last master, skipping barretenberg benchmarks"
+    bb_hash=$(barretenberg/bootstrap.sh hash)
+    if [ "$(redis_getz last-publish-hash-bb)" == "$bb_hash" ]; then
+      echo "No changes since last master, skipping barretenberg benchmark publishing."
       echo "SKIP_BB_BENCH=true" >> $GITHUB_ENV
     else
       cache_download barretenberg-bench-results-$(barretenberg/bootstrap.sh hash).tar.gz
       seven_days=$((7 * 24 * 60 * 60)) # in seconds
-      echo "published" | redis_setexz publish-bb-$bb_hash $seven_days
+      echo "$bb_hash" | redis_setexz last-publish-hash-bb $seven_days
     fi
     # TODO(AD) handle yarn-project similarly
     cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz

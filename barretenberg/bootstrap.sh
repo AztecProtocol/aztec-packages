@@ -64,4 +64,3 @@ esac
 if [ "$cmd" == "bench" ]; then
   bench
 fi
-c

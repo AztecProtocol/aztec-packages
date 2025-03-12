@@ -90,7 +90,7 @@ jobs:
       - name: Download benchmarks
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         run: |
-          # Sets SKIP_BB_BENCH in GITHUB_ENV.
+          # Note: sets SKIP_BB_BENCH in GITHUB_ENV for below step.
           ./ci.sh gh-bench
 
       - name: Store barretenberg benchmark result
