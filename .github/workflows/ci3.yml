@@ -90,12 +90,11 @@ jobs:
       - name: Download benchmarks
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         run: |
-          ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
-          ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
-          # ./ci3/cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+          # Sets SKIP_BB_BENCH in GITHUB_ENV.
+          ./ci.sh gh-bench
 
       - name: Store barretenberg benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_BB_BENCH != 'true'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
