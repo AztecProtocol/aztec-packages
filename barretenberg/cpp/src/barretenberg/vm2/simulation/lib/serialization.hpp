@@ -66,8 +66,8 @@ class Operand {
 };
 
 struct Instruction {
-    WireOpCode opcode;
-    uint16_t indirect;
+    WireOpCode opcode = WireOpCode::LAST_OPCODE_SENTINEL;
+    uint16_t indirect = 0;
     std::vector<Operand> operands;
 
     std::string to_string() const;
