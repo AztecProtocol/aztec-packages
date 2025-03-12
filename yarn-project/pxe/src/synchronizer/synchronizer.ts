@@ -49,7 +49,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
-        const lastBlock = event.blocks.at(-1)!;
+        const lastBlock = event.blocks.at(-1)!.block;
         this.log.verbose(`Updated pxe last block to ${lastBlock.number}`, {
           blockHash: lastBlock.hash(),
           archive: lastBlock.archive.root.toString(),

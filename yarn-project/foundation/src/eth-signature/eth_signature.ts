@@ -5,10 +5,8 @@ import { z } from 'zod';
 
 import { hasHexPrefix, hexToBuffer } from '../string/index.js';
 
-/**Viem Signature
- *
- * A version of the Signature class that uses `0x${string}` values for r and s rather than
- * Buffer32s
+/**
+ * A version of the Signature class that uses `0x${string}` values for r and s rather than Buffer32s
  */
 export type ViemSignature = {
   r: `0x${string}`;
@@ -18,8 +16,6 @@ export type ViemSignature = {
 };
 
 /**
- * Signature
- *
  * Contains a signature split into it's primary components (r,s,v)
  */
 export class Signature {
@@ -68,6 +64,15 @@ export class Signature {
     const isEmpty = r.isZero() && s.isZero();
 
     return new Signature(r, s, v, isEmpty);
+  }
+
+  static fromViemSignature(sig: ViemSignature): Signature {
+    return new Signature(
+      Buffer32.fromBuffer(hexToBuffer(sig.r)),
+      Buffer32.fromBuffer(hexToBuffer(sig.s)),
+      sig.v,
+      sig.isEmpty,
+    );
   }
 
   static random(): Signature {

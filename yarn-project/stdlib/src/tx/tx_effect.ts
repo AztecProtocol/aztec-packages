@@ -158,6 +158,28 @@ export class TxEffect {
     ]);
   }
 
+  equals(other: TxEffect): boolean {
+    return (
+      this.revertCode.equals(other.revertCode) &&
+      this.txHash.equals(other.txHash) &&
+      this.transactionFee.equals(other.transactionFee) &&
+      this.noteHashes.length === other.noteHashes.length &&
+      this.noteHashes.every((h, i) => h.equals(other.noteHashes[i])) &&
+      this.nullifiers.length === other.nullifiers.length &&
+      this.nullifiers.every((h, i) => h.equals(other.nullifiers[i])) &&
+      this.l2ToL1Msgs.length === other.l2ToL1Msgs.length &&
+      this.l2ToL1Msgs.every((h, i) => h.equals(other.l2ToL1Msgs[i])) &&
+      this.publicDataWrites.length === other.publicDataWrites.length &&
+      this.publicDataWrites.every((h, i) => h.equals(other.publicDataWrites[i])) &&
+      this.privateLogs.length === other.privateLogs.length &&
+      this.privateLogs.every((h, i) => h.equals(other.privateLogs[i])) &&
+      this.publicLogs.length === other.publicLogs.length &&
+      this.publicLogs.every((h, i) => h.equals(other.publicLogs[i])) &&
+      this.contractClassLogs.length === other.contractClassLogs.length &&
+      this.contractClassLogs.every((h, i) => h.equals(other.contractClassLogs[i]))
+    );
+  }
+
   /** Returns the size of this tx effect in bytes as serialized onto DA. */
   getDASize() {
     return this.toBlobFields().length * Fr.SIZE_IN_BYTES;

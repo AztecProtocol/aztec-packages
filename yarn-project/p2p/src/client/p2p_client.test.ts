@@ -4,7 +4,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2Block, randomPublishedL2Block } from '@aztec/stdlib/block';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 
@@ -246,6 +246,17 @@ describe('In-Memory P2P Client', () => {
       expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledTimes(1);
       expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledWith(
         BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor),
+      );
+    });
+  });
+
+  describe('Block stream events', () => {
+    it('adds attestations to the pool', async () => {
+      await client.start();
+      const block = await randomPublishedL2Block(1);
+      await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      expect(attestationPool.addAttestations).toHaveBeenCalledWith(
+        block.signatures.map(signature => expect.objectContaining({ signature })),
       );
     });
   });

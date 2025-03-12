@@ -18,6 +18,12 @@ export class Body {
     });
   }
 
+  equals(other: Body) {
+    return (
+      this.txEffects.length === other.txEffects.length && this.txEffects.every((te, i) => te.equals(other.txEffects[i]))
+    );
+  }
+
   static get schema(): ZodFor<Body> {
     return z
       .object({

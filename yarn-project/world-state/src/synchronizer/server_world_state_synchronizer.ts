@@ -210,7 +210,7 @@ export class ServerWorldStateSynchronizer
     try {
       switch (event.type) {
         case 'blocks-added':
-          await this.handleL2Blocks(event.blocks);
+          await this.handleL2Blocks(event.blocks.map(b => b.block));
           break;
         case 'chain-pruned':
           await this.handleChainPruned(event.blockNumber);

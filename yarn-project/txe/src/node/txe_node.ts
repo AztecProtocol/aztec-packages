@@ -11,7 +11,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type InBlock, L2Block, L2BlockHash, type L2BlockNumber, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type InBlock,
+  L2Block,
+  L2BlockHash,
+  type L2BlockNumber,
+  type L2Tips,
+  type PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractInstanceWithAddress,
@@ -426,6 +433,10 @@ export class TXENode implements AztecNode {
    */
   getBlocks(_from: number, _limit: number): Promise<L2Block[]> {
     throw new Error('TXE Node method getBlocks not implemented');
+  }
+
+  getPublishedBlocks(_from: number, _limit: number): Promise<PublishedL2Block[]> {
+    throw new Error('TXE Node method getPublishedBlocks not implemented');
   }
 
   /**
