@@ -223,7 +223,10 @@ export class EpochProvingJob implements Traceable {
         const blocks = await this.l2BlockSource.getBlockHeadersForEpoch(this.epochNumber);
         const blockHashes = await Promise.all(blocks.map(block => block.hash()));
         const thisBlockHashes = await Promise.all(this.blocks.map(block => block.hash()));
-        if (blocks.length !== this.blocks.length || !blockHashes.every((block, i) => block === thisBlockHashes[i])) {
+        if (
+          blocks.length !== this.blocks.length ||
+          !blockHashes.every((block, i) => block.equals(thisBlockHashes[i]))
+        ) {
           this.log.warn('Epoch blocks changed underfoot', {
             uuid: this.uuid,
             epochNumber: this.epochNumber,

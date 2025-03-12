@@ -1,5 +1,6 @@
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
@@ -154,9 +155,13 @@ describe('prover-node', () => {
   });
 
   it('does not prove the same epoch twice', async () => {
+    const firstJob = promiseWithResolvers<void>();
+    proverNode.nextJobRun = () => firstJob.promise;
+    proverNode.nextJobState = 'processing';
     await proverNode.handleEpochReadyToProve(10n);
     await proverNode.handleEpochReadyToProve(10n);
 
+    firstJob.resolve();
     expect(proverNode.totalJobCount).toEqual(1);
   });
 
@@ -177,6 +182,7 @@ describe('prover-node', () => {
   class TestProverNode extends ProverNode {
     public totalJobCount = 0;
     public nextJobState: EpochProvingJobState = 'completed';
+    public nextJobRun: () => Promise<void> = () => Promise.resolve();
 
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
@@ -187,9 +193,11 @@ describe('prover-node', () => {
     ): EpochProvingJob {
       const state = this.nextJobState;
       this.nextJobState = 'completed';
+      const run = this.nextJobRun;
+      this.nextJobRun = () => Promise.resolve();
       const job = mock<EpochProvingJob>({
         getState: () => state,
-        run: () => Promise.resolve(),
+        run,
         getEpochNumber: () => epochNumber,
       });
       job.getId.mockReturnValue(jobs.length.toString());

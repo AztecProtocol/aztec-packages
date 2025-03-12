@@ -108,10 +108,14 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   async handleEpochReadyToProve(epochNumber: bigint): Promise<void> {
     try {
-      this.log.debug('jobs', JSON.stringify(this.jobs, null, 2));
+      this.log.debug(`Running jobs as ${epochNumber} is ready to prove`, {
+        jobs: Array.from(this.jobs.values()).map(job => `${job.getEpochNumber()}:${job.getId()}`),
+      });
       const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
       if (activeJobs.length > 0) {
-        this.log.info(`Not starting proof for ${epochNumber} since there are active jobs`);
+        this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
+          activeJobs: activeJobs.map(job => job.uuid),
+        });
         return;
       }
       await this.startProof(epochNumber);
