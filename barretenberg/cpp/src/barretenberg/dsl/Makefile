@@ -17,6 +17,7 @@ all: $(PROTO_DST)
 # Compile an ACIR protobuf schema to C++
 $(PROTO_DST_DIR)/%.pb.h: $(PROTO_SRC_DIR)/%.proto $(PROTO_DST_DIR) | .protoc
 	protoc --cpp_out $(PROTO_DST_DIR) -I $(PROTO_SRC_DIR) $<
+	sed -i 's/#include "acir\//#include "barretenberg\/dsl\/acir_format\/proto\/acir\//g' $(PROTO_DST_DIR)/$*.pb.*
 
 $(PROTO_DST_DIR):
 	mkdir -p $@

@@ -64,3 +64,19 @@ protoc --cpp_out ./acir_format/proto -I ../../../../../noir/noir-repo/acvm-repo/
 % ls barretenberg/cpp/src/barretenberg/dsl/acir_format/proto/acir
 circuit.pb.cc  circuit.pb.h  native.pb.cc  native.pb.h  program.pb.cc  program.pb.h  witness.pb.cc  witness.pb.h
 ```
+
+#### Installing Protobuf
+
+We need to install protobuf from source to work well with `cmake`:
+
+```
+# instead of `apt install libprotobuf-dev protobuf-compiler`
+# https://github.com/protocolbuffers/protobuf/blob/v29.3/cmake/README.md
+# using the same version as the Rust build
+git clone --branch v29.3 https://github.com/protocolbuffers/protobuf.git
+cd protobuf
+git submodule update --init --recursive
+cmake .
+cmake --build . --parallel 10
+sudo cmake --install .
+```
