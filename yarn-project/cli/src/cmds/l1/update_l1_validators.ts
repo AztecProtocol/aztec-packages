@@ -28,7 +28,7 @@ import {
   L1TxUtils,
   type L1TxUtilsConfig,
   getL1TxUtilsConfigEnvVars,
-} from '@aztec/ethereum/src/l1_tx_utils.ts';
+} from '@aztec/ethereum/src/l1_tx_utils.js';
 
 export interface RollupCommandArgs {
   rpcUrls: string[];
