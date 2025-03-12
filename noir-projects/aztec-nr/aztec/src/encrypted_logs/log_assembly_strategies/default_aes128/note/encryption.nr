@@ -1,32 +1,34 @@
 use crate::{
-    encrypted_logs::encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
+    encrypted_logs::{
+        encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
+        log_assembly_strategies::default_aes128::{
+            arithmetic_generics_utils::{
+                get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
+            },
+            utils_to_nuke::{self, be_bytes_32_to_fields},
+        },
+    },
     keys::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
     oracle::{
+        aes128_decrypt::aes128_decrypt_oracle,
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
         random::random_with_max_byte_size,
+        shared_secret::get_shared_secret,
     },
-    utils::{array, bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
-};
-use crate::encrypted_logs::log_assembly_strategies::default_aes128::{
-    arithmetic_generics_utils::{
-        get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
+    utils::{
+        array,
+        bytes::{be_bytes_31_to_fields, fields_to_be_bytes_32, get_random_bytes},
+        point::{get_sign_of_point, point_from_x_coord_and_sign},
     },
-    utils_to_nuke,
 };
-use crate::encrypted_logs::log_assembly_strategies::default_aes128::utils_to_nuke::be_bytes_32_to_fields;
-use crate::oracle::aes128_decrypt::aes128_decrypt_oracle;
-use crate::oracle::shared_secret::get_shared_secret;
-use crate::utils::bytes::fields_to_be_bytes_32;
-use crate::utils::point::point_from_x_coord_and_sign;
-use dep::protocol_types::{
-    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::ToField,
-};
+use protocol_types::{address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::ToField};
 use std::aes128::aes128_encrypt;
 
-pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address (32) + ciphertext_length (2) + 16 bytes pkcs#7 AES padding.
+// contract_address (32) + ciphertext_length (2) + 16 bytes pkcs#7 AES padding.
+pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48;
 
 global TAG_AND_EPH_PK_X_SIZE_IN_FIELDS: u32 = 2;
 global EPH_PK_SIGN_BYTE_SIZE_IN_BYTES: u32 = 1;
@@ -289,12 +291,12 @@ pub unconstrained fn decrypt_log(
 }
 
 mod test {
-    use crate::keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address;
-    use crate::test::helpers::test_environment::TestEnvironment;
+    use crate::{
+        keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
+        test::helpers::test_environment::TestEnvironment,
+    };
     use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
-    use dep::protocol_types::address::AztecAddress;
-    use dep::protocol_types::traits::FromField;
-    use protocol_types::traits::Serialize;
+    use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
     use std::test::OracleMock;
 
     #[test]
