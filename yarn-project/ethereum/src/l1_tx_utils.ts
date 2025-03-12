@@ -107,7 +107,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   maxGwei: {
     description: 'Maximum gas price in gwei',
     env: 'L1_GAS_PRICE_MAX',
-    ...bigintConfigHelper(100n),
+    ...bigintConfigHelper(500n),
   },
   maxBlobGwei: {
     description: 'Maximum blob fee per gas in gwei',
