@@ -43,7 +43,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
     async () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
-      const tester = await AvmProvingTester.create(DEFAULT_BLOCK_NUMBER, /*checkCircuitOnly*/ true);
+      const tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly*/ true);
 
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
@@ -81,7 +81,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
 
-      const tester = await AvmProvingTester.create(DEFAULT_BLOCK_NUMBER, /*checkCircuitOnly*/ true);
+      const tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly*/ true);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -120,7 +120,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const newClassId = new Fr(27);
 
-      const tester = await AvmProvingTester.create(DEFAULT_BLOCK_NUMBER, /*checkCircuitOnly*/ true);
+      const tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly*/ true);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -156,7 +156,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const newClassId = new Fr(27);
 
-      const tester = await AvmProvingTester.create(DEFAULT_BLOCK_NUMBER, /*checkCircuitOnly*/ true);
+      const tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly*/ true);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,

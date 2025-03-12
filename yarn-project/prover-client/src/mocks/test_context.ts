@@ -85,7 +85,7 @@ export class TestContext {
     const contractDataSource = new SimpleContractDataSource();
     const worldStateDB = new WorldStateDB(publicDb, contractDataSource, blockNumber);
 
-    const tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, publicDb);
+    const tester = new PublicTxSimulationTester(worldStateDB, globalVariables, contractDataSource, publicDb);
 
     const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, globalVariables, true);
     const processor = new PublicProcessor(

@@ -45,7 +45,7 @@ describe('Public processor contract registration/deployment tests', () => {
       getTelemetryClient(),
     );
 
-    tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
+    tester = new PublicTxSimulationTester(worldStateDB, globals, contractDataSource, merkleTrees);
 
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);

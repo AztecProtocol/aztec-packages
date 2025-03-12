@@ -19,7 +19,7 @@ describe('AVM WitGen & Circuit – check circuit', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/* blockNumber */ undefined, /*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),

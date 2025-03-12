@@ -20,7 +20,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/* blockNumber */ undefined, /*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly*/ true);
 
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
     token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
