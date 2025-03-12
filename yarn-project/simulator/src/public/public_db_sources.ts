@@ -48,7 +48,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 
   private log = createLogger('simulator:contracts-data-source');
 
-  constructor(private dataSource: ContractDataSource) {}
+  constructor(private dataSource: ContractDataSource, private blockNumber: number) {}
 
   /**
    * Add new contracts from a transaction
@@ -216,7 +216,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
       this.currentTxRevertibleCache.getInstance(address) ??
       this.currentTxNonRevertibleCache.getInstance(address) ??
       this.blockCache.getInstance(address) ??
-      (await this.dataSource.getContract(address))
+      (await this.dataSource.getContract(address, this.blockNumber))
     );
   }
 
@@ -266,8 +266,8 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicStateDB, MerkleTreeCheckpointOperations {
   private logger = createLogger('simulator:world-state-db');
 
-  constructor(public db: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
-    super(dataSource);
+  constructor(public db: MerkleTreeWriteOperations, dataSource: ContractDataSource, blockNumber: number) {
+    super(dataSource, blockNumber);
   }
 
   /**

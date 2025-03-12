@@ -16,6 +16,7 @@ import {
   resolveContractAssertionMessage,
 } from '../../avm/fixtures/index.js';
 import { AvmPersistableStateManager } from '../../avm/journal/journal.js';
+import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
 import { WorldStateDB } from '../../public_db_sources.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
@@ -38,10 +39,10 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTrees);
   }
 
-  static async create(): Promise<AvmSimulationTester> {
+  static async create(blockNumber = DEFAULT_BLOCK_NUMBER): Promise<AvmSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, blockNumber);
     const trace = new SideEffectTrace();
     const firstNullifier = new Fr(420000);
     // FIXME: merkle ops should work, but I'm seeing frequent (but inconsistent) bytecode retrieval

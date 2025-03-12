@@ -10,8 +10,13 @@ import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/tre
 import type { TXE } from '../oracle/txe_oracle.js';
 
 export class TXEWorldStateDB extends WorldStateDB {
-  constructor(private merkleDb: MerkleTreeWriteOperations, dataSource: ContractDataSource, private txe: TXE) {
-    super(merkleDb, dataSource);
+  constructor(
+    private merkleDb: MerkleTreeWriteOperations,
+    dataSource: ContractDataSource,
+    private txe: TXE,
+    blockNumber: number,
+  ) {
+    super(merkleDb, dataSource, blockNumber);
   }
 
   override async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {

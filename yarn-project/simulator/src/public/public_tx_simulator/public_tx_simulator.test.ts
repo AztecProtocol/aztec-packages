@@ -280,7 +280,7 @@ describe('public_tx_simulator', () => {
   beforeEach(async () => {
     db = await (await NativeWorldStateService.tmp()).fork();
     dbCopy = await (await NativeWorldStateService.tmp()).fork();
-    worldStateDB = new WorldStateDB(db, mock<ContractDataSource>());
+    worldStateDB = new WorldStateDB(db, mock<ContractDataSource>(), 0);
 
     treeStore = openTmpStore();
 

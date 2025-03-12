@@ -78,9 +78,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#contractClassStore.getContractClassIds();
   }
 
-  async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const contract = this.#contractInstanceStore.getContractInstance(address, await this.getSynchedL2BlockNumber());
-    return contract;
+  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined> {
+    return this.#contractInstanceStore.getContractInstance(address, blockNumber);
   }
 
   async addContractClasses(

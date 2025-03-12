@@ -2,18 +2,10 @@ import type { Fr } from '@aztec/foundation/fields';
 
 import { FunctionSelector } from '../../abi/index.js';
 import type { AztecAddress } from '../../aztec-address/index.js';
-import type { ContractClassPublic, PublicFunction } from './contract_class.js';
+import type { ContractClassPublic } from './contract_class.js';
 import type { ContractInstanceWithAddress } from './contract_instance.js';
 
 export interface ContractDataSource {
-  /**
-   * Returns a contract's encoded public function, given its function selector.
-   * @param address - The contract aztec address.
-   * @param selector - The function's selector.
-   * @returns The function's data.
-   */
-  getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined>;
-
   /**
    * Gets the number of the latest L2 block processed by the implementation.
    * @returns The number of the latest L2 block processed by the implementation.
@@ -38,7 +30,7 @@ export interface ContractDataSource {
    * Returns a publicly deployed contract instance given its address.
    * @param address - Address of the deployed contract.
    */
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns the list of all class ids known.

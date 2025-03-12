@@ -43,10 +43,10 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTrees);
   }
 
-  public static async create(): Promise<PublicTxSimulationTester> {
+  public static async create(blockNumber = DEFAULT_BLOCK_NUMBER): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, blockNumber);
     return new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
   }
 

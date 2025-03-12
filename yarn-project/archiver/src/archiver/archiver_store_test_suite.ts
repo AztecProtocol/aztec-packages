@@ -292,16 +292,18 @@ export function describeArchiverDataStore(
       });
 
       it('returns previously stored contract instances', async () => {
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toMatchObject(contractInstance);
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toMatchObject(
+          contractInstance,
+        );
       });
 
       it('returns undefined if contract instance is not found', async () => {
-        await expect(store.getContractInstance(await AztecAddress.random())).resolves.toBeUndefined();
+        await expect(store.getContractInstance(await AztecAddress.random(), blockNum)).resolves.toBeUndefined();
       });
 
       it('returns undefined if previously stored contract instances was deleted', async () => {
         await store.deleteContractInstances([contractInstance], blockNum);
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toBeUndefined();
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toBeUndefined();
       });
     });
 

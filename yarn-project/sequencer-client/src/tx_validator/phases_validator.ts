@@ -14,8 +14,8 @@ export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
   private contractDataSource: ContractsDataSourcePublicDB;
 
-  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {
-    this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
+  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
+    this.contractDataSource = new ContractsDataSourcePublicDB(contracts, blockNumber);
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {

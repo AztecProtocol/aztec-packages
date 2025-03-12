@@ -1184,7 +1184,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       const contractDataSource = new SimpleContractDataSource();
       merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-      const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+      const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, 0);
 
       persistableState = initPersistableStateManager({
         worldStateDB,

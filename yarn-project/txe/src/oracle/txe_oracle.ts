@@ -937,7 +937,7 @@ export class TXE implements TypedOracle {
     try {
       const simulator = new PublicTxSimulator(
         db,
-        new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
+        new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this, this.blockNumber),
         globalVariables,
         /*doMerkleOperations=*/ true,
       );

@@ -83,7 +83,7 @@ export class TestContext {
     const publicDb = await ws.fork();
 
     const contractDataSource = new SimpleContractDataSource();
-    const worldStateDB = new WorldStateDB(publicDb, contractDataSource);
+    const worldStateDB = new WorldStateDB(publicDb, contractDataSource, blockNumber);
 
     const tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, publicDb);
 

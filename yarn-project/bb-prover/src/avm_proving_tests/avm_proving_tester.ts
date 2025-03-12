@@ -1,4 +1,8 @@
-import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import {
+  DEFAULT_BLOCK_NUMBER,
+  PublicTxSimulationTester,
+  type TestEnqueuedCall,
+} from '@aztec/simulator/public/fixtures';
 import { SimpleContractDataSource, WorldStateDB } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -35,12 +39,12 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     super(worldStateDB, contractDataSource, merkleTrees);
   }
 
-  static override async create(checkCircuitOnly: boolean = false) {
+  static override async create(blockNumber = DEFAULT_BLOCK_NUMBER, checkCircuitOnly: boolean = false) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, blockNumber);
     return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, worldStateDB, contractDataSource, merkleTrees);
   }
 
@@ -115,12 +119,12 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     super(worldStateDB, contractDataSource, merkleTrees);
   }
 
-  static override async create() {
+  static override async create(blockNumber = DEFAULT_BLOCK_NUMBER) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, blockNumber);
     return new AvmProvingTesterV2(bbWorkingDirectory, worldStateDB, contractDataSource, merkleTrees);
   }
 

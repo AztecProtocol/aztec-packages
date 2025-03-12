@@ -33,7 +33,7 @@ describe('Public processor contract registration/deployment tests', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, globals.blockNumber.toNumber());
     const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
