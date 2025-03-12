@@ -1,7 +1,7 @@
 /// These functions are used to facilitate the conversion of log plaintext represented as fields into bytes and back.
 ///
-/// `to_bytes` uses fixed-size arrays since encryption contexts have compile-time size information.
-/// `to_fields` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
+/// `fields_to_bytes` uses fixed-size arrays since encryption contexts have compile-time size information.
+/// `fields_from_bytes` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
 ///
 /// Together they provide bidirectional conversion between fields and bytes.
 
@@ -9,7 +9,7 @@
 /// Each field is converted to a 32-byte big-endian array.
 /// Since a field is ~254 bits, you'll end up with a subtle 2-bit "gap" at the big end,
 /// every 32 bytes. Be careful that such a gap doesn't leak information!
-pub fn to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
+pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     let mut bytes = [0; 32 * N];
 
     for i in 0..N {
@@ -30,7 +30,7 @@ pub fn to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
 /// into a Field.
 /// For example, [1, 10, 3, ..., 0] (32 bytes) is encoded as [1 * 256^31 + 10 * 256^30 + 3 * 256^29 + ... + 0]
 /// Note: N must be a multiple of 32 bytes
-pub fn to_fields<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Field, N / 32> {
+pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Field, N / 32> {
     // Assert that input length is a multiple of 32
     assert(bytes.len() % 32 == 0, "Input length must be a multiple of 32");
 
@@ -50,20 +50,21 @@ pub fn to_fields<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Field, N / 
 }
 
 mod tests {
-    use super::{to_bytes, to_fields};
+    use super::{fields_from_bytes, fields_to_bytes};
 
     #[test]
     fn test_random_fields_to_bytes_and_back(input: [Field; 3]) {
         // Convert to bytes
-        let bytes = to_bytes(input);
+        let bytes = fields_to_bytes(input);
 
         // At this point in production, the log flies through the system and we get a BoundedVec on the other end.
-        // So we need to convert the field array to a BoundedVec to be able to feed it to the `to_fields` function.
+        // So we need to convert the field array to a BoundedVec to be able to feed it to the `fields_from_bytes`
+        // function.
         // 113 is an arbitrary max length that is larger than the input length of 96.
         let bytes_as_bounded_vec = BoundedVec::<_, 113>::from_array(bytes);
 
         // Convert back to fields
-        let fields_back = to_fields(bytes_as_bounded_vec);
+        let fields_back = fields_from_bytes(bytes_as_bounded_vec);
 
         // We also convert the input to a BoundedVec to be able to compare.
         let input_as_bounded_vec = BoundedVec::<_, 3>::from_array(input);
@@ -81,6 +82,6 @@ mod tests {
         ]);
 
         // This should fail since 33 is not a multiple of 32
-        let _fields = to_fields(input);
+        let _fields = fields_from_bytes(input);
     }
 }

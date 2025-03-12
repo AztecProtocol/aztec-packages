@@ -2,8 +2,8 @@ use std::static_assert;
 
 // These functions are used to facilitate the conversion of log ciphertext between byte and field representations.
 //
-// `to_fields` uses fixed-size arrays since encryption contexts have compile-time size information.
-// `to_bytes` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
+// `bytes_to_fields` uses fixed-size arrays since encryption contexts have compile-time size information.
+// `bytes_from_fields` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
 //
 // Together they provide bidirectional conversion between bytes and fields when processing encrypted logs.
 
@@ -14,7 +14,7 @@ use std::static_assert;
 /// into a Field.
 /// For example, [1, 10, 3, ..., 0] (31 bytes) is encoded as [1 * 256^30 + 10 * 256^29 + 3 * 256^28 + ... + 0]
 /// Note: N must be a multiple of 31 bytes
-pub fn to_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
+pub fn bytes_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
     // Assert that N is a multiple of 31
     static_assert(N % 31 == 0, "N must be a multiple of 31");
 
@@ -38,7 +38,7 @@ pub fn to_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
 /// Each input field must contain at most 31 bytes (this is constrained to be so).
 /// Each field is converted into 31 big-endian bytes, and the resulting 31-byte chunks are concatenated
 /// back together in the order of the original fields.
-pub fn to_bytes<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec<u8, N * 31> {
+pub fn bytes_from_fields<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec<u8, N * 31> {
     let mut bytes = BoundedVec::new();
 
     for i in 0..fields.len() {
@@ -59,17 +59,18 @@ pub fn to_bytes<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec<u8, N * 
 }
 
 mod tests {
-    use super::{to_bytes, to_fields};
+    use super::{bytes_from_fields, bytes_to_fields};
 
     #[test]
     fn test_random_bytes_to_fields_and_back(input: [u8; 93]) {
-        let fields = to_fields(input);
+        let fields = bytes_to_fields(input);
 
         // At this point in production, the log flies through the system and we get a BoundedVec on the other end.
-        // So we need to convert the field array to a BoundedVec to be able to feed it to the `to_bytes` function.
+        // So we need to convert the field array to a BoundedVec to be able to feed it to the `bytes_from_fields`
+        // function.
         let fields_as_bounded_vec = BoundedVec::<_, 6>::from_array(fields);
 
-        let bytes_back = to_bytes(fields_as_bounded_vec);
+        let bytes_back = bytes_from_fields(fields_as_bounded_vec);
 
         // We also convert the input to a BoundedVec to be able to compare.
         let input_as_bounded_vec = BoundedVec::from_array(input);
