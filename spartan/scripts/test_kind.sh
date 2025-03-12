@@ -56,6 +56,8 @@ fi
 # If fresh_install is true, delete the namespace
 if [ "$fresh_install" = "true" ]; then
   echo "Deleting existing namespace due to FRESH_INSTALL=true"
+  # Run helm uninstall first to ensure post-delete hooks are run
+  helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
   kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
 fi
 
@@ -68,6 +70,8 @@ function cleanup {
   if [ "$cleanup_cluster" = "true" ]; then
     kind delete cluster || true
   elif [ "$fresh_install" = "true" ]; then
+    # Run helm uninstall first to ensure post-delete hooks are run
+    helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
     kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
   fi
 }
