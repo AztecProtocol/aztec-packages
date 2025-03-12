@@ -213,35 +213,37 @@ template <typename Builder> class cycle_group {
             this->x = 0;
             this->y = 0;
             this->_is_constant = true;
-        } else if(!is_infinity.is_constant()) {
+        } else if (!is_infinity.is_constant()) {
             this->x = field_t::conditional_assign(is_infinity, 0, this->x);
             this->y = field_t::conditional_assign(is_infinity, 0, this->y);
             this->_is_constant = false;
-            if(this->context == nullptr){
+            if (this->context == nullptr) {
                 this->context = is_infinity.get_context();
             }
         }
         _is_infinity = is_infinity;
         this->_is_standard = true;
     }
-    void standardize(){
-        if(this->_is_standard){
+    void standardize()
+    {
+        if (this->_is_standard) {
             return;
         }
         if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
             this->x = 0;
             this->y = 0;
             this->_is_constant = true;
-        } else if (!this->_is_infinity.is_constant()){
+        } else if (!this->_is_infinity.is_constant()) {
             this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
             this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
             this->_is_constant = false;
-            if(this->context == nullptr){
+            if (this->context == nullptr) {
                 this->context = this->_is_infinity.get_context();
             }
         }
         this->_is_standard = true;
     }
+    bool is_standard() const { return this->_is_standard; };
     cycle_group get_standard_form();
     void validate_is_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
