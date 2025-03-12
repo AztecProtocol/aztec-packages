@@ -71,7 +71,7 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
  * @tparam Flavor
  * @param proving_key
  */
-void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials()
+void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials(bool masking = false)
 {
     // Get constants
     constexpr auto sort_step = Flavor::SORT_STEP;
@@ -103,6 +103,9 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
                                              proving_key->polynomials.ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
 
+    const size_t mini_masking_offset = masking ? MASKING_OFFSET : 0;
+    const size_t full_masking_offset = masking ? mini_masking_offset * Flavor::INTERLEAVING_GROUP_SIZE : 0;
+
     // Get information which polynomials need to be interleaved
     auto to_be_interleaved_groups = proving_key->polynomials.get_groups_to_be_interleaved();
 
@@ -115,7 +118,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         current_vector.resize(full_circuit_size);
 
         // Calculate how much space there is for values from the original polynomials
-        auto free_space_before_runway = full_circuit_size - sorted_elements_count;
+        auto free_space_before_runway = full_circuit_size - sorted_elements_count - full_masking_offset;
 
         // Calculate the offset of this group's overflowing elements in the extra denominator polynomial
         size_t extra_denominator_offset = i * sorted_elements_count;
@@ -126,7 +129,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
             // Calculate the offset in the target vector
             auto current_offset = j * mini_circuit_dyadic_size;
             // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].size(); k++) {
+            for (size_t k = group[j].start_index(); k < group[j].size() - mini_masking_offset; k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {

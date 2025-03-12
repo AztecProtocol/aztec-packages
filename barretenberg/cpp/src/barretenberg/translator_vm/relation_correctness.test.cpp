@@ -82,14 +82,11 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     const auto sort_step = Flavor::SORT_STEP;
     const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
-    // No relation parameters are used in this relation
-    RelationParameters<FF> params;
-
     ProverPolynomials prover_polynomials(mini_circuit_size);
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
-    prover_polynomials.lagrange_last.at(circuit_size - 1) = 1;
+    prover_polynomials.lagrange_real_last.at(circuit_size - 1) = 1;
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
     auto sorted_elements_count = (max_value / sort_step) + 1;
@@ -130,7 +127,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
 
     // Check that DeltaRangeConstraint relation is satisfied across each row of the prover polynomials
     RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
-        prover_polynomials, params, "TranslatorDeltaRangeConstraintRelation");
+        prover_polynomials, RelationParameters<FF>(), "TranslatorDeltaRangeConstraintRelation");
 }
 
 /**
@@ -650,4 +647,116 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     // Check that Non-Native Field relation is satisfied across each row of the prover polynomials
     RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(
         prover_polynomials, params, "TranslatorNonNativeFieldRelation");
+}
+
+TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    auto& engine = numeric::get_debug_randomness();
+    const size_t mini_circuit_size = 2048;
+    const size_t circuit_size = Flavor::INTERLEAVING_GROUP_SIZE * mini_circuit_size;
+    const auto sort_step = Flavor::SORT_STEP;
+    const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
+
+    ProverPolynomials prover_polynomials(mini_circuit_size);
+
+    size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
+
+    // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
+    prover_polynomials.lagrange_first.at(0) = 0;
+    prover_polynomials.lagrange_real_last.at(circuit_size - full_masking_offset - 1) = 1;
+
+    for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
+        prover_polynomials.lagrange_masking.at(i) = 1;
+    }
+
+    // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
+    auto sorted_elements_count = (max_value / sort_step) + 1;
+    std::vector<uint64_t> vector_for_sorting;
+    vector_for_sorting.reserve(prover_polynomials.ordered_range_constraints_0.size());
+    for (size_t i = 0; i < sorted_elements_count - 1; i++) {
+        vector_for_sorting.emplace_back(i * sort_step);
+    }
+    vector_for_sorting[sorted_elements_count - 1] = max_value;
+
+    // Add random values to fill the leftover space
+    for (size_t i = sorted_elements_count; i < circuit_size - full_masking_offset; i++) {
+        vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
+    }
+
+    // Get ordered polynomials
+    auto polynomial_pointers = std::vector{ &prover_polynomials.ordered_range_constraints_0,
+                                            &prover_polynomials.ordered_range_constraints_1,
+                                            &prover_polynomials.ordered_range_constraints_2,
+                                            &prover_polynomials.ordered_range_constraints_3,
+                                            &prover_polynomials.ordered_range_constraints_4 };
+
+    // Sort the vector
+    std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
+
+    for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
+        vector_for_sorting.emplace_back(FF::random_element());
+    }
+
+    // Copy values, transforming them into Finite Field elements
+    std::transform(vector_for_sorting.cbegin(),
+                   vector_for_sorting.cend(),
+                   prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
+                   [](uint64_t in) { return FF(in); });
+
+    // Copy the same polynomial into the 4 other ordered polynomials (they are not the same in an actual proof, but
+    // we only need to check the correctness of the relation and it acts independently on each polynomial)
+    parallel_for(4, [&](size_t i) {
+        std::copy(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
+                  prover_polynomials.ordered_range_constraints_0.coeffs().end(),
+                  polynomial_pointers[i + 1]->coeffs().begin());
+    });
+
+    // Check that DeltaRangeConstraint relation is satisfied across each row of the prover polynomials
+    RelationChecker<Flavor>::check<TranslatorDeltaRangeConstraintRelation<FF>>(
+        prover_polynomials, RelationParameters<FF>(), "TranslatorDeltaRangeConstraintRelation");
+}
+
+TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    auto& engine = numeric::get_debug_randomness();
+    const size_t mini_circuit_size = 2048;
+    const size_t circuit_size = mini_circuit_size * Flavor::INTERLEAVING_GROUP_SIZE;
+
+    TranslatorProvingKey key{ mini_circuit_size };
+    ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
+
+    // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
+    auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
+        for (size_t i = polynomial.start_index(); i < polynomial.size() - MASKING_OFFSET; i++) {
+            polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
+        }
+        for (size_t i = polynomial.size() - MASKING_OFFSET; i < polynomial.size(); i++) {
+            polynomial.at(i) = FF::random_element();
+        }
+    };
+
+    for (const auto& group : prover_polynomials.get_groups_to_be_interleaved()) {
+        for (auto& poly : group) {
+            fill_polynomial_with_random_14_bit_values(poly);
+        }
+    }
+
+    const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
+
+    key.compute_interleaved_polynomials();
+    key.compute_extra_range_constraint_numerator();
+    std::array<FF, full_masking_offset> extra_random_values;
+    for (size_t i = 0; i < full_masking_offset; i++) {
+        extra_random_values[i] = FF::random_element();
+    }
+    size_t j = 0;
+    for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
+        prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = extra_random_values[j++];
+    }
 }

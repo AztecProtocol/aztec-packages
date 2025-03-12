@@ -41,7 +41,8 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         auto ordered_range_constraints_2_shift = View(in.ordered_range_constraints_2_shift);
         auto ordered_range_constraints_3_shift = View(in.ordered_range_constraints_3_shift);
         auto ordered_range_constraints_4_shift = View(in.ordered_range_constraints_4_shift);
-        auto lagrange_last = View(in.lagrange_last);
+        auto lagrange_real_last = View(in.lagrange_real_last);
+        auto lagrange_masking = View(in.lagrange_masking);
 
         // Compute wire differences
         auto delta_1 = ordered_range_constraints_0_shift - ordered_range_constraints_0;
@@ -55,7 +56,8 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_1 *= (delta_1 + minus_one);
         tmp_1 *= (delta_1 + minus_two);
         tmp_1 *= (delta_1 + minus_three);
-        tmp_1 *= (lagrange_last + minus_one);
+        tmp_1 *= (lagrange_real_last + minus_one);
+        tmp_1 *= (lagrange_masking + minus_one);
         tmp_1 *= scaling_factor;
         std::get<0>(accumulators) += tmp_1;
 
@@ -64,7 +66,8 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_2 *= (delta_2 + minus_one);
         tmp_2 *= (delta_2 + minus_two);
         tmp_2 *= (delta_2 + minus_three);
-        tmp_2 *= (lagrange_last + minus_one);
+        tmp_2 *= (lagrange_real_last + minus_one);
+        tmp_2 *= (lagrange_masking + minus_one);
         tmp_2 *= scaling_factor;
 
         std::get<1>(accumulators) += tmp_2;
@@ -74,7 +77,8 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_3 *= (delta_3 + minus_one);
         tmp_3 *= (delta_3 + minus_two);
         tmp_3 *= (delta_3 + minus_three);
-        tmp_3 *= (lagrange_last + minus_one);
+        tmp_3 *= (lagrange_real_last + minus_one);
+        tmp_3 *= (lagrange_masking + minus_one);
         tmp_3 *= scaling_factor;
         std::get<2>(accumulators) += tmp_3;
 
@@ -83,7 +87,8 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_4 *= (delta_4 + minus_one);
         tmp_4 *= (delta_4 + minus_two);
         tmp_4 *= (delta_4 + minus_three);
-        tmp_4 *= (lagrange_last + minus_one);
+        tmp_4 *= (lagrange_real_last + minus_one);
+        tmp_4 *= (lagrange_masking + minus_one);
         tmp_4 *= scaling_factor;
         std::get<3>(accumulators) += tmp_4;
 
@@ -92,7 +97,8 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         tmp_5 *= (delta_5 + minus_one);
         tmp_5 *= (delta_5 + minus_two);
         tmp_5 *= (delta_5 + minus_three);
-        tmp_5 *= (lagrange_last + minus_one);
+        tmp_5 *= (lagrange_real_last + minus_one);
+        tmp_5 *= (lagrange_masking + minus_one);
         tmp_5 *= scaling_factor;
         std::get<4>(accumulators) += tmp_5;
     }();
@@ -105,24 +111,24 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         auto ordered_range_constraints_2 = View(in.ordered_range_constraints_2);
         auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
         auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
-        auto lagrange_last = View(in.lagrange_last);
+        auto lagrange_real_last = View(in.lagrange_real_last);
 
         // Contribution (6) (Contributions 6-10 ensure that the last value is the designated maximum value. We don't
         // need to constrain the first value to be 0, because the shift mechanic does this for us)
         std::get<5>(accumulators) +=
-            lagrange_last * (ordered_range_constraints_0 + maximum_sort_value) * scaling_factor;
+            lagrange_real_last * (ordered_range_constraints_0 + maximum_sort_value) * scaling_factor;
         // Contribution (7)
         std::get<6>(accumulators) +=
-            lagrange_last * (ordered_range_constraints_1 + maximum_sort_value) * scaling_factor;
+            lagrange_real_last * (ordered_range_constraints_1 + maximum_sort_value) * scaling_factor;
         // Contribution (8)
         std::get<7>(accumulators) +=
-            lagrange_last * (ordered_range_constraints_2 + maximum_sort_value) * scaling_factor;
+            lagrange_real_last * (ordered_range_constraints_2 + maximum_sort_value) * scaling_factor;
         // Contribution (9)
         std::get<8>(accumulators) +=
-            lagrange_last * (ordered_range_constraints_3 + maximum_sort_value) * scaling_factor;
+            lagrange_real_last * (ordered_range_constraints_3 + maximum_sort_value) * scaling_factor;
         // Contribution (10)
         std::get<9>(accumulators) +=
-            lagrange_last * (ordered_range_constraints_4 + maximum_sort_value) * scaling_factor;
+            lagrange_real_last * (ordered_range_constraints_4 + maximum_sort_value) * scaling_factor;
     }();
 };
 } // namespace bb

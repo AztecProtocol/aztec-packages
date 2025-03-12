@@ -21,6 +21,7 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
+        using ParameterView = GetParameterView<Parameters, View>;
 
         auto interleaved_range_constraints_0 = View(in.interleaved_range_constraints_0);
         auto interleaved_range_constraints_1 = View(in.interleaved_range_constraints_1);
@@ -29,16 +30,21 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
 
         auto ordered_extra_range_constraints_numerator = View(in.ordered_extra_range_constraints_numerator);
 
-        const auto& gamma = params.gamma;
-        return (interleaved_range_constraints_0 + gamma) * (interleaved_range_constraints_1 + gamma) *
-               (interleaved_range_constraints_2 + gamma) * (interleaved_range_constraints_3 + gamma) *
-               (ordered_extra_range_constraints_numerator + gamma);
+        auto lagrange_masking = View(in.lagrange_masking);
+        const auto& gamma = ParameterView(params.gamma);
+        const auto& beta = ParameterView(params.beta);
+        return (interleaved_range_constraints_0 + lagrange_masking * beta + gamma) *
+               (interleaved_range_constraints_1 + lagrange_masking * beta + gamma) *
+               (interleaved_range_constraints_2 + lagrange_masking * beta + gamma) *
+               (interleaved_range_constraints_3 + lagrange_masking * beta + gamma) *
+               (ordered_extra_range_constraints_numerator + lagrange_masking * beta + gamma);
     }
 
     template <typename Accumulator, typename AllEntities, typename Parameters>
     inline static Accumulator compute_grand_product_denominator(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
+        using ParameterView = GetParameterView<Parameters, View>;
 
         auto ordered_range_constraints_0 = View(in.ordered_range_constraints_0);
         auto ordered_range_constraints_1 = View(in.ordered_range_constraints_1);
@@ -46,11 +52,15 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
         auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
         auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
 
-        const auto& gamma = params.gamma;
+        auto lagrange_masking = View(in.lagrange_masking);
 
-        return (ordered_range_constraints_0 + gamma) * (ordered_range_constraints_1 + gamma) *
-               (ordered_range_constraints_2 + gamma) * (ordered_range_constraints_3 + gamma) *
-               (ordered_range_constraints_4 + gamma);
+        const auto& gamma = ParameterView(params.gamma);
+        const auto& beta = ParameterView(params.beta);
+        return (ordered_range_constraints_0 + lagrange_masking * beta + gamma) *
+               (ordered_range_constraints_1 + lagrange_masking * beta + gamma) *
+               (ordered_range_constraints_2 + lagrange_masking * beta + gamma) *
+               (ordered_range_constraints_3 + lagrange_masking * beta + gamma) *
+               (ordered_range_constraints_4 + lagrange_masking * beta + gamma);
     }
     /**
      * @brief Compute contribution of the goblin translator permutation relation for a given edge (internal function)

@@ -8,14 +8,14 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
     using FF = FF_;
 
     // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 6; // degree((lagrange_last-1) * D(D - 1)(D - 2)(D - 3)) = 5
+    static constexpr size_t RELATION_LENGTH = 7; // degree((lagrange_last-1) * D(D - 1)(D - 2)(D - 3)) = 5
 
     static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS{
-        6, // ordered_range_constraints_0 step in {0,1,2,3} subrelation
-        6, // ordered_range_constraints_1 step in {0,1,2,3} subrelation
-        6, // ordered_range_constraints_2 step in {0,1,2,3} subrelation
-        6, // ordered_range_constraints_3 step in {0,1,2,3} subrelation
-        6, // ordered_range_constraints_4 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_0 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_1 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_2 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_3 step in {0,1,2,3} subrelation
+        7, // ordered_range_constraints_4 step in {0,1,2,3} subrelation
         3, // ordered_range_constraints_0 ends with defined maximum value subrelation
         3, // ordered_range_constraints_1 ends with defined maximum value subrelation
         3, // ordered_range_constraints_2 ends with defined maximum value subrelation

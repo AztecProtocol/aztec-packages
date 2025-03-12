@@ -63,6 +63,7 @@ class TranslatorProvingKey {
 
         // First and last lagrange polynomials (in the full circuit size)
         proving_key->polynomials.lagrange_first.at(0) = 1;
+        proving_key->polynomials.lagrange_real_last.at(dyadic_circuit_size - 1) = 1;
         proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
 
         // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
