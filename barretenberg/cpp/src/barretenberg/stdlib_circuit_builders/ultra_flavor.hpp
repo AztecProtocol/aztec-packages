@@ -95,20 +95,19 @@ class UltraFlavor {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // Proof length formula:
-    // 1. HONK_PROOF_PUBLIC_INPUT_OFFSET are the circuit_size, num_public_inputs, pub_inputs_offset
-    // 2. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
-    // 3. NUM_WITNESS_ENTITIES commitments
-    // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates
-    // 5. NUM_ALL_ENTITIES sumcheck evaluations
-    // 6. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
-    // 7. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
-    // 8. KZG W commitment
+    // 1. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 2. NUM_WITNESS_ENTITIES commitments
+    // 3. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 4. NUM_ALL_ENTITIES sumcheck evaluations
+    // 5. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 6. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 7. KZG W commitment
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        HONK_PROOF_PUBLIC_INPUT_OFFSET + NUM_WITNESS_ENTITIES * num_frs_comm +
-        CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr + NUM_ALL_ENTITIES * num_frs_fr +
-        CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr + num_frs_comm;
+        NUM_WITNESS_ENTITIES * num_frs_comm + CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr +
+        NUM_ALL_ENTITIES * num_frs_fr + CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr +
+        num_frs_comm;
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
@@ -650,9 +649,6 @@ class UltraFlavor {
         using Base = BaseTranscript<Params>;
 
         // Transcript objects defined as public member variables for easy access and modification
-        uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
         std::vector<FF> public_inputs;
         Commitment w_l_comm;
         Commitment w_r_comm;
@@ -696,15 +692,11 @@ class UltraFlavor {
          * proof.
          *
          */
-        void deserialize_full_transcript()
+        void deserialize_full_transcript(size_t public_input_size)
         {
             // take current proof and put them into the struct
             auto& proof_data = this->proof_data;
             size_t num_frs_read = 0;
-            circuit_size = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-
-            public_input_size = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            pub_inputs_offset = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             for (size_t i = 0; i < public_input_size; ++i) {
                 public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
@@ -746,11 +738,8 @@ class UltraFlavor {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            Base::template serialize_to_buffer(circuit_size, proof_data);
-            Base::template serialize_to_buffer(public_input_size, proof_data);
-            Base::template serialize_to_buffer(pub_inputs_offset, proof_data);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                Base::template serialize_to_buffer(public_inputs[i], proof_data);
+            for (const auto& public_input : public_inputs) {
+                Base::template serialize_to_buffer(public_input, proof_data);
             }
             Base::template serialize_to_buffer(w_l_comm, proof_data);
             Base::template serialize_to_buffer(w_r_comm, proof_data);
