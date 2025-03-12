@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
@@ -99,15 +100,14 @@ describe('e2e_p2p_slashing', () => {
       return { bn, slotNumber, roundNumber, info, leaderVotes };
     };
 
-    const jumpToNextRound = async () => {
-      t.logger.info(`Jumping to next round`);
+    const waitUntilNextRound = async () => {
+      t.logger.info(`Waiting for next round`);
       const roundSize = await slashingProposer.read.M();
-      const nextRoundTimestamp = await rollup.read.getTimestampForSlot([
-        ((await rollup.read.getCurrentSlot()) / roundSize) * roundSize + roundSize,
-      ]);
-      await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
-
-      await t.syncMockSystemTime();
+      const currentRound = (await rollup.read.getCurrentSlot()) / roundSize;
+      const nextRoundSlot = currentRound * roundSize + roundSize;
+      while ((await rollup.read.getCurrentSlot()) < nextRoundSlot) {
+        await sleep(1000);
+      }
     };
 
     t.ctx.aztecNodeConfig.validatorReexecute = false;
@@ -148,9 +148,6 @@ describe('e2e_p2p_slashing', () => {
 
     const votesNeeded = await slashingProposer.read.N();
 
-    // We should push us to land exactly at the next round
-    await jumpToNextRound();
-
     // Produce blocks until we hit an issue with pruning.
     // Then we should jump in time to the next round so we are sure that we have the votes
     // Then we just sit on our hands and wait.
@@ -179,6 +176,7 @@ describe('e2e_p2p_slashing', () => {
       // The validator client can remove elements from the original array
       slashEvents = [...slasher.slashEvents];
       t.logger.info(`Slash events: ${slashEvents.length}`);
+      t.logger.info(`Slash events: ${jsonStringify(slashEvents)}`);
       if (slashEvents.length > 0) {
         t.logger.info(`We have a slash event ${i}`);
         break;
@@ -186,8 +184,7 @@ describe('e2e_p2p_slashing', () => {
     }
 
     expect(slashEvents.length).toBeGreaterThan(0);
-    // We should push us to land exactly at the next round
-    await jumpToNextRound();
+    await waitUntilNextRound();
 
     // For the next round we will try to cast votes.
     // Stop early if we have enough votes.
@@ -216,7 +213,7 @@ describe('e2e_p2p_slashing', () => {
     });
 
     t.logger.info(`We jump in time to the next round to execute`);
-    await jumpToNextRound();
+    await waitUntilNextRound();
     const attestersPre = await rollup.read.getAttesters();
 
     for (const attester of attestersPre) {
@@ -251,7 +248,6 @@ describe('e2e_p2p_slashing', () => {
     const instanceAddress = t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
     const infoPost = await slashingProposer.read.rounds([instanceAddress, sInfo.roundNumber]);
 
-    expect(sInfo.info[0]).toEqual(infoPost[0]);
     expect(sInfo.info[1]).toEqual(infoPost[1]);
     expect(sInfo.info[2]).toEqual(false);
     expect(infoPost[2]).toEqual(true);

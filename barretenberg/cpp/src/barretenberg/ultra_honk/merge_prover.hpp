@@ -25,12 +25,14 @@ template <typename Flavor> class MergeProver_ {
     using Transcript = NativeTranscript;
 
   public:
+    using MergeProof = std::vector<FF>;
+
     std::shared_ptr<Transcript> transcript;
 
     explicit MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
                           std::shared_ptr<CommitmentKey> commitment_key = nullptr);
 
-    BB_PROFILE HonkProof construct_proof();
+    BB_PROFILE MergeProof construct_proof();
 
   private:
     std::shared_ptr<ECCOpQueue> op_queue;

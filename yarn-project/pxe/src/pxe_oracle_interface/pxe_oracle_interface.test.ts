@@ -26,7 +26,7 @@ import { ContractDataProvider } from '../storage/contract_data_provider/contract
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { PXEOracleInterface } from './index.js';
+import { PXEOracleInterface } from './pxe_oracle_interface.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
 
 const TXS_PER_BLOCK = 4;
@@ -80,10 +80,9 @@ class MockNoteRequest {
   }
 
   get snippetOfNoteDao() {
-    const payload = L1NotePayload.fromIncomingBodyPlaintextContractAndPublicValues(
+    const payload = L1NotePayload.fromIncomingBodyPlaintextContract(
       this.logPayload.incomingBodyPlaintext,
       this.logPayload.contractAddress,
-      [],
     )!;
     return {
       note: new Note(payload.privateNoteValues),
@@ -707,10 +706,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.removeNullifiedNotes(contractAddress);
 
       expect(removeNullifiedNotesSpy).toHaveBeenCalledTimes(1);
-      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith(
-        [requestedNullifier],
-        await recipient.address.toAddressPoint(),
-      );
+      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith([requestedNullifier], recipient.address);
     }, 30_000);
   });
 });

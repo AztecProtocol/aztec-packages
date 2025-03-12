@@ -208,7 +208,7 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, multivariate_n, round_challenge);
+            partially_evaluate(full_polynomials, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
             // release memory?        // All but final round
@@ -225,7 +225,7 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
-            partially_evaluate(partially_evaluated_polynomials, multivariate_n >> round_idx, round_challenge);
+            partially_evaluate(partially_evaluated_polynomials, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
         }
@@ -319,7 +319,7 @@ template <typename Flavor> class SumcheckProver {
 
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, multivariate_n, round_challenge);
+            partially_evaluate(full_polynomials, round_challenge);
             // Prepare ZK Sumcheck data for the next round
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -354,7 +354,7 @@ template <typename Flavor> class SumcheckProver {
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round.
-            partially_evaluate(partially_evaluated_polynomials, multivariate_n >> round_idx, round_challenge);
+            partially_evaluate(partially_evaluated_polynomials, round_challenge);
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
             zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
@@ -447,18 +447,25 @@ template <typename Flavor> class SumcheckProver {
      * @param round_size \f$2^{d-i}\f$
      * @param round_challenge \f$u_i\f$
      */
-    void partially_evaluate(auto& polynomials, size_t round_size, FF round_challenge)
+    void partially_evaluate(auto& polynomials, FF round_challenge)
     {
         auto pep_view = partially_evaluated_polynomials.get_all();
         auto poly_view = polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(poly_view.size(), [&](size_t j) {
             const auto& poly = poly_view[j];
-            // If the polynomial is shorter than the round size, we do a little optimization.
-            size_t limit = std::min(poly.end_index(), round_size);
+            // The polynomial is shorter than the round size.
+            size_t limit = poly.end_index();
             for (size_t i = 0; i < limit; i += 2) {
                 pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
+
+            // We resize pep_view[j] to have the exact size required for the next round which is
+            // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
+            // virtually zeroize any leftover values beyond the limit (in-place computation).
+            // This is important to zeroize leftover values to not mess up with compute_univariate().
+            // Note that the virtual size of pep_view[j] remains unchanged.
+            pep_view[j].shrink_end_index(limit / 2 + limit % 2);
         });
     };
     /**
@@ -466,17 +473,24 @@ template <typename Flavor> class SumcheckProver {
      * Specialization for array, see \ref bb::SumcheckProver<Flavor>::partially_evaluate "generic version".
      */
     template <typename PolynomialT, std::size_t N>
-    void partially_evaluate(std::array<PolynomialT, N>& polynomials, size_t round_size, FF round_challenge)
+    void partially_evaluate(std::array<PolynomialT, N>& polynomials, FF round_challenge)
     {
         auto pep_view = partially_evaluated_polynomials.get_all();
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
             const auto& poly = polynomials[j];
-            // If the polynomial is shorter than the round size, we do a little optimization.
-            size_t limit = std::min(poly.end_index(), round_size);
+            // The polynomial is shorter than the round size.
+            size_t limit = poly.end_index();
             for (size_t i = 0; i < limit; i += 2) {
                 pep_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
+
+            // We resize pep_view[j] to have the exact size required for the next round which is
+            // CEIL(limit/2). This has the effect to reduce the limit in next round and also to
+            // virtually zeroize any leftover values beyond the limit (in-place computation).
+            // This is important to zeroize leftover values to not mess up with compute_univariate().
+            // Note that the virtual size of pep_view[j] remains unchanged.
+            pep_view[j].shrink_end_index(limit / 2 + limit % 2);
         });
     };
 

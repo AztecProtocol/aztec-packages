@@ -18,8 +18,8 @@ export type NotesFilter = {
   contractAddress?: AztecAddress;
   /** The specific storage location of the note on the contract. */
   storageSlot?: Fr;
-  /** The owner of the note (whose public key was used to encrypt the note). */
-  owner?: AztecAddress;
+  /** The recipient of the note (whose public key was used to encrypt the note). */
+  recipient?: AztecAddress;
   /** The status of the note. Defaults to 'ACTIVE'. */
   status?: NoteStatus;
   /** The siloed nullifier for the note. */
@@ -32,7 +32,7 @@ export const NotesFilterSchema: ZodFor<NotesFilter> = z.object({
   txHash: TxHash.schema.optional(),
   contractAddress: schemas.AztecAddress.optional(),
   storageSlot: schemas.Fr.optional(),
-  owner: schemas.AztecAddress.optional(),
+  recipient: schemas.AztecAddress.optional(),
   status: z.nativeEnum(NoteStatus).optional(),
   siloedNullifier: schemas.Fr.optional(),
   scopes: z.array(schemas.AztecAddress).optional(),
