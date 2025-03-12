@@ -441,6 +441,19 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
                                                     const bool_t& lhs,
                                                     const bool_t& rhs)
 {
+    if (predicate.is_constant()) {
+        return predicate.get_value() ? lhs : rhs;
+    }
+    if (lhs.witness_index == rhs.witness_index && lhs.witness_index != IS_CONSTANT &&
+        lhs.witness_inverted == rhs.witness_inverted) {
+        return lhs;
+    }
+    // TODO(alex): reference to the above todo just to not forget to change the lhs.witness_inverted ==
+    // rhs.witness_inverted && ... to get_value() == get_value()
+    if (lhs.witness_index == rhs.witness_index && lhs.witness_index == IS_CONSTANT &&
+        lhs.witness_inverted == rhs.witness_inverted && lhs.witness_bool == rhs.witness_bool) {
+        return lhs;
+    }
     return (predicate && lhs) || (!predicate && rhs);
 }
 
@@ -530,6 +543,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     if (is_constant() || !witness_inverted) {
         return *this;
     }
+    // TODO(alex): shouldn't normalize return this->witness_value^witness_inverted in const case?
 
     bb::fr value = witness_bool ^ witness_inverted ? bb::fr::one() : bb::fr::zero();
 
