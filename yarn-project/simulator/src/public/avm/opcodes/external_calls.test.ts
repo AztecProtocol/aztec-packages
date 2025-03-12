@@ -15,10 +15,10 @@ import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {
+  mockCheckNullifierExists,
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockGetNullifierIndex,
   mockTraceFork,
 } from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
@@ -136,7 +136,7 @@ describe('External Calls', () => {
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(contractsDB, contractInstance);
-      mockGetNullifierIndex(treesDB, contractInstance.address.toField());
+      mockCheckNullifierExists(treesDB, true);
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -184,7 +184,7 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
-      mockGetNullifierIndex(treesDB, addr);
+      mockCheckNullifierExists(treesDB, true);
 
       const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
@@ -194,7 +194,7 @@ describe('External Calls', () => {
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(contractsDB, contractInstance);
-      mockGetNullifierIndex(treesDB, contractInstance.address.toField());
+      mockCheckNullifierExists(treesDB, true);
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -265,7 +265,7 @@ describe('External Calls', () => {
       ];
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
-      mockGetNullifierIndex(treesDB, addr.toFr());
+      mockCheckNullifierExists(treesDB, true);
 
       const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,

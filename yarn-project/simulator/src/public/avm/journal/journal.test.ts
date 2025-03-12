@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/fields';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -11,13 +10,13 @@ import type { PublicSideEffectTraceInterface } from '../../../public/side_effect
 import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import { initPersistableStateManager } from '../fixtures/index.js';
 import {
+  mockCheckNullifierExists,
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockGetNullifierIndex,
+  mockGetNoteHash,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
-  mockNoteHashExists,
   mockStorageRead,
 } from '../test_utils.js';
 import type { AvmPersistableStateManager } from './journal.js';
@@ -65,12 +64,13 @@ describe('journal', () => {
 
   describe('UTXOs & messages', () => {
     it('checkNoteHashExists works for missing note hashes', async () => {
+      mockGetNoteHash(treesDB, undefined);
       const exists = await persistableState.checkNoteHashExists(address, utxo, leafIndex);
       expect(exists).toEqual(false);
     });
 
     it('checkNoteHashExists works for existing note hashes', async () => {
-      mockNoteHashExists(treesDB, leafIndex, utxo);
+      mockGetNoteHash(treesDB, utxo);
       const exists = await persistableState.checkNoteHashExists(address, utxo, leafIndex);
       expect(exists).toEqual(true);
     });
@@ -86,12 +86,13 @@ describe('journal', () => {
     });
 
     it('checkNullifierExists works for missing nullifiers', async () => {
+      mockCheckNullifierExists(treesDB, false);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
-      mockGetNullifierIndex(treesDB, leafIndex, utxo);
+      mockCheckNullifierExists(treesDB, true);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
     });
@@ -125,11 +126,8 @@ describe('journal', () => {
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
       const contractInstance = SerializableContractInstance.default();
-      const siloedNullifier = await siloNullifier(ProtocolContractAddress.ContractInstanceDeployer, address.toField());
-
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
-      mockGetNullifierIndex(treesDB, leafIndex, utxo);
-
+      mockCheckNullifierExists(treesDB, true); // From GetContractInstance via no-merkle-ops
       await persistableState.getContractInstance(address);
 
       expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
@@ -150,7 +148,7 @@ describe('journal', () => {
       const contractClass = await makeContractClassPublic();
       contractClass.packedBytecode = bytecode;
 
-      mockGetNullifierIndex(treesDB, leafIndex);
+      mockCheckNullifierExists(treesDB, true);
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, bytecodeCommitment);

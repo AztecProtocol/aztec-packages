@@ -156,26 +156,18 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   // Only used in public.
-  public getL1ToL2LeafValue(_leafIndex: bigint): Promise<Fr | undefined> {
+  public getL1ToL2MessageHash(_leafIndex: bigint): Promise<Fr | undefined> {
     throw new Error('Unimplemented in private!');
-  }
-
-  /**
-   * Gets the index of a commitment in the note hash tree.
-   * @param commitment - The commitment.
-   * @returns - The index of the commitment. Undefined if it does not exist in the tree.
-   */
-  async getCommitmentIndex(commitment: Fr) {
-    return await this.#findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   // We need this in public as part of the EXISTS calls - but isn't used in private
-  public getCommitmentValue(_leafIndex: bigint): Promise<Fr | undefined> {
+  public getNoteHash(_leafIndex: bigint): Promise<Fr | undefined> {
     throw new Error('Unimplemented in private!');
   }
 
-  async getNullifierIndex(nullifier: Fr) {
-    return await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+  async checkNullifierExists(nullifier: Fr): Promise<boolean> {
+    const leafIndex = await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+    return leafIndex !== undefined;
   }
 
   async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
