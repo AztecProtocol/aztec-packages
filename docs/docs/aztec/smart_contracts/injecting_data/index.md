@@ -24,7 +24,3 @@ The same mechanism used in oracles is also used for the Authentication Witnesses
 Capsules are used to store data in the PXE and inject this data into smart contracts. They can be useful for arbitrary data that does not have a dedicated oracle.
 
 You can learn more about using capsules in contracts in the [reference docs](../../../developers/reference/smart_contract_reference/aztec-nr/aztec/oracle/capsules.md)
-
-
-
-
