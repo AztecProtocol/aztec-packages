@@ -1,11 +1,11 @@
 use std::static_assert;
 
-/// These functions are used to facilitate the conversion of log ciphertext between byte and field representations.
-///
-/// `to_fields` uses fixed-size arrays since encryption contexts have compile-time size information.
-/// `to_bytes` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
-///
-/// Together they provide bidirectional conversion between bytes and fields when processing encrypted logs.
+// These functions are used to facilitate the conversion of log ciphertext between byte and field representations.
+//
+// `to_fields` uses fixed-size arrays since encryption contexts have compile-time size information.
+// `to_bytes` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
+//
+// Together they provide bidirectional conversion between bytes and fields when processing encrypted logs.
 
 /// Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole
 /// bytes.
