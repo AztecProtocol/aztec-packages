@@ -37,8 +37,6 @@ export WALLET_DATA_DIRECTORY="${LOCATION}/data"
 rm -rf $WALLET_DATA_DIRECTORY
 mkdir -p $WALLET_DATA_DIRECTORY
 
-COMMAND="node --no-warnings $(realpath ../dest/bin/index.js)"
-
 if [ "${REMOTE_PXE:-}" = "1" ]; then
   echo "Using remote PXE"
   export REMOTE_PXE="1"
@@ -46,12 +44,13 @@ fi
 
 if [ "${USE_DOCKER:-}" = "1" ]; then
     echo "Using docker"
-    COMMAND="aztec-wallet"
+    # overwrite default command in flows
+    export COMMAND="aztec-wallet"
 fi
 
 cd ./flows
 
 for file in $(ls *.sh | grep ${FILTER:-"."}); do
-    ./$file $COMMAND
+    ./$file
 done
 

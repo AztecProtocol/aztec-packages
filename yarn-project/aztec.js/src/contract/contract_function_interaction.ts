@@ -163,6 +163,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const txRequest = await this.create({ fee: options.fee });
-    return await this.wallet.profileTx(txRequest, 'gates', options?.from);
+    return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
   }
 }

@@ -38,9 +38,8 @@ case "$type" in
       aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST
   ;;
   "compose")
-    # Override the entry point in the aztec container.
-    export TEST_SCRIPT=${4:-}
-    name="${TEST_SCRIPT//[\/\.]/_}${TEST//[\/\.]/_}${NAME_POSTFIX:-}"
+    # Strip leading non alpha numerics and replace / and . with _.
+    name=$(echo "${TEST}${NAME_POSTFIX:-}" | sed 's/^[^a-zA-Z0-9]*//; s/[\/\.]/_/g')
     name_arg="-p $name"
     trap 'docker compose $name_arg down --timeout 0' SIGTERM SIGINT EXIT
     docker compose $name_arg down --timeout 0 &> /dev/null

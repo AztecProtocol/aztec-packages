@@ -484,7 +484,6 @@ export class PXEService implements PXE {
     profileMode: 'debug' | 'gates',
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
-    const profile = false;
     try {
       const txInfo = {
         origin: txRequest.origin,
@@ -505,7 +504,7 @@ export class PXEService implements PXE {
       const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
         simulate: true,
         skipFeeEnforcement: false,
-        profile,
+        profile: true,
       });
 
       if (profileMode === 'gates') {

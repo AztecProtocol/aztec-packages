@@ -11,6 +11,8 @@ import path from 'path';
 import { format } from 'util';
 
 function printProfileResult(result: TxProfileResult, log: LogFn) {
+  // TODO(AD): this is a bit misleading - the maximum gate count of any piece is as important
+  // as the total gate count. We should probably print both.
   log(format('\nGate count per circuit:'));
   let acc = 0;
   result.executionSteps.forEach(r => {
@@ -62,7 +64,7 @@ export async function profile(
   const result = await call.profile({ profileMode });
   printProfileResult(result, log);
   if (debugOutputPath) {
-    log(`Debug output written to ${debugOutputPath}/witness.`);
+    log(`Debug output written to ${debugOutputPath} (witnesses.msgpack and acir.msgpack)`);
     await _createClientIvcProofFiles(debugOutputPath, result.executionSteps);
   }
 }

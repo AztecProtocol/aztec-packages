@@ -14,7 +14,7 @@
 set -euo pipefail
 
 # Can be overriden by env var CONTAINER_NAME, e.g. to start two sandboxes.
-CONTAINER_NAME=${CONTAINER_NAME:-1}
+CONTAINER_NAME=${CONTAINER_NAME:-$1}
 shift
 
 VERSION=${VERSION:-"latest"}

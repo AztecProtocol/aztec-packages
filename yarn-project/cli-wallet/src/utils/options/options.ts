@@ -103,9 +103,9 @@ export function createContractAddressOption(db?: WalletDB) {
     .makeOptionMandatory(true);
 }
 
-export function createExecutionStepsOutputDirOption() {
+export function createDebugExecutionStepsDirOption() {
   return new Option(
-    '--execution-steps-output-dir <address>',
+    '--debug-execution-steps-dir <address>',
     'Directory to write execution step artifacts for bb profiling/debugging.',
   ).makeOptionMandatory(false);
 }

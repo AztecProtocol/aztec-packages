@@ -36,7 +36,7 @@ import {
   createArgsOption,
   createArtifactOption,
   createContractAddressOption,
-  createExecutionStepsOutputDirOption,
+  createDebugExecutionStepsDirOption,
   createTypeOption,
   integerArgParser,
   parseGasFees,
@@ -343,7 +343,7 @@ export function injectCommands(
     .addOption(createArgsOption(false, db))
     .addOption(createContractAddressOption(db))
     .addOption(createArtifactOption(db))
-    .addOption(createExecutionStepsOutputDirOption())
+    .addOption(createDebugExecutionStepsDirOption())
     .addOption(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
@@ -358,14 +358,14 @@ export function injectCommands(
         from: parsedFromAddress,
         rpcUrl,
         secretKey,
-        executionStepsOutputDir,
+        debugExecutionStepsDir,
       } = options;
 
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      await profile(wallet, functionName, args, artifactPath, contractAddress, executionStepsOutputDir, log);
+      await profile(wallet, functionName, args, artifactPath, contractAddress, debugExecutionStepsDir, log);
     });
 
   program

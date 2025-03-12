@@ -9,13 +9,14 @@ p="\033[35m" # Purple
 rs="\033[0m"  # Reset
 bold="\033[1m"
 
-# Take all our passed arguments as our command.
-COMMAND="$*"
+# Call our cli-wallet entrypoint as the default command.
+command="${COMMAND:-"node --no-warnings $root/yarn-project/cli-wallet/dest/bin/index.js"}"
 flows=$(pwd)
 cd $root/noir-projects/noir-contracts
 
 function aztec-wallet {
-  bash -c "$COMMAND" "$@"
+  echo_header aztec-wallet "$@"
+  $command "$@"
 }
 
 function assert_eq {
@@ -56,5 +57,5 @@ function section {
   echo
 }
 
-warn "aztec-wallet is $COMMAND"
+warn "aztec-wallet is $command"
 echo
