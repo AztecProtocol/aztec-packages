@@ -188,7 +188,6 @@ template <typename Curve> class ShpleminiVerifier_ {
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
-    static constexpr size_t NUM_GEMINI_FOLD_CLAIMS = 2 * CONST_PROOF_SIZE_LOG_N;
 
   public:
     template <typename Transcript>
@@ -612,9 +611,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // compute the scalars to be multiplied against the commitments [libra_concatenated], [grand_sum], [grand_sum],
         // and [libra_quotient]
-        size_t power = NUM_GEMINI_FOLD_CLAIMS + 2;
         for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-            Fr scaling_factor = denominators[idx] * shplonk_batching_challenge_powers[power++];
+            Fr scaling_factor = denominators[idx] * shplonk_batching_challenge_powers[NUM_GEMINI_CLAIMS + idx];
             batching_scalars[idx] = -scaling_factor;
             constant_term_accumulator += scaling_factor * libra_evaluations[idx];
         }
@@ -706,7 +704,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Each commitment to a sumcheck round univariate [S_i] is multiplied by the sum of three scalars corresponding
         // to the evaluations at 0, 1, and the round challenge u_i
         size_t round_idx = 0;
-        size_t power = NUM_GEMINI_FOLD_CLAIMS + 2 + NUM_SMALL_IPA_EVALUATIONS;
+        size_t power = NUM_GEMINI_CLAIMS + NUM_SMALL_IPA_EVALUATIONS;
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims
             Fr batched_scalar = Fr(0);

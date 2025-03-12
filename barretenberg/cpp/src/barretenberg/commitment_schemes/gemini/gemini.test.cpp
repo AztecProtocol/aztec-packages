@@ -42,14 +42,17 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // r^{2^i} for i=1, ..., d-1. Although here we are copying polynomials, it is not the case when GeminiProver is
         // combined with ShplonkProver.
         std::vector<ProverOpeningClaim<Curve>> prover_claims_with_pos_evals;
-        prover_claims_with_pos_evals.reserve(2 * log_n);
+        // `prover_output` consists of d+1 opening claims, we add another d-1 claims for each positive evaluation
+        // Fold^i(r^{2^i}) for i = 1, ..., d-1
+        const size_t total_num_claims = 2 * log_n;
+        prover_claims_with_pos_evals.reserve(total_num_claims);
 
         for (auto& claim : prover_output) {
             if (claim.gemini_fold) {
                 if (claim.gemini_fold) {
-                    // "positive" evaluation challenge r^{2^i} for i = 0, ..., d-1
+                    // "positive" evaluation challenge r^{2^i} for i = 1, ..., d-1
                     const Fr evaluation_challenge = -claim.opening_pair.challenge;
-                    // Fold^(i) at r^{2^i} for i=0, ..., d-1
+                    // Fold^(i) at r^{2^i} for i=1, ..., d-1
                     const Fr pos_evaluation = claim.polynomial.evaluate(evaluation_challenge);
                     // Add the positive Fold claims to the vector of claims
                     ProverOpeningClaim<Curve> pos_fold_claim = { .polynomial = claim.polynomial,
@@ -125,7 +128,7 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
-TYPED_TEST(GeminiTest, DoubleWithShiftAndConcatenation)
+TYPED_TEST(GeminiTest, DoubleWithShiftAndInterleaving)
 {
     auto u = this->random_evaluation_point(this->log_n);
 

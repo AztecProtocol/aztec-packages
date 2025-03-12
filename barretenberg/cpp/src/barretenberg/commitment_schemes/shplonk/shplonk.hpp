@@ -87,7 +87,7 @@ template <typename Curve> class ShplonkProver_ {
 
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
         // batched before adding Libra commitments and evaluations is bounded by CONST_PROOF_SIZE_LOG_N+2
-        current_nu = nu.pow(2 * CONST_PROOF_SIZE_LOG_N + 2);
+        current_nu = nu.pow(NUM_GEMINI_CLAIMS);
 
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -190,7 +190,7 @@ template <typename Curve> class ShplonkProver_ {
         }
 
         // Take into account the constant proof size in Gemini
-        current_nu = nu_challenge.pow(2 * CONST_PROOF_SIZE_LOG_N + 2);
+        current_nu = nu_challenge.pow(NUM_GEMINI_CLAIMS);
 
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -414,7 +414,7 @@ template <typename Curve> class ShplonkVerifier_ {
                                                                 const std::vector<Fr>& gemini_eval_challenge_powers)
     {
         std::vector<Fr> denominators;
-        denominators.reserve(2 * CONST_PROOF_SIZE_LOG_N + 2);
+        denominators.reserve(NUM_GEMINI_CLAIMS);
 
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
             // Place 1/(z - r ^ {2^j})
@@ -439,14 +439,14 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
                                                                  bool has_zk = false,
                                                                  bool committed_sumcheck = false)
 {
-    size_t num_powers = 2 * CONST_PROOF_SIZE_LOG_N + 2;
+    size_t num_powers = NUM_GEMINI_CLAIMS;
 
     if (has_zk) {
         num_powers += NUM_SMALL_IPA_EVALUATIONS;
     }
 
     if (committed_sumcheck) {
-        num_powers += CONST_PROOF_SIZE_LOG_N;
+        num_powers += 3 * CONST_PROOF_SIZE_LOG_N;
     }
 
     std::vector<Fr> result;

@@ -31,4 +31,6 @@ static constexpr uint32_t MERGE_PROOF_SIZE = 65; // used to ensure mock proofs a
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
 static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
+// Upper bound on the number of claims produced GeminiProver.
+static constexpr uint32_t NUM_GEMINI_CLAIMS = 2 * CONST_PROOF_SIZE_LOG_N + 2;
 } // namespace bb
