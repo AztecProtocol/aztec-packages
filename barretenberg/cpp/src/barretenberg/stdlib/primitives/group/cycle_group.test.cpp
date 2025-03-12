@@ -168,13 +168,48 @@ TYPED_TEST(CycleGroupTest, TestConstantWitnessMixupRegression)
     auto cw8 = cycle_group_ct::from_constant_witness(&builder, AffineElement::one() * 0);
     auto w11 = cycle_group_ct::from_witness(&builder, TestFixture::generators[0]);
 
-    auto w9 = cw8 + c1; // mixup happens here due to _is_infinity being a constant
+    auto w9 = cw8 + c1;  // mixup happens here due to _is_infinity being a constant
     auto w26 = w9 + w11; // and here the circuit checker crashes
 
     auto w10 = cw8 - c1;
     auto w27 = w10 - w11; // and here
     (void)w26;
     (void)w27;
+    EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
+}
+
+/**
+ * @brief Checks the bad behavior of conditional assign.
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestConditionalAssignRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto c0 = cycle_group_ct(AffineElement::one() * 0);
+    auto c1 = cycle_group_ct::conditional_assign(bool_ct(witness_ct(&builder, false)), c0, c0);
+    auto w3 = c1.dbl();
+    (void)w3;
+    EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
+}
+
+/**
+ * @brief Checks the bad behavior of conditional assign.
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestConditionalAssignSuperMixupRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto c0 = cycle_group_ct(TestFixture::generators[0]);
+    auto c1 = cycle_group_ct(-TestFixture::generators[0]);
+    auto w2 = cycle_group_ct::conditional_assign(bool_ct(witness_ct(&builder, true)), c0, c1);
+    EXPECT_TRUE(w2.x.is_constant());
+    EXPECT_TRUE(!w2.y.is_constant());
+    auto w3 = w2.dbl();
+    (void)w3;
     EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
 }
 
