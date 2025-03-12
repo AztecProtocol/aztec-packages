@@ -307,6 +307,53 @@ export function describeArchiverDataStore(
       });
     });
 
+    describe('contractInstanceUpdates', () => {
+      let contractInstance: ContractInstanceWithAddress;
+      let classId: Fr;
+      let nextClassId: Fr;
+      const blockOfChange = 10;
+
+      beforeEach(async () => {
+        classId = Fr.random();
+        nextClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
+        contractInstance = { ...randomInstance, address: await AztecAddress.random() };
+        await store.addContractInstances([contractInstance], 1);
+        await store.addContractInstanceUpdates(
+          [
+            {
+              prevContractClassId: classId,
+              newContractClassId: nextClassId,
+              blockOfChange,
+              address: contractInstance.address,
+            },
+          ],
+          blockOfChange - 1,
+        );
+      });
+
+      it('gets the correct current class id for a contract not updated yet', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange - 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(classId);
+      });
+
+      it('gets the correct current class id for a contract that has just been updated', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+      });
+
+      it('gets the correct current class id for a contract that was updated in the past', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+      });
+    });
+
     describe('contractClasses', () => {
       let contractClass: ContractClassPublic;
       const blockNum = 10;
