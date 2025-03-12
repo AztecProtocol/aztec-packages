@@ -34,6 +34,7 @@ import { mock } from 'jest-mock-extended';
 
 import { SideEffectTrace } from '../../public/side_effect_trace.js';
 import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
+import { DEFAULT_BLOCK_NUMBER } from '../fixtures/public_tx_simulation_tester.js';
 import { WorldStateDB } from '../public_db_sources.js';
 import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -1184,7 +1185,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       const contractDataSource = new SimpleContractDataSource();
       merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-      const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, 0);
+      const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, DEFAULT_BLOCK_NUMBER);
 
       persistableState = initPersistableStateManager({
         worldStateDB,

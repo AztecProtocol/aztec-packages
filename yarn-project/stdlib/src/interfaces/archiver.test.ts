@@ -345,7 +345,8 @@ class MockArchiver implements ArchiverApi {
     );
     return functionsAndSelectors.find(f => f.selector.equals(selector))?.name;
   }
-  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  async getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    expect(blockNumber).toEqual(27);
     return {
       address,
       currentContractClassId: Fr.random(),
