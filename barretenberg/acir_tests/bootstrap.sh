@@ -30,6 +30,7 @@ function build {
     # COMPILE=2 only compiles the test.
     denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1279): Fix this workflow.
     echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
     (cd ./acir_tests/assert_statement && \
