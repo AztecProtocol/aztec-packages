@@ -68,10 +68,10 @@ export class RegistryContract {
   > {
     const governanceAddress = await this.registry.read.getGovernance();
     const governance = new GovernanceContract(governanceAddress, this.client, undefined);
-    const governanceProposer = await governance.getProposer();
+    const governanceProposerAddress = await governance.getGovernanceProposerAddress();
     return {
       governanceAddress: governance.address,
-      governanceProposerAddress: governanceProposer.address,
+      governanceProposerAddress: governanceProposerAddress,
     };
   }
 

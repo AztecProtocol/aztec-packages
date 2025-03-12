@@ -2,9 +2,17 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RollupStore, IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupStore, IRollupCore, BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {FeeHeader} from "@aztec/core/libraries/rollup/FeeMath.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+
+struct GenesisState {
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  bytes32 genesisArchiveRoot;
+  bytes32 genesisBlockHash;
+}
 
 library STFLib {
   using TimeLib for Slot;
@@ -13,6 +21,26 @@ library STFLib {
 
   // @note  This is also used in the cheatcodes, so if updating, please also update the cheatcode.
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
+
+  function initialize(GenesisState memory _genesisState) internal {
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
+    rollupStore.config.protocolContractTreeRoot = _genesisState.protocolContractTreeRoot;
+
+    rollupStore.blocks[0] = BlockLog({
+      feeHeader: FeeHeader({
+        excessMana: 0,
+        feeAssetPriceNumerator: 0,
+        manaUsed: 0,
+        congestionCost: 0,
+        provingCost: 0
+      }),
+      archive: _genesisState.genesisArchiveRoot,
+      blockHash: _genesisState.genesisBlockHash,
+      slotNumber: Slot.wrap(0)
+    });
+  }
 
   function prune() internal {
     RollupStore storage rollupStore = STFLib.getStorage();
