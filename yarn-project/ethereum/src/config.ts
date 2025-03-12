@@ -30,6 +30,8 @@ export type L1ContractsConfig = {
   governanceProposerRoundSize: number;
   /** The mana target for the rollup */
   manaTarget: bigint;
+  /** The proving cost per mana */
+  provingCostPerMana: bigint;
 } & L1TxUtilsConfig;
 
 export const DefaultL1ContractsConfig = {
@@ -44,6 +46,7 @@ export const DefaultL1ContractsConfig = {
   governanceProposerQuorum: 6,
   governanceProposerRoundSize: 10,
   manaTarget: BigInt(100e6),
+  provingCostPerMana: BigInt(100),
 } satisfies L1ContractsConfig;
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -102,6 +105,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_MANA_TARGET',
     description: 'The mana target for the rollup',
     ...bigintConfigHelper(DefaultL1ContractsConfig.manaTarget),
+  },
+  provingCostPerMana: {
+    env: 'AZTEC_PROVING_COST_PER_MANA',
+    description: 'The proving cost per mana',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.provingCostPerMana),
   },
   ...l1TxUtilsConfigMappings,
 };

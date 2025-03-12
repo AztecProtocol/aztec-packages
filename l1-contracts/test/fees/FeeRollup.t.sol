@@ -119,7 +119,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   FakeCanonical internal fakeCanonical;
 
   constructor() {
-    FeeLib.initialize(MANA_TARGET);
+    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
   }
 
   function setUp() public {
@@ -148,7 +148,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        manaTarget: MANA_TARGET
+        manaTarget: MANA_TARGET,
+        provingCostPerMana: TestConstants.AZTEC_PROVING_COST_PER_MANA
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
@@ -308,7 +309,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       "congestion multiplier should be higher if we do not prune"
     );
 
-    // @todo We are doing an underflow here
     assertEq(
       componentsPrune.congestionMultiplier,
       FeeLib.congestionMultiplier(excessManaPrune),

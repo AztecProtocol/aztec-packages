@@ -133,13 +133,13 @@ library FeeLib {
 
   bytes32 private constant FEE_STORE_POSITION = keccak256("aztec.fee.storage");
 
-  function initialize(uint256 _manaTarget) internal {
+  function initialize(uint256 _manaTarget, EthValue _provingCostPerMana) internal {
     FeeStore storage feeStore = getStorage();
 
     feeStore.manaTarget = _manaTarget;
     feeStore.congestionUpdateFraction =
       _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR;
-    feeStore.provingCostPerMana = EthValue.wrap(100);
+    feeStore.provingCostPerMana = _provingCostPerMana;
 
     feeStore.feeHeaders[0] = FeeHeader({
       excessMana: 0,

@@ -94,7 +94,7 @@ contract RollupCore is
       IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     rollupStore.config.outbox = IOutbox(address(new Outbox(address(this))));
 
-    FeeLib.initialize(_config.manaTarget);
+    FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }
 
   /* -------------------------------------------------------------------------- */

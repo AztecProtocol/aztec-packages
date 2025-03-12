@@ -84,6 +84,7 @@ struct RollupConfigInput {
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
+  EthValue provingCostPerMana;
 }
 
 struct RollupConfig {

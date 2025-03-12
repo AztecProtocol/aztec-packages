@@ -122,6 +122,11 @@ export class RollupContract {
   }
 
   @memoize
+  getProvingCostPerMana() {
+    return this.rollup.read.getProvingCostPerManaInEth();
+  }
+
+  @memoize
   getManaLimit() {
     return this.rollup.read.getManaLimit();
   }
