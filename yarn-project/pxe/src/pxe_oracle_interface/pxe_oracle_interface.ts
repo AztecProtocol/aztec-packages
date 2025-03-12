@@ -718,10 +718,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // Note that while this technically results in historical queries, we perform it at the latest locally synced block
     // number which *should* be recent enough to be available, even for non-archive nodes.
     const syncedBlockNumber = (await this.syncDataProvider.getBlockNumber())!;
-    // TODO (#12559): handle undefined syncedBlockNumber
-    // if (syncedBlockNumber === undefined) {
-    //  throw new Error(`Attempted to deliver a note with an unsynchronized PXE - this should never happen`);
-    //}
+    if (syncedBlockNumber === undefined) {
+      throw new Error(`Attempted to deliver a note with an unsynchronized PXE - this should never happen`);
+    }
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
