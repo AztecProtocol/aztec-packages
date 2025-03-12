@@ -129,9 +129,9 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
     TestTraceContainer trace;
     MerkleCheckTraceBuilder builder;
 
-    // First event - simple single level
+    // First event
     FF leaf_value_1 = FF(111);
-    uint64_t leaf_index_1 = 0;
+    uint64_t leaf_index_1 = 6;
     FF sibling_value_1 = FF(222);
     FF output_hash_1 = Poseidon2::hash({ leaf_value_1, sibling_value_1 });
 
@@ -140,9 +140,9 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                                             .sibling_path = { sibling_value_1 },
                                             .root = output_hash_1 };
 
-    // Second event - simple single level with different values
+    // Second event
     FF leaf_value_2 = FF(333);
-    uint64_t leaf_index_2 = 1;
+    uint64_t leaf_index_2 = 11;
     FF sibling_value_2 = FF(444);
     FF output_hash_2 = Poseidon2::hash({ sibling_value_2, leaf_value_2 });
 
