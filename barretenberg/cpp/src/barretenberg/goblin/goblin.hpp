@@ -35,24 +35,16 @@ class GoblinProver {
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
-    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
-    using PairingPoints = RecursiveMergeVerifier::PairingPoints;
+
     using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
-    using MergeProof = std::vector<FF>;
-    /**
-     * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
-     *
-     */
+    using MergeProof = MergeProver::MergeProof;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
 
     MergeProof merge_proof;
     GoblinProof goblin_proof;
-
-    // on the first call to accumulate there is no merge proof to verify
-    bool merge_proof_exists{ false };
 
     std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_key; }
     std::shared_ptr<TranslatorProvingKey::ProvingKey> get_translator_proving_key() const
@@ -77,68 +69,6 @@ class GoblinProver {
         commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
         GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
     }
-    /**
-     * @brief Construct a MegaHonk proof and a merge proof for the present circuit.
-     * @details If there is a previous merge proof, recursively verify it.
-     *
-     * @param circuit_builder
-     */
-    GoblinAccumulationOutput accumulate(MegaBuilder& circuit_builder)
-    {
-        // Complete the circuit logic by recursively verifying previous merge proof if it exists
-        if (merge_proof_exists) {
-            RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-            [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
-        }
-
-        // Construct a Honk proof for the main circuit
-        auto proving_key = std::make_shared<MegaDeciderProvingKey>(circuit_builder);
-        MegaProver prover(proving_key);
-        auto ultra_proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-
-        // Construct and store the merge proof to be recursively verified on the next call to accumulate
-        MergeProver merge_prover{ circuit_builder.op_queue };
-        merge_proof = merge_prover.construct_proof();
-
-        if (!merge_proof_exists) {
-            merge_proof_exists = true;
-        }
-
-        return { ultra_proof, verification_key };
-    };
-
-    /**
-     * @brief Add a recursive merge verifier to input circuit and construct a merge proof for the updated op queue
-     * @details When this method is used, the "prover" functionality of the IVC scheme must be performed explicitly, but
-     * this method has to be called first so that the recursive merge verifier can be "appended" to the circuit being
-     * accumulated
-     *
-     * @param circuit_builder
-     */
-    void merge(MegaBuilder& circuit_builder)
-    {
-        // Append a recursive merge verification of the merge proof
-        if (merge_proof_exists) {
-            [[maybe_unused]] auto pairing_points = verify_merge(circuit_builder, merge_proof);
-        }
-
-        // Construct a merge proof for the present circuit
-        merge_proof = prove_merge(circuit_builder);
-    };
-
-    /**
-     * @brief Append recursive verification of a merge proof to a provided circuit
-     *
-     * @param circuit_builder
-     * @return PairingPoints
-     */
-    PairingPoints verify_merge(MegaBuilder& circuit_builder, MergeProof& proof) const
-    {
-        PROFILE_THIS_NAME("Goblin::merge");
-        RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-        return merge_verifier.verify_proof(proof);
-    };
 
     /**
      * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
@@ -157,12 +87,9 @@ class GoblinProver {
             MockCircuits::construct_goblin_ecc_op_circuit(circuit_builder); // Add some arbitrary goblin ECC ops
         }
 
-        if (!merge_proof_exists) {
-            merge_proof_exists = true;
-        }
-
         MergeProver merge_prover{ circuit_builder.op_queue, commitment_key };
-        return merge_prover.construct_proof();
+        merge_proof = merge_prover.construct_proof();
+        return merge_proof;
     };
 
     /**
@@ -257,6 +184,9 @@ class GoblinVerifier {
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
+    using Builder = MegaCircuitBuilder;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
+    using PairingPoints = RecursiveMergeVerifier::PairingPoints;
 
     struct VerifierInput {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
@@ -278,6 +208,19 @@ class GoblinVerifier {
         : eccvm_verification_key(input.eccvm_verification_key)
         , translator_verification_key(input.translator_verification_key)
     {}
+
+    /**
+     * @brief Append recursive verification of a merge proof to a provided circuit
+     *
+     * @param circuit_builder
+     * @return PairingPoints
+     */
+    static PairingPoints recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
+    {
+        PROFILE_THIS_NAME("Goblin::merge");
+        RecursiveMergeVerifier merge_verifier{ &circuit_builder };
+        return merge_verifier.verify_proof(proof);
+    };
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)

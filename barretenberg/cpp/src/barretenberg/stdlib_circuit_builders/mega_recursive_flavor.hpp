@@ -108,13 +108,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         // Data pertaining to transfer of databus return data via public inputs of the proof
         DatabusPropagationData databus_propagation_data;
 
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-        {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(circuit_size);
-            this->num_public_inputs = num_public_inputs;
-        };
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
          * key
