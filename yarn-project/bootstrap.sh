@@ -157,7 +157,7 @@ function release_packages {
   do_or_dryrun npm init -y
   # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
   # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
-  for package in "${packages_list[@]}"; do
+  for package in "${package_list[@]}"; do
     do_or_dryrun npm install $package
   done
   rm -rf "$dir"
@@ -165,13 +165,7 @@ function release_packages {
 
 function release {
   echo_header "yarn-project release"
-  # WORKTODO latest is only on master, otherwise use ref name
-  release_packages $(dist_tag) ${REF_NAME#v}
-}
-
-function release_commit {
-  echo_header "yarn-project release commit"
-  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
+  release_packages "$(dist_tag)" "${REF_NAME#v}"
 }
 
 case "$cmd" in
@@ -205,7 +199,7 @@ case "$cmd" in
   "lint")
     lint "$@"
     ;;
-  test|test_cmds|hash|release|release_commit|format)
+  test|test_cmds|hash|release|format)
     $cmd
     ;;
   *)

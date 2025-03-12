@@ -62,6 +62,7 @@ function test_cmds {
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
   fi
 
   if [ $(dist_tag) == "nightly" || $(dist_tag) == "spy/nightly" ]; then
@@ -151,6 +152,11 @@ case "$cmd" in
     ;;
   "test-prod-deployment")
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
+    ;;
+  "test-cli-upgrade-with-lock")
+    OVERRIDES="telemetry.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;
   "test-local")
     # Isolate network stack in docker.
