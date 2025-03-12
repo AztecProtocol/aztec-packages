@@ -23,10 +23,7 @@ import {
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import {
-  type GasPrice,
-  type L1TxRequest,
   L1TxUtils,
-  type L1TxUtilsConfig,
   getL1TxUtilsConfigEnvVars,
 } from '@aztec/ethereum';
 
@@ -69,7 +66,8 @@ export async function addL1Validator({
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrls, chainId);
   const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
-  const l1TxUtils = new L1TxUtils(publicClient, walletClient, debugLogger);
+  const l1TxUtilsConfig = getL1TxUtilsConfigEnvVars();
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, debugLogger, l1TxUtilsConfig);
 
   const rollup = getContract({
     address: rollupAddress.toString(),
@@ -154,6 +152,18 @@ export async function addL1Validator({
     throw new Error(`Failed to add validator ${validatorAddress} after ${retries} retries`)
   }
 
+  if (isAnvilTestChain(chainId)) {
+    dualLog(`Funding validator on L1`);
+    const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
+    await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+  } else {
+    const balance = await publicClient.getBalance({ address: validatorAddress.toString() });
+    const balanceInEth = Number(balance) / 10 ** 18;
+    dualLog(`Validator balance: ${balanceInEth.toFixed(6)} ETH`);
+    if (balanceInEth === 0) {
+      dualLog(`WARNING: Validator has no balance. Remember to fund it!`);
+    }
+  }
 }
 
 export async function removeL1Validator({
