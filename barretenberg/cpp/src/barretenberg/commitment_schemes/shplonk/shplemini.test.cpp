@@ -163,7 +163,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     Fr inverted_vanishing_eval_neg = (shplonk_eval_challenge + gemini_eval_challenge).invert();
 
     mock_claims.claim_batcher.compute_scalars_for_each_batch(
-        inverted_vanishing_eval_neg, inverted_vanishing_eval_pos, shplonk_batching_challenge, gemini_eval_challenge);
+        inverted_vanishing_eval_pos, inverted_vanishing_eval_neg, shplonk_batching_challenge, gemini_eval_challenge);
 
     rho_power = Fr{ 1 };
     mock_claims.claim_batcher.update_batch_mul_inputs_and_batched_evaluation(
@@ -196,8 +196,10 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr rho = Fr::random_element();
     Fr gemini_eval_challenge = Fr::random_element();
     Fr shplonk_batching_challenge = Fr::random_element();
+
     std::vector<Fr> shplonk_batching_challenge_powers =
-        ShpleminiVerifier::compute_shplonk_batching_challenge_powers(shplonk_batching_challenge);
+        compute_shplonk_batching_challenge_powers(shplonk_batching_challenge);
+
     Fr shplonk_eval_challenge = Fr::random_element();
 
     std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
@@ -245,8 +247,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     expected_inverse_vanishing_evals.reserve(2 * this->log_n);
     // Compute expected inverses
     for (size_t idx = 0; idx < this->log_n; idx++) {
-        expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge + r_squares[idx]).invert());
         expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge - r_squares[idx]).invert());
+        expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge + r_squares[idx]).invert());
     }
 
     Fr current_challenge{ shplonk_batching_challenge * shplonk_batching_challenge };

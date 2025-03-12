@@ -456,12 +456,12 @@ template <typename Curve> class GeminiVerifier_ {
         // ( [A₀₋], -r, A₀-(-r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, C0_r_neg });
         for (size_t l = 0; l < num_variables - 1; ++l) {
-            // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
-            fold_polynomial_opening_claims.emplace_back(
-                OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
 
             fold_polynomial_opening_claims.emplace_back(
                 OpeningClaim<Curve>{ { r_squares[l + 1], gemini_fold_pos_evaluations[l + 1] }, commitments[l] });
+            // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
+            fold_polynomial_opening_claims.emplace_back(
+                OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
         }
         if (has_interleaved) {
             size_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();

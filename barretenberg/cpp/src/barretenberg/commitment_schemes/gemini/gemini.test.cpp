@@ -45,7 +45,6 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         prover_claims_with_pos_evals.reserve(2 * log_n);
 
         for (auto& claim : prover_output) {
-            prover_claims_with_pos_evals.emplace_back(claim);
             if (claim.gemini_fold) {
                 if (claim.gemini_fold) {
                     // "positive" evaluation challenge r^{2^i} for i = 0, ..., d-1
@@ -59,6 +58,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
                     prover_claims_with_pos_evals.emplace_back(pos_fold_claim);
                 }
             }
+            prover_claims_with_pos_evals.emplace_back(claim);
         }
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
@@ -160,7 +160,10 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     std::vector<Polynomial<Fr>> fold_polynomials;
     fold_polynomials.reserve(log_n);
 
-    bb::Polynomial<Fr> zero_polynomial(n);
+    Polynomial<Fr> fold_0(n);
+    Polynomial<Fr> fold_1(n / 2);
+    Polynomial<Fr> fold_2(n / 4);
+
     auto u = this->random_evaluation_point(this->log_n);
 
     // Generate a random evaluation v, the prover claims that `zero_polynomial`(u) = v
@@ -169,8 +172,6 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     // Go through the Gemini Prover steps: compute fold polynomials and their evaluations
     std::vector<Fr> fold_evals;
     fold_evals.reserve(log_n);
-    Polynomial<Fr> fold_2(2);
-    Polynomial<Fr> fold_1(4);
 
     // By defining the coefficients of fold polynomials as below, a malicious prover can make sure that the values
     // fold₁(r²) = 0, and hence fold₀(r), computed by the verifier, are 0. At the same time, the prover can open
@@ -199,7 +200,7 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     const Fr gemini_r = prover_transcript->template get_challenge<Fr>("Gemini:r");
 
     // Place honest eval of fold₀(-r) to the vector of evals
-    fold_evals.emplace_back(zero_polynomial.evaluate(-gemini_r));
+    fold_evals.emplace_back(fold_0.evaluate(-gemini_r));
 
     // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, 2
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(gemini_r, log_n);
@@ -221,34 +222,38 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     std::vector<Claim> prover_opening_claims;
     prover_opening_claims.reserve(2 * log_n);
 
-    prover_opening_claims.emplace_back(Claim{ zero_polynomial, { gemini_r, Fr{ 0 } } });
-    prover_opening_claims.emplace_back(Claim{ zero_polynomial, { -gemini_r, Fr{ 0 } } });
-    prover_opening_claims.emplace_back(Claim{ fold_1, { -r_squares[1], fold_evals[1] } });
+    prover_opening_claims.emplace_back(Claim{ fold_0, { gemini_r, Fr{ 0 } } });
+    prover_opening_claims.emplace_back(Claim{ fold_0, { -gemini_r, Fr{ 0 } } });
     prover_opening_claims.emplace_back(Claim{ fold_1, { r_squares[1], fold_1.evaluate(r_squares[1]) } });
-    prover_opening_claims.emplace_back(Claim{ fold_2, { -r_squares[2], fold_evals[2] } });
+    prover_opening_claims.emplace_back(Claim{ fold_1, { -r_squares[1], fold_evals[1] } });
     prover_opening_claims.emplace_back(Claim{ fold_2, { r_squares[2], fold_2.evaluate(r_squares[2]) } });
+    prover_opening_claims.emplace_back(Claim{ fold_2, { -r_squares[2], fold_evals[2] } });
 
     // Check that the Fold polynomials have been evaluated correctly in the prover
     this->verify_batch_opening_pair(prover_opening_claims);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    std::vector<Commitment> unshifted_commitments = { this->ck->commit(zero_polynomial) };
+    std::vector<Commitment> unshifted_commitments = { this->ck->commit(fold_0) };
     std::vector<Fr> unshifted_evals = { claimed_multilinear_eval * rho.pow(0) };
 
-    std::vector<Commitment> shifted_commitments = {};
-    std::vector<Fr> shifted_evals = {};
-
-    ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ RefVector(unshifted_commitments), RefVector(unshifted_evals) },
-                                .shifted = ClaimBatch{ RefVector(shifted_commitments), RefVector(shifted_evals) } };
+    ClaimBatcher claim_batcher{ .unshifted =
+                                    ClaimBatch{ RefVector(unshifted_commitments), RefVector(unshifted_evals) } };
 
     auto verifier_claims = GeminiVerifier_<TypeParam>::reduce_verification(u, claim_batcher, verifier_transcript);
-    std::vector<size_t> matching_claim_indices{ 0, 1, 2, 4, 5 };
-    std::vector<size_t> mismatching_claim_indices = { 3 };
+
+    // Malicious prover could honestly prove all "negative" evaluations and several "positive evaluations". In
+    // particular, the evaluation of `fold_0` at r.
+    std::vector<size_t> matching_claim_indices{ 0, 1, 3, 4, 5 };
+    // However, the evaluation of `fold_1` at r^2 that the verifier computes assuming that fold has been performed
+    // correctly, does not match the actual evaluation of tampered fold_1 that the prover can open.
+    std::vector<size_t> mismatching_claim_indices = { 2 };
     for (auto idx : matching_claim_indices) {
         EXPECT_TRUE(prover_opening_claims[idx].opening_pair == verifier_claims[idx].opening_pair);
     }
 
+    // The mismatch in claims below leads to Gemini and Shplemini Verifier rejecting the tampered proof and confirms the
+    // necessity of opening `fold_i` at r^{2^i} for i = 1, ..., log_n - 1.
     for (auto idx : mismatching_claim_indices) {
         EXPECT_FALSE(prover_opening_claims[idx].opening_pair == verifier_claims[idx].opening_pair);
     }

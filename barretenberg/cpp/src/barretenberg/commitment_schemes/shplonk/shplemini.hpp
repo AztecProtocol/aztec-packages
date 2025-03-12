@@ -84,7 +84,7 @@ template <typename Curve> class ShpleminiProver_ {
         const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points = {
             gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r
         };
-        for (size_t idx = 0; idx < 4; idx++) {
+        for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
             new_claim.polynomial = std::move(libra_polynomials[idx]);
             new_claim.opening_pair.challenge = evaluation_points[idx];
             new_claim.opening_pair.evaluation = new_claim.polynomial.evaluate(evaluation_points[idx]);
@@ -287,10 +287,10 @@ template <typename Curve> class ShpleminiVerifier_ {
             scalars.emplace_back(Fr(1));
         }
 
-        // Compute 1/(z − r), 1/(z + r), 1/(z + r²), … , 1/(z + r²⁽ⁿ⁻¹⁾)
+        // Compute 1/(z − r), 1/(z + r), 1/(z - r²),  1/(z + r²), … , 1/(z - r²⁽ⁿ⁻¹⁾), 1/(z + r²⁽ⁿ⁻¹⁾)
         // These represent the denominators of the summand terms in Shplonk partially evaluated polynomial Q_z
         const std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
-            log_circuit_size + 1, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
+            log_circuit_size, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
         // Compute the Shplonk denominator for the interleaved opening claims 1/(z − r^s) where s is the group size
         const Fr interleaving_vanishing_eval =
             (shplonk_evaluation_challenge -
@@ -299,8 +299,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
         // reconstructing the commitment of Q_z
-        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0], // 1/(z + r)
-                                                     inverse_vanishing_evals[1], // 1/(z - r)
+        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0], // 1/(z - r)
+                                                     inverse_vanishing_evals[1], // 1/(z + r)
                                                      shplonk_batching_challenge,
                                                      gemini_evaluation_challenge,
                                                      interleaving_vanishing_eval);
@@ -365,10 +365,10 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr a_0_pos = full_a_0_pos - p_pos;
         // Add contributions from A₀₊(r) and  A₀₋(-r) to constant_term_accumulator:
         //  Add  A₀₊(r)/(z−r) to the constant term accumulator
-        constant_term_accumulator += a_0_pos * inverse_vanishing_evals[1];
+        constant_term_accumulator += a_0_pos * inverse_vanishing_evals[0];
         // Add  A₀₋(-r)/(z+r) to the constant term accumulator
         constant_term_accumulator +=
-            gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[0];
+            gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
         remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
 
@@ -458,9 +458,9 @@ template <typename Curve> class ShpleminiVerifier_ {
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N - 1; ++j) {
             // Compute the scaling factor  (ν²⁺ⁱ) / (z + r²⁽ⁱ⁺²⁾) for i = 0, … , d-2
             size_t pos_location = 2 * j + 2;
-            Fr scaling_factor_neg =
-                shplonk_batching_challenge_powers[pos_location] * inverse_vanishing_evals[pos_location];
             Fr scaling_factor_pos =
+                shplonk_batching_challenge_powers[pos_location] * inverse_vanishing_evals[pos_location];
+            Fr scaling_factor_neg =
                 shplonk_batching_challenge_powers[pos_location + 1] * inverse_vanishing_evals[pos_location + 1];
 
             // Add Aᵢ(−r²ⁱ) for i = 1, … , n-1 to the constant term accumulator
@@ -742,28 +742,5 @@ template <typename Curve> class ShpleminiVerifier_ {
             round_idx++;
         }
     };
-
-    static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplonk_batching_challenge,
-                                                                     bool has_zk = false,
-                                                                     bool committed_sumcheck = false)
-    {
-        size_t num_powers = NUM_GEMINI_FOLD_CLAIMS + 2;
-
-        if (has_zk) {
-            num_powers += NUM_SMALL_IPA_EVALUATIONS;
-        }
-
-        if (committed_sumcheck) {
-            num_powers += CONST_PROOF_SIZE_LOG_N;
-        }
-
-        std::vector<Fr> result;
-        result.reserve(num_powers);
-        result.emplace_back(Fr{ 1 });
-        for (size_t idx = 1; idx < num_powers; idx++) {
-            result.emplace_back(result[idx - 1] * shplonk_batching_challenge);
-        }
-        return result;
-    }
 };
 } // namespace bb
