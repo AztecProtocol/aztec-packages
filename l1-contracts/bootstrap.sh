@@ -60,6 +60,45 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function inspect {
+    echo_header "l1-contracts inspect"
+
+    # Find all .sol files in the src directory
+    find src -type f -name "*.sol" | while read -r file; do
+
+        # Get all contract/library/interface names from the file
+        while read -r line; do
+            if [[ $line =~ ^(contract|library|interface)[[:space:]]+([a-zA-Z0-9_]+) ]]; then
+                contract_name="${BASH_REMATCH[2]}"
+                full_path="${file}:${contract_name}"
+
+                # Run forge inspect and capture output
+                methods_output=$(forge inspect "$full_path" methodIdentifiers 2>/dev/null)
+                errors_output=$(forge inspect "$full_path" errors 2>/dev/null)
+
+                # Only display if we have methods or errors
+                if [ "$methods_output" != "{}" ] || [ "$errors_output" != "{}" ]; then
+                    echo "----------------------------------------"
+                    echo "Inspecting $full_path"
+                    echo "----------------------------------------"
+
+                    if [ "$methods_output" != "{}" ]; then
+                        echo "Methods:"
+                        echo "$methods_output"
+                        echo ""
+                    fi
+
+                    if [ "$errors_output" != "{}" ]; then
+                        echo "Errors:"
+                        echo "$errors_output"
+                        echo ""
+                    fi
+                fi
+            fi
+        done < <(grep -E "^[[:space:]]*(contract|library|interface)[[:space:]]+[a-zA-Z0-9_]+" "$file")
+    done
+}
+
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
 # Second argument is the tag name (e.g. v1.2.3, or commit-<hash>).
 # Third argument is the semver for package.json (e.g. 1.2.3 or 1.2.3-commit.<hash>)
@@ -151,6 +190,9 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "inspect")
+    inspect
     ;;
   test_cmds|release)
     $cmd
