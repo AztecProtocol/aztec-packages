@@ -222,6 +222,73 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
     this->standardize();
     return *this;
 }
+
+/**
+ * @brief  Set the point to the point at infinity.
+ * Depending on constant'ness of the predicate put the coordinates in an apropriate standard form.
+ *
+ */
+template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
+{
+    // No operations are performed in this case
+    if (is_infinity.is_constant() && !is_infinity.get_value()) {
+        return;
+    }
+    this->_is_standard = true;
+
+    // TODO(alex): there can be a possible bug. Again due to montgomery arithmetic.
+    // But it will be confirmed only after the review of the multiplication related operations
+    this->x = field_t::conditional_assign(is_infinity, 0, this->x);
+    this->y = field_t::conditional_assign(is_infinity, 0, this->y);
+
+    if (is_infinity.is_constant() && is_infinity.get_value()) {
+        this->_is_constant = true;
+        this->_is_infinity = true;
+        return;
+    }
+
+    // Due to conditional_assign behavior
+    // Sometimes we won't create the gate here
+    // If this->x = 0 and this->y = 0 and both of them are constants
+    // This ensures that at least one of the switches was performed
+    this->_is_constant = this->x.is_constant() && this->y.is_constant();
+    if (!this->_is_constant) {
+        this->_is_infinity = is_infinity;
+    }
+
+    // In case we set point at infinity on a constant without an existing context
+    if (this->context == nullptr && !this->_is_constant) {
+        this->context = is_infinity.get_context();
+    }
+}
+
+/**
+ * @brief Get the point to the standard form. If the point is a point at infinity, ensure the coordinates are (0,0)
+ * If the point is already standard nothing changes
+ *
+ */
+template <typename Builder> void cycle_group<Builder>::standardize()
+{
+    if (this->_is_standard) {
+        return;
+    }
+    this->_is_standard = true;
+
+    // TODO(alex): there can be a possible bug. Again due to montgomery arithmetic.
+    // But it will be confirmed only after the review of the multiplication related operations
+    this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
+    this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
+
+    // Due to conditional_assign behavior
+    // Sometimes we won't create the gate here
+    // If this->x = 0 and this->y = 0 and both of them are constants
+    // This ensures that at least one of the switches was performed
+    this->_is_constant = this->x.is_constant() && this->y.is_constant();
+    if (this->_is_constant) {
+        this->_is_infinity = this->_is_infinity.get_value();
+    }
+}
+
 /**
  * @brief Evaluates a doubling. Does not use Ultra double gate
  *
@@ -253,8 +320,6 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
-    // TODO(alex): possible optimization: set the point at infinity coordinates to (0: 1)
-    // and check whether it's in it's standard form here
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
 
     // This case breaks the following `create_ecc_dbl_gate`
