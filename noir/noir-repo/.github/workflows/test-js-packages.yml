@@ -64,6 +64,8 @@ jobs:
 
       - name: Build Nargo
         run: cargo build --package nargo_cli --release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package artifacts
         run: |
@@ -519,8 +521,8 @@ jobs:
         working-directory: ./examples/prove_and_verify
         run: ./test.sh
 
-      - name: Run `codegen_verifier`
-        working-directory: ./examples/codegen_verifier
+      - name: Run `solidity_verifier`
+        working-directory: ./examples/solidity_verifier
         run: ./test.sh
 
       - name: Run `oracle_transcript`
@@ -535,7 +537,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJson( needs.critical-library-list.outputs.libraries )}}
-         
+
     name: Check external repo - ${{ matrix.repo }}/${{ matrix.path }}
     steps:
       - name: Checkout
