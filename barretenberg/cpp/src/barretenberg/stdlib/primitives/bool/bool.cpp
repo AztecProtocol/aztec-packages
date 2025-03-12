@@ -442,16 +442,17 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
                                                     const bool_t& rhs)
 {
     if (predicate.is_constant()) {
-        return predicate.get_value() ? lhs : rhs;
+        auto result = bool_t(predicate.get_value() ? lhs : rhs);
+        result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
+        return result;
     }
-    if (lhs.witness_index == rhs.witness_index && lhs.witness_index != IS_CONSTANT &&
-        lhs.witness_inverted == rhs.witness_inverted) {
-        return lhs;
-    }
+
+    bool same = (lhs.witness_index == rhs.witness_index) && (lhs.witness_inverted == rhs.witness_inverted);
+    bool witness_same = same && lhs.witness_index != IS_CONSTANT;
+    bool const_same = same && (lhs.witness_index == IS_CONSTANT) && (lhs.witness_bool == rhs.witness_bool);
     // TODO(alex): reference to the above todo just to not forget to change the lhs.witness_inverted ==
     // rhs.witness_inverted && ... to get_value() == get_value()
-    if (lhs.witness_index == rhs.witness_index && lhs.witness_index == IS_CONSTANT &&
-        lhs.witness_inverted == rhs.witness_inverted && lhs.witness_bool == rhs.witness_bool) {
+    if (witness_same || const_same) {
         return lhs;
     }
     return (predicate && lhs) || (!predicate && rhs);
