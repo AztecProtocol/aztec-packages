@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -124,10 +125,17 @@ describe('journal', () => {
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
       const contractInstance = SerializableContractInstance.default();
+      const siloedNullifier = await siloNullifier(ProtocolContractAddress.ContractInstanceDeployer, address.toField());
+
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
-      mockGetNullifierIndex(treesDB, leafIndex, utxo); // From GetContractInstance via no-merkle-ops
+      mockGetNullifierIndex(treesDB, leafIndex, utxo);
+
       await persistableState.getContractInstance(address);
-      // STH?
+
+      expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
+      expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address);
+      expect(treesDB.getNullifierIndex).toHaveBeenCalledTimes(1);
+      expect(treesDB.getNullifierIndex).toHaveBeenCalledWith(siloedNullifier);
     });
     it('Can get undefined contract instance', async () => {
       await persistableState.getContractInstance(address);

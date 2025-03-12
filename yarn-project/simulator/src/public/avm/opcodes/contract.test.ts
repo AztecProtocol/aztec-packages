@@ -4,13 +4,10 @@ import { SerializableContractInstance } from '@aztec/stdlib/contract';
 
 import { mock } from 'jest-mock-extended';
 
-import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
-import { initContext, initPersistableStateManager } from '../fixtures/index.js';
+import { initContext } from '../fixtures/index.js';
 import type { AvmPersistableStateManager } from '../journal/journal.js';
-import { mockGetContractInstance, mockGetNullifierIndex } from '../test_utils.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {
@@ -20,10 +17,7 @@ describe('Contract opcodes', () => {
   let contractClassId: Fr;
   let initializationHash: Fr;
 
-  let treesDB: PublicTreesDB;
-  let contractsDB: PublicContractsDB;
-  let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: jest.Mocked<AvmPersistableStateManager>;
   let context: AvmContext;
 
   beforeEach(async () => {
@@ -32,10 +26,7 @@ describe('Contract opcodes', () => {
     deployer = contractInstance.deployer;
     contractClassId = contractInstance.currentContractClassId;
     initializationHash = contractInstance.initializationHash;
-    treesDB = mock<PublicTreesDB>();
-    contractsDB = mock<PublicContractsDB>();
-    trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ treesDB, contractsDB, trace });
+    persistableState = mock<AvmPersistableStateManager>();
     context = initContext({ persistableState });
   });
 
@@ -68,9 +59,7 @@ describe('Contract opcodes', () => {
     ])('GETCONTRACTINSTANCE member instruction ', (memberEnum: ContractInstanceMember, valueGetter: () => Fr) => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
         const value = valueGetter();
-        mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
-        // FIXME: This is wrong, should be the siloed address.
-        mockGetNullifierIndex(treesDB, address.toField());
+        persistableState.getContractInstance.mockResolvedValue(contractInstance);
 
         context.machineState.memory.set(0, new Field(address.toField()));
         await new GetContractInstance(
@@ -81,11 +70,8 @@ describe('Contract opcodes', () => {
           memberEnum,
         ).execute(context);
 
-        // DB expectations.
-        expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
-        expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address);
-        expect(treesDB.getNullifierIndex).toHaveBeenCalledTimes(1);
-        // expect(treesDB.getNullifierIndex).toHaveBeenCalledWith(siloedAddress);
+        expect(persistableState.getContractInstance).toHaveBeenCalledTimes(1);
+        expect(persistableState.getContractInstance).toHaveBeenCalledWith(address);
 
         // value should be right
         expect(context.machineState.memory.getTag(1)).toBe(TypeTag.FIELD);
@@ -107,6 +93,8 @@ describe('Contract opcodes', () => {
       'GETCONTRACTINSTANCE member instruction works when contract does not exist',
       (memberEnum: ContractInstanceMember) => {
         it(`'${ContractInstanceMember[memberEnum]}' should be 0 when contract does not exist `, async () => {
+          persistableState.getContractInstance.mockResolvedValue(undefined);
+
           context.machineState.memory.set(0, new Field(address.toField()));
           await new GetContractInstance(
             /*indirect=*/ 0,
@@ -115,11 +103,6 @@ describe('Contract opcodes', () => {
             /*existsOffset=*/ 2,
             memberEnum,
           ).execute(context);
-
-          // DB expectations.
-          expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
-          expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address);
-          expect(treesDB.getNullifierIndex).toHaveBeenCalledTimes(0);
 
           // value should be 0
           expect(context.machineState.memory.getTag(1)).toBe(TypeTag.FIELD);
