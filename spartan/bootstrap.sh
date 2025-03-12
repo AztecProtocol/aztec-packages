@@ -65,7 +65,7 @@ function test_cmds {
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
   fi
 
-  if [ $(dist_tag) == "nightly" || $(dist_tag) == "spy/nightly" ]; then
+  if [ $(dist_tag) == *"nightly"* ]; then
     echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
   fi
