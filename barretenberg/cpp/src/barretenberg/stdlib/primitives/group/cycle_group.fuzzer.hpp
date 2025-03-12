@@ -15,7 +15,7 @@
 // TODO: figure out how to detect w + w = c
 
 // #define SHOW_INFORMATION
-#define SHOW_PRETTY_INFORMATION
+// #define SHOW_PRETTY_INFORMATION
 #define DISABLE_MULTIPLICATION
 
 #ifdef SHOW_INFORMATION
@@ -59,17 +59,17 @@
 
 #ifdef SHOW_PRETTY_INFORMATION
 #define PREP_SINGLE_ARG(stack, first_index, output_index)                                                              \
-    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                               \
-    std::string out = rhs;                                                                                                    \
+    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                        \
+    std::string out = rhs;                                                                                             \
     rhs += std::to_string(first_index);                                                                                \
     out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
     out = (output_index >= stack.size() ? "auto " : "") + out;
 
 #define PREP_TWO_ARG(stack, first_index, second_index, output_index)                                                   \
-    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                               \
-    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";                                              \
-    std::string out =                                                                                                         \
-        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";      \
+    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                        \
+    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";                                       \
+    std::string out =                                                                                                  \
+        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";   \
     lhs += std::to_string(first_index);                                                                                \
     rhs += std::to_string(second_index);                                                                               \
     out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
@@ -800,7 +800,8 @@ template <typename Builder> class CycleGroupBase {
             if (predicate_is_const) {
                 const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
 #ifdef SHOW_PRETTY_INFORMATION
-                std::cout << "bool_t(" << (predicate_has_ctx ? "&builder" : "nullptr") << (predicate ? ",true));" : ",false));");
+                std::cout << "bool_t(" << (predicate_has_ctx ? "&builder," : "nullptr,")
+                          << (predicate ? "true);" : "false);");
 #endif
                 return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
             }
@@ -856,14 +857,8 @@ template <typename Builder> class CycleGroupBase {
 #endif
                     return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
                 case 2:
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << "left + right" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
                 case 3:
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << "right + left" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
                 }
             } else if (other.cg().get_value() == -this->cg().get_value()) {
@@ -879,9 +874,6 @@ template <typename Builder> class CycleGroupBase {
 #endif
                     res = this->cg();
                     res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 1:
 #ifdef SHOW_PRETTY_INFORMATION
@@ -889,19 +881,10 @@ template <typename Builder> class CycleGroupBase {
 #endif
                     res = other.cg();
                     res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << "left + right" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
                 case 3:
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << "right + left" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
                 }
             }
@@ -934,14 +917,8 @@ template <typename Builder> class CycleGroupBase {
 #endif
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
             case 4:
-#ifdef SHOW_PRETTY_INFORMATION
-                std::cout << "left + right;" << std::endl;
-#endif
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
             case 5:
-#ifdef SHOW_PRETTY_INFORMATION
-                std::cout << "right + left;" << std::endl;
-#endif
                 return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
             return {};
@@ -970,9 +947,6 @@ template <typename Builder> class CycleGroupBase {
 #endif
                     return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
                 case 2:
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << "left - right;" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
                 }
             } else if (other.cg().get_value() == this->cg().get_value()) {
@@ -989,9 +963,6 @@ template <typename Builder> class CycleGroupBase {
 #endif
                     res = this->cg();
                     res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 1:
 #ifdef SHOW_PRETTY_INFORMATION
@@ -999,14 +970,8 @@ template <typename Builder> class CycleGroupBase {
 #endif
                     res = other.cg();
                     res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
-#ifdef SHOW_PRETTY_INFORMATION
-                    std::cout << "left - right" << std::endl;
-#endif
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
                 }
             }
@@ -1030,9 +995,6 @@ template <typename Builder> class CycleGroupBase {
                 return ExecutionHandler(
                     base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
             case 2:
-#ifdef SHOW_PRETTY_INFORMATION
-                std::cout << "left - right;" << std::endl;
-#endif
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
             }
             return {};
@@ -1178,6 +1140,9 @@ template <typename Builder> class CycleGroupBase {
             std::cout << "el.set_point_at_infinty(";
 #endif
             res.set_point_at_infinity(this->construct_predicate(builder, set_inf));
+#ifdef SHOW_PRETTY_INFORMATION
+            std::cout << std::endl;
+#endif
             return res;
         }
 
@@ -1549,14 +1514,14 @@ template <typename Builder> class CycleGroupBase {
             ExecutionHandler result;
 
             PRINT_TWO_ARG_INSTRUCTION(
-                first_index, second_index, stack, "Selecting #" + std::to_string(predicate) + " from", ", ")
+                second_index, first_index, stack, "Selecting #" + std::to_string(!predicate) + " from", ", ")
 #ifdef SHOW_PRETTY_INFORMATION
             PREP_TWO_ARG(stack, first_index, second_index, output_index)
-            std::cout << out << " = cycle_group_t::conditional_assign(" << std::endl;
+            std::cout << out << " = cycle_group_t::conditional_assign(";
 #endif
             result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
 #ifdef SHOW_PRETTY_INFORMATION
-            std::cout << lhs << ", " << rhs << ");" << std::endl;
+            std::cout << rhs << ", " << lhs << ");" << std::endl;
 #endif
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
@@ -1722,6 +1687,16 @@ template <typename Builder> class CycleGroupBase {
             if ((AffineElement::one() * element.base_scalar) != AffineElement(element.base)) {
                 std::cerr << "Failed at " << i << " with actual mul value " << element.base
                           << " and value in scalar * CG " << element.cycle_group.get_value() * element.base_scalar
+                          << std::endl;
+                return false;
+            }
+
+            bool fake_standardized = element.cycle_group.is_standard();
+            fake_standardized &= element.cycle_group.is_point_at_infinity().get_value();
+            fake_standardized &= (element.cycle_group.x.get_value() != 0) || (element.cycle_group.y.get_value() != 0);
+            if (fake_standardized) {
+                std::cerr << "Failed at " << i << " with value claimed to be standard((0, 0)) but the actual value is {"
+                          << element.cycle_group.x.get_value() << ", " << element.cycle_group.y.get_value() << "}"
                           << std::endl;
                 return false;
             }
