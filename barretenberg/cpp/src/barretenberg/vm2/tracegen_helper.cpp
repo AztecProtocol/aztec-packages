@@ -280,6 +280,10 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
             // Instruction Fetching
+            // TODO: Define another flavor for LookupIntoDynamicTableGeneric which takes only a prefix of the tuple
+            // as key. This would lower memory and potentially a short speed-up. Here, the two first elements
+            // (pc, bytecode_id) would define a unique key which is much shorter than this tuple which is about
+            // 40 elements long.
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_abs_diff_positive_settings>>(),
