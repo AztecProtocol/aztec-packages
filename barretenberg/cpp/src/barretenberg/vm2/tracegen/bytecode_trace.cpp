@@ -284,6 +284,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
             auto bytecode_at = [&](size_t i) -> uint8_t { return i < bytecode_size ? (*event.bytecode)[i] : 0; };
 
             const bool is_last_of_bytecode = event_indices.back() == idx && bytecode_id != next_bytecode_id;
+            // Note that bytecode_id == next_bytecode_id && event_indices.back() == idx only when bytecode_id == 0
+            // and this is the last interation of outer loop (last bytecode_id).
 
             FF bytecode_id_diff_inv = 0;
             if (is_last_of_bytecode) {

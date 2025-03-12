@@ -95,11 +95,11 @@ class lookup_instr_fetching_abs_diff_positive_relation
     }
 };
 
-/////////////////// lookup_instr_fetching_abs_diff_positive_lo ///////////////////
+/////////////////// lookup_instr_fetching_pc_abs_diff_positive_lo ///////////////////
 
-class lookup_instr_fetching_abs_diff_positive_lo_settings {
+class lookup_instr_fetching_pc_abs_diff_positive_lo_settings {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_ABS_DIFF_POSITIVE_LO";
+    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_PC_ABS_DIFF_POSITIVE_LO";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
 
     static constexpr size_t READ_TERMS = 1;
@@ -114,8 +114,8 @@ class lookup_instr_fetching_abs_diff_positive_lo_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::lookup_instr_fetching_abs_diff_positive_lo_counts;
-    static constexpr Column INVERSES = Column::lookup_instr_fetching_abs_diff_positive_lo_inv;
+    static constexpr Column COUNTS = Column::lookup_instr_fetching_pc_abs_diff_positive_lo_counts;
+    static constexpr Column INVERSES = Column::lookup_instr_fetching_pc_abs_diff_positive_lo_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::instr_fetching_pc_abs_diff_lo
     };
@@ -147,8 +147,8 @@ class lookup_instr_fetching_abs_diff_positive_lo_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_abs_diff_positive_lo_inv(),
-                                     in._lookup_instr_fetching_abs_diff_positive_lo_counts(),
+        return std::forward_as_tuple(in._lookup_instr_fetching_pc_abs_diff_positive_lo_inv(),
+                                     in._lookup_instr_fetching_pc_abs_diff_positive_lo_counts(),
                                      in._instr_fetching_sel(),
                                      in._precomputed_sel_range_16(),
                                      in._instr_fetching_pc_abs_diff_lo(),
@@ -157,17 +157,17 @@ class lookup_instr_fetching_abs_diff_positive_lo_settings {
 };
 
 template <typename FF_>
-class lookup_instr_fetching_abs_diff_positive_lo_relation
-    : public GenericLookupRelation<lookup_instr_fetching_abs_diff_positive_lo_settings, FF_> {
+class lookup_instr_fetching_pc_abs_diff_positive_lo_relation
+    : public GenericLookupRelation<lookup_instr_fetching_pc_abs_diff_positive_lo_settings, FF_> {
   public:
-    using Settings = lookup_instr_fetching_abs_diff_positive_lo_settings;
-    static constexpr std::string_view NAME = lookup_instr_fetching_abs_diff_positive_lo_settings::NAME;
+    using Settings = lookup_instr_fetching_pc_abs_diff_positive_lo_settings;
+    static constexpr std::string_view NAME = lookup_instr_fetching_pc_abs_diff_positive_lo_settings::NAME;
     static constexpr std::string_view RELATION_NAME =
-        lookup_instr_fetching_abs_diff_positive_lo_settings::RELATION_NAME;
+        lookup_instr_fetching_pc_abs_diff_positive_lo_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lookup_instr_fetching_abs_diff_positive_lo_inv.is_zero();
+        return in.lookup_instr_fetching_pc_abs_diff_positive_lo_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -181,11 +181,11 @@ class lookup_instr_fetching_abs_diff_positive_lo_relation
     }
 };
 
-/////////////////// lookup_instr_fetching_abs_diff_positive_hi ///////////////////
+/////////////////// lookup_instr_fetching_pc_abs_diff_positive_hi ///////////////////
 
-class lookup_instr_fetching_abs_diff_positive_hi_settings {
+class lookup_instr_fetching_pc_abs_diff_positive_hi_settings {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_ABS_DIFF_POSITIVE_HI";
+    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_PC_ABS_DIFF_POSITIVE_HI";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
 
     static constexpr size_t READ_TERMS = 1;
@@ -200,8 +200,8 @@ class lookup_instr_fetching_abs_diff_positive_hi_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
-    static constexpr Column COUNTS = Column::lookup_instr_fetching_abs_diff_positive_hi_counts;
-    static constexpr Column INVERSES = Column::lookup_instr_fetching_abs_diff_positive_hi_inv;
+    static constexpr Column COUNTS = Column::lookup_instr_fetching_pc_abs_diff_positive_hi_counts;
+    static constexpr Column INVERSES = Column::lookup_instr_fetching_pc_abs_diff_positive_hi_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::instr_fetching_pc_abs_diff_hi
     };
@@ -233,8 +233,8 @@ class lookup_instr_fetching_abs_diff_positive_hi_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_abs_diff_positive_hi_inv(),
-                                     in._lookup_instr_fetching_abs_diff_positive_hi_counts(),
+        return std::forward_as_tuple(in._lookup_instr_fetching_pc_abs_diff_positive_hi_inv(),
+                                     in._lookup_instr_fetching_pc_abs_diff_positive_hi_counts(),
                                      in._instr_fetching_sel(),
                                      in._precomputed_sel_range_16(),
                                      in._instr_fetching_pc_abs_diff_hi(),
@@ -243,17 +243,17 @@ class lookup_instr_fetching_abs_diff_positive_hi_settings {
 };
 
 template <typename FF_>
-class lookup_instr_fetching_abs_diff_positive_hi_relation
-    : public GenericLookupRelation<lookup_instr_fetching_abs_diff_positive_hi_settings, FF_> {
+class lookup_instr_fetching_pc_abs_diff_positive_hi_relation
+    : public GenericLookupRelation<lookup_instr_fetching_pc_abs_diff_positive_hi_settings, FF_> {
   public:
-    using Settings = lookup_instr_fetching_abs_diff_positive_hi_settings;
-    static constexpr std::string_view NAME = lookup_instr_fetching_abs_diff_positive_hi_settings::NAME;
+    using Settings = lookup_instr_fetching_pc_abs_diff_positive_hi_settings;
+    static constexpr std::string_view NAME = lookup_instr_fetching_pc_abs_diff_positive_hi_settings::NAME;
     static constexpr std::string_view RELATION_NAME =
-        lookup_instr_fetching_abs_diff_positive_hi_settings::RELATION_NAME;
+        lookup_instr_fetching_pc_abs_diff_positive_hi_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lookup_instr_fetching_abs_diff_positive_hi_inv.is_zero();
+        return in.lookup_instr_fetching_pc_abs_diff_positive_hi_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

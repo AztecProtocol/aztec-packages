@@ -12,7 +12,7 @@ template <typename FF_> class instr_fetchingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 4, 3, 5, 3, 3, 4, 3,
+    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 4, 3, 5, 3, 3, 5, 3,
                                                                             4, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -99,7 +99,8 @@ template <typename FF_> class instr_fetchingImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = new_term.instr_fetching_sel * (FF(1) - new_term.instr_fetching_last_of_bytecode) *
+            auto tmp = new_term.instr_fetching_sel * new_term.instr_fetching_sel_shift *
+                       (FF(1) - new_term.instr_fetching_last_of_bytecode) *
                        (new_term.instr_fetching_bytecode_size - new_term.instr_fetching_bytecode_size_shift);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
