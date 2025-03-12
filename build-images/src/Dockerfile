@@ -227,6 +227,7 @@ RUN apt update && \
         zsh \
         inotify-tools \
         protobuf-compiler \
+        libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install osxcross. Requires developer to mount SDK from their mac host.
