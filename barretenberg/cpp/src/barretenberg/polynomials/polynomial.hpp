@@ -330,7 +330,7 @@ template <typename Fr> class Polynomial {
      *        This is a very fast way to zeroize the polynomial tail from new_end_index to the
      *        end. It also means that the new end_index might be smaller than the backed memory.
      */
-    void shrink(const size_t new_end_index);
+    void shrink_end_index(const size_t new_end_index);
 
     /**
      * @brief Copys the polynomial, but with the whole address space usable.

@@ -115,7 +115,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      *
      * Represents the first index after `start_` that is not backed by actual memory. Note however that
      * the backed memory might extend beyond end_ index but will not be accessed anymore. Namely, any
-     * access after after end_ returns zero. (Happens after Polynomial::shrink() call).
+     * access after after end_ returns zero. (Happens after Polynomial::shrink_end_index() call).
      */
     size_t end_ = 0;
 
