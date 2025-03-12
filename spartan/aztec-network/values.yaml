@@ -60,6 +60,7 @@ aztec:
   l1Salt: "42" # leave empty for random salt
   testAccounts: true
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+  manaTarget: "" # use default value
 
   # The derivation path of the calcualted private keys
   # Starting from this index, the number of keys is equal to the number of replicas for the given service
