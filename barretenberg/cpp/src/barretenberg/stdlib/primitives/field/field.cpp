@@ -642,6 +642,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
         .q_o = bb::fr(0),               // c * 0
         .q_c = bb::fr(-1),              // -1
     });
+    context->update_safe_variables(inverse.witness_index);
 }
 
 template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
@@ -738,6 +739,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
     result.witness_bool = is_equal;
 
     field_t x(witness_t(ctx, fc));
+    ctx->update_safe_variables(x.witness_index);
     const field_t& a = *this;
     const field_t& b = other;
     const field_t diff = a - b;

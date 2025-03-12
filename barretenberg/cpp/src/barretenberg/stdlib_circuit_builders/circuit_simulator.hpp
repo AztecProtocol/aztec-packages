@@ -9,6 +9,7 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include <cstdint>
+#include <unordered_set>
 
 namespace bb {
 
@@ -49,6 +50,7 @@ class CircuitSimulatorBN254 {
     size_t num_gates = 0;
     static constexpr uint32_t zero_idx = 0; // Should agree with what is in circuit builders
     std::vector<FF> public_inputs;
+    std::unordered_set<uint32_t> safe_variables;
 
     void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
     {
@@ -207,6 +209,8 @@ class CircuitSimulatorBN254 {
 
     // Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    std::unordered_set<uint32_t> get_safe_variables() {return safe_variables;}
+    void update_safe_variables([[maybe_unused]] uint32_t var_idx){};
 };
 
 class SimulatorCircuitChecker {

@@ -701,6 +701,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const bool_t y_coordinates_match = (y == other.y);
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match).normalize();
     const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match).normalize();
+    context->update_safe_variables(infinity_predicate.witness_index);
 
     auto x1 = x;
     auto y1 = y;
@@ -874,10 +875,7 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     lo.set_origin_tag(in.get_origin_tag());
     hi.set_origin_tag(in.get_origin_tag());
 
-    if constexpr (IS_ULTRA) {
-        Builder *ctx = in.get_context();
-        ctx->safe_variables.insert(in.witness_index); 
-    }
+    in.get_context()->update_safe_variables(in.witness_index);
     cycle_scalar result{ lo, hi, NUM_BITS, skip_primality_test, true };
     return result;
 }
