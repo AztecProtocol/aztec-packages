@@ -32,8 +32,9 @@ import {
   type ContractInstanceWithAddress,
   type NodeInfo,
   type PartialAddress,
+  computeContractAddressFromInstance,
+  getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { EventMetadata, L1EventPayload } from '@aztec/stdlib/event';
 import type { GasFees } from '@aztec/stdlib/gas';
@@ -448,15 +449,7 @@ export class PXEService implements PXE {
         }
         recipient = completeAddress.address;
       }
-      return new UniqueNote(
-        dao.note,
-        recipient,
-        dao.contractAddress,
-        dao.storageSlot,
-        dao.noteTypeId,
-        dao.txHash,
-        dao.nonce,
-      );
+      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.nonce);
     });
     return Promise.all(extendedNotes);
   }
