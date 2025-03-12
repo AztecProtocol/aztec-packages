@@ -73,5 +73,5 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
-  enrichVar('DATA_DIR', path.join(process.env.HOME || '~', '.aztec', 'testnet', 'data'));
+  enrichVar('DATA_DIR', path.join(process.env.HOME || '~', '.aztec', networkName, 'data'));
 }
