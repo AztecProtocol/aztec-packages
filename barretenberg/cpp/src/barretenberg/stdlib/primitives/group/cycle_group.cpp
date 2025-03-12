@@ -253,7 +253,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
-    // TODO(alex): possible optimization: set the point at infinity coordinates to (0: 1) 
+    // TODO(alex): possible optimization: set the point at infinity coordinates to (0: 1)
     // and check whether it's in it's standard form here
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
 
@@ -380,7 +380,8 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         if (lhs_constant && rhs_constant) {
             return cycle_group(x3, y3, /*is_infinity=*/false, /*is_standard=*/true);
         }
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*is_standard=*/true);
+        result =
+            cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*is_standard=*/true);
     } else {
         const auto p1 = get_value();
         const auto p2 = other.get_value();
@@ -453,7 +454,8 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
             if (lhs_constant && rhs_constant) {
                 return cycle_group(x3, y3, /*is_infinity=*/false, /*is_standard=*/true);
             }
-            result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*is_standard=*/true);
+            result = cycle_group(
+                witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*is_standard=*/true);
         } else {
             auto p1 = get_value();
             auto p2 = other.get_value();
@@ -549,10 +551,10 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+(const cycle_group& other) const
 {
-    if(this->_is_infinity.is_constant() && this->_is_infinity.get_value()){
+    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
         return other;
     }
-    if(other._is_infinity.is_constant() && other._is_infinity.get_value()){
+    if (other._is_infinity.is_constant() && other._is_infinity.get_value()) {
         return *this;
     }
 
@@ -625,10 +627,10 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-(const cycle_group& other) const
 {
-    if(this->_is_infinity.is_constant() && this->_is_infinity.get_value()){
+    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
         return -other;
     }
-    if(other._is_infinity.is_constant() && other._is_infinity.get_value()){
+    if (other._is_infinity.is_constant() && other._is_infinity.get_value()) {
         return *this;
     }
 
@@ -1849,13 +1851,11 @@ template <typename Builder> bool_t<Builder> cycle_group<Builder>::operator==(cyc
 {
     this->standardize();
     other.standardize();
-    const auto equal =
-        (x == other.x) && (y == other.y);
+    const auto equal = (x == other.x) && (y == other.y);
     return equal;
 }
 
-template <typename Builder>
-void cycle_group<Builder>::assert_equal(cycle_group& other, std::string const& msg)
+template <typename Builder> void cycle_group<Builder>::assert_equal(cycle_group& other, std::string const& msg)
 {
     this->standardize();
     other.standardize();
@@ -1868,9 +1868,14 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
                                                               const cycle_group& lhs,
                                                               const cycle_group& rhs)
 {
+    bool result_standard = lhs._is_standard && rhs._is_standard;
+    if (predicate.is_constant()) {
+        result_standard = (predicate.get_value() && lhs._is_standard) && (!predicate.get_value() && rhs._is_standard);
+    }
     return { field_t::conditional_assign(predicate, lhs.x, rhs.x),
              field_t::conditional_assign(predicate, lhs.y, rhs.y),
-             bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity()) };
+             bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity()),
+             result_standard };
 };
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/(const cycle_group& /*unused*/) const
 {
