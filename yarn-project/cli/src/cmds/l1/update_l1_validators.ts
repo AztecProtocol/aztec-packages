@@ -10,8 +10,9 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { sleep } from '@aztec/foundation/sleep';
+
 import {
-  EncodeFunctionDataParameters,
+  type EncodeFunctionDataParameters,
   encodeFunctionData,
   createPublicClient,
   createWalletClient,
@@ -27,7 +28,7 @@ import {
   L1TxUtils,
   type L1TxUtilsConfig,
   getL1TxUtilsConfigEnvVars,
-} from '@aztec/ethereum/src/l1_tx_utils.ts';
+} from '@aztec/ethereum/src/l1_tx_utils.js';
 
 export interface RollupCommandArgs {
   rpcUrls: string[];
@@ -124,8 +125,8 @@ export async function addL1Validator({
       const depositFunctionData:  EncodeFunctionDataParameters<typeof RollupAbi, `deposit`> = {
         abi: RollupAbi,
         functionName: `deposit`,
-        args: [validatorAddress, getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
-        .address, withdrawerAddress, config.minimumStake],
+        args: [validatorAddress.toString(), getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
+        .address, withdrawerAddress.toString(), config.minimumStake],
       };
       const encodedDepositData = encodeFunctionData(depositFunctionData);
 
