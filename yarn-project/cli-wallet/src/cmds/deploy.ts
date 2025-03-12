@@ -1,5 +1,5 @@
 import { type AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, Fr, type PXE } from '@aztec/aztec.js';
-import { GITHUB_TAG_PREFIX, encodeArgs, getContractArtifact } from '@aztec/cli/utils';
+import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getInitializer } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
@@ -30,7 +30,7 @@ export async function deploy(
   const constructorArtifact = getInitializer(contractArtifact, initializer);
 
   const nodeInfo = await client.getNodeInfo();
-  const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
+  const expectedAztecNrVersion = `$v${nodeInfo.nodeVersion}`;
   if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
     log(
       `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,

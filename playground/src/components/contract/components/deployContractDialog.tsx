@@ -21,7 +21,6 @@ import {
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/fnParameter';
-import { GITHUB_TAG_PREFIX } from '../../../utils/constants';
 
 const creationForm = css({
   display: 'flex',
@@ -65,7 +64,7 @@ export function DeployContractDialog({
     setLogsOpen(true);
 
     const nodeInfo = await wallet.getNodeInfo();
-    const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
+    const expectedAztecNrVersion = `v${nodeInfo.nodeVersion}`;
     if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
       throw new Error(
         `Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}`,
