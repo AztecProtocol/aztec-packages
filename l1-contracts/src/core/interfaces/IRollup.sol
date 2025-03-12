@@ -68,8 +68,24 @@ struct BlockHeaderValidationFlags {
   bool ignoreSignatures;
 }
 
-// @todo Ideally we should pull these from the code for immutable values
-// to save gas. Consider using constants or more fancy deployments.
+struct GenesisState {
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  bytes32 genesisArchiveRoot;
+  bytes32 genesisBlockHash;
+}
+
+struct RollupConfigInput {
+  uint256 aztecSlotDuration;
+  uint256 aztecEpochDuration;
+  uint256 targetCommitteeSize;
+  uint256 aztecProofSubmissionWindow;
+  uint256 minimumStake;
+  uint256 slashingQuorum;
+  uint256 slashingRoundSize;
+  uint256 manaTarget;
+}
+
 struct RollupConfig {
   uint256 proofSubmissionWindow;
   IERC20 feeAsset;
