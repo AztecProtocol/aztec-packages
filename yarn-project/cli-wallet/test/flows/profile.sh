@@ -14,7 +14,7 @@ aztec-wallet create-authwit transfer_in_private operator -ca token --args accoun
 aztec-wallet add-authwit authwits:last main -f operator
 
 # Write out debug execution steps (used for debugging prover development).
-$tmp=(mktemp -d)
+tmp=(mktemp -d)
 function cleanup {
     rm -rf $tmp
 }
