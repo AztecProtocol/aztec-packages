@@ -28,7 +28,7 @@ import {
   L1TxUtils,
   type L1TxUtilsConfig,
   getL1TxUtilsConfigEnvVars,
-} from '@aztec/ethereum/src/l1_tx_utils.js';
+} from '@aztec/ethereum/src/l1_tx_utils.ts';
 
 export interface RollupCommandArgs {
   rpcUrls: string[];
@@ -126,7 +126,7 @@ export async function addL1Validator({
         abi: RollupAbi,
         functionName: `deposit`,
         args: [validatorAddress.toString(), getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
-        .address, withdrawerAddress.toString(), config.minimumStake],
+        .address, withdrawerAddress ? withdrawerAddress.toString() : validatorAddress.toString(), config.minimumStake],
       };
       const encodedDepositData = encodeFunctionData(depositFunctionData);
 
