@@ -12,7 +12,6 @@ if (NOT(FUZZING) AND NOT(WASM))
         circuit_checker
         ${TRACY_LIBS}
         libdeflate::libdeflate_static
-        ${Protobuf_LIBRARIES}
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(

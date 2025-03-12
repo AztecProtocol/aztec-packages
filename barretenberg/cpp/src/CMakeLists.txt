@@ -259,9 +259,4 @@ if(WASM)
             -ldw -lelf
         )
     endif()
-
-    target_link_libraries(
-        barretenberg.wasm,
-        ${Protobuf_LIBRARIES}
-    )
 endif()
