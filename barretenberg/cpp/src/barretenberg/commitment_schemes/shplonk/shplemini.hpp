@@ -208,6 +208,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {})
 
     {
+        const bool committed_sumcheck = !sumcheck_round_evaluations.empty();
+
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -263,8 +265,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // - Get Shplonk batching challenge
         const Fr shplonk_batching_challenge = transcript->template get_challenge<Fr>("Shplonk:nu");
 
-        const std::vector<Fr> shplonk_batching_challenge_powers = compute_shplonk_batching_challenge_powers(
-            shplonk_batching_challenge, has_zk, !sumcheck_round_evaluations.empty());
+        const std::vector<Fr> shplonk_batching_challenge_powers =
+            compute_shplonk_batching_challenge_powers(shplonk_batching_challenge, has_zk, committed_sumcheck);
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
@@ -290,7 +292,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Compute 1/(z − r), 1/(z + r), 1/(z - r²),  1/(z + r²), … , 1/(z - r²⁽ⁿ⁻¹⁾), 1/(z + r²⁽ⁿ⁻¹⁾)
         // These represent the denominators of the summand terms in Shplonk partially evaluated polynomial Q_z
         const std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
-            log_circuit_size, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
+            shplonk_evaluation_challenge, gemini_eval_challenge_powers);
         // Compute the Shplonk denominator for the interleaved opening claims 1/(z − r^s) where s is the group size
         const Fr interleaving_vanishing_eval =
             (shplonk_evaluation_challenge -
@@ -299,7 +301,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
         // reconstructing the commitment of Q_z
-        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0], // 1/(z - r)
+        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0], // 1/(z − r)
                                                      inverse_vanishing_evals[1], // 1/(z + r)
                                                      shplonk_batching_challenge,
                                                      gemini_evaluation_challenge,
@@ -389,7 +391,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
 
         // Currently, only used in ECCVM
-        if (!sumcheck_round_evaluations.empty()) {
+        if (committed_sumcheck) {
             batch_sumcheck_round_claims(log_circuit_size,
                                         commitments,
                                         scalars,

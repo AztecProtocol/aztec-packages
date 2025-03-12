@@ -69,12 +69,11 @@ template <typename Curve> class ShplonkProver_ {
             // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
             if (claim.gemini_fold) {
                 tmp = claim.polynomial;
-                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx];
+                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx++];
                 tmp.factor_roots(-claim.opening_pair.challenge);
                 // Add the claim quotient to the batched quotient polynomial
                 Q.add_scaled(tmp, current_nu);
                 current_nu *= nu;
-                fold_idx++;
             }
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -172,13 +171,12 @@ template <typename Curve> class ShplonkProver_ {
 
             if (claim.gemini_fold) {
                 tmp = claim.polynomial;
-                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx];
+                tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx++];
                 Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
                 // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
                 G.add_scaled(tmp, -scaling_factor);
 
                 current_nu *= nu_challenge;
-                fold_idx++;
             }
             // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             tmp = claim.polynomial;
@@ -412,12 +410,11 @@ template <typename Curve> class ShplonkVerifier_ {
      * @return \f[ \left( \frac{1}{z + r}, \frac{1}{z-r},  \ldots, \frac{1}{z+r^{2^{d-1}}}, \frac{1}{z-r^{2^{d-1}}}
      * \right) \f]
      */
-    static std::vector<Fr> compute_inverted_gemini_denominators(const size_t num_gemini_claims,
-                                                                const Fr& shplonk_eval_challenge,
+    static std::vector<Fr> compute_inverted_gemini_denominators(const Fr& shplonk_eval_challenge,
                                                                 const std::vector<Fr>& gemini_eval_challenge_powers)
     {
         std::vector<Fr> denominators;
-        denominators.reserve(2 * num_gemini_claims);
+        denominators.reserve(2 * CONST_PROOF_SIZE_LOG_N + 2);
 
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
             // Place 1/(z - r ^ {2^j})
@@ -442,8 +439,7 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
                                                                  bool has_zk = false,
                                                                  bool committed_sumcheck = false)
 {
-    static constexpr size_t NUM_INTERLEAVED_CLAIMS = 2;
-    size_t num_powers = 2 * CONST_PROOF_SIZE_LOG_N + NUM_INTERLEAVED_CLAIMS;
+    size_t num_powers = 2 * CONST_PROOF_SIZE_LOG_N + 2;
 
     if (has_zk) {
         num_powers += NUM_SMALL_IPA_EVALUATIONS;

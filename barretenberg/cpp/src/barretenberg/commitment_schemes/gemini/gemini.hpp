@@ -456,10 +456,10 @@ template <typename Curve> class GeminiVerifier_ {
         // ( [A₀₋], -r, A₀-(-r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, C0_r_neg });
         for (size_t l = 0; l < num_variables - 1; ++l) {
-
+            // ([Aₗ], r^{2ˡ}, Aₗ(r^{2ˡ}) )
             fold_polynomial_opening_claims.emplace_back(
                 OpeningClaim<Curve>{ { r_squares[l + 1], gemini_fold_pos_evaluations[l + 1] }, commitments[l] });
-            // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
+            // ([Aₗ], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
             fold_polynomial_opening_claims.emplace_back(
                 OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
         }

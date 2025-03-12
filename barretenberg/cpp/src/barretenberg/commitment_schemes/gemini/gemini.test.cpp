@@ -12,7 +12,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using Commitment = typename Curve::AffineElement;
 
   public:
-    static constexpr size_t log_n = 3;
+    static constexpr size_t log_n = 4;
     static constexpr size_t n = 1UL << log_n;
 
     using CK = CommitmentKey<Curve>;
@@ -164,7 +164,7 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     Polynomial<Fr> fold_1(n / 2);
     Polynomial<Fr> fold_2(n / 4);
 
-    auto u = this->random_evaluation_point(this->log_n);
+    auto u = this->random_evaluation_point(log_n);
 
     // Generate a random evaluation v, the prover claims that `zero_polynomial`(u) = v
     Fr claimed_multilinear_eval = Fr::random_element();

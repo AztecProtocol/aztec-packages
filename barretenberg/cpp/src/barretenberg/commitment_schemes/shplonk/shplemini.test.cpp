@@ -261,7 +261,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     // Run the ShepliminiVerifier batching method
     std::vector<Fr> inverse_vanishing_evals =
-        ShplonkVerifier::compute_inverted_gemini_denominators(this->log_n + 1, shplonk_eval_challenge, r_squares);
+        ShplonkVerifier::compute_inverted_gemini_denominators(shplonk_eval_challenge, r_squares);
 
     Fr expected_constant_term_accumulator{ 0 };
 
