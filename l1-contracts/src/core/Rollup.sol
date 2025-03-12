@@ -118,6 +118,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getStorage().attesters.length();
   }
 
+  function getManaTarget() external view override(IRollup) returns (uint256) {
+    return FeeLib.getStorage().manaTarget;
+  }
+
+  function getManaLimit() external view override(IRollup) returns (uint256) {
+    return FeeLib.getManaLimit();
+  }
+
   function getTips() external view override(IRollup) returns (ChainTips memory) {
     return STFLib.getStorage().tips;
   }

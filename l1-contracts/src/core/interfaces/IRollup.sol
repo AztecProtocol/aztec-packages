@@ -227,7 +227,8 @@ interface IRollup is IRollupCore {
     returns (bool);
 
   function getProofSubmissionWindow() external view returns (uint256);
-
+  function getManaTarget() external view returns (uint256);
+  function getManaLimit() external view returns (uint256);
   function getProvingCostPerManaInEth() external view returns (EthValue);
 
   function getProvingCostPerManaInFeeAsset() external view returns (FeeAssetValue);

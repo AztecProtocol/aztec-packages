@@ -116,6 +116,16 @@ export class RollupContract {
     return this.rollup.read.getMinimumStake();
   }
 
+  @memoize
+  getManaTarget() {
+    return this.rollup.read.getManaTarget();
+  }
+
+  @memoize
+  getManaLimit() {
+    return this.rollup.read.getManaLimit();
+  }
+
   public async getSlashingProposerAddress() {
     const slasherAddress = await this.rollup.read.getSlasher();
     const slasher = getContract({
