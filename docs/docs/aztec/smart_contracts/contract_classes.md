@@ -4,7 +4,7 @@ tags: [contracts, protocol]
 sidebar_position: 0
 ---
 
-Aztec defines a difference between contract *classes* and contract *instances*. This can be compared to object oriented programming and is different from Ethereum, where every contract's bytecode is deployed to the network and has a unique address.
+Aztec defines a difference between contract *classes* and contract *instances*. This is different from Ethereum, where every contract's bytecode is deployed to the network and has a unique address.
 
 ## Contract classes
 

@@ -6,7 +6,7 @@ tags: [functions, oracles, capsules]
 There are multiple ways to inject data into smart contracts.
 
 1. **Oracles** - fetching data from the outside world
-2. **AuthWits (Authentication Witnesses)** - authorizing an arbitrary action (or piece of data)
+2. **Authwits (Authentication Witnesses)** - authorizing an arbitrary action (or piece of data)
 3. **Capsules** - local data storage in the PXE
 
 ## Oracles
