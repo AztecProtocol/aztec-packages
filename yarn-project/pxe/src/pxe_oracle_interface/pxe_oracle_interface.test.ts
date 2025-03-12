@@ -707,10 +707,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.removeNullifiedNotes(contractAddress);
 
       expect(removeNullifiedNotesSpy).toHaveBeenCalledTimes(1);
-      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith(
-        [requestedNullifier],
-        await recipient.address.toAddressPoint(),
-      );
+      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith([requestedNullifier], recipient.address);
     }, 30_000);
   });
 });
