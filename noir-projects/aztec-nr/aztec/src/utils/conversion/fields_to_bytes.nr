@@ -8,8 +8,14 @@
 /// Converts an input array of fields into a single array of bytes. Use `fields_from_bytes` to obtain the original
 /// field array.
 /// Each field is converted to a 32-byte big-endian array.
-/// Since a field is ~254 bits, you'll end up with a subtle 2-bit "gap" at the big end,
-/// every 32 bytes. Be careful that such a gap doesn't leak information!
+///
+/// For example, if you have a field array [123, 456], it will be converted to a 64-byte array:
+/// [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,123,  // First field (32 bytes)
+///  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,200]  // Second field (32 bytes)
+///
+/// Since a field is ~254 bits, you'll end up with a subtle 2-bit "gap" at the big end, every 32 bytes. Be careful
+/// that such a gap doesn't leak information! This could happen if you for example expected the output to be
+/// indistinguishable from random bytes.
 pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     let mut bytes = [0; 32 * N];
 
@@ -105,5 +111,4 @@ mod tests {
         // This should fail since the last byte is 64 which requires 7 bits
         let _fields = fields_from_bytes(input);
     }
-
 }
