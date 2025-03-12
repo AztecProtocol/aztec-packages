@@ -13,7 +13,8 @@ namespace merkle_check(256);
     pol commit leaf_value;
     pol commit leaf_index;
     pol commit path_len;
-    pol commit expected_tree_root;
+    // TODO(dbanks12): do we need root here. It is not used in vm1?
+    //pol commit expected_tree_root;
     // These are all hinted
     pol commit sibling_value;
 
