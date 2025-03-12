@@ -473,12 +473,13 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
 
-#### Using Tracy to Profile Memory/CPU
+#### Using Tracy to Profile Memory/CPU/Gate Counts
+
+Tracy is a tool that gives us an in-depth look at certain performance related metrics, including memory, CPU usage, time, and circuit gate counts.
 
 See Tracy manual linked here <https://github.com/wolfpld/tracy> for in-depth Tracy documentation.
 
-The basic use of Tracy is to run a benchmark with the `cmake --preset tracy` build type, create a capture file, then
-transfer it to a local machine for interactive UI introspection.
+The basic use of Tracy is to run a benchmark with the `cmake --preset tracy-memory` build type, or any of the other tracy presets, create a capture file, then transfer it to a local machine for interactive UI introspection.
 
 The steps to do this effectively are included in various scripts in cpp/scripts/. The main one to look at is the profile_tracy_capture_mainframe_view_local.sh script. This will capture on the mainframe and copy the script locally for you to view on a GUI. Unfortunately, this script is meant for internal use only, but there exists other variants of this script like profile_tracy_local.sh that don't depend on our internal mainframe.
 
@@ -517,4 +518,4 @@ The main memory graph will only keep track of a sum of active allocations, which
 
 ##### Final Thoughts
 
-It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only this displayed Memory usage number; please account for real memory usage which must include memory fragmentation.
+What's described here is mostly relating to memory, but should in part pertain to time, gate count, and other metric analysis that we have set up with tracy. It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only this displayed Memory usage number; please account for real memory usage which must include memory fragmentation.
