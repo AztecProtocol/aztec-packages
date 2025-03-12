@@ -33,6 +33,7 @@ export async function getL1ContractsConfig(
     governanceProposerRoundSize,
     slashingQuorum,
     slashingRoundSize,
+    manaTarget,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
@@ -45,6 +46,7 @@ export async function getL1ContractsConfig(
     governanceProposer.getRoundSize(),
     slasherProposer.getQuorumSize(),
     slasherProposer.getRoundSize(),
+    rollup.getManaTarget(),
   ] as const);
 
   return {
@@ -59,6 +61,7 @@ export async function getL1ContractsConfig(
     minimumStake,
     slashingQuorum: Number(slashingQuorum),
     slashingRoundSize: Number(slashingRoundSize),
+    manaTarget: manaTarget,
   };
 }
 
