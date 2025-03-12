@@ -59,6 +59,7 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
 }
 
 mod tests {
+    use crate::utils::array::subarray;
     use super::{fields_from_bytes, fields_to_bytes};
 
     #[test]
@@ -75,11 +76,9 @@ mod tests {
         // Convert back to fields
         let fields_back = fields_from_bytes(bytes_as_bounded_vec);
 
-        // We also convert the input to a BoundedVec to be able to compare.
-        let input_as_bounded_vec = BoundedVec::<_, 3>::from_array(input);
-
         // Compare the original input with the round-tripped result
-        assert_eq(input_as_bounded_vec, fields_back);
+        assert_eq(fields_back.len(), input.len());
+        assert_eq(subarray(fields_back.storage(), 0), input);
     }
 
     #[test(should_fail_with = "Input length must be a multiple of 32")]

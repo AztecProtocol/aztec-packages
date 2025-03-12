@@ -61,6 +61,7 @@ pub fn bytes_from_fields<let N: u32>(fields: BoundedVec<Field, N>) -> BoundedVec
 }
 
 mod tests {
+    use crate::utils::array::subarray;
     use super::{bytes_from_fields, bytes_to_fields};
 
     #[test]
@@ -74,8 +75,8 @@ mod tests {
 
         let bytes_back = bytes_from_fields(fields_as_bounded_vec);
 
-        // We also convert the input to a BoundedVec to be able to compare.
-        let input_as_bounded_vec = BoundedVec::from_array(input);
-        assert_eq(bytes_back, input_as_bounded_vec);
+        // Compare the original input with the round-tripped result
+        assert_eq(bytes_back.len(), input.len());
+        assert_eq(subarray(bytes_back.storage(), 0), input);
     }
 }
