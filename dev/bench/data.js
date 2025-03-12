@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741797642101,
+  "lastUpdate": 1741797747551,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dcba7a49a4fefcbe6db4f28d7bb7e0986e31c30d",
-          "message": "feat: nullify just-added notes (#12552)\n\nBack when PXE was a service processing all blocks, we'd remove nullified\nnotes as we saw their nullifiers. This later got changed, and as of\nhttps://github.com/AztecProtocol/aztec-packages/pull/10722 we remove all\nnullified notes whenever we 'sync' notes. However, note syncing is\nbecoming less and less a part of PXE, and as of\nhttps://github.com/AztecProtocol/aztec-packages/pull/12391 we even\ndeliver notes _outside_ of the PXE-led note syncing process (whenever we\ncomplete partial note). This causes problems because we end up adding\nnotes, failing to realize they've been nullified and then returning them\nvia `get_notes` (which is what causes some tests in\nhttps://github.com/AztecProtocol/aztec-packages/pull/12391 to fail). The\nnext time a contract function is run we'll do note syncing again and\nthey'll be then removed, but we did have a full fn call in which they\nwere available.\n\nThis PR makes it so we always check if newly-added notes have been\nnullified, and remove them if so. I also added some explanations re. why\nwe're doing things this way, created some follow-up issues (mostly\n#12550 and\nhttps://github.com/AztecProtocol/aztec-packages/issues/12553), and\ninlined `produceNoteDaos` to have the whole thing happen in a single\nplace. I think it's now more readable but potentially slightly large -\nperhaps this will improve as we split `PxeOracleInterface` in multiple\nfiles or modules.",
-          "timestamp": "2025-03-07T02:19:04Z",
-          "tree_id": "f9d4217d21979ec659e5b28e9488d6811159a0ea",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dcba7a49a4fefcbe6db4f28d7bb7e0986e31c30d"
-        },
-        "date": 1741315569809,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18227.74790700009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16011.127119999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18677.2359229999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16391.866535 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3889.9609000000055,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3105.319923 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55150.87788,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55150878000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11676.987714,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11676991000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1927901363,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1927901363 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 218071212,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 218071212 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 233776250,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 233776250 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d12a5b8c2b99bc2161c07b5936e865ce6daf2d6d",
+          "message": "chore(master): release 0.80.0 (#12654)\n\n:robot: I have created a new Aztec Packages release\n---\n\n\n##\n[0.80.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.79.0...v0.80.0)\n(2025-03-12)\n\n\n### ⚠ BREAKING CHANGES\n\n* disable PXE concurrency\n([#12637](https://github.com/AztecProtocol/aztec-packages/issues/12637))\n\n### Features\n\n* add inspect command to bootstrap\n([#12641](https://github.com/AztecProtocol/aztec-packages/issues/12641))\n([2f0c527](https://github.com/AztecProtocol/aztec-packages/commit/2f0c5273571d4c8d28d0fff1dbe1cbdb527ba708))\n* disable PXE concurrency\n([#12637](https://github.com/AztecProtocol/aztec-packages/issues/12637))\n([2716898](https://github.com/AztecProtocol/aztec-packages/commit/27168983deb9346aacc68b43938a86a442aa01e4))\n* remove public bytecode from ts ContractArtifact\n([#12653](https://github.com/AztecProtocol/aztec-packages/issues/12653))\n([6345158](https://github.com/AztecProtocol/aztec-packages/commit/6345158022a55ea1e0ccdd874d12bbcb39d3c639))\n\n\n### Bug Fixes\n\n* **cli:** fix tag resolution for `aztec update --contract`\n([#12657](https://github.com/AztecProtocol/aztec-packages/issues/12657))\n([b58c123](https://github.com/AztecProtocol/aztec-packages/commit/b58c123972a136f4df904bbd57bde1115a6f9171))\n* **docs:** Fix link to source code after code snippets\n([#12658](https://github.com/AztecProtocol/aztec-packages/issues/12658))\n([8bc5daf](https://github.com/AztecProtocol/aztec-packages/commit/8bc5daf4471d85b6d970bb3d25defbe8c5dcb0da))\n* fix yarn-project typos in release\n([#12652](https://github.com/AztecProtocol/aztec-packages/issues/12652))\n([93a6f4e](https://github.com/AztecProtocol/aztec-packages/commit/93a6f4e6aba7b95d1fa95524033b89fe1e9b6e00))\n* handling undefined block number in sync data provider txe\n([#12605](https://github.com/AztecProtocol/aztec-packages/issues/12605))\n([b764a9a](https://github.com/AztecProtocol/aztec-packages/commit/b764a9a48a19c4803671876f9df8b7af53fe3e49))\n* Inject blob sink client config to archiver start\n([#12675](https://github.com/AztecProtocol/aztec-packages/issues/12675))\n([e2e857b](https://github.com/AztecProtocol/aztec-packages/commit/e2e857b5c12e220cb293dd7a681aaa7c3571fb97))\n* Load config from env on archiver start\n([#12662](https://github.com/AztecProtocol/aztec-packages/issues/12662))\n([79579f3](https://github.com/AztecProtocol/aztec-packages/commit/79579f3c4fda4e3654d2b04ba4ea316c5b5f1dee))\n\n\n### Miscellaneous\n\n* aztec start should use pxe proving by default\n([#12676](https://github.com/AztecProtocol/aztec-packages/issues/12676))\n([80cd840](https://github.com/AztecProtocol/aztec-packages/commit/80cd840a188ae14a313e15e46f642a05bbccfbb4)),\ncloses\n[#12677](https://github.com/AztecProtocol/aztec-packages/issues/12677)\n* downgrade undici so its engine spec is compatible\n([#12659](https://github.com/AztecProtocol/aztec-packages/issues/12659))\n([4f815ea](https://github.com/AztecProtocol/aztec-packages/commit/4f815ea3a25bf157d49afc9c3948341fbda89f34)),\ncloses\n[#12645](https://github.com/AztecProtocol/aztec-packages/issues/12645)\n* fix warning in aztec-nr\n([#12647](https://github.com/AztecProtocol/aztec-packages/issues/12647))\n([3831bab](https://github.com/AztecProtocol/aztec-packages/commit/3831bab7c40acd9aa2c0714bb61a08d6d613175e))\n* Merge is part of verification queue\n([#12612](https://github.com/AztecProtocol/aztec-packages/issues/12612))\n([e324582](https://github.com/AztecProtocol/aztec-packages/commit/e3245823b0abdb351dddce2c9f821f28d691cd61))\n* Remove roots arg on __compute_fracs in blob lib\n([#12663](https://github.com/AztecProtocol/aztec-packages/issues/12663))\n([8ec910b](https://github.com/AztecProtocol/aztec-packages/commit/8ec910b794ba3afa28517a7a58abe59bcf9560d7))\n* replace relative paths to noir-protocol-circuits\n([f684528](https://github.com/AztecProtocol/aztec-packages/commit/f684528b268a958388f24c71b9e2b01013e21eb5))\n* test cli upgrade\n([#12506](https://github.com/AztecProtocol/aztec-packages/issues/12506))\n([fc728f3](https://github.com/AztecProtocol/aztec-packages/commit/fc728f379c6c670664b7db6445d0a9b42294a685))\n\n\n### Documentation\n\n* **feat:** Aztec js intro page\n([#11804](https://github.com/AztecProtocol/aztec-packages/issues/11804))\n([12d8f3f](https://github.com/AztecProtocol/aztec-packages/commit/12d8f3ffd4f7319e21d79002389cf19a8ebfc4bc))\n\n---\nThis PR was generated with [Release\nPlease](https://github.com/googleapis/release-please). See\n[documentation](https://github.com/googleapis/release-please#release-please).",
+          "timestamp": "2025-03-12T16:25:48Z",
+          "tree_id": "340f893425aec17003c619315293ffd8f983b093",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d12a5b8c2b99bc2161c07b5936e865ce6daf2d6d"
+        },
+        "date": 1741797736266,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18189.49798899996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15865.457234000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18654.62352099996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16232.521008 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3810.580996999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3230.1667319999992 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54142.440101,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54142440000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9854.99774,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9855000000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1633336930,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1633336930 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 216946952,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 216946952 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
