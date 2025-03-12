@@ -72,7 +72,7 @@ join_split_tx zero_input_setup(const user_context& user)
     return tx;
 }
 
-TEST(boomerang_join_split, graph_description_firt_test)
+TEST(boomerang_join_split, graph_description_first_test)
 {
     user_context user = join_split_example::fixtures::create_user_context();
     join_split_tx tx = zero_input_setup(user);
@@ -85,7 +85,7 @@ TEST(boomerang_join_split, graph_description_firt_test)
     auto circuit = new_join_split_circuit(tx);
     auto graph = Graph(circuit);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit);
-    //graph.print_variable_in_one_gate(circuit, 5517);
+    graph.print_variable_in_one_gate(circuit, 5517);
     info("size of variables_in_one_gate == ", variables_in_one_gate.size());
     for (const auto& elem: variables_in_one_gate) {
         info("elem == ", elem);
