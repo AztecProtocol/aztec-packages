@@ -627,11 +627,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-(const cycle_group& other) const
 {
-    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
-        return -other;
-    }
     if (other._is_infinity.is_constant() && other._is_infinity.get_value()) {
         return *this;
+    }
+    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+        return -other;
     }
 
     Builder* context = get_context(other);
