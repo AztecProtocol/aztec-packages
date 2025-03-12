@@ -148,28 +148,21 @@ describe('e2e_crowdfunding_and_claim', () => {
   it('full donor flow', async () => {
     const donationAmount = 1000n;
 
-    // 1) We add authwit so that the Crowdfunding contract can transfer donor's DNT
+    // 1) We create an authwit so that the Crowdfunding contract can transfer donor's DNT and donate
     {
       const action = donationToken
         .withWallet(donorWallets[0])
         .methods.transfer_in_private(donorWallets[0].getAddress(), crowdfundingContract.address, donationAmount, 0);
       const witness = await donorWallets[0].createAuthWit({ caller: crowdfundingContract.address, action });
-      await donorWallets[0].addAuthWitness(witness);
-    }
-
-    // 2) We donate to the crowdfunding contract
-    {
       const donateTxReceipt = await crowdfundingContract
         .withWallet(donorWallets[0])
         .methods.donate(donationAmount)
-        .send()
-        .wait({
-          debug: true,
-        });
+        .send({ authwits: [witness] })
+        .wait();
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
       await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
-      const notes = await donorWallets[0].getNotes({ txHash: donateTxReceipt.txHash });
+      const notes = await pxe.getNotes({ txHash: donateTxReceipt.txHash });
       const filteredNotes = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
       expect(filteredNotes!.length).toEqual(1);
 
@@ -177,9 +170,9 @@ describe('e2e_crowdfunding_and_claim', () => {
       uintNote = processUniqueNote(filteredNotes![0]);
     }
 
-    // 3) We claim the reward token via the Claim contract
+    // 2) We claim the reward token via the Claim contract
     {
-      // We allow the donor wallet to use the crowdfunding contract's notes
+      // We allow the donor wallet to use the crowdfunding contract's notes∫
       donorWallets[0].setScopes([donorWallets[0].getAddress(), crowdfundingContract.address]);
 
       await claimContract
