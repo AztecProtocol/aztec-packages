@@ -444,7 +444,7 @@ export class PXEService implements PXE {
         );
         const completeAddress = completeAddresses[completeAddressIndex];
         if (completeAddress === undefined) {
-          throw new Error(`Cannot find complete address for addressPoint ${dao.recipient.toString()}`);
+          throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
         }
         recipient = completeAddress.address;
       }
