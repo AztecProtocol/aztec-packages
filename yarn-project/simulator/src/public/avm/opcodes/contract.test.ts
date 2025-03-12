@@ -69,6 +69,7 @@ describe('Contract opcodes', () => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
         const value = valueGetter();
         mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
+        // FIXME: This is wrong, should be the siloed address.
         mockGetNullifierIndex(treesDB, address.toField());
 
         context.machineState.memory.set(0, new Field(address.toField()));
@@ -79,6 +80,12 @@ describe('Contract opcodes', () => {
           /*existsOffset=*/ 2,
           memberEnum,
         ).execute(context);
+
+        // DB expectations.
+        expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
+        expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address);
+        expect(treesDB.getNullifierIndex).toHaveBeenCalledTimes(1);
+        // expect(treesDB.getNullifierIndex).toHaveBeenCalledWith(siloedAddress);
 
         // value should be right
         expect(context.machineState.memory.getTag(1)).toBe(TypeTag.FIELD);
@@ -108,6 +115,11 @@ describe('Contract opcodes', () => {
             /*existsOffset=*/ 2,
             memberEnum,
           ).execute(context);
+
+          // DB expectations.
+          expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
+          expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address);
+          expect(treesDB.getNullifierIndex).toHaveBeenCalledTimes(0);
 
           // value should be 0
           expect(context.machineState.memory.getTag(1)).toBe(TypeTag.FIELD);

@@ -238,11 +238,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  // TODO(fcarreiro): seems weird to me that we are limiting the number of contract classes but not instances.
-  // I know this came from getBytecode but at some point we might want to rething this. Even if we hint
-  // contract classes, we could still trace "get bytecode" and count that if that's what we want.
-  // But maybe that's not what we want, and we want to limit the number of contract classes due to hashing.
   public traceGetContractClass(contractClassId: Fr, exists: boolean) {
+    // We limit the number of unique contract class IDs due to hashing and the trace length limit.
     if (exists && !this.uniqueClassIds.has(contractClassId.toString())) {
       if (this.uniqueClassIds.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
         this.log.debug(`Bytecode retrieval failure for contract class ID ${contractClassId} (limit reached)`);
