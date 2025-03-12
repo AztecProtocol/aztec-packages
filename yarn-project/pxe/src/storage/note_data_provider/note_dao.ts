@@ -2,7 +2,6 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { NoteData } from '@aztec/simulator/client';
-import { NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note } from '@aztec/stdlib/note';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -57,11 +56,6 @@ export class NoteDao implements NoteData {
      * (This is the x-coordinate of the public key.)
      */
     public recipient: AztecAddress,
-
-    /** The note type identifier for the contract.
-     * TODO(#12013): remove
-     */
-    public noteTypeId: NoteSelector,
   ) {}
 
   toBuffer(): Buffer {
@@ -77,7 +71,6 @@ export class NoteDao implements NoteData {
       Fr.fromHexString(this.l2BlockHash),
       this.index,
       this.recipient,
-      this.noteTypeId,
     ]);
   }
 
@@ -95,7 +88,6 @@ export class NoteDao implements NoteData {
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const index = toBigIntBE(reader.readBytes(32));
     const recipient = AztecAddress.fromBuffer(reader);
-    const noteTypeId = reader.readObject(NoteSelector);
 
     return new NoteDao(
       note,
@@ -109,7 +101,6 @@ export class NoteDao implements NoteData {
       l2BlockHash,
       index,
       recipient,
-      noteTypeId,
     );
   }
 
@@ -144,7 +135,6 @@ export class NoteDao implements NoteData {
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
     recipient = undefined,
-    noteTypeId = NoteSelector.random(),
   }: Partial<NoteDao> = {}) {
     return new NoteDao(
       note,
@@ -158,7 +148,6 @@ export class NoteDao implements NoteData {
       l2BlockHash,
       index,
       recipient ?? (await AztecAddress.random()),
-      noteTypeId,
     );
   }
 }

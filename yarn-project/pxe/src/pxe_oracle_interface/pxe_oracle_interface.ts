@@ -10,14 +10,17 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import type { KeyStore } from '@aztec/key-store';
-import { AcirSimulator, type ExecutionDataProvider, type SimulationProvider } from '@aztec/simulator/client';
-import { MessageLoadOracleInputs } from '@aztec/simulator/client';
+import {
+  AcirSimulator,
+  type ExecutionDataProvider,
+  MessageLoadOracleInputs,
+  type SimulationProvider,
+} from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
   FunctionCall,
   FunctionSelector,
   FunctionType,
-  NoteSelector,
   encodeArguments,
   getFunctionArtifact,
 } from '@aztec/stdlib/abi';
@@ -761,7 +764,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       txReceipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
       recipient,
-      NoteSelector.empty(), // TODO(#12013): remove
     );
 
     await this.noteDataProvider.addNotes([noteDao], recipient);
