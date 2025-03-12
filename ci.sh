@@ -1,6 +1,6 @@
 #!/bin/bash
-source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
+source $(git rev-parse --show-toplevel)/source
+source $source_redis
 
 cmd=${1:-}
 arch=${ARCH:-$(arch)}
@@ -17,27 +17,28 @@ function echo_cmd {
 function print_usage {
   echo "usage: $(basename $0) <cmd>"
   echo
-  echo_cmd "ec2"          "Launch an ec2 instance and './bootstrap.sh ci' on it.\n" \
-                          "Exactly what Github Action's does, but doesn't touch GA."
-  echo_cmd "ec2-no-cache" "Same as ec2, but perform a full build and test (disable build and test cache)."
-  echo_cmd "ec2-test"     "Same as ec2, but run all tests (disable test cache)."
-  echo_cmd "ec2-grind"    "Same as ec2-test, but run over N instances."
-  echo_cmd "ec2-shell"    "Launch an ec2 instance, clone the repo and drop into a shell."
-  echo_cmd "local"        "Clone your last commit into a fresh container and bootstrap on local hardware."
-  echo_cmd "run"          "Same as calling trigger, then rlog."
-  echo_cmd "shell"        "Jump into a new shell on the current running build instance.\n" \
-                          "Can provide a command to run instead of dropping into a shell, e.g. 'ci shell ls'."
-  echo_cmd "trigger"      "Trigger the GA workflow on the PR associated with the current branch.\n" \
-                          "Effectively the same as ec2, only the results will be tracked on your PR."
-  echo_cmd "rlog"         "Will tail the logs of the latest GA run, or tail/dump the given GA run id."
-  echo_cmd "ilog"         "Will tail the logs of the current running build instance."
-  echo_cmd "dlog"         "Display the log of the given denoise log id."
-  echo_cmd "llog"         "Tail the live log of a given log id."
-  echo_cmd "tlog"         "Display the last log of the given test command as output by test_cmds."
-  echo_cmd "tilog"        "Tail the live log of a given test command as output by test_cmds."
-  echo_cmd "shell-host"   "Connect to host instance of the current running build."
-  echo_cmd "draft"        "Mark current PR as draft (no automatic CI runs when pushing)."
-  echo_cmd "ready"        "Mark current PR as ready (enable automatic CI runs when pushing)."
+  echo_cmd "ec2"            "Launch an ec2 instance and './bootstrap.sh ci' on it.\n" \
+                            "Exactly what Github Action's does, but doesn't touch GA."
+  echo_cmd "ec2-no-cache"   "Same as ec2, but perform a full build and test (disable build and test cache)."
+  echo_cmd "ec2-test"       "Same as ec2, but run all tests (disable test cache)."
+  echo_cmd "ec2-grind"      "Same as ec2-test, but run over N instances."
+  echo_cmd "ec2-shell"      "Launch an ec2 instance, clone the repo and drop into a shell."
+  echo_cmd "local"          "Clone your last commit into a fresh container and bootstrap on local hardware."
+  echo_cmd "run"            "Same as calling trigger, then rlog."
+  echo_cmd "shell"          "Jump into a new shell on the current running build instance.\n" \
+                            "Can provide a command to run instead of dropping into a shell, e.g. 'ci shell ls'."
+  echo_cmd "trigger"        "Trigger the GA workflow on the PR associated with the current branch.\n" \
+                            "Effectively the same as ec2, only the results will be tracked on your PR."
+  echo_cmd "rlog"           "Will tail the logs of the latest GA run, or tail/dump the given GA run id."
+  echo_cmd "ilog"           "Will tail the logs of the current running build instance."
+  echo_cmd "dlog"           "Display the log of the given denoise log id."
+  echo_cmd "llog"           "Tail the live log of a given log id."
+  echo_cmd "tlog"           "Display the last log of the given test command as output by test_cmds."
+  echo_cmd "tilog"          "Tail the live log of a given test command as output by test_cmds."
+  echo_cmd "shell-host"     "Connect to host instance of the current running build."
+  echo_cmd "draft"          "Mark current PR as draft (no automatic CI runs when pushing)."
+  echo_cmd "uncached-tests" "List tests that will run/did not finish in a CI pass for this commit."
+  echo_cmd "ready"          "Mark current PR as ready (enable automatic CI runs when pushing)."
 }
 
 [ -n "$cmd" ] && shift
@@ -60,7 +61,7 @@ function get_latest_run_id {
 function tail_live_instance {
   get_ip_for_instance
   [ -z "$ip" ] && return 1;
-  ssh -F $ci3/aws/build_instance_ssh_config -q -t -o ConnectTimeout=5 ubuntu@$ip "
+  ssh -F $aws/build_instance_ssh_config -q -t -o ConnectTimeout=5 ubuntu@$ip "
     trap 'exit 0' SIGINT
     docker ps -a --filter name=aztec_build --format '{{.Names}}' | grep -q '^aztec_build$' || exit 1
     docker logs -f aztec_build
@@ -106,7 +107,7 @@ case "$cmd" in
     get_ip_for_instance
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     [ "$#" -eq 0 ] && set -- "zsh" || true
-    ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
+    ssh -tq -F $aws/build_instance_ssh_config ubuntu@$ip \
       "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
     ;;
   "trigger")
@@ -181,7 +182,7 @@ case "$cmd" in
   "shell-host")
     get_ip_for_instance
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    ssh -t -F $aws/build_instance_ssh_config ubuntu@$ip
     ;;
   "kill")
     existing_instance=$(aws ec2 describe-instances \
@@ -237,6 +238,23 @@ case "$cmd" in
     ;;
   "help"|"")
     print_usage
+    ;;
+  "gh-bench")
+    bb_hash=$(barretenberg/bootstrap.sh hash)
+    # Run benchmark logic for github actions.
+    published_status=$(redis_cli --raw GET publish-bb-$bb_hash)
+    if [ -n "$published_status" ]; then
+      echo "No changes since last master, skipping barretenberg benchmarks"
+      echo "SKIP_BB_BENCH=true" >> $GITHUB_ENV
+    else
+      cache_download barretenberg-bench-results-$(barretenberg/bootstrap.sh hash).tar.gz
+      seven_days=$((7 * 24 * 60 * 60)) # in seconds
+      echo "published" | redis_setexz publish-bb-$bb_hash $seven_days
+    fi
+    # TODO(AD) handle yarn-project similarly
+    cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
+    # TODO reenable
+    # ./cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
     ;;
   *)
     echo "Unknown command: $cmd, see ./ci.sh help"
