@@ -23,7 +23,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     }
 
     size_t key_idx = 0;
-    for (auto& [proof, merge_proof, vkey, type] : verification_queue) {
+    for (const auto& [proof, merge_proof, vkey, type] : verification_queue) {
         // Construct stdlib proof directly from the internal native queue data
         auto stdlib_proof = bb::convert_native_proof_to_stdlib(&circuit, proof);
         auto stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&circuit, merge_proof);
@@ -123,7 +123,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Perform recursive verification and databus consistency checks for each entry in the verification queue
-    for (auto& verifier_input : stdlib_verification_queue) {
+    for (const auto& verifier_input : stdlib_verification_queue) {
         perform_recursive_verification_and_databus_consistency_checks(circuit, verifier_input);
     }
     stdlib_verification_queue.clear();
