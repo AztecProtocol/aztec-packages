@@ -106,6 +106,12 @@ export class ProverNodePublisher {
         return false;
       }
 
+      try {
+        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+      } catch (err) {
+        this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
+      }
+
       // Tx was mined successfully
       if (txReceipt.status) {
         const tx = await this.l1TxUtils.getTransactionStats(txReceipt.transactionHash);
@@ -252,15 +258,15 @@ export class ProverNodePublisher {
     return [
       BigInt(args.fromBlock),
       BigInt(args.toBlock),
-      [
-        args.publicInputs.previousArchive.root.toString(),
-        args.publicInputs.endArchive.root.toString(),
-        args.publicInputs.previousBlockHash.toString(),
-        args.publicInputs.endBlockHash.toString(),
-        args.publicInputs.endTimestamp.toString(),
-        args.publicInputs.outHash.toString(),
-        args.publicInputs.proverId.toString(),
-      ],
+      {
+        previousArchive: args.publicInputs.previousArchive.root.toString(),
+        endArchive: args.publicInputs.endArchive.root.toString(),
+        previousBlockHash: args.publicInputs.previousBlockHash.toString(),
+        endBlockHash: args.publicInputs.endBlockHash.toString(),
+        endTimestamp: args.publicInputs.endTimestamp.toBigInt(),
+        outHash: args.publicInputs.outHash.toString(),
+        proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
+      },
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()

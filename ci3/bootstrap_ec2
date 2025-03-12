@@ -23,12 +23,12 @@ cores=${CPUS:-$cores}
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
-    set +e
-    if [ "$NO_TERMINATE" -eq 0 ]; then
-      aws_terminate_instance $iid $sir
-    else
-      echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
-    fi
+  set +e
+  if [ "$NO_TERMINATE" -eq 0 ]; then
+    aws_terminate_instance $iid $sir
+  else
+    echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
+  fi
 }
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
@@ -43,6 +43,14 @@ if [ "$REF_NAME" == "master" ]; then
   instance_name="$current_commit"_$arch
 else
   instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
+fi
+
+if semver check $REF_NAME; then
+  # Override the public key that aws will load into ~/.ssh/authorized_keys on the launched instance.
+  # This requires the restricted key only available in release environments.
+  key_name="super-build-instance"
+else
+  key_name="build-instance"
 fi
 
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
@@ -60,12 +68,23 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(aws_request_instance $instance_name $cores $arch)
+ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
 IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
 trap on_exit EXIT
+
+# If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+  if [ ! -f ~/.aws/build_instance_credentials ]; then
+    echo "No aws credentials found in env or ~/.aws/build_instance_credentials."
+    exit 1
+  fi
+  echo "AWS credentials are being set from ~/.aws/build_instance_credentials."
+  export AWS_ACCESS_KEY_ID=$(grep aws_access_key_id ~/.aws/build_instance_credentials | awk '{print $3}')
+  export AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/build_instance_credentials | awk '{print $3}')
+fi
 
 # If we're asking to not terminate the instance automatically, we also don't want to remove the container.
 [ "$NO_TERMINATE" -eq 0 ] && docker_args+=" --rm"
@@ -85,7 +104,7 @@ if [ -t 1 ]; then
   fi
 else
   # LOG_ID can optionally be set externally to be e.g. the GA run id.
-  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
+  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
 container_script=$(cat <<EOF
@@ -94,26 +113,38 @@ container_script=$(cat <<EOF
   while [ -f started ]; do sleep 999; done
   touch started
   sudo chown aztec-dev:aztec-dev aztec-packages
+  # Set up preferred commit attribution (used during releases).
+  git config --global user.email "tech@aztecprotocol.com"
+  git config --global user.name "AztecBot"
   cd aztec-packages
   git config --global advice.detachedHead false
   git init . &>/dev/null
   git remote add origin https://github.com/aztecprotocol/aztec-packages
   git fetch --depth 1 origin $current_commit
   git checkout FETCH_HEAD
-  git checkout -b $REF_NAME
-  export CI_FULL=$CI_FULL
-  export DRY_RUN=${DRY_RUN:-0}
+  git checkout -b \$REF_NAME
   source ci3/source
+  source ci3/source_refname
+  source ci3/source_redis
+  ci_log_id=\$(log_ci_run)
 
-  if [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
-    echo ${DOCKERHUB_PASSWORD:-} | docker login -u aztecprotocolci --password-stdin
+  # Heartbeat.
+  while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
+
+  echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI_FULL=\$CI_FULL DRY_RUN=\${DRY_RUN:-0}"
+  if semver check "\$REF_NAME"; then
+    echo "Performing a release because \$REF_NAME is a semver."
   fi
-  echo "env: REF_NAME=$REF_NAME COMMIT_HASH=$COMMIT_HASH CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL DRY_RUN=${DRY_RUN:-0}"
-  if semver check "$REF_NAME"; then
-    echo "Performing a release because $REF_NAME is a semver."
-  fi
+  set +e
   set -x
   $cmd
+  code=\$?
+  case \$code in
+    155) ;;
+    0) log_ci_run PASSED \$ci_log_id ;;
+    *) log_ci_run FAILED \$ci_log_id ;;
+  esac
+  exit \$code
 EOF
 )
 
@@ -156,11 +187,20 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e SSH_CONNECTION=' ' \
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \
+    -e CI=$CI \
+    -e CI_FULL=$CI_FULL \
+    -e DRY_RUN=${DRY_RUN:-0} \
+    -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
+    -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+    -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
     -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
     -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
     -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
+    -e NPM_TOKEN=${NPM_TOKEN:-} \
     -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+    -e REF_NAME=${REF_NAME:-} \
+    -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
 "

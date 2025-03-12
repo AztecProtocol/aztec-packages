@@ -4,7 +4,9 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {BlockLog, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  BlockLog, SubmitEpochRootProofArgs, PublicInputArgs
+} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -13,9 +15,7 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {
-  ProposeArgs, OracleInput, ProposeLib
-} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -65,15 +65,15 @@ contract RollupBase is DecoderBase {
     BlockLog memory parentBlockLog = rollup.getBlock(startBlockNumber - 1);
 
     // What are these even?
-    bytes32[7] memory args = [
-      parentBlockLog.archive,
-      endFull.block.archive,
-      parentBlockLog.blockHash,
-      endFull.block.blockHash,
-      bytes32(0), // WHAT ?
-      bytes32(0), // WHAT ?
-      bytes32(uint256(uint160(bytes20(_prover)))) // Need the address to be left padded within the bytes32
-    ];
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: parentBlockLog.archive,
+      endArchive: endFull.block.archive,
+      previousBlockHash: parentBlockLog.blockHash,
+      endBlockHash: endFull.block.blockHash,
+      endTimestamp: Timestamp.wrap(0), // WHAT ?
+      outHash: bytes32(0), // WHAT ?
+      proverId: _prover
+    });
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
     bytes memory blobPublicInputs;
@@ -196,7 +196,7 @@ contract RollupBase is DecoderBase {
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
-    rollup.propose(args, signatures, full.block.body, blobInputs);
+    rollup.propose(args, signatures, blobInputs);
 
     bytes32 l2ToL1MessageTreeRoot;
     uint32 numTxs = full.block.numTxs;

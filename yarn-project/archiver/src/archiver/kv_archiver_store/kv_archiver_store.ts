@@ -31,6 +31,8 @@ import { NullifierStore } from './nullifier_store.js';
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class KVArchiverDataStore implements ArchiverDataStore {
+  public static readonly SCHEMA_VERSION = 1;
+
   #blockStore: BlockStore;
   #logStore: LogStore;
   #nullifierStore: NullifierStore;
@@ -324,16 +326,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#blockStore.getProvenL2BlockNumber();
   }
 
-  getProvenL2EpochNumber(): Promise<number | undefined> {
-    return this.#blockStore.getProvenL2EpochNumber();
-  }
-
   async setProvenL2BlockNumber(blockNumber: number) {
     await this.#blockStore.setProvenL2BlockNumber(blockNumber);
-  }
-
-  async setProvenL2EpochNumber(epochNumber: number) {
-    await this.#blockStore.setProvenL2EpochNumber(epochNumber);
   }
 
   async setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {

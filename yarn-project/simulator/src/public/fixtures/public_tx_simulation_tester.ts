@@ -1,6 +1,5 @@
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { type ContractArtifact, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -9,11 +8,11 @@ import { PublicExecutionRequest, type Tx } from '@aztec/stdlib/tx';
 import { CallContext, GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { BaseAvmSimulationTester } from '../../avm/fixtures/base_avm_simulation_tester.js';
-import { getContractFunctionArtifact, getFunctionSelector } from '../../avm/fixtures/index.js';
-import { SimpleContractDataSource } from '../../avm/fixtures/simple_contract_data_source.js';
+import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
+import { getContractFunctionArtifact, getFunctionSelector } from '../avm/fixtures/index.js';
+import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
 import { WorldStateDB } from '../public_db_sources.js';
-import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
+import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
 const TIMESTAMP = new Fr(99833);
@@ -25,6 +24,7 @@ export type TestEnqueuedCall = {
   fnName: string;
   args: any[];
   isStaticCall?: boolean;
+  contractArtifact?: ContractArtifact;
 };
 
 /**
@@ -62,28 +62,36 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const setupExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < setupCalls.length; i++) {
       const address = setupCalls[i].address;
-      const contractArtifact = await this.contractDataSource.getContractArtifact(address);
+      const contractArtifact =
+        setupCalls[i].contractArtifact || (await this.contractDataSource.getContractArtifact(address));
+      if (!contractArtifact) {
+        throw new Error(`Contract artifact not found for address: ${address}`);
+      }
       const req = await executionRequestForCall(
+        contractArtifact,
         sender,
         address,
         setupCalls[i].fnName,
         setupCalls[i].args,
         setupCalls[i].isStaticCall,
-        contractArtifact,
       );
       setupExecutionRequests.push(req);
     }
     const appExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < appCalls.length; i++) {
       const address = appCalls[i].address;
-      const contractArtifact = await this.contractDataSource.getContractArtifact(address);
+      const contractArtifact =
+        appCalls[i].contractArtifact || (await this.contractDataSource.getContractArtifact(address));
+      if (!contractArtifact) {
+        throw new Error(`Contract artifact not found for address: ${address}`);
+      }
       const req = await executionRequestForCall(
+        contractArtifact,
         sender,
         address,
         appCalls[i].fnName,
         appCalls[i].args,
         appCalls[i].isStaticCall,
-        contractArtifact,
       );
       appExecutionRequests.push(req);
     }
@@ -91,14 +99,18 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     let teardownExecutionRequest: PublicExecutionRequest | undefined = undefined;
     if (teardownCall) {
       const address = teardownCall.address;
-      const contractArtifact = await this.contractDataSource.getContractArtifact(address);
+      const contractArtifact =
+        teardownCall.contractArtifact || (await this.contractDataSource.getContractArtifact(address));
+      if (!contractArtifact) {
+        throw new Error(`Contract artifact not found for address: ${address}`);
+      }
       teardownExecutionRequest = await executionRequestForCall(
+        contractArtifact,
         sender,
         address,
         teardownCall.fnName,
         teardownCall.args,
         teardownCall.isStaticCall,
-        contractArtifact,
       );
     }
 
@@ -137,12 +149,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 }
 
 async function executionRequestForCall(
+  contractArtifact: ContractArtifact,
   sender: AztecAddress,
   address: AztecAddress,
   fnName: string,
   args: Fr[] = [],
   isStaticCall: boolean = false,
-  contractArtifact: ContractArtifact = AvmTestContractArtifact,
 ): Promise<PublicExecutionRequest> {
   const fnSelector = await getFunctionSelector(fnName, contractArtifact);
   const fnAbi = getContractFunctionArtifact(fnName, contractArtifact);

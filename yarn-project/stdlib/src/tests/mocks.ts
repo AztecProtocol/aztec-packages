@@ -20,7 +20,6 @@ import {
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
-import { ContractClassTxL2Logs } from '../logs/index.js';
 import { ExtendedNote, UniqueNote } from '../note/extended_note.js';
 import { Note } from '../note/note.js';
 import { BlockAttestation } from '../p2p/block_attestation.js';
@@ -200,13 +199,7 @@ export const mockTx = async (
       .build();
   }
 
-  const tx = new Tx(
-    data,
-    clientIvcProof,
-    ContractClassTxL2Logs.empty(),
-    enqueuedPublicFunctionCalls,
-    publicTeardownFunctionCall,
-  );
+  const tx = new Tx(data, clientIvcProof, [], enqueuedPublicFunctionCalls, publicTeardownFunctionCall);
 
   return tx;
 };
@@ -235,6 +228,7 @@ export const mockSimulatedTx = async (seed = 1) => {
 export const randomContractArtifact = (): ContractArtifact => ({
   name: randomBytes(4).toString('hex'),
   functions: [],
+  nonDispatchPublicFunctions: [],
   outputs: {
     structs: {},
     globals: {},

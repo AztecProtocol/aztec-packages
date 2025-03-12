@@ -32,6 +32,8 @@ spec:
       {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
       {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
+      initContainers:
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
       containers:
         - name: blob-sink
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -39,6 +41,7 @@ spec:
             - /bin/bash
             - -c
             - |
+              source /shared/config/service-addresses && \
               env && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --blob-sink
           startupProbe:
@@ -58,6 +61,8 @@ spec:
           volumeMounts:
             - name: blob-sink-data
               mountPath: {{ .Values.blobSink.dataStoreConfig.dataDir }}
+            - name: config
+              mountPath: /shared/config
           env:
             - name: POD_IP
               valueFrom:
@@ -71,8 +76,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: blob-sink
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -89,11 +92,19 @@ spec:
               value: "{{ .Values.blobSink.dataStoreConfig.dataStoreMapSize }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
           ports:
             - containerPort: {{ .Values.blobSink.service.nodePort }}
           resources:
             {{- toYaml .Values.blobSink.resources | nindent 12 }}
       volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
+        - name: config
+          emptyDir: {}
       {{- if .Values.storage.localSsd }}
         - name: blob-sink-data
           emptyDir: {}

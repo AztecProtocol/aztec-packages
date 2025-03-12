@@ -43,8 +43,10 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
       initContainers:
-        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
         - name: wait-for-prover-node
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -72,6 +74,7 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses && \
+              source /shared/config/otel-resource && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-agent
           env:
             - name: K8S_POD_UID
@@ -82,8 +85,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: prover-agent
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -108,8 +109,6 @@ spec:
               value: "{{ .Values.proverAgent.testDelayFactor }}"
             - name: PROVER_AGENT_PROOF_TYPES
               value: {{ join "," .Values.proverAgent.proofTypes | quote }}
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS

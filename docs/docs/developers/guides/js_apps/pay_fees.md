@@ -38,11 +38,12 @@ The `paymentMethod` is an object for the type of payment. Each of the implementa
 
 #include_code gas_settings_vars yarn-project/stdlib/src/gas/gas_settings.ts javascript
 
-import { Gas_Components, Gas_Settings } from '/components/snippets';
+import { Gas_Settings_Components, Gas_Settings } from '/components/snippets';
 
 <Gas_Settings />
 
-<Gas_Components />
+<Gas_Settings_Components />
+
 
 ### Other params
 
@@ -78,7 +79,7 @@ After a user has sent fee juice from L1 to be bridged to L2, a transaction can b
 
 The claim object:
 
-#include_code claim_type_amount yarn-project/aztec.js/src/api/ethereum/portal_manager.ts javascript
+#include_code claim_type_amount yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
 
 Calling a function on an object (in this case checking the balance of the fee juice contract)
 

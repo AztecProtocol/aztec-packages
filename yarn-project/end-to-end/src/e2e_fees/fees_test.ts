@@ -3,14 +3,15 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  CheatCodes,
   type Logger,
   type PXE,
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import { createL1Clients } from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, RollupContract, createL1Clients } from '@aztec/ethereum';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
@@ -35,6 +36,7 @@ import {
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import {
   type BalancesFn,
+  type SetupOptions,
   ensureAccountsPubliclyDeployed,
   getBalancesFn,
   setupCanonicalFeeJuice,
@@ -80,6 +82,7 @@ export class FeesTest {
   public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
 
   public context!: SubsystemsContext;
+  public chainMonitor!: ChainMonitor;
 
   public getCoinbaseBalance!: () => Promise<bigint>;
   public getCoinbaseSequencerRewards!: () => Promise<bigint>;
@@ -92,7 +95,11 @@ export class FeesTest {
   public readonly SUBSCRIPTION_AMOUNT = BigInt(1e19);
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
-  constructor(testName: string, private numberOfAccounts = 3) {
+  constructor(
+    testName: string,
+    private numberOfAccounts = 3,
+    setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {},
+  ) {
     if (!numberOfAccounts) {
       throw new Error('There must be at least 1 initial account.');
     }
@@ -100,20 +107,23 @@ export class FeesTest {
     this.snapshotManager = createSnapshotManager(
       `e2e_fees/${testName}-${numberOfAccounts}`,
       dataPath,
-      {
-        startProverNode: true,
-      },
-      {},
+      { startProverNode: true, ...setupOptions },
+      { ...setupOptions },
     );
   }
 
   async setup() {
     const context = await this.snapshotManager.setup();
     await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
+
+    const rollupContract = RollupContract.getFromConfig(context.aztecNodeConfig);
+    this.chainMonitor = new ChainMonitor(rollupContract, this.logger, 200).start();
+
     return this;
   }
 
   async teardown() {
+    this.chainMonitor.stop();
     await this.snapshotManager.teardown();
   }
 

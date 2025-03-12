@@ -9,6 +9,9 @@ use nargo::package::Package;
 use nargo::workspace::Workspace;
 use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all};
 use nargo_toml::PackageSelection;
+use noir_artifact_cli::fs::artifact::{
+    read_program_from_file, save_contract_to_file, save_program_to_file,
+};
 use noirc_driver::DEFAULT_EXPRESSION_WIDTH;
 use noirc_driver::NOIR_ARTIFACT_VERSION_STRING;
 use noirc_driver::{CompilationResult, CompileOptions, CompiledContract};
@@ -20,7 +23,6 @@ use notify_debouncer_full::new_debouncer;
 
 use crate::errors::CliError;
 
-use super::fs::program::{read_program_from_file, save_contract_to_file, save_program_to_file};
 use super::{LockType, PackageOptions, WorkspaceCommand};
 use rayon::prelude::*;
 
@@ -181,7 +183,7 @@ fn compile_programs(
     // The loaded circuit includes backend specific transformations, which might be different from the current target.
     let load_cached_program = |package| {
         let program_artifact_path = workspace.package_build_path(package);
-        read_program_from_file(program_artifact_path)
+        read_program_from_file(&program_artifact_path)
             .ok()
             .filter(|p| p.noir_version == NOIR_ARTIFACT_VERSION_STRING)
             .map(|p| p.into())
@@ -241,7 +243,8 @@ fn compile_programs(
         // Check solvability.
         nargo::ops::check_program(&program)?;
         // Overwrite the build artifacts with the final circuit, which includes the backend specific transformations.
-        save_program_to_file(&program.into(), &package.name, workspace.target_directory_path());
+        save_program_to_file(&program.into(), &package.name, &workspace.target_directory_path())
+            .expect("failed to save program");
 
         Ok(((), warnings))
     };
@@ -292,7 +295,8 @@ fn save_contract(
         &contract.into(),
         &format!("{}-{}", package.name, contract_name),
         target_dir,
-    );
+    )
+    .expect("failed to save contract");
     if show_artifact_paths {
         println!("Saved contract artifact to: {}", artifact_path.display());
     }
@@ -321,6 +325,7 @@ mod tests {
     use nargo::ops::compile_program;
     use nargo_toml::PackageSelection;
     use noirc_driver::{CompileOptions, CrateName};
+    use noirc_frontend::elaborator::UnstableFeature;
 
     use crate::cli::test_cmd::formatters::diagnostic_to_string;
     use crate::cli::{
@@ -343,7 +348,7 @@ mod tests {
     fn read_test_program_dirs(
         test_programs_dir: &Path,
         test_sub_dir: &str,
-    ) -> impl Iterator<Item = PathBuf> {
+    ) -> impl Iterator<Item = PathBuf> + use<> {
         let test_case_dir = test_programs_dir.join(test_sub_dir);
         std::fs::read_dir(test_case_dir)
             .unwrap()
@@ -393,17 +398,23 @@ mod tests {
 
         assert!(!test_workspaces.is_empty(), "should find some test workspaces");
 
+        // This could be `.par_iter()` but then error messages are no longer reported
         test_workspaces.iter().for_each(|workspace| {
             let (file_manager, parsed_files) = parse_workspace(workspace);
             let binary_packages = workspace.into_iter().filter(|package| package.is_binary());
 
             for package in binary_packages {
+                let options = CompileOptions {
+                    unstable_features: vec![UnstableFeature::Enums],
+                    ..Default::default()
+                };
+
                 let (program_0, _warnings) = compile_program(
                     &file_manager,
                     &parsed_files,
                     workspace,
                     package,
-                    &CompileOptions::default(),
+                    &options,
                     None,
                 )
                 .unwrap_or_else(|err| {

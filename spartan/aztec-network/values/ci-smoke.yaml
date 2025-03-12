@@ -4,6 +4,13 @@ bootNode:
       memory: "2Gi"
       cpu: "200m"
 
+fullNode:
+  replicas: 1
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
 validator:
   resources:
     requests:
@@ -30,6 +37,7 @@ bot:
   enabled: false
 
 ethereum:
+  acceleratedTestDeployments: true
   execution:
     resources:
       requests:

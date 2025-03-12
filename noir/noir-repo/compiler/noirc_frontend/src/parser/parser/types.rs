@@ -1,13 +1,13 @@
 use acvm::{AcirField, FieldElement};
 
 use crate::{
-    ast::{UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression},
-    parser::{labels::ParsingRuleLabel, ParserErrorReason},
-    token::{Keyword, Token, TokenKind},
     QuotedType,
+    ast::{UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression},
+    parser::{ParserErrorReason, labels::ParsingRuleLabel},
+    token::{Keyword, Token, TokenKind},
 };
 
-use super::{parse_many::separated_by_comma_until_right_paren, Parser};
+use super::{Parser, parse_many::separated_by_comma_until_right_paren};
 
 impl Parser<'_> {
     pub(crate) fn parse_type_or_error(&mut self) -> UnresolvedType {
@@ -236,11 +236,14 @@ impl Parser<'_> {
         if self.eat_keyword(Keyword::TypedExpr) {
             return Some(UnresolvedTypeData::Quoted(QuotedType::TypedExpr));
         }
+
+        let location = self.current_token_location;
         if self.eat_keyword(Keyword::StructDefinition) {
-            return Some(UnresolvedTypeData::Quoted(QuotedType::StructDefinition));
+            self.push_error(ParserErrorReason::StructDefinitionDeprecated, location);
+            return Some(UnresolvedTypeData::Quoted(QuotedType::TypeDefinition));
         }
-        if self.eat_keyword(Keyword::EnumDefinition) {
-            return Some(UnresolvedTypeData::Quoted(QuotedType::EnumDefinition));
+        if self.eat_keyword(Keyword::TypeDefinition) {
+            return Some(UnresolvedTypeData::Quoted(QuotedType::TypeDefinition));
         }
         if self.eat_keyword(Keyword::TraitConstraint) {
             return Some(UnresolvedTypeData::Quoted(QuotedType::TraitConstraint));
@@ -320,11 +323,7 @@ impl Parser<'_> {
 
     fn parse_parameter(&mut self) -> Option<UnresolvedType> {
         let typ = self.parse_type_or_error();
-        if let UnresolvedTypeData::Error = typ.typ {
-            None
-        } else {
-            Some(typ)
-        }
+        if let UnresolvedTypeData::Error = typ.typ { None } else { Some(typ) }
     }
 
     fn parse_trait_as_type(&mut self) -> Option<UnresolvedTypeData> {
@@ -374,15 +373,15 @@ impl Parser<'_> {
     }
 
     fn parses_mutable_reference_type(&mut self) -> Option<UnresolvedTypeData> {
-        if self.eat(Token::Ampersand) {
-            if !self.eat_keyword(Keyword::Mut) {
-                self.expected_mut_after_ampersand();
-            }
+        // The `&` may be lexed as a slice start if this is an array or slice type
+        if self.eat(Token::Ampersand) || self.eat(Token::SliceStart) {
+            let mutable = self.eat_keyword(Keyword::Mut);
 
-            return Some(UnresolvedTypeData::MutableReference(Box::new(
-                self.parse_type_or_error(),
-            )));
-        };
+            return Some(UnresolvedTypeData::Reference(
+                Box::new(self.parse_type_or_error()),
+                mutable,
+            ));
+        }
 
         None
     }
@@ -462,12 +461,12 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use crate::{
+        QuotedType,
         ast::{IntegerBitSize, Signedness, UnresolvedType, UnresolvedTypeData},
         parser::{
-            parser::tests::{expect_no_errors, get_single_error, get_source_with_error_span},
             Parser, ParserErrorReason,
+            parser::tests::{expect_no_errors, get_single_error, get_source_with_error_span},
         },
-        QuotedType,
     };
 
     fn parse_type_no_errors(src: &str) -> UnresolvedType {
@@ -609,10 +608,20 @@ mod tests {
     }
 
     #[test]
+    fn parses_reference_type() {
+        let src = "&Field";
+        let typ = parse_type_no_errors(src);
+        let UnresolvedTypeData::Reference(typ, false) = typ.typ else {
+            panic!("Expected a reference type")
+        };
+        assert!(matches!(typ.typ, UnresolvedTypeData::FieldElement));
+    }
+
+    #[test]
     fn parses_mutable_reference_type() {
         let src = "&mut Field";
         let typ = parse_type_no_errors(src);
-        let UnresolvedTypeData::MutableReference(typ) = typ.typ else {
+        let UnresolvedTypeData::Reference(typ, true) = typ.typ else {
             panic!("Expected a mutable reference type")
         };
         assert!(matches!(typ.typ, UnresolvedTypeData::FieldElement));

@@ -2,13 +2,13 @@ use noirc_errors::Location;
 
 use crate::{
     ast::{Ident, Path, Pattern},
-    parser::{labels::ParsingRuleLabel, ParserErrorReason},
+    parser::{ParserErrorReason, labels::ParsingRuleLabel},
     token::{Keyword, Token, TokenKind},
 };
 
 use super::{
-    parse_many::{separated_by_comma_until_right_brace, separated_by_comma_until_right_paren},
     Parser,
+    parse_many::{separated_by_comma_until_right_brace, separated_by_comma_until_right_paren},
 };
 
 pub(crate) enum PatternOrSelf {
@@ -66,14 +66,12 @@ impl Parser<'_> {
             }
         }
 
-        if self.at(Token::Ampersand) && self.next_is(Token::Keyword(Keyword::Mut)) {
+        if self.at(Token::Ampersand) {
             self.bump();
-            self.bump();
+
+            let mutable = self.eat_keyword(Keyword::Mut);
             if !self.next_is_colon() && self.eat_self() {
-                return Some(PatternOrSelf::SelfPattern(SelfPattern {
-                    reference: true,
-                    mutable: true,
-                }));
+                return Some(PatternOrSelf::SelfPattern(SelfPattern { reference: true, mutable }));
             } else {
                 self.push_error(
                     ParserErrorReason::RefMutCanOnlyBeUsedWithSelf,
@@ -254,11 +252,11 @@ mod tests {
     use crate::{
         ast::Pattern,
         parser::{
+            Parser, ParserErrorReason,
             parser::tests::{
                 expect_no_errors, get_single_error, get_single_error_reason,
                 get_source_with_error_span,
             },
-            Parser, ParserErrorReason,
         },
         token::{Keyword, Token},
     };

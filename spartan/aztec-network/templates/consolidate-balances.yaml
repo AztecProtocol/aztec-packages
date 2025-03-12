@@ -1,4 +1,4 @@
-{{- if .Values.ethereum.execution.externalHost }}
+{{- if .Values.ethereum.execution.externalHosts }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -26,6 +26,7 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
       containers:
         - name: consolidate-balances
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -38,10 +39,8 @@ spec:
             - /bin/bash
             - -c
             - |
-              cp /scripts/consolidate-sepolia-balances.sh /tmp/consolidate-sepolia-balances.sh
-              chmod +x /tmp/consolidate-sepolia-balances.sh
-              /tmp/consolidate-sepolia-balances.sh "{{ .Values.aztec.l1DeploymentMnemonic }}" {{ add .Values.validator.replicas .Values.proverNode.replicas }}
+              /scripts/consolidate-sepolia-balances.sh "{{ .Values.aztec.l1DeploymentMnemonic }}" {{ add .Values.validator.replicas .Values.proverNode.replicas }}
           env:
-            - name: ETHEREUM_HOST
-              value: "{{ .Values.ethereum.execution.externalHost }}"
+            - name: ETHEREUM_HOSTS
+              value: "{{ .Values.ethereum.execution.externalHosts }}"
 {{ end }}

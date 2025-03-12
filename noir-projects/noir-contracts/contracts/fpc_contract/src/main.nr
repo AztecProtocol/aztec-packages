@@ -14,7 +14,7 @@ pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
     use aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
+        prelude::AztecAddress,
         state_vars::PublicImmutable,
     };
     use token::Token;
@@ -92,11 +92,9 @@ pub contract FPC {
         let refund_slot = token.prepare_private_balance_increase(user, user).call(&mut context);
 
         // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
-        context.set_public_teardown_function(
-            context.this_address(),
-            comptime { FunctionSelector::from_signature("complete_refund((Field),Field,u128)") },
-            [accepted_asset.to_field(), refund_slot, max_fee as Field],
-        );
+        FPC::at(context.this_address())
+            ._complete_refund(accepted_asset, refund_slot, max_fee)
+            .set_as_teardown(&mut context);
 
         // Set the FPC as the fee payer of the tx.
         context.set_as_fee_payer();
@@ -108,7 +106,7 @@ pub contract FPC {
     // docs:start:complete_refund
     #[public]
     #[internal]
-    fn complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: u128) {
+    fn _complete_refund(accepted_asset: AztecAddress, refund_slot: Field, max_fee: u128) {
         let tx_fee = safe_cast_to_u128(context.transaction_fee());
 
         // 1. Check that user funded the fee payer contract with at least the transaction fee.
@@ -157,13 +155,9 @@ pub contract FPC {
         // docs:end:public_call
 
         context.set_as_fee_payer();
-        // TODO(#6277) for improving interface:
-        // FPC::at(context.this_address()).pay_refund(...).set_public_teardown_function(&mut context);
-        context.set_public_teardown_function(
-            context.this_address(),
-            comptime { FunctionSelector::from_signature("pay_refund((Field),u128,(Field))") },
-            [context.msg_sender().to_field(), max_fee as Field, config.accepted_asset.to_field()],
-        );
+        FPC::at(context.this_address())
+            ._pay_refund(context.msg_sender(), max_fee, config.accepted_asset)
+            .set_as_teardown(&mut context);
     }
 
     /// Pays the refund to the `refund_recipient` as part of the public fee payment flow. The refund is the difference
@@ -171,7 +165,7 @@ pub contract FPC {
     /// It's passed as an argument to avoid the need for another read from public storage.
     #[public]
     #[internal]
-    fn pay_refund(refund_recipient: AztecAddress, max_fee: u128, accepted_asset: AztecAddress) {
+    fn _pay_refund(refund_recipient: AztecAddress, max_fee: u128, accepted_asset: AztecAddress) {
         let actual_fee = safe_cast_to_u128(context.transaction_fee());
 
         assert(actual_fee <= max_fee, "Max fee paid to the paymaster does not cover actual fee");

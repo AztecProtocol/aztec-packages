@@ -1,4 +1,5 @@
 use crate::{
+    Type,
     ast::{Ident, NoirFunction, Signedness, UnaryOp, Visibility},
     graph::CrateId,
     hir::{
@@ -13,7 +14,6 @@ use crate::{
     node_interner::{
         DefinitionId, DefinitionKind, ExprId, FuncId, FunctionModifiers, NodeInterner,
     },
-    Type,
 };
 
 use noirc_errors::{Located, Location};
@@ -299,11 +299,7 @@ fn can_return_without_recursing(interner: &NodeInterner, func_id: FuncId, expr_i
                 return true;
             }
             let definition = interner.definition(ident.id);
-            if let DefinitionKind::Function(id) = definition.kind {
-                func_id != id
-            } else {
-                true
-            }
+            if let DefinitionKind::Function(id) = definition.kind { func_id != id } else { true }
         }
         HirExpression::Block(b) => check_block(b),
         HirExpression::Prefix(e) => check(e.rhs),
@@ -342,7 +338,7 @@ fn can_return_without_recursing_match(
 
     match match_expr {
         HirMatch::Success(expr) => check(*expr),
-        HirMatch::Failure => true,
+        HirMatch::Failure { .. } => true,
         HirMatch::Guard { cond: _, body, otherwise } => check(*body) && check_match(otherwise),
         HirMatch::Switch(_, cases, otherwise) => {
             cases.iter().all(|case| check_match(&case.body))

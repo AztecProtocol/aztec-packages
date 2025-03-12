@@ -3,8 +3,9 @@ import {
   type ABIVariable,
   type ContractArtifact,
   EventSelector,
-  type FunctionArtifact,
+  type FunctionAbi,
   decodeFunctionSignature,
+  getAllFunctionAbis,
   getDefaultInitializer,
   isAztecAddressStruct,
   isEthAddressStruct,
@@ -62,7 +63,7 @@ function generateParameter(param: ABIParameter) {
  * @param param - A Noir function.
  * @returns The corresponding ts code.
  */
-function generateMethod(entry: FunctionArtifact) {
+function generateMethod(entry: FunctionAbi) {
   const args = entry.parameters.map(generateParameter).join(', ');
   return `
     /** ${entry.name}(${entry.parameters.map(p => `${p.name}: ${p.type.kind}`).join(', ')}) */
@@ -154,10 +155,10 @@ function generateAt(name: string) {
 }
 
 /**
- * Generates a static getter for the contract's artifact.
+ * Generates static getters for the contract's artifact.
  * @param name - Name of the contract used to derive name of the artifact import.
  */
-function generateArtifactGetter(name: string) {
+function generateArtifactGetters(name: string) {
   const artifactName = `${name}ContractArtifact`;
   return `
   /**
@@ -165,6 +166,13 @@ function generateArtifactGetter(name: string) {
    */
   public static get artifact(): ContractArtifact {
     return ${artifactName};
+  }
+
+  /**
+   * Returns this contract's artifact with public bytecode.
+   */
+  public static get artifactForPublic(): ContractArtifact {
+    return loadContractArtifactForPublic(${artifactName}Json as NoirCompiledContract);
   }
   `;
 }
@@ -298,7 +306,7 @@ async function generateEvents(events: any[] | undefined) {
  * @returns The corresponding ts code.
  */
 export async function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
-  const methods = input.functions
+  const methods = getAllFunctionAbis(input)
     .filter(f => !f.isInternal)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(generateMethod);
@@ -306,7 +314,7 @@ export async function generateTypescriptContractInterface(input: ContractArtifac
   const ctor = artifactImportPath && generateConstructor(input.name);
   const at = artifactImportPath && generateAt(input.name);
   const artifactStatement = artifactImportPath && generateAbiStatement(input.name, artifactImportPath);
-  const artifactGetter = artifactImportPath && generateArtifactGetter(input.name);
+  const artifactGetter = artifactImportPath && generateArtifactGetters(input.name);
   const storageLayoutGetter = artifactImportPath && generateStorageLayoutGetter(input);
   const notesGetter = artifactImportPath && generateNotesGetter(input);
   const { eventDefs, events } = await generateEvents(input.outputs.structs?.events);
@@ -338,12 +346,12 @@ import {
   type FunctionSelectorLike,
   L1EventPayload,
   loadContractArtifact,
+  loadContractArtifactForPublic,
   type NoirCompiledContract,
   NoteSelector,
   Point,
   type PublicKey,
   PublicKeys,
-  type UnencryptedL2Log,
   type Wallet,
   type U128Like,
   type WrappedFieldLike,

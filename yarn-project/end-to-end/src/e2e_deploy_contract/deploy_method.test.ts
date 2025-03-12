@@ -14,6 +14,7 @@ import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { GasFees } from '@aztec/stdlib/gas';
 
 import { DeployTest } from './deploy_test.js';
 
@@ -127,22 +128,44 @@ describe('e2e_deploy_contract deploy method', () => {
     // Create a contract instance and make the PXE aware of it
     logger.debug(`Initializing deploy method`);
     const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
-    logger.debug(`Creating request/calls to register and deploy contract`);
-    const deploy = await deployMethod.request();
-    logger.debug(`Getting an instance of the not-yet-deployed contract to batch calls to`);
-    const instance = await deployMethod.getInstance();
-    const contract = await StatefulTestContract.at(instance.address, wallet);
+    logger.debug(`Registering the not-yet-deployed contract to batch calls to`);
+    const contract = await deployMethod.register();
 
     // Batch registration, deployment, and public call into same TX
     logger.debug(`Creating public calls to run in same batch as deployment`);
-    const init = await contract.methods.increment_public_value(owner, 84).request();
+    const init = contract.methods.increment_public_value(owner, 84);
     logger.debug(`Deploying a contract and calling a public function in the same batched call`);
-    await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
+    await new BatchCall(wallet, [deployMethod, init]).send().wait();
   }, 300_000);
 
-  it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
-    // TODO(@spalladino): Requires being able to read a nullifier on the same block it was emitted.
-  });
+  it('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
+    await t.aztecNode.setConfig({ minTxsPerBlock: 2 });
+
+    const owner = wallet.getAddress();
+    logger.debug('Initializing deploy method');
+    const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
+    logger.debug('Creating request/calls to register and deploy contract');
+    const deployTx = new BatchCall(wallet, [deployMethod]);
+    logger.debug('Registering the not-yet-deployed contract to batch calls to');
+    const contract = await deployMethod.register();
+
+    logger.debug('Creating public call to run in same block as deployment');
+    const publicCall = contract.methods.increment_public_value(owner, 84);
+
+    // First send the deploy transaction
+    // Pay priority fee to ensure the deployment transaction gets processed first.
+    const maxPriorityFeesPerGas = new GasFees(1n, 0n);
+    const deployTxPromise = deployTx
+      .send({ skipPublicSimulation: true, fee: { gasSettings: { maxPriorityFeesPerGas } } })
+      .wait({ timeout: 600 });
+
+    // Then send the public call transaction
+    const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+
+    logger.debug('Deploying a contract and calling a public function in the same block');
+    const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([deployTxPromise, publicCallTxPromise]);
+    expect(deployTxReceipt.blockNumber).toEqual(publicCallTxReceipt.blockNumber);
+  }, 300_000);
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {

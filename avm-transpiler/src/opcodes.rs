@@ -37,6 +37,7 @@ pub enum AvmOpcode {
     // Execution environment
     GETENVVAR_16,
     CALLDATACOPY,
+    SUCCESSCOPY,
     RETURNDATASIZE,
     RETURNDATACOPY,
     // Control flow
@@ -124,6 +125,7 @@ impl AvmOpcode {
             AvmOpcode::GETENVVAR_16 => "GETENVVAR_16",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
+            AvmOpcode::SUCCESSCOPY => "SUCCESSCOPY",
             AvmOpcode::RETURNDATASIZE => "RETURNDATASIZE",
             AvmOpcode::RETURNDATACOPY => "RETURNDATACOPY",
 

@@ -2,10 +2,10 @@ import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/index.js';
+import type { Wallet } from '../account/wallet.js';
 import type { Contract } from './contract.js';
 import type { ContractBase } from './contract_base.js';
 import { SentTx, type WaitOpts } from './sent_tx.js';
@@ -29,13 +29,13 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   private log = createLogger('aztecjs:deploy_sent_tx');
 
   constructor(
-    wallet: PXE | Wallet,
+    pxeOrWallet: PXE | Wallet,
     txHashPromise: Promise<TxHash>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     /** A getter for the deployed contract instance */
     public instanceGetter: () => Promise<ContractInstanceWithAddress>,
   ) {
-    super(wallet, txHashPromise);
+    super(pxeOrWallet, txHashPromise);
   }
 
   /**
@@ -62,8 +62,9 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   }
 
   protected async getContractObject(wallet?: Wallet): Promise<TContract> {
-    const isWallet = (pxe: PXE | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
-    const contractWallet = wallet ?? (isWallet(this.pxe) && this.pxe);
+    const isWallet = (pxeOrWallet: PXE | Wallet | AztecNode): pxeOrWallet is Wallet =>
+      !!(pxeOrWallet as Wallet).createTxExecutionRequest;
+    const contractWallet = wallet ?? (isWallet(this.pxeOrNode) && this.pxeOrNode);
     if (!contractWallet) {
       throw new Error(`A wallet is required for creating a contract instance`);
     }

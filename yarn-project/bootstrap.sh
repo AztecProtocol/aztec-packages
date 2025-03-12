@@ -92,7 +92,7 @@ function build {
     # files to yarn immutablePatterns, so if they are also changed, this step will fail.
     denoise "retry yarn install --immutable"
   else
-    denoise "yarn install"
+    denoise "yarn install --no-immutable"
   fi
   denoise "compile_all"
   echo -e "${green}Yarn project successfully built!${reset}"
@@ -102,15 +102,32 @@ function test_cmds {
   local hash=$(hash)
   # These need isolation due to network stack usage (p2p, anvil, etc).
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
-    echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+    if [[ ! "$test" =~ testbench ]]; then
+      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+    else
+      # Testbench runs require more memory and CPU.
+      echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+    fi
+
+  done
+
+  # Enable real proofs in prover-client integration tests only on CI full
+  for test in prover-client/src/test/*.test.ts; do
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$hash ISOLATE=1 LOG_LEVEL=verbose CPUS=16 MEM=96g yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash FAKE_PROOFS=1 yarn-project/scripts/run_test.sh $test"
+    fi
   done
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
+  # prover-client/src/test: Enable real proofs only on CI full.
   # prover-node|p2p|ethereum|aztec: Isolated using docker above.
   for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
+    [[ "$test" == prover-client/src/test/* ]] && continue
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 
@@ -138,19 +155,17 @@ function release_packages {
   local dir=$(mktemp -d)
   cd "$dir"
   do_or_dryrun npm init -y
-  do_or_dryrun npm i "${package_list[@]}"
+  # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
+  # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
+  for package in "${package_list[@]}"; do
+    do_or_dryrun npm install $package
+  done
   rm -rf "$dir"
 }
 
 function release {
   echo_header "yarn-project release"
-  # WORKTODO latest is only on master, otherwise use ref name
-  release_packages latest ${REF_NAME#v}
-}
-
-function release_commit {
-  echo_header "yarn-project release commit"
-  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
+  release_packages "$(dist_tag)" "${REF_NAME#v}"
 }
 
 case "$cmd" in
@@ -184,7 +199,7 @@ case "$cmd" in
   "lint")
     lint "$@"
     ;;
-  test|test_cmds|hash|release|release_commit|format)
+  test|test_cmds|hash|release|format)
     $cmd
     ;;
   *)

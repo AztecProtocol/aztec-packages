@@ -1,39 +1,28 @@
-import { createAztecNodeClient, type AztecNode } from "@aztec/aztec.js/utils";
+import {
+  createAztecNodeClient,
+  type AztecNode,
+  AztecAddress,
+  AccountWalletWithSecretKey,
+  Contract,
+  type PXE,
+  type Logger,
+  createLogger,
+} from '@aztec/aztec.js';
 
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { AccountWalletWithSecretKey } from "@aztec/aztec.js/wallet";
-import { Contract } from "@aztec/aztec.js/contracts";
-import { type PXE } from "@aztec/aztec.js/interfaces/pxe";
-import { PXEService } from "@aztec/pxe/service";
-import { type PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
-import { KVPxeDatabase } from "@aztec/pxe/database";
-import { KeyStore } from "@aztec/key-store";
-import { L2TipsStore } from "@aztec/kv-store/stores";
-import { createStore } from "@aztec/kv-store/indexeddb";
-import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
-import { WASMSimulator } from "@aztec/simulator/client";
-import { createContext } from "react";
-import { NetworkDB, WalletDB } from "./utils/storage";
-import { type ContractFunctionInteractionTx } from "./utils/txs";
-import { type Logger, createLogger } from "@aztec/aztec.js/log";
-import { LazyProtocolContractsProvider } from "@aztec/protocol-contracts/providers/lazy";
+import { createPXEService, type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/client/lazy';
+import { createStore } from '@aztec/kv-store/indexeddb';
+import { createContext } from 'react';
+import { NetworkDB, WalletDB } from './utils/storage';
+import { type ContractFunctionInteractionTx } from './utils/txs';
 
-const logLevel = [
-  "silent",
-  "fatal",
-  "error",
-  "warn",
-  "info",
-  "verbose",
-  "debug",
-  "trace",
-] as const;
+const logLevel = ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
 
 type Log = {
   type: (typeof logLevel)[number];
   timestamp: number;
   prefix: string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 };
 
@@ -53,13 +42,13 @@ export class WebLogger {
 
   createLogger(prefix: string): Logger {
     return new Proxy(createLogger(prefix), {
-      get: (target, prop, receiver) => {
+      get: (target, prop) => {
         if (logLevel.includes(prop as (typeof logLevel)[number])) {
           return function () {
-            const args = [prop, prefix, ...arguments] as Parameters<
-              WebLogger["handleLog"]
-            >;
+            // eslint-disable-next-line prefer-rest-params
+            const args = [prop, prefix, ...arguments] as Parameters<WebLogger['handleLog']>;
             WebLogger.getInstance().handleLog(...args);
+            // eslint-disable-next-line prefer-rest-params
             target[prop].apply(this, arguments);
           };
         } else {
@@ -73,7 +62,8 @@ export class WebLogger {
     type: (typeof logLevel)[number],
     prefix: string,
     message: string,
-    data: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: any,
   ) {
     this.logs.unshift({ type, prefix, message, data, timestamp: Date.now() });
     this.setLogs([...this.logs]);
@@ -107,7 +97,7 @@ export const AztecContext = createContext<{
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
 }>({
   pxe: null,
-  nodeURL: "",
+  nodeURL: '',
   node: null,
   wallet: null,
   isPXEInitialized: false,
@@ -118,18 +108,18 @@ export const AztecContext = createContext<{
   logs: [],
   logsOpen: false,
   drawerOpen: false,
-  setDrawerOpen: (drawerOpen: boolean) => {},
-  setLogsOpen: (logsOpen: boolean) => {},
-  setLogs: (logs: Log[]) => {},
-  setWalletDB: (walletDB: WalletDB) => {},
-  setPXEInitialized: (isPXEInitialized: boolean) => {},
-  setWallet: (wallet: AccountWalletWithSecretKey) => {},
-  setNodeURL: (nodeURL: string) => {},
-  setPXE: (pxe: PXE) => {},
-  setAztecNode: (node: AztecNode) => {},
-  setCurrentTx: (currentTx: ContractFunctionInteractionTx) => {},
-  setCurrentContract: (currentContract: Contract) => {},
-  setCurrentContractAddress: (currentContractAddress: AztecAddress) => {},
+  setDrawerOpen: () => {},
+  setLogsOpen: () => {},
+  setLogs: () => {},
+  setWalletDB: () => {},
+  setPXEInitialized: () => {},
+  setWallet: () => {},
+  setNodeURL: () => {},
+  setPXE: () => {},
+  setAztecNode: () => {},
+  setCurrentTx: () => {},
+  setCurrentContract: () => {},
+  setCurrentContractAddress: () => {},
 });
 
 export class AztecEnv {
@@ -138,8 +128,8 @@ export class AztecEnv {
   static async initNetworkStore() {
     if (!AztecEnv.isNetworkStoreInitialized) {
       AztecEnv.isNetworkStoreInitialized = true;
-      const networkStore = await createStore(`network`, {
-        dataDirectory: "network",
+      const networkStore = await createStore('network_data', {
+        dataDirectory: 'network',
         dataStoreMapSizeKB: 1e6,
       });
       const networkDB = NetworkDB.getInstance();
@@ -152,53 +142,25 @@ export class AztecEnv {
     return aztecNode;
   }
 
-  static async initPXE(
-    aztecNode: AztecNode,
-    setLogs: (logs: Log[]) => void
-  ): Promise<PXE> {
+  static async initPXE(aztecNode: AztecNode, setLogs: (logs: Log[]) => void): Promise<PXE> {
     WebLogger.create(setLogs);
 
     const config = getPXEServiceConfig();
-    config.dataDirectory = "pxe";
+    config.dataDirectory = 'pxe';
     config.proverEnabled = true;
-
-    const simulationProvider = new WASMSimulator();
-    const proofCreator = new BBWASMLazyPrivateKernelProver(
-      simulationProvider,
-      16,
-      WebLogger.getInstance().createLogger("bb:wasm:lazy")
-    );
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
       ...config,
       l1Contracts,
     } as PXEServiceConfig;
 
-    const store = await createStore(
-      "pxe_data",
-      configWithContracts,
-      WebLogger.getInstance().createLogger("pxe:data:indexeddb")
-    );
-
-    const keyStore = new KeyStore(store);
-
-    const db = await KVPxeDatabase.create(store);
-    const tips = new L2TipsStore(store, "pxe");
-
-    const protocolContractsProvider = new LazyProtocolContractsProvider();
-
-    const pxe = new PXEService(
-      keyStore,
-      aztecNode,
-      db,
-      tips,
-      proofCreator,
-      simulationProvider,
-      protocolContractsProvider,
-      config,
-      WebLogger.getInstance().createLogger("pxe:service")
-    );
-    await pxe.init();
+    const pxe = await createPXEService(aztecNode, configWithContracts, {
+      loggers: {
+        store: WebLogger.getInstance().createLogger('pxe:data:indexeddb'),
+        pxe: WebLogger.getInstance().createLogger('pxe:service'),
+        prover: WebLogger.getInstance().createLogger('bb:wasm:lazy'),
+      },
+    });
     return pxe;
   }
 }

@@ -1,6 +1,6 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type { ViemPublicClient } from '@aztec/ethereum';
+import type { EpochProofPublicInputArgs, ViemPublicClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
@@ -220,8 +220,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  // TODO(#9101): 'bodyHex' will be removed from below
-  const [decodedArgs, , bodyHex, blobInputs] = rollupArgs! as readonly [
+  const [decodedArgs, ,] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -233,7 +232,6 @@ async function getBlockFromRollupTx(
     },
     ViemSignature[],
     Hex,
-    Hex,
   ];
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
@@ -242,8 +240,6 @@ async function getBlockFromRollupTx(
     throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
 
-  // TODO(#9101): Once calldata is removed, we can remove this field encoding and update
-  // Body.fromBlobFields to accept blob buffers directly
   let blockFields: Fr[];
   try {
     blockFields = Blob.toEncodedFields(blobBodies);
@@ -256,32 +252,8 @@ async function getBlockFromRollupTx(
     throw err;
   }
 
-  // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
-  // either a beacon chain client or link to some blob store. Web2 is ok because we will
-  // verify the block body vs the blob as below.
-  const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
-
-  // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
-  // The blob source will give us blockFields, and we must construct the body from them:
-  // TODO(#8954): When logs are refactored into fields, we won't need to inject them here.
-  const reconstructedBlock = Body.fromBlobFields(blockFields, blockBody.contractClassLogs);
-
-  if (!reconstructedBlock.toBuffer().equals(blockBody.toBuffer())) {
-    // TODO(#9101): Remove below check (without calldata there will be nothing to check against)
-    throw new Error(`Block reconstructed from blob fields does not match`);
-  }
-
-  // TODO(#9101): Once we stop publishing calldata, we will still need the blobCheck below to ensure that the block we are building does correspond to the blob fields
-  const blobCheck = await Blob.getBlobs(blockFields);
-  if (Blob.getEthBlobEvaluationInputs(blobCheck) !== blobInputs) {
-    // NB: We can just check the blobhash here, which is the first 32 bytes of blobInputs
-    // A mismatch means that the fields published in the blob in propose() do NOT match those in the extracted block.
-    throw new Error(
-      `Block body mismatched with blob for block number ${l2BlockNum}. \nExpected: ${Blob.getEthBlobEvaluationInputs(
-        blobCheck,
-      )} \nGot: ${blobInputs}`,
-    );
-  }
+  // The blob source gives us blockFields, and we must construct the body from them:
+  const blockBody = Body.fromBlobFields(blockFields);
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
 
@@ -422,7 +394,7 @@ export async function getProofFromSubmitProofTx(
       {
         start: bigint;
         end: bigint;
-        args: readonly [Hex, Hex, Hex, Hex, Hex, Hex, Hex];
+        args: EpochProofPublicInputArgs;
         fees: readonly Hex[];
         aggregationObject: Hex;
         proof: Hex;
@@ -430,8 +402,8 @@ export async function getProofFromSubmitProofTx(
     ];
 
     aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
-    proverId = Fr.fromHexString(decodedArgs.args[6]);
-    archiveRoot = Fr.fromHexString(decodedArgs.args[1]);
+    proverId = Fr.fromHexString(decodedArgs.args.proverId);
+    archiveRoot = Fr.fromHexString(decodedArgs.args.endArchive);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
   } else {
     throw new Error(`Unexpected proof method called ${functionName}`);

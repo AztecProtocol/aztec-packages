@@ -8,6 +8,37 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [PXE] Concurrent contract function simulation disabled
+
+PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
+
+### [aztec.js] Changes to `BatchCall` and `BaseContractInteraction`
+
+The constructor arguments of `BatchCall` have been updated to improve usability. Previously, it accepted an array of `FunctionCall`, requiring users to manually set additional data such as `authwit` and `capsules`. Now, `BatchCall` takes an array of `BaseContractInteraction`, which encapsulates all necessary information.
+
+```diff
+class BatchCall extends BaseContractInteraction {
+-    constructor(wallet: Wallet, protected calls: FunctionCall[]) {
++    constructor(wallet: Wallet, protected calls: BaseContractInteraction[]) {
+        ...
+    }
+```
+
+The `request` method of `BaseContractInteraction` now returns `ExecutionRequestInit` without the fee (`Omit<ExecutionRequestInit, 'fee'>`). This object includes all the necessary data to execute one or more functions. `BatchCall` invokes this method on all interactions to aggregate the required information. It is also used internally in simulations for fee estimation.
+
+Declaring a `BatchCall`:
+
+```diff
+new BatchCall(wallet, [
+-    await token.methods.transfer(alice, amount).request(),
+-    await token.methods.transfer_to_private(bob, amount).request(),
++    token.methods.transfer(alice, amount),
++    token.methods.transfer_to_private(bob, amount),
+])
+```
+
+## 0.77.0
+
 ### [aztec-nr] `TestEnvironment::block_number()` refactored
 
 The `block_number` function from `TestEnvironment` has been expanded upon with two extra functions, the first being `pending_block_number`, and the second being `committed_block_number`. `pending_block_number` now returns what `block_number` does. In other words, it returns the block number of the block we are currently building. `committed_block_number` returns the block number of the last committed block, i.e. the block number that gets used to execute the private part of transactions when your PXE is successfully synced to the tip of the chain.

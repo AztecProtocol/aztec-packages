@@ -2,10 +2,9 @@ import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { ChainMonitor, EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
@@ -333,15 +332,13 @@ export class P2PNetworkTest {
       {
         gasLimitBufferPercentage: 20,
         maxGwei: 500n,
-        minGwei: 1n,
         maxAttempts: 3,
         checkIntervalMs: 100,
         stallTimeMs: 1000,
       },
     );
 
-    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues));
-    this.monitor.start();
+    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues)).start();
   }
 
   async stopNodes(nodes: AztecNodeService[]) {

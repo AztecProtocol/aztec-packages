@@ -15,8 +15,10 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup, Config, BlockLog} from "@aztec/core/Rollup.sol";
-import {IRollup, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {Rollup, RollupConfig, GenesisState, BlockLog} from "@aztec/core/Rollup.sol";
+import {
+  IRollup, SubmitEpochRootProofArgs, PublicInputArgs
+} from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
@@ -26,9 +28,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor, IRegistry} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {
-  ProposeArgs, OracleInput, ProposeLib
-} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   FeeMath,
@@ -39,7 +39,7 @@ import {
   FeeHeader,
   L1FeeData,
   ManaBaseFeeComponents
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeMath.sol";
 
 import {
   FeeModelTestPoints,
@@ -131,12 +131,14 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       IFeeJuicePortal(address(fakeCanonical)),
       IRewardDistributor(address(fakeCanonical)),
       asset,
-      bytes32(0),
-      bytes32(0),
-      bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      bytes32(Constants.GENESIS_BLOCK_HASH),
       address(this),
-      Config({
+      GenesisState({
+        vkTreeRoot: bytes32(0),
+        protocolContractTreeRoot: bytes32(0),
+        genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+        genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH)
+      }),
+      RollupConfig({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
@@ -152,7 +154,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(fakeCanonical), "FAKE CANONICAL");
     vm.label(address(asset), "ASSET");
-    vm.label(rollup.getCuauhxicalli(), "CUAUHXICALLI");
+    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -260,7 +262,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -365,7 +366,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.body,
           b.blobInputs
         );
 
@@ -452,18 +452,18 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           fees[feeIndex * 2 + 1] = bytes32(fee);
         }
 
-        uint256 cuauhxicalliBalanceBefore = asset.balanceOf(rollup.getCuauhxicalli());
+        uint256 burnAddressBalanceBefore = asset.balanceOf(rollup.getBurnAddress());
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
 
-        bytes32[7] memory args = [
-          rollup.getBlock(start).archive,
-          rollup.getBlock(start + epochSize - 1).archive,
-          rollup.getBlock(start).blockHash,
-          rollup.getBlock(start + epochSize - 1).blockHash,
-          bytes32(0),
-          bytes32(0),
-          bytes32(0)
-        ];
+        PublicInputArgs memory args = PublicInputArgs({
+          previousArchive: rollup.getBlock(start).archive,
+          endArchive: rollup.getBlock(start + epochSize - 1).archive,
+          previousBlockHash: rollup.getBlock(start).blockHash,
+          endBlockHash: rollup.getBlock(start + epochSize - 1).blockHash,
+          endTimestamp: Timestamp.wrap(0),
+          outHash: bytes32(0),
+          proverId: address(0)
+        });
 
         bytes memory blobPublicInputs;
         for (uint256 j = 0; j < epochSize; j++) {
@@ -487,7 +487,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           );
         }
 
-        uint256 burned = asset.balanceOf(rollup.getCuauhxicalli()) - cuauhxicalliBalanceBefore;
+        uint256 burned = asset.balanceOf(rollup.getBurnAddress()) - burnAddressBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
 
         // The reward is not yet distributed, but only accumulated.

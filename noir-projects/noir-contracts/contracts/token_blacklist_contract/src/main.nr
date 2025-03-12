@@ -28,6 +28,12 @@ pub contract TokenBlacklist {
         utils::comparison::Comparator,
     };
 
+    use aztec::note::note_interface::NoteHash;
+    use aztec::note::note_interface::NoteProperties;
+    use aztec::note::note_interface::NoteType;
+    use aztec::protocol_types::traits::ToField;
+    use std::ops::{Add, Sub};
+
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
     };

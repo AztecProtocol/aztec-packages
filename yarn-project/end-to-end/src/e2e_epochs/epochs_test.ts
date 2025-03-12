@@ -1,7 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import { DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
@@ -92,8 +92,7 @@ export class EpochsTestContext {
     this.rollup = RollupContract.getFromConfig(context.config);
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
-    this.monitor = new ChainMonitor(this.rollup, this.logger);
-    this.monitor.start();
+    this.monitor = new ChainMonitor(this.rollup, this.logger).start();
 
     // This is hideous.
     // We ought to have a definite reference to the l1TxUtils that we're using in both places, provided by the test context.

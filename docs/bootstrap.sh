@@ -5,11 +5,18 @@ cmd=${1:-}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
-hash=$(cache_content_hash \
-  .rebuild_patterns \
-  $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
-    awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
+hash=$(
+  cache_content_hash \
+    .rebuild_patterns \
+    $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
+      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
+
+if semver check $REF_NAME; then
+  # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
+  hash+=$REF_NAME
+  export COMMIT_TAG=$REF_NAME
+fi
 
 function build_and_preview {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
@@ -71,16 +78,16 @@ function release_preview {
 
 function release {
   echo_header "docs release"
-  if [ ${DRY_RUN:-0} = 1 ]; then
-    echo "Dry run, doing docs preview:"
-    yarn netlify deploy --site aztec-docs-dev
-  else
-    yarn netlify deploy --site aztec-docs-dev --prod
-  fi
-}
 
-function release_commit {
-  yarn netlify deploy --site aztec-docs-dev
+  # If we download cached docs, we may not have netlify CLI in node_modules. Install in case.
+  yarn install
+
+  if [ $(dist_tag) != "latest" ]; then
+    # TODO attach to github release
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev
+  else
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
+  fi
 }
 
 case "$cmd" in

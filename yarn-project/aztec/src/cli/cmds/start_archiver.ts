@@ -1,8 +1,19 @@
-import { Archiver, type ArchiverConfig, KVArchiverDataStore, archiverConfigMappings } from '@aztec/archiver';
+import {
+  Archiver,
+  type ArchiverConfig,
+  KVArchiverDataStore,
+  archiverConfigMappings,
+  getArchiverConfigFromEnv,
+} from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import {
+  type BlobSinkConfig,
+  blobSinkConfigMapping,
+  createBlobSinkClient,
+  getBlobSinkConfigFromEnv,
+} from '@aztec/blob-sink/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
@@ -18,35 +29,34 @@ export async function startArchiver(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
 ): Promise<{ config: ArchiverConfig & DataStoreConfig }> {
-  let archiverConfig = extractRelevantOptions<ArchiverConfig & DataStoreConfig>(
+  const envConfig = { ...getArchiverConfigFromEnv(), ...getDataConfigFromEnv(), ...getBlobSinkConfigFromEnv() };
+  const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig & BlobSinkConfig>(
     options,
-    {
-      ...archiverConfigMappings,
-      ...dataConfigMappings,
-    },
+    { ...archiverConfigMappings, ...dataConfigMappings, ...blobSinkConfigMapping },
     'archiver',
   );
+
+  let archiverConfig = { ...envConfig, ...cliOptions };
 
   if (!archiverConfig.l1Contracts.registryAddress || archiverConfig.l1Contracts.registryAddress.isZero()) {
     throw new Error('L1 registry address is required to start an Archiver');
   }
 
-  const { addresses, config } = await getL1Config(
+  const { addresses, config: l1Config } = await getL1Config(
     archiverConfig.l1Contracts.registryAddress,
     archiverConfig.l1RpcUrls,
     archiverConfig.l1ChainId,
   );
 
   archiverConfig.l1Contracts = addresses;
-  archiverConfig = { ...archiverConfig, ...config };
+  archiverConfig = { ...archiverConfig, ...l1Config };
 
   const storeLog = createLogger('archiver:lmdb');
-  const store = await createStore('archiver', archiverConfig, storeLog);
+  const store = await createStore('archiver', KVArchiverDataStore.SCHEMA_VERSION, archiverConfig, storeLog);
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/10056): place CL url in config here
-  const blobSinkClient = createBlobSinkClient();
+  const blobSinkClient = createBlobSinkClient(archiverConfig);
   const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobSinkClient }, true);
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);

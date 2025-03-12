@@ -243,6 +243,24 @@ export class PrivateKernelTailCircuitPublicInputs {
     return privateLogs.filter(n => !n.isEmpty());
   }
 
+  getNonEmptyContractClassLogsHashes() {
+    const contractClassLogsHashes = this.forPublic
+      ? mergeAccumulatedData(
+          this.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes,
+          this.forPublic.revertibleAccumulatedData.contractClassLogsHashes,
+        )
+      : this.forRollup!.end.contractClassLogsHashes;
+    return contractClassLogsHashes.filter(h => !h.isEmpty());
+  }
+
+  getEmittedContractClassLogsLength() {
+    return this.getNonEmptyContractClassLogsHashes().reduce((total, log) => total + log.logHash.length, 0);
+  }
+
+  getEmittedPrivateLogsLength() {
+    return this.getNonEmptyPrivateLogs().reduce((total, log) => total + log.getEmittedLength(), 0);
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     const isForPublic = reader.readBoolean();
