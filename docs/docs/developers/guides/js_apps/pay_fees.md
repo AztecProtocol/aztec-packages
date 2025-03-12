@@ -55,35 +55,51 @@ With the fee options explained, lets do a paid transaction.
 
 ### Bridging fee-juice on the sandbox (ready to claim)
 
-Bridging of the tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec), and below summarises bridging fee juice on the sandbox.
+Bridging of tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec), and below summarises bridging fee juice on the sandbox.
 
 First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
 
 #include_code get_node_info_pub_client yarn-project/end-to-end/src/spartan/smoke.test.ts javascript
 
-Note: You'll need these imports from viem:
-```
-import { createPublicClient, http } from 'viem';
-import { foundry } from 'viem/chains';
-```
-
-Now use these to create the L1FeeJuicePortalManager
+Now import and create a new fee juice portal manager the L1FeeJuicePortalManager
 
 ```
-const l1PortalManager = new L1FeeJuicePortalManager(
-    info.l1ContractAddresses.feeJuicePortalAddress,
-    info.l1ContractAddresses.feeJuiceAddress,
-    publicClient, // from step 1
-    getL1WalletClient(foundry.rpcUrls.default.http[0], 0),
-    createLogger('example:bridging-fee-juice');,
+import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
+
+l1PortalManager = await L1FeeJuicePortalManager.new(
+    pxe,
+    publicClient,
+    walletClient,
+    logger
 );
 ```
 
-Bridge the tokens (true = mint)
+Bridge the tokens via minting them from L1, eg if you have an array of unfunded Aztec addresses, `myAddresses`
 
-#include_code l1-bridge-public yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts
+```
+const claimAmount = 10n ** 22n;
+let claims: L2AmountClaim[] = [];
+// bridge sequentially to avoid l1 txs (nonces) being processed out of order
+for (let i = 0; i < myAddresses.length; i++) {
+    claims.push(await l1PortalManager.bridgeTokensPublic(myAddresses[i], claimAmount, true /*mint*/));
+}
+```
 
-The resulting object can now be used to claim fee-juice, or alternatively, claim and pay for a transaction in one.
+After any two other transactions are made, the resulting object can then be used to claim fee-juice, or alternatively, claim and pay for a transaction in one.
+```
+
+Here we will use the account managers and wallets of `myAddresses` to create the payment method, and use it for accounts to claim fee juice and pay for their own deployment.
+
+```
+// claim and pay to deploy accounts
+let sentTxs = [];
+for (let i = 0; i < myWallets.length; i++) {
+    const paymentMethod = new FeeJuicePaymentMethodWithClaim(myWallets[i], claims[i]);
+    sentTxs.push(myAccountManagers[i].deploy({ fee: { paymentMethod } }));
+}
+await Promise.all(sentTxs.map(stx => stx.wait()));
+```
+
 
 See here to [Bridge Fee Juice](../../../developers/reference/environment_reference/cli_wallet_reference#bridge-fee-juice) via the CLI wallet.
 
