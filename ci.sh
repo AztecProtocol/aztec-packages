@@ -240,8 +240,14 @@ case "$cmd" in
     print_usage
     ;;
   "gh-bench")
+    export CI=1
     # Run benchmark logic for github actions.
     bb_hash=$(barretenberg/bootstrap.sh hash)
+    if [ "$bb_hash" == disabled-cache ]; then
+      echo "Error, can't publish barretenberg benchmark due to unstaged changes."
+      exit 1
+    fi
+    echo "$(redis_getz last-publish-hash-bb)"
     if [ "$(redis_getz last-publish-hash-bb)" == "$bb_hash" ]; then
       echo "No changes since last master, skipping barretenberg benchmark publishing."
       echo "SKIP_BB_BENCH=true" >> $GITHUB_ENV
