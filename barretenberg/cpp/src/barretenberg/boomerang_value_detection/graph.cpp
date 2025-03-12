@@ -1171,6 +1171,9 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
         this->variables_in_one_gate.erase(elem);
     }
     this->remove_record_witness_variables(ultra_circuit_builder);
+    for (const auto& elem: ultra_circuit_builder.get_safe_variables()) {
+        this->variables_in_one_gate.erase(ultra_circuit_builder.real_variable_index[elem]);
+    }
     return variables_in_one_gate;
 }
 

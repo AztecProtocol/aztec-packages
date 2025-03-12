@@ -85,5 +85,9 @@ TEST(boomerang_join_split, graph_description_firt_test)
     auto circuit = new_join_split_circuit(tx);
     auto graph = Graph(circuit);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit);
-    graph.print_variable_in_one_gate(circuit, 5517);
+    //graph.print_variable_in_one_gate(circuit, 5517);
+    info("size of variables_in_one_gate == ", variables_in_one_gate.size());
+    for (const auto& elem: variables_in_one_gate) {
+        info("elem == ", elem);
+    }
 }

@@ -295,4 +295,12 @@ template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
     _failed = true;
     set_err(std::move(msg));
 }
+
+template <typename FF_> void CircuitBuilderBase<FF_>::update_safe_variables(uint32_t variable_index) {
+    safe_variables.insert(variable_index);
+}
+
+template <typename FF_> std::unordered_set<uint32_t> CircuitBuilderBase<FF_>::get_safe_variables() const {
+    return safe_variables;
+}
 } // namespace bb

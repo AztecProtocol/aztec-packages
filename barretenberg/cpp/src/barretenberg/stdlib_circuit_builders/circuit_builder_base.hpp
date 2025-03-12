@@ -38,6 +38,7 @@ template <typename FF_> class CircuitBuilderBase {
     // https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
     // DOCTODO(#231): replace with the relevant wiki link.
     std::map<uint32_t, uint32_t> tau;
+    std::unordered_set<uint32_t> safe_variables;
 
     // Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
@@ -222,6 +223,9 @@ template <typename FF_> class CircuitBuilderBase {
 
     void set_err(std::string msg);
     void failure(std::string msg);
+
+    void update_safe_variables(uint32_t variable_index);
+    std::unordered_set<uint32_t> get_safe_variables() const;
 };
 
 /**

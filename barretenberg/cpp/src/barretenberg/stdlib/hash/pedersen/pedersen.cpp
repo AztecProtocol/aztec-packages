@@ -24,6 +24,7 @@ field_t<C> pedersen_hash<C>::hash(const std::vector<field_ct>& inputs, const Gen
     }
 
     auto result = cycle_group::batch_mul(points, scalars);
+    result.y.get_context()->update_safe_variables(result.y.witness_index);
     return result.x;
 }
 
@@ -48,6 +49,7 @@ field_t<C> pedersen_hash<C>::hash_skip_field_validation(const std::vector<field_
     }
 
     auto result = cycle_group::batch_mul(points, scalars);
+    result.y.get_context()->update_safe_variables(result.y.witness_index);
     return result.x;
 }
 
