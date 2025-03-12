@@ -357,7 +357,7 @@ export class AvmPersistableStateManager {
     }
 
     this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
-    // Canonical addresses do not trigger nullifier checks.
+    // Canonical addresses do not trigger nullifier and update checks.
     if (contractAddressIsCanonical(contractAddress)) {
       return instance;
     }
