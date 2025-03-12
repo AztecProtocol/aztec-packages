@@ -17,8 +17,8 @@ export class ExtendedNote {
   constructor(
     /** The note as emitted from the Noir contract. */
     public note: Note,
-    /** The owner whose public key was used to encrypt the note. */
-    public owner: AztecAddress,
+    /** The address whose public key was used to encrypt the note. */
+    public recipient: AztecAddress,
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
@@ -32,7 +32,7 @@ export class ExtendedNote {
   toBuffer(): Buffer {
     return serializeToBuffer([
       this.note,
-      this.owner,
+      this.recipient,
       this.contractAddress,
       this.storageSlot,
       this.noteTypeId,
@@ -44,27 +44,27 @@ export class ExtendedNote {
     const reader = BufferReader.asReader(buffer);
 
     const note = reader.readObject(Note);
-    const owner = reader.readObject(AztecAddress);
+    const recipient = reader.readObject(AztecAddress);
     const contractAddress = reader.readObject(AztecAddress);
     const storageSlot = reader.readObject(Fr);
     const noteTypeId = reader.readObject(NoteSelector);
     const txHash = reader.readObject(TxHash);
 
-    return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+    return new this(note, recipient, contractAddress, storageSlot, noteTypeId, txHash);
   }
 
   static get schema(): ZodFor<ExtendedNote> {
     return z
       .object({
         note: Note.schema,
-        owner: schemas.AztecAddress,
+        recipient: schemas.AztecAddress,
         contractAddress: schemas.AztecAddress,
         storageSlot: schemas.Fr,
         noteTypeId: schemas.NoteSelector,
         txHash: TxHash.schema,
       })
-      .transform(({ note, owner, contractAddress, storageSlot, noteTypeId, txHash }) => {
-        return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+      .transform(({ note, recipient, contractAddress, storageSlot, noteTypeId, txHash }) => {
+        return new ExtendedNote(note, recipient, contractAddress, storageSlot, noteTypeId, txHash);
       });
   }
 
@@ -92,8 +92,8 @@ export class UniqueNote extends ExtendedNote {
   constructor(
     /** The note as emitted from the Noir contract. */
     note: Note,
-    /** The owner whose public key was used to encrypt the note. */
-    owner: AztecAddress,
+    /** The recipient whose public key was used to encrypt the note. */
+    recipient: AztecAddress,
     /** The contract address this note is created in. */
     contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
@@ -105,29 +105,29 @@ export class UniqueNote extends ExtendedNote {
     /** The nonce of the note. */
     public nonce: Fr,
   ) {
-    super(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+    super(note, recipient, contractAddress, storageSlot, noteTypeId, txHash);
   }
 
   static override get schema() {
     return z
       .object({
         note: Note.schema,
-        owner: schemas.AztecAddress,
+        recipient: schemas.AztecAddress,
         contractAddress: schemas.AztecAddress,
         storageSlot: schemas.Fr,
         noteTypeId: schemas.NoteSelector,
         txHash: TxHash.schema,
         nonce: schemas.Fr,
       })
-      .transform(({ note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce }) => {
-        return new UniqueNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
+      .transform(({ note, recipient, contractAddress, storageSlot, noteTypeId, txHash, nonce }) => {
+        return new UniqueNote(note, recipient, contractAddress, storageSlot, noteTypeId, txHash, nonce);
       });
   }
 
   override toBuffer(): Buffer {
     return serializeToBuffer([
       this.note,
-      this.owner,
+      this.recipient,
       this.contractAddress,
       this.storageSlot,
       this.noteTypeId,
@@ -152,14 +152,14 @@ export class UniqueNote extends ExtendedNote {
     const reader = BufferReader.asReader(buffer);
 
     const note = reader.readObject(Note);
-    const owner = reader.readObject(AztecAddress);
+    const recipient = reader.readObject(AztecAddress);
     const contractAddress = reader.readObject(AztecAddress);
     const storageSlot = reader.readObject(Fr);
     const noteTypeId = reader.readObject(NoteSelector);
     const txHash = reader.readObject(TxHash);
     const nonce = reader.readObject(Fr);
 
-    return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
+    return new this(note, recipient, contractAddress, storageSlot, noteTypeId, txHash, nonce);
   }
 
   static override fromString(str: string) {

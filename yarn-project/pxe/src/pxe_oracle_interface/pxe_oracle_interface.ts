@@ -827,7 +827,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
     for (const recipient of await this.keyStore.getAccounts()) {
-      const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, owner: recipient });
+      const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
       const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
 

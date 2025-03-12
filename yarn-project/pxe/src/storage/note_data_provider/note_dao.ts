@@ -56,7 +56,7 @@ export class NoteDao implements NoteData {
      * The address whose public key was used to encrypt the note log during delivery.
      * (This is the x-coordinate of the public key.)
      */
-    public encryptionAddress: AztecAddress,
+    public recipient: AztecAddress,
 
     /** The note type identifier for the contract.
      * TODO(#12013): remove
@@ -76,7 +76,7 @@ export class NoteDao implements NoteData {
       this.l2BlockNumber,
       Fr.fromHexString(this.l2BlockHash),
       this.index,
-      this.encryptionAddress,
+      this.recipient,
       this.noteTypeId,
     ]);
   }
@@ -94,7 +94,7 @@ export class NoteDao implements NoteData {
     const l2BlockNumber = reader.readNumber();
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const index = toBigIntBE(reader.readBytes(32));
-    const encryptionAddress = AztecAddress.fromBuffer(reader);
+    const recipient = AztecAddress.fromBuffer(reader);
     const noteTypeId = reader.readObject(NoteSelector);
 
     return new NoteDao(
@@ -108,7 +108,7 @@ export class NoteDao implements NoteData {
       l2BlockNumber,
       l2BlockHash,
       index,
-      encryptionAddress,
+      recipient,
       noteTypeId,
     );
   }
@@ -143,7 +143,7 @@ export class NoteDao implements NoteData {
     l2BlockNumber = Math.floor(Math.random() * 1000),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
-    encryptionAddress = undefined,
+    recipient = undefined,
     noteTypeId = NoteSelector.random(),
   }: Partial<NoteDao> = {}) {
     return new NoteDao(
@@ -157,7 +157,7 @@ export class NoteDao implements NoteData {
       l2BlockNumber,
       l2BlockHash,
       index,
-      encryptionAddress ?? (await AztecAddress.random()),
+      recipient ?? (await AztecAddress.random()),
       noteTypeId,
     );
   }

@@ -2,7 +2,6 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CompleteAddress } from '@aztec/stdlib/contract';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { randomTxHash } from '@aztec/stdlib/testing';
 
@@ -13,7 +12,7 @@ import { NoteDataProvider } from './note_data_provider.js';
 
 describe('NoteDataProvider', () => {
   let noteDataProvider: NoteDataProvider;
-  let owners: CompleteAddress[];
+  let recipients: AztecAddress[];
   let contractAddresses: AztecAddress[];
   let storageSlots: Fr[];
   let notes: NoteDao[];
@@ -42,8 +41,8 @@ describe('NoteDataProvider', () => {
     [() => Promise.resolve({ txHash: randomTxHash() }), () => Promise.resolve([])],
 
     [
-      () => Promise.resolve({ owner: owners[0].address }),
-      () => Promise.resolve(notes.filter(note => note.encryptionAddress.equals(owners[0].address))),
+      () => Promise.resolve({ recipient: recipients[0] }),
+      () => Promise.resolve(notes.filter(note => note.recipient.equals(recipients[0]))),
     ],
 
     [
@@ -62,7 +61,7 @@ describe('NoteDataProvider', () => {
   ];
 
   beforeEach(async () => {
-    owners = await timesParallel(2, () => CompleteAddress.random());
+    recipients = await timesParallel(2, () => AztecAddress.random());
     contractAddresses = await timesParallel(2, () => AztecAddress.random());
     storageSlots = times(2, () => Fr.random());
 
@@ -70,14 +69,14 @@ describe('NoteDataProvider', () => {
       return NoteDao.random({
         contractAddress: contractAddresses[i % contractAddresses.length],
         storageSlot: storageSlots[i % storageSlots.length],
-        encryptionAddress: owners[i % owners.length].address,
+        recipient: recipients[i % recipients.length],
         index: BigInt(i),
         l2BlockNumber: i,
       });
     });
 
-    for (const owner of owners) {
-      await noteDataProvider.addScope(owner.address);
+    for (const recipient of recipients) {
+      await noteDataProvider.addScope(recipient);
     }
   });
 
@@ -92,14 +91,14 @@ describe('NoteDataProvider', () => {
     await noteDataProvider.addNotes(notes);
 
     // Nullify all notes and use the same filter as other test cases
-    for (const owner of owners) {
-      const notesToNullify = notes.filter(note => note.encryptionAddress.equals(owner.address));
+    for (const recipient of recipients) {
+      const notesToNullify = notes.filter(note => note.recipient.equals(recipient));
       const nullifiers = notesToNullify.map(note => ({
         data: note.siloedNullifier,
         l2BlockNumber: note.l2BlockNumber,
         l2BlockHash: note.l2BlockHash,
       }));
-      await expect(noteDataProvider.removeNullifiedNotes(nullifiers, owner.address)).resolves.toEqual(notesToNullify);
+      await expect(noteDataProvider.removeNullifiedNotes(nullifiers, recipient)).resolves.toEqual(notesToNullify);
     }
     const filter = await getFilter();
     const returnedNotes = await noteDataProvider.getNotes({ ...filter, status: NoteStatus.ACTIVE_OR_NULLIFIED });
@@ -109,15 +108,15 @@ describe('NoteDataProvider', () => {
 
   it('skips nullified notes by default or when requesting active', async () => {
     await noteDataProvider.addNotes(notes);
-    const notesToNullify = notes.filter(note => note.encryptionAddress.equals(owners[0].address));
+    const notesToNullify = notes.filter(note => note.recipient.equals(recipients[0]));
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: note.l2BlockNumber,
       l2BlockHash: note.l2BlockHash,
     }));
-    await expect(
-      noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].encryptionAddress),
-    ).resolves.toEqual(notesToNullify);
+    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
+      notesToNullify,
+    );
 
     const actualNotesWithDefault = await noteDataProvider.getNotes({});
     const actualNotesWithActive = await noteDataProvider.getNotes({ status: NoteStatus.ACTIVE });
@@ -129,18 +128,18 @@ describe('NoteDataProvider', () => {
   it('handles note unnullification', async () => {
     await noteDataProvider.addNotes(notes);
 
-    const notesToNullify = notes.filter(note => note.encryptionAddress.equals(owners[0].address));
+    const notesToNullify = notes.filter(note => note.recipient.equals(recipients[0]));
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: 99,
       l2BlockHash: Fr.random().toString(),
     }));
-    await expect(
-      noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].encryptionAddress),
-    ).resolves.toEqual(notesToNullify);
+    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
+      notesToNullify,
+    );
     await expect(noteDataProvider.unnullifyNotesAfter(98)).resolves.toEqual(undefined);
 
-    const result = await noteDataProvider.getNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
+    const result = await noteDataProvider.getNotes({ status: NoteStatus.ACTIVE, recipient: recipients[0] });
 
     expect(result.sort()).toEqual([...notesToNullify].sort());
   });
@@ -148,15 +147,15 @@ describe('NoteDataProvider', () => {
   it('returns active and nullified notes when requesting either', async () => {
     await noteDataProvider.addNotes(notes);
 
-    const notesToNullify = notes.filter(note => note.encryptionAddress.equals(owners[0].address));
+    const notesToNullify = notes.filter(note => note.recipient.equals(recipients[0]));
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: note.l2BlockNumber,
       l2BlockHash: note.l2BlockHash,
     }));
-    await expect(
-      noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].encryptionAddress),
-    ).resolves.toEqual(notesToNullify);
+    await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
+      notesToNullify,
+    );
 
     const result = await noteDataProvider.getNotes({
       status: NoteStatus.ACTIVE_OR_NULLIFIED,
@@ -168,41 +167,41 @@ describe('NoteDataProvider', () => {
   });
 
   it('stores notes and retrieves notes with siloed account', async () => {
-    await noteDataProvider.addNotes(notes.slice(0, 5), owners[0].address);
+    await noteDataProvider.addNotes(notes.slice(0, 5), recipients[0]);
 
-    await noteDataProvider.addNotes(notes.slice(5), owners[1].address);
+    await noteDataProvider.addNotes(notes.slice(5), recipients[1]);
 
-    const owner0Notes = await noteDataProvider.getNotes({
-      scopes: [owners[0].address],
+    const recipient0Notes = await noteDataProvider.getNotes({
+      scopes: [recipients[0]],
     });
 
-    expect(owner0Notes.sort()).toEqual(notes.slice(0, 5).sort());
+    expect(recipient0Notes.sort()).toEqual(notes.slice(0, 5).sort());
 
-    const owner1Notes = await noteDataProvider.getNotes({
-      scopes: [owners[1].address],
+    const recipient1Notes = await noteDataProvider.getNotes({
+      scopes: [recipients[1]],
     });
 
-    expect(owner1Notes.sort()).toEqual(notes.slice(5).sort());
+    expect(recipient1Notes.sort()).toEqual(notes.slice(5).sort());
 
-    const bothOwnerNotes = await noteDataProvider.getNotes({
-      scopes: [owners[0].address, owners[1].address],
+    const bothRecipientNotes = await noteDataProvider.getNotes({
+      scopes: [recipients[0], recipients[1]],
     });
 
-    expect(bothOwnerNotes.sort()).toEqual(notes.sort());
+    expect(bothRecipientNotes.sort()).toEqual(notes.sort());
   });
 
   it('a nullified note removes notes from all accounts in the pxe', async () => {
-    await noteDataProvider.addNotes([notes[0]], owners[0].address);
-    await noteDataProvider.addNotes([notes[0]], owners[1].address);
+    await noteDataProvider.addNotes([notes[0]], recipients[0]);
+    await noteDataProvider.addNotes([notes[0]], recipients[1]);
 
     await expect(
       noteDataProvider.getNotes({
-        scopes: [owners[0].address],
+        scopes: [recipients[0]],
       }),
     ).resolves.toEqual([notes[0]]);
     await expect(
       noteDataProvider.getNotes({
-        scopes: [owners[1].address],
+        scopes: [recipients[1]],
       }),
     ).resolves.toEqual([notes[0]]);
     await expect(
@@ -214,27 +213,27 @@ describe('NoteDataProvider', () => {
             l2BlockNumber: notes[0].l2BlockNumber,
           },
         ],
-        owners[0].address,
+        recipients[0],
       ),
     ).resolves.toEqual([notes[0]]);
 
     await expect(
       noteDataProvider.getNotes({
-        scopes: [owners[0].address],
+        scopes: [recipients[0]],
       }),
     ).resolves.toEqual([]);
     await expect(
       noteDataProvider.getNotes({
-        scopes: [owners[1].address],
+        scopes: [recipients[1]],
       }),
     ).resolves.toEqual([]);
   });
 
   it('removes notes after a given block', async () => {
-    await noteDataProvider.addNotes(notes, owners[0].address);
+    await noteDataProvider.addNotes(notes, recipients[0]);
 
     await noteDataProvider.removeNotesAfter(5);
-    const result = await noteDataProvider.getNotes({ scopes: [owners[0].address] });
+    const result = await noteDataProvider.getNotes({ scopes: [recipients[0]] });
     expect(new Set(result)).toEqual(new Set(notes.slice(0, 6)));
   });
 });

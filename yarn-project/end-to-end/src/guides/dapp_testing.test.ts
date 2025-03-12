@@ -82,7 +82,7 @@ describe('guides/dapp/testing', () => {
         // docs:start:private-storage
         await token.methods.sync_notes().simulate();
         const notes = await pxe.getNotes({
-          owner: owner.getAddress(),
+          recipient: owner.getAddress(),
           contractAddress: token.address,
           storageSlot: ownerSlot,
           scopes: [owner.getAddress()],
