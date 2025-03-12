@@ -194,24 +194,25 @@ TYPED_TEST(CycleGroupTest, TestConditionalAssignRegression)
     EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
 }
 
-///**
-// * @brief Checks the bad behavior of conditional assign.
-// *
-// */
-// TYPED_TEST(CycleGroupTest, TestConditionalAssignSuperMixupRegression)
-//{
-//    STDLIB_TYPE_ALIASES;
-//    Builder builder;
-//
-//    auto c0 = cycle_group_ct(TestFixture::generators[0]);
-//    auto c1 = cycle_group_ct(-TestFixture::generators[0]);
-//    auto w2 = cycle_group_ct::conditional_assign(bool_ct(witness_ct(&builder, true)), c0, c1);
-//    EXPECT_TRUE(w2.x.is_constant());
-//    EXPECT_TRUE(!w2.y.is_constant());
-//    auto w3 = w2.dbl();
-//    (void)w3;
-//    EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
-//}
+/**
+ * @brief Checks the bad behavior of conditional assign.
+ *
+ */
+TYPED_TEST(CycleGroupTest, TestConditionalAssignSuperMixupRegression)
+{
+    STDLIB_TYPE_ALIASES;
+    Builder builder;
+
+    auto c0 = cycle_group_ct(TestFixture::generators[0]);
+    auto c1 = cycle_group_ct(-TestFixture::generators[0]);
+    auto w2 = cycle_group_ct::conditional_assign(bool_ct(witness_ct(&builder, true)), c0, c1);
+    EXPECT_FALSE(w2.x.is_constant());
+    EXPECT_FALSE(w2.y.is_constant());
+    EXPECT_TRUE(w2.is_point_at_infinity().is_constant());
+    auto w3 = w2.dbl();
+    (void)w3;
+    EXPECT_NO_THROW(CircuitChecker::check(builder)); // It won't be a throw anyway
+}
 
 /**
  * @brief Checks that a point on the curve passes the validate_is_on_curve check

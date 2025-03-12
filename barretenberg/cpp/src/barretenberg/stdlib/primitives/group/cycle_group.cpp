@@ -247,11 +247,21 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
         return;
     }
 
+    if (!this->x.is_constant() && this->y.is_constant()) {
+        auto ctx = this->x.get_context();
+        this->y = field_t::from_witness_index(ctx, ctx->put_constant_variable(this->y.get_value()));
+    }
+    if (this->x.is_constant() && !this->y.is_constant()) {
+        auto ctx = this->y.get_context();
+        this->x = field_t::from_witness_index(ctx, ctx->put_constant_variable(this->x.get_value()));
+    }
+
     // Due to conditional_assign behavior
     // Sometimes we won't create the gate here
     // If this->x = 0 and this->y = 0 and both of them are constants
     // This ensures that at least one of the switches was performed
     this->_is_constant = this->x.is_constant() && this->y.is_constant();
+
     if (!this->_is_constant) {
         this->_is_infinity = is_infinity;
     }
@@ -278,6 +288,15 @@ template <typename Builder> void cycle_group<Builder>::standardize()
     // But it will be confirmed only after the review of the multiplication related operations
     this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
     this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
+
+    if (!this->x.is_constant() && this->y.is_constant()) {
+        auto ctx = this->x.get_context();
+        this->y = field_t::from_witness_index(ctx, ctx->put_constant_variable(this->y.get_value()));
+    }
+    if (this->x.is_constant() && !this->y.is_constant()) {
+        auto ctx = this->y.get_context();
+        this->x = field_t::from_witness_index(ctx, ctx->put_constant_variable(this->x.get_value()));
+    }
 
     // Due to conditional_assign behavior
     // Sometimes we won't create the gate here
@@ -1933,14 +1952,22 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
                                                               const cycle_group& lhs,
                                                               const cycle_group& rhs)
 {
-    bool result_standard = lhs._is_standard && rhs._is_standard;
+    auto x_res = field_t::conditional_assign(predicate, lhs.x, rhs.x);
+    auto y_res = field_t::conditional_assign(predicate, lhs.y, rhs.y);
+    auto _is_infinity_res =
+        bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity());
+
+    bool _is_standard_res = lhs._is_standard && rhs._is_standard;
     if (predicate.is_constant()) {
-        result_standard = (predicate.get_value() && lhs._is_standard) && (!predicate.get_value() && rhs._is_standard);
+        _is_standard_res = (predicate.get_value() && lhs._is_standard) && (!predicate.get_value() && rhs._is_standard);
     }
-    return { field_t::conditional_assign(predicate, lhs.x, rhs.x),
-             field_t::conditional_assign(predicate, lhs.y, rhs.y),
-             bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity()),
-             result_standard };
+
+    // Rare case when we bump into two constants, s.t. lhs = -rhs
+    if (x_res.is_constant() && !y_res.is_constant()) {
+        auto ctx = predicate.get_context();
+        x_res = field_t::from_witness_index(ctx, ctx->put_constant_variable(x_res.get_value()));
+    }
+    return { x_res, y_res, _is_infinity_res, _is_standard_res };
 };
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/(const cycle_group& /*unused*/) const
 {
