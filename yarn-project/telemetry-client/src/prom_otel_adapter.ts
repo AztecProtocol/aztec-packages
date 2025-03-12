@@ -254,7 +254,7 @@ class NoopOtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHis
 
   reset(): void {
     // OpenTelemetry histograms cannot be reset, but we implement the interface
-    this.logger.warn('OpenTelemetry histograms cannot be reset');
+    this.logger.silent('OpenTelemetry histograms cannot be reset');
   }
 }
 

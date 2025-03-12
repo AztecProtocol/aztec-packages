@@ -102,7 +102,7 @@ export class AccountWallet extends BaseWallet {
   }> {
     if ('caller' in intent && 'action' in intent) {
       const action =
-        intent.action instanceof ContractFunctionInteraction ? await intent.action.request() : intent.action;
+        intent.action instanceof ContractFunctionInteraction ? (await intent.action.request()).calls[0] : intent.action;
       return {
         innerHash: await computeInnerAuthWitHashFromAction(intent.caller, action),
         consumer: action.to,
