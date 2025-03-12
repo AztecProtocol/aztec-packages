@@ -64,13 +64,7 @@ export function DeployContractDialog({
     setDeploying(true);
     setLogsOpen(true);
 
-    const nodeInfo = await wallet.getNodeInfo();
-    const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
-    if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
-      throw new Error(
-        `Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}`,
-      );
-    }
+    // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
     const deployer = new ContractDeployer(contractArtifact, wallet, PublicKeys.default(), initializer?.name);
 

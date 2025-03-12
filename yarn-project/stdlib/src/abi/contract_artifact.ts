@@ -63,7 +63,7 @@ export function loadContractArtifact(input: NoirCompiledContract): ContractArtif
  * @returns A valid contract artifact instance.
  */
 export function loadContractArtifactForPublic(input: NoirCompiledContract): ContractArtifact {
-  return generatePublicContractArtifact(input);
+  return generateContractArtifactForPublic(input);
 }
 
 /**
@@ -122,7 +122,7 @@ type NoirCompiledContractFunction = NoirCompiledContract['functions'][number];
 /**
  * Returns true if we should retain bytecode
  */
-function retainBytecode(input: NoirCompiledContractFunction | FunctionArtifact): boolean {
+export function retainBytecode(input: NoirCompiledContractFunction | FunctionArtifact): boolean {
   const functionType =
     (input as FunctionArtifact).functionType ?? getFunctionType(input as NoirCompiledContractFunction);
   return functionType !== FunctionType.PUBLIC || input.name == 'public_dispatch';
@@ -317,17 +317,18 @@ function getNoteTypes(input: NoirCompiledContract) {
  * @param compiled - Noir build output.
  * @returns Aztec contract build artifact.
  */
-function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion?: string): ContractArtifact {
+function generateContractArtifact(contract: NoirCompiledContract): ContractArtifact {
   try {
     return ContractArtifactSchema.parse({
       name: contract.name,
       functions: contract.functions.filter(f => retainBytecode(f)).map(f => generateFunctionArtifact(f, contract)),
-      publicFunctions: contract.functions.filter(f => !retainBytecode(f)).map(f => generateFunctionAbi(f, contract)),
+      nonDispatchPublicFunctions: contract.functions
+        .filter(f => !retainBytecode(f))
+        .map(f => generateFunctionAbi(f, contract)),
       outputs: contract.outputs,
       storageLayout: getStorageLayout(contract),
       notes: getNoteTypes(contract),
       fileMap: contract.file_map,
-      ...(aztecNrVersion ? { aztecNrVersion } : {}),
     });
   } catch (err) {
     throw new Error(`Could not generate contract artifact for ${contract.name}: ${err}`);
@@ -340,17 +341,18 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
  * @param compiled - Noir build output.
  * @returns Aztec contract build artifact.
  */
-function generatePublicContractArtifact(contract: NoirCompiledContract, aztecNrVersion?: string): ContractArtifact {
+function generateContractArtifactForPublic(contract: NoirCompiledContract): ContractArtifact {
   try {
     return ContractArtifactSchema.parse({
       name: contract.name,
       functions: contract.functions.map(f => generateFunctionArtifact(f, contract)),
-      publicFunctions: contract.functions.filter(f => !retainBytecode(f)).map(f => generateFunctionAbi(f, contract)),
+      nonDispatchPublicFunctions: contract.functions
+        .filter(f => !retainBytecode(f))
+        .map(f => generateFunctionAbi(f, contract)),
       outputs: contract.outputs,
       storageLayout: getStorageLayout(contract),
       notes: getNoteTypes(contract),
       fileMap: contract.file_map,
-      ...(aztecNrVersion ? { aztecNrVersion } : {}),
     });
   } catch (err) {
     throw new Error(`Could not generate contract artifact for ${contract.name}: ${err}`);

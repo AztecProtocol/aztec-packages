@@ -97,7 +97,7 @@ function serializeContractClassPublic(contractClass: Omit<ContractClassPublicWit
     numToUInt8(contractClass.version),
     contractClass.artifactHash,
     contractClass.publicFunctions.length,
-    // TODO(MW): the below will be removed (only public_dispatch will remain)
+    // TODO(#8985): The below should only contain the public dispatch function, and no others
     contractClass.publicFunctions?.map(f => serializeToBuffer(f.selector, f.bytecode.length, f.bytecode)) ?? [],
     contractClass.privateFunctions.length,
     contractClass.privateFunctions.map(serializePrivateFunction),

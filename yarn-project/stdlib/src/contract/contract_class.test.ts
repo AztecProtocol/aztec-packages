@@ -16,7 +16,7 @@ describe('ContractClass', () => {
     // Assert bytecode has a reasonable length
     expect(contractClass.packedBytecode.length).toBeGreaterThan(100);
     contractClass.publicFunctions.forEach(publicFunction => {
-      // TODO(MW): ensure below is dispatch only
+      // TODO(#8985): The below should only contain the public dispatch function, and no others
       expect(publicFunction.bytecode.length).toBeGreaterThan(100);
     });
 

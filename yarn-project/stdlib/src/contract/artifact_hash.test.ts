@@ -7,7 +7,7 @@ describe('ArtifactHash', () => {
     const emptyArtifact: ContractArtifact = {
       fileMap: [],
       functions: [],
-      publicFunctions: [],
+      nonDispatchPublicFunctions: [],
       name: 'Test',
       outputs: {
         globals: {},

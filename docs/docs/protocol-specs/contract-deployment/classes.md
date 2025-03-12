@@ -176,7 +176,7 @@ function_metadata_crh(
 }
 ```
 
-<!-- TODO: Remove/replace optional aztecNrVersion from ContractArtifact and explain here -->
+<!-- TODO(#12081): After removal of aztecNrVersion from ContractArtifact, replace with Noir.lock hash or similar? -->
 
 The artifact metadata stores all data that is not contained within the contract functions, is not debug specific, and is not derivable from other properties. This leaves only the `name` and `outputs` properties. Metadata is JSON-serialized in the same fashion as the function metadata.
 

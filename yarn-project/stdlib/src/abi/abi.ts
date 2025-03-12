@@ -334,15 +334,11 @@ export interface ContractArtifact {
   /** The name of the contract. */
   name: string;
 
-  /** The version of compiler used to create this artifact */
-  aztecNrVersion?: string;
-
-  /** The functions of the contract. */
+  /** The functions of the contract. Includes private and unconstrained functions, plus the public dispatch function. */
   functions: FunctionArtifact[];
 
-  // TODO(MW): below is WIP
   /** The public functions of the contract, excluding dispatch. */
-  publicFunctions: FunctionAbi[];
+  nonDispatchPublicFunctions: FunctionAbi[];
 
   /** The outputs of the contract. */
   outputs: {
@@ -362,9 +358,8 @@ export interface ContractArtifact {
 
 export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
   name: z.string(),
-  aztecNrVersion: z.string().optional(),
   functions: z.array(FunctionArtifactSchema),
-  publicFunctions: z.array(FunctionAbiSchema),
+  nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
   outputs: z.object({
     structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
       for (const [key, value] of Object.entries(structs)) {
@@ -426,7 +421,7 @@ export async function getFunctionArtifact(
 
 /** Gets all function abis */
 export function getAllFunctionAbis(artifact: ContractArtifact): FunctionAbi[] {
-  return artifact.functions.map(f => f as FunctionAbi).concat(artifact.publicFunctions || []);
+  return artifact.functions.map(f => f as FunctionAbi).concat(artifact.nonDispatchPublicFunctions || []);
 }
 
 export function parseDebugSymbols(debugSymbols: string): DebugInfo[] {
