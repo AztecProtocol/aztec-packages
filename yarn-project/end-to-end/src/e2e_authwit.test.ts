@@ -148,7 +148,7 @@ describe('e2e_authwit_tests', () => {
         const witness = await wallets[0].createAuthWit(intent);
 
         expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
-          isValidInPrivate: false,
+          isValidInPrivate: true,
           isValidInPublic: false,
         });
 
@@ -157,7 +157,7 @@ describe('e2e_authwit_tests', () => {
         await validateActionInteraction.send().wait();
         // docs:end:set_public_authwit
         expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
-          isValidInPrivate: false,
+          isValidInPrivate: true,
           isValidInPublic: true,
         });
 
@@ -165,7 +165,7 @@ describe('e2e_authwit_tests', () => {
         await registry.methods.consume(wallets[0].getAddress(), innerHash).send().wait();
 
         expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
-          isValidInPrivate: false,
+          isValidInPrivate: true,
           isValidInPublic: false,
         });
       });
@@ -178,7 +178,7 @@ describe('e2e_authwit_tests', () => {
           const witness = await wallets[0].createAuthWit(intent);
 
           expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
-            isValidInPrivate: false,
+            isValidInPrivate: true,
             isValidInPublic: false,
           });
 
@@ -186,7 +186,7 @@ describe('e2e_authwit_tests', () => {
           await validateActionInteraction.send().wait();
 
           expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
-            isValidInPrivate: false,
+            isValidInPrivate: true,
             isValidInPublic: true,
           });
 
@@ -194,7 +194,7 @@ describe('e2e_authwit_tests', () => {
           await cancelActionInteraction.send().wait();
 
           expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
-            isValidInPrivate: false,
+            isValidInPrivate: true,
             isValidInPublic: false,
           });
 

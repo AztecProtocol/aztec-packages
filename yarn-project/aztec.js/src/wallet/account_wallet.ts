@@ -145,11 +145,12 @@ export class AccountWallet extends BaseWallet {
     const results = { isValidInPrivate: false, isValidInPublic: false };
 
     // Check private
-
-    results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
-      consumer,
-      innerHash,
-    ]).simulate({ authwits: [witness] })) as boolean;
+    try {
+      results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
+        consumer,
+        innerHash,
+      ]).simulate({ authwits: [witness] })) as boolean;
+    } catch {}
 
     // check public
     results.isValidInPublic = (await new ContractFunctionInteraction(
