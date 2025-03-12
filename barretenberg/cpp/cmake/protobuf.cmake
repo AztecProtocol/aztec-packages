@@ -4,10 +4,19 @@
 # See docs at https://cmake.org/cmake/help/latest/module/FindProtobuf.html
 # See source at https://fossies.org/linux/cmake/Modules/FindProtobuf.cmake or /usr/share/cmake-3.28/Modules/FindProtobuf.cmake
 
-# include(FindProtobuf)
+
+FetchContent_Declare(protobuf
+  GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+  GIT_TAG        v29.3
+  SOURCE_SUBDIR  cmake
+  FIND_PACKAGE_ARGS NAMES protobuf
+)
+FetchContent_MakeAvailable(protobuf)
+
+include(FindProtobuf)
 
 #list(APPEND CMAKE_PREFIX_PATH "/usr/local/lib/cmake/protobuf")
-set(Protobuf_DIR "/usr/local/lib/cmake/protobuf")
+#set(Protobuf_DIR "/usr/local/lib/cmake/protobuf")
 
 # TODO: This errors saying it cannot find `Protobuf_INCLUDE_DIR`, unless we build protobuf from source.
 # find_package(Protobuf REQUIRED)
@@ -21,6 +30,11 @@ message("   --> PROTOBUF INCLUDE: ${PROTOBUF_INCLUDE_DIRS}")
 # set(Protobuf_INCLUDE_DIR "/usr/include/google/protobuf")
 # set(Protobuf_INCLUDE_DIRS "/usr/include/google/protobuf")
 include_directories(${Protobuf_INCLUDE_DIRS})
+
+#include_directories("/usr/local/include")
+#include_directories("/usr/local/include/absl")
+#include_directories("/usr/include")
+
 
 # Add this to what needs to use protobuf:
 # target_link_libraries(<bin or lib> ${Protobuf_LIBRARIES})
