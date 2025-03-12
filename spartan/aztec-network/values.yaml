@@ -27,7 +27,7 @@ telemetry:
   enabled: false
   otelCollectorEndpoint:
   useGcloudLogging: true
-  excludeMetrics: "system"
+  excludeMetrics: ""
 
 images:
   aztec:
