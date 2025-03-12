@@ -5,6 +5,8 @@ pragma solidity >=0.8.27;
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
+import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+
 struct AppendOnlyTreeSnapshot {
   bytes32 root;
   uint32 nextAvailableLeafIndex;
@@ -32,8 +34,8 @@ struct GlobalVariables {
   uint256 chainId;
   uint256 version;
   uint256 blockNumber;
-  uint256 slotNumber;
-  uint256 timestamp;
+  Slot slotNumber;
+  Timestamp timestamp;
   address coinbase;
   bytes32 feeRecipient;
   GasFees gasFees;
@@ -150,8 +152,8 @@ library HeaderLib {
     header.globalVariables.chainId = uint256(bytes32(_header[0x0134:0x0154]));
     header.globalVariables.version = uint256(bytes32(_header[0x0154:0x0174]));
     header.globalVariables.blockNumber = uint256(bytes32(_header[0x0174:0x0194]));
-    header.globalVariables.slotNumber = uint256(bytes32(_header[0x0194:0x01b4]));
-    header.globalVariables.timestamp = uint256(bytes32(_header[0x01b4:0x01d4]));
+    header.globalVariables.slotNumber = Slot.wrap(uint256(bytes32(_header[0x0194:0x01b4])));
+    header.globalVariables.timestamp = Timestamp.wrap(uint256(bytes32(_header[0x01b4:0x01d4])));
     header.globalVariables.coinbase = address(bytes20(_header[0x01d4:0x01e8]));
     header.globalVariables.feeRecipient = bytes32(_header[0x01e8:0x0208]);
     header.globalVariables.gasFees.feePerDaGas = uint256(bytes32(_header[0x0208:0x0228]));
