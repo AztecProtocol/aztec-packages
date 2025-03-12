@@ -24,9 +24,9 @@ pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     bytes
 }
 
-/// Converts an input BoundedVec of bytes into a BoundedVec of fields. Arbitrary byte arrays
-/// are not allowed: this is assumed to be an array obtained via `fields_to_bytes`, i.e. one that actually represents
-/// fields. To convert a byte array into Fields, use `bytes_to_fields`.
+/// Converts an input BoundedVec of bytes into a BoundedVec of fields. Arbitrary byte arrays are not allowed: this
+/// is assumed to be an array obtained via `fields_to_bytes`, i.e. one that actually represents fields. To convert
+/// a byte array into Fields, use `bytes_to_fields`.
 ///
 /// The input bytes are chunked into chunks of 32 bytes. Each 32-byte chunk is viewed as big-endian, and is converted
 /// into a Field.
@@ -35,6 +35,13 @@ pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
 pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Field, N / 32> {
     // Assert that input length is a multiple of 32
     assert(bytes.len() % 32 == 0, "Input length must be a multiple of 32");
+
+    // Since fields are ~254 bits, we must ensure the most significant byte of each 32-byte chunk
+    // contains no more than 6 bits, preventing overflow when converting back to fields.
+    for i in 0..bytes.len() / 32 {
+        let last_byte = bytes.get(i * 32 + 31) as Field;
+        last_byte.assert_max_bit_size::<6>();
+    }
 
     let mut fields = BoundedVec::new();
 
@@ -86,4 +93,18 @@ mod tests {
         // This should fail since 33 is not a multiple of 32
         let _fields = fields_from_bytes(input);
     }
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn test_fields_from_bytes_overflow() {
+        // Create input with last byte > 63 (6 bits)
+        // 64 is an arbitrary max length that is larger than 32
+        let input = BoundedVec::<_, 64>::from_array([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 64, // 64 = 0b1000000 (7 bits)
+        ]);
+
+        // This should fail since the last byte is 64 which requires 7 bits
+        let _fields = fields_from_bytes(input);
+    }
+
 }
