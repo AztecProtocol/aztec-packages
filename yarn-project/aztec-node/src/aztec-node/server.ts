@@ -33,7 +33,14 @@ import {
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, NullifierWithBlockSource } from '@aztec/stdlib/block';
+import type {
+  InBlock,
+  L2Block,
+  L2BlockNumber,
+  L2BlockSource,
+  NullifierWithBlockSource,
+  PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -307,6 +314,10 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return (await this.blockSource.getBlocks(from, limit)) ?? [];
+  }
+
+  public async getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
+    return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
   }
 
   /**

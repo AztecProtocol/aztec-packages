@@ -6,6 +6,7 @@ import { inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import type { NullifierWithBlockSource } from '../block/nullifier_with_block_source.js';
+import { PublishedL2BlockSchema } from '../block/published_l2_block.js';
 import {
   ContractClassPublicSchema,
   type ContractDataSource,
@@ -43,6 +44,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(L2Block.schema)),
+  getPublishedBlocks: z
+    .function()
+    .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
+    .returns(z.array(PublishedL2BlockSchema)),
   getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.BigInt),
