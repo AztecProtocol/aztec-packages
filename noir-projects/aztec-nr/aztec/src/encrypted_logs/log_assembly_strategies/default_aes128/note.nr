@@ -374,7 +374,7 @@ where
     );
 
     // *****************************************************************************
-    // Convert bytes back to fields
+    // Convert the encrypted bytes to fields, because logs are field-based
     // *****************************************************************************
 
     let log_bytes_as_fields = bytes_to_fields(log_bytes);

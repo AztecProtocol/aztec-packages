@@ -1,11 +1,12 @@
-/// These functions are used to facilitate the conversion of log plaintext represented as fields into bytes and back.
-///
-/// `fields_to_bytes` uses fixed-size arrays since encryption contexts have compile-time size information.
-/// `fields_from_bytes` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
-///
-/// Together they provide bidirectional conversion between fields and bytes.
+// These functions are used to facilitate the conversion of log plaintext represented as fields into bytes and back.
+//
+// `fields_to_bytes` uses fixed-size arrays since encryption contexts have compile-time size information.
+// `fields_from_bytes` uses BoundedVec for flexibility in unconstrained contexts where sizes are dynamic.
+//
+// Together they provide bidirectional conversion between fields and bytes.
 
-/// Converts an input array of fields into a single array of bytes.
+/// Converts an input array of fields into a single array of bytes. Use `fields_from_bytes` to obtain the original
+/// field array.
 /// Each field is converted to a 32-byte big-endian array.
 /// Since a field is ~254 bits, you'll end up with a subtle 2-bit "gap" at the big end,
 /// every 32 bytes. Be careful that such a gap doesn't leak information!
@@ -13,8 +14,7 @@ pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     let mut bytes = [0; 32 * N];
 
     for i in 0..N {
-        let field = fields[i];
-        let field_as_bytes: [u8; 32] = field.to_be_bytes();
+        let field_as_bytes: [u8; 32] = fields[i].to_be_bytes();
 
         for j in 0..32 {
             bytes[i * 32 + j] = field_as_bytes[j];
@@ -24,7 +24,9 @@ pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     bytes
 }
 
-/// Converts an input BoundedVec of bytes into a BoundedVec of fields.
+/// Converts an input BoundedVec of bytes into a BoundedVec of fields. Arbitrary byte arrays
+/// are not allowed: this is assumed to be an array obtained via `fields_to_bytes`, i.e. one that actually represents
+/// fields. To convert a byte array into Fields, use `bytes_to_fields`.
 ///
 /// The input bytes are chunked into chunks of 32 bytes. Each 32-byte chunk is viewed as big-endian, and is converted
 /// into a Field.

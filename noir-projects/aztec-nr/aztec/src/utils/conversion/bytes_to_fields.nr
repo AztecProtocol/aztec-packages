@@ -8,7 +8,7 @@ use std::static_assert;
 // Together they provide bidirectional conversion between bytes and fields when processing encrypted logs.
 
 /// Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole
-/// bytes.
+/// bytes. Use `bytes_from_fields` to obtain the original bytes array.
 ///
 /// The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted
 /// into a Field.
@@ -33,7 +33,9 @@ pub fn bytes_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; N / 31] {
     fields
 }
 
-/// Converts an input BoundedVec of fields into a BoundedVec of bytes in big-endian order.
+/// Converts an input BoundedVec of fields into a BoundedVec of bytes in big-endian order. Arbitrary Field arrays
+/// are not allowed: this is assumed to be an array obtained via `bytes_to_fields`, i.e. one that actually represents
+/// bytes. To convert a Field array into bytes, use `fields_to_bytes`.
 ///
 /// Each input field must contain at most 31 bytes (this is constrained to be so).
 /// Each field is converted into 31 big-endian bytes, and the resulting 31-byte chunks are concatenated
