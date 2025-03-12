@@ -12,7 +12,7 @@ namespace bb {
  * @tparam Flavor
  * @return OinkProverOutput<Flavor>
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
+template <IsUltraFlavor Flavor> HonkProof OinkProver<Flavor>::prove()
 {
     if (proving_key->proving_key.commitment_key == nullptr) {
         proving_key->proving_key.commitment_key =
@@ -63,6 +63,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
     // Free the commitment key
     proving_key->proving_key.commitment_key = nullptr;
     // #endif
+
+    return transcript->proof_data;
 }
 
 /**
