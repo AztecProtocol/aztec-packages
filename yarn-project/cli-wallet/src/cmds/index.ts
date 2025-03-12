@@ -21,7 +21,7 @@ import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
 
 import type { WalletDB } from '../storage/wallet_db.js';
-import { type AccountType, addScopeToWallet, createOrRetrieveAccount, getWalletWithScopes } from '../utils/accounts.js';
+import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { FeeOpts, FeeOptsWithFeePayer } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
@@ -219,7 +219,7 @@ export function injectCommands(
     } = options;
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-    const wallet = await getWalletWithScopes(account, db);
+    const wallet = await account.getWallet();
     const artifactPath = await artifactPathPromise;
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
@@ -282,7 +282,7 @@ export function injectCommands(
     } = options;
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-    const wallet = await getWalletWithScopes(account, db);
+    const wallet = await account.getWallet();
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
@@ -332,7 +332,7 @@ export function injectCommands(
 
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
+      const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       await simulate(wallet, functionName, args, artifactPath, contractAddress, profile, log);
     });
@@ -428,7 +428,7 @@ export function injectCommands(
 
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
+      const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       const witness = await createAuthwit(wallet, functionName, caller, args, artifactPath, contractAddress, log);
 
@@ -468,7 +468,7 @@ export function injectCommands(
 
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
+      const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       await authorizeAction(wallet, functionName, caller, args, artifactPath, contractAddress, log);
     });
@@ -497,9 +497,8 @@ export function injectCommands(
 
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
+      const wallet = await account.getWallet();
       await addAuthwit(wallet, authwit, authorizer, log);
-      await addScopeToWallet(wallet, authorizer, db);
     });
 
   program
@@ -572,7 +571,7 @@ export function injectCommands(
       const { from: parsedFromAddress, rpcUrl, secretKey, payment, increasedFees, maxFeesPerGas } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
+      const wallet = await account.getWallet();
 
       const txData = await db?.retrieveTxData(txHash);
       if (!txData) {
@@ -600,7 +599,7 @@ export function injectCommands(
       const { from: parsedFromAddress, rpcUrl, secretKey, alias } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
+      const wallet = await account.getWallet();
 
       await registerSender(wallet, address, log);
 
@@ -626,7 +625,7 @@ export function injectCommands(
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const node = pxeWrapper?.getNode() ?? createAztecNodeClient(nodeUrl);
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
+      const wallet = await account.getWallet();
 
       const artifactPath = await artifactPathPromise;
 

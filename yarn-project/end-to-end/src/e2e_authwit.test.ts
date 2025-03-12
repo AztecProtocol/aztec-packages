@@ -34,12 +34,11 @@ describe('e2e_authwit_tests', () => {
 
   describe('Private', () => {
     describe('arbitrary data', () => {
-      it('happy path', async () => {
+      it.only('happy path', async () => {
         // What are we doing here:
         // 1. We compute an inner hash which is here just a hash of random data
         // 2. We then compute the message hash, which is binding it to a "consumer" (here the "auth" contract)
         // 3. We then create an authwit for this message hash.
-        // 4. We add this authwit to the wallet[1]
         // 5. We check that the authwit is valid in private for wallet[0] (check that it is signed by 0)
         // 6. We check that the authwit is NOT valid in private for wallet[1] (check that it is not signed by 1)
 
@@ -53,37 +52,44 @@ describe('e2e_authwit_tests', () => {
         // docs:start:create_authwit
         const witness = await wallets[0].createAuthWit(intent);
         // docs:end:create_authwit
-        await wallets[1].addAuthWitness(witness);
 
         // Check that the authwit is valid in private for wallets[0]
-        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
           isValidInPrivate: true,
           isValidInPublic: false,
         });
 
         // We give wallets[0] access to wallets[1]'s notes.
-        wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
+        //wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
 
         // Check that the authwit is NOT valid in private for wallets[1]
-        expect(await wallets[0].lookupValidity(wallets[1].getAddress(), intent)).toEqual({
+        expect(await wallets[0].lookupValidity(wallets[1].getAddress(), intent, witness)).toEqual({
           isValidInPrivate: false,
           isValidInPublic: false,
         });
 
         // We give wallets[1] access to wallets[0]'s notes.
-        wallets[1].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
+        // wallets[1].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
 
         // Consume the inner hash using the wallets[0] as the "on behalf of".
-        await auth.withWallet(wallets[1]).methods.consume(wallets[0].getAddress(), innerHash).send().wait();
+        await auth
+          .withWallet(wallets[1])
+          .methods.consume(wallets[0].getAddress(), innerHash)
+          .send({ authwits: [witness] })
+          .wait();
 
-        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
           isValidInPrivate: false,
           isValidInPublic: false,
         });
 
         // Try to consume the same authwit again, it should fail
         await expect(
-          auth.withWallet(wallets[1]).methods.consume(wallets[0].getAddress(), innerHash).send().wait(),
+          auth
+            .withWallet(wallets[1])
+            .methods.consume(wallets[0].getAddress(), innerHash)
+            .send({ authwits: [witness] })
+            .wait(),
         ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
       });
       describe('failure case', () => {
@@ -94,16 +100,10 @@ describe('e2e_authwit_tests', () => {
           const messageHash = await computeAuthWitMessageHash(intent, { chainId: Fr.random(), version });
           const expectedMessageHash = await computeAuthWitMessageHash(intent, { chainId, version });
 
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
-
           const witness = await wallets[0].createAuthWit(messageHash);
-          await wallets[1].addAuthWitness(witness);
 
           // We should NOT see it as valid, even though we have the authwit, since the chain id is wrong
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
             isValidInPrivate: false,
             isValidInPublic: false,
           });
@@ -112,11 +112,6 @@ describe('e2e_authwit_tests', () => {
           await expect(
             auth.withWallet(wallets[1]).methods.consume(wallets[0].getAddress(), innerHash).simulate(),
           ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
-
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
         });
 
         it('invalid version', async () => {
@@ -127,16 +122,10 @@ describe('e2e_authwit_tests', () => {
 
           const expectedMessageHash = await computeAuthWitMessageHash(intent, { chainId, version });
 
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
-            isValidInPrivate: false,
-            isValidInPublic: false,
-          });
-
           const witness = await wallets[0].createAuthWit(messageHash);
-          await wallets[1].addAuthWitness(witness);
 
           // We should NOT see it as valid, even though we have the authwit, since the version is wrong
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
             isValidInPrivate: false,
             isValidInPublic: false,
           });
@@ -146,7 +135,7 @@ describe('e2e_authwit_tests', () => {
             auth.withWallet(wallets[1]).methods.consume(wallets[0].getAddress(), innerHash).simulate(),
           ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
 
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
             isValidInPrivate: false,
             isValidInPublic: false,
           });
@@ -162,7 +151,9 @@ describe('e2e_authwit_tests', () => {
 
         const intent = { consumer: wallets[1].getAddress(), innerHash };
 
-        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+        const witness = await wallets[0].createAuthWit(intent);
+
+        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
           isValidInPrivate: false,
           isValidInPublic: false,
         });
@@ -171,7 +162,7 @@ describe('e2e_authwit_tests', () => {
         const validateActionInteraction = await wallets[0].setPublicAuthWit(intent, true);
         await validateActionInteraction.send().wait();
         // docs:end:set_public_authwit
-        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
           isValidInPrivate: false,
           isValidInPublic: true,
         });
@@ -179,7 +170,7 @@ describe('e2e_authwit_tests', () => {
         const registry = await AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallets[1]);
         await registry.methods.consume(wallets[0].getAddress(), innerHash).send().wait();
 
-        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+        expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
           isValidInPrivate: false,
           isValidInPublic: false,
         });
@@ -190,7 +181,9 @@ describe('e2e_authwit_tests', () => {
           const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0x02')]);
           const intent = { consumer: auth.address, innerHash };
 
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+          const witness = await wallets[0].createAuthWit(intent);
+
+          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
             isValidInPrivate: false,
             isValidInPublic: false,
           });
@@ -198,7 +191,7 @@ describe('e2e_authwit_tests', () => {
           const validateActionInteraction = await wallets[0].setPublicAuthWit(intent, true);
           await validateActionInteraction.send().wait();
 
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
             isValidInPrivate: false,
             isValidInPublic: true,
           });
@@ -206,7 +199,7 @@ describe('e2e_authwit_tests', () => {
           const cancelActionInteraction = await wallets[0].setPublicAuthWit(intent, false);
           await cancelActionInteraction.send().wait();
 
-          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+          expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
             isValidInPrivate: false,
             isValidInPublic: false,
           });

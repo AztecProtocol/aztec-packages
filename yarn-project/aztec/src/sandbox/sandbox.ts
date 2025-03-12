@@ -168,12 +168,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, { prefilledPublicData });
   const pxe = await createAztecPXE(node);
 
-  await setupCanonicalL2FeeJuice(
-    new SignerlessWallet(pxe),
-    aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
-    undefined,
-    logger.info,
-  );
+  await setupCanonicalL2FeeJuice(pxe, aztecNodeConfig.l1Contracts.feeJuicePortalAddress, logger.info);
 
   if (initialAccounts.length) {
     userLog('Setting up funded test accounts...');

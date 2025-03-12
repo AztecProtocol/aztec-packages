@@ -110,7 +110,6 @@ describe('PXEOracleInterface', () => {
   let aztecNode: MockProxy<AztecNode>;
 
   let addressDataProvider: AddressDataProvider;
-  let authWitnessDataProvider: AuthWitnessDataProvider;
   let contractDataProvider: ContractDataProvider;
   let noteDataProvider: NoteDataProvider;
   let syncDataProvider: SyncDataProvider;
@@ -131,7 +130,6 @@ describe('PXEOracleInterface', () => {
     jest.spyOn(contractDataProvider, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
 
     addressDataProvider = new AddressDataProvider(store);
-    authWitnessDataProvider = new AuthWitnessDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
     syncDataProvider = new SyncDataProvider(store);
     taggingDataProvider = new TaggingDataProvider(store);
@@ -148,7 +146,6 @@ describe('PXEOracleInterface', () => {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
-      authWitnessDataProvider,
     ); // Set up contract address
     contractAddress = await AztecAddress.random();
     // Set up recipient account

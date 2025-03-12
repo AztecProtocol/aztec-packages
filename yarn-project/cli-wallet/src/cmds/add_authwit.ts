@@ -7,7 +7,8 @@ export async function addAuthwit(
   authorizer: AztecAddress,
   log: LogFn,
 ) {
-  await wallet.addAuthWitness(authwit);
+  //await wallet.addAuthWitness(authwit);
+  throw new Error('Not implemented');
 
   log(`Added authorization witness from ${authorizer}`);
 }

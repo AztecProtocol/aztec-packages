@@ -51,6 +51,7 @@ export {
 export { BatchCall } from '../contract/batch_call.js';
 export { type DeployOptions, DeployMethod } from '../contract/deploy_method.js';
 export { DeploySentTx } from '../contract/deploy_sent_tx.js';
+export { waitForProven, type WaitForProvenOpts, DefaultWaitForProvenOpts } from '../contract/wait_for_proven.js';
 
 export {
   type PartialAddress,

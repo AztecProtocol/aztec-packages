@@ -67,8 +67,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
-    private authWitnessDataProvider: AuthWitnessDataProvider,
-    private log = createLogger('pxe:pxe_data_manager'),
+    private log = createLogger('pxe:pxe_oracle_interface'),
   ) {}
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
@@ -92,11 +91,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`No contract instance found for address ${address.toString()}`);
     }
     return instance;
-  }
-
-  async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    const witness = await this.authWitnessDataProvider.getAuthWitness(messageHash);
-    return witness;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {

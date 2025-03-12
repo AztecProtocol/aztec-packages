@@ -70,33 +70,3 @@ export async function createOrRetrieveAccount(
 
   return account;
 }
-
-export async function addScopeToWallet(wallet: AccountWalletWithSecretKey, scope: AztecAddress, db?: WalletDB) {
-  const address = wallet.getAddress().toString();
-  const currentScopes = wallet.getScopes() ?? [];
-  const deduplicatedScopes = Array.from(
-    new Set([address, ...currentScopes, scope].map(scope => scope.toString())).values(),
-  );
-  if (db) {
-    await db.storeAccountMetadata(wallet.getAddress(), 'scopes', Buffer.from(deduplicatedScopes.join(',')));
-  }
-  wallet.setScopes(deduplicatedScopes.map(scope => AztecAddress.fromString(scope)));
-}
-
-export async function getWalletWithScopes(account: AccountManager, db?: WalletDB) {
-  const wallet = await account.getWallet();
-  if (db) {
-    const address = wallet.getAddress().toString();
-    let storedScopes: string[] = [];
-    try {
-      storedScopes = ((await db.retrieveAccountMetadata(wallet.getAddress(), 'scopes')) ?? '').toString().split(',');
-      // eslint-disable-next-line no-empty
-    } catch {}
-    const currentScopes = wallet.getScopes()?.map(scopes => scopes.toString()) ?? [];
-    const deduplicatedScopes = Array.from(new Set([address, ...currentScopes, ...storedScopes]).values()).map(scope =>
-      AztecAddress.fromString(scope),
-    );
-    wallet.setScopes(deduplicatedScopes);
-  }
-  return wallet;
-}

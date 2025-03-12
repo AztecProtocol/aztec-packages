@@ -11,8 +11,6 @@ export type WaitOpts = {
   ignoreDroppedReceiptsFor?: number;
   /** The maximum time (in seconds) to wait for the transaction to be mined. Defaults to 60. */
   timeout?: number;
-  /** The maximum time (in seconds) to wait for the transaction to be proven. Defaults to 600. */
-  provenTimeout?: number;
   /** The time interval (in seconds) between retries to fetch the transaction receipt. Defaults to 1. */
   interval?: number;
   /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */

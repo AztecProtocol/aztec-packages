@@ -1,5 +1,12 @@
 import { type InitialAccountData, deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
-import { type AztecAddress, SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import {
+  type AztecAddress,
+  SignerlessWallet,
+  type WaitForProvenOpts,
+  type WaitOpts,
+  createPXEClient,
+  makeFetch,
+} from '@aztec/aztec.js';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -16,19 +23,24 @@ export async function setupL2Contracts(
   const waitOpts: WaitOpts = {
     timeout: 180,
     interval: 1,
-    proven: !skipProofWait,
-    provenTimeout: 600,
   };
+  const waitForProvenOptions: WaitForProvenOpts | undefined = !skipProofWait
+    ? {
+        provenTimeout: 600,
+      }
+    : undefined;
   log('setupL2Contracts: Wait options' + jsonStringify(waitOpts));
+  if (waitForProvenOptions) {
+    log('setupL2Contracts: Wait for proven options' + jsonStringify(waitForProvenOptions));
+  }
   log('setupL2Contracts: Creating PXE client...');
   const pxe = createPXEClient(rpcUrl, {}, makeFetch([1, 1, 1, 1, 1], false));
-  const wallet = new SignerlessWallet(pxe);
 
   log('setupL2Contracts: Getting fee juice portal address...');
   // Deploy Fee Juice
-  const feeJuicePortalAddress = (await wallet.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
+  const feeJuicePortalAddress = (await pxe.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
   log('setupL2Contracts: Setting up fee juice portal...');
-  await setupCanonicalL2FeeJuice(wallet, feeJuicePortalAddress, waitOpts, log);
+  await setupCanonicalL2FeeJuice(pxe, feeJuicePortalAddress, log, waitOpts, waitForProvenOptions);
 
   let deployedAccounts: InitialAccountData[] = [];
   if (testAccounts) {

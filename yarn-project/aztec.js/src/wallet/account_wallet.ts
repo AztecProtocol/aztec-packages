@@ -2,7 +2,7 @@ import type { ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
-import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
@@ -22,7 +22,7 @@ import { BaseWallet } from './base_wallet.js';
  */
 export class AccountWallet extends BaseWallet {
   constructor(pxe: PXE, protected account: AccountInterface) {
-    super(pxe, [account.getAddress()]);
+    super(pxe);
   }
 
   createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
@@ -57,9 +57,7 @@ export class AccountWallet extends BaseWallet {
       messageHash = await this.getMessageHash(messageHashOrIntent);
     }
 
-    const witness = await this.account.createAuthWit(messageHash);
-    await this.pxe.addAuthWitness(witness);
-    return witness;
+    return this.account.createAuthWit(messageHash);
   }
 
   /**
@@ -134,6 +132,7 @@ export class AccountWallet extends BaseWallet {
   async lookupValidity(
     onBehalfOf: AztecAddress,
     intent: IntentInnerHash | IntentAction,
+    witness: AuthWitness,
   ): Promise<{
     /** boolean flag indicating if the authwit is valid in private context */
     isValidInPrivate: boolean;
@@ -146,13 +145,11 @@ export class AccountWallet extends BaseWallet {
     const results = { isValidInPrivate: false, isValidInPublic: false };
 
     // Check private
-    const witness = await this.pxe.getAuthWitness(messageHash);
-    if (witness !== undefined) {
-      results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
-        consumer,
-        innerHash,
-      ]).simulate()) as boolean;
-    }
+
+    results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
+      consumer,
+      innerHash,
+    ]).simulate({ authwits: [witness] })) as boolean;
 
     // check public
     results.isValidInPublic = (await new ContractFunctionInteraction(

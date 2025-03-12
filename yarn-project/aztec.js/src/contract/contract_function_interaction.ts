@@ -1,5 +1,6 @@
 import type { ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PrivateKernelProverProfileResult } from '@aztec/stdlib/kernel';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
@@ -22,6 +23,8 @@ export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
+  /** Authwits to use in the simulation */
+  authwits?: AuthWitness[];
 };
 
 /**
@@ -90,6 +93,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         returnTypes: this.functionDao.returnTypes,
       },
     ];
+    this.addAuthWitnesses(options.authwits ?? []);
     const authWitnesses = this.getAuthWitnesses();
     const hashedArguments = this.getHashedArguments();
     const capsules = this.getCapsules();
@@ -117,11 +121,17 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options?.from);
+      return this.wallet.simulateUnconstrained(
+        this.functionDao.name,
+        this.args,
+        this.contractAddress,
+        options.authwits ?? [],
+        options?.from,
+      );
     }
 
     const fee = options.fee ?? { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) };
-    const txRequest = await this.create({ fee });
+    const txRequest = await this.create({ fee, authwits: options.authwits });
     const simulatedTx = await this.wallet.simulateTx(
       txRequest,
       true /* simulatePublic */,
@@ -159,7 +169,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       throw new Error("Can't profile an unconstrained function.");
     }
 
-    const txRequest = await this.create({ fee: options.fee });
+    const txRequest = await this.create({ fee: options.fee, authwits: options.authwits });
     const simulatedTx = await this.wallet.simulateTx(
       txRequest,
       true,

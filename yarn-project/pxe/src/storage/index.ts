@@ -1,5 +1,4 @@
 export * from './address_data_provider/index.js';
-export * from './auth_witness_data_provider/index.js';
 export * from './capsule_data_provider/index.js';
 export * from './contract_data_provider/index.js';
 export * from './note_data_provider/index.js';

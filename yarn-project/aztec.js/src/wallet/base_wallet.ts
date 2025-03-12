@@ -23,7 +23,7 @@ import type { Wallet } from './wallet.js';
  * A base class for Wallet implementations
  */
 export abstract class BaseWallet implements Wallet {
-  constructor(protected readonly pxe: PXE, private scopes?: AztecAddress[]) {}
+  constructor(protected readonly pxe: PXE) {}
 
   abstract getCompleteAddress(): CompleteAddress;
 
@@ -71,15 +71,7 @@ export abstract class BaseWallet implements Wallet {
     skipFeeEnforcement?: boolean,
     profile?: boolean,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(
-      txRequest,
-      simulatePublic,
-      msgSender,
-      skipTxValidation,
-      skipFeeEnforcement,
-      profile,
-      this.scopes,
-    );
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, skipFeeEnforcement, profile);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -91,9 +83,10 @@ export abstract class BaseWallet implements Wallet {
     functionName: string,
     args: any[],
     to: AztecAddress,
+    authwits?: AuthWitness[],
     from?: AztecAddress | undefined,
   ): Promise<AbiDecoded> {
-    return this.pxe.simulateUnconstrained(functionName, args, to, from);
+    return this.pxe.simulateUnconstrained(functionName, args, to, authwits, from);
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();

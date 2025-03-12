@@ -24,6 +24,8 @@ export type SendMethodOptions = {
   nonce?: Fr;
   /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
   cancellable?: boolean;
+  /** Authwits to use in the simulation */
+  authwits?: AuthWitness[];
 };
 
 /**
