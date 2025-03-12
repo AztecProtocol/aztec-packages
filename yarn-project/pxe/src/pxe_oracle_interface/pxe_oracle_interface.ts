@@ -44,7 +44,6 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
-import type { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDao } from '../storage/note_data_provider/note_dao.js';

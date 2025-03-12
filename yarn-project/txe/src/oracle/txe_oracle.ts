@@ -20,7 +20,6 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressDataProvider,
-  AuthWitnessDataProvider,
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,

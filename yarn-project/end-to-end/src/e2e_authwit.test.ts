@@ -34,7 +34,7 @@ describe('e2e_authwit_tests', () => {
 
   describe('Private', () => {
     describe('arbitrary data', () => {
-      it.only('happy path', async () => {
+      it('happy path', async () => {
         // What are we doing here:
         // 1. We compute an inner hash which is here just a hash of random data
         // 2. We then compute the message hash, which is binding it to a "consumer" (here the "auth" contract)
@@ -59,17 +59,11 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: false,
         });
 
-        // We give wallets[0] access to wallets[1]'s notes.
-        //wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
-
         // Check that the authwit is NOT valid in private for wallets[1]
         expect(await wallets[0].lookupValidity(wallets[1].getAddress(), intent, witness)).toEqual({
           isValidInPrivate: false,
           isValidInPublic: false,
         });
-
-        // We give wallets[1] access to wallets[0]'s notes.
-        // wallets[1].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
 
         // Consume the inner hash using the wallets[0] as the "on behalf of".
         await auth
