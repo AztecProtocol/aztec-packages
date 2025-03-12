@@ -11,9 +11,7 @@ There are multiple ways to inject data into smart contracts.
 
 ## Oracles
 
-In the world of EVM, you can read data directly from storage. However, when we are working with circuits for private execution, this becomes more tricky as you cannot just read the storage directly from your state tree, because there are only commitments (e.g. hashes) there. The pre-images (content) of your commitments need to be provided to the function to prove that you know value that the commitments represent and that you are actually allowed to modify them.
-
-If we fetch the notes using an oracle call, we can keep the function signature independent of the underlying data and make it easier to use. See [oracles](./oracles.md) for more information.
+An oracle is something that allows us to get data from the outside world into our contracts. Aztec has some inbuilt oracles that allow developers to access cross-chain messages, private logs, data about notes, and others. You can learn more about them [here](./oracles.md).
 
 ## Authentication Witnesses (authwit)
 
