@@ -70,7 +70,7 @@ export class FullProverTest {
   pxe!: PXEService;
   cheatCodes!: CheatCodes;
   blobSink!: BlobSinkServer;
-  private provenComponents: ProvenSetup[] = [];
+  public provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
   circuitProofVerifier?: ClientProtocolCircuitVerifier;
@@ -85,7 +85,7 @@ export class FullProverTest {
     testName: string,
     private minNumberOfTxsPerBlock: number,
     coinbase: EthAddress,
-    private realProofs = true,
+    public readonly realProofs = true,
   ) {
     this.logger = createLogger(`e2e:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(

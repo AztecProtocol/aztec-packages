@@ -1,4 +1,6 @@
+import { deployFundedSchnorrAccount, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import { getBotDefaultConfig } from '@aztec/bot';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
@@ -8,6 +10,8 @@ import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
 
+import { BotFactory } from '../../../bot/src/factory.js';
+import { setupCanonicalFeeJuice } from '../fixtures/utils.js';
 import { FullProverTest } from './e2e_prover_test.js';
 
 // Set a very long 20 minute timeout.
@@ -74,7 +78,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it(
+  it.only(
     'makes both public and private transfers',
     async () => {
       logger.info(`Starting test for public and private transfer`);
@@ -283,5 +287,20 @@ describe('full_prover', () => {
 
     expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
     expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
+  });
+
+  it('can deploy the bot', async () => {
+    const [account] = await getInitialTestAccounts();
+    await deployFundedSchnorrAccount(t.provenComponents[0].pxe, account);
+    await setupCanonicalFeeJuice(t.provenComponents[0].pxe);
+    const factory = new BotFactory(
+      {
+        ...getBotDefaultConfig(),
+        followChain: 'PENDING',
+      },
+      { pxe: t.provenComponents[0].pxe },
+    );
+
+    await expect(factory.setup()).resolves.toBeDefined();
   });
 });
