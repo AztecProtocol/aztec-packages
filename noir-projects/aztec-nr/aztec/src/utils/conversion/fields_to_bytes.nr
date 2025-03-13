@@ -42,23 +42,30 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
     // Assert that input length is a multiple of 32
     assert(bytes.len() % 32 == 0, "Input length must be a multiple of 32");
 
-    // Since fields are ~254 bits, we must ensure the most significant byte of each 32-byte chunk
-    // contains no more than 6 bits, preventing overflow when converting back to fields.
-    for i in 0..bytes.len() / 32 {
-        let most_significant_byte = bytes.get(i * 32) as Field;
-        most_significant_byte.assert_max_bit_size::<6>();
-    }
-
     let mut fields = BoundedVec::new();
+
+    let p = std::field::modulus_be_bytes();
 
     // Since input length is a multiple of 32, we can simply process all chunks fully
     for i in 0..bytes.len() / 32 {
         let mut field = 0;
+
+        // Process each byte in the 32-byte chunk
+        let mut ok = false;
+
         for j in 0..32 {
             let next_byte = bytes.get(i * 32 + j);
-            // Shift the existing value left by 8 bits and add the new byte
             field = field * 256 + next_byte as Field;
+
+            if !ok {
+                if next_byte != p[j] {
+                    assert(next_byte < p[j], "Value does not fit in field");
+                    ok = true;
+                }
+            }
         }
+        assert(ok, "Value does not fit in field");
+
         fields.push(field);
     }
 
@@ -100,20 +107,6 @@ mod tests {
         let _fields = fields_from_bytes(input);
     }
 
-    #[test(should_fail_with = "call to assert_max_bit_size")]
-    fn fields_from_bytes_overflow() {
-        // Create input with the most significant byte > 63 (6 bits)
-        // 53 is an arbitrary max length that is larger than 32
-        let input = BoundedVec::<_, 53>::from_array([
-            64, // 64 = 0b1000000 (7 bits)
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0,
-        ]);
-
-        // This should fail since the last byte is 64 which requires 7 bits
-        let _fields = fields_from_bytes(input);
-    }
-
     #[test]
     fn fields_from_bytes_max_value() {
         let max_field_as_bytes: [u8; 32] = (-1).to_be_bytes();
@@ -125,18 +118,28 @@ mod tests {
         assert_eq(fields.get(0), -1);
     }
 
-    #[test(should_fail_with = "call to assert_max_bit_size")]
-    fn fields_from_bytes_254_bits() {
-        // Create a 254-bit number that's too large for a field
-        // All bytes are 0xFF except the first byte which is 0x3F to make it 254 bits
-        let input = BoundedVec::<_, 32>::from_array([
-            0x3F, // 0b00111111
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0xFF, 0xFF,
-        ]);
+    // In this test we check that the max value check works by taking the max allowed value, bumping a random byte
+    // and then feeding it to `fields_from_bytes` as input.
+    #[test(should_fail_with = "Value does not fit in field")]
+    fn fields_from_bytes_overflow(random_value: u8) {
+        let index_of_byte_to_bump = random_value % 32;
 
-        // This should fail since the number is too large for a field
-        let _fields = fields_from_bytes(input);
+        // Get the modulus bytes
+        let max_field_value_as_bytes: [u8; 32] = (-1).to_be_bytes();
+
+        let byte_to_bump = max_field_value_as_bytes[index_of_byte_to_bump];
+
+        // If by any change the chosen byte is the max value we'll just skip the test run (which is fine since we are
+        // fuzzing)
+        if byte_to_bump != 255 {
+            let mut input = BoundedVec::<_, 32>::from_array(max_field_value_as_bytes);
+
+            // Bump the byte
+            input.set(index_of_byte_to_bump as u32, byte_to_bump + 1);
+
+            // This should fail since the number is larger than the max value of a field
+            let _fields = fields_from_bytes(input);
+        }
     }
+
 }
