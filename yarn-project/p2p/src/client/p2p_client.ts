@@ -625,9 +625,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   private async addAttestationsToPool(blocks: PublishedL2Block[]): Promise<void> {
-    const attestations = blocks.flatMap(block =>
-      block.signatures.map(signature => new BlockAttestation(ConsensusPayload.fromBlock(block.block), signature)),
-    );
+    const attestations = blocks.flatMap(block => {
+      const payload = ConsensusPayload.fromBlock(block.block);
+      return block.signatures.map(signature => new BlockAttestation(payload, signature));
+    });
     await this.attestationPool?.addAttestations(attestations);
     const slots = blocks.map(b => b.block.header.getSlot()).sort((a, b) => Number(a - b));
     this.log.debug(`Added ${attestations.length} attestations for slots ${slots[0]}-${slots.at(-1)} to the pool`);
