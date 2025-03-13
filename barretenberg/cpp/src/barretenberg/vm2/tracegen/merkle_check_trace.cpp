@@ -21,19 +21,19 @@ void MerkleCheckTraceBuilder::process(
         // Iterate over the path starting at the leaf.
         // Root is not included in the path.
         // For the current level, gather info about the current pair of nodes
-        // being hashed along with the path-length that to be processed for this
-        // merkle check. Note that path-length includes the current level.
+        // being hashed along with the path-length remaining after this level
+        // to complete the merkle check. Note that path-length includes the current level.
         FF current_node_value = event.leaf_value;
         uint64_t current_node_index_in_layer = event.leaf_index;
         for (size_t i = 0; i < full_path_len; ++i) {
             const FF sibling_value = event.sibling_path[i];
 
             // path-length decrements by 1 for each level until it reaches 0
-            const FF path_len = FF(full_path_len - i);
-            const FF path_len_inv = path_len.invert();
+            const FF remaining_path_len = FF(full_path_len - i - 1);
+            const FF remaining_path_len_inv = remaining_path_len == 0 ? FF(0) : remaining_path_len.invert();
 
-            // latch == 1 when the path_len == 0
-            const bool latch = path_len == 0;
+            // latch == 1 when the remaining_path_len == 0
+            const bool latch = remaining_path_len == 0;
             // TODO(dbanks12): rename leaf_index in PIL to current_index_in_layer?
             // rename leaf_index_is_even to current_index_is_even?
             const bool index_is_even = current_node_index_in_layer % 2 == 0;
@@ -48,8 +48,8 @@ void MerkleCheckTraceBuilder::process(
                           { C::merkle_check_sel, 1 },
                           { C::merkle_check_leaf_value, current_node_value },
                           { C::merkle_check_leaf_index, current_node_index_in_layer },
-                          { C::merkle_check_path_len, path_len },
-                          { C::merkle_check_path_len_inv, path_len_inv },
+                          { C::merkle_check_path_len, remaining_path_len },
+                          { C::merkle_check_path_len_inv, remaining_path_len_inv },
                           { C::merkle_check_sibling_value, sibling_value },
                           { C::merkle_check_latch, latch },
                           { C::merkle_check_leaf_index_is_even, index_is_even },

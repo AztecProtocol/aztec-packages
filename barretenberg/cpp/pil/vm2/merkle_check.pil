@@ -42,6 +42,7 @@ namespace merkle_check(256);
     // will be even (over the integers) and as the field is not of characteristic 2, leaf_index' == leaf_index / 2 over the integers
     #[NEXT_LEAF_INDEX_IS_HALVED]
     sel * (1 - latch) * (leaf_index' * 2 + LEAF_INDEX_IS_ODD - leaf_index) = 0;
+    // TODO(dbanks12): should there be some assertion that if latch is 1, leaf_index should be 0 or 1?
 
     // These are what are sent to poseidon2
     // These arrange the leaf_value and sibling_value in the correct order
