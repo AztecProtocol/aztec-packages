@@ -45,7 +45,7 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
     // Since fields are ~254 bits, we must ensure the most significant byte of each 32-byte chunk
     // contains no more than 6 bits, preventing overflow when converting back to fields.
     for i in 0..bytes.len() / 32 {
-        let last_byte = bytes.get(i * 32 + 31) as Field;
+        let last_byte = bytes.get(i * 32) as Field;
         last_byte.assert_max_bit_size::<6>();
     }
 
@@ -102,11 +102,12 @@ mod tests {
 
     #[test(should_fail_with = "call to assert_max_bit_size")]
     fn fields_from_bytes_overflow() {
-        // Create input with last byte > 63 (6 bits)
-        // 64 is an arbitrary max length that is larger than 32
-        let input = BoundedVec::<_, 64>::from_array([
+        // Create input with the most significant byte > 63 (6 bits)
+        // 53 is an arbitrary max length that is larger than 32
+        let input = BoundedVec::<_, 53>::from_array([
+            64, // 64 = 0b1000000 (7 bits)
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 64, // 64 = 0b1000000 (7 bits)
+            0, 0,
         ]);
 
         // This should fail since the last byte is 64 which requires 7 bits
