@@ -120,7 +120,7 @@ const loadingArtifactContainer = css({
   gap: '2rem',
 });
 
-const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes'];
+const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
@@ -163,8 +163,6 @@ export function ContractComponent() {
       setIsLoadingArtifact(true);
       const artifactAsString = await walletDB.retrieveAlias(`artifacts:${currentContractAddress}`);
       const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
-      const contractClass = await getContractClassFromArtifact(contractArtifact);
-      console.log(contractClass);
       const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
       setCurrentContract(contract);
       setContractArtifact(contract.artifact);
@@ -430,7 +428,8 @@ export function ContractComponent() {
               </FormGroup>
             </div>
           </div>
-          {contractArtifact.functions
+          {contractArtifact.nonDispatchPublicFunctions
+            .concat(contractArtifact?.functions ?? [])
             .filter(
               fn =>
                 !fn.isInternal &&

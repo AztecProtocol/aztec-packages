@@ -98,12 +98,17 @@ export function DeployContractDialog({
                 <Select
                   value={initializer?.name ?? ''}
                   label="Initializer"
-                  disabled={!contractArtifact.functions.some(fn => fn.isInitializer)}
+                  disabled={
+                    !contractArtifact.nonDispatchPublicFunctions
+                      .concat(contractArtifact?.functions ?? [])
+                      .some(fn => fn.isInitializer)
+                  }
                   onChange={e => {
                     setInitializer(getInitializer(contractArtifact, e.target.value));
                   }}
                 >
-                  {contractArtifact.functions
+                  {contractArtifact.nonDispatchPublicFunctions
+                    .concat(contractArtifact?.functions ?? [])
                     .filter(fn => fn.isInitializer)
                     .map(fn => (
                       <MenuItem key={fn.name} value={fn.name}>
