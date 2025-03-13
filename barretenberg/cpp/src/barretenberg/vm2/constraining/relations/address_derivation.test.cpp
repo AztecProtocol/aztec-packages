@@ -1,6 +1,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
@@ -34,6 +36,7 @@ using simulation::AddressDerivationEvent;
 using simulation::Ecc;
 using simulation::EccAddEvent;
 using simulation::EventEmitter;
+using simulation::hash_public_keys;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
@@ -48,6 +51,7 @@ using address_derivation_relation = bb::avm2::address_derivation<FF>;
 using poseidon2_relation = bb::avm2::poseidon2_hash<FF>;
 using ecadd_relation = bb::avm2::ecc<FF>;
 using scalar_mul_relation = bb::avm2::scalar_mul<FF>;
+using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 using lookup_salted_initialization_hash_poseidon2_0 =
     bb::avm2::lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF>;
@@ -80,8 +84,27 @@ TEST(AddressDerivationConstrainingTest, Basic)
 
     auto instance = testing::random_contract_instance();
 
-    builder.process({ { .address = instance.address, .instance = instance } }, trace);
+    FF salted_initialization_hash = poseidon2::hash(
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialisation_hash, instance.deployer_addr });
 
+    FF partial_address =
+        poseidon2::hash({ GENERATOR_INDEX__PARTIAL_ADDRESS, instance.contract_class_id, salted_initialization_hash });
+
+    FF public_keys_hash = hash_public_keys(instance.public_keys);
+    FF preaddress = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+
+    EmbeddedCurvePoint g1 = EmbeddedCurvePoint(grumpkin::g1::affine_one);
+    EmbeddedCurvePoint preaddress_public_key = g1 * grumpkin::fr(preaddress);
+    EmbeddedCurvePoint address_point = preaddress_public_key + instance.public_keys.incoming_viewing_key;
+
+    builder.process({ { .instance = instance,
+                        .salted_initialization_hash = salted_initialization_hash,
+                        .partial_address = partial_address,
+                        .public_keys_hash = public_keys_hash,
+                        .preaddress = preaddress,
+                        .preaddress_public_key = preaddress_public_key,
+                        .address_point = address_point } },
+                    trace);
     check_relation<address_derivation_relation>(trace);
 }
 

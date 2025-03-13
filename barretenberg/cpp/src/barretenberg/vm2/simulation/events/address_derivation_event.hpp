@@ -6,7 +6,6 @@
 namespace bb::avm2::simulation {
 
 struct AddressDerivationEvent {
-    AztecAddress address;
     ContractInstance instance;
     FF salted_initialization_hash;
     FF partial_address;

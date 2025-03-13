@@ -34,7 +34,6 @@ void AddressDerivation::assert_derivation(const ContractInstance& instance)
     assert(instance.address == address_point.x());
 
     events.emit({
-        .address = instance.address,
         .instance = instance,
         .salted_initialization_hash = salted_initialization_hash,
         .partial_address = partial_address,
