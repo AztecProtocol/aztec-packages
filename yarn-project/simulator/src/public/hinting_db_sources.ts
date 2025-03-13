@@ -17,9 +17,13 @@ import type { PublicContractsDBInterface } from '../server.js';
 export class HintingPublicContractsDB implements PublicContractsDBInterface {
   constructor(private readonly db: PublicContractsDBInterface, public readonly hints: AvmExecutionHints) {}
 
-  public async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const instance = await this.db.getContractInstance(address);
+  public async getContractInstance(
+    address: AztecAddress,
+    blockNumber: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    const instance = await this.db.getContractInstance(address, blockNumber);
     if (instance) {
+      // We don't need to hint the block number because it doesn't change.
       this.hints.contractInstances.push(
         new AvmContractInstanceHint(
           instance.address,

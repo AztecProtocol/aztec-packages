@@ -72,7 +72,6 @@ export class AvmPersistableStateManager {
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,
     blockNumber: number,
-    blockNumber: number,
   ): AvmPersistableStateManager {
     return new AvmPersistableStateManager(treesDB, contractsDB, trace, firstNullifier, blockNumber, doMerkleOperations);
   }
