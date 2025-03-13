@@ -3,6 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+
 # We rely on noir-projects for the verifier contract.
 export hash=$(cache_content_hash \
   .rebuild_patterns \
@@ -106,21 +107,22 @@ function gas_report {
   forge --version
 
   FORGE_GAS_REPORT=true forge test \
-    --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)|(UniswapPortalTest)" \
+    --match-contract "^RollupTest$" \
     --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" \
     --fuzz-seed 42 \
     --isolate \
+    --json \
     > gas_report.new.tmp
-  grep "^|" gas_report.new.tmp > gas_report.new.md
+  jq '.' gas_report.new.tmp > gas_report.new.json
   rm gas_report.new.tmp
-  diff gas_report.new.md gas_report.md > gas_report.diff || true
+  diff gas_report.new.json gas_report.json > gas_report.diff || true
 
   if [ -s gas_report.diff -a "$check" = "check" ]; then
     cat gas_report.diff
     echo "Gas report has changed. Please check the diffs above, then run './bootstrap.sh gas_report' to update the gas report."
     exit 1
   fi
-  mv gas_report.new.md gas_report.md
+  mv gas_report.new.json gas_report.json
 }
 
 

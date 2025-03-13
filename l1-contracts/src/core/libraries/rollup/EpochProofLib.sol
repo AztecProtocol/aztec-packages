@@ -46,6 +46,13 @@ library EpochProofLib {
     uint256 totalBurn;
   }
 
+  // This is a temporary struct to avoid stack too deep errors
+  struct BlobVarsTemp {
+    uint256 blobOffset;
+    uint256 offset;
+    uint256 i;
+  }
+
   // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
@@ -231,28 +238,31 @@ library EpochProofLib {
     offset += 1;
 
     {
+      BlobVarsTemp memory tmp = BlobVarsTemp({blobOffset: 0, offset: offset, i: 0});
       // blob_public_inputs
-      uint256 blobOffset = 0;
-      for (uint256 i = 0; i < _end - _start + 1; i++) {
-        uint8 blobsInBlock = uint8(_blobPublicInputs[blobOffset++]);
+      for (; tmp.i < _end - _start + 1; tmp.i++) {
+        uint8 blobsInBlock = uint8(_blobPublicInputs[tmp.blobOffset++]);
         for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
           if (j < blobsInBlock) {
             // z
-            publicInputs[offset++] = bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]);
+            publicInputs[tmp.offset++] =
+              bytes32(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 32]);
             // y
-            (publicInputs[offset++], publicInputs[offset++], publicInputs[offset++]) =
-              bytes32ToBigNum(bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]));
+            (publicInputs[tmp.offset++], publicInputs[tmp.offset++], publicInputs[tmp.offset++]) =
+              bytes32ToBigNum(bytes32(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 32]));
             // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
             // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
             // TODO: The below left pads, possibly inefficiently
             // c[0]
-            publicInputs[offset++] =
-              bytes32(uint256(uint248(bytes31(_blobPublicInputs[blobOffset:blobOffset += 31]))));
+            publicInputs[tmp.offset++] = bytes32(
+              uint256(uint248(bytes31(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 31])))
+            );
             // c[1]
-            publicInputs[offset++] =
-              bytes32(uint256(uint136(bytes17(_blobPublicInputs[blobOffset:blobOffset += 17]))));
+            publicInputs[tmp.offset++] = bytes32(
+              uint256(uint136(bytes17(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 17])))
+            );
           } else {
-            offset += Constants.BLOB_PUBLIC_INPUTS;
+            tmp.offset += Constants.BLOB_PUBLIC_INPUTS;
           }
         }
       }
