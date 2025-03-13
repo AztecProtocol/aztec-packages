@@ -65,7 +65,7 @@ mod tests {
     use super::{bytes_from_fields, bytes_to_fields};
 
     #[test]
-    fn random_bytes_to_fields_and_back(input: [u8; 93]) {
+    unconstrained fn random_bytes_to_fields_and_back(input: [u8; 93]) {
         let fields = bytes_to_fields(input);
 
         // At this point in production, the log flies through the system and we get a BoundedVec on the other end.
@@ -81,7 +81,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "N must be a multiple of 31")]
-    fn bytes_to_fields_input_length_not_multiple_of_31() {
+    unconstrained fn bytes_to_fields_input_length_not_multiple_of_31() {
         // Try to convert 32 bytes (not a multiple of 31) to fields
         let _fields = bytes_to_fields([0; 32]);
     }

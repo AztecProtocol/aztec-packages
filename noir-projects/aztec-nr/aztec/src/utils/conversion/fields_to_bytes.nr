@@ -77,7 +77,7 @@ mod tests {
     use super::{fields_from_bytes, fields_to_bytes};
 
     #[test]
-    fn random_fields_to_bytes_and_back(input: [Field; 3]) {
+    unconstrained fn random_fields_to_bytes_and_back(input: [Field; 3]) {
         // Convert to bytes
         let bytes = fields_to_bytes(input);
 
@@ -96,7 +96,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "Input length must be a multiple of 32")]
-    fn to_fields_assert() {
+    unconstrained fn to_fields_assert() {
         // 143 is an arbitrary max length that is larger than 33
         let input = BoundedVec::<_, 143>::from_array([
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -108,7 +108,7 @@ mod tests {
     }
 
     #[test]
-    fn fields_from_bytes_max_value() {
+    unconstrained fn fields_from_bytes_max_value() {
         let max_field_as_bytes: [u8; 32] = (-1).to_be_bytes();
         let input = BoundedVec::<_, 32>::from_array(max_field_as_bytes);
 
@@ -121,7 +121,7 @@ mod tests {
     // In this test we check that the max value check works by taking the max allowed value, bumping a random byte
     // and then feeding it to `fields_from_bytes` as input.
     #[test(should_fail_with = "Value does not fit in field")]
-    fn fields_from_bytes_overflow(random_value: u8) {
+    unconstrained fn fields_from_bytes_overflow(random_value: u8) {
         let index_of_byte_to_bump = random_value % 32;
 
         // Get the modulus bytes
