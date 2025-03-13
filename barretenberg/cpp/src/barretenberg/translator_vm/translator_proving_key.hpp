@@ -106,7 +106,7 @@ class TranslatorProvingKey {
 
     void compute_extra_range_constraint_numerator();
 
-    void compute_translator_range_constraint_ordered_polynomials();
+    void compute_translator_range_constraint_ordered_polynomials(bool masking = false);
 
     void compute_interleaved_polynomials();
 };

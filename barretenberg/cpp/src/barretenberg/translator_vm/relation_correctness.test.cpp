@@ -28,10 +28,13 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // We only need gamma, because permutationr elation only uses gamma
     FF gamma = FF::random_element();
+    FF beta = FF::random_element();
 
     // Fill relation parameters
     RelationParameters<FF> params;
+
     params.gamma = gamma;
+    params.beta = beta;
 
     // Create storage for polynomials
     TranslatorProvingKey key{ mini_circuit_size };
@@ -64,7 +67,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
-    prover_polynomials.z_perm_shift = prover_polynomials.z_perm.shifted();
 
     // Check that permutation relation is satisfied across each row of the prover polynomials
     RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
@@ -730,6 +732,14 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     TranslatorProvingKey key{ mini_circuit_size };
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
+    FF gamma = FF::random_element();
+    FF beta = FF::random_element();
+
+    // Fill relation parameters
+    RelationParameters<FF> params;
+
+    params.gamma = gamma;
+    params.beta = beta;
 
     // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
@@ -749,14 +759,37 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
 
+    // Fill in lagrange polynomials used in the permutation relation
+    prover_polynomials.lagrange_first.at(0) = 1;
+    prover_polynomials.lagrange_last.at(circuit_size - 1) = 1;
+    for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
+        prover_polynomials.lagrange_masking.at(i) = 1;
+    }
+
     key.compute_interleaved_polynomials();
     key.compute_extra_range_constraint_numerator();
-    std::array<FF, full_masking_offset> extra_random_values;
-    for (size_t i = 0; i < full_masking_offset; i++) {
-        extra_random_values[i] = FF::random_element();
+
+    key.compute_translator_range_constraint_ordered_polynomials(true);
+
+    for (size_t i = 0; i < 4; i++) {
+        auto& ordered = prover_polynomials.get_ordered_constraints()[i];
+        auto& interleaved = prover_polynomials.get_interleaved()[i];
+        for (size_t j = circuit_size - full_masking_offset; j < circuit_size; j++) {
+            ASSERT(ordered.at(j) == FF(0));
+            ordered.at(j) = interleaved.at(j);
+        }
     }
-    size_t j = 0;
+
     for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
-        prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = extra_random_values[j++];
+        FF random_value = FF::random_element();
+        prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = random_value;
+        prover_polynomials.ordered_range_constraints_4.at(i) = random_value;
     }
+
+    // Compute the grand product polynomial
+    compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
+
+    // Check that permutation relation is satisfied across each row of the prover polynomials
+    RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
+        prover_polynomials, params, "TranslatorPermutationRelation");
 }
