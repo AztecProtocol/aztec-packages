@@ -79,4 +79,11 @@ mod tests {
         assert_eq(bytes_back.len(), input.len());
         assert_eq(subarray(bytes_back.storage(), 0), input);
     }
+
+    #[test(should_fail_with = "N must be a multiple of 31")]
+    fn bytes_to_fields_input_length_not_multiple_of_31() {
+        // Try to convert 32 bytes (not a multiple of 31) to fields
+        let _fields = bytes_to_fields([0; 32]);
+    }
+
 }
