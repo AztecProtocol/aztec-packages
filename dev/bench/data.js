@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741870249736,
+  "lastUpdate": 1741870253902,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "5764343+charlielye@users.noreply.github.com",
-            "name": "Charlie Lye",
-            "username": "charlielye"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d4ee87129c4a6eae16574c07063963bbca63162f",
-          "message": "fix: release fix (#12572)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
-          "timestamp": "2025-03-07T14:48:21Z",
-          "tree_id": "3ab57365f464d9f0966335e85a5c44fe56e6fd99",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d4ee87129c4a6eae16574c07063963bbca63162f"
-        },
-        "date": 1741362201542,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18378.21616400015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16183.32882 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18811.711706000096,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16675.693666999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3877.9728219997196,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3100.901182 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55526.754161,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55526754000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10391.54102,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10391543000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1903341338,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1903341338 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 214000798,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 214000798 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 211737889,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 211737889 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2209.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b599a1621c7e3acd0acee51b3116a2285c81e438",
+          "message": "fix: Specify block number when fetching instances (alternative) (#12709)\n\nWe need to specify a block number when fetching contract instances since\nduring block building, we want to fetch what the instance will be for\nthe blocknumber being built, not the one currently synced.\nAlternative to\nhttps://github.com/AztecProtocol/aztec-packages/pull/12688 I think this\noption is worse conceptually altough it's less changes. `class\nWorldStateDB extends ContractsDataSourcePublicDB` is a block level cache\nso it makes sense that it receives the block it's caching for on\nconstruction. This PR requires passing block number on every fetch",
+          "timestamp": "2025-03-13T13:14:49+01:00",
+          "tree_id": "b8bad8c520a015b68048f6694c27a095625e3fc1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b599a1621c7e3acd0acee51b3116a2285c81e438"
+        },
+        "date": 1741870245576,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18397.949688999914,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16233.722686000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18750.953328999913,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16391.708968 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3893.058321000126,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3101.886931 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55307.331076999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55307329000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10443.683318,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10443688000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1602783969,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1602783969 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 212534740,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 212534740 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
