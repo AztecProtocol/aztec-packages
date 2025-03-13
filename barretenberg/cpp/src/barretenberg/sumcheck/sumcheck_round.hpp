@@ -9,6 +9,10 @@
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "zk_sumcheck_data.hpp"
 
+#ifndef DISABLE_AZTEC_VM
+#include "barretenberg/vm2/generated/flavor.hpp"
+#endif // DISABLE_AZTEC_VM
+
 namespace bb {
 
 /*! \brief Imlementation of the Sumcheck prover round.
@@ -165,8 +169,27 @@ template <typename Flavor> class SumcheckProverRound {
         // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
         size_t num_threads = bb::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
-        size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
 
+        // In the AVM, the trace is more dense at the top and therefore it is worth to split the work over the threads
+        // a bit more evenly on the vertical axis. To achieve this, we split the trace into chunks and each thread
+        // processes one part of the chunk.
+        // For non-AVM flavor, we use a single chunk.
+        size_t num_of_chunks = 1;
+#ifndef DISABLE_AZTEC_VM
+
+        if constexpr (std::same_as<Flavor, bb::avm2::AvmFlavor>) {
+            num_of_chunks = Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION;
+        }
+
+        // When the trace is shrunk to a point where the number of chunk portion per thread is 1 or lower
+        // we fallback to using one chunk.
+        if (round_size / (2 * num_threads) <= num_of_chunks) {
+            num_of_chunks = 1;
+        }
+#endif // DISABLE_AZTEC_VM
+
+        size_t chunk_size = round_size / num_of_chunks;
+        size_t chunk_thread_portion_size = chunk_size / num_threads;
         // Construct univariate accumulator containers; one per thread
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
@@ -176,19 +199,21 @@ template <typename Flavor> class SumcheckProverRound {
             Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
-            size_t start = thread_idx * iterations_per_thread;
-            size_t end = (thread_idx + 1) * iterations_per_thread;
-            for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                extend_edges(extended_edges, polynomials, edge_idx);
-                // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
-                // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
-                // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
-                // \beta_{d-1}^{\ell_{d-1}}\f$.
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_edges,
-                                                relation_parameters,
-                                                gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+            for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
+                size_t start = chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size;
+                size_t end = chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size;
+                for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
+                    extend_edges(extended_edges, polynomials, edge_idx);
+                    // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
+                    // \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                    // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                    // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
+                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                    extended_edges,
+                                                    relation_parameters,
+                                                    gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+                }
             }
         });
 

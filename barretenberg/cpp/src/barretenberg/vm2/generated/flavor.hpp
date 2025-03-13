@@ -95,6 +95,10 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 965;
 
+    // Number of chunks of the trace in the sumcheck univariate computation where any given chunk is
+    // evenly processed by the all threads.
+    static constexpr size_t NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION = 256;
+
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = std::tuple<
