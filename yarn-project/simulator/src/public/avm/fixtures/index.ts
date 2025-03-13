@@ -23,7 +23,6 @@ import {
 import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 import { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -33,7 +32,7 @@ import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
 import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -66,25 +65,25 @@ export function initContext(overrides?: {
 
 /** Creates an empty state manager with mocked host storage. */
 export function initPersistableStateManager(overrides?: {
-  worldStateDB?: WorldStateDB;
+  treesDB?: PublicTreesDB;
+  contractsDB?: PublicContractsDB;
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
-  db?: MerkleTreeWriteOperations;
   firstNullifier?: Fr;
   blockNumber?: number;
 }): AvmPersistableStateManager {
-  const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
+  const treesDB = overrides?.treesDB || mock<PublicTreesDB>();
   return new AvmPersistableStateManager(
-    worldStateDB,
+    treesDB,
+    overrides?.contractsDB || mock<PublicContractsDB>(),
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
-    overrides?.publicStorage || new PublicStorage(worldStateDB),
-    overrides?.nullifiers || new NullifierManager(worldStateDB),
-    overrides?.doMerkleOperations || false,
-    overrides?.db || mock<MerkleTreeWriteOperations>(),
     overrides?.firstNullifier || new Fr(27),
     overrides?.blockNumber || DEFAULT_BLOCK_NUMBER,
+    overrides?.doMerkleOperations || false,
+    overrides?.publicStorage,
+    overrides?.nullifiers,
   );
 }
 
