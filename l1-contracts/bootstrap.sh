@@ -104,27 +104,19 @@ function inspect {
 
 function gas_report {
   check=${1:-"no"}
-  echo_header "l1-contracts gas report"
+  echo_header "l1-contracts gas report "
+
   FORGE_GAS_REPORT=true forge test --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)" --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" > gas_report.new.tmp
   grep "^|" gas_report.new.tmp > gas_report.new.md
   rm gas_report.new.tmp
-  if [ "$check" = "check" ]; then
-    echo "Checking for differences in gas reports..."
-    if diff gas_report.new.md gas_report.md > /dev/null 2>&1; then
-      echo "✅ No differences found in gas reports."
-    else
-      echo "⚠️ Differences found in gas reports. Displaying diff:"
-      diff gas_report.new.md gas_report.md || true
-      exit 1
-    fi
-  else
-    mv gas_report.new.md gas_report.md
-  fi
-}
+  diff gas_report.new.md gas_report.md > gas_report.diff || true
 
-function snapshot {
-  echo_header "l1-contracts gas snapshot"
-  forge snapshot --desc "$@"
+  if [ -s gas_report.diff -a "$check" = "check" ]; then
+    cat gas_report.diff
+    echo "Gas report has changed. Please check the diffs above, then run './bootstrap.sh gas_report' to update the gas report."
+    exit 1
+  fi
+  mv gas_report.new.md gas_report.md
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
@@ -223,11 +215,8 @@ case "$cmd" in
     inspect
     ;;
   "gas_report")
-    gas_report
-    ;;
-  "snapshot")
     shift
-    snapshot "$@"
+    gas_report "$@"
     ;;
   test_cmds|release)
     $cmd

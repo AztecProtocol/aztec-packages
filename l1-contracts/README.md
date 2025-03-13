@@ -32,19 +32,28 @@ We use `forge fmt` to format. But follow a few general guidelines beyond the sta
   - Do `function transfer(address _to, uint256 _amount);`
 - use `_` prefix for `internal` and `private` functions.
 
-## Gas snapshots and CI
+## Gas Reports
 
-CI will run `forge snapshot --check`. This means that as you develop, you should run `./bootstrap.sh snapshot --diff` to make sure you understand the gas cost of your changes.
+You can run `./bootstrap.sh gas_report` to generate a detailed gas report for the current state and update the gas_report.md file.
 
-Note: the only reason `forge snapshot` is wrapped in the bootstrap script is to standardize the output, or any future filtering.
+When running CI or tests with `./bootstrap.sh test`, the script will automatically check if gas usage has changed by running `./bootstrap.sh gas_report check`. If gas usage has changed, the test will fail and show a diff of the changes.
 
-When your PR is ready for review, run `./bootstrap.sh snapshot` to update the snapshot, then `./bootstrap.sh test` to make sure you're good.
+If the changes in gas usage are expected and desired:
 
-You can also run `./bootstrap.sh gas_report` to get a gas report for the current state.
+1. Review the diff shown in the output
+2. Run `./bootstrap.sh gas_report` to update the gas report file
+3. Commit the updated gas_report.md file
 
-NOTE: our gas reporting doesn't take blob validation into account due to [this issue](https://github.com/foundry-rs/foundry/issues/10074).
+NOTE: Our gas reporting excludes certain tests due to Forge limitations:
 
-If you want to run gas reports directly with `forge`, you currently have to trigger gas reports with the env var `FORGE_GAS_REPORT` as opposed to the `--gas-report` flag. The `./bootstrap.sh gas_report` does this for you. Otherwise it will not disable the blob stuff in the tests.
+- FeeRollupTest and MinimalFeeModelTest test suites are excluded
+- testInvalidBlobHash and testInvalidBlobProof test cases are excluded
+
+This is related to [this Foundry issue](https://github.com/foundry-rs/foundry/issues/10074).
+
+This means that we don't report gas for blob validation (currently 50k gas per blob, and we use 3 blobs per propose in production).
+
+If you want to run gas reports directly with `forge`, you must use the environment variable `FORGE_GAS_REPORT=true` instead of the `--gas-report` flag. The `./bootstrap.sh gas_report` command does this for you automatically.
 
 ## Contracts:
 

@@ -156,3 +156,9 @@
 | rounds                                                                     | 865             | 865   | 865    | 865    | 522     |
 | vote                                                                       | 29794           | 50136 | 50072  | 125973 | 860959  |
 | yeaCount                                                                   | 851             | 851   | 851    | 851    | 16      |
+| src/periphery/Forwarder.sol:Forwarder contract |                 |       |        |        |         |
+|------------------------------------------------|-----------------|-------|--------|--------|---------|
+| Deployment Cost                                | Deployment Size |       |        |        |         |
+| 358690                                         | 1553            |       |        |        |         |
+| Function Name                                  | min             | avg   | median | max    | # calls |
+| forward                                        | 24936           | 27197 | 27012  | 132931 | 514     |
