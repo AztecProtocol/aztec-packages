@@ -754,6 +754,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-() const
 {
     cycle_group result(*this);
+    // We have to normalize immediately. All the methods, related to
+    // elliptic curve operations, assume that the coordinates are in normalized form and
+    // don't perform any extra normalizations
     result.y = (-y).normalize();
     return result;
 }
