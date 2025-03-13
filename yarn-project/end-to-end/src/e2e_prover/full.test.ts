@@ -1,3 +1,4 @@
+import { deployFundedSchnorrAccount, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
 import { getBotDefaultConfig } from '@aztec/bot';
 import { parseBooleanEnv } from '@aztec/foundation/config';
@@ -289,26 +290,20 @@ describe('full_prover', () => {
   });
 
   it.only('can deploy the bot', async () => {
-    // const [account] = await getInitialTestAccounts();
-    // await deployFundedSchnorrAccount(t.provenComponents[0].pxe, account);
+    const [account] = await getInitialTestAccounts();
+    await deployFundedSchnorrAccount(t.provenComponents[0].pxe, account);
     await setupCanonicalFeeJuice(t.provenComponents[0].pxe);
     const factory = new BotFactory(
       {
         ...getBotDefaultConfig(),
         followChain: 'PENDING',
-        senderPrivateKey: Fr.random(),
-        l1RpcUrls: t.l1RpcUrls,
-        l1Mnemonic: 'test test test test test test test test test test test junk',
+        // senderPrivateKey: Fr.random(),
+        // l1RpcUrls: t.l1RpcUrls,
+        // l1Mnemonic: 'test test test test test test test test test test test junk',
       },
-      { pxe: t.provenComponents[0].pxe, node: t.aztecNode },
+      { pxe: t.provenComponents[0].pxe /*node: t.aztecNode*/ },
     );
 
-    await expect(factory.setup()).rejects.toThrow();
-    ['private-kernel-tail-to-public'].forEach(circuitName => {
-      const data = getTestData(circuitName);
-      if (data) {
-        updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[data.length - 1] as any));
-      }
-    });
+    await expect(factory.setup()).resolves.toBeDefined();
   });
 });
