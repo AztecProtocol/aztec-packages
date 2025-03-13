@@ -107,7 +107,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromHexString(key)));
   }
 
-  public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  public getContractInstance(
+    address: AztecAddress,
+    blockNumber: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
     const instance = this.contractInstances.get(address.toString());
     if (!instance) {
       return Promise.resolve(undefined);
@@ -115,8 +118,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     const updates = this.contractInstanceUpdates.get(address.toString()) || [];
     if (updates.length > 0) {
       const lastUpdate = updates[0];
-      const currentBlockNumber = this.getLastBlockNumber();
-      if (currentBlockNumber >= lastUpdate.blockOfChange) {
+      if (blockNumber >= lastUpdate.blockOfChange) {
         instance.currentContractClassId = lastUpdate.newContractClassId;
       } else if (!lastUpdate.prevContractClassId.isZero()) {
         instance.currentContractClassId = lastUpdate.prevContractClassId;

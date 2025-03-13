@@ -14,7 +14,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
   private contractDataSource: ContractsDataSourcePublicDB;
 
-  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {
+  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
     this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
   }
 
@@ -71,7 +71,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         }
       }
 
-      const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
+      const contractClass = await this.contractDataSource.getContractInstance(contractAddress, this.blockNumber);
 
       if (!contractClass) {
         throw new Error(`Contract not found: ${contractAddress}`);
