@@ -236,8 +236,6 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     }
     this->_is_standard = true;
 
-    // TODO(alex): there can be a possible bug. Again due to montgomery arithmetic.
-    // But it will be confirmed only after the review of the multiplication related operations
     this->x = field_t::conditional_assign(is_infinity, 0, this->x);
     this->y = field_t::conditional_assign(is_infinity, 0, this->y);
 
@@ -283,29 +281,8 @@ template <typename Builder> void cycle_group<Builder>::standardize()
         return;
     }
     this->_is_standard = true;
-
-    // TODO(alex): there can be a possible bug. Again due to montgomery arithmetic.
-    // But it will be confirmed only after the review of the multiplication related operations
     this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
     this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
-
-    if (!this->x.is_constant() && this->y.is_constant()) {
-        auto ctx = this->x.get_context();
-        this->y = field_t::from_witness_index(ctx, ctx->put_constant_variable(this->y.get_value()));
-    }
-    if (this->x.is_constant() && !this->y.is_constant()) {
-        auto ctx = this->y.get_context();
-        this->x = field_t::from_witness_index(ctx, ctx->put_constant_variable(this->x.get_value()));
-    }
-
-    // Due to conditional_assign behavior
-    // Sometimes we won't create the gate here
-    // If this->x = 0 and this->y = 0 and both of them are constants
-    // This ensures that at least one of the switches was performed
-    this->_is_constant = this->x.is_constant() && this->y.is_constant();
-    if (this->_is_constant) {
-        this->_is_infinity = this->_is_infinity.get_value();
-    }
 }
 
 /**
@@ -341,8 +318,9 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
     // this costs 0 gates if `is_infinity` is a circuit constant
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
 
-    // This case breaks the following `create_ecc_dbl_gate`
-    // Since we allow witness coordinates and constant `is_infinity`
+    // We have to return the point at infinity immediately
+    // Cause in that very case the `modified_y` is a constant value, with witness_index = -1
+    // Hence the following `create_ecc_dbl_gate` will throw an ASSERTION error
     if (this->is_point_at_infinity().is_constant() && this->is_point_at_infinity().get_value()) {
         return *this;
     }
@@ -1935,7 +1913,7 @@ template <typename Builder> bool_t<Builder> cycle_group<Builder>::operator==(cyc
 {
     this->standardize();
     other.standardize();
-    const auto equal = (x == other.x) && (y == other.y);
+    const auto equal = (x == other.x) && (y == other.y) && (this->_is_infinity == other._is_infinity);
     return equal;
 }
 
@@ -1945,6 +1923,7 @@ template <typename Builder> void cycle_group<Builder>::assert_equal(cycle_group&
     other.standardize();
     x.assert_equal(other.x, msg);
     y.assert_equal(other.y, msg);
+    this->_is_infinity.assert_equal(other._is_infinity);
 }
 
 template <typename Builder>

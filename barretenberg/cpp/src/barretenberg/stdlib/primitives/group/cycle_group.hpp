@@ -282,9 +282,13 @@ template <typename Builder> class cycle_group {
   private:
     bool_t _is_infinity;
     bool _is_constant;
+    // The point is considered to be `standard` or in `standard form` when:
+    // - It's not a point at infinity, and the coordinates belong to the curve
+    // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
     // Most of the time it is true, so we won't need to do extra conditional_assign
-    // during `get_standard_form` or `assert_equal` call
-    // However sometimes it won't be the case, so we can handle these cases using this flag
+    // during `get_standard_form`, `assert_equal` or `==` calls
+    // However sometimes it won't be the case(due to some previous design choices),
+    // so we can handle these cases using this flag
     bool _is_standard;
     Builder* context;
 
