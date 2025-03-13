@@ -537,7 +537,7 @@ export const deployL1Contracts = async (
   // @note @LHerskind the assets are expected to be the same at some point, but for better
   // configurability they are different for now.
   const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
-    feeAssetAddress.toString(),
+    stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
