@@ -304,11 +304,11 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                 event.error == PC_OUT_OF_RANGE ? 0 : static_cast<uint32_t>(bytecode_size - event.pc);
             const uint32_t bytes_to_read = std::min(bytes_remaining, DECOMPOSE_WINDOW_SIZE);
 
-            uint32_t abs_diff = 0;
+            uint32_t instr_abs_diff = 0;
             if (wire_instr_spec.size_in_bytes <= bytes_to_read) {
-                abs_diff = bytes_to_read - wire_instr_spec.size_in_bytes;
+                instr_abs_diff = bytes_to_read - wire_instr_spec.size_in_bytes;
             } else {
-                abs_diff = wire_instr_spec.size_in_bytes - bytes_to_read - 1;
+                instr_abs_diff = wire_instr_spec.size_in_bytes - bytes_to_read - 1;
             }
 
             uint32_t bytecode_size_u32 = static_cast<uint32_t>(bytecode_size);
@@ -373,7 +373,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                           // From instruction table.
                           { C::instr_fetching_exec_opcode, static_cast<uint32_t>(wire_instr_spec.exec_opcode) },
                           { C::instr_fetching_instr_size, wire_instr_spec.size_in_bytes },
-                          { C::instr_fetching_opcode_out_of_range, wire_opcode_in_range ? 0 : 1 },
 
                           // Fill operand decomposition selectors
                           { C::instr_fetching_sel_op_dc_0, wire_instr_spec.op_dc_selectors.at(0) },
@@ -409,7 +408,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                           { C::instr_fetching_bytecode_size, bytecode_size },
                           { C::instr_fetching_bytes_remaining, bytes_remaining },
                           { C::instr_fetching_bytes_to_read, bytes_to_read },
-                          { C::instr_fetching_abs_diff, abs_diff },
+                          { C::instr_fetching_instr_abs_diff, instr_abs_diff },
                           { C::instr_fetching_pc_abs_diff, pc_abs_diff },
                           { C::instr_fetching_pc_abs_diff_lo, pc_abs_diff_lo },
                           { C::instr_fetching_pc_abs_diff_hi, pc_abs_diff_hi },

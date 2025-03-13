@@ -45,7 +45,6 @@ pol BC_ID_DIFF = bytecode_id' - bytecode_id;
 pol commit bc_id_diff_inv;
 sel * (BC_ID_DIFF * ((1 - last_of_bytecode) * (1 - bc_id_diff_inv) + bc_id_diff_inv) - last_of_bytecode) = 0;
 
-
 // If last_of_bytecode OR precomputed.first_row then next row has pc == 0
 #[PC_IS_ZERO_IN_BYTECODE_FIRST_ROW]
 (last_of_bytecode + precomputed.first_row) * pc' = 0;
@@ -65,13 +64,13 @@ sel * sel' * (1 - last_of_bytecode) * (bytecode_size - bytecode_size') = 0;
 // Absolute difference variant where we compute:
 // bytes_to_read - instr_size      if instr_size <= bytes_to_read
 // instr_size - bytes_to_read - 1  if instr_size > bytes_to_read
-pol commit abs_diff;
+pol commit instr_abs_diff;
 
-// From the following relation, we have: abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
-abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
+// From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
+instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
 
 #[ABS_DIFF_POSITIVE]
-sel {abs_diff} in precomputed.sel_range_8 {precomputed.clk};
+sel {instr_abs_diff} in precomputed.sel_range_8 {precomputed.clk};
 
 // We have to enforce that: pc < bytecode_size <==> pc_out_of_range == 0
 // We use same trick as above by using an absolute difference value.

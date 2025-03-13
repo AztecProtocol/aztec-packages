@@ -32,7 +32,7 @@ class lookup_instr_fetching_abs_diff_positive_settings {
     static constexpr Column COUNTS = Column::lookup_instr_fetching_abs_diff_positive_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_abs_diff_positive_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_abs_diff
+        ColumnAndShifts::instr_fetching_instr_abs_diff
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
@@ -66,7 +66,7 @@ class lookup_instr_fetching_abs_diff_positive_settings {
                                      in._lookup_instr_fetching_abs_diff_positive_counts(),
                                      in._instr_fetching_sel(),
                                      in._precomputed_sel_range_8(),
-                                     in._instr_fetching_abs_diff(),
+                                     in._instr_fetching_instr_abs_diff(),
                                      in._precomputed_clk());
     }
 };
