@@ -121,6 +121,7 @@ describe('Contract Class', () => {
         errorTypes: {},
       },
     ],
+    nonDispatchPublicFunctions: [],
     outputs: {
       structs: {},
       globals: {},

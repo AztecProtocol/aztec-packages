@@ -79,10 +79,9 @@ class MockNoteRequest {
   }
 
   get snippetOfNoteDao() {
-    const payload = L1NotePayload.fromIncomingBodyPlaintextContractAndPublicValues(
+    const payload = L1NotePayload.fromIncomingBodyPlaintextContract(
       this.logPayload.incomingBodyPlaintext,
       this.logPayload.contractAddress,
-      [],
     )!;
     return {
       note: new Note(payload.privateNoteValues),
@@ -703,10 +702,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.removeNullifiedNotes(contractAddress);
 
       expect(removeNullifiedNotesSpy).toHaveBeenCalledTimes(1);
-      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith(
-        [requestedNullifier],
-        await recipient.address.toAddressPoint(),
-      );
+      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith([requestedNullifier], recipient.address);
     }, 30_000);
   });
 });

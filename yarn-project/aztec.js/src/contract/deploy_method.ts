@@ -1,7 +1,7 @@
 import { type ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
 import { mergeExecutionRequestInits } from '@aztec/entrypoints/utils';
 import type { Fr } from '@aztec/foundation/fields';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
+import { type ContractArtifact, type FunctionAbi, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
@@ -52,7 +52,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   private instance?: ContractInstanceWithAddress = undefined;
 
   /** Constructor function to call. */
-  private constructorArtifact: FunctionArtifact | undefined;
+  private constructorArtifact: FunctionAbi | undefined;
 
   constructor(
     private publicKeys: PublicKeys,

@@ -103,4 +103,9 @@ export class RegistryContract {
       coinIssuerAddress: EthAddress.fromString(coinIssuer),
     };
   }
+
+  public async getNumberOfVersions(): Promise<number> {
+    const version = await this.registry.read.numberOfVersions();
+    return Number(version);
+  }
 }

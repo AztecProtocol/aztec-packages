@@ -10,39 +10,34 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import type { KeyStore } from '@aztec/key-store';
-import { AcirSimulator, type ExecutionDataProvider, type SimulationProvider } from '@aztec/simulator/client';
-import { MessageLoadOracleInputs } from '@aztec/simulator/client';
+import {
+  AcirSimulator,
+  type ExecutionDataProvider,
+  MessageLoadOracleInputs,
+  type SimulationProvider,
+} from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
   FunctionCall,
   FunctionSelector,
   FunctionType,
-  NoteSelector,
   encodeArguments,
   getFunctionArtifact,
 } from '@aztec/stdlib/abi';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
-import {
-  IndexedTaggingSecret,
-  L1NotePayload,
-  LogWithTxData,
-  PrivateLog,
-  PublicLog,
-  TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, L1NotePayload, LogWithTxData, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
@@ -463,7 +458,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
     // A map of logs going from recipient address to logs. Note that the logs might have been processed before
     // due to us having a sliding window that "looks back" for logs as well. (We look back as there is no guarantee
-    // that a logs will be received ordered by a given tax index and that the tags won't be reused).
+    // that a logs will be received ordered by a given tag index and that the tags won't be reused).
     const logsMap = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
@@ -509,31 +504,21 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
         logsByTags.forEach((logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
-            // Check that public logs have the correct contract address
-            const checkedLogsbyTag = logsByTag.filter(
-              l => !l.isFromPublic || PublicLog.fromBuffer(l.logData).contractAddress.equals(contractAddress),
-            );
-            if (checkedLogsbyTag.length < logsByTag.length) {
-              const discarded = logsByTag.filter(
-                log => checkedLogsbyTag.find(filteredLog => filteredLog.equals(log)) === undefined,
-              );
-              this.log.warn(
-                `Discarded ${
-                  logsByTag.length - checkedLogsbyTag.length
-                } public logs with mismatched contract address ${contractAddress}:`,
-                discarded.map(l => PublicLog.fromBuffer(l.logData)),
-              );
+            // Discard public logs
+            const filteredLogsByTag = logsByTag.filter(l => !l.isFromPublic);
+            if (filteredLogsByTag.length < logsByTag.length) {
+              this.log.warn(`Discarded ${logsByTag.filter(l => l.isFromPublic).length} public logs with matching tags`);
             }
 
             // The logs for the given tag exist so we store them for later processing
-            logsForRecipient.push(...checkedLogsbyTag);
+            logsForRecipient.push(...filteredLogsByTag);
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
 
-            this.log.debug(`Found ${checkedLogsbyTag.length} logs as recipient ${recipient}`, {
+            this.log.debug(`Found ${filteredLogsByTag.length} logs as recipient ${recipient}`, {
               recipient,
               secret: secretCorrespondingToLog.appTaggingSecret,
               contractName,
@@ -622,12 +607,14 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const decrypted = [];
 
     for (const scopedLog of scopedLogs) {
-      const payload = scopedLog.isFromPublic
-        ? await L1NotePayload.decryptAsIncomingFromPublic(PublicLog.fromBuffer(scopedLog.logData), addressSecret)
-        : await L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
+      if (scopedLog.isFromPublic) {
+        throw new Error('Attempted to decrypt public log');
+      }
+
+      const payload = await L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
       if (!payload) {
-        this.log.verbose('Unable to decrypt log');
+        this.log.warn('Unable to decrypt tagged log - was it not meant for us?');
         continue;
       }
 
@@ -635,8 +622,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         excludedIndices.set(scopedLog.txHash.toString(), new Set());
       }
 
-      const note = await getOrderedNoteItems(this.contractDataProvider, payload);
-      const plaintext = [payload.storageSlot, payload.noteTypeId.toField(), ...note.items];
+      const plaintext = [payload.storageSlot, payload.noteTypeId.toField(), ...payload.privateNoteValues];
 
       decrypted.push({ plaintext, txHash: scopedLog.txHash, contractAddress: payload.contractAddress });
     }
@@ -742,8 +728,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
     }
 
-    // TODO(#12549): does it make sense to store the recipient's address point instead of just its address?
-    const recipientAddressPoint = await recipient.toAddressPoint();
     const noteDao = new NoteDao(
       new Note(content),
       contractAddress,
@@ -755,8 +739,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       txReceipt.blockNumber!,
       txReceipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
-      recipientAddressPoint,
-      NoteSelector.empty(), // TODO(#12013): remove
+      recipient,
     );
 
     await this.noteDataProvider.addNotes([noteDao], recipient);
@@ -770,10 +753,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     const [nullifierIndex] = await this.aztecNode.findNullifiersIndexesWithBlock(syncedBlockNumber, [siloedNullifier]);
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
-      await this.noteDataProvider.removeNullifiedNotes(
-        [{ data: siloedNullifier, ...blockHashAndNum }],
-        recipientAddressPoint,
-      );
+      await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
 
       this.log.verbose(`Removed just-added note`, {
         contract: contractAddress,
@@ -825,7 +805,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
     for (const recipient of await this.keyStore.getAccounts()) {
-      const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, owner: recipient });
+      const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
       const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
 
@@ -837,10 +817,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         })
         .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-      const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(
-        foundNullifiers,
-        await recipient.toAddressPoint(),
-      );
+      const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers, recipient);
       nullifiedNotes.forEach(noteDao => {
         this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,

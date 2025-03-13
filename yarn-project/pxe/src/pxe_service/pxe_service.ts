@@ -32,8 +32,9 @@ import {
   type ContractInstanceWithAddress,
   type NodeInfo,
   type PartialAddress,
+  computeContractAddressFromInstance,
+  getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { EventMetadata, L1EventPayload } from '@aztec/stdlib/event';
 import type { GasFees } from '@aztec/stdlib/gas';
@@ -644,27 +645,19 @@ export class PXEService implements PXE {
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
-      let owner = filter.owner;
-      if (owner === undefined) {
+      let recipient = filter.recipient;
+      if (recipient === undefined) {
         const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
-        const completeAddressIndex = (
-          await Promise.all(completeAddresses.map(completeAddresses => completeAddresses.address.toAddressPoint()))
-        ).findIndex(addressPoint => addressPoint.equals(dao.addressPoint));
+        const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
+          completeAddress.address.equals(dao.recipient),
+        );
         const completeAddress = completeAddresses[completeAddressIndex];
         if (completeAddress === undefined) {
-          throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
+          throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
         }
-        owner = completeAddress.address;
+        recipient = completeAddress.address;
       }
-      return new UniqueNote(
-        dao.note,
-        owner,
-        dao.contractAddress,
-        dao.storageSlot,
-        dao.noteTypeId,
-        dao.txHash,
-        dao.nonce,
-      );
+      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.nonce);
     });
     return Promise.all(extendedNotes);
   }

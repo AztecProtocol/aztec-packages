@@ -37,7 +37,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     translator_verifier.verify_translation(translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 
     MergeVerifier merge_verifier{ builder };
-    merge_verifier.verify_proof(proof.merge_proof);
+    StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
+    merge_verifier.verify_proof(stdlib_merge_proof);
     return { opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk

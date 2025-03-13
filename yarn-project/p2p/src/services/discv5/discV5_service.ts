@@ -3,7 +3,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { type ComponentsVersions, checkCompressedComponentVersion } from '@aztec/stdlib/versioning';
 import { OtelMetricsAdapter, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
+import { Discv5, type Discv5EventEmitter, type IDiscv5CreateOptions } from '@chainsafe/discv5';
 import { ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
@@ -30,9 +30,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   /** Version identifiers. */
   private versions: ComponentsVersions;
 
-  /** UDP listen addr */
-  private listenMultiAddrUdp: Multiaddr;
-
   private currentState = PeerDiscoveryState.STOPPED;
 
   public readonly bootstrapNodes: string[] = [];
@@ -41,14 +38,21 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private startTime = 0;
 
+  private handlers = {
+    onMultiaddrUpdated: this.onMultiaddrUpdated.bind(this),
+    onDiscovered: this.onDiscovered.bind(this),
+    onEnrAdded: this.onEnrAdded.bind(this),
+  };
+
   constructor(
     private peerId: PeerId,
     private config: P2PConfig,
     telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('p2p:discv5_service'),
+    configOverrides: Partial<IDiscv5CreateOptions> = {},
   ) {
     super();
-    const { tcpAnnounceAddress, udpAnnounceAddress, udpListenAddress, bootstrapNodes } = config;
+    const { p2pIp, p2pPort, bootstrapNodes } = config;
     this.bootstrapNodes = bootstrapNodes ?? [];
     this.bootstrapNodeEnrs = this.bootstrapNodes.map(x => ENR.decodeTxt(x));
     // create ENR from PeerId
@@ -56,31 +60,31 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Add aztec identification to ENR
     this.versions = setAztecEnrKey(this.enr, config);
 
-    if (!tcpAnnounceAddress) {
-      throw new Error('You need to provide at least a TCP announce address.');
+    const bindAddrs: any = {
+      ip4: multiaddr(convertToMultiaddr(config.listenAddress, p2pPort, 'udp')),
+    };
+
+    if (p2pIp) {
+      const multiAddrTcp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pPort, 'tcp')}/p2p/${peerId.toString()}`);
+      // if no udp announce address is provided, use the tcp announce address
+      const multiAddrUdp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pPort, 'udp')}/p2p/${peerId.toString()}`);
+
+      // set location multiaddr in ENR record
+      this.enr.setLocationMultiaddr(multiAddrUdp);
+      this.enr.setLocationMultiaddr(multiAddrTcp);
     }
-
-    const multiAddrTcp = multiaddr(`${convertToMultiaddr(tcpAnnounceAddress, 'tcp')}/p2p/${peerId.toString()}`);
-    // if no udp announce address is provided, use the tcp announce address
-    const multiAddrUdp = multiaddr(
-      `${convertToMultiaddr(udpAnnounceAddress || tcpAnnounceAddress, 'udp')}/p2p/${peerId.toString()}`,
-    );
-
-    this.listenMultiAddrUdp = multiaddr(convertToMultiaddr(udpListenAddress, 'udp'));
-
-    // set location multiaddr in ENR record
-    this.enr.setLocationMultiaddr(multiAddrUdp);
-    this.enr.setLocationMultiaddr(multiAddrTcp);
 
     const metricsRegistry = new OtelMetricsAdapter(telemetry);
     this.discv5 = Discv5.create({
       enr: this.enr,
       peerId,
-      bindAddrs: { ip4: this.listenMultiAddrUdp },
+      bindAddrs,
       config: {
         lookupTimeout: 2000,
         requestTimeout: 2000,
         allowUnverifiedSessions: true,
+        enrUpdate: !p2pIp ? true : false, // If no p2p IP is set, enrUpdate can automatically resolve it
+        ...configOverrides.config,
       },
       metricsRegistry,
     });
@@ -104,8 +108,16 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       }
     };
 
-    this.discv5.on(Discv5Event.DISCOVERED, this.onDiscovered.bind(this));
-    this.discv5.on(Discv5Event.ENR_ADDED, this.onEnrAdded.bind(this));
+    this.discv5.on(Discv5Event.DISCOVERED, this.handlers.onDiscovered);
+    this.discv5.on(Discv5Event.ENR_ADDED, this.handlers.onEnrAdded);
+    this.discv5.on(Discv5Event.MULTIADDR_UPDATED, this.handlers.onMultiaddrUpdated);
+  }
+
+  private onMultiaddrUpdated(m: Multiaddr) {
+    // We want to update our tcp port to match the udp port
+    const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pPort, 'tcp'));
+    this.enr.setLocationMultiaddr(multiAddrTcp);
+    this.logger.info('Multiaddr updated', { multiaddr: multiaddr.toString() });
   }
 
   public async start(): Promise<void> {
@@ -187,8 +199,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   public async stop(): Promise<void> {
-    await this.discv5.off(Discv5Event.DISCOVERED, this.onDiscovered);
-    await this.discv5.off(Discv5Event.ENR_ADDED, this.onEnrAdded);
+    await this.discv5.off(Discv5Event.DISCOVERED, this.handlers.onDiscovered);
+    await this.discv5.off(Discv5Event.ENR_ADDED, this.handlers.onEnrAdded);
+    await this.discv5.off(Discv5Event.MULTIADDR_UPDATED, this.handlers.onMultiaddrUpdated);
 
     await this.discv5.stop();
 
