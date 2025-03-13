@@ -10,6 +10,7 @@ import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { InBlock } from './in_block.js';
 import type { L2Block } from './l2_block.js';
+import type { PublishedL2Block } from './published_l2_block.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -61,6 +62,9 @@ export interface L2BlockSource {
    * @returns The requested L2 blocks.
    */
   getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]>;
+
+  /** Equivalent to getBlocks but includes publish data. */
+  getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
 
   /**
    * Gets a tx effect.

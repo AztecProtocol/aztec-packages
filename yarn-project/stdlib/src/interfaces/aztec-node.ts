@@ -17,6 +17,7 @@ import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from '../block/l2_block_number.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { PublishedL2BlockSchema } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,
@@ -63,7 +64,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  */
 export interface AztecNode
   extends ProverCoordination,
-    Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'> {
+    Pick<L2BlockSource, 'getBlocks' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
   /**
    * Returns the tips of the L2 chain.
    */
@@ -533,6 +534,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getNodeInfo: z.function().returns(NodeInfoSchema),
 
   getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
+
+  getPublishedBlocks: z.function().args(z.number(), z.number()).returns(z.array(PublishedL2BlockSchema)),
 
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 

@@ -7,6 +7,7 @@ import {
 } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block, wrapInBlock } from '@aztec/stdlib/block';
@@ -27,7 +28,7 @@ import '@aztec/stdlib/testing/jest';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
-import type { L1Published } from './structs/published.js';
+import type { PublishedL2Block } from './structs/published.js';
 
 /**
  * @param testName - The name of the test suite.
@@ -39,8 +40,9 @@ export function describeArchiverDataStore(
 ) {
   describe(testName, () => {
     let store: ArchiverDataStore;
-    let blocks: L1Published<L2Block>[];
-    const blockTests: [number, number, () => L1Published<L2Block>[]][] = [
+    let blocks: PublishedL2Block[];
+
+    const blockTests: [number, number, () => PublishedL2Block[]][] = [
       [1, 1, () => blocks.slice(0, 1)],
       [10, 1, () => blocks.slice(9, 10)],
       [1, 10, () => blocks.slice(0, 10)],
@@ -48,18 +50,30 @@ export function describeArchiverDataStore(
       [5, 2, () => blocks.slice(4, 6)],
     ];
 
-    const makeL1Published = (block: L2Block, l1BlockNumber: number): L1Published<L2Block> => ({
-      data: block,
+    const makePublished = (block: L2Block, l1BlockNumber: number): PublishedL2Block => ({
+      block: block,
       l1: {
         blockNumber: BigInt(l1BlockNumber),
         blockHash: `0x${l1BlockNumber}`,
         timestamp: BigInt(l1BlockNumber * 1000),
       },
+      signatures: times(3, Signature.random),
     });
+
+    const expectBlocksEqual = (actual: PublishedL2Block[], expected: PublishedL2Block[]) => {
+      expect(actual.length).toEqual(expected.length);
+      for (let i = 0; i < expected.length; i++) {
+        const expectedBlock = expected[i];
+        const actualBlock = actual[i];
+        expect(actualBlock.l1).toEqual(expectedBlock.l1);
+        expect(actualBlock.block.equals(expectedBlock.block)).toBe(true);
+        expect(actualBlock.signatures.every((s, i) => s.equals(expectedBlock.signatures[i]))).toBe(true);
+      }
+    };
 
     beforeEach(async () => {
       store = await getStore();
-      blocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1), i + 10));
+      blocks = await timesParallel(10, async i => makePublished(await L2Block.random(i + 1), i + 10));
     });
 
     describe('addBlocks', () => {
@@ -78,7 +92,7 @@ export function describeArchiverDataStore(
         await store.addBlocks(blocks);
         const blockNumber = await store.getSynchedL2BlockNumber();
 
-        expect(await store.getBlocks(blockNumber, 1)).toEqual([blocks[blocks.length - 1]]);
+        expectBlocksEqual(await store.getBlocks(blockNumber, 1), [blocks[blocks.length - 1]]);
 
         await store.unwindBlocks(blockNumber, 1);
 
@@ -87,13 +101,13 @@ export function describeArchiverDataStore(
       });
 
       it('can unwind multiple empty blocks', async () => {
-        const emptyBlocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1, 0), i + 10));
+        const emptyBlocks = await timesParallel(10, async i => makePublished(await L2Block.random(i + 1, 0), i + 10));
         await store.addBlocks(emptyBlocks);
         expect(await store.getSynchedL2BlockNumber()).toBe(10);
 
         await store.unwindBlocks(10, 3);
         expect(await store.getSynchedL2BlockNumber()).toBe(7);
-        expect((await store.getBlocks(1, 10)).map(b => b.data.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+        expect((await store.getBlocks(1, 10)).map(b => b.block.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
       });
 
       it('refuses to unwind blocks if the tip is not the last block', async () => {
@@ -108,7 +122,7 @@ export function describeArchiverDataStore(
       });
 
       it.each(blockTests)('retrieves previously stored blocks', async (start, limit, getExpectedBlocks) => {
-        await expect(store.getBlocks(start, limit)).resolves.toEqual(getExpectedBlocks());
+        expectBlocksEqual(await store.getBlocks(start, limit), getExpectedBlocks());
       });
 
       it('returns an empty array if no blocks are found', async () => {
@@ -131,7 +145,7 @@ export function describeArchiverDataStore(
 
       it("returns the most recently added block's number", async () => {
         await store.addBlocks(blocks);
-        await expect(store.getSynchedL2BlockNumber()).resolves.toEqual(blocks.at(-1)!.data.number);
+        await expect(store.getSynchedL2BlockNumber()).resolves.toEqual(blocks.at(-1)!.block.number);
       });
     });
 
@@ -165,14 +179,14 @@ export function describeArchiverDataStore(
 
     describe('addLogs', () => {
       it('adds private & public logs', async () => {
-        const block = blocks[0].data;
+        const block = blocks[0].block;
         await expect(store.addLogs([block])).resolves.toEqual(true);
       });
     });
 
     describe('deleteLogs', () => {
       it('deletes private & public logs', async () => {
-        const block = blocks[0].data;
+        const block = blocks[0].block;
         await store.addBlocks([blocks[0]]);
         await expect(store.addLogs([block])).resolves.toEqual(true);
 
@@ -193,7 +207,7 @@ export function describeArchiverDataStore(
 
     describe('getPrivateLogs', () => {
       it('gets added private logs', async () => {
-        const block = blocks[0].data;
+        const block = blocks[0].block;
         await store.addBlocks([blocks[0]]);
         await store.addLogs([block]);
 
@@ -204,16 +218,16 @@ export function describeArchiverDataStore(
 
     describe('getTxEffect', () => {
       beforeEach(async () => {
-        await store.addLogs(blocks.map(b => b.data));
+        await store.addLogs(blocks.map(b => b.block));
         await store.addBlocks(blocks);
       });
 
       it.each([
-        () => wrapInBlock(blocks[0].data.body.txEffects[0], blocks[0].data),
-        () => wrapInBlock(blocks[9].data.body.txEffects[3], blocks[9].data),
-        () => wrapInBlock(blocks[3].data.body.txEffects[1], blocks[3].data),
-        () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
-        () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
+        () => wrapInBlock(blocks[0].block.body.txEffects[0], blocks[0].block),
+        () => wrapInBlock(blocks[9].block.body.txEffects[3], blocks[9].block),
+        () => wrapInBlock(blocks[3].block.body.txEffects[1], blocks[3].block),
+        () => wrapInBlock(blocks[5].block.body.txEffects[2], blocks[5].block),
+        () => wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
         const expectedTx = await getExpectedTx();
         const actualTx = await store.getTxEffect(expectedTx.data.txHash);
@@ -225,11 +239,11 @@ export function describeArchiverDataStore(
       });
 
       it.each([
-        () => wrapInBlock(blocks[0].data.body.txEffects[0], blocks[0].data),
-        () => wrapInBlock(blocks[9].data.body.txEffects[3], blocks[9].data),
-        () => wrapInBlock(blocks[3].data.body.txEffects[1], blocks[3].data),
-        () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
-        () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
+        () => wrapInBlock(blocks[0].block.body.txEffects[0], blocks[0].block),
+        () => wrapInBlock(blocks[9].block.body.txEffects[3], blocks[9].block),
+        () => wrapInBlock(blocks[3].block.body.txEffects[1], blocks[3].block),
+        () => wrapInBlock(blocks[5].block.body.txEffects[2], blocks[5].block),
+        () => wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block),
       ])('tries to retrieves a previously stored transaction after deleted', async getExpectedTx => {
         await store.unwindBlocks(blocks.length, blocks.length);
 
@@ -292,16 +306,65 @@ export function describeArchiverDataStore(
       });
 
       it('returns previously stored contract instances', async () => {
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toMatchObject(contractInstance);
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toMatchObject(
+          contractInstance,
+        );
       });
 
       it('returns undefined if contract instance is not found', async () => {
-        await expect(store.getContractInstance(await AztecAddress.random())).resolves.toBeUndefined();
+        await expect(store.getContractInstance(await AztecAddress.random(), blockNum)).resolves.toBeUndefined();
       });
 
       it('returns undefined if previously stored contract instances was deleted', async () => {
         await store.deleteContractInstances([contractInstance], blockNum);
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toBeUndefined();
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('contractInstanceUpdates', () => {
+      let contractInstance: ContractInstanceWithAddress;
+      let classId: Fr;
+      let nextClassId: Fr;
+      const blockOfChange = 10;
+
+      beforeEach(async () => {
+        classId = Fr.random();
+        nextClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
+        contractInstance = { ...randomInstance, address: await AztecAddress.random() };
+        await store.addContractInstances([contractInstance], 1);
+        await store.addContractInstanceUpdates(
+          [
+            {
+              prevContractClassId: classId,
+              newContractClassId: nextClassId,
+              blockOfChange,
+              address: contractInstance.address,
+            },
+          ],
+          blockOfChange - 1,
+        );
+      });
+
+      it('gets the correct current class id for a contract not updated yet', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange - 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(classId);
+      });
+
+      it('gets the correct current class id for a contract that has just been updated', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+      });
+
+      it('gets the correct current class id for a contract that was updated in the past', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
     });
 
@@ -378,7 +441,7 @@ export function describeArchiverDataStore(
       const numPrivateLogsPerTx = 3;
       const numPublicLogsPerTx = 2;
 
-      let blocks: L1Published<L2Block>[];
+      let blocks: PublishedL2Block[];
 
       const makeTag = (blockNumber: number, txIndex: number, logIndex: number, isPublic = false) =>
         new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
@@ -407,7 +470,7 @@ export function describeArchiverDataStore(
         });
       };
 
-      const mockBlockWithLogs = async (blockNumber: number): Promise<L1Published<L2Block>> => {
+      const mockBlockWithLogs = async (blockNumber: number): Promise<PublishedL2Block> => {
         const block = await L2Block.random(blockNumber);
         block.header.globalVariables.blockNumber = new Fr(blockNumber);
 
@@ -419,7 +482,8 @@ export function describeArchiverDataStore(
         });
 
         return {
-          data: block,
+          block: block,
+          signatures: times(3, Signature.random),
           l1: { blockNumber: BigInt(blockNumber), blockHash: `0x${blockNumber}`, timestamp: BigInt(blockNumber) },
         };
       };
@@ -428,7 +492,7 @@ export function describeArchiverDataStore(
         blocks = await timesParallel(numBlocks, (index: number) => mockBlockWithLogs(index));
 
         await store.addBlocks(blocks);
-        await store.addLogs(blocks.map(b => b.data));
+        await store.addLogs(blocks.map(b => b.block));
       });
 
       it('is possible to batch request private logs via tags', async () => {
@@ -482,11 +546,11 @@ export function describeArchiverDataStore(
         // Create a block containing logs that have the same tag as the blocks before.
         const newBlockNumber = numBlocks;
         const newBlock = await mockBlockWithLogs(newBlockNumber);
-        const newLog = newBlock.data.body.txEffects[1].privateLogs[1];
+        const newLog = newBlock.block.body.txEffects[1].privateLogs[1];
         newLog.fields[0] = tags[0];
-        newBlock.data.body.txEffects[1].privateLogs[1] = newLog;
+        newBlock.block.body.txEffects[1].privateLogs[1] = newLog;
         await store.addBlocks([newBlock]);
-        await store.addLogs([newBlock.data]);
+        await store.addLogs([newBlock.block]);
 
         const logsByTags = await store.getLogsByTags(tags);
 
@@ -531,27 +595,28 @@ export function describeArchiverDataStore(
       const numPublicFunctionCalls = 3;
       const numPublicLogs = 2;
       const numBlocks = 10;
-      let blocks: L1Published<L2Block>[];
+      let blocks: PublishedL2Block[];
 
       beforeEach(async () => {
         blocks = await timesParallel(numBlocks, async (index: number) => ({
-          data: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
+          block: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
           l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
+          signatures: times(3, Signature.random),
         }));
 
         await store.addBlocks(blocks);
-        await store.addLogs(blocks.map(b => b.data));
+        await store.addLogs(blocks.map(b => b.block));
       });
 
       it('no logs returned if deleted ("txHash" filter param is respected variant)', async () => {
         // get random tx
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetTxHash = blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash;
+        const targetTxHash = blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].txHash;
 
         await Promise.all([
           store.unwindBlocks(blocks.length, blocks.length),
-          store.deleteLogs(blocks.map(b => b.data)),
+          store.deleteLogs(blocks.map(b => b.block)),
         ]);
 
         const response = await store.getPublicLogs({ txHash: targetTxHash });
@@ -565,7 +630,7 @@ export function describeArchiverDataStore(
         // get random tx
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetTxHash = blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash;
+        const targetTxHash = blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].txHash;
 
         const response = await store.getPublicLogs({ txHash: targetTxHash });
         const logs = response.logs;
@@ -608,7 +673,7 @@ export function describeArchiverDataStore(
         const targetTxIndex = randomInt(txsPerBlock);
         const targetLogIndex = randomInt(numPublicLogs * numPublicFunctionCalls);
         const targetContractAddress =
-          blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].contractAddress;
+          blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].contractAddress;
 
         const response = await store.getPublicLogs({ contractAddress: targetContractAddress });
 

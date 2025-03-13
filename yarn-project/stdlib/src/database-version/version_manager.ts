@@ -148,7 +148,7 @@ export class DatabaseVersionManager<T> {
         }
       } else if (cmp !== 0) {
         this.log.info(
-          `Can't upgrade from version ${storedVersion.schemaVersion} to ${this.currentVersion}. Resetting database at ${this.dataDirectory}`,
+          `Can't upgrade from version ${storedVersion.schemaVersion} to ${this.currentVersion.schemaVersion}. Resetting database at ${this.dataDirectory}`,
         );
         needsReset = true;
       }
