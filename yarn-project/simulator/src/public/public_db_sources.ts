@@ -210,13 +210,16 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     this.currentTxRevertibleCache.clear();
   }
 
-  public async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  public async getContractInstance(
+    address: AztecAddress,
+    blockNumber: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
     // Check caches in order: tx revertible -> tx non-revertible -> block -> data source
     return (
       this.currentTxRevertibleCache.getInstance(address) ??
       this.currentTxNonRevertibleCache.getInstance(address) ??
       this.blockCache.getInstance(address) ??
-      (await this.dataSource.getContract(address))
+      (await this.dataSource.getContract(address, blockNumber))
     );
   }
 

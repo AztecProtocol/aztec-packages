@@ -115,7 +115,13 @@ export class PublicTxContext {
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations, firstNullifier);
+    const txStateManager = AvmPersistableStateManager.create(
+      worldStateDB,
+      trace,
+      doMerkleOperations,
+      firstNullifier,
+      globalVariables.blockNumber.toNumber(),
+    );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;

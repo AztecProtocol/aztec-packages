@@ -16,14 +16,6 @@ import type { TXE } from '../oracle/txe_oracle.js';
 export class TXEPublicContractDataSource implements ContractDataSource {
   constructor(private txeOracle: TXE) {}
 
-  async getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined> {
-    const bytecode = await this.txeOracle.getContractDataProvider().getBytecode(address, selector);
-    if (!bytecode) {
-      return undefined;
-    }
-    return { bytecode, selector };
-  }
-
   getBlockNumber(): Promise<number> {
     return this.txeOracle.getBlockNumber();
   }

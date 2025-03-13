@@ -35,9 +35,10 @@ export interface PublicContractsDB {
   /**
    * Returns a publicly deployed contract instance.
    * @param address - Address of the contract.
+   * @param blockNumber - The block number at which to retrieve the contract instance.
    * @returns The contract instance or undefined if not found.
    */
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
 
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }

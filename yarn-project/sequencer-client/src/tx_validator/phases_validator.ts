@@ -14,7 +14,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
   private contractDataSource: ContractsDataSourcePublicDB;
 
-  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {
+  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
     this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
   }
 
@@ -26,7 +26,9 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       await this.contractDataSource.addNewContracts(tx);
 
       if (!tx.data.forPublic) {
-        this.#log.debug(`Tx ${Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`);
+        this.#log.debug(
+          `Tx ${await Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`,
+        );
         return { result: 'valid' };
       }
 
@@ -34,7 +36,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       for (const setupFn of setupFns) {
         if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
           this.#log.warn(
-            `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
+            `Rejecting tx ${await Tx.getHash(tx)} because it calls setup function not on allow list: ${
               setupFn.callContext.contractAddress
             }:${setupFn.callContext.functionSelector}`,
             { allowList: this.setupAllowList },
@@ -71,7 +73,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         }
       }
 
-      const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
+      const contractClass = await this.contractDataSource.getContractInstance(contractAddress, this.blockNumber);
 
       if (!contractClass) {
         throw new Error(`Contract not found: ${contractAddress}`);
