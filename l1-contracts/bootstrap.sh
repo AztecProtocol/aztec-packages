@@ -53,7 +53,7 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  echo "$hash cd l1-contracts && forge snapshot --check"
 }
 
 function test {
@@ -103,6 +103,11 @@ function inspect {
 function gas_report {
   echo_header "l1-contracts gas report"
   FORGE_GAS_REPORT=true forge test --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)" --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)"
+}
+
+function snapshot {
+  echo_header "l1-contracts gas snapshot"
+  forge snapshot --desc "$@"
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
@@ -202,6 +207,10 @@ case "$cmd" in
     ;;
   "gas_report")
     gas_report
+    ;;
+  "snapshot")
+    shift
+    snapshot "$@"
     ;;
   test_cmds|release)
     $cmd

@@ -12,7 +12,8 @@ Alternatively you can use docker instead, it will handle installations and run t
 
 The `src` folder contain contracts that is to be used by the local developer testnet. It is grouped into 3 categories:
 
-- `core` contains the required contracts, the bare minimum
+- `core` contains the required contracts, the bare minimum.
+- `governance` contains the contracts for the governance system.
 - `mock` contains stubs, for now an always true verifier.
 - `periphery` stuff that is nice to have, convenience contracts and functions belong in here.
 
@@ -30,6 +31,14 @@ We use `forge fmt` to format. But follow a few general guidelines beyond the sta
   - Don't `function transfer(address to, uint256 amount);`
   - Do `function transfer(address _to, uint256 _amount);`
 - use `_` prefix for `internal` and `private` functions.
+
+## Gas snapshots and CI
+
+CI will run `forge snapshot --check`. This means that as you develop, you should run `forge snapshot --diff` to make sure you understand the gas cost of your changes.
+
+When your PR is ready for review, run `forge snapshot` to update the snapshot.
+
+You can also run `./bootstrap.sh gas_report` to get a gas report for the current state.
 
 ## Contracts:
 
