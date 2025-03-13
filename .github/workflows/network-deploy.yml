@@ -16,7 +16,7 @@ on:
         required: true
         type: string
       resources_file:
-        description: The resources file to use, e.g. default.yaml
+        description: The resources file to use, e.g. gcloud.yaml
         required: false
         type: string
         default: gcloud.yaml
@@ -69,6 +69,11 @@ on:
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
+      resources_file:
+        description: The resources file to use, e.g. gcloud.yaml
+        required: false
+        type: string
+        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
