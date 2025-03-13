@@ -80,6 +80,7 @@ export class FullProverTest {
   private simulatedProverNode!: ProverNode;
   public l1Contracts!: DeployL1ContractsReturnType;
   public proverAddress!: EthAddress;
+  public l1RpcUrls!: string[];
 
   constructor(
     testName: string,
@@ -305,6 +306,7 @@ export class FullProverTest {
     this.proverNode.start();
 
     this.logger.warn(`Proofs are now enabled`);
+    this.l1RpcUrls = this.context.aztecNodeConfig.l1RpcUrls;
     return this;
   }
 
