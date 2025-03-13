@@ -107,7 +107,7 @@ template <typename FF_> class instr_fetchingImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = (new_term.instr_fetching_abs_diff -
+            auto tmp = (new_term.instr_fetching_instr_abs_diff -
                         ((FF(2) * new_term.instr_fetching_instr_out_of_range - FF(1)) *
                              (new_term.instr_fetching_instr_size - new_term.instr_fetching_bytes_to_read) -
                          new_term.instr_fetching_instr_out_of_range));
