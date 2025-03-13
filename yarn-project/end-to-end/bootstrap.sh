@@ -5,6 +5,10 @@ cmd=${1:-}
 
 hash=$(../bootstrap.sh hash)
 
+function profiled_e2e {
+
+}
+
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash $run_test_script"
@@ -12,7 +16,7 @@ function test_cmds {
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
     # Only capture these for 'full ci'.
-    capture_ivc_folder="yarn-project/end-to-end/client-ivc-inputs-out"
+    capture_ivc_folder="client-ivc-inputs-out"
   else
     echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
     capture_ivc_folder=""
@@ -148,6 +152,9 @@ function bench {
     return
   fi
   BENCH_OUTPUT=bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
+  echo "$hash CAPTURE_IVC_FOLDER='$capture_ivc_folder' $run_test_script simple e2e_amm"
+  benchmarks=
+  ../../barretenberg/cpp/build-release/bb prove -o out.proof -b yarn-project/end-to-end/client-ivc-inputs-out/amm-swap-exact-tokens/acir.msgpack -w yarn-project/end-to-end/client-ivc-inputs-out/amm-swap-exact-tokens/witnesses.msgpack  --scheme client_ivc --input_type runtime_stack
   cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json
 }
 

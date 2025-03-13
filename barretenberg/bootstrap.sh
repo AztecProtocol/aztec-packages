@@ -22,7 +22,7 @@ function bench {
   if cache_download barretenberg-bench-results-$hash.tar.gz; then
     return
   fi
-  bootstrap_all bench
+  # bootstrap_all bench
   ./scripts/combine_benchmarks.py \
     native ./cpp/bench-out/client_ivc_17_in_20_release.json \
     native ./cpp/bench-out/client_ivc_release.json \
@@ -60,7 +60,3 @@ case "$cmd" in
     exit 1
   ;;
 esac
-
-if [ "$cmd" == "bench" ]; then
-  bench
-fi

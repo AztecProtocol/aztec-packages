@@ -3,6 +3,7 @@
  * These are used for debugging and benchmarking barretenberg (the prover component).
  */
 import type { ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
+import { createLogger } from '@aztec/foundation/log';
 import { serializeWitness } from '@aztec/noir-noirc_abi';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 
@@ -33,6 +34,7 @@ export async function capturePrivateExecutionStepsIfEnvSet(label: string, intera
   if (ivcFolder) {
     const result = await interaction.profile({ profileMode: 'execution-steps' });
     const resultsDirectory = path.join(ivcFolder, label);
+    logger.info(`Writing private execution steps to ${resultsDirectory}`);
     await fs.mkdir(resultsDirectory, { recursive: true });
     await _createClientIvcProofFiles(resultsDirectory, result.executionSteps);
     logger.info(`Wrote private execution steps to ${resultsDirectory}`);
