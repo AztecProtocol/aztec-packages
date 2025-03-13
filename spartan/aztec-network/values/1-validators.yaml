@@ -10,17 +10,8 @@ validator:
 
 ethereum:
   execution:
-    resources:
-      requests:
-        cpu: "1"
     storageSize: "10Gi"
   beacon:
-    resources:
-      requests:
-        cpu: "1"
     storageSize: "10Gi"
   validator:
-    resources:
-      requests:
-        cpu: "1"
     storageSize: "10Gi"

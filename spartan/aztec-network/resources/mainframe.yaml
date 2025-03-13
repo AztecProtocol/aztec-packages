@@ -8,6 +8,11 @@ validator:
     requests:
       memory: "5Gi"
 
+fullNode:
+  resources:
+    requests:
+      memory: "5Gi"
+
 proverNode:
   resources:
     requests:

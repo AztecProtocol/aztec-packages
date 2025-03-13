@@ -8,6 +8,11 @@ validator:
     requests:
       memory: "5Gi"
 
+fullNode:
+  resources:
+    requests:
+      memory: "5Gi"
+
 proverNode:
   resources:
     requests:
@@ -52,16 +57,16 @@ ethereum:
   execution:
     resources:
       requests:
-        memory: "16Gi"
+        memory: "5Gi"
     storageSize: "80Gi"
   beacon:
     resources:
       requests:
-        memory: "16Gi"
+        memory: "5Gi"
     storageSize: "80Gi"
   validator:
     resources:
       requests:
-        memory: "16Gi"
+        memory: "5Gi"
 
 

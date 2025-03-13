@@ -14,6 +14,14 @@ validator:
       memory: "512Mi"
       cpu: "500m"
 
+fullNode:
+  resources:
+    requests:
+      memory: "512Mi"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
 proverNode:
   resources:
     requests:

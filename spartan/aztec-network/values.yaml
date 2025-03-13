@@ -83,9 +83,6 @@ bootNode:
   p2p:
     enabled: "true"
     floodPublish: true
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
@@ -118,9 +115,6 @@ fullNode:
   p2p:
     enabled: "true"
     floodPublish: true
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
@@ -340,7 +334,6 @@ blobSink:
     dataDir: "/data"
     storageSize: "8Gi"
     dataStoreMapSize: "134217728" # 128 GB
-  resources:
 
 faucet:
   enabled: true
