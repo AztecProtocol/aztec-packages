@@ -57,6 +57,7 @@ pub contract ContractClassRegisterer {
                 .unwrap()
         };
         // docs:end:load_capsule
+        // here: assert length is non zero...
         // First field element contains the length of the bytecode
         let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
         let bytecode_length_in_fields: u32 =
@@ -76,6 +77,7 @@ pub contract ContractClassRegisterer {
                     2,
                 );
             } else {
+                // ...length is already checked below:
                 // Any bytes after the bytecode length must be 0
                 assert_eq(packed_public_bytecode[i + 1], 0);
             }

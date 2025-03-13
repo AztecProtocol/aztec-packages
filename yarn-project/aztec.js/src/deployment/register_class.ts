@@ -31,6 +31,7 @@ export async function registerContractClass(
     emitPublicBytecode,
   );
 
+  // bytecode comes out here
   const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   fn.addCapsule(
     new Capsule(

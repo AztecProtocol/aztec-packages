@@ -34,6 +34,7 @@ export async function getContractClassFromArtifact(
   let packedBytecode = Buffer.alloc(0);
   let dispatchFunction: PublicFunction | undefined = undefined;
   if (artifactPublicFunctions.length > 0) {
+    // bytecode gathered and assigned here
     dispatchFunction = artifactPublicFunctions.find(f =>
       f.selector.equals(FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR))),
     );

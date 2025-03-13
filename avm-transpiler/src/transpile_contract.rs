@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use acvm::acir::circuit::Program;
 use noirc_errors::debug_info::ProgramDebugInfo;
+use serde_json::json;
 
 use crate::transpile::{brillig_to_avm, patch_debug_info_pcs};
 use crate::utils::extract_brillig_from_acir_program;
@@ -87,6 +88,7 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
         let mut functions: Vec<AvmOrAcirContractFunctionArtifact> = Vec::new();
 
         for function in contract.functions {
+            // if private only add some stuff
             if function.custom_attributes.contains(&"public".to_string()) {
                 // if function.name == "public_dispatch" {
                 info!("Transpiling AVM function {} on contract {}", function.name, contract.name);
@@ -128,6 +130,36 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                 functions.push(AvmOrAcirContractFunctionArtifact::Acir(function));
             }
         }
+
+        if contract.functions.as_slice().iter().find(|f| f.name == "public_dispatch").is_none() {
+            // Packed bytecode sent to the registerer comes from the public_dispatch fn
+            // This is gathered in yarn-project/stdlib/src/contract/contract_class.ts using PUBLIC_DISPATCH_SELECTOR,
+            // so we need a matching name and parameters.
+            // TODO: make the below constants, double check, compile
+            let custom_attributes = Vec::from(["public".into()]);
+            let abi = json!({
+                "parameters": [
+                    {
+                      "name": "selector",
+                      "type": {
+                        "kind": "field"
+                      },
+                      "visibility": "private"
+                    }
+                  ],
+                  "return_type": null
+                });
+            functions.push(AvmOrAcirContractFunctionArtifact::Avm(AvmContractFunctionArtifact {
+                name: "public_dispatch".to_owned(),
+                is_unconstrained: true,
+                custom_attributes,
+                abi,
+                bytecode: "0x00001".into(),
+                debug_symbols: ProgramDebugInfo { debug_infos: Vec::new() },
+                brillig_names: Vec::new(),
+            }));
+        }
+
         TranspiledContractArtifact {
             transpiled: true,
             noir_version: contract.noir_version,
