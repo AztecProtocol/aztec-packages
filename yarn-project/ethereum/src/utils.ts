@@ -162,9 +162,26 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     // If decoding fails, we fall back to the original formatting
   }
 
+  // Strip ABI from the error object before formatting
+  if (error && typeof error === 'object') {
+    // Remove abi property if it exists
+    if ('abi' in error) {
+      delete error.abi;
+    }
+
+    // Also check cause chain for abi
+    let current = error.cause;
+    while (current) {
+      if (current && typeof current === 'object' && 'abi' in current) {
+        delete current.abi;
+      }
+      current = current.cause;
+    }
+  }
+
   // If it's a regular Error instance, return it with its message
   if (error instanceof Error) {
-    return error;
+    return new FormattedViemError(error.message, (error as any)?.metaMessages);
   }
 
   // Original formatting logic for non-custom errors
@@ -178,11 +195,52 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     if (hex.length <= length * 2) {
       return hex;
     }
+    // For extremely large hex strings, use more aggressive truncation
+    if (hex.length > 10000) {
+      return `${hex.slice(0, length)}...<${hex.length - length * 2} chars omitted>...${hex.slice(-length)}`;
+    }
     return `${hex.slice(0, length)}...${hex.slice(-length)}`;
   };
 
   const formatRequestBody = (body: string) => {
     try {
+      // Special handling for eth_sendRawTransaction
+      if (body.includes('"method":"eth_sendRawTransaction"')) {
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed.params && Array.isArray(parsed.params) && parsed.params.length > 0) {
+            // These are likely large transaction hex strings
+            parsed.params = parsed.params.map((param: any) => {
+              if (typeof param === 'string' && param.startsWith('0x') && param.length > 1000) {
+                return truncateHex(param, 200);
+              }
+              return param;
+            });
+          }
+          return JSON.stringify(parsed, null, 2);
+        } catch {
+          // If specific parsing fails, fall back to regex-based truncation
+          const paramRegex = /"params":\s*\[\s*"(0x[a-fA-F0-9]{1000,})"\s*\]/g;
+          return body.replace(paramRegex, (match, hex) => {
+            return `"params":["${truncateHex(hex, 200)}"]`;
+          });
+        }
+      }
+
+      // For extremely large request bodies, use simple truncation instead of parsing
+      if (body.length > 50000) {
+        const jsonStart = body.indexOf('{');
+        const jsonEnd = body.lastIndexOf('}');
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          const hexMatch = body.match(/0x[a-fA-F0-9]{10000,}/);
+          if (hexMatch) {
+            const hex = hexMatch[0];
+            const truncated = truncateHex(hex, 200);
+            return body.substring(0, jsonStart + 1) + `"params":["${truncated}"]` + body.substring(jsonEnd);
+          }
+        }
+      }
+
       const parsed = JSON.parse(body);
 
       // Recursively process all parameters that might contain hex strings
@@ -209,7 +267,9 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
       const processed = processParams(parsed);
       return JSON.stringify(processed, null, 2);
     } catch {
-      return body;
+      // If JSON parsing fails, do a simple truncation of any large hex strings
+      const hexRegex = /(0x[a-fA-F0-9]{1000,})/g;
+      return body.replace(hexRegex, match => truncateHex(match, 150));
     }
   };
 
@@ -219,6 +279,20 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
   };
 
   const extractAndFormatRequestBody = (message: string): string => {
+    // First check if message is extremely large and contains very large hex strings
+    if (message.length > 50000) {
+      const hexRegex = /(0x[a-fA-F0-9]{10000,})/g;
+      message = message.replace(hexRegex, match => truncateHex(match, 200));
+    }
+
+    // Add a specific check for RPC calls with large params
+    if (message.includes('"method":"eth_sendRawTransaction"')) {
+      const paramRegex = /"params":\s*\[\s*"(0x[a-fA-F0-9]{1000,})"\s*\]/g;
+      message = message.replace(paramRegex, (match, hex) => {
+        return `"params":["${truncateHex(hex, 200)}"]`;
+      });
+    }
+
     // First handle Request body JSON
     const requestBodyRegex = /Request body: ({[\s\S]*?})\n/g;
     let result = message.replace(requestBodyRegex, (match, body) => {
@@ -255,7 +329,39 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     return result;
   };
 
-  const formattedRes = extractAndFormatRequestBody(error?.message || String(error));
+  // Extract the actual error message and highlight it for clarity
+  let formattedRes = extractAndFormatRequestBody(error?.message || String(error));
+
+  let errorDetail = '';
+  // Look for specific details in known locations
+  if (error) {
+    // Check for details property which often has the most specific error message
+    if (typeof error.details === 'string' && error.details) {
+      errorDetail = error.details;
+    }
+    // Check for shortMessage which is often available in Viem errors
+    else if (typeof error.shortMessage === 'string' && error.shortMessage) {
+      errorDetail = error.shortMessage;
+    }
+  }
+
+  // If we found a specific error detail, format it clearly
+  if (errorDetail) {
+    // Look for key sections of the formatted result to replace with highlighted error
+    let replaced = false;
+
+    // Try to find the Details: section
+    const detailsMatch = formattedRes.match(/Details: ([^\n]+)/);
+    if (detailsMatch) {
+      formattedRes = formattedRes.replace(detailsMatch[0], `Details: *${errorDetail}*`);
+      replaced = true;
+    }
+
+    // If we didn't find a Details section, add the error at the beginning
+    if (!replaced) {
+      formattedRes = `Error: *${errorDetail}*\n\n${formattedRes}`;
+    }
+  }
 
   return new FormattedViemError(formattedRes.replace(/\\n/g, '\n'), error?.metaMessages);
 }
