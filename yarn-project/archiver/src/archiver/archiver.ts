@@ -62,7 +62,7 @@ import { retrieveBlocksFromRollup, retrieveL1ToL2Messages } from './data_retriev
 import { NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
-import type { L1Published } from './structs/published.js';
+import type { PublishedL2Block } from './structs/published.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -516,26 +516,26 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       );
 
       for (const block of retrievedBlocks) {
-        this.log.debug(`Ingesting new L2 block ${block.data.number} with ${block.data.body.txEffects.length} txs`, {
-          blockHash: block.data.hash(),
+        this.log.debug(`Ingesting new L2 block ${block.block.number} with ${block.block.body.txEffects.length} txs`, {
+          blockHash: block.block.hash(),
           l1BlockNumber: block.l1.blockNumber,
-          ...block.data.header.globalVariables.toInspect(),
-          ...block.data.getStats(),
+          ...block.block.header.globalVariables.toInspect(),
+          ...block.block.getStats(),
         });
       }
 
       const [processDuration] = await elapsed(() => this.store.addBlocks(retrievedBlocks));
       this.instrumentation.processNewBlocks(
         processDuration / retrievedBlocks.length,
-        retrievedBlocks.map(b => b.data),
+        retrievedBlocks.map(b => b.block),
       );
 
       for (const block of retrievedBlocks) {
-        this.log.info(`Downloaded L2 block ${block.data.number}`, {
-          blockHash: block.data.hash(),
-          blockNumber: block.data.number,
-          txCount: block.data.body.txEffects.length,
-          globalVariables: block.data.header.globalVariables.toInspect(),
+        this.log.info(`Downloaded L2 block ${block.block.number}`, {
+          blockHash: block.block.hash(),
+          blockNumber: block.block.number,
+          txCount: block.block.body.txEffects.length,
+          globalVariables: block.block.header.globalVariables.toInspect(),
         });
       }
     } while (searchEndBlock < currentL1BlockNumber);
@@ -647,11 +647,16 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
    * @param proven - If true, only return blocks that have been proven.
    * @returns The requested L2 blocks.
    */
-  public async getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]> {
+  public getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]> {
+    return this.getPublishedBlocks(from, limit, proven).then(blocks => blocks.map(b => b.block));
+  }
+
+  /** Equivalent to getBlocks but includes publish data. */
+  public async getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]> {
     const limitWithProven = proven
       ? Math.min(limit, Math.max((await this.store.getProvenL2BlockNumber()) - from + 1, 0))
       : limit;
-    return limitWithProven === 0 ? [] : (await this.store.getBlocks(from, limitWithProven)).map(b => b.data);
+    return limitWithProven === 0 ? [] : await this.store.getBlocks(from, limitWithProven);
   }
 
   /**
@@ -668,7 +673,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       return undefined;
     }
     const blocks = await this.store.getBlocks(number, 1);
-    return blocks.length === 0 ? undefined : blocks[0].data;
+    return blocks.length === 0 ? undefined : blocks[0].block;
   }
 
   public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
@@ -1027,25 +1032,25 @@ class ArchiverStoreHelper
     return true;
   }
 
-  async addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
+  async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
     const opResults = await Promise.all([
-      this.store.addLogs(blocks.map(block => block.data)),
+      this.store.addLogs(blocks.map(block => block.block)),
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...blocks.map(async block => {
-        const contractClassLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
+        const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
         // ContractInstanceDeployed event logs are broadcast in privateLogs.
-        const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
-        const publicLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
+        const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+        const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
         return (
           await Promise.all([
-            this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Store),
-            this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Store),
-            this.#updateUpdatedContractInstances(publicLogs, block.data.number, Operation.Store),
-            this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.data.number),
+            this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Store),
+            this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Store),
+            this.#updateUpdatedContractInstances(publicLogs, block.block.number, Operation.Store),
+            this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.block.number),
           ])
         ).every(Boolean);
       }),
-      this.store.addNullifiers(blocks.map(block => block.data)),
+      this.store.addNullifiers(blocks.map(block => block.block)),
       this.store.addBlocks(blocks),
     ]);
 
@@ -1064,28 +1069,28 @@ class ArchiverStoreHelper
     const opResults = await Promise.all([
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...blocks.map(async block => {
-        const contractClassLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
+        const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
         // ContractInstanceDeployed event logs are broadcast in privateLogs.
-        const privateLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
-        const publicLogs = block.data.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
+        const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+        const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
 
         return (
           await Promise.all([
-            this.#updateRegisteredContractClasses(contractClassLogs, block.data.number, Operation.Delete),
-            this.#updateDeployedContractInstances(privateLogs, block.data.number, Operation.Delete),
-            this.#updateUpdatedContractInstances(publicLogs, block.data.number, Operation.Delete),
+            this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Delete),
+            this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Delete),
+            this.#updateUpdatedContractInstances(publicLogs, block.block.number, Operation.Delete),
           ])
         ).every(Boolean);
       }),
 
-      this.store.deleteLogs(blocks.map(b => b.data)),
+      this.store.deleteLogs(blocks.map(b => b.block)),
       this.store.unwindBlocks(from, blocksToUnwind),
     ]);
 
     return opResults.every(Boolean);
   }
 
-  getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
+  getBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
     return this.store.getBlocks(from, limit);
   }
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
