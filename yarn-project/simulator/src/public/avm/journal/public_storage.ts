@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { PublicStateDB } from '../../../common/db_interfaces.js';
+import type { PublicStateDBInterface } from '../../../common/db_interfaces.js';
 
 type PublicStorageReadResult = {
   value: Fr;
@@ -19,7 +19,7 @@ export class PublicStorage {
 
   constructor(
     /** Reference to node storage. Checked on parent cache-miss. */
-    private readonly hostPublicStorage: PublicStateDB,
+    private readonly hostPublicStorage: PublicStateDBInterface,
     /** Parent's storage. Checked on this' cache-miss. */
     private readonly parent?: PublicStorage,
   ) {

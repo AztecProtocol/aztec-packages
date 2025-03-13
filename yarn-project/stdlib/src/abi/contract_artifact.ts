@@ -97,6 +97,17 @@ function isContractArtifact(input: any): input is ContractArtifact {
       return false;
     }
   }
+  if (!Array.isArray(maybeContractArtifact.nonDispatchPublicFunctions)) {
+    return false;
+  }
+  for (const fn of maybeContractArtifact.nonDispatchPublicFunctions) {
+    if (typeof fn.name !== 'string') {
+      return false;
+    }
+    if (typeof fn.functionType !== 'string') {
+      return false;
+    }
+  }
   return true;
 }
 

@@ -418,16 +418,16 @@ export class Sequencer {
     this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state
-    const publicProcessorFork = await this.worldState.fork();
-    const orchestratorFork = await this.worldState.fork();
+    const publicProcessorDBFork = await this.worldState.fork();
+    const orchestratorDBFork = await this.worldState.fork();
 
     const previousBlockHeader =
-      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorFork.getInitialHeader();
+      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorDBFork.getInitialHeader();
 
     try {
-      const processor = this.publicProcessorFactory.create(publicProcessorFork, newGlobalVariables, true);
+      const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
       const blockBuildingTimer = new Timer();
-      const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
+      const blockBuilder = this.blockBuilderFactory.create(orchestratorDBFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
 
       // Deadline for processing depends on whether we're proposing a block
@@ -449,7 +449,7 @@ export class Sequencer {
       });
 
       const validators = createValidatorsForBlockBuilding(
-        publicProcessorFork,
+        publicProcessorDBFork,
         this.contractDataSource,
         newGlobalVariables,
         this.allowedInSetup,
@@ -516,8 +516,8 @@ export class Sequencer {
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       setTimeout(async () => {
         try {
-          await publicProcessorFork.close();
-          await orchestratorFork.close();
+          await publicProcessorDBFork.close();
+          await orchestratorDBFork.close();
         } catch (err) {
           // This can happen if the sequencer is stopped before we hit this timeout.
           this.log.warn(`Error closing forks for block processing`, err);

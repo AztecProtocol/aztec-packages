@@ -9,7 +9,7 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { CommitmentsDB } from '../common/db_interfaces.js';
+import type { CommitmentsDBInterface } from '../common/db_interfaces.js';
 import type { NoteData } from './acvm/index.js';
 
 /**
@@ -33,7 +33,7 @@ export class ContractClassNotFoundError extends Error {
 /**
  * The interface for the data layer required to perform private and unconstrained execution.
  */
-export interface ExecutionDataProvider extends CommitmentsDB {
+export interface ExecutionDataProvider extends CommitmentsDBInterface {
   /**
    * Returns a contract instance associated with an address, if available.
    * @param address - Address.

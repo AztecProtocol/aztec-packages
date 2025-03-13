@@ -292,16 +292,65 @@ export function describeArchiverDataStore(
       });
 
       it('returns previously stored contract instances', async () => {
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toMatchObject(contractInstance);
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toMatchObject(
+          contractInstance,
+        );
       });
 
       it('returns undefined if contract instance is not found', async () => {
-        await expect(store.getContractInstance(await AztecAddress.random())).resolves.toBeUndefined();
+        await expect(store.getContractInstance(await AztecAddress.random(), blockNum)).resolves.toBeUndefined();
       });
 
       it('returns undefined if previously stored contract instances was deleted', async () => {
         await store.deleteContractInstances([contractInstance], blockNum);
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toBeUndefined();
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('contractInstanceUpdates', () => {
+      let contractInstance: ContractInstanceWithAddress;
+      let classId: Fr;
+      let nextClassId: Fr;
+      const blockOfChange = 10;
+
+      beforeEach(async () => {
+        classId = Fr.random();
+        nextClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
+        contractInstance = { ...randomInstance, address: await AztecAddress.random() };
+        await store.addContractInstances([contractInstance], 1);
+        await store.addContractInstanceUpdates(
+          [
+            {
+              prevContractClassId: classId,
+              newContractClassId: nextClassId,
+              blockOfChange,
+              address: contractInstance.address,
+            },
+          ],
+          blockOfChange - 1,
+        );
+      });
+
+      it('gets the correct current class id for a contract not updated yet', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange - 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(classId);
+      });
+
+      it('gets the correct current class id for a contract that has just been updated', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+      });
+
+      it('gets the correct current class id for a contract that was updated in the past', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
     });
 
@@ -383,26 +432,14 @@ export function describeArchiverDataStore(
       const makeTag = (blockNumber: number, txIndex: number, logIndex: number, isPublic = false) =>
         new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
 
-      // See parseLogFromPublic
-      // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
-      const makeLengthsField = (publicValuesLen: number, privateValuesLen: number) => {
-        const buf = Buffer.alloc(32);
-        buf.writeUint16BE(publicValuesLen, 27);
-        buf.writeUint16BE(privateValuesLen, 30);
-        return Fr.fromBuffer(buf);
-      };
-
       const makePrivateLog = (tag: Fr) =>
         PrivateLog.fromFields([tag, ...times(PRIVATE_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
 
-      // The tag lives in field 1, not 0, of a public log
-      // See extractTaggedLogsFromPublic and noir-projects/aztec-nr/aztec/src/macros/notes/mod.nr -> emit_log
       const makePublicLog = (tag: Fr) =>
         PublicLog.fromFields([
           AztecAddress.fromNumber(1).toField(), // log address
-          makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 3), // field 0
-          tag, // field 1
-          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 2 to end
+          tag, // field 0
+          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 1 to end
         ]);
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
@@ -535,36 +572,6 @@ export function describeArchiverDataStore(
             }),
           ],
         ]);
-      });
-
-      it('is not possible to add public logs by tag if they are invalid', async () => {
-        const tag = makeTag(99, 88, 77);
-        const invalidLogs = [
-          PublicLog.fromFields([
-            AztecAddress.fromNumber(1).toField(),
-            makeLengthsField(2, 3), // This field claims we have 5 items, but we actually have more
-            tag,
-            ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
-          ]),
-          PublicLog.fromFields([
-            AztecAddress.fromNumber(1).toField(),
-            makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS), // This field claims we have more than the max items
-            tag,
-            ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
-          ]),
-        ];
-
-        // Create a block containing these invalid logs
-        const newBlockNumber = numBlocks;
-        const newBlock = await mockBlockWithLogs(newBlockNumber);
-        newBlock.data.body.txEffects[0].publicLogs = invalidLogs;
-        await store.addBlocks([newBlock]);
-        await store.addLogs([newBlock.data]);
-
-        const logsByTags = await store.getLogsByTags([tag]);
-
-        // Neither of the logs should have been added:
-        expect(logsByTags).toEqual([[]]);
       });
     });
 
