@@ -7,9 +7,9 @@ test_title "Private transfer on behalf of other"
 MINT_AMOUNT=42
 TRANSFER_AMOUNT=21
 
-source $TEST_FOLDER/token_utils/create_main_and_mint_to_private.sh $MINT_AMOUNT
-
-aztec-wallet create-account -a operator
+source $TEST_FOLDER/shared/deploy_main_account_and_token.sh
+source $TEST_FOLDER/shared/mint_to_private.sh $MINT_AMOUNT main
+source $TEST_FOLDER/shared/create_funded_account.sh operator
 
 aztec-wallet create-secret -a auth_nonce
 aztec-wallet create-authwit transfer_in_private operator -ca token --args accounts:main accounts:operator $TRANSFER_AMOUNT secrets:auth_nonce -f main

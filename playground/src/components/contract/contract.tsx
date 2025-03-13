@@ -1,138 +1,134 @@
-import { css } from "@emotion/react";
-import { useDropzone } from "react-dropzone";
-import "./dropzone.css";
-import { useContext, useEffect, useState } from "react";
+import { css } from '@mui/styled-engine';
+import { useDropzone } from 'react-dropzone';
+import './dropzone.css';
+import { useContext, useEffect, useState } from 'react';
 import {
   AuthWitness,
   Contract,
   type ContractArtifact,
   type ContractInstanceWithAddress,
   loadContractArtifact,
-} from "@aztec/aztec.js";
-import { AztecContext } from "../../aztecEnv";
-import {
-  Button,
-  Card,
-  CardActions,
-  CardContent,
-  Checkbox,
-  CircularProgress,
-  FormControlLabel,
-  FormGroup,
-  IconButton,
-  Input,
-  InputAdornment,
-  Typography,
-} from "@mui/material";
-import FindInPageIcon from "@mui/icons-material/FindInPage";
-import {
-  convertFromUTF8BufferAsString,
-  formatFrAsString,
-} from "../../utils/conversion";
-import { DeployContractDialog } from "./components/deployContractDialog";
-import { FunctionParameter } from "../common/fnParameter";
-import ClearIcon from "@mui/icons-material/Clear";
-import { RegisterContractDialog } from "./components/registerContractDialog";
-import { CopyToClipboardButton } from "../common/copyToClipboardButton";
-import VpnKeyIcon from "@mui/icons-material/VpnKey";
-import SendIcon from "@mui/icons-material/Send";
-import PsychologyIcon from "@mui/icons-material/Psychology";
-import { CreateAuthwitDialog } from "./components/createAuthwitDialog";
+  getAllFunctionAbis,
+  type FunctionAbi,
+} from '@aztec/aztec.js';
+import { AztecContext } from '../../aztecEnv';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardActions from '@mui/material/CardActions';
+import CardContent from '@mui/material/CardContent';
+import Checkbox from '@mui/material/Checkbox';
+import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import IconButton from '@mui/material/IconButton';
+import Input from '@mui/material/Input';
+import InputAdornment from '@mui/material/InputAdornment';
+import Typography from '@mui/material/Typography';
+
+import FindInPageIcon from '@mui/icons-material/FindInPage';
+import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/conversion';
+import { DeployContractDialog } from './components/deployContractDialog';
+import { FunctionParameter } from '../common/fnParameter';
+import ClearIcon from '@mui/icons-material/Clear';
+import { RegisterContractDialog } from './components/registerContractDialog';
+import { CopyToClipboardButton } from '../common/copyToClipboardButton';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import SendIcon from '@mui/icons-material/Send';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import { CreateAuthwitDialog } from './components/createAuthwitDialog';
+import { parse } from 'buffer-json';
 
 const container = css({
-  display: "flex",
-  height: "calc(100vh - 50px)",
-  width: "100%",
-  overflow: "hidden",
-  justifyContent: "center",
-  alignItems: "center",
+  display: 'flex',
+  height: 'calc(100vh - 50px)',
+  width: '100%',
+  overflow: 'hidden',
+  justifyContent: 'center',
+  alignItems: 'center',
 });
 
 const dropZoneContainer = css({
-  display: "flex",
-  flexDirection: "column",
-  width: "100%",
-  height: "80%",
-  border: "3px dashed black",
-  borderRadius: "15px",
-  margin: "0rem 2rem 2rem 2rem",
+  display: 'flex',
+  flexDirection: 'column',
+  width: '100%',
+  height: '80%',
+  border: '3px dashed black',
+  borderRadius: '15px',
+  margin: '0rem 2rem 2rem 2rem',
 });
 
 const contractFnContainer = css({
-  display: "block",
-  width: "100%",
-  overflowY: "auto",
-  color: "black",
-  height: "100%",
+  display: 'block',
+  width: '100%',
+  overflowY: 'auto',
+  color: 'black',
+  height: '100%',
 });
 
 const headerContainer = css({
-  display: "flex",
-  flexDirection: "column",
+  display: 'flex',
+  flexDirection: 'column',
   flexGrow: 1,
-  flexWrap: "wrap",
-  margin: "0 0.5rem",
-  padding: "0.1rem",
-  overflow: "hidden",
-  justifyContent: "stretch",
-  marginBottom: "0.5rem",
+  flexWrap: 'wrap',
+  margin: '0 0.5rem',
+  padding: '0.1rem',
+  overflow: 'hidden',
+  justifyContent: 'stretch',
+  marginBottom: '0.5rem',
 });
 
 const header = css({
-  display: "flex",
-  width: "100%",
-  alignItems: "center",
-  justifyContent: "space-between",
+  display: 'flex',
+  width: '100%',
+  alignItems: 'center',
+  justifyContent: 'space-between',
 });
 
 const search = css({
-  display: "flex",
-  overflow: "hidden",
-  "@media (width <= 800px)": {
-    width: "100%",
+  display: 'flex',
+  overflow: 'hidden',
+  '@media (width <= 800px)': {
+    width: '100%',
   },
-  "@media (width > 800px)": {
-    maxWidth: "500px",
+  '@media (width > 800px)': {
+    maxWidth: '500px',
   },
 });
 
 const contractActions = css({
-  display: "flex",
-  flexDirection: "row",
-  alignItems: "center",
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
 });
 
 const simulationContainer = css({
-  display: "flex",
-  flexDirection: "row",
-  alignItems: "center",
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
 });
 
 const checkBoxLabel = css({
-  height: "1.5rem",
-  marginLeft: "-10px",
+  height: '1.5rem',
+  marginLeft: '-10px',
 });
 
 const loadingArtifactContainer = css({
-  display: "flex",
-  flexDirection: "column",
-  textAlign: "center",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: "2rem",
+  display: 'flex',
+  flexDirection: 'column',
+  textAlign: 'center',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '2rem',
 });
 
-const FORBIDDEN_FUNCTIONS = [
-  "process_log",
-  "sync_notes",
-];
+const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
 export function ContractComponent() {
-  const [contractArtifact, setContractArtifact] =
-    useState<ContractArtifact | null>(null);
+  const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
+  const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
 
   const [filters, setFilters] = useState({
-    searchTerm: "",
+    searchTerm: '',
     private: true,
     public: true,
     unconstrained: true,
@@ -145,13 +141,11 @@ export function ContractComponent() {
   const [simulationResults, setSimulationResults] = useState({});
   const [parameters, setParameters] = useState({});
 
-  const [openDeployContractDialog, setOpenDeployContractDialog] =
-    useState(false);
-  const [openRegisterContractDialog, setOpenRegisterContractDialog] =
-    useState(false);
+  const [openDeployContractDialog, setOpenDeployContractDialog] = useState(false);
+  const [openRegisterContractDialog, setOpenRegisterContractDialog] = useState(false);
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
   const [authwitFnData, setAuthwitFnData] = useState({
-    name: "",
+    name: '',
     parameters: [],
     isPrivate: false,
   });
@@ -169,71 +163,51 @@ export function ContractComponent() {
   useEffect(() => {
     const loadCurrentContract = async () => {
       setIsLoadingArtifact(true);
-      const artifactAsString = await walletDB.retrieveAlias(
-        `artifacts:${currentContractAddress}`
-      );
-      const contractArtifact = loadContractArtifact(
-        JSON.parse(convertFromUTF8BufferAsString(artifactAsString))
-      );
-      const contract = await Contract.at(
-        currentContractAddress,
-        contractArtifact,
-        wallet
-      );
+      const artifactAsString = await walletDB.retrieveAlias(`artifacts:${currentContractAddress}`);
+      const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+      const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
       setCurrentContract(contract);
       setContractArtifact(contract.artifact);
+      setFunctionAbis(getAllFunctionAbis(contract.artifact));
       setFilters({
-        searchTerm: "",
+        searchTerm: '',
         private: true,
         public: true,
         unconstrained: true,
       });
       setIsLoadingArtifact(false);
     };
-    if (
-      currentContractAddress &&
-      currentContract?.address !== currentContractAddress
-    ) {
+    if (currentContractAddress && currentContract?.address !== currentContractAddress) {
       loadCurrentContract();
     }
   }, [currentContractAddress]);
 
   const { getRootProps, getInputProps } = useDropzone({
-    onDrop: async (files) => {
+    onDrop: async files => {
       const file = files[0];
       const reader = new FileReader();
       setIsLoadingArtifact(true);
-      reader.onload = async (e) => {
-        const contractArtifact = loadContractArtifact(
-          JSON.parse(e.target?.result as string)
-        );
+      reader.onload = async e => {
+        const contractArtifact = loadContractArtifact(JSON.parse(e.target?.result as string));
         setContractArtifact(contractArtifact);
+        setFunctionAbis(getAllFunctionAbis(contractArtifact));
         setIsLoadingArtifact(false);
       };
       reader.readAsText(file);
     },
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleParameterChange = (fnName: string, index: number, value: any) => {
     const fnParameters = parameters[fnName] || [];
     fnParameters[index] = value;
     setParameters({ ...parameters, [fnName]: fnParameters });
   };
 
-  const handleContractCreation = async (
-    contract?: ContractInstanceWithAddress,
-    alias?: string
-  ) => {
+  const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
     if (contract && alias) {
-      await walletDB.storeContract(
-        contract.address,
-        contractArtifact,
-        undefined,
-        alias
-      );
-      setCurrentContract(
-        await Contract.at(contract.address, contractArtifact, wallet)
-      );
+      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+      setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
       setCurrentContractAddress(contract.address);
     }
     setOpenDeployContractDialog(false);
@@ -266,7 +240,7 @@ export function ContractComponent() {
     let receipt;
     let txHash;
     const currentTx = {
-      status: "proving" as const,
+      status: 'proving' as const,
       fnName: fnName,
       contractAddress: currentContract.address,
     };
@@ -278,7 +252,7 @@ export function ContractComponent() {
       txHash = await provenCall.getTxHash();
       setCurrentTx({
         ...currentTx,
-        ...{ txHash, status: "sending" },
+        ...{ txHash, status: 'sending' },
       });
       receipt = await provenCall.send().wait({ dontThrowOnRevert: true });
       await walletDB.storeTx({
@@ -302,7 +276,7 @@ export function ContractComponent() {
         ...currentTx,
         ...{
           txHash,
-          status: "error",
+          status: 'error',
           error: e.message,
         },
       });
@@ -313,22 +287,20 @@ export function ContractComponent() {
 
   const handleAuthwitFnDataChanged = (
     fnName: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parameters: any[],
-    isPrivate: boolean
+    isPrivate: boolean,
   ) => {
     setAuthwitFnData({ name: fnName, parameters, isPrivate });
     setOpenCreateAuthwitDialog(true);
   };
 
-  const handleAuthwitCreation = async (
-    witness?: AuthWitness,
-    alias?: string
-  ) => {
+  const handleAuthwitCreation = async (witness?: AuthWitness, alias?: string) => {
     if (witness && alias) {
       await wallet.addAuthWitness(witness);
       await walletDB.storeAuthwitness(witness, undefined, alias);
     }
-    setAuthwitFnData({ name: "", parameters: [], isPrivate: false });
+    setAuthwitFnData({ name: '', parameters: [], isPrivate: false });
     setOpenCreateAuthwitDialog(false);
   };
 
@@ -337,11 +309,9 @@ export function ContractComponent() {
       {!contractArtifact ? (
         !isLoadingArtifact ? (
           <div css={dropZoneContainer}>
-            <div {...getRootProps({ className: "dropzone" })}>
+            <div {...getRootProps({ className: 'dropzone' })}>
               <input {...getInputProps()} />
-              <Typography>
-                Drag 'n' drop some files here, or click to select files
-              </Typography>
+              <Typography>Drag 'n' drop some files here, or click to select files</Typography>
             </div>
           </div>
         ) : (
@@ -354,7 +324,7 @@ export function ContractComponent() {
         <div css={contractFnContainer}>
           <div css={headerContainer}>
             <div css={header}>
-              <Typography variant="h3" css={{ marginRight: "0.5rem" }}>
+              <Typography variant="h3" css={{ marginRight: '0.5rem' }}>
                 {contractArtifact.name}
               </Typography>
               {!currentContract && wallet && (
@@ -362,16 +332,12 @@ export function ContractComponent() {
                   <Button
                     variant="contained"
                     size="small"
-                    css={{ marginRight: "0.5rem" }}
+                    css={{ marginRight: '0.5rem' }}
                     onClick={() => setOpenDeployContractDialog(true)}
                   >
                     Deploy
                   </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => setOpenRegisterContractDialog(true)}
-                  >
+                  <Button size="small" variant="contained" onClick={() => setOpenRegisterContractDialog(true)}>
                     Register
                   </Button>
                   <DeployContractDialog
@@ -388,15 +354,10 @@ export function ContractComponent() {
               )}
               {currentContract && (
                 <div css={contractActions}>
-                  <Typography color="text.secondary">
-                    {formatFrAsString(currentContract.address.toString())}
-                  </Typography>
-                  <CopyToClipboardButton
-                    disabled={false}
-                    data={currentContract.address.toString()}
-                  />
+                  <Typography color="text.secondary">{formatFrAsString(currentContract.address.toString())}</Typography>
+                  <CopyToClipboardButton disabled={false} data={currentContract.address.toString()} />
                   <IconButton
-                    onClick={(e) => {
+                    onClick={() => {
                       setCurrentContractAddress(null);
                       setCurrentContract(null);
                       setContractArtifact(null);
@@ -408,15 +369,13 @@ export function ContractComponent() {
               )}
             </div>
             <div css={search}>
-              <FormGroup sx={{ width: "100%" }}>
+              <FormGroup sx={{ width: '100%' }}>
                 <Input
                   type="text"
                   fullWidth
                   placeholder="Search function"
                   value={filters.searchTerm}
-                  onChange={(e) =>
-                    setFilters({ ...filters, searchTerm: e.target.value })
-                  }
+                  onChange={e => setFilters({ ...filters, searchTerm: e.target.value })}
                   endAdornment={
                     <InputAdornment position="end">
                       <FindInPageIcon />
@@ -425,10 +384,10 @@ export function ContractComponent() {
                 />
                 <div
                   css={{
-                    display: "flex",
-                    flexDirection: "row",
-                    marginTop: "0.5rem",
-                    width: "100%",
+                    display: 'flex',
+                    flexDirection: 'row',
+                    marginTop: '0.5rem',
+                    width: '100%',
                   }}
                 >
                   <FormControlLabel
@@ -437,9 +396,7 @@ export function ContractComponent() {
                       <Checkbox
                         sx={{ paddingRight: 0 }}
                         checked={filters.private}
-                        onChange={(e) =>
-                          setFilters({ ...filters, private: e.target.checked })
-                        }
+                        onChange={e => setFilters({ ...filters, private: e.target.checked })}
                       />
                     }
                     label="Private"
@@ -450,9 +407,7 @@ export function ContractComponent() {
                       <Checkbox
                         sx={{ padding: 0 }}
                         checked={filters.public}
-                        onChange={(e) =>
-                          setFilters({ ...filters, public: e.target.checked })
-                        }
+                        onChange={e => setFilters({ ...filters, public: e.target.checked })}
                       />
                     }
                     label="Public"
@@ -463,7 +418,7 @@ export function ContractComponent() {
                       <Checkbox
                         sx={{ padding: 0 }}
                         checked={filters.unconstrained}
-                        onChange={(e) =>
+                        onChange={e =>
                           setFilters({
                             ...filters,
                             unconstrained: e.target.checked,
@@ -477,36 +432,31 @@ export function ContractComponent() {
               </FormGroup>
             </div>
           </div>
-          {contractArtifact.functions
+          {functionAbis
             .filter(
-              (fn) =>
+              fn =>
                 !fn.isInternal &&
                 !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
-                ((filters.private && fn.functionType === "private") ||
-                  (filters.public && fn.functionType === "public") ||
-                  (filters.unconstrained &&
-                    fn.functionType === "unconstrained")) &&
-                (filters.searchTerm === "" ||
-                  fn.name.includes(filters.searchTerm))
+                ((filters.private && fn.functionType === 'private') ||
+                  (filters.public && fn.functionType === 'public') ||
+                  (filters.unconstrained && fn.functionType === 'unconstrained')) &&
+                (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
             )
-            .map((fn) => (
+            .map(fn => (
               <Card
                 key={fn.name}
                 variant="outlined"
                 sx={{
-                  backgroundColor: "primary.light",
-                  margin: "0.5rem",
-                  overflow: "hidden",
+                  backgroundColor: 'primary.light',
+                  margin: '0.5rem',
+                  overflow: 'hidden',
                 }}
               >
-                <CardContent sx={{ textAlign: "left" }}>
-                  <Typography
-                    gutterBottom
-                    sx={{ color: "text.secondary", fontSize: 14 }}
-                  >
+                <CardContent sx={{ textAlign: 'left' }}>
+                  <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
                     {fn.functionType}
                   </Typography>
-                  <Typography variant="h5" sx={{ marginBottom: "1rem" }}>
+                  <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
                     {fn.name}
                   </Typography>
                   {fn.parameters.length > 0 && (
@@ -514,19 +464,19 @@ export function ContractComponent() {
                       <Typography
                         gutterBottom
                         sx={{
-                          color: "text.secondary",
+                          color: 'text.secondary',
                           fontSize: 14,
-                          marginTop: "1rem",
+                          marginTop: '1rem',
                         }}
                       >
                         Parameters
                       </Typography>
-                      <FormGroup row css={{ marginBottom: "1rem" }}>
+                      <FormGroup row css={{ marginBottom: '1rem' }}>
                         {fn.parameters.map((param, i) => (
                           <FunctionParameter
                             parameter={param}
                             key={param.name}
-                            onParameterChange={(newValue) => {
+                            onParameterChange={newValue => {
                               handleParameterChange(fn.name, i, newValue);
                             }}
                           />
@@ -543,17 +493,17 @@ export function ContractComponent() {
                       {simulationResults[fn.name].success ? (
                         <Typography variant="body1">
                           {simulationResults?.[fn.name]?.data.length === 0
-                            ? "-"
+                            ? '-'
                             : simulationResults?.[fn.name].data.toString()}
                         </Typography>
                       ) : (
                         <Typography variant="body1" color="error">
                           {simulationResults?.[fn.name]?.error}
                         </Typography>
-                      )}{" "}
+                      )}{' '}
                     </div>
                   )}
-                  {isWorking ? <CircularProgress size={"1rem"} /> : <></>}
+                  {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
                 </CardContent>
                 <CardActions>
                   <Button
@@ -567,12 +517,7 @@ export function ContractComponent() {
                     Simulate
                   </Button>
                   <Button
-                    disabled={
-                      !wallet ||
-                      !currentContract ||
-                      isWorking ||
-                      fn.functionType === "unconstrained"
-                    }
+                    disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
                     size="small"
                     color="secondary"
                     variant="contained"
@@ -582,21 +527,12 @@ export function ContractComponent() {
                     Send
                   </Button>
                   <Button
-                    disabled={
-                      !wallet ||
-                      !currentContract ||
-                      isWorking ||
-                      fn.functionType === "unconstrained"
-                    }
+                    disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
                     size="small"
                     color="secondary"
                     variant="contained"
                     onClick={() =>
-                      handleAuthwitFnDataChanged(
-                        fn.name,
-                        parameters[fn.name],
-                        fn.functionType === "private"
-                      )
+                      handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === 'private')
                     }
                     endIcon={<VpnKeyIcon />}
                   >

@@ -15,23 +15,19 @@ import {
   type SiblingPath,
   type TxReceipt,
   type Wallet,
-  deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
-import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
+import {
+  type L1ContractAddresses,
+  type ViemPublicClient,
+  type ViemWalletClient,
+  deployL1Contract,
+} from '@aztec/ethereum';
+import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import {
-  type Account,
-  type Chain,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-} from 'viem';
+import { type Hex, getContract } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
@@ -48,11 +44,11 @@ import { mintTokensToPrivate } from '../fixtures/token_utils.js';
  */
 export async function deployAndInitializeTokenAndBridgeContracts(
   wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
+  walletClient: ViemWalletClient,
+  publicClient: ViemPublicClient,
   rollupRegistryAddress: EthAddress,
   owner: AztecAddress,
-  underlyingERC20Address?: EthAddress,
+  underlyingERC20Address: EthAddress,
 ): Promise<{
   /**
    * The L2 token contract instance.
@@ -75,22 +71,6 @@ export async function deployAndInitializeTokenAndBridgeContracts(
    */
   underlyingERC20: any;
 }> {
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
-      'Underlying',
-      'UND',
-      walletClient.account.address,
-    ]).then(({ address }) => address);
-  }
-  const underlyingERC20 = getContract({
-    address: underlyingERC20Address!.toString(),
-    abi: TestERC20Abi,
-    client: walletClient,
-  });
-
-  // allow anyone to mint
-  await underlyingERC20.write.setFreeForAll([true], {} as any);
-
   // deploy the token portal
   const { address: tokenPortalAddress } = await deployL1Contract(
     walletClient,
@@ -130,6 +110,12 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     {} as any,
   );
 
+  const underlyingERC20 = getContract({
+    address: underlyingERC20Address.toString(),
+    abi: TestERC20Abi,
+    client: walletClient,
+  });
+
   return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
 // docs:end:deployAndInitializeTokenAndBridgeContracts
@@ -142,11 +128,11 @@ export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNode,
     pxeService: PXE,
-    publicClient: PublicClient<HttpTransport, Chain>,
-    walletClient: WalletClient<HttpTransport, Chain, Account>,
+    publicClient: ViemPublicClient,
+    walletClient: ViemWalletClient,
     wallet: AccountWallet,
     logger: Logger,
-    underlyingERC20Address?: EthAddress,
+    underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
@@ -205,9 +191,9 @@ export class CrossChainTestHarness {
     /** Underlying token for portal tests. */
     public underlyingERC20Address: EthAddress,
     /** Viem Public client instance. */
-    public publicClient: PublicClient<HttpTransport, Chain>,
+    public publicClient: ViemPublicClient,
     /** Viem Wallet Client instance. */
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    public walletClient: ViemWalletClient,
 
     /** Deployment addresses for all L1 contracts */
     public readonly l1ContractAddresses: L1ContractAddresses,

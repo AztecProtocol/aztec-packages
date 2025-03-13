@@ -56,7 +56,9 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         },
     );
 
-    let context_creation = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
+    let context_creation = quote {
+        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, dep::aztec::protocol_types::traits::Hash::hash($args_hasher_name));
+    };
 
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_internal(f) {
@@ -341,7 +343,7 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
 
 /// Injects a call to `aztec::discovery::discover_new_notes`, causing for new notes to be added to PXE and made
 /// available for the current execution.
-comptime fn create_note_discovery_call() -> Quoted {
+pub(crate) comptime fn create_note_discovery_call() -> Quoted {
     quote {
         /// Safety: note discovery returns nothing and is performed solely for its side-effects. It is therefore always
         /// safe to call.
@@ -349,7 +351,7 @@ comptime fn create_note_discovery_call() -> Quoted {
             dep::aztec::discovery::discover_new_notes(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
-            )
+            );
         };
     }
 }

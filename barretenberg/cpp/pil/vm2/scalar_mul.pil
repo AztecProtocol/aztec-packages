@@ -1,0 +1,177 @@
+include "ecc.pil";
+include "to_radix.pil";
+
+// Performs scalar_mul with Fr scalars doing the following algorithm:
+//
+// let bits = bit_representation(s)  # the vector of bits (from LSB to MSB) representing s
+// let res = O # point at infinity
+// let temp = P  # track doubled P val
+// for bit in bits:
+//     if bit == 1:
+//         res = res + temp  # point add
+//     temp = temp + temp  # double
+// return res
+//
+// +-------+-----+---------+-------------+--------+-----------+-----+---------+------------+------------+
+// | start | end | not_end | point:Point | scalar | res:Point | bit | bit_idx | temp:Point | should_add |
+// +-------+-----+---------+-------------+--------+-----------+-----+---------+------------+------------+
+// |     1 |   0 |       1 | p           | s      | res'      |   0 |     253 | temp'*2    |          0 | <= lookup
+// |     0 |   0 |       1 | p           | s      | res'+temp |   1 |     252 | temp'*2    |          1 |
+// ...
+// |     0 |   1 |       0 | p           | s      | p         |   1 |       0 | p          |          0 |
+// +-------+-----+---------+-------------+--------+-----------+-----+---------+------------+------------+
+
+
+// Needs to radix, update when implemented
+
+namespace scalar_mul;
+
+    #[skippable_if]
+    sel = 0;
+
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    // These are the inputs to perform the scalar mul, a point and a scalar
+    pol commit scalar;
+    pol commit point_x;
+    pol commit point_y;
+    pol commit point_inf;
+    point_inf * (1 - point_inf) = 0; // Validate the input
+
+    // The output of the scalar mul is a point
+    pol commit res_x;
+    pol commit res_y;
+    pol commit res_inf;
+
+    // LIFECYCLE
+
+    // We do reverse aggregation, the start row contains the output
+    // so is the selector with which other subtraces will reference
+    // After this section:
+    // - start can be 1 only after an end or the first row
+    // - There can be any number of rows between start and end
+    // - end can be 1 only N rows after a start (we'll constrain that N=253 in the BIT DECOMPOSITION section)
+    // - sel should be 1 on start and after and can change after end
+    pol commit start;
+    start * (1 - start) = 0;
+
+    pol commit end;
+    end * (1 - end) = 0;
+
+    // end and first_row are NAND
+    end * precomputed.first_row = 0;
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
+
+    // Selector must be 1 in a start row
+    #[SELECTOR_ON_START]
+    start * (1 - sel) = 0;
+    // Next selector must be current selector unless LATCH_CONDITION
+    #[SELECTOR_CONSISTENCY]
+    (sel' - sel) * (1 - LATCH_CONDITION) = 0;
+    // Selector must be 1 in an end row
+    end * (1 - sel) = 0;
+
+    // Needs to be commited since we'll use it in the ecc add lookup for doubling
+    pol commit not_end;
+    // not_end = sel & !end
+    not_end - sel * (1 - end) = 0;
+
+    // Double check: sel = not_end | end
+    end + not_end - sel = 0;
+
+
+    // Input consistency
+    #[INPUT_CONSISTENCY_X]
+    not_end * (point_x - point_x') = 0;
+    #[INPUT_CONSISTENCY_Y]
+    not_end * (point_y - point_y') = 0;
+    #[INPUT_CONSISTENCY_INF]
+    not_end * (point_inf - point_inf') = 0;
+    #[INPUT_CONSISTENCY_SCALAR]
+    not_end * (scalar - scalar') = 0;
+
+
+    // BIT DECOMPOSITION
+
+    pol commit bit;
+    // Should we have an explicit end boolean or callers should look up rows where bit_idx is 253?
+    pol commit bit_idx;
+
+    // We start with bit index 253
+    start * (bit_idx - 253) = 0;
+    // End can only be 1 when bit_idx is 0.
+    // This does not imply that end will be 1 when bit_idx is zero. The prover can choose to not turn end on
+    // but then they won't be able to reach an end again in the whole trace, rendering the trace invalid.
+    end * bit_idx = 0;
+
+    // Next bit index has to be 1 less except on end
+    not_end * (bit_idx - (bit_idx' + 1)) = 0;
+
+
+    pol commit bit_radix;
+    sel * (bit_radix - 2) = 0;
+
+    #[TO_RADIX]
+    sel { scalar, bit, bit_idx, bit_radix }
+    in
+    to_radix.sel
+        { to_radix.value, to_radix.limb, to_radix.limb_index, to_radix.radix };
+
+
+    // TEMP COMPUTATION
+
+    // Temp must be double of the next row. We need to call ecadd with next row as p,q
+    // Except in the end row, where we say temp = point
+    pol commit temp_x;
+    pol commit temp_y;
+    pol commit temp_inf;
+
+
+    // if end, temp = point. Else, temp is unconstrained
+    end * (temp_x - point_x) = 0;
+    end * (temp_y - point_y) = 0;
+    end * (temp_inf - point_inf) = 0;
+
+    // TODO Hack for bb-pilcom to see shifted temp columns
+    temp_x' - temp_x' = 0;
+    temp_y' - temp_y' = 0;
+    temp_inf' - temp_inf' = 0;
+
+    #[DOUBLE]
+    not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', temp_x', temp_y', temp_inf' }
+    in
+    ecc.sel
+        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
+
+
+    // RES COMPUTATION
+
+    // res should be the next row if bit is zero, or next row + temp if bit is 1
+    // Except in the end row, where res can be either infinity or the point
+
+    // If end is true, conditional assign point or 0,0,1 (infinity)
+    end * (point_x * bit - res_x) = 0;
+    end * (point_y * bit - res_y) = 0;
+    end * ((point_inf - 1) * bit + 1 - res_inf) = 0;
+
+    // If not_end, res = bit? res + temp : res
+    // commited because it's used in the add lookup
+    pol commit should_add;
+    should_add - not_end * bit = 0;
+    pol should_pass = not_end * (1 - bit);
+
+    #[ADD]
+    should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf }
+    in
+    ecc.sel
+        { ecc.r_x, ecc.r_y, ecc.r_is_inf, ecc.p_x, ecc.p_y, ecc.p_is_inf, ecc.q_x, ecc.q_y, ecc.q_is_inf };
+
+    should_pass * (res_x - res_x') = 0;
+    should_pass * (res_y - res_y') = 0;
+    should_pass * (res_inf - res_inf') = 0;
+
+

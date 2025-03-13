@@ -3,28 +3,27 @@ import {
   getSchnorrAccount,
   getSchnorrWalletWithSecretKey,
 } from '@aztec/accounts/schnorr';
-import { type InitialAccountData } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
-  type CheatCodes,
   type CompleteAddress,
-  type DeployL1Contracts,
   EthAddress,
   type Logger,
   type PXE,
   createLogger,
-  deployL1Contract,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type BlobSinkServer } from '@aztec/blob-sink/server';
+import type { BlobSinkServer } from '@aztec/blob-sink/server';
+import { type DeployL1ContractsReturnType, deployL1Contract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { type PXEService } from '@aztec/pxe';
+import type { PXEService } from '@aztec/pxe/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
@@ -79,7 +78,7 @@ export class FullProverTest {
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  public l1Contracts!: DeployL1Contracts;
+  public l1Contracts!: DeployL1ContractsReturnType;
   public proverAddress!: EthAddress;
 
   constructor(
@@ -93,7 +92,7 @@ export class FullProverTest {
       `full_prover_integration/${testName}`,
       dataPath,
       { startProverNode: true, fundRewardDistributor: true, coinbase },
-      { assumeProvenThrough: undefined },
+      {},
     );
   }
 
@@ -157,6 +156,10 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
+
+    // We don't wish to mark as proven automatically, so we set the flag to false
+    this.context.watcher.setIsMarkingAsProven(false);
+
     this.simulatedProverNode = this.context.proverNode!;
     ({
       pxe: this.pxe,

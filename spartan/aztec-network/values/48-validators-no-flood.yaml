@@ -1,0 +1,18 @@
+
+telemetry:
+  enabled: true
+
+validator:
+  replicas: 48
+  p2p:
+    floodPublish: false
+  validator:
+    disabled: false
+
+bootNode:
+  p2p:
+    floodPublish: false
+
+proverNode:
+  p2p:
+    floodPublish: false

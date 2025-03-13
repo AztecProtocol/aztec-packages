@@ -1,10 +1,16 @@
 {{- if .Values.bot.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     app: {{- include "aztec-network.labels" . | nindent 4 }}
+  {{- if .Values.network.setupL2Contracts }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  {{- end }}
 spec:
   replicas: {{ .Values.bot.replicas }}
   selector:
@@ -34,6 +40,9 @@ spec:
       {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- else }}
+      dnsPolicy: ClusterFirst
       {{- end }}
       volumes:
         - name: config
@@ -41,10 +50,37 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: scripts-output
           emptyDir: {}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
-        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
+
+        - name: get-private-key
+          image: {{ .Values.images.foundry.image }}
+          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              source /scripts/get-private-key.sh
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: config
+              mountPath: /shared/config
+          env:
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.botKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
         - name: wait-for-aztec-node
           image: "{{ .Values.images.curl.image }}"
           command:
@@ -79,6 +115,8 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
+              source /shared/config/keys.env
+              source /shared/config/otel-resource
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
               {{- else if .Values.network.public }}
@@ -97,8 +135,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: bot
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
@@ -109,8 +145,6 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
-            - name: BOT_L1_MNEMONIC
-              value: "{{ .Values.bot.l1Mnemonic }}"
             - name: BOT_PRIVATE_KEY
               value: "{{ .Values.bot.botPrivateKey }}"
             - name: BOT_TX_INTERVAL_SECONDS
@@ -135,12 +169,10 @@ spec:
               value: "{{ .Values.bot.stopIfUnhealthy }}"
             - name: USE_GCLOUD_LOGGING
               value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: USE_GCLOUD_METRICS
-              value: "{{ .Values.telemetry.useGcloudMetrics }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}

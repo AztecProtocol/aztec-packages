@@ -1,27 +1,24 @@
-import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types/interfaces/client';
-import {
-  type AztecAddress,
-  Fr,
-  type FunctionSelector,
-  type GrumpkinScalar,
-  type Point,
-  type VerificationKeyAsFields,
-  computeContractClassIdPreimage,
-  computeSaltedInitializationHash,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { UpdatedClassIdHints } from '@aztec/circuits.js/kernel';
-import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/circuits.js/shared-mutable';
 import { type NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import type { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
-import { type KeyStore } from '@aztec/key-store';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+import type { KeyStore } from '@aztec/key-store';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockNumber } from '@aztec/stdlib/block';
+import { computeContractClassIdPreimage, computeSaltedInitializationHash } from '@aztec/stdlib/contract';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { UpdatedClassIdHints } from '@aztec/stdlib/kernel';
+import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
+import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
-import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
+import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
+import type { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.
@@ -30,7 +27,7 @@ import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.j
  */
 export class KernelOracle implements ProvingDataOracle {
   constructor(
-    private contractDataOracle: ContractDataOracle,
+    private contractDataProvider: ContractDataProvider,
     private keyStore: KeyStore,
     private node: AztecNode,
     private blockNumber: L2BlockNumber = 'latest',
@@ -38,7 +35,7 @@ export class KernelOracle implements ProvingDataOracle {
   ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
-    const instance = await this.contractDataOracle.getContractInstance(address);
+    const instance = await this.contractDataProvider.getContractInstance(address);
     return {
       saltedInitializationHash: await computeSaltedInitializationHash(instance),
       ...instance,
@@ -46,12 +43,12 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public async getContractClassIdPreimage(contractClassId: Fr) {
-    const contractClass = await this.contractDataOracle.getContractClass(contractClassId);
+    const contractClass = await this.contractDataProvider.getContractClass(contractClassId);
     return computeContractClassIdPreimage(contractClass);
   }
 
   public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
-    return await this.contractDataOracle.getFunctionMembershipWitness(contractClassId, selector);
+    return await this.contractDataProvider.getFunctionMembershipWitness(contractClassId, selector);
   }
 
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
@@ -68,12 +65,15 @@ export class KernelOracle implements ProvingDataOracle {
     );
   }
 
-  getNullifierMembershipWitness(nullifier: Fr) {
+  getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     return this.node.getNullifierMembershipWitness(this.blockNumber, nullifier);
   }
 
   async getNoteHashTreeRoot(): Promise<Fr> {
     const header = await this.node.getBlockHeader(this.blockNumber);
+    if (!header) {
+      throw new Error(`No block header found for block number ${this.blockNumber}`);
+    }
     return header.state.partial.noteHashTree.root;
   }
 
@@ -82,7 +82,7 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
-    return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+    return this.contractDataProvider.getDebugFunctionName(contractAddress, selector);
   }
 
   public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
@@ -101,7 +101,7 @@ export class KernelOracle implements ProvingDataOracle {
     }
 
     const readStorage = (storageSlot: Fr) =>
-      this.node.getPublicStorageAt(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, this.blockNumber);
+      this.node.getPublicStorageAt(this.blockNumber, ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
     const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
 
     return new UpdatedClassIdHints(

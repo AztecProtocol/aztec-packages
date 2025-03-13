@@ -1,43 +1,36 @@
-import {
-  type AuthWitness,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type L2Block,
-  type LogFilter,
-  type NotesFilter,
-  type SiblingPath,
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
-  type UniqueNote,
-} from '@aztec/circuit-types';
-import {
-  type ContractClassMetadata,
-  type ContractMetadata,
-  type EventMetadataDefinition,
-  type PXE,
-  type PXEInfo,
-  type PrivateExecutionResult,
-} from '@aztec/circuit-types/interfaces/client';
-import {
-  type AztecAddress,
-  type CompleteAddress,
-  type ContractInstanceWithAddress,
-  type Fr,
-  type GasFees,
-  type NodeInfo,
-  type PartialAddress,
-  type Point,
-} from '@aztec/circuits.js';
-import type { AbiDecoded, ContractArtifact } from '@aztec/circuits.js/abi';
-import { type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
+import type { Fr, Point } from '@aztec/foundation/fields';
+import type { SiblingPath } from '@aztec/foundation/trees';
+import type { AbiDecoded, ContractArtifact } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { CompleteAddress, ContractInstanceWithAddress, NodeInfo, PartialAddress } from '@aztec/stdlib/contract';
+import type { GasFees } from '@aztec/stdlib/gas';
+import type {
+  ContractClassMetadata,
+  ContractMetadata,
+  EventMetadataDefinition,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+  PXE,
+  PXEInfo,
+} from '@aztec/stdlib/interfaces/client';
+import type { LogFilter } from '@aztec/stdlib/logs';
+import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import type {
+  PrivateExecutionResult,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxProvingResult,
+  TxReceipt,
+  TxSimulationResult,
+} from '@aztec/stdlib/tx';
 
-import { type Wallet } from '../account/wallet.js';
-import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
+import type { Wallet } from '../account/wallet.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
 
 /**
  * A base class for Wallet implementations

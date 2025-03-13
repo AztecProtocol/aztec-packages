@@ -1,8 +1,10 @@
 use crate::{context::PrivateContext, oracle::get_contract_instance::get_contract_instance};
 
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
     constants::DEPLOYER_CONTRACT_ADDRESS,
+    traits::{Serialize, ToField},
 };
 
 // Calls `deploy` on the deployer contract to deploy a new instance.

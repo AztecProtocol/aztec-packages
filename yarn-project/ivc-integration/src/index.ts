@@ -1,6 +1,6 @@
-import { type CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import type { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
 
-import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
 import createDebug from 'debug';
 import { ungzip } from 'pako';
 

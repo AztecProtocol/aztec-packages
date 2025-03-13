@@ -1,6 +1,7 @@
 #include "api_ultra_honk.hpp"
 
 #include "barretenberg/api/acir_format_getters.hpp"
+#include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/get_bn254_crs.hpp"
 #include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
@@ -97,7 +98,7 @@ bool _verify(const bool honk_recursion_2, const std::filesystem::path& proof_pat
     bool verified;
     if (honk_recursion_2) {
         const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1]));
+        const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
@@ -107,6 +108,12 @@ bool _verify(const bool honk_recursion_2, const std::filesystem::path& proof_pat
         verified = verifier.verify_proof(proof, ipa_proof);
     } else {
         verified = verifier.verify_proof(proof);
+    }
+
+    if (verified) {
+        info("Proof verified successfully");
+    } else {
+        info("Proof verification failed");
     }
 
     return verified;
@@ -126,20 +133,19 @@ void UltraHonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& output_dir)
 {
     const auto _write = [&](auto&& _prove_output) {
-        write(_prove_output, flags.output_data_type, flags.output_content_type, output_dir);
+        write(_prove_output, flags.output_format, flags.write_vk ? "proof_and_vk" : "proof", output_dir);
     };
 
     const bool init = flags.init_kzg_accumulator;
-    const bool compute_vk = flags.output_content_type == "proof_and_vk";
 
     if (flags.ipa_accumulation) {
-        _write(_prove<UltraRollupFlavor>(compute_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraRollupFlavor>(flags.write_vk, init, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_prove<UltraFlavor>(compute_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraFlavor>(flags.write_vk, init, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_prove<UltraKeccakFlavor>(compute_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakFlavor>(flags.write_vk, init, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_prove<UltraKeccakZKFlavor>(compute_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, init, bytecode_path, witness_path));
     } else {
         throw_or_abort("Invalid proving options specified in _prove");
     }
@@ -177,7 +183,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_data_type, "vk", output_path); };
+    const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_format, "vk", output_path); };
 
     const bool init = flags.init_kzg_accumulator;
 
@@ -197,12 +203,12 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    throw_or_abort("API function not implemented");
+    gate_count(bytecode_path, flags.recursive, flags.honk_recursion, flags.include_gates_per_opcode);
 }
 
-void UltraHonkAPI::write_contract(const Flags& flags,
-                                  const std::filesystem::path& output_path,
-                                  const std::filesystem::path& vk_path)
+void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
+                                           const std::filesystem::path& output_path,
+                                           const std::filesystem::path& vk_path)
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
@@ -212,6 +218,7 @@ void UltraHonkAPI::write_contract(const Flags& flags,
         std::cout << contract;
     } else {
         write_file(output_path, { contract.begin(), contract.end() });
+        info("Solidity verifier saved to ", output_path);
     }
 }
 

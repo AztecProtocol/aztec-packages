@@ -1,6 +1,6 @@
-import { type Fr } from '@aztec/foundation/fields';
-import { type Logger } from '@aztec/foundation/log';
-import { ErrorsAbi } from '@aztec/l1-artifacts';
+import type { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
+import { ErrorsAbi } from '@aztec/l1-artifacts/ErrorsAbi';
 
 import {
   type Abi,

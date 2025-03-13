@@ -13,13 +13,10 @@
       "path": "../blob-lib"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../constants"
+    },
+    {
+      "path": "../ethereum"
     },
     {
       "path": "../foundation"
@@ -35,6 +32,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

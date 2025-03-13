@@ -1,25 +1,20 @@
-import { getVersioningMiddleware } from '@aztec/circuit-types';
-import { type ChainConfig } from '@aztec/circuit-types/config';
-import { AztecNodeApiSchema, PXESchema } from '@aztec/circuit-types/interfaces/client';
 import {
   type NamespacedApiHandlers,
   createNamespacedSafeJsonRpcServer,
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
-import { fileURLToPath } from '@aztec/foundation/url';
+import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { ChainConfig } from '@aztec/stdlib/config';
+import { AztecNodeApiSchema, PXESchema } from '@aztec/stdlib/interfaces/client';
+import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-
-import { createSandbox } from '../sandbox.js';
+import { createSandbox } from '../sandbox/index.js';
 import { github, splash } from '../splash.js';
+import { enrichEnvironmentWithChainConfig } from './chain_l2_config.js';
+import { getCliVersion } from './release_version.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
-
-const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
 export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logger) {
   // list of 'stop' functions to call when process ends
@@ -28,6 +23,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   let config: ChainConfig | undefined = undefined;
 
   if (options.sandbox) {
+    const cliVersion = getCliVersion();
     const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
     const nodeOptions = extractNamespacedOptions(options, 'node');
     userLog(`${splash}\n${github}\n\n`);
@@ -36,7 +32,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     const { node, pxe, stop } = await createSandbox(
       {
         l1Mnemonic: options.l1Mnemonic,
-        l1RpcUrl: options.l1RpcUrl,
+        l1RpcUrls: options.l1RpcUrls,
         l1Salt: nodeOptions.deployAztecContractsSalt,
         noPXE: sandboxOptions.noPXE,
         testAccounts: sandboxOptions.testAccounts,
@@ -53,12 +49,13 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       userLog(`Not exposing PXE API through JSON-RPC server`);
     }
   } else {
+    // If a network is specified, enrich the environment with the chain config
+    if (options.network) {
+      await enrichEnvironmentWithChainConfig(options.network);
+    }
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
       ({ config } = await startNode(options, signalHandlers, services, userLog));
-    } else if (options.proofVerifier) {
-      const { startProofVerifier } = await import('./cmds/start_proof_verifier.js');
-      await startProofVerifier(options, signalHandlers, userLog);
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);

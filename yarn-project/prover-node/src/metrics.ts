@@ -1,6 +1,8 @@
-import { type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
+import { createLogger } from '@aztec/foundation/log';
+import type { L1PublishProofStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -13,8 +15,8 @@ import { formatEther } from 'viem';
 export class ProverNodeMetrics {
   proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
-  provingJobBlocks: Histogram;
-  provingJobTransactions: Histogram;
+  provingJobBlocks: Gauge;
+  provingJobTransactions: Gauge;
 
   gasPrice: Histogram;
   txCount: UpDownCounter;
@@ -25,7 +27,13 @@ export class ProverNodeMetrics {
   txBlobDataGasUsed: Histogram;
   txBlobDataGasCost: Histogram;
 
-  constructor(public readonly client: TelemetryClient, name = 'ProverNode') {
+  private senderBalance: Gauge;
+
+  constructor(
+    public readonly client: TelemetryClient,
+    name = 'ProverNode',
+    private logger = createLogger('prover-node:publisher:metrics'),
+  ) {
     const meter = client.getMeter(name);
     this.proverEpochExecutionDuration = meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION, {
       description: 'Duration of execution of an epoch by the prover',
@@ -34,14 +42,14 @@ export class ProverNodeMetrics {
     });
     this.provingJobDuration = meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION, {
       description: 'Duration of proving job',
-      unit: 'ms',
-      valueType: ValueType.INT,
+      unit: 's',
+      valueType: ValueType.DOUBLE,
     });
-    this.provingJobBlocks = meter.createHistogram(Metrics.PROVER_NODE_JOB_BLOCKS, {
+    this.provingJobBlocks = meter.createGauge(Metrics.PROVER_NODE_JOB_BLOCKS, {
       description: 'Number of blocks in a proven epoch',
       valueType: ValueType.INT,
     });
-    this.provingJobTransactions = meter.createHistogram(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
+    this.provingJobTransactions = meter.createGauge(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
       description: 'Number of transactions in a proven epoch',
       valueType: ValueType.INT,
     });
@@ -91,6 +99,12 @@ export class ProverNodeMetrics {
       unit: 'gwei',
       valueType: ValueType.INT,
     });
+
+    this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
+      unit: 'eth',
+      description: 'The balance of the sender address',
+      valueType: ValueType.DOUBLE,
+    });
   }
 
   recordFailedTx() {
@@ -106,9 +120,16 @@ export class ProverNodeMetrics {
 
   public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
     this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
-    this.provingJobDuration.record(Math.ceil(totalTimeMs));
+    this.provingJobDuration.record(totalTimeMs / 1000);
     this.provingJobBlocks.record(Math.floor(numBlocks));
     this.provingJobTransactions.record(Math.floor(numTxs));
+  }
+
+  public recordSenderBalance(wei: bigint, senderAddress: string) {
+    const eth = parseFloat(formatEther(wei, 'wei'));
+    this.senderBalance.record(eth, {
+      [Attributes.SENDER_ADDRESS]: senderAddress,
+    });
   }
 
   private recordTx(durationMs: number, stats: L1PublishStats) {

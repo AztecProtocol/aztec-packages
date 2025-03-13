@@ -1,4 +1,5 @@
 use crate::{context::PublicContext, event::event_interface::EventInterface};
+use protocol_types::traits::ToField;
 
 fn emit<Event, let N: u32>(context: &mut PublicContext, event: Event)
 where

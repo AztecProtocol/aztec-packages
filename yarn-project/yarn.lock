@@ -65,11 +65,10 @@ __metadata:
   resolution: "@aztec/accounts@workspace:accounts"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
@@ -88,8 +87,6 @@ __metadata:
   dependencies:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -98,6 +95,7 @@ __metadata:
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/debug": "npm:^4.1.7"
@@ -116,7 +114,7 @@ __metadata:
     tsc-watch: "npm:^6.0.0"
     tslib: "npm:^2.5.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
     ws: "npm:^8.13.0"
   languageName: unknown
   linkType: soft
@@ -139,7 +137,7 @@ __metadata:
     koa-router: "npm:^12.0.0"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   bin:
     aztec-faucet: ./dest/bin/index.js
@@ -153,8 +151,6 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -166,6 +162,7 @@ __metadata:
     "@aztec/prover-client": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
@@ -188,13 +185,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
@@ -211,7 +207,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
     util: "npm:^0.12.5"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
 
@@ -248,8 +244,6 @@ __metadata:
     "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/builder": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/cli-wallet": "workspace:^"
     "@aztec/constants": "workspace:^"
@@ -261,11 +255,11 @@ __metadata:
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/p2p-bootstrap": "workspace:^"
-    "@aztec/proof-verifier": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
     "@aztec/prover-node": "workspace:^"
     "@aztec/pxe": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/txe": "workspace:^"
     "@aztec/world-state": "workspace:^"
@@ -281,7 +275,7 @@ __metadata:
     koa-router: "npm:^12.0.0"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
   bin:
     aztec: ./dest/bin/index.js
   languageName: unknown
@@ -294,9 +288,9 @@ __metadata:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": ../../ts
     "@aztec/foundation": "workspace:^"
+    "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen"
+    "@aztec/noir-noir_js": "file:../../noir/packages/noir_js"
     "@jest/globals": "npm:^29.5.0"
-    "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
-    "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.8.1"
     debug: "npm:^4.3.4"
@@ -319,22 +313,21 @@ __metadata:
   resolution: "@aztec/bb-prover@workspace:bb-prover"
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@msgpack/msgpack": "npm:^3.0.0-beta2"
-    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
-    "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": "npm:^29.5.0"
     "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
@@ -347,7 +340,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
   bin:
     bb-cli: ./dest/bb/index.js
   languageName: unknown
@@ -391,9 +384,10 @@ __metadata:
   resolution: "@aztec/blob-sink@workspace:blob-sink"
   dependencies:
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:*"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:*"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
@@ -410,6 +404,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
+    viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -420,14 +415,13 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
@@ -448,8 +442,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/builder@workspace:builder"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
@@ -462,78 +456,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/circuit-types@workspace:*, @aztec/circuit-types@workspace:^, @aztec/circuit-types@workspace:circuit-types":
-  version: 0.0.0-use.local
-  resolution: "@aztec/circuit-types@workspace:circuit-types"
-  dependencies:
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/constants": "workspace:^"
-    "@aztec/ethereum": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@jest/globals": "npm:^29.5.0"
-    "@types/jest": "npm:^29.5.0"
-    "@types/koa": "npm:^2.15.0"
-    "@types/lodash.clonedeep": "npm:^4.5.7"
-    "@types/lodash.isequal": "npm:^4.5.6"
-    "@types/lodash.omit": "npm:^4.5.9"
-    "@types/lodash.times": "npm:^4.3.7"
-    "@types/node": "npm:^18.7.23"
-    browserify-cipher: "npm:^1.0.1"
-    jest: "npm:^29.5.0"
-    jest-mock-extended: "npm:^3.0.3"
-    lodash.clonedeep: "npm:^4.5.0"
-    lodash.isequal: "npm:^4.5.0"
-    lodash.omit: "npm:^4.5.0"
-    lodash.times: "npm:^4.3.2"
-    ts-node: "npm:^10.9.1"
-    tslib: "npm:^2.5.0"
-    typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
-    zod: "npm:^3.23.8"
-  languageName: unknown
-  linkType: soft
-
-"@aztec/circuits.js@workspace:^, @aztec/circuits.js@workspace:circuits.js":
-  version: 0.0.0-use.local
-  resolution: "@aztec/circuits.js@workspace:circuits.js"
-  dependencies:
-    "@aztec/bb.js": "portal:../../barretenberg/ts"
-    "@aztec/blob-lib": "workspace:^"
-    "@aztec/constants": "workspace:^"
-    "@aztec/ethereum": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@jest/globals": "npm:^29.5.0"
-    "@types/jest": "npm:^29.5.0"
-    "@types/lodash.chunk": "npm:^4.2.9"
-    "@types/node": "npm:^18.7.23"
-    "@types/pako": "npm:^2.0.3"
-    eslint: "npm:^8.35.0"
-    jest: "npm:^29.5.0"
-    lodash.chunk: "npm:^4.2.0"
-    msgpackr: "npm:^1.11.2"
-    pako: "npm:^2.1.0"
-    prettier: "npm:^2.8.4"
-    ts-node: "npm:^10.9.1"
-    tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
-    zod: "npm:^3.23.8"
-  languageName: unknown
-  linkType: soft
-
 "@aztec/cli-wallet@workspace:^, @aztec/cli-wallet@workspace:cli-wallet":
   version: 0.0.0-use.local
   resolution: "@aztec/cli-wallet@workspace:cli-wallet"
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/pxe": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
@@ -559,13 +494,13 @@ __metadata:
     "@aztec/accounts": "workspace:^"
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
@@ -588,16 +523,16 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
   peerDependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
   languageName: unknown
   linkType: soft
 
@@ -639,8 +574,6 @@ __metadata:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
@@ -658,6 +591,7 @@ __metadata:
     "@aztec/pxe": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
@@ -693,6 +627,7 @@ __metadata:
     lodash.chunk: "npm:^4.2.0"
     lodash.compact: "npm:^3.0.1"
     lodash.every: "npm:^4.6.0"
+    lodash.omit: "npm:^4.5.0"
     memdown: "npm:^6.1.1"
     process: "npm:^0.11.10"
     stream-browserify: "npm:^3.0.0"
@@ -702,7 +637,7 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
     util: "npm:^0.12.5"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -712,10 +647,9 @@ __metadata:
   resolution: "@aztec/entrypoints@workspace:entrypoints"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     jest: "npm:^29.5.0"
@@ -729,10 +663,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/epoch-cache@workspace:epoch-cache"
   dependencies:
-    "@aztec/circuit-types": "workspace:*"
     "@aztec/ethereum": "workspace:*"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/stdlib": "workspace:*"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.14.6"
@@ -744,7 +678,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -763,10 +697,11 @@ __metadata:
     dotenv: "npm:^16.0.3"
     get-port: "npm:^7.1.0"
     jest: "npm:^29.5.0"
+    lodash.omit: "npm:^4.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -831,8 +766,8 @@ __metadata:
     supertest: "npm:^6.3.3"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.0.4"
-    undici: "npm:^7.3.0"
-    viem: "npm:2.22.8"
+    undici: "npm:^5.28.5"
+    viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -843,20 +778,20 @@ __metadata:
   dependencies:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": ../../ts
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen"
+    "@aztec/noir-noir_js": "file:../../noir/packages/noir_js"
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
+    "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@msgpack/msgpack": "npm:^3.0.0-beta2"
-    "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
-    "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
-    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
-    "@noir-lang/types": "portal:../../noir/packages/types"
     "@playwright/test": "npm:1.49.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.8.1"
@@ -889,11 +824,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/key-store@workspace:key-store"
   dependencies:
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
@@ -908,11 +842,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/kv-store@workspace:kv-store"
   dependencies:
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/native": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/chai": "npm:^5.0.1"
     "@types/chai-as-promised": "npm:^8.0.1"
@@ -954,10 +887,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/merkle-tree@workspace:merkle-tree"
   dependencies:
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.15.3"
@@ -987,6 +919,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/noir-acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/noir-acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  languageName: node
+  linkType: soft
+
 "@aztec/noir-contracts.js@workspace:^, @aztec/noir-contracts.js@workspace:noir-contracts.js":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-contracts.js@workspace:noir-contracts.js"
@@ -1002,21 +940,52 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    "@aztec/noir-types": "npm:1.0.0-beta.3"
+    glob: "npm:^10.3.10"
+    ts-command-line-args: "npm:^2.5.1"
+  bin:
+    noir-codegen: lib/main.js
+  languageName: node
+  linkType: soft
+
+"@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 1.0.0-beta.3
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=1c440e&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    "@aztec/noir-acvm_js": "npm:1.0.0-beta.3"
+    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.3"
+    "@aztec/noir-types": "npm:1.0.0-beta.3"
+  checksum: 10/08fd293b038e8e3700f6a5dede8ad80ed8254ad49f177dc4e4f3b0528661621f36bf02a2335dd7002ae0caf9ca6bdbc7c494e4093a40b1e58acb37352dcf22dd
+  languageName: node
+  linkType: hard
+
+"@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    "@aztec/noir-types": "npm:1.0.0-beta.3"
+  languageName: node
+  linkType: soft
+
 "@aztec/noir-protocol-circuits-types@workspace:^, @aztec/noir-protocol-circuits-types@workspace:noir-protocol-circuits-types":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-protocol-circuits-types@workspace:noir-protocol-circuits-types"
   dependencies:
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
+    "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen"
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
+    "@aztec/noir-types": "portal:../../noir/packages/types"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
-    "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen"
-    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
-    "@noir-lang/types": "portal:../../noir/packages/types"
     "@swc/helpers": "npm:^0.5.15"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
@@ -1028,6 +997,12 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
   languageName: unknown
+  linkType: soft
+
+"@aztec/noir-types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/noir-types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  languageName: node
   linkType: soft
 
 "@aztec/p2p-bootstrap@workspace:^, @aztec/p2p-bootstrap@workspace:p2p-bootstrap":
@@ -1058,14 +1033,13 @@ __metadata:
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
     "@aztec/archiver": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@chainsafe/discv5": "npm:9.0.0"
     "@chainsafe/enr": "npm:3.0.0"
@@ -1103,30 +1077,8 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
     uint8arrays: "npm:^5.0.3"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
     xxhash-wasm: "npm:^1.1.0"
-  languageName: unknown
-  linkType: soft
-
-"@aztec/proof-verifier@workspace:^, @aztec/proof-verifier@workspace:proof-verifier":
-  version: 0.0.0-use.local
-  resolution: "@aztec/proof-verifier@workspace:proof-verifier"
-  dependencies:
-    "@aztec/archiver": "workspace:^"
-    "@aztec/bb-prover": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/ethereum": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@aztec/noir-protocol-circuits-types": "workspace:^"
-    "@aztec/telemetry-client": "workspace:^"
-    "@jest/globals": "npm:^29.5.0"
-    "@types/jest": "npm:^29.5.0"
-    "@types/node": "npm:^18.7.23"
-    jest: "npm:^29.5.0"
-    ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
   languageName: unknown
   linkType: soft
 
@@ -1134,9 +1086,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/protocol-contracts@workspace:protocol-contracts"
   dependencies:
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.chunk": "npm:^4.2.9"
@@ -1159,21 +1111,21 @@ __metadata:
   dependencies:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@google-cloud/storage": "npm:^7.15.0"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
-    "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": "npm:^29.5.0"
     "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
@@ -1198,8 +1150,6 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1212,6 +1162,7 @@ __metadata:
     "@aztec/prover-client": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
@@ -1225,7 +1176,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
 
@@ -1236,8 +1187,6 @@ __metadata:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/builder": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
@@ -1245,11 +1194,12 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/noir-types": "workspace:*"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@msgpack/msgpack": "npm:^3.0.0-beta2"
-    "@noir-lang/types": "workspace:*"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.omit": "npm:^4.5.7"
     "@types/lodash.times": "npm:^4.3.9"
@@ -1264,7 +1214,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
   bin:
     pxe: ./dest/bin/index.js
   languageName: unknown
@@ -1274,8 +1224,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/scripts@workspace:scripts"
   dependencies:
-    "@aztec/circuit-types": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.pick": "npm:^4.4.7"
@@ -1300,8 +1250,6 @@ __metadata:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1309,18 +1257,19 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
-    "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": "npm:^29.5.0"
     "@types/levelup": "npm:^5.1.2"
     "@types/lodash.chunk": "npm:^4.2.7"
@@ -1340,7 +1289,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
 
@@ -1348,21 +1297,20 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
+    "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js"
-    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
-    "@noir-lang/types": "portal:../../noir/packages/types"
     "@types/jest": "npm:^29.5.0"
     "@types/levelup": "npm:^5.1.3"
     "@types/lodash.clonedeep": "npm:^4.5.7"
@@ -1378,7 +1326,42 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
+  languageName: unknown
+  linkType: soft
+
+"@aztec/stdlib@workspace:*, @aztec/stdlib@workspace:^, @aztec/stdlib@workspace:stdlib":
+  version: 0.0.0-use.local
+  resolution: "@aztec/stdlib@workspace:stdlib"
+  dependencies:
+    "@aztec/bb.js": "portal:../../barretenberg/ts"
+    "@aztec/blob-lib": "workspace:^"
+    "@aztec/constants": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@jest/globals": "npm:^29.5.0"
+    "@types/jest": "npm:^29.5.0"
+    "@types/lodash.chunk": "npm:^4.2.9"
+    "@types/lodash.isequal": "npm:^4.5.8"
+    "@types/lodash.omit": "npm:^4.5.7"
+    "@types/lodash.times": "npm:^4.3.9"
+    "@types/node": "npm:^18.7.23"
+    "@types/pako": "npm:^2.0.3"
+    eslint: "npm:^8.35.0"
+    jest: "npm:^29.5.0"
+    jest-mock-extended: "npm:^4.0.0-beta1"
+    lodash.chunk: "npm:^4.2.0"
+    lodash.isequal: "npm:^4.5.0"
+    lodash.omit: "npm:^4.5.0"
+    lodash.times: "npm:^4.3.2"
+    msgpackr: "npm:^1.11.2"
+    pako: "npm:^2.1.0"
+    prettier: "npm:^2.8.4"
+    ts-node: "npm:^10.9.1"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.0.4"
+    viem: "npm:2.23.7"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 
@@ -1386,11 +1369,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/telemetry-client@workspace:telemetry-client"
   dependencies:
-    "@aztec/circuit-types": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@google-cloud/opentelemetry-cloud-monitoring-exporter": "npm:^0.20.0"
-    "@google-cloud/opentelemetry-cloud-trace-exporter": "npm:^2.4.1"
-    "@google-cloud/opentelemetry-resource-util": "npm:^2.4.0"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@opentelemetry/api": "npm:^1.9.0"
     "@opentelemetry/api-logs": "npm:^0.55.0"
@@ -1421,8 +1401,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
@@ -1430,6 +1408,7 @@ __metadata:
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
@@ -1448,12 +1427,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/validator-client@workspace:validator-client"
   dependencies:
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
@@ -1465,7 +1443,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
-    viem: "npm:2.22.8"
+    viem: "npm:2.23.7"
   bin:
     validator-client: ./dest/bin/index.js
   languageName: unknown
@@ -1476,14 +1454,13 @@ __metadata:
   resolution: "@aztec/world-state@workspace:world-state"
   dependencies:
     "@aztec/archiver": "workspace:^"
-    "@aztec/circuit-types": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/native": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
@@ -2516,49 +2493,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@google-cloud/opentelemetry-cloud-monitoring-exporter@npm:^0.20.0":
-  version: 0.20.0
-  resolution: "@google-cloud/opentelemetry-cloud-monitoring-exporter@npm:0.20.0"
-  dependencies:
-    "@google-cloud/opentelemetry-resource-util": "npm:^2.4.0"
-    "@google-cloud/precise-date": "npm:^4.0.0"
-    google-auth-library: "npm:^9.0.0"
-    googleapis: "npm:^137.0.0"
-  peerDependencies:
-    "@opentelemetry/api": ^1.0.0
-    "@opentelemetry/core": ^1.0.0
-    "@opentelemetry/resources": ^1.0.0
-    "@opentelemetry/sdk-metrics": ^1.0.0
-  checksum: 10/b71f9335e32e9f5caf9b3c9511eb7029db5cc1d3d86c8e35f5ea25a47ee39ef8bb1fb635d2f454c933f229351841f08453cb6f89a41f0bd6dab2011c783b2c4b
-  languageName: node
-  linkType: hard
-
-"@google-cloud/opentelemetry-cloud-trace-exporter@npm:^2.4.1":
-  version: 2.4.1
-  resolution: "@google-cloud/opentelemetry-cloud-trace-exporter@npm:2.4.1"
-  dependencies:
-    "@google-cloud/opentelemetry-resource-util": "npm:^2.4.0"
-    "@grpc/grpc-js": "npm:^1.1.8"
-    "@grpc/proto-loader": "npm:^0.7.0"
-    google-auth-library: "npm:^9.0.0"
-  peerDependencies:
-    "@opentelemetry/api": ^1.0.0
-    "@opentelemetry/core": ^1.0.0
-    "@opentelemetry/resources": ^1.0.0
-    "@opentelemetry/sdk-trace-base": ^1.0.0
-  checksum: 10/81dca152f0e84141c76f8a79d7e3b07bee3063cd16a370b53f1ddadf3a0ee6f2547ef8d93cb6007b17780ed568770fe2937af7dbe85a3b66e0e08c364eef44b0
-  languageName: node
-  linkType: hard
-
-"@google-cloud/opentelemetry-resource-util@npm:^2.4.0":
-  version: 2.4.0
-  resolution: "@google-cloud/opentelemetry-resource-util@npm:2.4.0"
-  dependencies:
-    "@opentelemetry/semantic-conventions": "npm:^1.22.0"
-    gcp-metadata: "npm:^6.0.0"
-  peerDependencies:
-    "@opentelemetry/resources": ^1.0.0
-  checksum: 10/119116a19549ea1a5c43d50f880959e2fe512860e316a1aa15e3e8088696629995c09c0287e7fcca42baa65fcacc5d3cd74eb3f6b0b9984dc523962d6cb36265
+"@fastify/busboy@npm:^2.0.0":
+  version: 2.1.1
+  resolution: "@fastify/busboy@npm:2.1.1"
+  checksum: 10/2bb8a7eca8289ed14c9eb15239bc1019797454624e769b39a0b90ed204d032403adc0f8ed0d2aef8a18c772205fa7808cf5a1b91f21c7bfc7b6032150b1062c5
   languageName: node
   linkType: hard
 
@@ -2569,13 +2507,6 @@ __metadata:
     arrify: "npm:^2.0.0"
     extend: "npm:^3.0.2"
   checksum: 10/b64ba2029b77fdcf3c827aea0b6d128122fd1d2f4aa8c1ba70747cba0659d4216a283769fb3bbeb8f726176f5282624637f02c30f118a010e05838411da0cb76
-  languageName: node
-  linkType: hard
-
-"@google-cloud/precise-date@npm:^4.0.0":
-  version: 4.0.0
-  resolution: "@google-cloud/precise-date@npm:4.0.0"
-  checksum: 10/7c897bcad6a40efd77df165fca8a57bd3fbb84e6ace848085b16233c1086c32c06258caa88b9c9aaf7d4029ded13d01b57d1b5fd808dc5722cf57626ac4a386b
   languageName: node
   linkType: hard
 
@@ -2613,30 +2544,6 @@ __metadata:
     teeny-request: "npm:^9.0.0"
     uuid: "npm:^8.0.0"
   checksum: 10/b9898537125974e0c787ad351d3adf5cfec8c1c1bb98bdf2a56bcbc89ea84f719c9efed35aa14f309f934b97b8f9ffb161de6ba3cecc32961c3d8786c246c849
-  languageName: node
-  linkType: hard
-
-"@grpc/grpc-js@npm:^1.1.8":
-  version: 1.12.5
-  resolution: "@grpc/grpc-js@npm:1.12.5"
-  dependencies:
-    "@grpc/proto-loader": "npm:^0.7.13"
-    "@js-sdsl/ordered-map": "npm:^4.4.2"
-  checksum: 10/4f8ead236dcab4d94e15e62d65ad2d93732d37f5cc52ffafe67ae00f69eae4a4c97d6d34a1b9eac9f30206468f2d15302ea6649afcba1d38929afa9d1e7c12d5
-  languageName: node
-  linkType: hard
-
-"@grpc/proto-loader@npm:^0.7.0, @grpc/proto-loader@npm:^0.7.13":
-  version: 0.7.13
-  resolution: "@grpc/proto-loader@npm:0.7.13"
-  dependencies:
-    lodash.camelcase: "npm:^4.3.0"
-    long: "npm:^5.0.0"
-    protobufjs: "npm:^7.2.5"
-    yargs: "npm:^17.7.2"
-  bin:
-    proto-loader-gen-types: build/bin/proto-loader-gen-types.js
-  checksum: 10/7e2d842c2061cbaf6450c71da0077263be3bab165454d5c8a3e1ae4d3c6d2915f02fd27da63ff01f05e127b1221acd40705273f5d29303901e60514e852992f4
   languageName: node
   linkType: hard
 
@@ -3178,13 +3085,6 @@ __metadata:
     "@jridgewell/resolve-uri": "npm:^3.1.0"
     "@jridgewell/sourcemap-codec": "npm:^1.4.14"
   checksum: 10/dced32160a44b49d531b80a4a2159dceab6b3ddf0c8e95a0deae4b0e894b172defa63d5ac52a19c2068e1fe7d31ea4ba931fbeec103233ecb4208953967120fc
-  languageName: node
-  linkType: hard
-
-"@js-sdsl/ordered-map@npm:^4.4.2":
-  version: 4.4.2
-  resolution: "@js-sdsl/ordered-map@npm:4.4.2"
-  checksum: 10/ac64e3f0615ecc015461c9f527f124d2edaa9e68de153c1e270c627e01e83d046522d7e872692fd57a8c514578b539afceff75831c0d8b2a9a7a347fbed35af4
   languageName: node
   linkType: hard
 
@@ -4211,12 +4111,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:1.7.0, @noble/curves@npm:^1.3.0, @noble/curves@npm:~1.7.0":
-  version: 1.7.0
-  resolution: "@noble/curves@npm:1.7.0"
+"@noble/curves@npm:1.8.1, @noble/curves@npm:^1.6.0, @noble/curves@npm:~1.8.1":
+  version: 1.8.1
+  resolution: "@noble/curves@npm:1.8.1"
   dependencies:
-    "@noble/hashes": "npm:1.6.0"
-  checksum: 10/2a11ef4895907d0b241bd3b72f9e6ebe56f0e705949bfd5efe003f25233549f620d287550df2d24ad56a1f953b82ec5f7cf4bd7cb78b1b2e76eb6dd516d44cf8
+    "@noble/hashes": "npm:1.7.1"
+  checksum: 10/e861db372cc0734b02a4c61c0f5a6688d4a7555edca3d8a9e7c846c9aa103ca52d3c3818e8bc333a1a95b5be7f370ff344668d5d759471b11c2d14c7f24b3984
   languageName: node
   linkType: hard
 
@@ -4229,12 +4129,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:^1.6.0, @noble/curves@npm:~1.8.1":
-  version: 1.8.1
-  resolution: "@noble/curves@npm:1.8.1"
+"@noble/curves@npm:^1.3.0":
+  version: 1.7.0
+  resolution: "@noble/curves@npm:1.7.0"
   dependencies:
-    "@noble/hashes": "npm:1.7.1"
-  checksum: 10/e861db372cc0734b02a4c61c0f5a6688d4a7555edca3d8a9e7c846c9aa103ca52d3c3818e8bc333a1a95b5be7f370ff344668d5d759471b11c2d14c7f24b3984
+    "@noble/hashes": "npm:1.6.0"
+  checksum: 10/2a11ef4895907d0b241bd3b72f9e6ebe56f0e705949bfd5efe003f25233549f620d287550df2d24ad56a1f953b82ec5f7cf4bd7cb78b1b2e76eb6dd516d44cf8
   languageName: node
   linkType: hard
 
@@ -4259,17 +4159,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.6.1, @noble/hashes@npm:^1.3.3, @noble/hashes@npm:~1.6.0":
-  version: 1.6.1
-  resolution: "@noble/hashes@npm:1.6.1"
-  checksum: 10/74d9ad7b1437a22ba3b877584add3367587fbf818113152f293025d20d425aa74c191d18d434797312f2270458bc9ab3241c34d14ec6115fb16438b3248f631f
-  languageName: node
-  linkType: hard
-
 "@noble/hashes@npm:1.7.1, @noble/hashes@npm:^1.5.0, @noble/hashes@npm:~1.7.1":
   version: 1.7.1
   resolution: "@noble/hashes@npm:1.7.1"
   checksum: 10/ca3120da0c3e7881d6a481e9667465cc9ebbee1329124fb0de442e56d63fef9870f8cc96f264ebdb18096e0e36cebc0e6e979a872d545deb0a6fed9353f17e05
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:^1.3.3":
+  version: 1.6.1
+  resolution: "@noble/hashes@npm:1.6.1"
+  checksum: 10/74d9ad7b1437a22ba3b877584add3367587fbf818113152f293025d20d425aa74c191d18d434797312f2270458bc9ab3241c34d14ec6115fb16438b3248f631f
   languageName: node
   linkType: hard
 
@@ -4299,48 +4199,6 @@ __metadata:
   checksum: 10/40033e33e96e97d77fba5a238e4bba4487b8284678906a9f616b5579ddaf868a18874c0054a75402c9fbaaa033a25ceae093af58c9c30278e35c23c9479e79b0
   languageName: node
   linkType: hard
-
-"@noir-lang/acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  languageName: node
-  linkType: soft
-
-"@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.3"
-    glob: "npm:^10.3.10"
-    ts-command-line-args: "npm:^2.5.1"
-  bin:
-    noir-codegen: lib/main.js
-  languageName: node
-  linkType: soft
-
-"@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.3
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=73647e&locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  dependencies:
-    "@noir-lang/acvm_js": "npm:1.0.0-beta.3"
-    "@noir-lang/noirc_abi": "npm:1.0.0-beta.3"
-    "@noir-lang/types": "npm:1.0.0-beta.3"
-  languageName: node
-  linkType: hard
-
-"@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.3"
-  languageName: node
-  linkType: soft
-
-"@noir-lang/types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A."
-  languageName: node
-  linkType: soft
 
 "@npmcli/agent@npm:^2.0.0":
   version: 2.2.2
@@ -4656,7 +4514,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@opentelemetry/semantic-conventions@npm:^1.22.0, @opentelemetry/semantic-conventions@npm:^1.27.0, @opentelemetry/semantic-conventions@npm:^1.28.0":
+"@opentelemetry/semantic-conventions@npm:^1.27.0, @opentelemetry/semantic-conventions@npm:^1.28.0":
   version: 1.28.0
   resolution: "@opentelemetry/semantic-conventions@npm:1.28.0"
   checksum: 10/c182a3206769b5d5a8ab89a5c674d046fd789421cef27ea55af179990e314732433c98e5017aa23e99f15fd2b0e13cb129bb6c2282da6860ce9419adf32b2e87
@@ -5036,7 +4894,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/base@npm:~1.2.1, @scure/base@npm:~1.2.2, @scure/base@npm:~1.2.4":
+"@scure/base@npm:~1.2.2, @scure/base@npm:~1.2.4":
   version: 1.2.4
   resolution: "@scure/base@npm:1.2.4"
   checksum: 10/4b61679209af40143b49ce7b7570e1d9157c19df311ea6f57cd212d764b0b82222dbe3707334f08bec181caf1f047aca31aa91193c678d6548312cb3f9c82ab1
@@ -5054,18 +4912,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/bip32@npm:1.6.0":
-  version: 1.6.0
-  resolution: "@scure/bip32@npm:1.6.0"
-  dependencies:
-    "@noble/curves": "npm:~1.7.0"
-    "@noble/hashes": "npm:~1.6.0"
-    "@scure/base": "npm:~1.2.1"
-  checksum: 10/2efb81ed9a7b8d5d35233e10abebc114544a3783a2a32b9fb60e1e9a67965b272c9d17910e1649083b69c8ceb80241b05b59dbeb7a5b18ea34e497aed3f16709
-  languageName: node
-  linkType: hard
-
-"@scure/bip32@npm:^1.5.0":
+"@scure/bip32@npm:1.6.2, @scure/bip32@npm:^1.5.0":
   version: 1.6.2
   resolution: "@scure/bip32@npm:1.6.2"
   dependencies:
@@ -5086,17 +4933,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/bip39@npm:1.5.0":
-  version: 1.5.0
-  resolution: "@scure/bip39@npm:1.5.0"
-  dependencies:
-    "@noble/hashes": "npm:~1.6.0"
-    "@scure/base": "npm:~1.2.1"
-  checksum: 10/b795ee31ac4c10603bf3b726cc0e5cf43834a68f05a535e0baf2162772bac100de470b4c6cf7ddbecb95d7a3fb82b8a959badced406c329ab696cd89104194bc
-  languageName: node
-  linkType: hard
-
-"@scure/bip39@npm:^1.4.0":
+"@scure/bip39@npm:1.5.4, @scure/bip39@npm:^1.4.0":
   version: 1.5.4
   resolution: "@scure/bip39@npm:1.5.4"
   dependencies:
@@ -6221,7 +6058,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/lodash.isequal@npm:^4.5.6":
+"@types/lodash.isequal@npm:^4.5.8":
   version: 4.5.8
   resolution: "@types/lodash.isequal@npm:4.5.8"
   dependencies:
@@ -6266,7 +6103,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/lodash.times@npm:^4.3.7, @types/lodash.times@npm:^4.3.9":
+"@types/lodash.times@npm:^4.3.9":
   version: 4.3.9
   resolution: "@types/lodash.times@npm:4.3.9"
   dependencies:
@@ -7457,9 +7294,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"abitype@npm:1.0.7":
-  version: 1.0.7
-  resolution: "abitype@npm:1.0.7"
+"abitype@npm:1.0.8, abitype@npm:^1.0.6":
+  version: 1.0.8
+  resolution: "abitype@npm:1.0.8"
   peerDependencies:
     typescript: ">=5.0.4"
     zod: ^3 >=3.22.0
@@ -7468,7 +7305,7 @@ __metadata:
       optional: true
     zod:
       optional: true
-  checksum: 10/6c2c3390a2f90186bf0df73f20cf257dfd9b62d1eb266de6ddf362030dcbd79cd113b4110e52f7802d7b042ea8fdb7ee2f113751b883787c2d9589d56fb4273b
+  checksum: 10/878e74fbac6a971953649b6216950437aa5834a604e9fa833a5b275a6967cff59857c7e43594ae906387d2fb7cad9370138dec4298eb8814815a3ffb6365902c
   languageName: node
   linkType: hard
 
@@ -7482,21 +7319,6 @@ __metadata:
     zod:
       optional: true
   checksum: 10/b648c1e2c892e204552a5641f6ab8d475fa8ef6209d4d4fb6e196140b3744df5371d62092fb952dbf019466de1fd2fd76e0e3ff39baba1b70207958b717c4021
-  languageName: node
-  linkType: hard
-
-"abitype@npm:^1.0.6":
-  version: 1.0.8
-  resolution: "abitype@npm:1.0.8"
-  peerDependencies:
-    typescript: ">=5.0.4"
-    zod: ^3 >=3.22.0
-  peerDependenciesMeta:
-    typescript:
-      optional: true
-    zod:
-      optional: true
-  checksum: 10/878e74fbac6a971953649b6216950437aa5834a604e9fa833a5b275a6967cff59857c7e43594ae906387d2fb7cad9370138dec4298eb8814815a3ffb6365902c
   languageName: node
   linkType: hard
 
@@ -8626,7 +8448,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"browserify-cipher@npm:^1.0.0, browserify-cipher@npm:^1.0.1":
+"browserify-cipher@npm:^1.0.0":
   version: 1.0.1
   resolution: "browserify-cipher@npm:1.0.1"
   dependencies:
@@ -12793,7 +12615,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"gaxios@npm:^6.0.0, gaxios@npm:^6.0.2, gaxios@npm:^6.0.3, gaxios@npm:^6.1.1":
+"gaxios@npm:^6.0.0, gaxios@npm:^6.0.2, gaxios@npm:^6.1.1":
   version: 6.7.1
   resolution: "gaxios@npm:6.7.1"
   dependencies:
@@ -13124,7 +12946,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"google-auth-library@npm:^9.0.0, google-auth-library@npm:^9.6.3, google-auth-library@npm:^9.7.0":
+"google-auth-library@npm:^9.6.3":
   version: 9.15.0
   resolution: "google-auth-library@npm:9.15.0"
   dependencies:
@@ -13135,30 +12957,6 @@ __metadata:
     gtoken: "npm:^7.0.0"
     jws: "npm:^4.0.0"
   checksum: 10/fba2db9732bbf1b3a3a2e2b45131ba8e8aba297377f1c104d0b2ab3386bbc1e02047f20b8a7afca1c6308492da1540104618f1c7b5cd539703552e10399c560e
-  languageName: node
-  linkType: hard
-
-"googleapis-common@npm:^7.0.0":
-  version: 7.2.0
-  resolution: "googleapis-common@npm:7.2.0"
-  dependencies:
-    extend: "npm:^3.0.2"
-    gaxios: "npm:^6.0.3"
-    google-auth-library: "npm:^9.7.0"
-    qs: "npm:^6.7.0"
-    url-template: "npm:^2.0.8"
-    uuid: "npm:^9.0.0"
-  checksum: 10/4b914be6681f2a5a02bd0954a4a5cee1725d8623cb9d0a7c2fd7132de110e8d5707566cba39784e58147be39e74bc5513ad30fdcdaa6edcbb47ecf687003cb6c
-  languageName: node
-  linkType: hard
-
-"googleapis@npm:^137.0.0":
-  version: 137.1.0
-  resolution: "googleapis@npm:137.1.0"
-  dependencies:
-    google-auth-library: "npm:^9.0.0"
-    googleapis-common: "npm:^7.0.0"
-  checksum: 10/5d7cee8a7293701a19db3ee515272fbb932c343d1640ca21a3996dc717649817a6d169cd8370ee6e535bd2d48cb70f0b426abe691b22830d588419ebe95b5740
   languageName: node
   linkType: hard
 
@@ -17659,9 +17457,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ox@npm:0.6.0":
-  version: 0.6.0
-  resolution: "ox@npm:0.6.0"
+"ox@npm:0.6.7":
+  version: 0.6.7
+  resolution: "ox@npm:0.6.7"
   dependencies:
     "@adraffy/ens-normalize": "npm:^1.10.1"
     "@noble/curves": "npm:^1.6.0"
@@ -17675,7 +17473,7 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/b089b2d09035def8d3f6d17ab1dd792fd7f1a4d8e008aa96bc50a8cef24ddb8e608ec828f4d83cf959b080a7c854921449e4d061f45f6dee944f48bd0971e60f
+  checksum: 10/442fb31e1afb68922bf942025930d8cd6d8c677696e9a6de308008b3608669f22127cadbc0f77181e012d23d7b74318e5f85e63b06b16eecbc887d7fac32a6dc
   languageName: node
   linkType: hard
 
@@ -18628,26 +18426,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"protobufjs@npm:^7.2.5":
-  version: 7.4.0
-  resolution: "protobufjs@npm:7.4.0"
-  dependencies:
-    "@protobufjs/aspromise": "npm:^1.1.2"
-    "@protobufjs/base64": "npm:^1.1.2"
-    "@protobufjs/codegen": "npm:^2.0.4"
-    "@protobufjs/eventemitter": "npm:^1.1.0"
-    "@protobufjs/fetch": "npm:^1.1.0"
-    "@protobufjs/float": "npm:^1.0.2"
-    "@protobufjs/inquire": "npm:^1.1.0"
-    "@protobufjs/path": "npm:^1.1.2"
-    "@protobufjs/pool": "npm:^1.1.0"
-    "@protobufjs/utf8": "npm:^1.1.0"
-    "@types/node": "npm:>=13.7.0"
-    long: "npm:^5.0.0"
-  checksum: 10/408423506610f70858d7593632f4a6aa4f05796c90fd632be9b9252457c795acc71aa6d3b54bb7f48a890141728fee4ca3906723ccea6c202ad71f21b3879b8b
-  languageName: node
-  linkType: hard
-
 "protobufjs@npm:^7.3.0":
   version: 7.3.2
   resolution: "protobufjs@npm:7.3.2"
@@ -18876,15 +18654,6 @@ __metadata:
   dependencies:
     side-channel: "npm:^1.0.6"
   checksum: 10/035bcad2a1ab0175bac7a74c904c15913bdac252834149ccff988c93a51de02642fe7be10e43058ba4dc4094bb28ce9b59d12b9e91d40997f445cfde3ecc1c29
-  languageName: node
-  linkType: hard
-
-"qs@npm:^6.7.0":
-  version: 6.13.1
-  resolution: "qs@npm:6.13.1"
-  dependencies:
-    side-channel: "npm:^1.0.6"
-  checksum: 10/53cf5fdc5f342a9ffd3968f20c8c61624924cf928d86fff525240620faba8ca5cfd6c3f12718cc755561bfc3dc9721bc8924e38f53d8925b03940f0b8a902212
   languageName: node
   linkType: hard
 
@@ -21914,10 +21683,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^7.3.0":
-  version: 7.3.0
-  resolution: "undici@npm:7.3.0"
-  checksum: 10/8165c3a18cd045c70b009db006bee1784c5ba405634e8d2017107f65220a23190e2dfbbcb314bec71add1e43cabcd7515cd29b655c819f22e59b5e2e7025db20
+"undici@npm:^5.28.5":
+  version: 5.28.5
+  resolution: "undici@npm:5.28.5"
+  dependencies:
+    "@fastify/busboy": "npm:^2.0.0"
+  checksum: 10/459cd84ab75fe90d696fa2634a8b5b23f9e1080b27236c6809bd74e51862be85df6d95b4a8fed3ee42554495008cb3c05f1bc9d4a1807478f433cca567003d70
   languageName: node
   linkType: hard
 
@@ -22034,13 +21805,6 @@ __metadata:
   dependencies:
     ip-regex: "npm:^1.0.1"
   checksum: 10/06c9b619c8d09debd9a721e45a5b23f5af1cb56e9ef9083242a9cc5ae5c09ac9fea35e72a7cddd840b3db09790aeaf26332ba7dfea86a1b239a1d0103e8ddfe3
-  languageName: node
-  linkType: hard
-
-"url-template@npm:^2.0.8":
-  version: 2.0.8
-  resolution: "url-template@npm:2.0.8"
-  checksum: 10/fc6a4cf6c3c3c3d7f0a0bb4405c41b81934e583b454e52ace7b2e5d7ed32ec9c2970ff1826d240c5823955fcb13531a1fc4ff6ba4569b1886a2976665353e952
   languageName: node
   linkType: hard
 
@@ -22184,25 +21948,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"viem@npm:2.22.8":
-  version: 2.22.8
-  resolution: "viem@npm:2.22.8"
+"viem@npm:2.23.7":
+  version: 2.23.7
+  resolution: "viem@npm:2.23.7"
   dependencies:
-    "@noble/curves": "npm:1.7.0"
-    "@noble/hashes": "npm:1.6.1"
-    "@scure/bip32": "npm:1.6.0"
-    "@scure/bip39": "npm:1.5.0"
-    abitype: "npm:1.0.7"
+    "@noble/curves": "npm:1.8.1"
+    "@noble/hashes": "npm:1.7.1"
+    "@scure/bip32": "npm:1.6.2"
+    "@scure/bip39": "npm:1.5.4"
+    abitype: "npm:1.0.8"
     isows: "npm:1.0.6"
-    ox: "npm:0.6.0"
-    webauthn-p256: "npm:0.0.10"
+    ox: "npm:0.6.7"
     ws: "npm:8.18.0"
   peerDependencies:
     typescript: ">=5.0.4"
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/04e3c8d1acdad0fc9a1fa5c50ff5b37081502fda5a00fedb457fb70b887dd16bbfea06984ecf1a360de446ec1bef2996bcc0c9415c1f76cc0fd0c333677e2369
+  checksum: 10/bf1618f39ca3645082323776342c0f87fa37f60bcca0476a7db0f6fbb9d1b6db7ab1e434a57463e8486bea29f97c5ab01e95b6139190a008d6f9a30194b7b081
   languageName: node
   linkType: hard
 
@@ -22315,16 +22078,6 @@ __metadata:
   version: 1.2.2
   resolution: "weak-lru-cache@npm:1.2.2"
   checksum: 10/441f86236d34b9750ccf2bae1658cc62b49e805b740b3f3bf4b1d78e8cac50b6c05d31791f3f5bbf00f3b544834ae20c0f5a374efc833b7ba2a11dd8af37a790
-  languageName: node
-  linkType: hard
-
-"webauthn-p256@npm:0.0.10":
-  version: 0.0.10
-  resolution: "webauthn-p256@npm:0.0.10"
-  dependencies:
-    "@noble/curves": "npm:^1.4.0"
-    "@noble/hashes": "npm:^1.4.0"
-  checksum: 10/dde2b6313b6a0f20996f7ee90181258fc7685bfff401df7d904578da75b374f25d5b9c1189cd2fcec30625b1f276b393188d156d49783f0611623cd713bb5b09
   languageName: node
   linkType: hard
 

@@ -1,10 +1,10 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { aztecNodeConfigMappings, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, type PXE } from '@aztec/circuit-types/interfaces/client';
-import { P2PApiSchema } from '@aztec/circuit-types/interfaces/server';
+import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn } from '@aztec/foundation/log';
+import { AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
@@ -14,21 +14,29 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
+import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
+import { getL1Config } from '../get_l1_config.js';
 import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
-import { validateL1Config } from '../validation.js';
 
 export async function startNode(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<{ config: AztecNodeConfig }> {
   // options specifically namespaced with --node.<option>
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
+
+  // All options set from environment variables
+  const configFromEnvVars = getConfigEnvVars();
+
+  // Extract relevant options from command line arguments
+  const relevantOptions = extractRelevantOptions(options, aztecNodeConfigMappings, 'node');
+
   // All options that are relevant to the Aztec Node
-  const nodeConfig = {
-    ...extractRelevantOptions(options, aztecNodeConfigMappings, 'node'),
+  let nodeConfig: AztecNodeConfig = {
+    ...configFromEnvVars,
+    ...relevantOptions,
   };
 
   if (options.proverNode) {
@@ -59,11 +67,26 @@ export async function startNode(
       genesisArchiveRoot,
     });
   }
-  // If not deploying, validate that the addresses and config provided are correct.
-  // Eventually, we should be able to dynamically load this just by having the L1 governance address,
-  // instead of only validating the config the user has entered.
+  // If not deploying, validate that any addresses and config provided are correct.
   else {
-    await validateL1Config({ ...getNodeConfigEnvVars(), ...nodeConfig });
+    if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
+      throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
+    }
+    const { addresses, config } = await getL1Config(
+      nodeConfig.l1Contracts.registryAddress,
+      nodeConfig.l1RpcUrls,
+      nodeConfig.l1ChainId,
+    );
+
+    // TODO(#12272): will clean this up.
+    nodeConfig = {
+      ...nodeConfig,
+      l1Contracts: {
+        ...addresses,
+        slashFactoryAddress: nodeConfig.l1Contracts.slashFactoryAddress,
+      },
+      ...config,
+    };
   }
 
   // if no publisher private key, then use l1Mnemonic
@@ -80,10 +103,15 @@ export async function startNode(
   if (!options.sequencer) {
     nodeConfig.disableValidator = true;
   } else {
-    const sequencerConfig = extractNamespacedOptions(options, 'sequencer');
+    const sequencerConfig = {
+      ...configFromEnvVars,
+      ...extractNamespacedOptions(options, 'sequencer'),
+    };
     let account;
     if (!sequencerConfig.publisherPrivateKey || sequencerConfig.publisherPrivateKey === NULL_KEY) {
-      if (!options.l1Mnemonic) {
+      if (sequencerConfig.validatorPrivateKey) {
+        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKey as `0x${string}`;
+      } else if (!options.l1Mnemonic) {
         userLog(
           '--sequencer.publisherPrivateKey or --l1-mnemonic is required to start Aztec Node with --sequencer option',
         );
@@ -91,11 +119,10 @@ export async function startNode(
       } else {
         account = mnemonicToAccount(options.l1Mnemonic);
         const privKey = account.getHdKey().privateKey;
-        nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+        sequencerConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
       }
-    } else {
-      nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
     }
+    nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
   }
 
   if (nodeConfig.p2pEnabled) {

@@ -1,21 +1,21 @@
+import { createLogger } from '@aztec/foundation/log';
+import { PublicContractsDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
   type PublicExecutionRequest,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
   type TxValidator,
-} from '@aztec/circuit-types';
-import { type AllowedElement } from '@aztec/circuit-types/interfaces/server';
-import { type ContractDataSource } from '@aztec/circuits.js';
-import { createLogger } from '@aztec/foundation/log';
-import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+} from '@aztec/stdlib/tx';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
-  private contractDataSource: ContractsDataSourcePublicDB;
+  private contractsDB: PublicContractsDB;
 
-  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {
-    this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
+  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
+    this.contractsDB = new PublicContractsDB(contracts);
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
@@ -23,10 +23,12 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       // TODO(@spalladino): We add this just to handle public authwit-check calls during setup
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
-      await this.contractDataSource.addNewContracts(tx);
+      await this.contractsDB.addNewContracts(tx);
 
       if (!tx.data.forPublic) {
-        this.#log.debug(`Tx ${Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`);
+        this.#log.debug(
+          `Tx ${await Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`,
+        );
         return { result: 'valid' };
       }
 
@@ -34,7 +36,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       for (const setupFn of setupFns) {
         if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
           this.#log.warn(
-            `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
+            `Rejecting tx ${await Tx.getHash(tx)} because it calls setup function not on allow list: ${
               setupFn.callContext.contractAddress
             }:${setupFn.callContext.functionSelector}`,
             { allowList: this.setupAllowList },
@@ -46,7 +48,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       return { result: 'valid' };
     } finally {
-      await this.contractDataSource.removeNewContracts(tx);
+      this.contractsDB.clearContractsForTx();
     }
   }
 
@@ -71,7 +73,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         }
       }
 
-      const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
+      const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.blockNumber);
 
       if (!contractClass) {
         throw new Error(`Contract not found: ${contractAddress}`);

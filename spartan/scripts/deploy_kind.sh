@@ -9,6 +9,9 @@
 #   AZTEC_DOCKER_TAG (default: current git commit)
 #   INSTALL_TIMEOUT (default: 30m)
 #   OVERRIDES (default: "", no overrides)
+#
+# Note on OVERRIDES:
+# You can use like OVERRIDES="replicas=3,resources.limits.cpu=1"
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -18,6 +21,8 @@ set -x
 namespace="$1"
 values_file="${2:-default.yaml}"
 sepolia_deployment="${3:-false}"
+mnemonic_file="${4:-"mnemonic.tmp"}"
+helm_instance="${5:-spartan}"
 
 # Default values for environment variables
 chaos_values="${CHAOS_VALUES:-}"
@@ -66,7 +71,7 @@ function generate_overrides {
   local overrides="$1"
   if [ -n "$overrides" ]; then
     # Split the comma-separated string into an array and generate --set arguments
-    IFS=',' read -ra OVERRIDE_ARRAY <<< "$overrides"
+    IFS=',' read -ra OVERRIDE_ARRAY <<<"$overrides"
     for override in "${OVERRIDE_ARRAY[@]}"; do
       echo "--set $override"
     done
@@ -77,16 +82,21 @@ function generate_overrides {
 # and are used to generate the genesis.json file.
 # We need to read these values and pass them into the eth devnet create.sh script
 # so that it can generate the genesis.json and config.yaml file with the correct values.
-if [ "$sepolia_deployment" != "true" ]; then
+if [ "$sepolia_deployment" = "true" ]; then
+  echo "Generating sepolia accounts..."
+  set +x
+  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file" "$mnemonic_file")
+  set -x
+else
   echo "Generating devnet config..."
   ./generate_devnet_config.sh "$values_file"
 fi
 
 # Install the Helm chart
 echo "Cleaning up any existing Helm releases..."
-helm uninstall spartan -n "$namespace" 2>/dev/null || true
-kubectl delete clusterrole spartan-aztec-network-node 2>/dev/null || true
-kubectl delete clusterrolebinding spartan-aztec-network-node 2>/dev/null || true
+helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
+kubectl delete clusterrole "$helm_instance"-aztec-network-node 2>/dev/null || true
+kubectl delete clusterrolebinding "$helm_instance"-aztec-network-node 2>/dev/null || true
 
 helm_set_args=(
   --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
@@ -94,8 +104,9 @@ helm_set_args=(
 
 # If this is a sepolia run, we need to write some values
 if [ "$sepolia_deployment" = "true" ]; then
+  set +x
   helm_set_args+=(
-    --set ethereum.execution.externalHost="$EXTERNAL_ETHEREUM_HOST"
+    --set ethereum.execution.externalHosts="$EXTERNAL_ETHEREUM_HOSTS"
     --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
     --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
     --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
@@ -108,9 +119,10 @@ if [ "$sepolia_deployment" = "true" ]; then
   if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
     helm_set_args+=(--set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
   fi
+  set -x
 fi
 
-helm upgrade --install spartan ../aztec-network \
+helm upgrade --install "$helm_instance" ../aztec-network \
   --namespace "$namespace" \
   --create-namespace \
   "${helm_set_args[@]}" \
@@ -122,7 +134,7 @@ helm upgrade --install spartan ../aztec-network \
   --wait-for-jobs=true \
   --timeout="$install_timeout"
 
-kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=10m
+kubectl wait pod -l app==pxe -l app.kubernetes.io/instance="$helm_instance" --for=condition=Ready -n "$namespace" --timeout=10m
 
 if [ -n "$chaos_values" ]; then
   ../bootstrap.sh chaos-mesh

@@ -5,7 +5,7 @@ use noirc_frontend::{
 
 use super::Formatter;
 
-impl<'a> Formatter<'a> {
+impl Formatter<'_> {
     pub(super) fn format_type(&mut self, typ: UnresolvedType) {
         self.skip_comments_and_whitespace();
 
@@ -75,10 +75,12 @@ impl<'a> Formatter<'a> {
                 self.format_path(path);
                 self.format_generic_type_args(generic_type_args);
             }
-            UnresolvedTypeData::MutableReference(typ) => {
+            UnresolvedTypeData::Reference(typ, mutable) => {
                 self.write_token(Token::Ampersand);
-                self.write_keyword(Keyword::Mut);
-                self.write_space();
+                if mutable {
+                    self.write_keyword(Keyword::Mut);
+                    self.write_space();
+                }
                 self.format_type(*typ);
             }
             UnresolvedTypeData::Tuple(types) => {

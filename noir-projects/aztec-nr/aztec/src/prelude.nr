@@ -3,7 +3,7 @@ pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{
         note_getter_options::NoteGetterOptions,
-        note_interface::{NoteInterface, NullifiableNote},
+        note_interface::{NoteHash, NoteType},
         note_viewer_options::NoteViewerOptions,
         retrieved_note::RetrievedNote,
     },

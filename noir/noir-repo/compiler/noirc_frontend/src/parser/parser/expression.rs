@@ -6,21 +6,21 @@ use crate::{
         ArrayLiteral, BlockExpression, CallExpression, CastExpression, ConstrainExpression,
         ConstrainKind, ConstructorExpression, Expression, ExpressionKind, Ident, IfExpression,
         IndexExpression, Literal, MatchExpression, MemberAccessExpression, MethodCallExpression,
-        Statement, TypePath, UnaryOp, UnresolvedType,
+        Statement, TypePath, UnaryOp, UnresolvedType, UnsafeExpression,
     },
-    parser::{labels::ParsingRuleLabel, parser::parse_many::separated_by_comma, ParserErrorReason},
+    parser::{ParserErrorReason, labels::ParsingRuleLabel, parser::parse_many::separated_by_comma},
     token::{Keyword, Token, TokenKind},
 };
 
 use super::{
+    Parser,
     parse_many::{
         separated_by_comma_until_right_brace, separated_by_comma_until_right_paren,
         without_separator,
     },
-    Parser,
 };
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     pub(crate) fn parse_expression_or_error(&mut self) -> Expression {
         self.parse_expression_or_error_impl(true) // allow constructors
     }
@@ -79,10 +79,14 @@ impl<'a> Parser<'a> {
 
     /// UnaryOp = '&' 'mut' | '-' | '!' | '*'
     fn parse_unary_op(&mut self) -> Option<UnaryOp> {
-        if self.at(Token::Ampersand) && self.next_is(Token::Keyword(Keyword::Mut)) {
+        if self.at(Token::Ampersand) {
+            let mut mutable = false;
+            if self.next_is(Token::Keyword(Keyword::Mut)) {
+                mutable = true;
+                self.bump();
+            }
             self.bump();
-            self.bump();
-            Some(UnaryOp::MutableReference)
+            Some(UnaryOp::Reference { mutable })
         } else if self.eat(Token::Minus) {
             Some(UnaryOp::Minus)
         } else if self.eat(Token::Bang) {
@@ -388,25 +392,31 @@ impl<'a> Parser<'a> {
     /// UnsafeExpression = 'unsafe' Block
     fn parse_unsafe_expr(&mut self) -> Option<ExpressionKind> {
         let start_location = self.current_token_location;
+        let comments_before_unsafe = self.current_token_comments.clone();
 
         if !self.eat_keyword(Keyword::Unsafe) {
             return None;
         }
 
-        if self.current_token_comments.is_empty() {
-            if let Some(statement_comments) = &mut self.statement_comments {
-                if !statement_comments.trim().to_lowercase().starts_with("safety:") {
-                    self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
-                }
+        let comments: &str = if comments_before_unsafe.is_empty() {
+            if let Some(statement_comments) = &self.statement_comments {
+                statement_comments
             } else {
-                self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
+                ""
             }
-        } else if !self.current_token_comments.trim().to_lowercase().starts_with("safety:") {
+        } else {
+            &comments_before_unsafe
+        };
+
+        if !comments.lines().any(|line| line.trim().to_lowercase().starts_with("safety:")) {
             self.push_error(ParserErrorReason::MissingSafetyComment, start_location);
         }
 
         if let Some(block) = self.parse_block() {
-            Some(ExpressionKind::Unsafe(block, self.location_since(start_location)))
+            Some(ExpressionKind::Unsafe(UnsafeExpression {
+                block,
+                unsafe_keyword_location: start_location,
+            }))
         } else {
             Some(ExpressionKind::Error)
         }
@@ -440,11 +450,7 @@ impl<'a> Parser<'a> {
             Self::parse_constructor_field,
         );
 
-        ExpressionKind::Constructor(Box::new(ConstructorExpression {
-            typ,
-            fields,
-            struct_type: None,
-        }))
+        ExpressionKind::Constructor(Box::new(ConstructorExpression { typ, fields }))
     }
 
     fn parse_constructor_field(&mut self) -> Option<(Ident, Expression)> {
@@ -505,7 +511,6 @@ impl<'a> Parser<'a> {
 
     /// MatchExpression = 'match' ExpressionExceptConstructor '{' MatchRule* '}'
     pub(super) fn parse_match_expr(&mut self) -> Option<ExpressionKind> {
-        let start_location = self.current_token_location;
         if !self.eat_keyword(Keyword::Match) {
             return None;
         }
@@ -520,10 +525,6 @@ impl<'a> Parser<'a> {
             Self::parse_match_rule,
         );
 
-        self.push_error(
-            ParserErrorReason::ExperimentalFeature("Match expressions"),
-            start_location,
-        );
         Some(ExpressionKind::Match(Box::new(MatchExpression { expression, rules })))
     }
 
@@ -741,7 +742,7 @@ impl<'a> Parser<'a> {
 
     /// SliceExpression = '&' ArrayLiteral
     fn parse_slice_literal(&mut self) -> Option<ArrayLiteral> {
-        if !(self.at(Token::Ampersand) && self.next_is(Token::LeftBracket)) {
+        if !(self.at(Token::SliceStart) && self.next_is(Token::LeftBracket)) {
             return None;
         }
 
@@ -893,12 +894,13 @@ mod tests {
             StatementKind, UnaryOp, UnresolvedTypeData,
         },
         parser::{
+            Parser, ParserErrorReason,
             parser::tests::{
                 expect_no_errors, get_single_error, get_single_error_reason,
                 get_source_with_error_span,
             },
-            Parser, ParserErrorReason,
         },
+        signed_field::SignedField,
         token::Token,
     };
 
@@ -925,22 +927,20 @@ mod tests {
     fn parses_integer_literal() {
         let src = "42";
         let expr = parse_expression_no_errors(src);
-        let ExpressionKind::Literal(Literal::Integer(field, negative)) = expr.kind else {
+        let ExpressionKind::Literal(Literal::Integer(value)) = expr.kind else {
             panic!("Expected integer literal");
         };
-        assert_eq!(field, 42_u128.into());
-        assert!(!negative);
+        assert_eq!(value, SignedField::positive(42_u128));
     }
 
     #[test]
     fn parses_negative_integer_literal() {
         let src = "-42";
         let expr = parse_expression_no_errors(src);
-        let ExpressionKind::Literal(Literal::Integer(field, negative)) = expr.kind else {
+        let ExpressionKind::Literal(Literal::Integer(value)) = expr.kind else {
             panic!("Expected integer literal");
         };
-        assert_eq!(field, 42_u128.into());
-        assert!(negative);
+        assert_eq!(value, SignedField::negative(42_u128));
     }
 
     #[test]
@@ -950,11 +950,10 @@ mod tests {
         let ExpressionKind::Parenthesized(expr) = expr.kind else {
             panic!("Expected parenthesized expression");
         };
-        let ExpressionKind::Literal(Literal::Integer(field, negative)) = expr.kind else {
+        let ExpressionKind::Literal(Literal::Integer(value)) = expr.kind else {
             panic!("Expected integer literal");
         };
-        assert_eq!(field, 42_u128.into());
-        assert!(!negative);
+        assert_eq!(value, SignedField::positive(42_u128));
     }
 
     #[test]
@@ -1006,18 +1005,16 @@ mod tests {
         assert_eq!(exprs.len(), 2);
 
         let expr = exprs.remove(0);
-        let ExpressionKind::Literal(Literal::Integer(field, negative)) = expr.kind else {
+        let ExpressionKind::Literal(Literal::Integer(value)) = expr.kind else {
             panic!("Expected integer literal");
         };
-        assert_eq!(field, 1_u128.into());
-        assert!(!negative);
+        assert_eq!(value, SignedField::positive(1_u128));
 
         let expr = exprs.remove(0);
-        let ExpressionKind::Literal(Literal::Integer(field, negative)) = expr.kind else {
+        let ExpressionKind::Literal(Literal::Integer(value)) = expr.kind else {
             panic!("Expected integer literal");
         };
-        assert_eq!(field, 2_u128.into());
-        assert!(!negative);
+        assert_eq!(value, SignedField::positive(2_u128));
     }
 
     #[test]
@@ -1034,11 +1031,10 @@ mod tests {
             panic!("Expected expression statement");
         };
 
-        let ExpressionKind::Literal(Literal::Integer(field, negative)) = expr.kind else {
+        let ExpressionKind::Literal(Literal::Integer(value)) = expr.kind else {
             panic!("Expected integer literal");
         };
-        assert_eq!(field, 1_u128.into());
-        assert!(!negative);
+        assert_eq!(value, SignedField::positive(1_u128));
     }
 
     #[test]
@@ -1090,11 +1086,13 @@ mod tests {
         let src = "
         // Safety: test
         unsafe { 1 }";
-        let expr = parse_expression_no_errors(src);
-        let ExpressionKind::Unsafe(block, _) = expr.kind else {
+        let mut parser = Parser::for_str_with_dummy_file(src);
+        let expr = parser.parse_expression_or_error();
+        assert!(parser.errors.is_empty());
+        let ExpressionKind::Unsafe(unsafe_expression) = expr.kind else {
             panic!("Expected unsafe expression");
         };
-        assert_eq!(block.statements.len(), 1);
+        assert_eq!(unsafe_expression.block.statements.len(), 1);
     }
 
     #[test]
@@ -1105,10 +1103,10 @@ mod tests {
 
         let mut parser = Parser::for_str_with_dummy_file(src);
         let expr = parser.parse_expression().unwrap();
-        let ExpressionKind::Unsafe(block, _) = expr.kind else {
+        let ExpressionKind::Unsafe(unsafe_expression) = expr.kind else {
             panic!("Expected unsafe expression");
         };
-        assert_eq!(block.statements.len(), 1);
+        assert_eq!(unsafe_expression.block.statements.len(), 1);
     }
 
     #[test]
@@ -1263,7 +1261,7 @@ mod tests {
         let ExpressionKind::Prefix(prefix) = expr.kind else {
             panic!("Expected prefix expression");
         };
-        assert!(matches!(prefix.operator, UnaryOp::MutableReference));
+        assert!(matches!(prefix.operator, UnaryOp::Reference { mutable: true }));
 
         let ExpressionKind::Variable(path) = prefix.rhs.kind else {
             panic!("Expected variable");
@@ -1648,14 +1646,22 @@ mod tests {
         let multiply_or_divide_or_modulo = "1 * 2 / 3 % 4";
         let expected_multiply_or_divide_or_modulo = "(((1 * 2) / 3) % 4)";
 
-        let add_or_subtract = format!("{multiply_or_divide_or_modulo} + {multiply_or_divide_or_modulo} - {multiply_or_divide_or_modulo}");
-        let expected_add_or_subtract = format!("(({expected_multiply_or_divide_or_modulo} + {expected_multiply_or_divide_or_modulo}) - {expected_multiply_or_divide_or_modulo})");
+        let add_or_subtract = format!(
+            "{multiply_or_divide_or_modulo} + {multiply_or_divide_or_modulo} - {multiply_or_divide_or_modulo}"
+        );
+        let expected_add_or_subtract = format!(
+            "(({expected_multiply_or_divide_or_modulo} + {expected_multiply_or_divide_or_modulo}) - {expected_multiply_or_divide_or_modulo})"
+        );
 
         let shift = format!("{add_or_subtract} << {add_or_subtract} >> {add_or_subtract}");
-        let expected_shift = format!("(({expected_add_or_subtract} << {expected_add_or_subtract}) >> {expected_add_or_subtract})");
+        let expected_shift = format!(
+            "(({expected_add_or_subtract} << {expected_add_or_subtract}) >> {expected_add_or_subtract})"
+        );
 
         let less_or_greater = format!("{shift} < {shift} > {shift} <= {shift} >= {shift}");
-        let expected_less_or_greater = format!("(((({expected_shift} < {expected_shift}) > {expected_shift}) <= {expected_shift}) >= {expected_shift})");
+        let expected_less_or_greater = format!(
+            "(((({expected_shift} < {expected_shift}) > {expected_shift}) <= {expected_shift}) >= {expected_shift})"
+        );
 
         let xor = format!("{less_or_greater} ^ {less_or_greater}");
         let expected_xor = format!("({expected_less_or_greater} ^ {expected_less_or_greater})");

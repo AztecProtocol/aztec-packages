@@ -52,7 +52,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     StdlibProof<Builder> honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
         const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<uint32_t>(proof[1].get_value());
+        const size_t num_public_inputs = static_cast<uint32_t>(key->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
@@ -117,7 +117,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
-        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS

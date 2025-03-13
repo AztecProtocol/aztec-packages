@@ -6,13 +6,14 @@ version=$2
 
 dry_run=${DRY_RUN:-0}
 
-export npm_config__authToken=${NPM_TOKEN:-}
+# Point .npmrc config to one that relies on 'NPM_TOKEN' in the environment.
+export NPM_CONFIG_GLOBALCONFIG="$root/ci3/npm/.npmrc"
 
 package_name=$(jq -r '.name' package.json)
 echo_header "publishing $package_name"
 
 published_version=$(npm show . version --tag $dist_tag 2>/dev/null | grep -vE '^@' || true)
-higher_version=$(npx --yes semver ${version} ${published_version} | tail -1)
+higher_version=$(semver sort ${version} ${published_version} | tail -1)
 
 # Check if there is already a published package equal to given version, assume this is a re-run of a deploy.
 if [ "$version" == "$published_version" ]; then
@@ -21,22 +22,14 @@ if [ "$version" == "$published_version" ]; then
   exit 0
 fi
 
-# Update the package version in package.json.
-tmp=$(mktemp)
-jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
+cp package.json package.json.deploy_bkup
+# Restore package.json as we write over it.
+function cleanup {
+  mv package.json.deploy_bkup package.json &>/dev/null || true
+}
+trap cleanup SIGINT SIGTERM EXIT
 
-# Update each dependent @aztec package version in package.json.
-for pkg in $(jq --raw-output "(.dependencies // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
-  jq --arg v $version ".dependencies[\"$pkg\"] = \$v" package.json >$tmp
-  mv $tmp package.json
-done
-
-# Update each dependent @noir-lang package version in package.json to point to renamed packages and versions.
-for pkg in $(jq --raw-output '(.dependencies // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
-  new_pkg="@aztec/noir-${pkg#@noir-lang/}"
-  jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.dependencies[$new] = $v | del(.dependencies[$old])' package.json > tmp.json
-  mv tmp.json package.json
-done
+$root/ci3/npm/release_prep_package_json $version
 
 # Publish.
 if [ "$dry_run" -eq 1 ]; then

@@ -18,8 +18,8 @@ unconstrained fn sync_notes_oracle() {}
 ///
 /// The packed note is what `getNotes` will later return. PXE indexes notes by `storage_slot`, so this value
 /// is typically used to filter notes that correspond to different state variables. `note_hash` and `nullifier` are
-/// the inner hashes, i.e. the raw hashes returned by `NoteInterface::compute_note_hash` and
-/// `NullifiableNote::compute_nullifier`. PXE will verify that the siloed unique note hash was inserted into the tree
+/// the inner hashes, i.e. the raw hashes returned by `NoteHash::compute_note_hash` and
+/// `NoteHash::compute_nullifier`. PXE will verify that the siloed unique note hash was inserted into the tree
 /// at `tx_hash`, and will store the nullifier to later check for nullification.
 ///
 /// `recipient` is the account to which the note was sent to. Other accounts will not be able to access this note (e.g.
@@ -64,7 +64,7 @@ pub struct LogWithTxData {
 /// Fetches a log from the node that has the corresponding `tag`. The log can be either a public or a private log, and
 /// the tag is the first field in the log's content. Returns `Option::none` if no such log exists. Throws if more than
 /// one log with that tag exists.
-/// Public logs have an extra field included at the beginning with the address of the contract that emtitted them.
+/// Public logs have an extra field included at the beginning with the address of the contract that emitted them.
 // TODO(#11627): handle multiple logs with the same tag.
 // TODO(#10273): improve contract siloing of logs, don't introduce an extra field.
 pub unconstrained fn get_log_by_tag(tag: Field) -> Option<LogWithTxData> {

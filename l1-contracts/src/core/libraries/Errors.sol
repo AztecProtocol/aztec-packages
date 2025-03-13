@@ -53,7 +53,6 @@ library Errors {
   error Rollup__InvalidBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847
   error Rollup__InvalidChainId(uint256 expected, uint256 actual); // 0x37b5bc12
-  error Rollup__InvalidEpoch(Epoch expected, Epoch actual); // 0x3c6d65e6
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
   error Rollup__InvalidPreviousBlockHash(bytes32 expected, bytes32 actual);
@@ -73,7 +72,6 @@ library Errors {
   error Rollup__TryingToProveNonExistingBlock(); // 0x34ef4954
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
-  error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
   error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
   error Rollup__StartAndEndNotSameEpoch(Epoch start, Epoch end);
@@ -82,6 +80,7 @@ library Errors {
   error Rollup__AlreadyClaimed(address prover, Epoch epoch);
   error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
+  error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247

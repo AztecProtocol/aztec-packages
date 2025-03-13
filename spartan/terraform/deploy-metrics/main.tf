@@ -84,27 +84,42 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
+    name  = "grafana.env.SLACK_WEBHOOK_URL"
+    value = var.SLACK_WEBHOOK_URL
+  }
+
+  set {
     name  = "opentelemetry-collector.service.loadBalancerIP"
     value = google_compute_address.otel_collector_ip.address
   }
 
   set {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[0].job_name"
-    value = "otel-collector"
+    value = "prometheus"
   }
 
   set {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[0].static_configs[0].targets[0]"
-    value = "${google_compute_address.otel_collector_ip.address}:8888"
+    value = "127.0.0.1:9090"
   }
 
   set {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[1].job_name"
-    value = "aztec"
+    value = "otel-collector"
   }
 
   set {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[1].static_configs[0].targets[0]"
+    value = "${google_compute_address.otel_collector_ip.address}:8888"
+  }
+
+  set {
+    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[2].job_name"
+    value = "aztec"
+  }
+
+  set {
+    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[2].static_configs[0].targets[0]"
     value = "${google_compute_address.otel_collector_ip.address}:8889"
   }
 

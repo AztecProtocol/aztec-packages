@@ -1,11 +1,11 @@
 import { type Logger, sleep } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 // eslint-disable-next-line no-restricted-imports
 import { RollupContract } from '@aztec/ethereum/contracts';
+import { ChainMonitor } from '@aztec/ethereum/test';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext } from '../fixtures/utils.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
 import {
   EPOCH_DURATION_IN_L2_SLOTS,
   EpochsTestContext,

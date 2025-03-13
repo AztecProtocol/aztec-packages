@@ -1,18 +1,18 @@
-import { PublicExecutionRequest, type Tx } from '@aztec/circuit-types';
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces/server';
-import { CallContext, FunctionSelector, GasFees, GlobalVariables } from '@aztec/circuits.js';
-import { type ContractArtifact, encodeArguments } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
 import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { type ContractArtifact, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { PublicExecutionRequest, type Tx } from '@aztec/stdlib/tx';
+import { CallContext, GlobalVariables } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { BaseAvmSimulationTester } from '../../avm/fixtures/base_avm_simulation_tester.js';
-import { getContractFunctionArtifact, getFunctionSelector } from '../../avm/fixtures/index.js';
-import { SimpleContractDataSource } from '../../avm/fixtures/simple_contract_data_source.js';
-import { WorldStateDB } from '../public_db_sources.js';
-import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator.js';
+import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
+import { getContractFunctionArtifact, getFunctionSelector } from '../avm/fixtures/index.js';
+import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
+import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
 const TIMESTAMP = new Fr(99833);
@@ -24,6 +24,7 @@ export type TestEnqueuedCall = {
   fnName: string;
   args: any[];
   isStaticCall?: boolean;
+  contractArtifact?: ContractArtifact;
 };
 
 /**
@@ -34,19 +35,14 @@ export type TestEnqueuedCall = {
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private txCount = 0;
 
-  constructor(
-    private worldStateDB: WorldStateDB,
-    contractDataSource: SimpleContractDataSource,
-    merkleTrees: MerkleTreeWriteOperations,
-  ) {
-    super(contractDataSource, merkleTrees);
+  constructor(private merkleTree: MerkleTreeWriteOperations, contractDataSource: SimpleContractDataSource) {
+    super(contractDataSource, merkleTree);
   }
 
   public static async create(): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    return new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
+    const merkleTree = await (await NativeWorldStateService.tmp()).fork();
+    return new PublicTxSimulationTester(merkleTree, contractDataSource);
   }
 
   public async createTx(
@@ -61,28 +57,36 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const setupExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < setupCalls.length; i++) {
       const address = setupCalls[i].address;
-      const contractArtifact = await this.contractDataSource.getContractArtifact(address);
+      const contractArtifact =
+        setupCalls[i].contractArtifact || (await this.contractDataSource.getContractArtifact(address));
+      if (!contractArtifact) {
+        throw new Error(`Contract artifact not found for address: ${address}`);
+      }
       const req = await executionRequestForCall(
+        contractArtifact,
         sender,
         address,
         setupCalls[i].fnName,
         setupCalls[i].args,
         setupCalls[i].isStaticCall,
-        contractArtifact,
       );
       setupExecutionRequests.push(req);
     }
     const appExecutionRequests: PublicExecutionRequest[] = [];
     for (let i = 0; i < appCalls.length; i++) {
       const address = appCalls[i].address;
-      const contractArtifact = await this.contractDataSource.getContractArtifact(address);
+      const contractArtifact =
+        appCalls[i].contractArtifact || (await this.contractDataSource.getContractArtifact(address));
+      if (!contractArtifact) {
+        throw new Error(`Contract artifact not found for address: ${address}`);
+      }
       const req = await executionRequestForCall(
+        contractArtifact,
         sender,
         address,
         appCalls[i].fnName,
         appCalls[i].args,
         appCalls[i].isStaticCall,
-        contractArtifact,
       );
       appExecutionRequests.push(req);
     }
@@ -90,14 +94,18 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     let teardownExecutionRequest: PublicExecutionRequest | undefined = undefined;
     if (teardownCall) {
       const address = teardownCall.address;
-      const contractArtifact = await this.contractDataSource.getContractArtifact(address);
+      const contractArtifact =
+        teardownCall.contractArtifact || (await this.contractDataSource.getContractArtifact(address));
+      if (!contractArtifact) {
+        throw new Error(`Contract artifact not found for address: ${address}`);
+      }
       teardownExecutionRequest = await executionRequestForCall(
+        contractArtifact,
         sender,
         address,
         teardownCall.fnName,
         teardownCall.args,
         teardownCall.isStaticCall,
-        contractArtifact,
       );
     }
 
@@ -124,7 +132,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     await this.setFeePayerBalance(feePayer);
 
-    const simulator = new PublicTxSimulator(this.merkleTrees, this.worldStateDB, globals, /*doMerkleOperations=*/ true);
+    const treesDB = new PublicTreesDB(this.merkleTree);
+    const contractsDB = new PublicContractsDB(this.contractDataSource);
+    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
 
     const startTime = performance.now();
     const avmResult = await simulator.simulate(tx);
@@ -136,12 +146,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 }
 
 async function executionRequestForCall(
+  contractArtifact: ContractArtifact,
   sender: AztecAddress,
   address: AztecAddress,
   fnName: string,
   args: Fr[] = [],
   isStaticCall: boolean = false,
-  contractArtifact: ContractArtifact = AvmTestContractArtifact,
 ): Promise<PublicExecutionRequest> {
   const fnSelector = await getFunctionSelector(fnName, contractArtifact);
   const fnAbi = getContractFunctionArtifact(fnName, contractArtifact);
@@ -157,7 +167,7 @@ async function executionRequestForCall(
   return new PublicExecutionRequest(callContext, calldata);
 }
 
-function defaultGlobals() {
+export function defaultGlobals() {
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
   globals.gasFees = DEFAULT_GAS_FEES; // apply some nonzero default gas fees

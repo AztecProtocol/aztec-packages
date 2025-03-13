@@ -12,6 +12,7 @@ namespace bb::avm2 {
 class AvmFlavorSettings {
   public:
     using Curve = curve::BN254;
+    using EmbeddedCurve = curve::Grumpkin;
     using G1 = Curve::Group;
     using PCS = KZG<Curve>;
 

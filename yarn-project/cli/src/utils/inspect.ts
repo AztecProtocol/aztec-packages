@@ -1,10 +1,10 @@
-import { type ContractArtifact } from '@aztec/aztec.js';
-import { type ExtendedNote, NoteStatus, type TxHash } from '@aztec/circuit-types';
-import { type PXE } from '@aztec/circuit-types/interfaces/client';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
-import { type LogFn } from '@aztec/foundation/log';
+import type { AztecAddress, ContractArtifact, Fr } from '@aztec/aztec.js';
+import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { siloNullifier } from '@aztec/stdlib/hash';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
+import { type ExtendedNote, NoteStatus } from '@aztec/stdlib/note';
+import type { TxHash } from '@aztec/stdlib/tx';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
   const block = await pxe.getBlock(blockNumber);
@@ -142,9 +142,8 @@ export async function inspectTx(
 function inspectNote(note: ExtendedNote, artifactMap: ArtifactMap, log: LogFn, text = 'Note') {
   const artifact = artifactMap[note.contractAddress.toString()];
   const contract = artifact?.name ?? note.contractAddress.toString();
-  const type = artifact?.notes[note.noteTypeId.toString()]?.typ ?? note.noteTypeId.toField().toShortString();
-  log(`  ${text} type ${type} at ${contract}`);
-  log(`    Owner: ${toFriendlyAddress(note.owner, artifactMap)}`);
+  log(`  ${text} at ${contract}`);
+  log(`    Recipient: ${toFriendlyAddress(note.recipient, artifactMap)}`);
   for (const field of note.note.items) {
     log(`    ${field.toString()}`);
   }

@@ -1,38 +1,4 @@
 /* eslint-disable require-await */
-import { ProvingError } from '@aztec/circuit-types';
-import {
-  type ProofAndVerificationKey,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  makeProofAndVerificationKey,
-  makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types/interfaces/server';
-import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
-  type BaseParityInputs,
-  Fr,
-  type ParityPublicInputs,
-  Proof,
-  RecursiveProof,
-  type RootParityInputs,
-  type VerificationKeyData,
-  makeRecursiveProofFromBinary,
-} from '@aztec/circuits.js';
-import { type AvmCircuitInputs } from '@aztec/circuits.js/avm';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
-} from '@aztec/circuits.js/rollup';
 import {
   AGGREGATION_OBJECT_LENGTH,
   AVM_PROOF_LENGTH_IN_FIELDS,
@@ -42,6 +8,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -70,11 +37,38 @@ import {
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
-import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import type { WitnessMap } from '@aztec/noir-types';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { ProvingError } from '@aztec/stdlib/errors';
+import {
+  type ProofAndVerificationKey,
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  makeProofAndVerificationKey,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/stdlib/interfaces/server';
+import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
+import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdlib/proofs';
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
+  TubeInputs,
+} from '@aztec/stdlib/rollup';
+import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
+import type { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { type WitnessMap } from '@noir-lang/types';
 import { assert } from 'console';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
@@ -562,7 +556,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           duration: provingResult.durationMs,
           proofSize: avmProof.binaryProof.buffer.length,
           eventName: 'circuit-proving',
-          inputSize: input.toBuffer().length,
+          inputSize: input.serializeWithMessagePack().length,
           circuitSize: verificationKey.circuitSize, // FIX: wrong in VK
           numPublicInputs: verificationKey.numPublicInputs, // FIX: wrong in VK
         } satisfies CircuitProvingStats,
@@ -746,10 +740,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     assert(json.length - numPublicInputs == proofLength, 'Proof length mismatch');
 
-    const fieldsWithoutPublicInputs = json
-      .slice(0, 3)
-      .map(Fr.fromHexString)
-      .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
+    const fieldsWithoutPublicInputs = json.slice(numPublicInputs).map(Fr.fromHexString);
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );

@@ -1,10 +1,4 @@
-import { type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
-import {
-  type AllowedElement,
-  type ClientProtocolCircuitVerifier,
-  type MerkleTreeReadOperations,
-} from '@aztec/circuit-types/interfaces/server';
-import { type AztecAddress, type ContractDataSource, Fr, type GasFees, type GlobalVariables } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
 import {
   AggregateTxValidator,
   BlockHeaderTxValidator,
@@ -15,6 +9,15 @@ import {
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { readPublicState } from '@aztec/simulator/server';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { GasFees } from '@aztec/stdlib/gas';
+import type {
+  AllowedElement,
+  ClientProtocolCircuitVerifier,
+  MerkleTreeReadOperations,
+} from '@aztec/stdlib/interfaces/server';
+import { GlobalVariables, type ProcessedTx, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 
 import { ArchiveCache } from './archive_cache.js';
 import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
@@ -43,7 +46,7 @@ export function createValidatorForAcceptingTxs(
     new DataTxValidator(),
     new MetadataTxValidator(new Fr(l1ChainId), new Fr(blockNumber)),
     new DoubleSpendTxValidator(new NullifierCache(db)),
-    new PhasesTxValidator(contractDataSource, setupAllowList),
+    new PhasesTxValidator(contractDataSource, setupAllowList, blockNumber),
     new BlockHeaderTxValidator(new ArchiveCache(db)),
   ];
 
@@ -106,7 +109,7 @@ function preprocessValidator(
   return new AggregateTxValidator(
     new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
     new DoubleSpendTxValidator(nullifierCache),
-    new PhasesTxValidator(contractDataSource, setupAllowList),
+    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber.toNumber()),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );

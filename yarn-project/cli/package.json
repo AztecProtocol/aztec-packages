@@ -69,10 +69,11 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/p2p": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
@@ -82,11 +83,10 @@
     "semver": "^7.5.4",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "2.22.8"
+    "viem": "2.23.7"
   },
   "devDependencies": {
     "@aztec/accounts": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@jest/globals": "^29.5.0",
@@ -106,12 +106,12 @@
   "peerDependencies": {
     "@aztec/accounts": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
-    "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^"
   },
   "files": [
     "dest",

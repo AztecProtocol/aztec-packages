@@ -11,13 +11,13 @@ import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 
-import {Rollup, Config} from "@aztec/core/Rollup.sol";
+import {Rollup, RollupConfig, GenesisState} from "@aztec/core/Rollup.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
@@ -84,12 +84,14 @@ contract MultiProofTest is RollupBase {
           feeJuicePortal,
           rewardDistributor,
           testERC20,
-          bytes32(0),
-          bytes32(0),
-          bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-          bytes32(Constants.GENESIS_BLOCK_HASH),
           address(this),
-          Config({
+          GenesisState({
+            vkTreeRoot: bytes32(0),
+            protocolContractTreeRoot: bytes32(0),
+            genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+            genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH)
+          }),
+          RollupConfig({
             aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
             aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
             targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,

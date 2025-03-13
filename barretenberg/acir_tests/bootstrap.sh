@@ -25,14 +25,12 @@ function build {
     denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
-    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
-    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
-    # TODO: Check if resolved. Move to .test_skip_patterns if not.
-    rm -rf acir_tests/regression_5045
+    rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
 
     # COMPILE=2 only compiles the test.
     denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1279): Fix this workflow.
     echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
     (cd ./acir_tests/assert_statement && \
@@ -127,17 +125,33 @@ function test_cmds_internal {
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
+}
 
-  # barretenberg-acir-tests-bb-client-ivc:
-  echo FLOW=prove_then_verify_client_ivc $run_test 6_array
-  echo FLOW=prove_then_verify_client_ivc $run_test databus
-  echo FLOW=prove_then_verify_client_ivc $run_test databus_two_calldata
+function ultra_honk_wasm_memory {
+  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify ./run_test.sh verify_honk_proof &> ./bench-out/ultra_honk_rec_wasm_memory.txt
+}
+
+function run_benchmark {
+  local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
+  local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
+  echo taskset -c $start_core-$end_core bash -c "$2"
+  taskset -c $start_core-$end_core bash -c "$2"
 }
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
   # TODO: Move to scripts dir along with run_test.sh.
-  LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1265) fix acir benchmarking
+  # LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+
+  export HARDWARE_CONCURRENCY=16
+
+  rm -rf bench-out && mkdir -p bench-out
+  export -f ultra_honk_wasm_memory run_benchmark
+  local num_cpus=$(get_num_cpus)
+  local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
+    ultra_honk_wasm_memory
 }
 
 case "$cmd" in

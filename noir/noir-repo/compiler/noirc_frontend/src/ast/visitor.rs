@@ -1,7 +1,7 @@
-use acvm::FieldElement;
 use noirc_errors::Span;
 
 use crate::{
+    ParsedModule, QuotedType,
     ast::{
         ArrayLiteral, AsTraitPath, AssignStatement, BlockExpression, CallExpression,
         CastExpression, ConstrainExpression, ConstructorExpression, Expression, ExpressionKind,
@@ -16,15 +16,15 @@ use crate::{
         InternedUnresolvedTypeData, QuotedTypeId,
     },
     parser::{Item, ItemKind, ParsedSubModule},
+    signed_field::SignedField,
     token::{FmtStrFragment, MetaAttribute, SecondaryAttribute, Tokens},
-    ParsedModule, QuotedType,
 };
 
 use super::{
     ForBounds, FunctionReturnType, GenericTypeArgs, IntegerBitSize, ItemVisibility,
     MatchExpression, NoirEnumeration, Pattern, Signedness, TraitBound, TraitImplItemKind, TypePath,
     UnresolvedGenerics, UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData,
-    UnresolvedTypeExpression,
+    UnresolvedTypeExpression, UnsafeExpression,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -172,7 +172,7 @@ pub trait Visitor {
 
     fn visit_literal_bool(&mut self, _: bool, _: Span) {}
 
-    fn visit_literal_integer(&mut self, _value: FieldElement, _negative: bool, _: Span) {}
+    fn visit_literal_integer(&mut self, _value: SignedField, _: Span) {}
 
     fn visit_literal_str(&mut self, _: &str, _: Span) {}
 
@@ -242,7 +242,7 @@ pub trait Visitor {
         true
     }
 
-    fn visit_unsafe(&mut self, _: &BlockExpression, _: Span) -> bool {
+    fn visit_unsafe_expression(&mut self, _: &UnsafeExpression, _: Span) -> bool {
         true
     }
 
@@ -393,7 +393,7 @@ pub trait Visitor {
         true
     }
 
-    fn visit_mutable_reference_type(&mut self, _: &UnresolvedType, _: Span) -> bool {
+    fn visit_reference_type(&mut self, _: &UnresolvedType, _mutable: bool, _: Span) -> bool {
         true
     }
 
@@ -905,10 +905,8 @@ impl Expression {
                     block_expression.accept(None, visitor);
                 }
             }
-            ExpressionKind::Unsafe(block_expression, _) => {
-                if visitor.visit_unsafe(block_expression, span) {
-                    block_expression.accept(None, visitor);
-                }
+            ExpressionKind::Unsafe(unsafe_expression) => {
+                unsafe_expression.accept(span, visitor);
             }
             ExpressionKind::Variable(path) => {
                 if visitor.visit_variable(path, span) {
@@ -948,8 +946,8 @@ impl Literal {
                 }
             }
             Literal::Bool(value) => visitor.visit_literal_bool(*value, span),
-            Literal::Integer(value, negative) => {
-                visitor.visit_literal_integer(*value, *negative, span);
+            Literal::Integer(value) => {
+                visitor.visit_literal_integer(*value, span);
             }
             Literal::Str(str) => visitor.visit_literal_str(str, span),
             Literal::RawStr(str, length) => visitor.visit_literal_raw_str(str, *length, span),
@@ -1304,6 +1302,18 @@ impl ForRange {
     }
 }
 
+impl UnsafeExpression {
+    pub fn accept(&self, span: Span, visitor: &mut impl Visitor) {
+        if visitor.visit_unsafe_expression(self, span) {
+            self.accept_children(span, visitor);
+        }
+    }
+
+    pub fn accept_children(&self, span: Span, visitor: &mut impl Visitor) {
+        self.block.accept(Some(span), visitor);
+    }
+}
+
 impl AsTraitPath {
     pub fn accept(&self, span: Span, visitor: &mut impl Visitor) {
         if visitor.visit_as_trait_path(self, span) {
@@ -1372,8 +1382,8 @@ impl UnresolvedType {
                     generic_type_args.accept(visitor);
                 }
             }
-            UnresolvedTypeData::MutableReference(unresolved_type) => {
-                if visitor.visit_mutable_reference_type(unresolved_type, self.location.span) {
+            UnresolvedTypeData::Reference(unresolved_type, mutable) => {
+                if visitor.visit_reference_type(unresolved_type, *mutable, self.location.span) {
                     unresolved_type.accept(visitor);
                 }
             }

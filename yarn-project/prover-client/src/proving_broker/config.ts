@@ -1,28 +1,37 @@
-import { ProvingRequestType } from '@aztec/circuit-types/interfaces/server';
-import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getDefaultConfig,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { z } from 'zod';
 
 export const ProverBrokerConfig = z.object({
   /** If starting a prover broker locally, the max number of retries per proving job */
-  proverBrokerJobMaxRetries: z.number(),
+  proverBrokerJobMaxRetries: z.number().int().nonnegative(),
   /** If starting a prover broker locally, the time after which a job times out and gets assigned to a different agent */
-  proverBrokerJobTimeoutMs: z.number(),
+  proverBrokerJobTimeoutMs: z.number().int().nonnegative(),
   /** If starting a prover broker locally, the interval the broker checks for timed out jobs */
-  proverBrokerPollIntervalMs: z.number(),
+  proverBrokerPollIntervalMs: z.number().int().nonnegative(),
   /** If starting a prover broker locally, the directory to store broker data */
   dataDirectory: z.string().optional(),
   /** The size of the data store map */
-  dataStoreMapSizeKB: z.number(),
+  dataStoreMapSizeKB: z.number().int().nonnegative(),
   /** The prover broker may batch jobs together before writing to the database */
-  proverBrokerBatchSize: z.number(),
+  proverBrokerBatchSize: z.number().int().nonnegative(),
   /** How often the job batches get flushed */
-  proverBrokerBatchIntervalMs: z.number(),
+  proverBrokerBatchIntervalMs: z.number().int().nonnegative(),
+  /** The maximum number of epochs to keep results for */
+  proverBrokerMaxEpochsToKeepResultsFor: z.number().int().nonnegative(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
-  Pick<DataStoreConfig, 'dataStoreMapSizeKB' | 'dataDirectory'>;
+  Pick<DataStoreConfig, 'dataStoreMapSizeKB' | 'dataDirectory'> &
+  L1ReaderConfig;
 
 export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> = {
   proverBrokerJobTimeoutMs: {
@@ -50,8 +59,16 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     description: 'How often to flush batches to disk',
     ...numberConfigHelper(50),
   },
+  proverBrokerMaxEpochsToKeepResultsFor: {
+    env: 'PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR',
+    description: 'The maximum number of epochs to keep results for',
+    ...numberConfigHelper(1),
+  },
+  ...l1ReaderConfigMappings,
   ...dataConfigMappings,
 };
+
+export const defaultProverBrokerConfig: ProverBrokerConfig = getDefaultConfig(proverBrokerConfigMappings);
 
 export const ProverAgentConfig = z.object({
   /** The number of prover agents to start */

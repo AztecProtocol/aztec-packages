@@ -16,9 +16,8 @@ services:
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       DEBUG: ${DEBUG:-""}
-      P2P_TCP_LISTEN_ADDR: '0.0.0.0:40400'
-      P2P_TCP_ANNOUNCE_ADDR: 'p2p-bootstrap:40400'
-      P2P_UDP_ANNOUNCE_ADDR: 'p2p-bootstrap:40400'
+      P2P_PORT: '40400'
+      P2P_IP: 'p2p-bootstrap'
       PEER_ID_PRIVATE_KEY: '0a260024080112205ea53185db2e52dae74d0d4d6cadc494174810d0a713cd09b0ac517c38bc781e1224080112205ea53185db2e52dae74d0d4d6cadc494174810d0a713cd09b0ac517c38bc781e1a44080112402df8b977f356c6e34fa021c9647973234dff4df706c185794405aafb556723cf5ea53185db2e52dae74d0d4d6cadc494174810d0a713cd09b0ac517c38bc781e'
 
   end-to-end:
@@ -27,7 +26,7 @@ services:
       BENCHMARK: true
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       DEBUG: ${DEBUG:-""}
-      ETHEREUM_HOST: http://fork:8545
+      ETHEREUM_HOSTS: http://fork:8545
       L1_CHAIN_ID: 31337
       FORCE_COLOR: ${FORCE_COLOR:-1}
       ARCHIVER_POLLING_INTERVAL_MS: 500
@@ -38,7 +37,7 @@ services:
       SEQ_MIN_TX_PER_BLOCK: 1
       SEQ_MAX_SECONDS_BETWEEN_BLOCKS: 0
       SEQ_MIN_SECONDS_BETWEEN_BLOCKS: 0
-      P2P_TCP_LISTEN_ADDR: '0.0.0.0:40400'
+      P2P_PORT: '40400'
       P2P_NAT_ENABLED: 'false'
       P2P_ENABLED: 'true'
       BOOTSTRAP_NODES: '/ip4/p2p-bootstrap/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'

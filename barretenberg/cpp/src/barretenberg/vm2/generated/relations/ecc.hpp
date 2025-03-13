@@ -27,8 +27,7 @@ template <typename FF_> class eccImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        const auto ecc_INFINITY_X = FF(
-            uint256_t{ 11669102379873075201UL, 10671829228508198984UL, 15863968012492123182UL, 1743499133401485332UL });
+        const auto ecc_INFINITY_X = FF(0);
         const auto ecc_INFINITY_Y = FF(0);
         const auto ecc_X_DIFF = (new_term.ecc_q_x - new_term.ecc_p_x);
         const auto ecc_Y_DIFF = (new_term.ecc_q_y - new_term.ecc_p_y);
