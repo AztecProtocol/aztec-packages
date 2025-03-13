@@ -2,21 +2,32 @@ bootNode:
   resources:
     requests:
       memory: "2Gi"
+    limits:
+      memory: "2Gi"
+      cpu: "500m"
 
 validator:
   resources:
     requests:
       memory: "512Mi"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
 
 proverNode:
   resources:
     requests:
       memory: "2Gi"
-
+    limits:
+      memory: "2Gi"
+      cpu: "500m"
 pxe:
   resources:
     requests:
       memory: "2Gi"
+    limits:
+      memory: "2Gi"
+      cpu: "500m"
 
 bot:
   gke:
@@ -24,23 +35,40 @@ bot:
   resources:
     requests:
       memory: "2Gi"
+    limits:
+      memory: "2Gi"
+      cpu: "500m"
 
 proverAgent:
   resources:
     requests:
       memory: "2Gi"
+    limits:
+      memory: "2Gi"
+      cpu: "500m"
 
 proverBroker:
   resources:
     requests:
       memory: "2Gi"
+    limits:
+      memory: "2Gi"
+      cpu: "500m"
 
 blobSink:
   resources:
+    requests:
+      memory: "2Gi"
+    limits:
+      memory: "2Gi"
+      cpu: "500m"
 
 faucet:
   resources:
     requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
       memory: "2Gi"
       cpu: "200m"
 
@@ -51,6 +79,7 @@ ethereum:
         memory: "2Gi"
       limits:
         memory: "2Gi"
+        cpu: "500m"
     storageSize: "80Gi"
   beacon:
     resources:
@@ -58,6 +87,7 @@ ethereum:
         memory: "2Gi"
       limits:
         memory: "2Gi"
+        cpu: "500m"
     storageSize: "80Gi"
   validator:
     resources:
@@ -65,4 +95,5 @@ ethereum:
         memory: "2Gi"
       limits:
         memory: "2Gi"
+        cpu: "500m"
 
