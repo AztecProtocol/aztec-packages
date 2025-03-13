@@ -119,26 +119,26 @@ mod tests {
         assert_eq(fields.get(0), -1);
     }
 
-    // In this test we check that the max value check works by taking the max allowed value, bumping a random byte
+    // In this test we verify that overflow check works by taking the max allowed value, bumping a random byte
     // and then feeding it to `fields_from_bytes` as input.
     #[test(should_fail_with = "Value does not fit in field")]
     unconstrained fn fields_from_bytes_overflow(random_value: u8) {
         let index_of_byte_to_bump = random_value % 32;
 
-        // Get the modulus bytes
+        // Obtain the byte representation of the maximum field value
         let max_field_value_as_bytes: [u8; 32] = (-1).to_be_bytes();
 
         let byte_to_bump = max_field_value_as_bytes[index_of_byte_to_bump];
 
-        // If by any change the chosen byte is the max value we'll just skip the test run (which is fine since we are
-        // fuzzing)
+        // Skip test execution if the selected byte is already at maximum value (255).
+        // This is acceptable since we are using fuzz testing to generate many test cases.
         if byte_to_bump != 255 {
             let mut input = BoundedVec::<_, 32>::from_array(max_field_value_as_bytes);
 
-            // Bump the byte
+            // Increment the selected byte to exceed the field's maximum value
             input.set(index_of_byte_to_bump as u32, byte_to_bump + 1);
 
-            // This should fail since the number is larger than the max value of a field
+            // Attempt the conversion, which should fail due to the value exceeding the field's capacity
             let _fields = fields_from_bytes(input);
         }
     }
