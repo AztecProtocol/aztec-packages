@@ -65,7 +65,7 @@ mod tests {
     use super::{bytes_from_fields, bytes_to_fields};
 
     #[test]
-    fn test_random_bytes_to_fields_and_back(input: [u8; 93]) {
+    fn random_bytes_to_fields_and_back(input: [u8; 93]) {
         let fields = bytes_to_fields(input);
 
         // At this point in production, the log flies through the system and we get a BoundedVec on the other end.

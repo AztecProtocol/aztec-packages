@@ -30,6 +30,8 @@ pub fn fields_to_bytes<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     bytes
 }
 
+pub global MAX_FIELD_AS_BYTES: [u8; 32] = (-1).to_be_bytes();
+
 /// Converts an input BoundedVec of bytes into a BoundedVec of fields. Arbitrary byte arrays are not allowed: this
 /// is assumed to be an array obtained via `fields_to_bytes`, i.e. one that actually represents fields. To convert
 /// a byte array into Fields, use `bytes_to_fields`.
@@ -42,21 +44,18 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
     // Assert that input length is a multiple of 32
     assert(bytes.len() % 32 == 0, "Input length must be a multiple of 32");
 
-    // Since fields are ~254 bits, we must ensure the most significant byte of each 32-byte chunk
-    // contains no more than 6 bits, preventing overflow when converting back to fields.
-    for i in 0..bytes.len() / 32 {
-        let last_byte = bytes.get(i * 32 + 31) as Field;
-        last_byte.assert_max_bit_size::<6>();
-    }
-
     let mut fields = BoundedVec::new();
 
     // Since input length is a multiple of 32, we can simply process all chunks fully
     for i in 0..bytes.len() / 32 {
         let mut field = 0;
         for j in 0..32 {
+            let next_byte = bytes.get(i * 32 + j);
+            // We check that the next byte is smaller or equal to the corresponding byte in MAX_FIELD_AS_BYTES
+            assert(next_byte <= MAX_FIELD_AS_BYTES[j], "fields_from_bytes overflow");
+
             // Shift the existing value left by 8 bits and add the new byte
-            field = field * 256 + bytes.get(i * 32 + j) as Field;
+            field = field * 256 + next_byte as Field;
         }
         fields.push(field);
     }
@@ -66,10 +65,10 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
 
 mod tests {
     use crate::utils::array::subarray;
-    use super::{fields_from_bytes, fields_to_bytes};
+    use super::{fields_from_bytes, fields_to_bytes, MAX_FIELD_AS_BYTES};
 
     #[test]
-    fn test_random_fields_to_bytes_and_back(input: [Field; 3]) {
+    fn random_fields_to_bytes_and_back(input: [Field; 3]) {
         // Convert to bytes
         let bytes = fields_to_bytes(input);
 
@@ -88,7 +87,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "Input length must be a multiple of 32")]
-    fn test_to_fields_assert() {
+    fn to_fields_assert() {
         // 143 is an arbitrary max length that is larger than 33
         let input = BoundedVec::<_, 143>::from_array([
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
@@ -99,8 +98,8 @@ mod tests {
         let _fields = fields_from_bytes(input);
     }
 
-    #[test(should_fail_with = "call to assert_max_bit_size")]
-    fn test_fields_from_bytes_overflow() {
+    #[test(should_fail_with = "fields_from_bytes overflow")]
+    fn fields_from_bytes_overflow() {
         // Create input with last byte > 63 (6 bits)
         // 64 is an arbitrary max length that is larger than 32
         let input = BoundedVec::<_, 64>::from_array([
@@ -110,5 +109,15 @@ mod tests {
 
         // This should fail since the last byte is 64 which requires 7 bits
         let _fields = fields_from_bytes(input);
+    }
+
+    #[test]
+    fn fields_from_bytes_max_value() {
+        let input = BoundedVec::<_, 64>::from_array(MAX_FIELD_AS_BYTES);
+
+        let fields = fields_from_bytes(input);
+
+        // The result should be a largest value storable in a field (-1 since we are modulo-ing)
+        assert_eq(fields.get(0), -1);
     }
 }
