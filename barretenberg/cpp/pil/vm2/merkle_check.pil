@@ -66,6 +66,6 @@ namespace merkle_check(256);
     // LAST_COMPUTE will be used in permutations to other traces
 
     // Permutation to the full poseidon2 gadget
-    #[PERM_MERKLE_POSEIDON2]
-    sel { left_hash, right_hash, output_hash } is
-    poseidon2_hash.sel {poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
+    #[MERKLE_POSEIDON2]
+    sel { left_hash, right_hash, output_hash }
+    in poseidon2_hash.sel {poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };

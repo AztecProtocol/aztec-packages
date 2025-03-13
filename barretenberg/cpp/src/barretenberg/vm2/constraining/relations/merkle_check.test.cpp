@@ -8,10 +8,12 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
-#include "barretenberg/vm2/generated/relations/perms_merkle_check.hpp"
+// #include "barretenberg/vm2/generated/relations/perms_merkle_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+// #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -31,8 +33,9 @@ using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::root_from_path;
 
+using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::MerkleCheckTraceBuilder;
-using tracegen::PermutationBuilder;
+// using tracegen::PermutationBuilder;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
 
@@ -41,7 +44,8 @@ using C = Column;
 using merkle_check = bb::avm2::merkle_check<FF>;
 using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-using permutation_poseidon2_hash = bb::avm2::perm_merkle_check_perm_merkle_poseidon2_relation<FF>;
+// using permutation_poseidon2_hash = bb::avm2::perm_merkle_check_perm_merkle_poseidon2_relation<FF>;
+using lookup_poseidon2_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_relation<FF>;
 
 TEST(MerkleCheckConstrainingTest, EmptyRow)
 {
@@ -433,9 +437,45 @@ TEST(MerkleCheckConstrainingTest, WithHashInteraction)
     // root } },
     builder.process(merkle_event_emitter.dump_events(), trace);
 
-    PermutationBuilder<permutation_poseidon2_hash::Settings>().process(trace);
+    // PermutationBuilder<permutation_poseidon2_hash::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
 
-    check_interaction<permutation_poseidon2_hash>(trace);
+    // check_interaction<permutation_poseidon2_hash>(trace);
+    check_interaction<lookup_poseidon2_hash>(trace);
+}
+
+TEST(MerkleCheckConstrainingTest, NegativeWithHashInteraction)
+{
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+
+    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    MerkleCheckTraceBuilder merkle_builder;
+    Poseidon2TraceBuilder poseidon2_builder;
+
+    FF leaf_value = 333;
+    uint64_t leaf_index = 30;
+    std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
+    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root);
+
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+    // builder.process({ { .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root =
+    // root } },
+    merkle_builder.process(merkle_event_emitter.dump_events(), trace);
+
+    // PermutationBuilder<permutation_poseidon2_hash::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
+
+    // check_interaction<permutation_poseidon2_hash>(trace);
+    check_interaction<lookup_poseidon2_hash>(trace);
 }
 
 } // namespace

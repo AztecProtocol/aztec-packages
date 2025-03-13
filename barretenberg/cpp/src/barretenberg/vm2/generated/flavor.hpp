@@ -42,12 +42,12 @@
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_instr_fetching.hpp"
+#include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
 #include "relations/lookups_to_radix.hpp"
-#include "relations/perms_merkle_check.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -138,6 +138,7 @@ class AvmFlavor {
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_merkle_check_merkle_poseidon2_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
@@ -157,8 +158,7 @@ class AvmFlavor {
         lookup_to_radix_fetch_safe_limbs_relation<FF_>,
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
-        lookup_to_radix_limb_range_relation<FF_>,
-        perm_merkle_check_perm_merkle_poseidon2_relation<FF_>>;
+        lookup_to_radix_limb_range_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
 
