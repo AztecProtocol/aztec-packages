@@ -106,6 +106,11 @@ contract RollupTest is RollupBase {
         )
       )
     );
+    // skip blob check if forge gas report is true
+    // https://github.com/foundry-rs/foundry/issues/10074
+    if (vm.envOr("FORGE_GAS_REPORT", false)) {
+      skipBlobCheck(address(rollup));
+    }
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));
     registry.upgrade(address(rollup));

@@ -204,7 +204,11 @@ contract RollupBase is DecoderBase {
         blobHash := mload(add(blobInputs, 0x21))
       }
       blobHashes[0] = blobHash;
-      vm.blobhashes(blobHashes);
+      // don't add blob hashes if forge gas report is true
+      // https://github.com/foundry-rs/foundry/issues/10074
+      if (!vm.envOr("FORGE_GAS_REPORT", false)) {
+        vm.blobhashes(blobHashes);
+      }
     }
 
     ProposeArgs memory args = ProposeArgs({

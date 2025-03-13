@@ -100,6 +100,11 @@ function inspect {
     done
 }
 
+function gas_report {
+  echo_header "l1-contracts gas report"
+  FORGE_GAS_REPORT=true forge test --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)" --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)"
+}
+
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
 # Second argument is the tag name (e.g. v1.2.3, or commit-<hash>).
 # Third argument is the semver for package.json (e.g. 1.2.3 or 1.2.3-commit.<hash>)
@@ -194,6 +199,9 @@ case "$cmd" in
     ;;
   "inspect")
     inspect
+    ;;
+  "gas_report")
+    gas_report
     ;;
   test_cmds|release)
     $cmd
