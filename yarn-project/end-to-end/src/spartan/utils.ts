@@ -5,7 +5,9 @@ import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { SequencerConfig } from '@aztec/sequencer-client';
 import { createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 
+import { parse as tomlParse } from '@iarna/toml';
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
+import { readFileSync } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
@@ -50,6 +52,8 @@ const k8sLocalConfigSchema = z.object({
   L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
   SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
+  ADMIN_PRIVATE_KEY: z.string().optional(),
+  VALUES_FILE: z.string(),
 });
 
 const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
@@ -131,6 +135,36 @@ export function runAztecBin(args: string[], logger: Logger, env?: Record<string,
 export function runProjectScript(script: string, args: string[], logger: Logger, env?: Record<string, string>) {
   const scriptPath = script.startsWith('/') ? script : path.join(getGitProjectRoot(), script);
   return runScript(scriptPath, args, logger, env);
+}
+
+export function readFromValuesFile(chart: string, file: string, key: string) {
+  const valuesFilePath = path.join(getGitProjectRoot(), 'spartan', chart, 'values', file);
+  const defaultFilePath = path.join(getGitProjectRoot(), 'spartan', chart, 'values.yaml');
+
+  // Read the toml file
+  const value = readTomlKey(valuesFilePath, key);
+  if (!value) {
+    const defaultValue = readTomlKey(defaultFilePath, key);
+    if (!defaultValue) {
+      throw new Error(`Key ${key} not found in ${valuesFilePath} or ${defaultFilePath}`);
+    }
+    return defaultValue;
+  }
+  return value;
+}
+
+function readTomlKey(filePath: string, key: string) {
+  const values = readTomlFile(filePath);
+  return values?.[key];
+}
+
+function readTomlFile(filePath: string) {
+  try {
+    return tomlParse(readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    logger.error(`Error reading toml file ${filePath}: ${error}`);
+    return null;
+  }
 }
 
 export async function startPortForward({
@@ -297,7 +331,7 @@ function createHelmCommand({
   )}`;
 }
 
-async function execHelmCommand(args: Parameters<typeof createHelmCommand>[0]) {
+export async function execHelmCommand(args: Parameters<typeof createHelmCommand>[0]) {
   const helmCommand = createHelmCommand(args);
   logger.info(`helm command: ${helmCommand}`);
   const { stdout } = await execAsync(helmCommand);
