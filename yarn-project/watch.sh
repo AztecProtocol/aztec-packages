@@ -25,7 +25,7 @@ debounce() {
 # Start typescript watch process in the background and store process ID in a file
 start_tsc_watch() {
   local tsc_bin=$(yarn bin tsc)
-  $tsc_bin -b tsconfig.json --watch --emitDeclarationOnly --preserveWatchOutput &
+  $tsc_bin -b tsconfig.json --watch --preserveWatchOutput &
   TSC_PID=$!
   echo "$TSC_PID" > .tsc.pid
 }

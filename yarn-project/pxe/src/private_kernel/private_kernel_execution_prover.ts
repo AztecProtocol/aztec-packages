@@ -6,7 +6,6 @@ import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import type { WitnessMap } from '@aztec/noir-types';
 import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
@@ -51,7 +50,7 @@ const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPubl
 export interface PrivateKernelExecutionProverConfig {
   simulate: boolean;
   skipFeeEnforcement: boolean;
-  profile: boolean;
+  profileMode: 'gates' | 'execution-steps' | 'full' | 'none';
 }
 
 /**
@@ -83,14 +82,14 @@ export class PrivateKernelExecutionProver {
   async proveWithKernels(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile }: PrivateKernelExecutionProverConfig = {
+    { simulate, skipFeeEnforcement, profileMode }: PrivateKernelExecutionProverConfig = {
       simulate: false,
       skipFeeEnforcement: false,
-      profile: false,
+      profileMode: 'none',
     },
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const skipProofGeneration = this.fakeProofs || simulate;
-    const generateWitnesses = !skipProofGeneration || profile;
+    const generateWitnesses = !skipProofGeneration || profileMode !== 'none';
 
     const timer = new Timer();
 
@@ -263,10 +262,17 @@ export class PrivateKernelExecutionProver {
       witness: tailOutput.outputWitness,
     });
 
-    if (profile) {
+    if (profileMode == 'gates' || profileMode == 'full') {
       for (const entry of executionSteps) {
         const gateCount = await this.proofCreator.computeGateCountForCircuit(entry.bytecode, entry.functionName);
         entry.gateCount = gateCount;
+      }
+    }
+    if (profileMode !== 'execution-steps' && profileMode !== 'full') {
+      for (const entry of executionSteps) {
+        // These buffers are often a few megabytes in size - prevent accidentally serializing them if not requested.
+        entry.bytecode = Buffer.from([]);
+        entry.witness = new Map();
       }
     }
 

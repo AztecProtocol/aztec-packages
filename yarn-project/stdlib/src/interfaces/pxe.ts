@@ -212,7 +212,7 @@ export interface PXE {
    */
   profileTx(
     txRequest: TxExecutionRequest,
-    profileMode: 'gates' | 'debug',
+    profileMode: 'gates' | 'execution-steps' | 'full',
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult>;
 

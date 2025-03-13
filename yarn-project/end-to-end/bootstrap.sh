@@ -11,8 +11,11 @@ function test_cmds {
 
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
+    # Only capture these for 'full ci'.
+    capture_ivc_folder="yarn-project/end-to-end/client-ivc-inputs-out"
   else
     echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
+    capture_ivc_folder=""
   fi
 
   # Longest-running tests first
@@ -20,7 +23,7 @@ function test_cmds {
 
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
-  echo "$prefix simple e2e_amm"
+  echo "$hash CAPTURE_IVC_FOLDER='$capture_ivc_folder' $run_test_script simple e2e_amm"
   echo "$prefix simple e2e_authwit"
   echo "$prefix simple e2e_avm_simulator"
   echo "$prefix simple e2e_contract_updates"
@@ -141,8 +144,11 @@ function test {
 
 function bench {
   mkdir -p bench-out
+  if cache_download yarn-project-bench-results-$hash.tar.gz; then
+    return
+  fi
   BENCH_OUTPUT=bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
-  cache_upload yarn-project-bench-results-$COMMIT_HASH.tar.gz ./bench-out/yp-bench.json
+  cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json
 }
 
 case "$cmd" in

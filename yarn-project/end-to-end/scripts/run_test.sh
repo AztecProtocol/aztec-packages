@@ -33,6 +33,7 @@ case "$type" in
       -e JEST_CACHE_DIR=/tmp-jest \
       -e FAKE_PROOFS \
       -e BENCH_OUTPUT \
+      -e CAPTURE_IVC_FOLDER \
       -e LOG_LEVEL \
       --workdir /root/aztec-packages/yarn-project/end-to-end \
       aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST

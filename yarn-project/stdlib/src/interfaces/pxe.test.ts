@@ -381,7 +381,7 @@ class MockPXE implements PXE {
   }
   profileTx(
     txRequest: TxExecutionRequest,
-    profileMode: 'gates' | 'debug',
+    profileMode: 'gates' | 'full' | 'execution-steps' | 'none',
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);

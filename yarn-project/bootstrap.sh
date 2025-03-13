@@ -103,11 +103,11 @@ function test_cmds {
   local hash=$(hash)
   # These need isolation due to network stack usage (p2p, anvil, etc).
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
-    if [[ ! "$test" =~ testbench ]]; then
-      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
-    else
+    if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
       echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     fi
 
   done

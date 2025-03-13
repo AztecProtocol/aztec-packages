@@ -472,7 +472,7 @@ export class PXEService implements PXE {
       const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
         simulate: false,
         skipFeeEnforcement: false,
-        profile: false,
+        profileMode: 'none',
       });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
@@ -481,7 +481,7 @@ export class PXEService implements PXE {
   }
   public async profileTx(
     txRequest: TxExecutionRequest,
-    profileMode: 'debug' | 'gates',
+    profileMode: 'full' | 'execution-steps' | 'gates',
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
     try {
@@ -504,7 +504,7 @@ export class PXEService implements PXE {
       const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
         simulate: true,
         skipFeeEnforcement: false,
-        profile: true,
+        profileMode,
       });
 
       if (profileMode === 'gates') {
@@ -536,7 +536,6 @@ export class PXEService implements PXE {
     skipFeeEnforcement: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
-    const profile = false;
     try {
       const txInfo = {
         origin: txRequest.origin,
@@ -556,9 +555,9 @@ export class PXEService implements PXE {
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
       const { publicInputs } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-        simulate: !profile,
+        simulate: true,
         skipFeeEnforcement,
-        profile,
+        profileMode: 'none',
       });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);

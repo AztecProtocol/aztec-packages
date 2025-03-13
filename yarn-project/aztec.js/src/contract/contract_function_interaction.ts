@@ -16,7 +16,7 @@ export type { SendMethodOptions };
  */
 export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   /** Whether to return gates information or the bytecode/witnesses. */
-  profileMode: 'gates' | 'debug';
+  profileMode: 'gates' | 'execution-steps' | 'full';
   /** The sender's Aztec address. */
   from?: AztecAddress;
 };

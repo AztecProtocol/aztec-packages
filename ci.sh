@@ -243,22 +243,35 @@ case "$cmd" in
     export CI=1
     # Run benchmark logic for github actions.
     bb_hash=$(barretenberg/bootstrap.sh hash)
-    if [ "$bb_hash" == disabled-cache ]; then
-      echo "Error, can't publish barretenberg benchmark due to unstaged changes."
+    yp_hash=$(yarn-project/bootstrap.sh hash)
+    seven_days=$((7 * 24 * 60 * 60)) # in seconds
+
+    if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then
+      echo "Error, can't publish benchmarks due to unstaged changes."
+      git status -s
       exit 1
     fi
+
+    # barretenberg benchmarks.
     if [ "$(redis_getz last-publish-hash-bb)" == "$bb_hash" ]; then
       echo "No changes since last master, skipping barretenberg benchmark publishing."
       echo "SKIP_BB_BENCH=true" >> $GITHUB_ENV
     else
-      cache_download barretenberg-bench-results-$(barretenberg/bootstrap.sh hash).tar.gz
+      cache_download barretenberg-bench-results-$bb_hash.tar.gz
       seven_days=$((7 * 24 * 60 * 60)) # in seconds
       echo "$bb_hash" | redis_setexz last-publish-hash-bb $seven_days
     fi
-    # TODO(AD) handle yarn-project similarly
-    cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
-    # TODO reenable
-    # ./cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+
+    # yarn-project benchmarks.
+    if [ "$(redis_getz last-publish-hash-yp)" == "$yp_hash" ]; then
+      echo "No changes since last master, skipping yarn-project benchmark publishing."
+      echo "SKIP_YP_BENCH=true" >> $GITHUB_ENV
+    else
+      cache_download yarn-project-bench-results-$yp_hash.tar.gz
+      # TODO reenable
+      # ./cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+      echo "$bb_hash" | redis_setexz last-publish-hashs-bb $seven_days
+    fi
     ;;
   *)
     echo "Unknown command: $cmd, see ./ci.sh help"

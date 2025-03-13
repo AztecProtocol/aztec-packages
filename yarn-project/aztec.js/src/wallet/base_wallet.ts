@@ -100,7 +100,7 @@ export abstract class BaseWallet implements Wallet {
   }
   profileTx(
     txRequest: TxExecutionRequest,
-    profileMode: 'gates' | 'debug',
+    profileMode: 'gates' | 'execution-steps' | 'full',
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
     return this.pxe.profileTx(txRequest, profileMode, msgSender);
