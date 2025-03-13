@@ -330,6 +330,10 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!() const
 {
     bool_t<Builder> result(*this);
+    if (result.is_constant()) {
+        result.witness_bool = !result.witness_bool;
+        return result;
+    }
     result.witness_inverted = !result.witness_inverted;
     return result;
 }
@@ -447,11 +451,9 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
         return result;
     }
 
-    bool same = (lhs.witness_index == rhs.witness_index) && (lhs.witness_inverted == rhs.witness_inverted);
-    bool witness_same = same && lhs.witness_index != IS_CONSTANT;
+    bool same = lhs.witness_index == rhs.witness_index;
+    bool witness_same = same && lhs.witness_index != IS_CONSTANT && (lhs.witness_inverted == rhs.witness_inverted);
     bool const_same = same && (lhs.witness_index == IS_CONSTANT) && (lhs.witness_bool == rhs.witness_bool);
-    // TODO(alex): reference to the above todo just to not forget to change the lhs.witness_inverted ==
-    // rhs.witness_inverted && ... to get_value() == get_value()
     if (witness_same || const_same) {
         return lhs;
     }
@@ -541,10 +543,10 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::implies_both_ways(c
 
 template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
 {
-    if (is_constant() || !witness_inverted) {
+    if (is_constant()) {
+        ASSERT(!this->witness_inverted);
         return *this;
     }
-    // TODO(alex): shouldn't normalize return this->witness_value^witness_inverted in const case?
 
     bb::fr value = witness_bool ^ witness_inverted ? bb::fr::one() : bb::fr::zero();
 
