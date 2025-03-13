@@ -133,7 +133,7 @@ describe('journal', () => {
       await persistableState.getContractInstance(address);
 
       expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
-      expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address);
+      expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address, /*blockNumber=*/ expect.any(Number));
       expect(treesDB.getNullifierIndex).toHaveBeenCalledTimes(1);
       expect(treesDB.getNullifierIndex).toHaveBeenCalledWith(siloedNullifier);
     });

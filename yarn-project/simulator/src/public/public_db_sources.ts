@@ -215,6 +215,13 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     this.currentTxRevertibleCache.clear();
   }
 
+  // TODO(fcarreiro/alvaro): This method currently needs a blockNumber. Since this class
+  // is only ever used for a given block, it should be possible to construct it with the
+  // block number and then forget about it. However, since this class (and interface) is
+  // currently more externally exposed than we'd want to, Facundo preferred to not add it
+  // to the constructor right now. If we can make this class more private, we should
+  // reconsider this. A litmus test is in how many places we need to initialize with a
+  // dummy block number (tests or not) and pass block numbers to `super`.
   public async getContractInstance(
     address: AztecAddress,
     blockNumber: number,
