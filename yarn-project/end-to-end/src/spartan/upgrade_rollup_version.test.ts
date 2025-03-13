@@ -121,6 +121,8 @@ describe('spartan_upgrade_rollup_version', () => {
           slashingRoundSize: 10,
           governanceProposerQuorum: 6,
           governanceProposerRoundSize: 10,
+          manaTarget: BigInt(100e6),
+          provingCostPerMana: BigInt(100),
         },
         originalL1ContractAddresses.registryAddress,
         debugLogger,

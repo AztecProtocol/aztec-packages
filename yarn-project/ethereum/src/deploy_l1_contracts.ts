@@ -328,6 +328,8 @@ export const deployRollup = async (
     minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
+    manaTarget: args.manaTarget,
+    provingCostPerMana: args.provingCostPerMana,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
