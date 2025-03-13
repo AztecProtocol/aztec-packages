@@ -127,7 +127,9 @@ unconstrained fn destructure_log_plaintext(
     (storage_slot, note_type_id, log_type_id, log_payload)
 }
 
-unconstrained fn process_private_note_log<Env>(
+// This function was exposed only because of e2e_offchain_note_delivery test. This is not great, but it was the best
+// thing to do at the time.
+pub unconstrained fn process_private_note_log<Env>(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
