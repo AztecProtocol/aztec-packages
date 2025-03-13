@@ -13,46 +13,42 @@ export function mockTraceFork(trace: PublicSideEffectTraceInterface, nestedTrace
   );
 }
 
-export function mockStorageRead(publicTreesDb: PublicTreesDB, value: Fr) {
-  (publicTreesDb as jest.Mocked<PublicTreesDB>).storageRead.mockResolvedValue(value);
+export function mockStorageRead(worldStateDB: PublicTreesDB, value: Fr) {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).storageRead.mockResolvedValue(value);
 }
 
 export function mockNoteHashCount(mockedTrace: PublicSideEffectTraceInterface, count: number) {
   (mockedTrace as jest.Mocked<PublicSideEffectTraceInterface>).getNoteHashCount.mockReturnValue(count);
 }
 
-export function mockStorageReadWithMap(publicTreesDb: PublicTreesDB, mockedStorage: Map<bigint, Fr>) {
-  (publicTreesDb as jest.Mocked<PublicTreesDB>).storageRead.mockImplementation((_address, slot) =>
+export function mockStorageReadWithMap(worldStateDB: PublicTreesDB, mockedStorage: Map<bigint, Fr>) {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).storageRead.mockImplementation((_address, slot) =>
     Promise.resolve(mockedStorage.get(slot.toBigInt()) ?? Fr.ZERO),
   );
 }
 
-export function mockGetNoteHash(publicTreesDb: PublicTreesDB, value?: Fr) {
-  (publicTreesDb as jest.Mocked<PublicTreesDB>).getNoteHash.mockResolvedValueOnce(value);
-}
-
-export function mockGetNoteHashIfIndexMatches(publicTreesDb: PublicTreesDB, leafIndex: Fr, value: Fr) {
-  (publicTreesDb as jest.Mocked<PublicTreesDB>).getNoteHash.mockImplementation((index: bigint) => {
-    if (index == leafIndex.toBigInt()) {
+export function mockNoteHashExists(worldStateDB: PublicTreesDB, _leafIndex: Fr, value?: Fr) {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).getCommitmentValue.mockImplementation((index: bigint) => {
+    if (index == _leafIndex.toBigInt()) {
       return Promise.resolve(value);
     } else {
-      // This is ok for now since the tracing functions handle it
+      // This is ok for now since the traceing functions handle it
       return Promise.resolve(undefined);
     }
   });
 }
 
-export function mockCheckNullifierExists(publicTreesDb: PublicTreesDB, exists: boolean) {
-  (publicTreesDb as jest.Mocked<PublicTreesDB>).checkNullifierExists.mockResolvedValue(exists);
+export function mockGetNullifierIndex(worldStateDB: PublicTreesDB, leafIndex: Fr, _ignoredValue?: Fr) {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).getNullifierIndex.mockResolvedValue(leafIndex.toBigInt());
 }
 
 export function mockL1ToL2MessageExists(
-  publicTreesDb: PublicTreesDB,
+  worldStateDB: PublicTreesDB,
   leafIndex: Fr,
   value: Fr,
   valueAtOtherIndices?: Fr,
 ) {
-  (publicTreesDb as jest.Mocked<PublicTreesDB>).getL1ToL2LeafValue.mockImplementation((index: bigint) => {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).getL1ToL2LeafValue.mockImplementation((index: bigint) => {
     if (index == leafIndex.toBigInt()) {
       return Promise.resolve(value);
     } else {

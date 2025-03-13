@@ -63,7 +63,7 @@ export interface PublicContractsDBInterface {
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }
 
-/** Database interface for providing access to note hash tree, l1 to l2 message tree, and nullifier tree. */
+/** Database interface for providing access to commitment tree, l1 to l2 message tree, and nullifier tree. */
 export interface CommitmentsDBInterface {
   /**
    * Fetches a message from the db, given its key.
@@ -81,23 +81,30 @@ export interface CommitmentsDBInterface {
 
   /**
    * @param leafIndex the leaf to look up
-   * @returns The l1 to l2 leaf message hash or undefined if not found.
+   * @returns The l1 to l2 leaf value or undefined if not found.
    */
-  getL1ToL2MessageHash(leafIndex: bigint): Promise<Fr | undefined>;
+  getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined>;
 
   /**
-   * Gets note hash in the note hash tree at the given leaf index.
+   * Gets the index of a commitment in the note hash tree.
+   * @param commitment - The commitment.
+   * @returns - The index of the commitment. Undefined if it does not exist in the tree.
+   */
+  getCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
+
+  /**
+   * Gets commitment in the note hash tree given a leaf index.
    * @param leafIndex - the leaf to look up.
-   * @returns - The note hash at that index. Undefined if leaf index is not found.
+   * @returns - The commitment at that index. Undefined if leaf index is not found.
    */
-  getNoteHash(leafIndex: bigint): Promise<Fr | undefined>;
+  getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined>;
 
   /**
-   * Checks if a nullifier exists in the nullifier tree.
+   * Gets the index of a nullifier in the nullifier tree.
    * @param nullifier - The nullifier.
-   * @returns - True if the nullifier exists in the tree, false otherwise.
+   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
    */
-  checkNullifierExists(nullifier: Fr): Promise<boolean>;
+  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
    * Returns a nullifier membership witness for the given nullifier or undefined if not found.
