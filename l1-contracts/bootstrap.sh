@@ -53,9 +53,7 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  # Test the things that fail with --gas-report (due to forge issues) separately
-  # need to chain these together, otherwise we get a "bus error (core dumped)" occasionally.
-  echo "$hash cd l1-contracts && forge test --match-test \"(testInvalidBlobHash)|(testInvalidBlobProof)\" && forge test --match-contract \"(FeeRollupTest)|(MinimalFeeModelTest)\" && ./bootstrap.sh gas_report check"
+  echo "$hash cd l1-contracts && forge test && ./bootstrap.sh gas_report"
 }
 
 function test {
@@ -104,9 +102,15 @@ function inspect {
 
 function gas_report {
   check=${1:-"no"}
-  echo_header "l1-contracts gas report "
+  echo_header "l1-contracts gas report"
+  forge --version
 
-  FORGE_GAS_REPORT=true forge test --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)" --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" > gas_report.new.tmp
+  FORGE_GAS_REPORT=true forge test \
+    --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)|(UniswapPortalTest)" \
+    --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" \
+    --fuzz-seed 42 \
+    --isolate \
+    > gas_report.new.tmp
   grep "^|" gas_report.new.tmp > gas_report.new.md
   rm gas_report.new.tmp
   diff gas_report.new.md gas_report.md > gas_report.diff || true
