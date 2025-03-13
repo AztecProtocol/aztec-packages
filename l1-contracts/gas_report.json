@@ -1,0 +1,266 @@
+[
+  {
+    "contract": "src/core/FeeJuicePortal.sol:FeeJuicePortal",
+    "deployment": {
+      "gas": 1054172,
+      "size": 5355
+    },
+    "functions": {
+      "UNDERLYING()": {
+        "calls": 1556,
+        "min": 613,
+        "mean": 613,
+        "median": 613,
+        "max": 613
+      },
+      "canonicalRollup()": {
+        "calls": 5546,
+        "min": 1483,
+        "mean": 4096,
+        "median": 5983,
+        "max": 5983
+      },
+      "initialize()": {
+        "calls": 1556,
+        "min": 49651,
+        "mean": 49651,
+        "median": 49651,
+        "max": 49651
+      }
+    }
+  },
+  {
+    "contract": "src/core/Rollup.sol:Rollup",
+    "deployment": {
+      "gas": 13063175,
+      "size": 66159
+    },
+    "functions": {
+      "archive()": {
+        "calls": 2324,
+        "min": 779,
+        "mean": 779,
+        "median": 779,
+        "max": 779
+      },
+      "getBlock(uint256)": {
+        "calls": 896,
+        "min": 2028,
+        "mean": 2028,
+        "median": 2028,
+        "max": 2028
+      },
+      "getCollectiveProverRewardsForEpoch(uint256)": {
+        "calls": 3,
+        "min": 984,
+        "mean": 1650,
+        "median": 984,
+        "max": 2984
+      },
+      "getCurrentSlot()": {
+        "calls": 100,
+        "min": 1198,
+        "mean": 1198,
+        "median": 1198,
+        "max": 1198
+      },
+      "getFeeAssetPerEth()": {
+        "calls": 1,
+        "min": 2742,
+        "mean": 2742,
+        "median": 2742,
+        "max": 2742
+      },
+      "getInbox()": {
+        "calls": 3880,
+        "min": 838,
+        "mean": 838,
+        "median": 838,
+        "max": 838
+      },
+      "getManaBaseFeeAt(uint256,bool)": {
+        "calls": 2325,
+        "min": 19299,
+        "mean": 22865,
+        "median": 23288,
+        "max": 23299
+      },
+      "getOutbox()": {
+        "calls": 3880,
+        "min": 880,
+        "mean": 880,
+        "median": 880,
+        "max": 880
+      },
+      "getPendingBlockNumber()": {
+        "calls": 1545,
+        "min": 666,
+        "mean": 666,
+        "median": 666,
+        "max": 666
+      },
+      "getProofSubmissionWindow()": {
+        "calls": 4,
+        "min": 558,
+        "mean": 558,
+        "median": 558,
+        "max": 558
+      },
+      "getProvenBlockNumber()": {
+        "calls": 6198,
+        "min": 666,
+        "mean": 666,
+        "median": 666,
+        "max": 666
+      },
+      "getProvingCostPerManaInEth()": {
+        "calls": 1,
+        "min": 701,
+        "mean": 701,
+        "median": 701,
+        "max": 701
+      },
+      "getProvingCostPerManaInFeeAsset()": {
+        "calls": 1,
+        "min": 5749,
+        "mean": 5749,
+        "median": 5749,
+        "max": 5749
+      },
+      "getSequencerRewards(address)": {
+        "calls": 2,
+        "min": 971,
+        "mean": 1971,
+        "median": 1971,
+        "max": 2971
+      },
+      "getTimestampForSlot(uint256)": {
+        "calls": 2431,
+        "min": 1621,
+        "mean": 1621,
+        "median": 1621,
+        "max": 1621
+      },
+      "propose((bytes32,bytes32,(int256),bytes,bytes32[]),(bool,uint8,bytes32,bytes32)[],bytes)": {
+        "calls": 2331,
+        "min": 183411,
+        "mean": 395508,
+        "median": 404424,
+        "max": 447536
+      },
+      "prune()": {
+        "calls": 6,
+        "min": 25679,
+        "mean": 37120,
+        "median": 38424,
+        "max": 43285
+      },
+      "setProvingCostPerMana(uint256)": {
+        "calls": 2,
+        "min": 29055,
+        "mean": 29055,
+        "median": 29055,
+        "max": 29055
+      },
+      "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,bytes32,bytes32,uint256,bytes32,address),bytes32[],bytes,bytes,bytes))": {
+        "calls": 895,
+        "min": 70463,
+        "mean": 655022,
+        "median": 651334,
+        "max": 690504
+      }
+    }
+  },
+  {
+    "contract": "src/core/messagebridge/Inbox.sol:Inbox",
+    "deployment": {
+      "gas": 0,
+      "size": 7280
+    },
+    "functions": {
+      "getRoot(uint256)": {
+        "calls": 2,
+        "min": 1168,
+        "mean": 1168,
+        "median": 1168,
+        "max": 1168
+      },
+      "inProgress()": {
+        "calls": 3,
+        "min": 446,
+        "mean": 446,
+        "median": 446,
+        "max": 446
+      },
+      "sendL2Message((bytes32,uint256),bytes32,bytes32)": {
+        "calls": 37184,
+        "min": 47877,
+        "mean": 59362,
+        "median": 52524,
+        "max": 99177
+      }
+    }
+  },
+  {
+    "contract": "src/core/messagebridge/Outbox.sol:Outbox",
+    "deployment": {
+      "gas": 0,
+      "size": 4979
+    },
+    "functions": {
+      "getRootData(uint256)": {
+        "calls": 2324,
+        "min": 1876,
+        "mean": 1876,
+        "median": 1876,
+        "max": 1876
+      }
+    }
+  },
+  {
+    "contract": "src/governance/Registry.sol:Registry",
+    "deployment": {
+      "gas": 834950,
+      "size": 4293
+    },
+    "functions": {
+      "getRollup()": {
+        "calls": 8219,
+        "min": 564,
+        "mean": 1347,
+        "median": 564,
+        "max": 2564
+      },
+      "upgrade(address)": {
+        "calls": 1558,
+        "min": 107272,
+        "mean": 107487,
+        "median": 107488,
+        "max": 107488
+      }
+    }
+  },
+  {
+    "contract": "src/governance/RewardDistributor.sol:RewardDistributor",
+    "deployment": {
+      "gas": 864626,
+      "size": 4462
+    },
+    "functions": {
+      "BLOCK_REWARD()": {
+        "calls": 3,
+        "min": 369,
+        "mean": 369,
+        "median": 369,
+        "max": 369
+      },
+      "canonicalRollup()": {
+        "calls": 890,
+        "min": 3618,
+        "mean": 3618,
+        "median": 3618,
+        "max": 3618
+      }
+    }
+  }
+]
