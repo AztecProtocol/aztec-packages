@@ -79,21 +79,24 @@ export function bufferToU8Array(buffer: Buffer): ForeignCallArray {
  * Converts a ForeignCallArray into a tuple which represents a nr BoundedVec.
  * If the input array is shorter than the maxLen, it pads the result with zeros,
  * so that nr can correctly coerce this result into a BoundedVec.
- * @param array
+ * @param bVecStorage - The array underlying the BoundedVec.
  * @param maxLen - the max length of the BoundedVec.
  * @returns a tuple representing a BoundedVec.
  */
-export function arrayToBoundedVec(array: ForeignCallArray, maxLen: number): [ForeignCallArray, ForeignCallSingle] {
-  if (array.length > maxLen) {
-    throw new Error(`Array of length ${array.length} larger than maxLen ${maxLen}`);
+export function arrayToBoundedVec(
+  bVecStorage: ForeignCallArray,
+  maxLen: number,
+): [ForeignCallArray, ForeignCallSingle] {
+  if (bVecStorage.length > maxLen) {
+    throw new Error(`Array of length ${bVecStorage.length} larger than maxLen ${maxLen}`);
   }
-  const lengthDiff = maxLen - array.length;
+  const lengthDiff = maxLen - bVecStorage.length;
   // We pad the array to the maxLen of the BoundedVec.
   const zeroPaddingArray = toArray(Array(lengthDiff).fill(new Fr(0)));
 
   // These variable names match with the BoundedVec members in nr:
-  const storage = array.concat(zeroPaddingArray);
-  const len = toSingle(new Fr(array.length));
+  const storage = bVecStorage.concat(zeroPaddingArray);
+  const len = toSingle(new Fr(bVecStorage.length));
   return [storage, len];
 }
 
