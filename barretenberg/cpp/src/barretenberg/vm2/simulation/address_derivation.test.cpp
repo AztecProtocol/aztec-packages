@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_ecc.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -34,7 +35,7 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_event_emitter);
 
     ContractInstance instance = testing::random_contract_instance();
-
+    AztecAddress derived_address = compute_contract_address(instance);
     std::vector<FF> salted_init_hash_inputs = {
         GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialisation_hash, instance.deployer_addr
     };
@@ -70,12 +71,13 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
     EXPECT_CALL(ecc, add(preaddress_public_key, EmbeddedCurvePoint(instance.public_keys.incoming_viewing_key)))
         .WillOnce(Return(address_point));
 
-    address_derivation.assert_derivation(instance);
+    address_derivation.assert_derivation(derived_address, instance);
 
     auto events = address_derivation_event_emitter.dump_events();
     ASSERT_THAT(events, SizeIs(1));
     EXPECT_THAT(events[0].instance, instance);
-    EXPECT_THAT(events[0].address_point.x(), instance.address);
+    EXPECT_THAT(events[0].address, derived_address);
+    EXPECT_THAT(events[0].address_point.x(), derived_address);
 }
 
 } // namespace

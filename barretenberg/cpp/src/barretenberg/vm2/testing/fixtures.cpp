@@ -10,7 +10,6 @@ using bb::avm2::tracegen::TestTraceContainer;
 
 namespace bb::avm2::testing {
 
-using simulation::compute_contract_address;
 using simulation::Instruction;
 using simulation::Operand;
 using simulation::OperandType;
@@ -118,8 +117,7 @@ TestTraceContainer empty_trace()
 
 ContractInstance random_contract_instance()
 {
-    ContractInstance instance = { .address = FF::zero(),
-                                  .salt = FF::random_element(),
+    ContractInstance instance = { .salt = FF::random_element(),
                                   .deployer_addr = FF::random_element(),
                                   .contract_class_id = FF::random_element(),
                                   .initialisation_hash = FF::random_element(),
@@ -129,8 +127,6 @@ ContractInstance random_contract_instance()
                                       .outgoing_viewing_key = AffinePoint::random_element(),
                                       .tagging_key = AffinePoint::random_element(),
                                   } };
-    AztecAddress computed_address = compute_contract_address(instance);
-    instance.address = computed_address;
     return instance;
 }
 

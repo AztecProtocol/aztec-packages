@@ -27,7 +27,6 @@ struct PublicKeys {
 };
 
 struct ContractInstance {
-    AztecAddress address;
     FF salt;
     AztecAddress deployer_addr;
     ContractClassId contract_class_id;

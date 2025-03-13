@@ -33,7 +33,7 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_outgoing_viewing_key_y, event.instance.public_keys.outgoing_viewing_key.y },
                 { C::address_derivation_tagging_key_x, event.instance.public_keys.tagging_key.x },
                 { C::address_derivation_tagging_key_y, event.instance.public_keys.tagging_key.y },
-                { C::address_derivation_address, event.instance.address },
+                { C::address_derivation_address, event.address },
                 { C::address_derivation_salted_init_hash, event.salted_initialization_hash },
                 { C::address_derivation_partial_address_domain_separator, GENERATOR_INDEX__PARTIAL_ADDRESS },
                 { C::address_derivation_partial_address, event.partial_address },

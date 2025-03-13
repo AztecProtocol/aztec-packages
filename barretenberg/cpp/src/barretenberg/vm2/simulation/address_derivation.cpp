@@ -7,7 +7,7 @@
 
 namespace bb::avm2::simulation {
 
-void AddressDerivation::assert_derivation(const ContractInstance& instance)
+void AddressDerivation::assert_derivation(const AztecAddress& address, const ContractInstance& instance)
 {
     // TODO: Cache and deduplicate.
     FF salted_initialization_hash = poseidon2.hash(
@@ -31,9 +31,10 @@ void AddressDerivation::assert_derivation(const ContractInstance& instance)
     EmbeddedCurvePoint preaddress_public_key = ecc.scalar_mul(EmbeddedCurvePoint::one(), preaddress);
     EmbeddedCurvePoint address_point = ecc.add(preaddress_public_key, instance.public_keys.incoming_viewing_key);
 
-    assert(instance.address == address_point.x());
+    assert(address == address_point.x());
 
     events.emit({
+        .address = address,
         .instance = instance,
         .salted_initialization_hash = salted_initialization_hash,
         .partial_address = partial_address,

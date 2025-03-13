@@ -33,6 +33,7 @@ using tracegen::TestTraceContainer;
 
 using simulation::AddressDerivation;
 using simulation::AddressDerivationEvent;
+using simulation::compute_contract_address;
 using simulation::Ecc;
 using simulation::EccAddEvent;
 using simulation::EventEmitter;
@@ -97,7 +98,8 @@ TEST(AddressDerivationConstrainingTest, Basic)
     EmbeddedCurvePoint preaddress_public_key = g1 * grumpkin::fr(preaddress);
     EmbeddedCurvePoint address_point = preaddress_public_key + instance.public_keys.incoming_viewing_key;
 
-    builder.process({ { .instance = instance,
+    builder.process({ { .address = address_point.x(),
+                        .instance = instance,
                         .salted_initialization_hash = salted_initialization_hash,
                         .partial_address = partial_address,
                         .public_keys_hash = public_keys_hash,
@@ -134,7 +136,8 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     EccTraceBuilder ecc_builder;
 
     ContractInstance instance = testing::random_contract_instance();
-    address_derivation.assert_derivation(instance);
+    AztecAddress address = compute_contract_address(instance);
+    address_derivation.assert_derivation(address, instance);
 
     builder.process(address_derivation_event_emitter.dump_events(), trace);
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);

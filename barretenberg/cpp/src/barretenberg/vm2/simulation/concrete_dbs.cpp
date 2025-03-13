@@ -5,8 +5,7 @@ namespace bb::avm2::simulation {
 ContractInstance ContractDB::get_contract_instance(const AztecAddress& address) const
 {
     ContractInstance instance = raw_contract_db.get_contract_instance(address);
-    assert(instance.address == address);
-    address_derivation.assert_derivation(instance);
+    address_derivation.assert_derivation(address, instance);
     // TODO: emit event
     return instance;
 }

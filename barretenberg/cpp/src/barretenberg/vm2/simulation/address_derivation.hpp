@@ -11,7 +11,7 @@ namespace bb::avm2::simulation {
 class AddressDerivationInterface {
   public:
     virtual ~AddressDerivationInterface() = default;
-    virtual void assert_derivation(const ContractInstance& instance) = 0;
+    virtual void assert_derivation(const AztecAddress& address, const ContractInstance& instance) = 0;
 };
 
 class AddressDerivation : public AddressDerivationInterface {
@@ -24,7 +24,7 @@ class AddressDerivation : public AddressDerivationInterface {
         , ecc(ecc)
     {}
 
-    void assert_derivation(const ContractInstance& instance) override;
+    void assert_derivation(const AztecAddress& address, const ContractInstance& instance) override;
 
   private:
     EventEmitterInterface<AddressDerivationEvent>& events;
