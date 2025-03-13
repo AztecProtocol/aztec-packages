@@ -182,6 +182,10 @@ template <typename Flavor> class SumcheckProverRound {
 
         // AVM flavor
         if constexpr (specifiesUnivariateChunks<Flavor>) {
+            // This constant is assumed to be a power of 2 greater or equal to 2.
+            static_assert(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE >= 2);
+            static_assert((Flavor::MAX_CHUNK_THREAD_PORTION_SIZE & (Flavor::MAX_CHUNK_THREAD_PORTION_SIZE - 1)) == 0);
+
             const auto thread_portion_size_candidate =
                 std::min(round_size / num_threads, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
 
