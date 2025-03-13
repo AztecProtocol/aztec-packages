@@ -183,6 +183,9 @@ where
 
     let mut log_bytes_padding_to_mult_31 =
         get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 32>();
+
+    // Safety: we assume that the sender wants for the log to be private - a malicious one could simply reveal its
+    // contents publicly. It is therefore fine to trust the sender to provide random padding.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
     let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 32>();
@@ -215,9 +218,9 @@ where
 
     // In this strategy, we prepend [tag, eph_pk.x]
 
-    // We assume that the sender wants for the recipient to find the tagged note,
-    // and therefore that they will cooperate and use the correct tag. Usage of a bad
-    // tag will result in the recipient not being able to find the note automatically.
+    // Safety: we assume that the sender wants for the recipient to find the tagged note, and therefore that they will
+    // cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the
+    // note automatically.
     let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
 
@@ -233,6 +236,8 @@ where
     offset += log_bytes_as_fields.len();
 
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
+        // Safety: we assume that the sender wants for the log to be private - a malicious one could simply reveal its
+        // contents publicly. It is therefore fine to trust the sender to provide random padding.
         final_log[i] = unsafe { random() };
     }
 
@@ -251,6 +256,8 @@ where
     compute_log(context, event, recipient, sender)
 }
 
+/// Sends an encrypted message to `recipient` with the content of the event, which they will discover when processing
+/// private logs.
 pub fn encode_and_encrypt_event<Event, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -265,9 +272,11 @@ where
     }
 }
 
-// Important note: this function -- although called "unconstrained" -- the
-// function is not labelled as `unconstrained`, because we pass a reference to the
-// context.
+/// Same as `encode_and_encrypt_event`, except encryption is unconstrained. This means that the sender is free to make
+/// the log contents be whatever they wish, potentially resulting in scenarios in which the recipient is unable to
+/// decrypt and process the payload, **leading to the event being lost**.
+///
+/// Only use this function in scenarios where the recipient not receiving the event is an acceptable outcome.
 pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -277,8 +286,7 @@ where
     Event: EventInterface<N>,
 {
     |e: Event| {
-        // Unconstrained logs have both their content and encryption unconstrained - it could occur that the
-        // recipient is unable to decrypt the payload.
+        // Safety: this function does not constrain the encryption of the log, as explainted on its description.
         let encrypted_log = unsafe { compute_log_unconstrained(*context, e, recipient, sender) };
         context.emit_private_log(encrypted_log);
     }

@@ -110,7 +110,7 @@ impl Type {
     // docs:end:as_str
 
     #[deprecated("This method has been renamed to `as_data_type`")]
-    pub comptime fn as_struct(self) -> Option<(TypeDefinition, [Type])> {
+    pub comptime fn as_data_type(self) -> Option<(TypeDefinition, [Type])> {
         self.as_data_type()
     }
 
