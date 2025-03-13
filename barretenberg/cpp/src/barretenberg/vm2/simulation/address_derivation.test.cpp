@@ -62,7 +62,7 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
     FF preaddress = poseidon2::hash(preaddress_inputs);
     EXPECT_CALL(poseidon2, hash(preaddress_inputs)).WillOnce(Return(preaddress));
 
-    EmbeddedCurvePoint g1 = EmbeddedCurvePoint(grumpkin::g1::affine_one);
+    EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
     EmbeddedCurvePoint preaddress_public_key = g1 * grumpkin::fr(preaddress);
     EXPECT_CALL(ecc, scalar_mul(g1, preaddress)).WillOnce(Return(preaddress_public_key));
 

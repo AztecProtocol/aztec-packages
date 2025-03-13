@@ -93,7 +93,7 @@ TEST(AddressDerivationConstrainingTest, Basic)
     FF public_keys_hash = hash_public_keys(instance.public_keys);
     FF preaddress = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
 
-    EmbeddedCurvePoint g1 = EmbeddedCurvePoint(grumpkin::g1::affine_one);
+    EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
     EmbeddedCurvePoint preaddress_public_key = g1 * grumpkin::fr(preaddress);
     EmbeddedCurvePoint address_point = preaddress_public_key + instance.public_keys.incoming_viewing_key;
 
@@ -105,6 +105,8 @@ TEST(AddressDerivationConstrainingTest, Basic)
                         .preaddress_public_key = preaddress_public_key,
                         .address_point = address_point } },
                     trace);
+
+    EXPECT_EQ(trace.get_num_rows(), 1);
     check_relation<address_derivation_relation>(trace);
 }
 

@@ -28,7 +28,7 @@ void AddressDerivation::assert_derivation(const ContractInstance& instance)
 
     FF preaddress = poseidon2.hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
 
-    EmbeddedCurvePoint preaddress_public_key = ecc.scalar_mul(grumpkin::g1::affine_one, preaddress);
+    EmbeddedCurvePoint preaddress_public_key = ecc.scalar_mul(EmbeddedCurvePoint::one(), preaddress);
     EmbeddedCurvePoint address_point = ecc.add(preaddress_public_key, instance.public_keys.incoming_viewing_key);
 
     assert(instance.address == address_point.x());

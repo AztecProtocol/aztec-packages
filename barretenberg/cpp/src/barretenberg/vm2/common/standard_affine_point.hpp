@@ -57,6 +57,12 @@ template <typename AffinePoint> class StandardAffinePoint {
         return infinity;
     }
 
+    static StandardAffinePoint& one()
+    {
+        static auto one = StandardAffinePoint(AffinePoint::one());
+        return one;
+    }
+
   private:
     AffinePoint point;
     static constexpr const auto zero = BaseField::zero();
