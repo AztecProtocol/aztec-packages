@@ -33,11 +33,11 @@ export async function capturePrivateExecutionStepsIfEnvSet(label: string, intera
   const ivcFolder = process.env.CAPTURE_IVC_FOLDER;
   if (ivcFolder) {
     logger.info(`Capturing client ivc execution steps for ${label}`);
-    // const result = await interaction.profile({ profileMode: 'execution-steps' });
+    const result = await interaction.profile({ profileMode: 'execution-steps' });
     const resultsDirectory = path.join(ivcFolder, label);
     logger.info(`Writing private execution steps to ${resultsDirectory}`);
-    // await fs.mkdir(resultsDirectory, { recursive: true });
-    // await _createClientIvcProofFiles(resultsDirectory, result.executionSteps);
+    await fs.mkdir(resultsDirectory, { recursive: true });
+    await _createClientIvcProofFiles(resultsDirectory, result.executionSteps);
     logger.info(`Wrote private execution steps to ${resultsDirectory}`);
   }
 }

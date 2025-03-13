@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+[ -n "$cmd" ] && shift
+
 hash=$(../bootstrap.sh hash)
 
 function test_cmds {
@@ -140,32 +142,28 @@ function test {
 }
 
 # Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
-function bb_client_ivc_captures {
-  export CAPTURE_IVC_FOLDER=client-ivc-inputs-out
+function generate_private_flows_ivc_inputs {
+  export CAPTURE_IVC_FOLDER="$1"
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
-    echo "$(pwd)/$CAPTURE_IVC_FOLDER"
     return
   fi
-
-    # scripts/run_test.sh simple e2e_amm
-    # scripts/run_test.sh simple e2e_nft
-  # This is a bit of a hack, but we need to run the test again to reliably generate the inputs
-  # as otherwise test caching might get in the way.
-  # TODO parallel should call scripts/run_test.sh simple e2e_amm and others
+  # Running these again separately from tests is a bit of a hack,
+  # but we need to ensure test caching does not get in the way.
   echo "
+    scripts/run_test.sh simple e2e_amm
+    scripts/run_test.sh simple e2e_nft
     scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
   " | parallel --line-buffer --halt now,fail=1
-  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
-  echo "$(pwd)/$CAPTURE_IVC_FOLDER"
+  cache_upload bb-client-ivc-captures-$hash.tar.gz $1
 }
 
 function bench {
+  rm -rf bench-out
   mkdir -p bench-out
   if cache_download yarn-project-bench-results-$hash.tar.gz; then
     return
   fi
-  BENCH_OUTPUT=bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
-  # ../../barretenberg/cpp/build-release/bb prove -o out.proof -b yarn-project/end-to-end/client-ivc-inputs-out/amm-swap-exact-tokens/acir.msgpack -w yarn-project/end-to-end/client-ivc-inputs-out/amm-swap-exact-tokens/witnesses.msgpack  --scheme client_ivc --input_type runtime_stack
+  BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
   cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json
 }
 
@@ -173,7 +171,10 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  test|test_cmds|bench|bb_client_ivc_captures)
+  generate_private_flows_ivc_inputs)
+    generate_private_flows_ivc_inputs $@
+    ;;
+  test|test_cmds|bench)
     $cmd
     ;;
   *)
