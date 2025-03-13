@@ -8,24 +8,40 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
+#include "barretenberg/vm2/generated/relations/perms_merkle_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
-
 // TODO(dbanks12): is this okay? Should this merkle lib be moved to common?
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
+#include "barretenberg/vm2/simulation/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/poseidon2.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using simulation::EventEmitter;
+using simulation::MerkleCheck;
+using simulation::MerkleCheckEvent;
+using simulation::Poseidon2;
+using simulation::Poseidon2HashEvent;
+using simulation::Poseidon2PermutationEvent;
 using simulation::root_from_path;
+
 using tracegen::MerkleCheckTraceBuilder;
+using tracegen::PermutationBuilder;
+using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
+
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using merkle_check = bb::avm2::merkle_check<FF>;
-using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+
+using permutation_poseidon2_hash = bb::avm2::perm_merkle_check_perm_merkle_poseidon2_relation<FF>;
 
 TEST(MerkleCheckConstrainingTest, EmptyRow)
 {
@@ -280,7 +296,7 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsLeafValue)
 {
     FF left_hash = FF(123);
     FF right_hash = FF(456);
-    FF output_hash = Poseidon2::hash({ left_hash, right_hash });
+    FF output_hash = UnconstrainedPoseidon2::hash({ left_hash, right_hash });
 
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
@@ -300,7 +316,7 @@ TEST(MerkleCheckConstrainingTest, NegativeOutputHashIsNextRowsLeafValue)
 {
     FF left_hash = FF(123);
     FF right_hash = FF(456);
-    FF output_hash = Poseidon2::hash({ left_hash, right_hash });
+    FF output_hash = UnconstrainedPoseidon2::hash({ left_hash, right_hash });
     FF wrong_next_leaf_value = output_hash + 1; // Incorrect value
 
     TestTraceContainer trace({
@@ -383,12 +399,43 @@ TEST(MerkleCheckConstrainingTest, NegativeWithTracegen)
 
     // Use a trace manipulation to break the output hash value in the last row
     auto rows = trace.as_rows();
-    // Corrupt the last row's output hash
-    trace.set(C::merkle_check_output_hash, static_cast<uint32_t>(rows.size() - 1), incorrect_root);
+    // Corrupt the last row
+    trace.set(C::merkle_check_path_len, static_cast<uint32_t>(rows.size() - 1), 66);
 
     // The relation should fail
-    // TODO(dbanks12): should fail due to PERM_MERKLE_POSEIDON2
-    // EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");
+}
+
+TEST(MerkleCheckConstrainingTest, WithHashInteraction)
+{
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+
+    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    MerkleCheckTraceBuilder builder;
+    Poseidon2TraceBuilder poseidon2_builder;
+
+    FF leaf_value = 333;
+    uint64_t leaf_index = 30;
+    std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
+    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root);
+
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+    // builder.process({ { .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root =
+    // root } },
+    builder.process(merkle_event_emitter.dump_events(), trace);
+
+    PermutationBuilder<permutation_poseidon2_hash::Settings>().process(trace);
+
+    check_interaction<permutation_poseidon2_hash>(trace);
 }
 
 } // namespace

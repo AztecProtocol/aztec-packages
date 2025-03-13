@@ -32,6 +32,7 @@ TEST(MerkleCheckSimulationTest, AssertMembership)
         .root = root,
     };
 
+    // TODO(dbanks12): expect sibling_path.size() poseidon events
     EXPECT_THAT(emitter.dump_events(), ElementsAre(expect_event));
 }
 
