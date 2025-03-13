@@ -39,7 +39,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTrees);
   }
 
-  static async create(blockNumber = DEFAULT_BLOCK_NUMBER): Promise<AvmSimulationTester> {
+  static async create(): Promise<AvmSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
@@ -52,7 +52,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       trace,
       /*doMerkleOperations=*/ false,
       firstNullifier,
-      blockNumber,
+      DEFAULT_BLOCK_NUMBER,
     );
     return new AvmSimulationTester(contractDataSource, merkleTrees, stateManager);
   }

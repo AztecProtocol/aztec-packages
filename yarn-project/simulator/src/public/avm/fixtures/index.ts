@@ -26,6 +26,7 @@ import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
+import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
 import type { WorldStateDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
@@ -77,7 +78,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.doMerkleOperations || false,
     overrides?.db || mock<MerkleTreeWriteOperations>(),
     overrides?.firstNullifier || new Fr(27),
-    overrides?.blockNumber || 0,
+    overrides?.blockNumber || DEFAULT_BLOCK_NUMBER,
   );
 }
 
