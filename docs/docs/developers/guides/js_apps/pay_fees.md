@@ -63,7 +63,7 @@ First get the node info and create a public client pointing to the sandbox's anv
 
 Now import and create a new fee juice portal manager the L1FeeJuicePortalManager
 
-```
+```ts
 import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
 
 l1PortalManager = await L1FeeJuicePortalManager.new(
@@ -76,7 +76,7 @@ l1PortalManager = await L1FeeJuicePortalManager.new(
 
 Bridge the tokens via minting them from L1, eg if you have an array of unfunded Aztec addresses, `myAddresses`
 
-```
+```ts
 const claimAmount = 10n ** 22n;
 let claims: L2AmountClaim[] = [];
 // bridge sequentially to avoid l1 txs (nonces) being processed out of order
@@ -86,11 +86,10 @@ for (let i = 0; i < myAddresses.length; i++) {
 ```
 
 After any two other transactions are made, the resulting object can then be used to claim fee-juice, or alternatively, claim and pay for a transaction in one.
-```
 
 Here we will use the account managers and wallets of `myAddresses` to create the payment method, and use it for accounts to claim fee juice and pay for their own deployment.
 
-```
+```ts
 // claim and pay to deploy accounts
 let sentTxs = [];
 for (let i = 0; i < myWallets.length; i++) {
