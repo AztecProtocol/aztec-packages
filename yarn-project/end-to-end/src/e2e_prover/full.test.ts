@@ -290,9 +290,9 @@ describe('full_prover', () => {
   });
 
   it.only('can deploy the bot', async () => {
+    await setupCanonicalFeeJuice(t.provenComponents[0].pxe);
     const [account] = await getInitialTestAccounts();
     await deployFundedSchnorrAccount(t.provenComponents[0].pxe, account);
-    await setupCanonicalFeeJuice(t.provenComponents[0].pxe);
     const factory = new BotFactory(
       {
         ...getBotDefaultConfig(),
