@@ -23,7 +23,6 @@ use crate::discovery::{
 };
 use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::decrypt_log;
 use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
-use crate::encrypted_logs::log_assembly_strategies::default_aes128::utils_to_nuke::be_bytes_32_to_fields;
 
 pub global PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN: u32 = 1;
 /// Partial notes have a maximum packed length of their private fields bound by extra content in their private log (i.e.
@@ -92,7 +91,11 @@ pub unconstrained fn do_process_log<Env>(
             recipient,
         );
     } else {
-        panic(f"Unknown log type id {log_type_id}");
+        debug_log_format(
+            "Unknown log type id {0} (probably belonging to an event log)",
+            [log_type_id],
+        );
+        // panic(f"Unknown log type id {log_type_id}");
     }
 }
 

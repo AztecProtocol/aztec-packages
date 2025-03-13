@@ -504,14 +504,14 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
           ],
           [
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePrivateLog(tags[1]).toBuffer(),
+              log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
           ],
@@ -528,12 +528,12 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePublicLog(tags[0]).toBuffer(),
+              log: makePublicLog(tags[0]),
               isFromPublic: true,
             }),
           ],
@@ -558,12 +558,12 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: newBlockNumber,
-              logData: newLog.toBuffer(),
+              log: newLog,
               isFromPublic: false,
             }),
           ],
@@ -582,7 +582,7 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[1]).toBuffer(),
+              log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
           ],
