@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741870162464,
+  "lastUpdate": 1741870173366,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "58cbafe823630678e2cf3998fc4e135bcaefac73",
-          "message": "feat: Get blobs from blob archive if not found in blob sink (#12498)\n\nBlob sink now falls back to a blob archive source to fetch a requested\nblob if not in local storage. Blobs are deserialized before storing, so\nwe validate that they correspond to an Aztec tx (though they may not be\nfrom the same L2 chain being served by the blob sink, but I think that's\nacceptable).\n\nFor now we rely on blobscan API for fetching these archives. The\nfallback can be set manually via a `BLOB_SINK_ARCHIVE_API_URL` env var,\nand is set automatically if L1 chain id is mainnet or sepolia.\n\nNote that blobscan sepolia has stopped syncing since the Pectra upgrade\nyesterday, but hopefully they'll be back up soon.",
-          "timestamp": "2025-03-07T12:30:59Z",
-          "tree_id": "09bb1026c393b6e0f1bc363f1f49af2b93f53df9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/58cbafe823630678e2cf3998fc4e135bcaefac73"
-        },
-        "date": 1741352774373,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18440.582222000103,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16337.966802 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18803.20985499998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16320.414021 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3910.54919599992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3136.1773 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55195.127003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55195127000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9841.223808,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9841227000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1898524318,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1898524318 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 213490389,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 213490389 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3594,6 +3522,78 @@ window.BENCHMARK_DATA = {
             "value": 221716053,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 221716053 ns\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2209.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ad290061ee3b5ff094445c2f181c4567a60bd396",
+          "message": "feat: restore system metrics (#12672)\n\nThis restores the disabled `system.*` metrics and aggregates the cpu\nmetric to avoid big jumps in cardinality",
+          "timestamp": "2025-03-13T11:53:00Z",
+          "tree_id": "3c29e602f7f723b361894c43b8c3b975282aef01",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ad290061ee3b5ff094445c2f181c4567a60bd396"
+        },
+        "date": 1741870164638,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18075.813453000137,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15940.172042000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18612.1978409999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16143.285574 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3746.290598000087,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3034.6969050000007 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54852.061035000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54852063000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11540.130744,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11540137000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1602768868,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 1602768868 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 217708201,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 217708201 ns\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
