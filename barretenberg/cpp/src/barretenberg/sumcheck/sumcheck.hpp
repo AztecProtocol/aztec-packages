@@ -181,14 +181,12 @@ template <typename Flavor> class SumcheckProver {
      * @param relation_parameters
      * @param alpha Batching challenge for subrelations.
      * @param gate_challenges
-     * @param num_of_chunks
      * @return SumcheckOutput
      */
     SumcheckOutput<Flavor> prove(ProverPolynomials& full_polynomials,
                                  const bb::RelationParameters<FF>& relation_parameters,
                                  const RelationSeparator alpha,
-                                 const std::vector<FF>& gate_challenges,
-                                 size_t num_of_chunks = 1)
+                                 const std::vector<FF>& gate_challenges)
     {
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
@@ -196,8 +194,7 @@ template <typename Flavor> class SumcheckProver {
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the zk_sumcheck_data.
-        auto round_univariate =
-            round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alpha, num_of_chunks);
+        auto round_univariate = round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alpha);
         // Initialize the partially evaluated polynomials which will be used in the following rounds.
         // This will use the information in the structured full polynomials to save memory if possible.
         partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
@@ -221,8 +218,8 @@ template <typename Flavor> class SumcheckProver {
             PROFILE_THIS_NAME("sumcheck loop");
 
             // Write the round univariate to the transcript
-            round_univariate = round.compute_univariate(
-                partially_evaluated_polynomials, relation_parameters, gate_separators, alpha, num_of_chunks);
+            round_univariate =
+                round.compute_univariate(partially_evaluated_polynomials, relation_parameters, gate_separators, alpha);
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
