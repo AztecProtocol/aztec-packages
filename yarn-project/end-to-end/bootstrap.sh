@@ -5,21 +5,14 @@ cmd=${1:-}
 
 hash=$(../bootstrap.sh hash)
 
-function profiled_e2e {
-
-}
-
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash $run_test_script"
 
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
-    # Only capture these for 'full ci'.
-    capture_ivc_folder="client-ivc-inputs-out"
   else
     echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
-    capture_ivc_folder=""
   fi
 
   # Longest-running tests first
@@ -27,7 +20,7 @@ function test_cmds {
 
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
-  echo "$hash CAPTURE_IVC_FOLDER='$capture_ivc_folder' $run_test_script simple e2e_amm"
+  echo "$prefix simple e2e_amm"
   echo "$prefix simple e2e_authwit"
   echo "$prefix simple e2e_avm_simulator"
   echo "$prefix simple e2e_contract_updates"
@@ -146,15 +139,28 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+# Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
+function bb_client_ivc_captures {
+  if cache_download bb-client-ivc-captures-$hash.tar.gz; then
+    return
+  fi
+  # This is a bit of a hack, but we need to run the test again to reliably generate the inputs
+  # as otherwise test caching might get in the way.
+  export CAPTURE_IVC_FOLDER=client-ivc-inputs-out
+
+  # TODO parallel should call scripts/run_test.sh simple e2e_amm and others
+  echo "
+    scripts/run_test.sh simple e2e_amm
+  " | parallel --line-buffer --halt now,fail=1
+}
+
 function bench {
   mkdir -p bench-out
   if cache_download yarn-project-bench-results-$hash.tar.gz; then
     return
   fi
   BENCH_OUTPUT=bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
-  echo "$hash CAPTURE_IVC_FOLDER='$capture_ivc_folder' $run_test_script simple e2e_amm"
-  benchmarks=
-  ../../barretenberg/cpp/build-release/bb prove -o out.proof -b yarn-project/end-to-end/client-ivc-inputs-out/amm-swap-exact-tokens/acir.msgpack -w yarn-project/end-to-end/client-ivc-inputs-out/amm-swap-exact-tokens/witnesses.msgpack  --scheme client_ivc --input_type runtime_stack
+  # ../../barretenberg/cpp/build-release/bb prove -o out.proof -b yarn-project/end-to-end/client-ivc-inputs-out/amm-swap-exact-tokens/acir.msgpack -w yarn-project/end-to-end/client-ivc-inputs-out/amm-swap-exact-tokens/witnesses.msgpack  --scheme client_ivc --input_type runtime_stack
   cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json
 }
 
@@ -162,7 +168,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  test|test_cmds|bench)
+  test|test_cmds|bench|bb_client_ivc_captures)
     $cmd
     ;;
   *)

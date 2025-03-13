@@ -241,7 +241,7 @@ function bench {
   }
   function client_ivc_wasm {
     wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
-      ./build-wasm-threads/bin/client_ivc_bench \
+      ./build-wasm-threads/bin/client_ivc_bench \i
         --benchmark_out=./bench-out/client_ivc_wasm.json \
         --benchmark_filter="ClientIVCBench/Full/6$"
   }
