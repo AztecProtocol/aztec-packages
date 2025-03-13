@@ -1,4 +1,5 @@
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 #include <cassert>
@@ -8,6 +9,14 @@ namespace bb::avm2::simulation {
 // HintedRawContractDB starts.
 HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
 {
+    vinfo("Initializing HintedRawContractDB with ",
+          hints.contractInstances.size(),
+          " contract instances, ",
+          hints.contractClasses.size(),
+          " contract classes, and ",
+          hints.bytecodeCommitments.size(),
+          " bytecode commitments.");
+
     for (const auto& contract_instance_hint : hints.contractInstances) {
         // TODO(fcarreiro): We are currently generating duplicates in TS.
         // assert(!contract_instances.contains(contract_instance_hint.address));
@@ -15,8 +24,15 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
     }
 
     for (const auto& contract_class_hint : hints.contractClasses) {
-        assert(!contract_classes.contains(contract_class_hint.classId));
+        // TODO(fcarreiro): We are currently generating duplicates in TS.
+        // assert(!contract_classes.contains(contract_class_hint.classId));
         contract_classes[contract_class_hint.classId] = contract_class_hint;
+    }
+
+    for (const auto& bytecode_commitment_hint : hints.bytecodeCommitments) {
+        // TODO(fcarreiro): We are currently generating duplicates in TS.
+        // assert(!bytecode_commitments.contains(bytecode_commitment_hint.classId));
+        bytecode_commitments[bytecode_commitment_hint.classId] = bytecode_commitment_hint.commitment;
     }
 }
 
@@ -49,9 +65,16 @@ ContractClass HintedRawContractDB::get_contract_class(const ContractClassId& cla
     return {
         .artifact_hash = contract_class_hint.artifactHash,
         .private_function_root = contract_class_hint.privateFunctionsRoot,
-        .public_bytecode_commitment = contract_class_hint.publicBytecodeCommitment,
+        // We choose to embed the bytecode commitment in the contract class.
+        .public_bytecode_commitment = get_bytecode_commitment(class_id),
         .packed_bytecode = contract_class_hint.packedBytecode,
     };
+}
+
+FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    assert(bytecode_commitments.contains(class_id));
+    return bytecode_commitments.at(class_id);
 }
 
 // Hinted MerkleDB starts.

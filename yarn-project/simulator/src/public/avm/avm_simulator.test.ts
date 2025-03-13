@@ -1,4 +1,3 @@
-import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import {
   Grumpkin,
   keccak256,
@@ -23,10 +22,9 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
-import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { randomInt } from 'crypto';
@@ -34,7 +32,7 @@ import { mock } from 'jest-mock-extended';
 
 import { SideEffectTrace } from '../../public/side_effect_trace.js';
 import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
@@ -73,25 +71,17 @@ import {
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 import {
+  mockCheckNullifierExists,
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockGetNullifierIndex,
+  mockGetNoteHashIfIndexMatches,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
-  mockNoteHashExists,
   mockStorageRead,
   mockStorageReadWithMap,
   mockTraceFork,
 } from './test_utils.js';
-
-const siloAddress = (contractAddress: AztecAddress) => {
-  const contractAddressNullifier = siloNullifier(
-    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-    contractAddress.toField(),
-  );
-  return contractAddressNullifier;
-};
 
 describe('AVM simulator: injected bytecode', () => {
   let calldata: Fr[];
@@ -558,10 +548,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const listSlot1 = new Fr(listSlotNumber1);
     const value0 = new Fr(420);
     const value1 = new Fr(69);
+    const firstNullifier = new Fr(99);
     let siloedNullifier0: Fr;
 
-    let db: MerkleTreeWriteOperations;
-    let worldStateDB: WorldStateDB;
+    let treesDB: PublicTreesDB;
+    let contractsDB: PublicContractsDB;
     let trace: PublicSideEffectTraceInterface;
     let persistableState: AvmPersistableStateManager;
 
@@ -570,11 +561,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
 
     beforeEach(() => {
-      db = mock<MerkleTreeWriteOperations>();
-      worldStateDB = mock<WorldStateDB>();
-      (worldStateDB as jest.Mocked<WorldStateDB>).getMerkleInterface.mockReturnValue(db);
+      treesDB = mock<PublicTreesDB>();
+      contractsDB = mock<PublicContractsDB>();
       trace = mock<PublicSideEffectTraceInterface>();
-      persistableState = initPersistableStateManager({ worldStateDB, trace });
+      persistableState = initPersistableStateManager({ treesDB, contractsDB, trace, firstNullifier });
     });
 
     const createContext = (calldata: Fr[] = []) => {
@@ -601,20 +591,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('note_hash_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockNoteHashExists(worldStateDB, mockAtLeafIndex, value0);
+          mockGetNoteHashIfIndexMatches(treesDB, mockAtLeafIndex, value0);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
-        const expectedValue = results.output[0].toNumber() === 1 ? value0 : Fr.ZERO;
-        expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
-        expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
-          address,
-          /*noteHash=*/ expectedValue,
-          leafIndex,
-          /*exists=*/ expectFound,
-        );
       });
     });
 
@@ -625,19 +607,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
 
-        if (exists) {
-          mockGetNullifierIndex(worldStateDB, leafIndex, siloedNullifier0);
-        }
+        mockCheckNullifierExists(treesDB, exists);
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([exists ? Fr.ONE : Fr.ZERO]);
-
-        expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-        const isPending = false;
-        // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        const _tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier0, exists);
       });
     });
 
@@ -659,24 +633,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(worldStateDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
-
-        expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
-        let expectedValue = results.output[0].toNumber() === 1 ? value0 : value1;
-        if (mockAtLeafIndex === undefined) {
-          expectedValue = Fr.ZERO;
-        }
-        expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
-          address,
-          /*msgHash=*/ expectedValue,
-          leafIndex,
-          /*exists=*/ expectFound,
-        );
       });
     });
 
@@ -692,7 +654,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(context.persistableState.firstNullifier, 0);
+      const nonce = await computeNoteHashNonce(firstNullifier, 0);
       const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
@@ -723,9 +685,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         // New nullifier and nullifier existence check should be traced
         expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
         expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
-        expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-        // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier0, /*exists=*/ true);
       });
       it(`Emits same nullifier twice (expect failure)`, async () => {
         const calldata = [value0];
@@ -775,7 +734,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
-        expect(await context.persistableState.peekStorage(address, slot)).toEqual(value0);
+        expect(await context.persistableState.readStorage(address, slot)).toEqual(value0);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, slot, value0, false);
@@ -783,16 +742,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it('Should read value in storage (single)', async () => {
         const context = createContext();
-        mockStorageRead(worldStateDB, value0);
+        mockStorageRead(treesDB, value0);
 
         const bytecode = getAvmTestContractBytecode('read_storage_single');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0]);
-
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, slot, value0);
       });
 
       it('Should set and read a value from storage (single)', async () => {
@@ -807,8 +763,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, slot, value0, false);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, slot, value0);
       });
 
       it('Should set a value in storage (list)', async () => {
@@ -820,8 +774,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
-        expect(await context.persistableState.peekStorage(address, listSlot0)).toEqual(calldata[0]);
-        expect(await context.persistableState.peekStorage(address, listSlot1)).toEqual(calldata[1]);
+        expect(await context.persistableState.readStorage(address, listSlot0)).toEqual(calldata[0]);
+        expect(await context.persistableState.readStorage(address, listSlot1)).toEqual(calldata[1]);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(2);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, listSlot0, value0, false);
@@ -834,17 +788,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           [listSlot0.toBigInt(), value0],
           [listSlot1.toBigInt(), value1],
         ]);
-        mockStorageReadWithMap(worldStateDB, mockedStorage);
+        mockStorageReadWithMap(treesDB, mockedStorage);
 
         const bytecode = getAvmTestContractBytecode('read_storage_list');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0, value1]);
-
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(2);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, listSlot0, value0);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, listSlot1, value1);
       });
 
       it('Should set a value in storage (map)', async () => {
@@ -860,7 +810,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const mapSlotNumber = results.output[0].toBigInt();
         const mapSlot = new Fr(mapSlotNumber);
 
-        expect(await context.persistableState.peekStorage(address, mapSlot)).toEqual(value0);
+        expect(await context.persistableState.readStorage(address, mapSlot)).toEqual(value0);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, mapSlot, value0, false);
@@ -879,10 +829,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const mapSlotNumber = results.output[0].toBigInt();
         const mapSlot = new Fr(mapSlotNumber);
 
-        expect(await context.persistableState.peekStorage(address, mapSlot)).toEqual(value0);
+        expect(await context.persistableState.readStorage(address, mapSlot)).toEqual(value0);
 
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, mapSlot, Fr.zero());
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, mapSlot, value0, false);
       });
@@ -891,16 +839,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const calldata = [address.toField()];
 
         const context = createContext(calldata);
-        mockStorageRead(worldStateDB, value0);
+        mockStorageRead(treesDB, value0);
         const bytecode = getAvmTestContractBytecode('read_storage_map');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0]);
-
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        // slot is the result of a pedersen hash and is therefore not known in the test
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(address, expect.anything(), value0);
       });
     });
 
@@ -925,20 +869,17 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         });
         const contractInstanceWithAddress = contractInstance.withAddress(address);
         // mock once per enum value (deployer, classId, initializationHash)
-        mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
-        mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
-        mockGetContractInstance(worldStateDB, contractInstanceWithAddress);
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstanceWithAddress.address));
+        mockGetContractInstance(contractsDB, contractInstanceWithAddress);
+        mockGetContractInstance(contractsDB, contractInstanceWithAddress);
+        mockGetContractInstance(contractsDB, contractInstanceWithAddress);
+        mockCheckNullifierExists(treesDB, true);
+        mockCheckNullifierExists(treesDB, true);
+        mockCheckNullifierExists(treesDB, true);
 
         const bytecode = getAvmTestContractBytecode('test_get_contract_instance');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
-
-        expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(3); // called for each enum value
-        expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ true, contractInstance);
       });
     });
 
@@ -968,11 +909,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
-        mockGetContractClass(worldStateDB, contractClass);
-        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+        mockGetContractClass(contractsDB, contractClass);
+        mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-        mockGetContractInstance(worldStateDB, contractInstance);
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetContractInstance(contractsDB, contractInstance);
+        mockCheckNullifierExists(treesDB, true);
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -992,11 +933,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
-        mockGetContractClass(worldStateDB, contractClass);
+        mockGetContractClass(contractsDB, contractClass);
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-        mockGetContractInstance(worldStateDB, contractInstance);
-        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetContractInstance(contractsDB, contractInstance);
+        mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+        mockCheckNullifierExists(treesDB, true);
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -1019,11 +960,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           bytecode: artifact.bytecode,
           selector: FunctionSelector.random(),
         });
-        mockGetContractClass(worldStateDB, contractClass);
-        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+        mockGetContractClass(contractsDB, contractClass);
+        mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-        mockGetContractInstance(worldStateDB, contractInstance);
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetContractInstance(contractsDB, contractInstance);
+        mockCheckNullifierExists(treesDB, true);
 
         mockTraceFork(trace);
 
@@ -1041,11 +982,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
-        mockGetContractClass(worldStateDB, contractClass);
-        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+        mockGetContractClass(contractsDB, contractClass);
+        mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-        mockGetContractInstance(worldStateDB, contractInstance);
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetContractInstance(contractsDB, contractInstance);
+        mockCheckNullifierExists(treesDB, true);
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -1071,11 +1012,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
-        mockGetContractClass(worldStateDB, contractClass);
-        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+        mockGetContractClass(contractsDB, contractClass);
+        mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-        mockGetContractInstance(worldStateDB, contractInstance);
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetContractInstance(contractsDB, contractInstance);
+        mockCheckNullifierExists(treesDB, true);
 
         mockTraceFork(trace);
 
@@ -1096,11 +1037,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           bytecode: nestedBytecode,
           selector: FunctionSelector.random(),
         });
-        mockGetContractClass(worldStateDB, contractClass);
-        mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+        mockGetContractClass(contractsDB, contractClass);
+        mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-        mockGetContractInstance(worldStateDB, contractInstance);
-        mockGetNullifierIndex(worldStateDB, await siloAddress(contractInstance.address));
+        mockGetContractInstance(contractsDB, contractInstance);
+        mockCheckNullifierExists(treesDB, true);
 
         mockTraceFork(trace);
 
@@ -1112,7 +1053,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     describe('Side effect trace errors on overflow', () => {
       const trace = new SideEffectTrace();
-      const persistableState = initPersistableStateManager({ worldStateDB, trace });
+      const persistableState = initPersistableStateManager({ treesDB, trace });
 
       it.each([
         ['Public storage writes', () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
@@ -1164,7 +1105,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let siloedNullifier0: Fr;
     let uniqueNoteHash0: Fr;
 
-    let merkleTrees: MerkleTreeWriteOperations;
+    let treesDB: PublicTreesDB;
+    let contractsDB: PublicContractsDB;
     let trace: PublicSideEffectTraceInterface;
     let persistableState: AvmPersistableStateManager;
 
@@ -1183,14 +1125,15 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       mockNoteHashCount(trace, noteHashIndexInTx);
 
       const contractDataSource = new SimpleContractDataSource();
-      merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-      const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+      const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+      treesDB = new PublicTreesDB(merkleTrees);
+      contractsDB = new PublicContractsDB(contractDataSource);
 
       persistableState = initPersistableStateManager({
-        worldStateDB,
+        treesDB,
+        contractsDB,
         trace,
         doMerkleOperations: true,
-        db: merkleTrees,
         firstNullifier,
       });
     });
@@ -1205,10 +1148,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     describe('Note hashes', () => {
       it('Should append new note hash correctly', async () => {
         const calldata = [value0];
-        const treeInfo = await merkleTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-        const leafIndex = treeInfo.size;
-        const insertionPath = await merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
-
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('new_note_hash');
 
@@ -1217,17 +1156,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([]);
 
         expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-        expect(trace.traceNewNoteHash).toHaveBeenCalledWith(
-          uniqueNoteHash0,
-          new Fr(leafIndex),
-          insertionPath.toFields(),
-        );
+        expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash0);
       });
       it('Note hash check properly returns exists=false', async () => {
-        const treeInfo = await merkleTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+        const treeInfo = await treesDB.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
         const leafIndex = treeInfo.size;
-
-        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex)).toFields();
 
         const calldata = [uniqueNoteHash0, new Fr(leafIndex)];
         const context = createContext(calldata);
@@ -1236,22 +1169,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([/*exists=*/ Fr.ZERO]);
-
-        expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
-        expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
-          address,
-          /*gotLeafValue=*/ Fr.ZERO,
-          new Fr(leafIndex),
-          /*exists=*/ false,
-          leafPath,
-        );
       });
       it('Note hash check properly returns exists=true', async () => {
-        const treeInfo = await merkleTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+        const treeInfo = await treesDB.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
         const leafIndex = treeInfo.size;
-        await merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash0]);
-
-        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex)).toFields();
+        await treesDB.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash0]);
 
         const calldata = [uniqueNoteHash0, new Fr(leafIndex)];
         const context = createContext(calldata);
@@ -1260,33 +1182,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([/*exists=*/ Fr.ONE]);
-
-        expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
-        expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
-          address,
-          uniqueNoteHash0,
-          new Fr(leafIndex),
-          /*exists=*/ true,
-          leafPath,
-        );
       });
     });
     describe('Nullifiers', () => {
       it('Should append a new nullifier correctly', async () => {
         const calldata = [value0];
-
-        const {
-          preimage: lowLeafPreimage,
-          leafOrLowLeafIndex: lowLeafIndex,
-          alreadyPresent: leafAlreadyPresent,
-        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.NULLIFIER_TREE, NullifierLeafPreimage>(
-          MerkleTreeId.NULLIFIER_TREE,
-          siloedNullifier0.toBigInt(),
-        );
-        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafIndex)).toFields();
-        expect(leafAlreadyPresent).toEqual(false);
-        expect(lowLeafPreimage.nullifier).not.toEqual(siloedNullifier0);
-
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('new_nullifier');
 
@@ -1295,217 +1195,66 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([]);
 
         expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-        expect(trace.traceNewNullifier).toHaveBeenCalledWith(
-          siloedNullifier0,
-          lowLeafPreimage,
-          new Fr(lowLeafIndex),
-          lowLeafPath,
-          expect.anything(), // can't know path without performing test insertion
-        );
+        expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
       });
       it('Nullifier check properly returns exists=false', async () => {
         const calldata = [value0];
-
-        const {
-          preimage: lowLeafPreimage,
-          leafOrLowLeafIndex: lowLeafIndex,
-          alreadyPresent: leafAlreadyPresent,
-        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.NULLIFIER_TREE, NullifierLeafPreimage>(
-          MerkleTreeId.NULLIFIER_TREE,
-          siloedNullifier0.toBigInt(),
-        );
-        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafIndex)).toFields();
-
-        expect(leafAlreadyPresent).toEqual(false);
-        expect(lowLeafPreimage.nullifier).not.toEqual(siloedNullifier0);
-
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([/*exists=*/ Fr.ZERO]);
-
-        expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          siloedNullifier0,
-          /*exists=*/ false,
-          lowLeafPreimage,
-          new Fr(lowLeafIndex),
-          lowLeafPath,
-        );
       });
       it('Nullifier check properly returns exists=true', async () => {
         const calldata = [value0];
-        await merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier0.toBuffer()]);
-
-        const {
-          preimage: leafPreimage,
-          leafOrLowLeafIndex: leafIndex,
-          alreadyPresent: leafAlreadyPresent,
-        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.NULLIFIER_TREE, NullifierLeafPreimage>(
-          MerkleTreeId.NULLIFIER_TREE,
-          siloedNullifier0.toBigInt(),
-        );
-        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex)).toFields();
-
-        expect(leafAlreadyPresent).toEqual(true);
-        expect(leafPreimage.nullifier).toEqual(siloedNullifier0);
-
+        await treesDB.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier0.toBuffer()]);
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([/*exists=*/ Fr.ONE]);
-
-        expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          siloedNullifier0,
-          /*exists=*/ true,
-          leafPreimage,
-          new Fr(leafIndex),
-          leafPath,
-        );
       });
     });
     describe('Public storage accesses', () => {
       it('Should set value in storage (single)', async () => {
         const calldata = [value0];
-        const {
-          preimage: lowLeafPreimage,
-          leafOrLowLeafIndex: lowLeafIndex,
-          alreadyPresent: leafAlreadyPresent,
-        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          leafSlot0.toBigInt(),
-        );
-
-        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex)).toFields();
-
-        // leafSlot0 should NOT be present in the tree!
-        expect(leafAlreadyPresent).toEqual(false);
-        expect(lowLeafPreimage.slot).not.toEqual(leafSlot0);
-        const newLeafPreimage = new PublicDataTreeLeafPreimage(
-          leafSlot0,
-          value0,
-          lowLeafPreimage.nextSlot,
-          lowLeafPreimage.nextIndex,
-        );
-
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('set_storage_single');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
 
-        expect(await context.persistableState.peekStorage(address, slot0)).toEqual(value0);
+        expect(await context.persistableState.readStorage(address, slot0)).toEqual(value0);
 
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(
-          address,
-          slot0,
-          value0,
-          false,
-          lowLeafPreimage,
-          new Fr(lowLeafIndex),
-          lowLeafPath,
-          newLeafPreimage,
-          expect.anything(), // can't know path without performing test insertion
-        );
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, slot0, value0, false);
       });
 
       it('Should read value in storage (single) - never written', async () => {
         const context = createContext();
-
-        const {
-          preimage: lowLeafPreimage,
-          leafOrLowLeafIndex: lowLeafIndex,
-          alreadyPresent: leafAlreadyPresent,
-        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          leafSlot0.toBigInt(),
-        );
-
-        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex)).toFields();
-
-        // leafSlot0 should NOT be present in the tree!
-        expect(leafAlreadyPresent).toEqual(false);
-        expect(lowLeafPreimage.slot).not.toEqual(leafSlot0);
-
         const bytecode = getAvmTestContractBytecode('read_storage_single');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([Fr.zero()]);
-
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          slot0,
-          /*value=*/ Fr.zero(),
-          lowLeafPreimage,
-          new Fr(lowLeafIndex),
-          lowLeafPath,
-        );
       });
 
       it('Should read value in storage (single) - written before, leaf exists', async () => {
         const context = createContext();
         const publicDataWrite = new PublicDataWrite(leafSlot0, value0);
-        await merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
-
-        const { preimage: leafPreimage, leafOrLowLeafIndex: leafIndex } = await persistableState.getLeafOrLowLeafInfo<
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          PublicDataTreeLeafPreimage
-        >(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot0.toBigInt());
-
-        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex)).toFields();
-
-        // leafSlot0 should be present in the tree!
-        expect(leafPreimage.slot).toEqual(leafSlot0);
-        expect(leafPreimage.value).toEqual(value0);
+        await treesDB.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
 
         const bytecode = getAvmTestContractBytecode('read_storage_single');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0]);
-
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          slot0,
-          value0,
-          leafPreimage,
-          new Fr(leafIndex),
-          leafPath,
-        );
       });
 
       it('Should set and read value in storage (single)', async () => {
         const calldata = [value0];
-
-        const {
-          preimage: lowLeafPreimage,
-          leafOrLowLeafIndex: lowLeafIndex,
-          alreadyPresent: leafAlreadyPresent,
-        } = await persistableState.getLeafOrLowLeafInfo<MerkleTreeId.PUBLIC_DATA_TREE, PublicDataTreeLeafPreimage>(
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          leafSlot0.toBigInt(),
-        );
-        const lowLeafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafIndex)).toFields();
-
-        // leafSlot0 should NOT be present in the tree!
-        expect(leafAlreadyPresent).toEqual(false);
-        expect(lowLeafPreimage.slot).not.toEqual(leafSlot0);
-        const newLeafPreimage = new PublicDataTreeLeafPreimage(
-          leafSlot0,
-          value0,
-          lowLeafPreimage.nextSlot,
-          lowLeafPreimage.nextIndex,
-        );
-
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('set_read_storage_single');
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -1513,38 +1262,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([value0]);
 
-        const { preimage: leafPreimage, leafOrLowLeafIndex: leafIndex } = await persistableState.getLeafOrLowLeafInfo<
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          PublicDataTreeLeafPreimage
-        >(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot0.toBigInt());
-
-        const leafPath = (await merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex)).toFields();
-
-        // leafSlot0 should now be present in the tree!
-        expect(leafPreimage.slot).toEqual(leafSlot0);
-        expect(leafPreimage.value).toEqual(value0);
-
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(
-          address,
-          slot0,
-          value0,
-          false,
-          lowLeafPreimage,
-          new Fr(lowLeafIndex),
-          lowLeafPath,
-          newLeafPreimage,
-          expect.anything(), // can't know path without performing test insertion
-        );
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(1);
-        expect(trace.tracePublicStorageRead).toHaveBeenCalledWith(
-          address,
-          slot0,
-          value0,
-          leafPreimage,
-          new Fr(leafIndex),
-          leafPath,
-        );
+        expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, slot0, value0, false);
       });
     });
   });

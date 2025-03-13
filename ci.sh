@@ -272,6 +272,14 @@ case "$cmd" in
       # ./cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
       echo "$bb_hash" | redis_setexz last-publish-hashs-bb $seven_days
     fi
+  "uncached-tests")
+    if [ -z "$CI_REDIS_AVAILABLE" ]; then
+      echo "Not connected to CI redis."
+      exit 1
+    fi
+    ./bootstrap.sh test_cmds | \
+       grep -Ev -f <(yq e '.tests[] | select(.skip == true) | .regex' $root/.test_patterns.yml) | \
+       USE_TEST_CACHE=1 filter_cached_test_cmd
     ;;
   *)
     echo "Unknown command: $cmd, see ./ci.sh help"

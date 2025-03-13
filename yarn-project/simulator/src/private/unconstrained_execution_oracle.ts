@@ -23,7 +23,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
     protected readonly contractAddress: AztecAddress,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
-    protected readonly capsules: Capsule[],
+    protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
     protected readonly executionDataProvider: ExecutionDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
@@ -215,8 +215,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
    */
   public override async checkNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    const index = await this.executionDataProvider.getNullifierIndex(nullifier);
-    return index !== undefined;
+    return this.executionDataProvider.checkNullifierExists(nullifier);
   }
 
   /**
@@ -339,6 +338,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     return (
+      // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
       this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
       (await this.executionDataProvider.loadCapsule(this.contractAddress, slot))
     );

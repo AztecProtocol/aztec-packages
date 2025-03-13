@@ -1,6 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../../public_db_sources.js';
 
 /**
  * A class to manage new nullifier staging and existence checks during a contract call's AVM simulation.
@@ -10,7 +10,7 @@ import type { WorldStateDB } from '../../public_db_sources.js';
 export class NullifierManager {
   constructor(
     /** Reference to node storage. Checked on parent cache-miss. */
-    private readonly hostNullifiers: WorldStateDB,
+    private readonly hostNullifiers: PublicTreesDB,
     /** Cache of siloed nullifiers. */
     private cache: Set<bigint> = new Set(),
     /** Parent nullifier manager to fall back on */
@@ -57,15 +57,7 @@ export class NullifierManager {
     const cacheHit = this.checkExistsHereOrParent(siloedNullifier);
     let existsInTree = false;
     if (!cacheHit) {
-      // Finally try the host's Aztec state (a trip to the database)
-      //const leafOrLowLeafIndex = await this.hostNullifiers.db.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier.toBigInt());
-      //assert(
-      //  leafOrLowLeafIndex !== undefined,
-      //  `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]} low leaf index should always be found (even if target leaf does not exist)`,
-      //);
-      //existsInTree = leafOrLowLeafIndex.alreadyPresent;
-      const leafIndex = await this.hostNullifiers.getNullifierIndex(siloedNullifier);
-      existsInTree = leafIndex !== undefined;
+      existsInTree = await this.hostNullifiers.checkNullifierExists(siloedNullifier);
     }
     const exists = cacheHit || existsInTree;
     return Promise.resolve({ exists, cacheHit });

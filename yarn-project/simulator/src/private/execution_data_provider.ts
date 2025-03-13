@@ -9,7 +9,7 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { CommitmentsDB } from '../common/db_interfaces.js';
+import type { CommitmentsDBInterface } from '../common/db_interfaces.js';
 import type { NoteData } from './acvm/index.js';
 
 /**
@@ -33,7 +33,7 @@ export class ContractClassNotFoundError extends Error {
 /**
  * The interface for the data layer required to perform private and unconstrained execution.
  */
-export interface ExecutionDataProvider extends CommitmentsDB {
+export interface ExecutionDataProvider extends CommitmentsDBInterface {
   /**
    * Returns a contract instance associated with an address, if available.
    * @param address - Address.
@@ -110,11 +110,11 @@ export interface ExecutionDataProvider extends CommitmentsDB {
   getFunctionArtifactByName(contractAddress: AztecAddress, functionName: string): Promise<FunctionArtifact | undefined>;
 
   /**
-   * Gets the index of a nullifier in the nullifier tree.
+   * Checks if a nullifier exists in the nullifier tree.
    * @param nullifier - The nullifier.
-   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
+   * @returns - True if the nullifier exists in the tree, false otherwise.
    */
-  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
+  checkNullifierExists(nullifier: Fr): Promise<boolean>;
 
   /**
    * Retrieve the databases view of the Block Header object.

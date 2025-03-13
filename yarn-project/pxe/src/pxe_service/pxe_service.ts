@@ -1,6 +1,7 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { KeyStore } from '@aztec/key-store';
@@ -31,8 +32,9 @@ import {
   type ContractInstanceWithAddress,
   type NodeInfo,
   type PartialAddress,
+  computeContractAddressFromInstance,
+  getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
-import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { EventMetadata, L1EventPayload } from '@aztec/stdlib/event';
 import type { GasFees } from '@aztec/stdlib/gas';
@@ -79,7 +81,7 @@ import {
   type PrivateKernelExecutionProverConfig,
 } from '../private_kernel/private_kernel_execution_prover.js';
 import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
-import { PXEOracleInterface } from '../pxe_oracle_interface/index.js';
+import { PXEOracleInterface } from '../pxe_oracle_interface/pxe_oracle_interface.js';
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
@@ -111,6 +113,7 @@ export class PXEService implements PXE {
     private proofCreator: PrivateKernelProver,
     private protocolContractsProvider: ProtocolContractsProvider,
     private log: Logger,
+    private jobQueue: SerialQueue,
   ) {}
 
   /**
@@ -168,6 +171,8 @@ export class PXEService implements PXE {
       log,
     );
     const simulator = new AcirSimulator(pxeOracleInterface, simulationProvider);
+    const jobQueue = new SerialQueue();
+
     const pxeService = new PXEService(
       node,
       synchronizer,
@@ -185,11 +190,32 @@ export class PXEService implements PXE {
       proofCreator,
       protocolContractsProvider,
       log,
+      jobQueue,
     );
+
+    pxeService.jobQueue.start();
+
     await pxeService.#registerProtocolContracts();
     const info = await pxeService.getNodeInfo();
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
     return pxeService;
+  }
+
+  /**
+   * Enqueues a job for execution once no other jobs are running. Returns a promise that will resolve once the job is
+   * complete.
+   *
+   * Useful for tasks that cannot run concurrently, such as contract function simulation.
+   */
+  #putInJobQueue<T>(fn: () => Promise<T>): Promise<T> {
+    // TODO(#12636): relax the conditions under which we forbid concurrency.
+    if (this.jobQueue.length() != 0) {
+      this.log.warn(
+        `PXE is already processing ${this.jobQueue.length()} jobs, concurrent execution is not supported. Will run once those are complete.`,
+      );
+    }
+
+    return this.jobQueue.put(fn);
   }
 
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
@@ -372,35 +398,39 @@ export class PXEService implements PXE {
     );
   }
 
-  public async updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    const currentInstance = await this.contractDataProvider.getContractInstance(contractAddress);
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await this.synchronizer.sync();
+  public updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
+    // We disable concurrently updating contracts to avoid concurrently syncing with the node, or changing a contract's
+    // class while we're simulating it.
+    return this.#putInJobQueue(async () => {
+      const currentInstance = await this.contractDataProvider.getContractInstance(contractAddress);
+      const contractClass = await getContractClassFromArtifact(artifact);
+      await this.synchronizer.sync();
 
-    const header = await this.syncDataProvider.getBlockHeader();
+      const header = await this.syncDataProvider.getBlockHeader();
 
-    const currentClassId = await readCurrentClassId(
-      contractAddress,
-      currentInstance,
-      this.node,
-      header.globalVariables.blockNumber.toNumber(),
-    );
-    if (!contractClass.id.equals(currentClassId)) {
-      throw new Error('Could not update contract to a class different from the current one.');
-    }
+      const currentClassId = await readCurrentClassId(
+        contractAddress,
+        currentInstance,
+        this.node,
+        header.globalVariables.blockNumber.toNumber(),
+      );
+      if (!contractClass.id.equals(currentClassId)) {
+        throw new Error('Could not update contract to a class different from the current one.');
+      }
 
-    await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
+      await this.contractDataProvider.addContractArtifact(contractClass.id, artifact);
 
-    const publicFunctionSignatures = artifact.functions
-      .filter(fn => fn.functionType === FunctionType.PUBLIC)
-      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-    await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+      const publicFunctionSignatures = artifact.functions
+        .filter(fn => fn.functionType === FunctionType.PUBLIC)
+        .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+      await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
 
-    // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
-    await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
-    currentInstance.currentContractClassId = contractClass.id;
-    await this.contractDataProvider.addContractInstance(currentInstance);
-    this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
+      // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
+      await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
+      currentInstance.currentContractClassId = contractClass.id;
+      await this.contractDataProvider.addContractInstance(currentInstance);
+      this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
+    });
   }
 
   public getContracts(): Promise<AztecAddress[]> {
@@ -415,27 +445,19 @@ export class PXEService implements PXE {
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
-      let owner = filter.owner;
-      if (owner === undefined) {
+      let recipient = filter.recipient;
+      if (recipient === undefined) {
         const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
-        const completeAddressIndex = (
-          await Promise.all(completeAddresses.map(completeAddresses => completeAddresses.address.toAddressPoint()))
-        ).findIndex(addressPoint => addressPoint.equals(dao.addressPoint));
+        const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
+          completeAddress.address.equals(dao.recipient),
+        );
         const completeAddress = completeAddresses[completeAddressIndex];
         if (completeAddress === undefined) {
-          throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
+          throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
         }
-        owner = completeAddress.address;
+        recipient = completeAddress.address;
       }
-      return new UniqueNote(
-        dao.note,
-        owner,
-        dao.contractAddress,
-        dao.storageSlot,
-        dao.noteTypeId,
-        dao.txHash,
-        dao.nonce,
-      );
+      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.nonce);
     });
     return Promise.all(extendedNotes);
   }
@@ -464,71 +486,83 @@ export class PXEService implements PXE {
     return await this.node.getCurrentBaseFees();
   }
 
-  public async proveTx(
+  public proveTx(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
-    try {
-      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-        simulate: false,
-        skipFeeEnforcement: false,
-        profileMode: 'none',
-      });
-      return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
-    } catch (err: any) {
-      throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
-    }
+    // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
+    // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
+    return this.#putInJobQueue(async () => {
+      try {
+        const { publicInputs, clientIvcProof } = await this.#prove(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+          {
+            simulate: false,
+            skipFeeEnforcement: false,
+            profileMode: 'none',
+          },
+        );
+        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
+      } catch (err: any) {
+        throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
+      }
+    });
   }
-  public async profileTx(
+  public profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'full' | 'execution-steps' | 'gates',
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
-    try {
-      const txInfo = {
-        origin: txRequest.origin,
-        functionSelector: txRequest.functionSelector,
-        simulatePublic: false,
-        msgSender,
-        chainId: txRequest.txContext.chainId,
-        version: txRequest.txContext.version,
-        authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
-      };
-      this.log.info(
-        `Profiling transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
-        txInfo,
-      );
-      await this.synchronizer.sync();
-      const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
+    // We disable concurrent profiles for consistency with simulateTx.
+    return this.#putInJobQueue(async () => {
+      try {
+        const txInfo = {
+          origin: txRequest.origin,
+          functionSelector: txRequest.functionSelector,
+          simulatePublic: false,
+          msgSender,
+          chainId: txRequest.txContext.chainId,
+          version: txRequest.txContext.version,
+          authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
+        };
+        this.log.info(
+          `Profiling transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
+          txInfo,
+        );
+        await this.synchronizer.sync();
+        const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
 
-      const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-        simulate: true,
-        skipFeeEnforcement: false,
-        profileMode,
-      });
-
-      if (profileMode === 'gates') {
-        const gateFilter = ({ functionName, gateCount }: PrivateExecutionStep) => ({
-          functionName,
-          gateCount,
-          bytecode: Buffer.from([]),
-          witness: new Map(),
+        const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+          simulate: true,
+          skipFeeEnforcement: false,
+          profileMode,
         });
-        return new TxProfileResult(executionSteps.map(gateFilter));
+
+        if (profileMode === 'gates') {
+          const gateFilter = ({ functionName, gateCount }: PrivateExecutionStep) => ({
+            functionName,
+            gateCount,
+            bytecode: Buffer.from([]),
+            witness: new Map(),
+          });
+          return new TxProfileResult(executionSteps.map(gateFilter));
+        }
+        return new TxProfileResult(executionSteps);
+      } catch (err: any) {
+        throw this.contextualizeError(
+          err,
+          inspect(txRequest),
+          `profileMode=${profileMode}`,
+          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+        );
       }
-      return new TxProfileResult(executionSteps);
-    } catch (err: any) {
-      throw this.contextualizeError(
-        err,
-        inspect(txRequest),
-        `profileMode=${profileMode}`,
-        `msgSender=${msgSender?.toString() ?? 'undefined'}`,
-      );
-    }
+    });
   }
 
   // TODO(#7456) Prevent msgSender being defined here for the first call
-  public async simulateTx(
+  public simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
@@ -536,69 +570,73 @@ export class PXEService implements PXE {
     skipFeeEnforcement: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
-    try {
-      const txInfo = {
-        origin: txRequest.origin,
-        functionSelector: txRequest.functionSelector,
-        simulatePublic,
-        msgSender,
-        chainId: txRequest.txContext.chainId,
-        version: txRequest.txContext.version,
-        authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
-      };
-      this.log.info(
-        `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
-        txInfo,
-      );
-      const timer = new Timer();
-      await this.synchronizer.sync();
-      const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
+    // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
+    // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
+    // delete the same read value, or reading values that another simulation is currently modifying).
+    return this.#putInJobQueue(async () => {
+      try {
+        const txInfo = {
+          origin: txRequest.origin,
+          functionSelector: txRequest.functionSelector,
+          simulatePublic,
+          msgSender,
+          chainId: txRequest.txContext.chainId,
+          version: txRequest.txContext.version,
+          authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
+        };
+        this.log.info(
+          `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
+          txInfo,
+        );
+        const timer = new Timer();
+        await this.synchronizer.sync();
+        const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-      const { publicInputs } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-        simulate: true,
-        skipFeeEnforcement,
-        profileMode: 'none',
-      });
+        const { publicInputs } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+          simulate: true,
+          skipFeeEnforcement,
+          profileMode: 'none',
+        });
 
-      const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
-      const simulatedTx = privateSimulationResult.toSimulatedTx();
-      let publicOutput: PublicSimulationOutput | undefined;
-      if (simulatePublic && publicInputs.forPublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
-      }
-
-      if (!skipTxValidation) {
-        const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
-        if (validationResult.result === 'invalid') {
-          throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+        const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
+        const simulatedTx = privateSimulationResult.toSimulatedTx();
+        let publicOutput: PublicSimulationOutput | undefined;
+        if (simulatePublic && publicInputs.forPublic) {
+          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
         }
+
+        if (!skipTxValidation) {
+          const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+          if (validationResult.result === 'invalid') {
+            throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+          }
+        }
+
+        const txHash = await simulatedTx.getTxHash();
+        this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
+          txHash,
+          ...txInfo,
+          ...(publicOutput
+            ? {
+                gasUsed: publicOutput.gasUsed,
+                revertCode: publicOutput.txEffect.revertCode.getCode(),
+                revertReason: publicOutput.revertReason,
+              }
+            : {}),
+        });
+
+        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
+      } catch (err: any) {
+        throw this.contextualizeError(
+          err,
+          inspect(txRequest),
+          `simulatePublic=${simulatePublic}`,
+          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+          `skipTxValidation=${skipTxValidation}`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
       }
-
-      const txHash = await simulatedTx.getTxHash();
-      this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
-        txHash,
-        ...txInfo,
-        ...(publicOutput
-          ? {
-              gasUsed: publicOutput.gasUsed,
-              revertCode: publicOutput.txEffect.revertCode.getCode(),
-              revertReason: publicOutput.revertReason,
-            }
-          : {}),
-      });
-
-      return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
-    } catch (err: any) {
-      throw this.contextualizeError(
-        err,
-        inspect(txRequest),
-        `simulatePublic=${simulatePublic}`,
-        `msgSender=${msgSender?.toString() ?? 'undefined'}`,
-        `skipTxValidation=${skipTxValidation}`,
-        `profile=${profile}`,
-        `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
-      );
-    }
+    });
   }
 
   public async sendTx(tx: Tx): Promise<TxHash> {
@@ -614,29 +652,34 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public async simulateUnconstrained(
+  public simulateUnconstrained(
     functionName: string,
     args: any[],
     to: AztecAddress,
     _from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded> {
-    try {
-      await this.synchronizer.sync();
-      // TODO - Should check if `from` has the permission to call the view function.
-      const functionCall = await this.#getFunctionCall(functionName, args, to);
-      const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
+    // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
+    // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
+    // delete the same read value, or reading values that another simulation is currently modifying).
+    return this.#putInJobQueue(async () => {
+      try {
+        await this.synchronizer.sync();
+        // TODO - Should check if `from` has the permission to call the view function.
+        const functionCall = await this.#getFunctionCall(functionName, args, to);
+        const executionResult = await this.#simulateUnconstrained(functionCall, scopes);
 
-      // TODO - Return typed result based on the function artifact.
-      return executionResult;
-    } catch (err: any) {
-      const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
-      throw this.contextualizeError(
-        err,
-        `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
-        `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
-      );
-    }
+        // TODO - Return typed result based on the function artifact.
+        return executionResult;
+      } catch (err: any) {
+        const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
+        throw this.contextualizeError(
+          err,
+          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
+        );
+      }
+    });
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
