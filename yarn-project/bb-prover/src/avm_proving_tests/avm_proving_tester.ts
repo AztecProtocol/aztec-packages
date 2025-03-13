@@ -37,7 +37,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     super(worldStateDB, globals, contractDataSource, merkleTrees);
   }
 
-  static override async create(globals = defaultGlobals(), checkCircuitOnly: boolean = false) {
+  static override async create({ globals = defaultGlobals(), checkCircuitOnly = false }) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
@@ -125,7 +125,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     super(worldStateDB, globals, contractDataSource, merkleTrees);
   }
 
-  static override async create(globals = defaultGlobals()) {
+  static override async create({ globals = defaultGlobals() }) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();

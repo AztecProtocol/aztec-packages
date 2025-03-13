@@ -25,7 +25,9 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.create({
+      checkCircuitOnly: true,
+    });
   });
 
   // TODO(dbanks12): add tester support for authwit and finish implementing this test

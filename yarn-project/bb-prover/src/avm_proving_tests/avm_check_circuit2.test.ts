@@ -13,7 +13,9 @@ describe('AVM WitGen & Circuit – check circuit', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.create({
+      checkCircuitOnly: true,
+    });
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
@@ -44,7 +46,9 @@ describe('AVM WitGen & Circuit – check circuit', () => {
   // FIXME(dbanks12): fails with "Lookup PERM_MAIN_ALU failed."
   it.skip('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
     // don't insert contracts into trees, and make sure retrieval fails
-    const tester = await AvmProvingTester.create(/* globals */ undefined, /*checkCircuitOnly=*/ true);
+    const tester = await AvmProvingTester.create({
+      checkCircuitOnly: true,
+    });
     await tester.simProveVerify(
       sender,
       /*setupCalls=*/ [],

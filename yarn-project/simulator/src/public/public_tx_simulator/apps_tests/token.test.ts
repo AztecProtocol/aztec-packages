@@ -17,7 +17,7 @@ describe('Public TX simulator apps tests: TokenContract', () => {
   let simTester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    simTester = await PublicTxSimulationTester.create();
+    simTester = await PublicTxSimulationTester.create({});
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
     token = await simTester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
 

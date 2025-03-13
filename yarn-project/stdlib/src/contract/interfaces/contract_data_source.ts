@@ -29,7 +29,7 @@ export interface ContractDataSource {
   /**
    * Returns a publicly deployed contract instance given its address.
    * @param address - Address of the deployed contract.
-   * @param blockNumber - Block number at which to retrieve the contract instance.
+   * @param blockNumber - Block number at which to retrieve the contract instance. If not provided, the latest block should be used.
    */
   getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined>;
 

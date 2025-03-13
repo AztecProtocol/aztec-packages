@@ -44,7 +44,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTrees);
   }
 
-  public static async create(globals = defaultGlobals()): Promise<PublicTxSimulationTester> {
+  public static async create({ globals = defaultGlobals() }): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, globals.blockNumber.toNumber());
