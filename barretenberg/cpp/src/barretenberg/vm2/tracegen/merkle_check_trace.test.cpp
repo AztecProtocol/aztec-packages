@@ -35,13 +35,14 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
     FF output_hash = Poseidon2::hash({ left_hash, right_hash });
 
     std::vector<FF> sibling_path = { sibling_value };
-    FF root = output_hash; // Root should match output hash for single level
+    FF root = output_hash; // Root should match output hash
 
     simulation::MerkleCheckEvent event = {
         .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
     };
 
     builder.process({ event }, trace);
+    std::cout << "trace: " << trace.as_rows().size() << std::endl;
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
@@ -49,10 +50,10 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
                     AllOf(Field(&R::merkle_check_sel, 1),
                           Field(&R::merkle_check_leaf_value, leaf_value),
                           Field(&R::merkle_check_leaf_index, leaf_index),
-                          Field(&R::merkle_check_path_len, 1), // Path length is 1
-                          Field(&R::merkle_check_path_len_inv, FF(1).invert()),
+                          Field(&R::merkle_check_path_len, 0), // only one layer, so remaining path is 0 immediately
+                          Field(&R::merkle_check_path_len_inv, 0),
                           Field(&R::merkle_check_sibling_value, sibling_value),
-                          Field(&R::merkle_check_latch, FF(0)), // Not done yet
+                          Field(&R::merkle_check_latch, 1), // done after only one layer
                           Field(&R::merkle_check_leaf_index_is_even, 1),
                           Field(&R::merkle_check_left_hash, left_hash),
                           Field(&R::merkle_check_right_hash, right_hash),
@@ -100,8 +101,8 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                 AllOf(Field(&R::merkle_check_sel, 1),
                       Field(&R::merkle_check_leaf_value, leaf_value),
                       Field(&R::merkle_check_leaf_index, leaf_index),
-                      Field(&R::merkle_check_path_len, 2), // Total path length is 2
-                      Field(&R::merkle_check_path_len_inv, FF(2).invert()),
+                      Field(&R::merkle_check_path_len, 1), // remaining path length is 1 after one layer
+                      Field(&R::merkle_check_path_len_inv, FF(1).invert()),
                       Field(&R::merkle_check_sibling_value, sibling_value_1),
                       Field(&R::merkle_check_latch, 0),              // Not done yet
                       Field(&R::merkle_check_leaf_index_is_even, 0), // Odd index
@@ -114,10 +115,10 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                 AllOf(Field(&R::merkle_check_sel, 1),
                       Field(&R::merkle_check_leaf_value, output_hash_1), // Previous output becomes new leaf
                       // Leaf index should be 0 (even) at level 2
-                      Field(&R::merkle_check_path_len, 1), // Remaining path length is 1
-                      Field(&R::merkle_check_path_len_inv, FF(1).invert()),
+                      Field(&R::merkle_check_path_len, 0), // Remaining path length is 0
+                      Field(&R::merkle_check_path_len_inv, 0),
                       Field(&R::merkle_check_sibling_value, sibling_value_2),
-                      Field(&R::merkle_check_latch, 0),              // Not done yet
+                      Field(&R::merkle_check_latch, 1),              // Done after two layers
                       Field(&R::merkle_check_leaf_index_is_even, 1), // Even index at level 2
                       Field(&R::merkle_check_left_hash, left_hash_2),
                       Field(&R::merkle_check_right_hash, right_hash_2),
@@ -161,8 +162,10 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                 AllOf(Field(&R::merkle_check_sel, 1),
                       Field(&R::merkle_check_leaf_value, leaf_value_1),
                       Field(&R::merkle_check_leaf_index, leaf_index_1),
-                      Field(&R::merkle_check_path_len, 1),
+                      Field(&R::merkle_check_path_len, 0),
+                      Field(&R::merkle_check_path_len_inv, 0),
                       Field(&R::merkle_check_sibling_value, sibling_value_1),
+                      Field(&R::merkle_check_latch, 1),
                       Field(&R::merkle_check_leaf_index_is_even, 1),
                       Field(&R::merkle_check_output_hash, output_hash_1)));
 
@@ -171,8 +174,10 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                 AllOf(Field(&R::merkle_check_sel, 1),
                       Field(&R::merkle_check_leaf_value, leaf_value_2),
                       Field(&R::merkle_check_leaf_index, leaf_index_2),
-                      Field(&R::merkle_check_path_len, 1),
+                      Field(&R::merkle_check_path_len, 0),
+                      Field(&R::merkle_check_path_len_inv, 0),
                       Field(&R::merkle_check_sibling_value, sibling_value_2),
+                      Field(&R::merkle_check_latch, 1),
                       Field(&R::merkle_check_leaf_index_is_even, 0),
                       Field(&R::merkle_check_output_hash, output_hash_2)));
 }

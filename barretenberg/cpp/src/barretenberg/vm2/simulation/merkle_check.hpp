@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/poseidon2.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -23,8 +24,9 @@ class MerkleCheckInterface {
 
 class MerkleCheck : public MerkleCheckInterface {
   public:
-    MerkleCheck(EventEmitterInterface<MerkleCheckEvent>& event_emitter)
+    MerkleCheck(Poseidon2& poseidon2, EventEmitterInterface<MerkleCheckEvent>& event_emitter)
         : events(event_emitter)
+        , poseidon2(poseidon2)
     {}
 
     void assert_membership(const FF& leaf_value,
@@ -34,6 +36,7 @@ class MerkleCheck : public MerkleCheckInterface {
 
   private:
     EventEmitterInterface<MerkleCheckEvent>& events;
+    Poseidon2Interface& poseidon2;
 };
 
 } // namespace bb::avm2::simulation

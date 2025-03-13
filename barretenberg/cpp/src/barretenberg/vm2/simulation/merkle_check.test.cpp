@@ -12,8 +12,12 @@ using testing::ElementsAre;
 
 TEST(MerkleCheckSimulationTest, AssertMembership)
 {
+    EventEmitter<Poseidon2HashEvent> hash_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_emitter;
+    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+
     EventEmitter<MerkleCheckEvent> emitter;
-    MerkleCheck merkle_check(emitter);
+    MerkleCheck merkle_check(poseidon2, emitter);
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
