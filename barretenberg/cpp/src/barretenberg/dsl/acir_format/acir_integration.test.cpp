@@ -1,3 +1,4 @@
+#include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
@@ -68,6 +69,25 @@ class AcirIntegrationTest : public ::testing::Test {
         info("circuit size       = ", prover.proving_key->proving_key.circuit_size);
         info("log circuit size   = ", prover.proving_key->proving_key.log_circuit_size);
 #endif
+        auto proof = prover.construct_proof();
+
+        // Verify Honk proof
+        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
+        Verifier verifier{ verification_key };
+        return verifier.verify_proof(proof);
+    }
+
+    template <class Flavor> bool prove_and_verify_honk_structured(Flavor::CircuitBuilder& builder)
+    {
+        using Prover = UltraProver_<Flavor>;
+        using Verifier = UltraVerifier_<Flavor>;
+        using VerificationKey = Flavor::VerificationKey;
+        using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
+
+        TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+
+        Prover prover(proving_key);
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
@@ -526,6 +546,42 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
+}
+
+TEST_P(AcirIntegrationFoldingTest, DebugProveAndVerifyProgramStack)
+{
+    using Flavor = MegaFlavor;
+    using Builder = Flavor::CircuitBuilder;
+    using Program = acir_format::AcirProgram;
+
+    std::string test_name = "grego_schnorr_deploy_failure";
+    info("Test: ", test_name);
+
+    std::string base_path = "../../acir_tests/acir_tests/" + test_name;
+    std::string bytecode_path = base_path + "/acir.msgpack";
+    std::string witness_path = base_path + "/witnesses.msgpack";
+
+    std::vector<Program> program_stack = bb::_build_folding_stack("runtime_stack", bytecode_path, witness_path);
+
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+
+    const acir_format::ProgramMetadata metadata{ ivc };
+
+    Program& program = program_stack[4];
+    Builder circuit = acir_format::create_circuit<Builder>(program, metadata);
+
+    // for (Program& program : program_stack) {
+
+    //     // Construct a bberg circuit from the acir representation
+    //     Builder circuit = acir_format::create_circuit<Builder>(program, metadata);
+
+    //     ivc->accumulate(circuit);
+    // }
+
+    // ClientIVC::Proof proof = ivc->prove();
+    // [[maybe_unused]] bool result = ivc->verify(proof);
+    // EXPECT_TRUE(result);
 }
 
 #endif

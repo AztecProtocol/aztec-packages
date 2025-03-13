@@ -896,7 +896,10 @@ template <typename Builder> void cycle_group<Builder>::cycle_scalar::validate_sc
         const uint256_t r_lo = cycle_group_modulus.slice(0, cycle_scalar::LO_BITS);
         const uint256_t r_hi = cycle_group_modulus.slice(cycle_scalar::LO_BITS, cycle_scalar::HI_BITS);
 
-        bool need_borrow = uint256_t(lo.get_value()) > r_lo;
+        uint256_t lo_v = lo.get_value();
+        uint256_t hi_v = hi.get_value();
+
+        bool need_borrow = uint256_t(lo_v) > r_lo;
         field_t borrow = lo.is_constant() ? need_borrow : field_t::from_witness(get_context(), need_borrow);
 
         // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
@@ -911,6 +914,9 @@ template <typename Builder> void cycle_group<Builder>::cycle_scalar::validate_sc
         // Lo range check = r_lo - y_lo + borrow * 2^{126}
         field_t hi_diff = (-hi + r_hi) - borrow;
         field_t lo_diff = (-lo + r_lo) + (borrow * (uint256_t(1) << cycle_scalar::LO_BITS));
+
+        uint256_t hi_diff_v = hi_diff.get_value();
+        uint256_t lo_diff_v = lo_diff.get_value();
 
         hi_diff.create_range_constraint(cycle_scalar::HI_BITS);
         lo_diff.create_range_constraint(cycle_scalar::LO_BITS);
