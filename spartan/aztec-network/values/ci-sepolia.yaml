@@ -31,7 +31,6 @@ validator:
   validatorKeys:
   resources:
     requests:
-      memory: "512Mi"
       cpu: "200m"
   validator:
     disabled: false
@@ -46,23 +45,19 @@ bot:
 bootNode:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverAgent:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverBroker:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverNode:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
