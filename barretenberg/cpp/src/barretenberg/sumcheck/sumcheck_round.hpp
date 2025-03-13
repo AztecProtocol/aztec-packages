@@ -14,11 +14,8 @@ namespace bb {
 // Whether a Flavor specifies the number of chunks for univariate computation.
 // Used for the AVM.
 template <typename Flavor>
-concept specifiesUnivariateChunks = requires() {
-    {
-        Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION
-    } -> std::same_as<size_t>;
-};
+concept specifiesUnivariateChunks =
+    std::convertible_to<decltype(Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION), size_t>;
 
 /*! \brief Imlementation of the Sumcheck prover round.
     \class SumcheckProverRound
