@@ -22,6 +22,8 @@ struct PublicKeys {
         return { nullifier_key.x,        nullifier_key.y,        incoming_viewing_key.x, incoming_viewing_key.y,
                  outgoing_viewing_key.x, outgoing_viewing_key.y, tagging_key.x,          tagging_key.y };
     }
+
+    bool operator==(const PublicKeys& other) const = default;
 };
 
 struct ContractInstance {
@@ -31,6 +33,8 @@ struct ContractInstance {
     ContractClassId contract_class_id;
     FF initialisation_hash;
     PublicKeys public_keys;
+
+    bool operator==(const ContractInstance& other) const = default;
 };
 
 struct ContractClass {

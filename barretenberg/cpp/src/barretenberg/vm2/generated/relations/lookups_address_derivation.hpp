@@ -230,7 +230,7 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_address_derivation_partial_address_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_partial_address_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -248,7 +248,7 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_start() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -256,7 +256,7 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_table_entry = View(in._poseidon2_hash_start());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -275,7 +275,7 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
         return std::forward_as_tuple(in._lookup_address_derivation_partial_address_poseidon2_inv(),
                                      in._lookup_address_derivation_partial_address_poseidon2_counts(),
                                      in._address_derivation_sel(),
-                                     in._poseidon2_hash_end(),
+                                     in._poseidon2_hash_start(),
                                      in._address_derivation_partial_address_domain_separator(),
                                      in._address_derivation_class_id(),
                                      in._address_derivation_salted_init_hash(),
@@ -434,9 +434,9 @@ class lookup_address_derivation_public_keys_hash_poseidon2_1_settings {
     static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::address_derivation_incoming_viewing_key_x,
         ColumnAndShifts::address_derivation_incoming_viewing_key_y,
-        ColumnAndShifts::address_derivation_outgoing_viewing_key_x,
         ColumnAndShifts::address_derivation_public_keys_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -476,9 +476,9 @@ class lookup_address_derivation_public_keys_hash_poseidon2_1_settings {
                                      in._lookup_address_derivation_public_keys_hash_poseidon2_1_counts(),
                                      in._address_derivation_sel(),
                                      in._poseidon2_hash_sel(),
+                                     in._precomputed_zero(),
                                      in._address_derivation_incoming_viewing_key_x(),
                                      in._address_derivation_incoming_viewing_key_y(),
-                                     in._address_derivation_outgoing_viewing_key_x(),
                                      in._address_derivation_public_keys_hash(),
                                      in._poseidon2_hash_input_0(),
                                      in._poseidon2_hash_input_1(),
@@ -530,13 +530,213 @@ class lookup_address_derivation_public_keys_hash_poseidon2_2_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
     static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_2_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::address_derivation_outgoing_viewing_key_x,
         ColumnAndShifts::address_derivation_outgoing_viewing_key_y,
+        ColumnAndShifts::address_derivation_public_keys_hash
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
+
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_sel() == 1);
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static inline auto compute_inverse_exists(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+        const auto is_operation = View(in._address_derivation_sel());
+        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        return (is_operation + is_table_entry - is_operation * is_table_entry);
+    }
+
+    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
+    {
+        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_2_inv(),
+                                     in._lookup_address_derivation_public_keys_hash_poseidon2_2_counts(),
+                                     in._address_derivation_sel(),
+                                     in._poseidon2_hash_sel(),
+                                     in._precomputed_zero(),
+                                     in._address_derivation_outgoing_viewing_key_x(),
+                                     in._address_derivation_outgoing_viewing_key_y(),
+                                     in._address_derivation_public_keys_hash(),
+                                     in._poseidon2_hash_input_0(),
+                                     in._poseidon2_hash_input_1(),
+                                     in._poseidon2_hash_input_2(),
+                                     in._poseidon2_hash_output());
+    }
+};
+
+template <typename FF_>
+class lookup_address_derivation_public_keys_hash_poseidon2_2_relation
+    : public GenericLookupRelation<lookup_address_derivation_public_keys_hash_poseidon2_2_settings, FF_> {
+  public:
+    using Settings = lookup_address_derivation_public_keys_hash_poseidon2_2_settings;
+    static constexpr std::string_view NAME = lookup_address_derivation_public_keys_hash_poseidon2_2_settings::NAME;
+    static constexpr std::string_view RELATION_NAME =
+        lookup_address_derivation_public_keys_hash_poseidon2_2_settings::RELATION_NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lookup_address_derivation_public_keys_hash_poseidon2_2_inv.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
+};
+
+/////////////////// lookup_address_derivation_public_keys_hash_poseidon2_3 ///////////////////
+
+class lookup_address_derivation_public_keys_hash_poseidon2_3_settings {
+  public:
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PUBLIC_KEYS_HASH_POSEIDON2_3";
+    static constexpr std::string_view RELATION_NAME = "address_derivation";
+
+    static constexpr size_t READ_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
+    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
+    static constexpr size_t READ_TERM_DEGREE = 0;
+    static constexpr size_t WRITE_TERM_DEGREE = 0;
+
+    // Columns using the Column enum.
+    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_3_counts;
+    static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_3_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::address_derivation_tagging_key_x,
         ColumnAndShifts::address_derivation_tagging_key_y,
+        ColumnAndShifts::address_derivation_public_keys_hash
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
+
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_sel() == 1);
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static inline auto compute_inverse_exists(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+        const auto is_operation = View(in._address_derivation_sel());
+        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        return (is_operation + is_table_entry - is_operation * is_table_entry);
+    }
+
+    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
+    {
+        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_3_inv(),
+                                     in._lookup_address_derivation_public_keys_hash_poseidon2_3_counts(),
+                                     in._address_derivation_sel(),
+                                     in._poseidon2_hash_sel(),
+                                     in._precomputed_zero(),
+                                     in._address_derivation_tagging_key_x(),
+                                     in._address_derivation_tagging_key_y(),
+                                     in._address_derivation_public_keys_hash(),
+                                     in._poseidon2_hash_input_0(),
+                                     in._poseidon2_hash_input_1(),
+                                     in._poseidon2_hash_input_2(),
+                                     in._poseidon2_hash_output());
+    }
+};
+
+template <typename FF_>
+class lookup_address_derivation_public_keys_hash_poseidon2_3_relation
+    : public GenericLookupRelation<lookup_address_derivation_public_keys_hash_poseidon2_3_settings, FF_> {
+  public:
+    using Settings = lookup_address_derivation_public_keys_hash_poseidon2_3_settings;
+    static constexpr std::string_view NAME = lookup_address_derivation_public_keys_hash_poseidon2_3_settings::NAME;
+    static constexpr std::string_view RELATION_NAME =
+        lookup_address_derivation_public_keys_hash_poseidon2_3_settings::RELATION_NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lookup_address_derivation_public_keys_hash_poseidon2_3_inv.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
+};
+
+/////////////////// lookup_address_derivation_public_keys_hash_poseidon2_4 ///////////////////
+
+class lookup_address_derivation_public_keys_hash_poseidon2_4_settings {
+  public:
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_PUBLIC_KEYS_HASH_POSEIDON2_4";
+    static constexpr std::string_view RELATION_NAME = "address_derivation";
+
+    static constexpr size_t READ_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
+    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
+    static constexpr size_t READ_TERM_DEGREE = 0;
+    static constexpr size_t WRITE_TERM_DEGREE = 0;
+
+    // Columns using the Column enum.
+    static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column COUNTS = Column::lookup_address_derivation_public_keys_hash_poseidon2_4_counts;
+    static constexpr Column INVERSES = Column::lookup_address_derivation_public_keys_hash_poseidon2_4_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::address_derivation_public_keys_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -572,13 +772,13 @@ class lookup_address_derivation_public_keys_hash_poseidon2_2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_2_inv(),
-                                     in._lookup_address_derivation_public_keys_hash_poseidon2_2_counts(),
+        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_4_inv(),
+                                     in._lookup_address_derivation_public_keys_hash_poseidon2_4_counts(),
                                      in._address_derivation_sel(),
                                      in._poseidon2_hash_end(),
-                                     in._address_derivation_outgoing_viewing_key_y(),
-                                     in._address_derivation_tagging_key_x(),
-                                     in._address_derivation_tagging_key_y(),
+                                     in._precomputed_zero(),
+                                     in._precomputed_zero(),
+                                     in._precomputed_zero(),
                                      in._address_derivation_public_keys_hash(),
                                      in._poseidon2_hash_input_0(),
                                      in._poseidon2_hash_input_1(),
@@ -588,17 +788,17 @@ class lookup_address_derivation_public_keys_hash_poseidon2_2_settings {
 };
 
 template <typename FF_>
-class lookup_address_derivation_public_keys_hash_poseidon2_2_relation
-    : public GenericLookupRelation<lookup_address_derivation_public_keys_hash_poseidon2_2_settings, FF_> {
+class lookup_address_derivation_public_keys_hash_poseidon2_4_relation
+    : public GenericLookupRelation<lookup_address_derivation_public_keys_hash_poseidon2_4_settings, FF_> {
   public:
-    using Settings = lookup_address_derivation_public_keys_hash_poseidon2_2_settings;
-    static constexpr std::string_view NAME = lookup_address_derivation_public_keys_hash_poseidon2_2_settings::NAME;
+    using Settings = lookup_address_derivation_public_keys_hash_poseidon2_4_settings;
+    static constexpr std::string_view NAME = lookup_address_derivation_public_keys_hash_poseidon2_4_settings::NAME;
     static constexpr std::string_view RELATION_NAME =
-        lookup_address_derivation_public_keys_hash_poseidon2_2_settings::RELATION_NAME;
+        lookup_address_derivation_public_keys_hash_poseidon2_4_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lookup_address_derivation_public_keys_hash_poseidon2_2_inv.is_zero();
+        return in.lookup_address_derivation_public_keys_hash_poseidon2_4_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

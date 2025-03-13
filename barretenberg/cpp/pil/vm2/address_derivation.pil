@@ -63,16 +63,26 @@ namespace address_derivation;
     pol commit public_keys_hash_domain_separator;
     sel * (public_keys_hash_domain_separator - constants.GENERATOR_INDEX__PUBLIC_KEYS_HASH) = 0;
 
+    // Remove all the 0s for is_infinite when removed from public_keys.nr
+    // https://github.com/AztecProtocol/aztec-packages/issues/7529
     #[PUBLIC_KEYS_HASH_POSEIDON2_0]
     sel { public_keys_hash_domain_separator, nullifier_key_x, nullifier_key_y, public_keys_hash }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[PUBLIC_KEYS_HASH_POSEIDON2_1]
-    sel { incoming_viewing_key_x, incoming_viewing_key_y, outgoing_viewing_key_x, public_keys_hash }
+    sel { precomputed.zero, incoming_viewing_key_x, incoming_viewing_key_y, public_keys_hash }
     in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[PUBLIC_KEYS_HASH_POSEIDON2_2]
-    sel { outgoing_viewing_key_y, tagging_key_x, tagging_key_y, public_keys_hash }
+    sel { precomputed.zero, outgoing_viewing_key_x, outgoing_viewing_key_y, public_keys_hash }
+    in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[PUBLIC_KEYS_HASH_POSEIDON2_3]
+    sel { precomputed.zero, tagging_key_x, tagging_key_y, public_keys_hash }
+    in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[PUBLIC_KEYS_HASH_POSEIDON2_4]
+    sel { precomputed.zero, precomputed.zero, precomputed.zero, public_keys_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
 
@@ -97,7 +107,7 @@ namespace address_derivation;
     sel * (g1_x - 1) = 0;
 
     pol commit g1_y;
-    sel * (g1_y - 1) = 0;
+    sel * (g1_y - 17631683881184975370165255887551781615748388533673675138860) = 0;
 
     #[PREADDRESS_SCALAR_MUL]
     sel {

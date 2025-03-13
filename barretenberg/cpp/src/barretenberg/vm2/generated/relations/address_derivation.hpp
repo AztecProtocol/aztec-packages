@@ -66,7 +66,9 @@ template <typename FF_> class address_derivationImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.address_derivation_sel * (new_term.address_derivation_g1_y - FF(1));
+            auto tmp = new_term.address_derivation_sel *
+                       (new_term.address_derivation_g1_y -
+                        FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL }));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }

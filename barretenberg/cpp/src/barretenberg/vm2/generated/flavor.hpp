@@ -90,12 +90,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 850;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 854;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 115;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1009;
+    static constexpr size_t NUM_ALL_ENTITIES = 1013;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -131,6 +131,8 @@ class AvmFlavor {
         lookup_address_derivation_public_keys_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_public_keys_hash_poseidon2_1_relation<FF_>,
         lookup_address_derivation_public_keys_hash_poseidon2_2_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_3_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,

@@ -68,7 +68,7 @@ FF compute_contract_address(const ContractInstance& contract_instance)
     for (size_t i = 0; i < public_keys_hash_fields.size(); i += 2) {
         public_key_hash_vec.push_back(public_keys_hash_fields[i]);
         public_key_hash_vec.push_back(public_keys_hash_fields[i + 1]);
-        // Is it guaranteed we wont get a point at infinity here?
+        // is_infinity will be removed from address preimage, asumming false.
         public_key_hash_vec.push_back(FF::zero());
     }
     FF public_keys_hash = poseidon2::hash({ public_key_hash_vec });

@@ -2,12 +2,15 @@
 
 #include <vector>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 using bb::avm2::tracegen::TestTraceContainer;
 
 namespace bb::avm2::testing {
 
+using simulation::compute_contract_address;
 using simulation::Instruction;
 using simulation::Operand;
 using simulation::OperandType;
@@ -111,6 +114,24 @@ Instruction random_instruction(WireOpCode w_opcode)
 TestTraceContainer empty_trace()
 {
     return TestTraceContainer::from_rows({ { .precomputed_first_row = 1 }, { .precomputed_clk = 1 } });
+}
+
+ContractInstance random_contract_instance()
+{
+    ContractInstance instance = { .address = FF::zero(),
+                                  .salt = FF::random_element(),
+                                  .deployer_addr = FF::random_element(),
+                                  .contract_class_id = FF::random_element(),
+                                  .initialisation_hash = FF::random_element(),
+                                  .public_keys = PublicKeys{
+                                      .nullifier_key = AffinePoint::random_element(),
+                                      .incoming_viewing_key = AffinePoint::random_element(),
+                                      .outgoing_viewing_key = AffinePoint::random_element(),
+                                      .tagging_key = AffinePoint::random_element(),
+                                  } };
+    AztecAddress computed_address = compute_contract_address(instance);
+    instance.address = computed_address;
+    return instance;
 }
 
 } // namespace bb::avm2::testing
