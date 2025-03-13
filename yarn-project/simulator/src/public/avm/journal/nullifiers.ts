@@ -57,15 +57,7 @@ export class NullifierManager {
     const cacheHit = this.checkExistsHereOrParent(siloedNullifier);
     let existsInTree = false;
     if (!cacheHit) {
-      // Finally try the host's Aztec state (a trip to the database)
-      //const leafOrLowLeafIndex = await this.hostNullifiers.db.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, siloedNullifier.toBigInt());
-      //assert(
-      //  leafOrLowLeafIndex !== undefined,
-      //  `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]} low leaf index should always be found (even if target leaf does not exist)`,
-      //);
-      //existsInTree = leafOrLowLeafIndex.alreadyPresent;
-      const leafIndex = await this.hostNullifiers.getNullifierIndex(siloedNullifier);
-      existsInTree = leafIndex !== undefined;
+      existsInTree = await this.hostNullifiers.checkNullifierExists(siloedNullifier);
     }
     const exists = cacheHit || existsInTree;
     return Promise.resolve({ exists, cacheHit });

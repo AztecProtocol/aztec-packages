@@ -15,7 +15,8 @@ describe('avm nullifier caching', () => {
   });
 
   describe('Nullifier caching and existence checks', () => {
-    it('Reading a non-existent nullifier works (gets zero & DNE)', async () => {
+    it('Checking if a non-existent nullifier exists works', async () => {
+      worldStateDB.checkNullifierExists.mockResolvedValueOnce(false);
       const nullifier = new Fr(2);
       // never written!
       const { exists, cacheHit } = await nullifiers.checkExists(nullifier);
@@ -35,9 +36,8 @@ describe('avm nullifier caching', () => {
     });
     it('Existence check works on fallback to host (gets index, exists, not-pending)', async () => {
       const nullifier = new Fr(2);
-      const storedLeafIndex = BigInt(420);
 
-      worldStateDB.getNullifierIndex.mockResolvedValue(storedLeafIndex);
+      worldStateDB.checkNullifierExists.mockResolvedValueOnce(true);
 
       const { exists, cacheHit } = await nullifiers.checkExists(nullifier);
       // exists (in host), not pending, tree index retrieved from host
@@ -95,10 +95,9 @@ describe('avm nullifier caching', () => {
     });
     it('Cant append nullifier that already exist in host', async () => {
       const nullifier = new Fr(2); // same nullifier for both!
-      const storedLeafIndex = BigInt(420);
 
       // Nullifier exists in host
-      worldStateDB.getNullifierIndex.mockResolvedValue(storedLeafIndex);
+      worldStateDB.checkNullifierExists.mockResolvedValue(true);
       // Can't append to cache
       await expect(nullifiers.append(nullifier)).rejects.toThrow(
         `Siloed nullifier ${nullifier} already exists in parent cache or host.`,

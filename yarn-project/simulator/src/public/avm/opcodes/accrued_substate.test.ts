@@ -12,10 +12,10 @@ import { InstructionExecutionError, StaticCallAlterationError } from '../errors.
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
 import type { AvmPersistableStateManager } from '../journal/journal.js';
 import {
-  mockGetNullifierIndex,
+  mockCheckNullifierExists,
+  mockGetNoteHashIfIndexMatches,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
-  mockNoteHashExists,
 } from '../test_utils.js';
 import {
   EmitNoteHash,
@@ -90,7 +90,7 @@ describe('Accrued Substate', () => {
         : '';
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockNoteHashExists(treesDB, mockAtLeafIndex, value0);
+          mockGetNoteHashIfIndexMatches(treesDB, mockAtLeafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
@@ -158,9 +158,7 @@ describe('Accrued Substate', () => {
       it(`Should return ${exists} (and be traced) when noteHash ${existsStr}`, async () => {
         const addressOffset = 1;
 
-        if (exists) {
-          mockGetNullifierIndex(treesDB, leafIndex, value0);
-        }
+        mockCheckNullifierExists(treesDB, exists);
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
         context.machineState.memory.set(addressOffset, new Field(address.toField()));
@@ -210,7 +208,7 @@ describe('Accrued Substate', () => {
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
-      mockGetNullifierIndex(treesDB, leafIndex); // db will say that nullifier already exists
+      mockCheckNullifierExists(treesDB, true); // db will say that nullifier already exists
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
