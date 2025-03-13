@@ -105,7 +105,11 @@ void AvmProver::execute_relation_check_rounds()
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha, gate_challenges);
+    sumcheck_output = sumcheck.prove(prover_polynomials,
+                                     relation_parameters,
+                                     alpha,
+                                     gate_challenges,
+                                     Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION);
 }
 
 void AvmProver::execute_pcs_rounds()

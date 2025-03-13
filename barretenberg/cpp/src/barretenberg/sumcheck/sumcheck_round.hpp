@@ -8,10 +8,7 @@
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "zk_sumcheck_data.hpp"
-
-#ifndef DISABLE_AZTEC_VM
-#include "barretenberg/vm2/generated/flavor.hpp"
-#endif // DISABLE_AZTEC_VM
+#include <cstddef>
 
 namespace bb {
 
@@ -159,7 +156,8 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                const bb::RelationParameters<FF>& relation_parameters,
                                                const bb::GateSeparatorPolynomial<FF>& gate_sparators,
-                                               const RelationSeparator alpha)
+                                               const RelationSeparator alpha,
+                                               size_t num_of_chunks)
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -174,21 +172,15 @@ template <typename Flavor> class SumcheckProverRound {
         // a bit more evenly on the vertical axis. To achieve this, we split the trace into chunks and each thread
         // processes one part of the chunk.
         // For non-AVM flavor, we use a single chunk.
-        size_t num_of_chunks = 1;
-#ifndef DISABLE_AZTEC_VM
 
-        if constexpr (std::same_as<Flavor, bb::avm2::AvmFlavor>) {
-            num_of_chunks = Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION;
-        }
-
+        size_t number_of_chunks = num_of_chunks;
         // When the trace is shrunk to a point where the number of chunk portion per thread is 1 or lower
         // we fallback to using one chunk.
-        if (round_size / (2 * num_threads) <= num_of_chunks) {
-            num_of_chunks = 1;
+        if (round_size / (2 * num_threads) <= number_of_chunks) {
+            number_of_chunks = 1;
         }
-#endif // DISABLE_AZTEC_VM
 
-        size_t chunk_size = round_size / num_of_chunks;
+        size_t chunk_size = round_size / number_of_chunks;
         size_t chunk_thread_portion_size = chunk_size / num_threads;
         // Construct univariate accumulator containers; one per thread
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
@@ -199,7 +191,7 @@ template <typename Flavor> class SumcheckProverRound {
             Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
-            for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
+            for (size_t chunk_idx = 0; chunk_idx < number_of_chunks; chunk_idx++) {
                 size_t start = chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size;
                 size_t end = chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size;
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
