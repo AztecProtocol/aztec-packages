@@ -134,7 +134,7 @@ jobs:
 
           rm helm_values.json
 
-          ADDRESS_INDEX=69
+          ADDRESS_INDEX=3000
 
           kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-pxe $PXE_PORT &>/dev/null &
           port_forward_pids+=($!)
