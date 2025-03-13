@@ -58,7 +58,12 @@ function write_wanted_ref {
 
 # Return the current branch name, or fail if we're not on a branch.
 function branch_name {
-  git -C noir-repo symbolic-ref --short -q HEAD
+  repo_exists && git -C noir-repo symbolic-ref --short -q HEAD
+}
+
+# Check that the repo exists
+function repo_exists {
+  [ -d noir-repo ] && [ -d noir-repo/.git ]
 }
 
 # Check if we are on a branch.
@@ -69,11 +74,12 @@ function is_on_branch {
 # Check if we are on a detached HEAD, which means if we switch branches
 # it would be difficult to recover any changes committed on this branch.
 function is_detached_head {
-  ! is_on_branch
+  repo_exists && ! is_on_branch
 }
 
 # Check if noir-repo has uncommitted changes.
 function has_uncommitted_changes {
+  ! repo_exists && return 1
   # Add any untracked files, because otherwise we might switch branches,
   # apply the patch fixup, create an artifical commit and inadvertedly
   # add these files to a commit they have nothing to do with.
@@ -88,6 +94,7 @@ function has_uncommitted_changes {
 
 # Check if the last commit is marked with the local patch message.
 function is_last_commit_patch {
+  ! repo_exists && return 1
   last_msg=$(git -C noir-repo rev-list --max-count=1 --no-commit-header --format=%B HEAD)
   test "$last_msg" == "$PATCH_COMMIT_MSG"
 }
@@ -98,6 +105,7 @@ function is_last_commit_patch {
 # be the last commit, but it doesn't have to be applied again if we switch away
 # from our branch and then come back to it later.
 function has_patch_commit {
+  ! repo_exists && return 1
   if git -C noir-repo rev-list --no-commit-header --format=%B HEAD | grep -q --max-count=1 "$PATCH_COMMIT_MSG" ; then
     return 0 # true
   else
@@ -108,30 +116,30 @@ function has_patch_commit {
 # Find the commit hash of the last applied fixup commit.
 # This is a commit we don't want to include in a patch file.
 function find_fixup_commit {
+  ! repo_exists && return 1
   fixup=$(git -C noir-repo log --oneline --no-abbrev-commit --grep "$FIXUP_COMMIT_MSG" --max-count=1 | awk '{print $1}')
-  if [ -z "$fixup" ]; then
-    return 1
-  fi
+  [ -z "$fixup" ] && return 1
   echo $fixup
 }
 
 # Find the commit hash of the last checkout.
 function find_checkout_commit {
+  ! repo_exists && return 1
   fixup=$(find_fixup_commit)
-  if [ -z "$fixup" ]; then
-    return 1
-  fi
+  [ -z "$fixup" ] && return 1
   git -C noir-repo rev-parse "$fixup~1"
 }
 
 # Check if a ref is a tag we have locally
 function has_tag {
+  ! repo_exists && return 1
   tag=$1
   test $(git -C noir-repo tag --list $tag)
 }
 
 # Get the commit a tag *currently* refers to on the remote and check if we have it in our local history.
 function has_tag_commit {
+  ! repo_exists && return 1
   tag=$1
   rev=$(git -C noir-repo ls-remote --tags origin $tag | awk '{print $1}')
   if [ ! -z "$rev" ]; then
@@ -155,6 +163,7 @@ function has_fixup_and_patch {
 
 # Indicate that we have to switch to the wanted branch.
 function needs_switch {
+  ! repo_exists && return 0 # true
   want=$(read_wanted_ref)
   have=false
   # Are we on the wanted branch?
@@ -340,6 +349,7 @@ function info {
     $@ && echo "yes" || echo "no"
   }
   want=$(read_wanted_ref)
+  echo_info "Repo exists" $(yesno repo_exists)
   echo_info "Fixup commit" $(find_fixup_commit || echo "n/a")
   echo_info "Checkout commit" $(find_checkout_commit || echo "n/a")
   echo_info "Wanted" $want
@@ -353,6 +363,7 @@ function info {
   echo_info "Has patch commit" $(yesno has_patch_commit)
   echo_info "Last commit is patch" $(yesno is_last_commit_patch)
   echo_info "Has fixup and patch" $(yesno has_fixup_and_patch)
+  echo_info "Has uncommitted changes" $(yesno has_uncommitted_changes)
   echo_info "Latest nightly" $(latest_nightly)
 }
 
@@ -370,7 +381,7 @@ case "$cmd" in
     make_patch
     ;;
   "needs-patch")
-    needs_patch && exit 0 || exit 1
+    [ -d noir-repo ] && [ -d noir-repo/.git ] && needs_patch && exit 0 || exit 1
     ;;
   "latest-nightly")
     echo $(latest_nightly)
