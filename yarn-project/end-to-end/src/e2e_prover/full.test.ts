@@ -1,5 +1,5 @@
 import { deployFundedSchnorrAccount, getInitialTestAccounts } from '@aztec/accounts/testing';
-import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, SignerlessWallet } from '@aztec/aztec.js';
 import { getBotDefaultConfig } from '@aztec/bot';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
@@ -11,6 +11,7 @@ import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
 
 import { BotFactory } from '../../../bot/src/factory.js';
+import { publicDeployAccounts } from '../fixtures/snapshot_manager.js';
 import { setupCanonicalFeeJuice } from '../fixtures/utils.js';
 import { FullProverTest } from './e2e_prover_test.js';
 
@@ -78,7 +79,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it.only(
+  it(
     'makes both public and private transfers',
     async () => {
       logger.info(`Starting test for public and private transfer`);
@@ -289,7 +290,7 @@ describe('full_prover', () => {
     expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
   });
 
-  it('can deploy the bot', async () => {
+  it.only('can deploy the bot', async () => {
     const [account] = await getInitialTestAccounts();
     await deployFundedSchnorrAccount(t.provenComponents[0].pxe, account);
     await setupCanonicalFeeJuice(t.provenComponents[0].pxe);
