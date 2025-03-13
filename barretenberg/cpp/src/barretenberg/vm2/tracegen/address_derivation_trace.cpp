@@ -50,4 +50,5 @@ void AddressDerivationTraceBuilder::process(
         row++;
     }
 }
+
 } // namespace bb::avm2::tracegen

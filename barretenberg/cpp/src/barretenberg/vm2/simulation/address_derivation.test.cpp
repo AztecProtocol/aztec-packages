@@ -1,7 +1,7 @@
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
 
-#include "gmock/gmock.h"
 #include <cstdint>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
@@ -64,7 +64,7 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
     EXPECT_CALL(poseidon2, hash(preaddress_inputs)).WillOnce(Return(preaddress));
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
-    EmbeddedCurvePoint preaddress_public_key = g1 * grumpkin::fr(preaddress);
+    EmbeddedCurvePoint preaddress_public_key = g1 * Fq(preaddress);
     EXPECT_CALL(ecc, scalar_mul(g1, preaddress)).WillOnce(Return(preaddress_public_key));
 
     EmbeddedCurvePoint address_point = preaddress_public_key + instance.public_keys.incoming_viewing_key;

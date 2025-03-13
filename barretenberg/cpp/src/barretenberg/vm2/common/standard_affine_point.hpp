@@ -51,13 +51,13 @@ template <typename AffinePoint> class StandardAffinePoint {
 
     constexpr const BaseField& y() const noexcept { return point.is_point_at_infinity() ? zero : point.y; }
 
-    static StandardAffinePoint& infinity()
+    static const StandardAffinePoint& infinity()
     {
         static auto infinity = StandardAffinePoint(AffinePoint::infinity());
         return infinity;
     }
 
-    static StandardAffinePoint& one()
+    static const StandardAffinePoint& one()
     {
         static auto one = StandardAffinePoint(AffinePoint::one());
         return one;
