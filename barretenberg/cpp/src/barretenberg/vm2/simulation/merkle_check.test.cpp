@@ -12,8 +12,8 @@ using testing::ElementsAre;
 
 TEST(MerkleCheckSimulationTest, AssertMembership)
 {
-    EventEmitter<Poseidon2HashEvent> hash_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_emitter;
+    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
     Poseidon2 poseidon2(hash_emitter, perm_emitter);
 
     EventEmitter<MerkleCheckEvent> emitter;
