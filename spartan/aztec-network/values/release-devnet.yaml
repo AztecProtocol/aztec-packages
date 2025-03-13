@@ -30,8 +30,6 @@ images:
 
 aztec:
   realProofs: false
-  extraAccounts: 9
-  extraAccountsStartIndex: 69
 
 jobs:
   deployL1Verifier:
