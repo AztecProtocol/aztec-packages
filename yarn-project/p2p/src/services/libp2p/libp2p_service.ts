@@ -168,8 +168,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     telemetry: TelemetryClient,
     logger = createLogger('p2p:libp2p_service'),
   ) {
-    const { p2pIp, p2pPort, maxPeerCount } = config;
-    const bindAddrTcp = convertToMultiaddr(p2pIp!, p2pPort, 'tcp');
+    const { p2pPort, maxPeerCount, listenAddress } = config;
+    const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
 
     const datastore = new AztecDatastore(store);
 
