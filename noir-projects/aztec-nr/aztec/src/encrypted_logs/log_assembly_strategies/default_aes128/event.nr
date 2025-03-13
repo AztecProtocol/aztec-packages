@@ -14,9 +14,9 @@ use crate::{
     },
     oracle::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::random,
+        random::{get_random_bytes, random},
     },
-    utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
+    utils::{conversion::bytes_to_fields::bytes_to_fields, point::get_sign_of_point},
 };
 use dep::protocol_types::{
     address::AztecAddress,
@@ -204,10 +204,10 @@ where
     }
 
     // *****************************************************************************
-    // Convert bytes back to fields
+    // Convert the encrypted bytes to fields, because logs are field-based
     // *****************************************************************************
 
-    let log_bytes_as_fields = be_bytes_31_to_fields(log_bytes);
+    let log_bytes_as_fields = bytes_to_fields(log_bytes);
 
     // *****************************************************************************
     // Prepend / append fields, to create the final log

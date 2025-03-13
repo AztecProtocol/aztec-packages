@@ -82,12 +82,13 @@ describe('guides/dapp/testing', () => {
         // docs:start:private-storage
         await token.methods.sync_notes().simulate();
         const notes = await pxe.getNotes({
-          owner: owner.getAddress(),
+          recipient: owner.getAddress(),
           contractAddress: token.address,
           storageSlot: ownerSlot,
           scopes: [owner.getAddress()],
         });
-        const values = notes.map(note => note.note.items[0]);
+        // TODO(#12694): Do not rely on the ordering of members in a struct / check notes manually
+        const values = notes.map(note => note.note.items[2]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
         expect(balance).toEqual(100n);
         // docs:end:private-storage

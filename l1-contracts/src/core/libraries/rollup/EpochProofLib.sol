@@ -12,7 +12,7 @@ import {
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {FeeHeader} from "@aztec/core/libraries/rollup/FeeMath.sol";
+import {FeeHeader, FeeLib, FeeStore} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib, RollupStore} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
@@ -304,8 +304,10 @@ library EpochProofLib {
           $er.rewards += (blockRewardsAvailable - sequencerShare);
         }
 
+        FeeStore storage feeStore = FeeLib.getStorage();
+
         for (uint256 i = $er.longestProvenLength; i < length; i++) {
-          FeeHeader storage feeHeader = rollupStore.blocks[_args.start + i].feeHeader;
+          FeeHeader storage feeHeader = feeStore.feeHeaders[_args.start + i];
 
           (uint256 fee, uint256 burn) = isFeeCanonical
             ? (uint256(_args.fees[1 + i * 2]), feeHeader.congestionCost * feeHeader.manaUsed)
