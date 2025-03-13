@@ -2,6 +2,7 @@
 
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -14,7 +15,7 @@ void AddressDerivationTraceBuilder::process(
 {
     using C = Column;
 
-    AffinePoint g1 = grumpkin::g1::affine_one;
+    EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
 
     uint32_t row = 0;
     for (const auto& event : events) {
@@ -43,8 +44,8 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_preaddress_domain_separator, GENERATOR_INDEX__CONTRACT_ADDRESS_V1 },
                 { C::address_derivation_preaddress_public_key_x, event.preaddress_public_key.x() },
                 { C::address_derivation_preaddress_public_key_y, event.preaddress_public_key.y() },
-                { C::address_derivation_g1_x, g1.x },
-                { C::address_derivation_g1_y, g1.y },
+                { C::address_derivation_g1_x, g1.x() },
+                { C::address_derivation_g1_y, g1.y() },
                 { C::address_derivation_address_y, event.address_point.y() } } });
         row++;
     }
