@@ -20,6 +20,7 @@ import {
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 
 // solhint-disable comprehensive-interface
@@ -89,11 +90,6 @@ contract MultiProofTest is RollupBase {
         )
       )
     );
-    // skip blob check if forge gas report is true
-    // https://github.com/foundry-rs/foundry/issues/10074
-    if (vm.envOr("FORGE_GAS_REPORT", false)) {
-      skipBlobCheck(address(rollup));
-    }
 
     registry.upgrade(address(rollup));
 

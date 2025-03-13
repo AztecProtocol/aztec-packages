@@ -42,6 +42,10 @@ When your PR is ready for review, run `./bootstrap.sh snapshot` to update the sn
 
 You can also run `./bootstrap.sh gas_report` to get a gas report for the current state.
 
+NOTE: our gas reporting doesn't take blob validation into account due to [this issue](https://github.com/foundry-rs/foundry/issues/10074).
+
+If you want to run gas reports directly with `forge`, you currently have to trigger gas reports with the env var `FORGE_GAS_REPORT` as opposed to the `--gas-report` flag. The `./bootstrap.sh gas_report` does this for you. Otherwise it will not disable the blob stuff in the tests.
+
 ## Contracts:
 
 The contracts are in a very early stage, and don't worry about gas costs right now. Instead they prioritize development velocity.

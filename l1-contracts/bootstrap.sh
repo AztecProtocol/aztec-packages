@@ -53,7 +53,9 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && ./bootstrap.sh snapshot --check --tolerance 1"
+  # Test the things that fail with --gas-report (due to forge issues) separately
+  # need to chain these together, otherwise we get a "bus error (core dumped)" occasionally.
+  echo "$hash cd l1-contracts && forge test --match-test \"(testInvalidBlobHash)|(testInvalidBlobProof)\" && forge test --match-contract \"(FeeRollupTest)|(MinimalFeeModelTest)\" && ./bootstrap.sh gas_report check"
 }
 
 function test {
@@ -101,8 +103,23 @@ function inspect {
 }
 
 function gas_report {
+  check=${1:-"no"}
   echo_header "l1-contracts gas report"
-  FORGE_GAS_REPORT=true forge test --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)" --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)"
+  FORGE_GAS_REPORT=true forge test --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)" --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" > gas_report.new.tmp
+  grep "^|" gas_report.new.tmp > gas_report.new.md
+  rm gas_report.new.tmp
+  if [ "$check" = "check" ]; then
+    echo "Checking for differences in gas reports..."
+    if diff gas_report.new.md gas_report.md > /dev/null 2>&1; then
+      echo "✅ No differences found in gas reports."
+    else
+      echo "⚠️ Differences found in gas reports. Displaying diff:"
+      diff gas_report.new.md gas_report.md || true
+      exit 1
+    fi
+  else
+    mv gas_report.new.md gas_report.md
+  fi
 }
 
 function snapshot {

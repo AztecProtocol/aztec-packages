@@ -24,3 +24,5 @@ yarn.lock
 
 # 'deploy_contracts' script output
 serve/
+
+gas_report.new.*
