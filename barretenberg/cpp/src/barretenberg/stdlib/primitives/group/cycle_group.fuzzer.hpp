@@ -4,15 +4,17 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #pragma clang diagnostic push
-// TODO(luke/kesha): Add a comment explaining why we need this ignore and what the solution is.
-// TODO(alex): resolve this todo in current pr
-// TODO
+
+// -Wc99-designator prevents us from using designators and nested designators
+// in struct intializations
+// such as {.in.first = a, .out = b}, since it's not a part of c++17 standard
+// However the use of them in this particular file heavily increases
+// the readability and conciseness of the CycleGroupBase::Instruction initializations
 #pragma clang diagnostic ignored "-Wc99-designator"
 
 #define HAVOC_TESTING
 
 #include "barretenberg/common/fuzzer.hpp"
-// TODO: figure out how to detect w + w = c
 
 // #define SHOW_INFORMATION
 // #define SHOW_PRETTY_INFORMATION
