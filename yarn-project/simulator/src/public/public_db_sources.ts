@@ -48,7 +48,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 
   private log = createLogger('simulator:contracts-data-source');
 
-  constructor(private dataSource: ContractDataSource, private blockNumber: number) {}
+  constructor(private dataSource: ContractDataSource) {}
 
   /**
    * Add new contracts from a transaction
@@ -210,13 +210,16 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     this.currentTxRevertibleCache.clear();
   }
 
-  public async getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  public async getContractInstance(
+    address: AztecAddress,
+    blockNumber: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
     // Check caches in order: tx revertible -> tx non-revertible -> block -> data source
     return (
       this.currentTxRevertibleCache.getInstance(address) ??
       this.currentTxNonRevertibleCache.getInstance(address) ??
       this.blockCache.getInstance(address) ??
-      (await this.dataSource.getContract(address, this.blockNumber))
+      (await this.dataSource.getContract(address, blockNumber))
     );
   }
 
@@ -266,8 +269,8 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicStateDB, MerkleTreeCheckpointOperations {
   private logger = createLogger('simulator:world-state-db');
 
-  constructor(public db: MerkleTreeWriteOperations, dataSource: ContractDataSource, blockNumber: number) {
-    super(dataSource, blockNumber);
+  constructor(public db: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
+    super(dataSource);
   }
 
   /**

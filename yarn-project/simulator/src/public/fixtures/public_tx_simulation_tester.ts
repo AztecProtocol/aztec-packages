@@ -37,18 +37,17 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
   constructor(
     private worldStateDB: WorldStateDB,
-    private globals: GlobalVariables,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
   ) {
     super(contractDataSource, merkleTrees);
   }
 
-  public static async create({ globals = defaultGlobals() }): Promise<PublicTxSimulationTester> {
+  public static async create(): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, globals.blockNumber.toNumber());
-    return new PublicTxSimulationTester(worldStateDB, globals, contractDataSource, merkleTrees);
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+    return new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
   }
 
   public async createTx(
@@ -132,17 +131,13 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
     firstNullifier = new Fr(420000 + this.txCount++),
+    globals = defaultGlobals(),
   ): Promise<PublicTxResult> {
     const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, firstNullifier);
 
     await this.setFeePayerBalance(feePayer);
 
-    const simulator = new PublicTxSimulator(
-      this.merkleTrees,
-      this.worldStateDB,
-      this.globals,
-      /*doMerkleOperations=*/ true,
-    );
+    const simulator = new PublicTxSimulator(this.merkleTrees, this.worldStateDB, globals, /*doMerkleOperations=*/ true);
 
     const startTime = performance.now();
     const avmResult = await simulator.simulate(tx);

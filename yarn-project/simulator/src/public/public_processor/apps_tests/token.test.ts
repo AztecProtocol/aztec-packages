@@ -33,7 +33,7 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, globals.blockNumber.toNumber());
+    worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
     const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
@@ -45,7 +45,7 @@ describe('Public Processor app tests: TokenContract', () => {
       getTelemetryClient(),
     );
 
-    tester = new PublicTxSimulationTester(worldStateDB, globals, contractDataSource, merkleTrees);
+    tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
 
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);

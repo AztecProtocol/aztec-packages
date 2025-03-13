@@ -59,7 +59,7 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     skipFeeEnforcement: boolean,
   ): PublicProcessor {
-    const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource, globalVariables.blockNumber.toNumber());
+    const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
       merkleTree,
       worldStateDB,

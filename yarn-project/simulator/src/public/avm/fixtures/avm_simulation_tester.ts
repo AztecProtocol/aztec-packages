@@ -42,7 +42,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
   static async create(blockNumber = DEFAULT_BLOCK_NUMBER): Promise<AvmSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource, blockNumber);
+    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
     const trace = new SideEffectTrace();
     const firstNullifier = new Fr(420000);
     // FIXME: merkle ops should work, but I'm seeing frequent (but inconsistent) bytecode retrieval
@@ -52,6 +52,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       trace,
       /*doMerkleOperations=*/ false,
       firstNullifier,
+      blockNumber,
     );
     return new AvmSimulationTester(contractDataSource, merkleTrees, stateManager);
   }

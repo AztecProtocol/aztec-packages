@@ -12,7 +12,7 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
   let simTester: PublicTxSimulationTester;
 
   beforeEach(async () => {
-    simTester = await PublicTxSimulationTester.create({});
+    simTester = await PublicTxSimulationTester.create();
 
     avmTestContract = await simTester.registerAndDeployContract(
       /*constructorArgs=*/ [],

@@ -43,7 +43,7 @@ describe('AVM Integration', () => {
     bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-avm-integration-'));
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
-    simTester = await PublicTxSimulationTester.create({});
+    simTester = await PublicTxSimulationTester.create();
     avmTestContractInstance = await simTester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),

@@ -66,6 +66,7 @@ export function initPersistableStateManager(overrides?: {
   doMerkleOperations?: boolean;
   db?: MerkleTreeWriteOperations;
   firstNullifier?: Fr;
+  blockNumber?: number;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
@@ -76,6 +77,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.doMerkleOperations || false,
     overrides?.db || mock<MerkleTreeWriteOperations>(),
     overrides?.firstNullifier || new Fr(27),
+    overrides?.blockNumber || 0,
   );
 }
 
