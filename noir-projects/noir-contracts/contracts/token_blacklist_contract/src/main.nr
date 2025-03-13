@@ -18,7 +18,7 @@ use dep::aztec::macros::aztec;
 pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
-        discovery::private_logs::do_process_log,
+        discovery::private_logs::process_private_note_log,
         encrypted_logs::log_assembly_strategies::default_aes128::note::{
             encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
         },
@@ -310,22 +310,21 @@ pub contract TokenBlacklist {
     ) {
         // docs:end:deliver_note_contract_method
 
-        // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
-        // [ storage_slot, note_type_id, ...packed_note ]
         let note = TransparentNote::new(amount, secret_hash);
-        let log_plaintext = BoundedVec::from_array(array_concat(
-            [TokenBlacklist::storage_layout().pending_shields.slot, TransparentNote::get_id()],
-            note.pack(),
-        ));
+        let storage_slot = TokenBlacklist::storage_layout().pending_shields.slot;
+        let note_type_id = TransparentNote::get_id();
+        let packed_note = BoundedVec::from_array(note.pack());
 
-        do_process_log(
+        process_private_note_log(
             contract_address,
-            log_plaintext,
             tx_hash,
             unique_note_hashes_in_tx,
             first_nullifier_in_tx,
             recipient,
             _compute_note_hash_and_nullifier,
+            storage_slot,
+            note_type_id,
+            packed_note,
         );
     }
 }
