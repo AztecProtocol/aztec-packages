@@ -34,9 +34,11 @@ We use `forge fmt` to format. But follow a few general guidelines beyond the sta
 
 ## Gas snapshots and CI
 
-CI will run `forge snapshot --check`. This means that as you develop, you should run `forge snapshot --diff` to make sure you understand the gas cost of your changes.
+CI will run `forge snapshot --check`. This means that as you develop, you should run `./bootstrap.sh snapshot --diff` to make sure you understand the gas cost of your changes.
 
-When your PR is ready for review, run `forge snapshot` to update the snapshot.
+Note: the only reason `forge snapshot` is wrapped in the bootstrap script is to standardize the output, or any future filtering.
+
+When your PR is ready for review, run `./bootstrap.sh snapshot` to update the snapshot, then `./bootstrap.sh test` to make sure you're good.
 
 You can also run `./bootstrap.sh gas_report` to get a gas report for the current state.
 
