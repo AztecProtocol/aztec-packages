@@ -151,7 +151,7 @@ mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
 echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @aztec/types @types/node typescript@^5.0.4 viem@^2.22.8 tsx
+yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
 ```

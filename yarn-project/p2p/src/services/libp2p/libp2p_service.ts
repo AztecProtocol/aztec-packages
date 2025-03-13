@@ -168,10 +168,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     telemetry: TelemetryClient,
     logger = createLogger('p2p:libp2p_service'),
   ) {
-    const { tcpListenAddress, tcpAnnounceAddress, maxPeerCount } = config;
-    const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
-    // We know tcpAnnounceAddress cannot be null here because we set it or throw when setting up the service.
-    const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
+    const { p2pPort, maxPeerCount, listenAddress } = config;
+    const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
 
     const datastore = new AztecDatastore(store);
 
@@ -193,7 +191,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       peerId,
       addresses: {
         listen: [bindAddrTcp],
-        announce: [announceAddrTcp],
+        announce: [], // announce is handled by the peer discovery service
       },
       transports: [
         tcp({
@@ -299,11 +297,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
 
     // Get listen & announce addresses for logging
-    const { tcpListenAddress, tcpAnnounceAddress } = this.config;
-    if (!tcpAnnounceAddress) {
+    const { p2pIp, p2pPort } = this.config;
+    if (!p2pIp) {
       throw new Error('Announce address not provided.');
     }
-    const announceTcpMultiaddr = convertToMultiaddr(tcpAnnounceAddress, 'tcp');
+    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
 
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
@@ -349,7 +347,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     };
     await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
     this.logger.info(`Started P2P service`, {
-      listen: tcpListenAddress,
+      listen: this.config.listenAddress,
+      port: this.config.p2pPort,
       announce: announceTcpMultiaddr,
       peerId: this.node.peerId.toString(),
     });

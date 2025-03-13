@@ -136,8 +136,7 @@ while read -r REGION IP; do
     PRIVATE_KEY=$(gcloud secrets versions access latest --secret="${SECRET_NAME}")
 
     # Now we can generate the enr
-    UDP_ANNOUNCE="$IP:$P2P_UDP_PORT"
-    ENR=$(cd scripts && ./generate_encoded_enr.sh "$PRIVATE_KEY" "$UDP_ANNOUNCE" "$L1_CHAIN_ID" $TAG)
+    ENR=$(cd scripts && ./generate_encoded_enr.sh "$PRIVATE_KEY" "$IP" "$P2P_UDP_PORT" "$L1_CHAIN_ID" $TAG)
 
     echo "ENR: $ENR"
 
