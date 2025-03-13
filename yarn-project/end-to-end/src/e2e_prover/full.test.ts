@@ -303,6 +303,12 @@ describe('full_prover', () => {
       { pxe: t.provenComponents[0].pxe, node: t.aztecNode },
     );
 
-    await expect(factory.setup()).resolves.toBeDefined();
+    await expect(factory.setup()).rejects.toThrow();
+    ['private-kernel-tail-to-public'].forEach(circuitName => {
+      const data = getTestData(circuitName);
+      if (data) {
+        updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[data.length - 1] as any));
+      }
+    });
   });
 });

@@ -20,13 +20,11 @@ export type DecodedError = ExecutionError & { decodedAssertionPayload?: any; noi
 // Payload parsing taken from noir/noir-repo/tooling/noir_js/src/witness_generation.ts.
 // TODO: import this in isolation without having to import noir_js in its entirety.
 export function enrichNoirError(artifact: NoirCompiledCircuit, originalError: ExecutionError): DecodedError {
-  const payload = originalError.rawAssertionPayload;
-  if (!payload) {
-    return originalError;
-  }
   const enrichedError = originalError as DecodedError;
 
   try {
+    const payload = originalError.rawAssertionPayload;
+
     // Decode the payload
     const decodedPayload = abiDecodeError(artifact.abi, payload);
 
