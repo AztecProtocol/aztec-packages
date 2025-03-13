@@ -206,6 +206,7 @@ function bench {
   rm -rf bench-out && mkdir -p bench-out
 
   export CAPTURE_IVC_FOLDER="$(pwd)/client-ivc-inputs-out"
+  rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
   # A bit pattern breaking, but the best code to instrument our private IVC flows exists in yarn-project,
   # while the best code for benchmarking these IVC flows exists here.
   ../../yarn-project/end-to-end/bootstrap.sh generate_private_flows_ivc_inputs "$CAPTURE_IVC_FOLDER"
@@ -246,7 +247,7 @@ function bench {
   }
   function client_ivc_wasm {
     echo wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
-      ./build-wasm-threads/bin/client_ivc_bench \i
+      ./build-wasm-threads/bin/client_ivc_bench \
         --benchmark_out=./bench-out/client_ivc_wasm.json \
         --benchmark_filter="ClientIVCBench/Full/6$"
   }
