@@ -74,9 +74,13 @@ class AvmFlavor {
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = {{len all_cols_and_shifts}};
 
-    // Number of chunks of the trace in the sumcheck univariate computation where any given chunk is
-    // evenly processed by the all threads.
-    static constexpr size_t NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION = 256;
+    // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
+    // evenly processed by all the threads. This constant defines the maximum number of rows
+    // that a given thread will process per chunk. This constant is assumed to be a power of 2
+    // greater or equal to 2.
+    static constexpr size_t MAX_CHUNK_THREAD_PORTION_SIZE = 32;
+    static_assert(MAX_CHUNK_THREAD_PORTION_SIZE >= 2);
+    static_assert((MAX_CHUNK_THREAD_PORTION_SIZE & (MAX_CHUNK_THREAD_PORTION_SIZE - 1)) == 0);
 
     // Need to be templated for recursive verifier
     template <typename FF_>

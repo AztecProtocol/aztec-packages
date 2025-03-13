@@ -11,11 +11,10 @@
 
 namespace bb {
 
-// Whether a Flavor specifies the number of chunks for univariate computation.
+// Whether a Flavor specifies the max number of rows per thread in a chunk for univariate computation.
 // Used for the AVM.
 template <typename Flavor>
-concept specifiesUnivariateChunks =
-    std::convertible_to<decltype(Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION), size_t>;
+concept specifiesUnivariateChunks = std::convertible_to<decltype(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE), size_t>;
 
 /*! \brief Imlementation of the Sumcheck prover round.
     \class SumcheckProverRound
@@ -175,20 +174,26 @@ template <typename Flavor> class SumcheckProverRound {
         // In the AVM, the trace is more dense at the top and therefore it is worth to split the work over the threads
         // a bit more evenly on the vertical axis. To achieve this, we split the trace into chunks and each thread
         // processes one part of the chunk.
-        // For non-AVM flavor, we use a single chunk.
-        size_t num_of_chunks = 1;
-        if constexpr (specifiesUnivariateChunks<Flavor>) {
-            num_of_chunks = Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION;
-        }
+        // For the non-AVM flavors, we use a single chunk.
 
-        // When the trace is shrunk to a point where the number of chunk portion per thread is 1 or lower
-        // we fallback to using one chunk.
-        if (round_size / (2 * num_threads) <= num_of_chunks) {
-            num_of_chunks = 1;
+        // Non AVM flavors
+        size_t num_of_chunks = 1;
+        size_t chunk_thread_portion_size = round_size / num_threads;
+
+        // AVM flavor
+        if constexpr (specifiesUnivariateChunks<Flavor>) {
+            const auto thread_portion_size_candidate =
+                std::min(round_size / num_threads, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
+
+            // When the trace is shrunk to a point where the chunk portion size per thread is lower than 2,
+            // we fall back to a single chunk, i.e., we keep the "non-AVM" values.
+            if (thread_portion_size_candidate >= 2) {
+                chunk_thread_portion_size = thread_portion_size_candidate;
+                num_of_chunks = round_size / (chunk_thread_portion_size * num_threads);
+            }
         }
 
         size_t chunk_size = round_size / num_of_chunks;
-        size_t chunk_thread_portion_size = chunk_size / num_threads;
         // Construct univariate accumulator containers; one per thread
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
 
