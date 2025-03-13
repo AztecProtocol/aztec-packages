@@ -1,0 +1,10 @@
+✅ /workspaces/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/mega_flavor.hpp:            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
+✅ /workspaces/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp:            // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
+✅ /workspaces/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp:        // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
+✅ /workspaces/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp:        // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): reserve space in blocks here somehow?
+✅ /workspaces/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp:            // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
+✅ /workspaces/aztec-packages/barretenberg/cpp/src/barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.cpp:            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1176) Use UltraKeccakZKProver when it exists
+✅ /workspaces/aztec-packages/barretenberg/ts/src/barretenberg/index.ts:    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
+✅ /workspaces/aztec-packages/barretenberg/ts/src/examples/simple.rawtest.ts:  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
+✅ /workspaces/aztec-packages/barretenberg/ts/src/examples/simple.test.ts:    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
+✅ /workspaces/aztec-packages/barretenberg/ts/src/main.ts:  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
