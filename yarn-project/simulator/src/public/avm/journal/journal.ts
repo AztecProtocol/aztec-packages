@@ -245,7 +245,7 @@ export class AvmPersistableStateManager {
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
     if (this.doMerkleOperations) {
-      const exists = (await this.treesDB.getNullifierIndex(siloedNullifier)) !== undefined;
+      const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
       this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists})`);
       return Promise.resolve(exists);
     } else {
@@ -275,10 +275,10 @@ export class AvmPersistableStateManager {
     this.log.trace(`Inserting siloed nullifier=${siloedNullifier}`);
 
     if (this.doMerkleOperations) {
-      const index = await this.treesDB.getNullifierIndex(siloedNullifier);
+      const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
 
-      if (index !== undefined) {
-        this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree at index ${index}!`);
+      if (exists) {
+        this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree!`);
         throw new NullifierCollisionError(
           `Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`,
         );
