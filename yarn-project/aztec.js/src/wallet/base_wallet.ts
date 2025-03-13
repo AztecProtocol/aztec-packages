@@ -1,11 +1,17 @@
 import type { ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr, Point } from '@aztec/foundation/fields';
 import type { AbiDecoded, ContractArtifact } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstanceWithAddress, NodeInfo } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
-import type { ContractClassMetadata, ContractMetadata, PXE, PXEInfo } from '@aztec/stdlib/interfaces/client';
+import type {
+  ContractClassMetadata,
+  ContractMetadata,
+  EventMetadataDefinition,
+  PXE,
+  PXEInfo,
+} from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionResult,
   Tx,
@@ -103,5 +109,17 @@ export abstract class BaseWallet implements Wallet {
 
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
+  }
+
+  getPrivateEvents<T>(
+    event: EventMetadataDefinition,
+    from: number,
+    limit: number,
+    vpks: Point[] = [this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
+  ): Promise<T[]> {
+    return this.pxe.getPrivateEvents(event, from, limit, vpks);
+  }
+  getPublicEvents<T>(event: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+    return this.pxe.getPublicEvents(event, from, limit);
   }
 }

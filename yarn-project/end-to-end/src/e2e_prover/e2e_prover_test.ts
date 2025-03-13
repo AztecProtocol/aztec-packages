@@ -121,7 +121,7 @@ export class FullProverTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2), false);
+        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
 
         this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
@@ -345,16 +345,14 @@ export class FullProverTest {
         const privateAmount = 10000n;
         const publicAmount = 10000n;
 
-        const waitOpts = { proven: false };
-
         this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
         await asset.methods
           .mint_to_public(accounts[0].address, privateAmount + publicAmount)
           .send()
-          .wait(waitOpts);
+          .wait();
 
         this.logger.verbose(`Transferring ${privateAmount} to private...`);
-        await asset.methods.transfer_to_private(accounts[0].address, privateAmount).send().wait(waitOpts);
+        await asset.methods.transfer_to_private(accounts[0].address, privateAmount).send().wait();
 
         this.logger.verbose(`Minting complete.`);
 

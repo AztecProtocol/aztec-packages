@@ -118,7 +118,6 @@ export class TXENode implements AztecNode {
         undefined,
         new L2BlockHash(blockHash.toBuffer()),
         blockNumber,
-        undefined,
       ),
     );
   }

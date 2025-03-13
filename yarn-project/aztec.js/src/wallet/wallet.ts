@@ -26,6 +26,8 @@ export type Wallet = AccountInterface &
     | 'getSenders'
     | 'removeSender'
     | 'getTxReceipt'
+    | 'getPrivateEvents'
+    | 'getPublicEvents'
   > & {
     createAuthWit(intent: IntentInnerHash | IntentAction): Promise<AuthWitness>;
   };
