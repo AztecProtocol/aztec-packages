@@ -1,3 +1,4 @@
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import {
   Grumpkin,
   keccak256,
@@ -71,17 +72,25 @@ import {
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 import {
-  mockCheckNullifierExists,
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockGetNoteHashIfIndexMatches,
+  mockGetNullifierIndex,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
+  mockNoteHashExists,
   mockStorageRead,
   mockStorageReadWithMap,
   mockTraceFork,
 } from './test_utils.js';
+
+const siloAddress = (contractAddress: AztecAddress) => {
+  const contractAddressNullifier = siloNullifier(
+    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    contractAddress.toField(),
+  );
+  return contractAddressNullifier;
+};
 
 describe('AVM simulator: injected bytecode', () => {
   let calldata: Fr[];
@@ -591,7 +600,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('note_hash_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockGetNoteHashIfIndexMatches(treesDB, mockAtLeafIndex, value0);
+          mockNoteHashExists(treesDB, mockAtLeafIndex, value0);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -607,7 +616,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
 
-        mockCheckNullifierExists(treesDB, exists);
+        if (exists) {
+          mockGetNullifierIndex(treesDB, leafIndex, siloedNullifier0);
+        }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
@@ -872,9 +883,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
-        mockCheckNullifierExists(treesDB, true);
-        mockCheckNullifierExists(treesDB, true);
-        mockCheckNullifierExists(treesDB, true);
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstanceWithAddress.address));
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstanceWithAddress.address));
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstanceWithAddress.address));
 
         const bytecode = getAvmTestContractBytecode('test_get_contract_instance');
 
@@ -913,7 +924,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(contractsDB, contractInstance);
-        mockCheckNullifierExists(treesDB, true);
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -937,7 +948,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(contractsDB, contractInstance);
         mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
-        mockCheckNullifierExists(treesDB, true);
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -964,7 +975,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(contractsDB, contractInstance);
-        mockCheckNullifierExists(treesDB, true);
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -986,7 +997,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(contractsDB, contractInstance);
-        mockCheckNullifierExists(treesDB, true);
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstance.address));
 
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
@@ -1016,7 +1027,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(contractsDB, contractInstance);
-        mockCheckNullifierExists(treesDB, true);
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 
@@ -1041,7 +1052,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
         const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(contractsDB, contractInstance);
-        mockCheckNullifierExists(treesDB, true);
+        mockGetNullifierIndex(treesDB, await siloAddress(contractInstance.address));
 
         mockTraceFork(trace);
 

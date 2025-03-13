@@ -110,11 +110,11 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   getFunctionArtifactByName(contractAddress: AztecAddress, functionName: string): Promise<FunctionArtifact | undefined>;
 
   /**
-   * Checks if a nullifier exists in the nullifier tree.
+   * Gets the index of a nullifier in the nullifier tree.
    * @param nullifier - The nullifier.
-   * @returns - True if the nullifier exists in the tree, false otherwise.
+   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
    */
-  checkNullifierExists(nullifier: Fr): Promise<boolean>;
+  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
    * Retrieve the databases view of the Block Header object.

@@ -431,26 +431,26 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     return leafValue;
   }
 
-  public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
+  public async getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
     const leafValue = await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
-    this.logger.debug(`[DB] Fetched note hash leaf value`, {
+    this.logger.debug(`[DB] Fetched commitment leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
-      operation: 'get-note-hash',
+      operation: 'get-commitment-leaf-value',
     } satisfies PublicDBAccessStats);
     return leafValue;
   }
 
-  public async checkNullifierExists(nullifier: Fr): Promise<boolean> {
+  public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
     const timer = new Timer();
     const index = (await this.db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-    this.logger.debug(`[DB] Checked nullifier existence`, {
+    this.logger.debug(`[DB] Fetched nullifier index`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
-      operation: 'check-nullifier-exists',
+      operation: 'get-nullifier-index',
     } satisfies PublicDBAccessStats);
-    return index !== undefined;
+    return index;
   }
 }
 

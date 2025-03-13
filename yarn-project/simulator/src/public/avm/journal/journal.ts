@@ -194,7 +194,7 @@ export class AvmPersistableStateManager {
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
   public async checkNoteHashExists(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
-    const gotLeafValue = (await this.treesDB.getNoteHash(leafIndex.toBigInt())) ?? Fr.ZERO;
+    const gotLeafValue = (await this.treesDB.getCommitmentValue(leafIndex.toBigInt())) ?? Fr.ZERO;
     const exists = gotLeafValue.equals(noteHash);
     this.log.trace(
       `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
@@ -245,7 +245,7 @@ export class AvmPersistableStateManager {
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
     if (this.doMerkleOperations) {
-      const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
+      const exists = (await this.treesDB.getNullifierIndex(siloedNullifier)) !== undefined;
       this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists})`);
       return Promise.resolve(exists);
     } else {
@@ -275,10 +275,10 @@ export class AvmPersistableStateManager {
     this.log.trace(`Inserting siloed nullifier=${siloedNullifier}`);
 
     if (this.doMerkleOperations) {
-      const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
+      const index = await this.treesDB.getNullifierIndex(siloedNullifier);
 
-      if (exists) {
-        this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree!`);
+      if (index !== undefined) {
+        this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree at index ${index}!`);
         throw new NullifierCollisionError(
           `Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`,
         );
