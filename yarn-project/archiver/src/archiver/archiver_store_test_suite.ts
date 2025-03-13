@@ -292,16 +292,65 @@ export function describeArchiverDataStore(
       });
 
       it('returns previously stored contract instances', async () => {
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toMatchObject(contractInstance);
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toMatchObject(
+          contractInstance,
+        );
       });
 
       it('returns undefined if contract instance is not found', async () => {
-        await expect(store.getContractInstance(await AztecAddress.random())).resolves.toBeUndefined();
+        await expect(store.getContractInstance(await AztecAddress.random(), blockNum)).resolves.toBeUndefined();
       });
 
       it('returns undefined if previously stored contract instances was deleted', async () => {
         await store.deleteContractInstances([contractInstance], blockNum);
-        await expect(store.getContractInstance(contractInstance.address)).resolves.toBeUndefined();
+        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toBeUndefined();
+      });
+    });
+
+    describe('contractInstanceUpdates', () => {
+      let contractInstance: ContractInstanceWithAddress;
+      let classId: Fr;
+      let nextClassId: Fr;
+      const blockOfChange = 10;
+
+      beforeEach(async () => {
+        classId = Fr.random();
+        nextClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: classId,
+          originalContractClassId: classId,
+        });
+        contractInstance = { ...randomInstance, address: await AztecAddress.random() };
+        await store.addContractInstances([contractInstance], 1);
+        await store.addContractInstanceUpdates(
+          [
+            {
+              prevContractClassId: classId,
+              newContractClassId: nextClassId,
+              blockOfChange,
+              address: contractInstance.address,
+            },
+          ],
+          blockOfChange - 1,
+        );
+      });
+
+      it('gets the correct current class id for a contract not updated yet', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange - 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(classId);
+      });
+
+      it('gets the correct current class id for a contract that has just been updated', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+      });
+
+      it('gets the correct current class id for a contract that was updated in the past', async () => {
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
     });
 

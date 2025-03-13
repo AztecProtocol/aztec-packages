@@ -84,6 +84,7 @@ export class AvmPersistableStateManager {
     /** DB interface for merkle tree operations */
     public db: MerkleTreeWriteOperations,
     public readonly firstNullifier: Fr,
+    public readonly blockNumber: number,
   ) {}
 
   /**
@@ -94,6 +95,7 @@ export class AvmPersistableStateManager {
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,
+    blockNumber: number,
   ): AvmPersistableStateManager {
     // TODO(dbanks12): temporary until we establish a better world state interface
     const db = worldStateDB.getMerkleInterface();
@@ -106,6 +108,7 @@ export class AvmPersistableStateManager {
       /*doMerkleOperations=*/ doMerkleOperations,
       db,
       firstNullifier,
+      blockNumber,
     );
   }
 
@@ -122,6 +125,7 @@ export class AvmPersistableStateManager {
       this.doMerkleOperations,
       this.db,
       this.firstNullifier,
+      this.blockNumber,
     );
   }
 
@@ -566,7 +570,7 @@ export class AvmPersistableStateManager {
    */
   public async getContractInstance(contractAddress: AztecAddress): Promise<SerializableContractInstance | undefined> {
     this.log.trace(`Getting contract instance for address ${contractAddress}`);
-    const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
+    const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress, this.blockNumber);
     const exists = instanceWithAddress !== undefined;
 
     const instance = exists ? new SerializableContractInstance(instanceWithAddress) : undefined;
