@@ -1,11 +1,8 @@
 use crate::{
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
-        log_assembly_strategies::default_aes128::{
-            arithmetic_generics_utils::{
-                get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
-            },
-            utils_to_nuke::{self, be_bytes_32_to_fields},
+        log_assembly_strategies::default_aes128::arithmetic_generics_utils::{
+            get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
         },
     },
     keys::{
@@ -15,12 +12,15 @@ use crate::{
     oracle::{
         aes128_decrypt::aes128_decrypt_oracle,
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::random_with_max_byte_size,
+        random::{get_random_bytes, random_with_max_byte_size},
         shared_secret::get_shared_secret,
     },
     utils::{
         array,
-        bytes::{be_bytes_31_to_fields, fields_to_be_bytes_32, get_random_bytes},
+        conversion::{
+            bytes_to_fields::{bytes_from_fields, bytes_to_fields},
+            fields_to_bytes::{fields_from_bytes, fields_to_bytes},
+        },
         point::{get_sign_of_point, point_from_x_coord_and_sign},
     },
 };
@@ -39,8 +39,7 @@ pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 = (
     - HEADER_CIPHERTEXT_SIZE_IN_BYTES
     - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES;
 // Each field of the original note log was serialized to 32 bytes. Below we convert the bytes back to fields.
-pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS: u32 =
-    (PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES + 31) / 32;
+pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS: u32 = PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES / 32;
 
 /// Computes an encrypted log using AES-128 encryption in CBC mode.
 ///
@@ -82,7 +81,7 @@ pub fn encrypt_log<let PT: u32>(
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
     // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes.
     // (This process is then reversed when processing the log in `do_process_log`)
-    let plaintext_bytes = fields_to_be_bytes_32(plaintext);
+    let plaintext_bytes = fields_to_bytes(plaintext);
 
     // *****************************************************************************
     // Compute the shared secret
@@ -198,7 +197,7 @@ pub fn encrypt_log<let PT: u32>(
     // Convert bytes back to fields
     // *****************************************************************************
 
-    let log_bytes_as_fields = be_bytes_31_to_fields(log_bytes);
+    let log_bytes_as_fields = bytes_to_fields(log_bytes);
 
     // *****************************************************************************
     // Prepend / append fields, to create the final log
@@ -246,7 +245,7 @@ pub unconstrained fn decrypt_log(
     );
 
     // Convert the ciphertext represented as fields to a byte representation (its original format)
-    let log_ciphertext = utils_to_nuke::fields_to_be_bytes_31(log_ciphertext_fields);
+    let log_ciphertext = bytes_from_fields(log_ciphertext_fields);
 
     // First byte of the ciphertext represents the ephemeral public key sign
     let eph_pk_sign_bool = log_ciphertext.get(0) as bool;
@@ -287,7 +286,7 @@ pub unconstrained fn decrypt_log(
     let log_plaintext_bytes = aes128_decrypt_oracle(ciphertext, iv, sym_key);
 
     // Each field of the original note log was serialized to 32 bytes so we convert the bytes back to fields.
-    be_bytes_32_to_fields(log_plaintext_bytes)
+    fields_from_bytes(log_plaintext_bytes)
 }
 
 mod test {

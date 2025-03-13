@@ -2,7 +2,7 @@ use crate::{
     context::PrivateContext,
     encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::encrypt_log,
     note::{note_emission::NoteEmission, note_interface::NoteType},
-    utils::bytes::fields_to_be_bytes_32,
+    utils::conversion::bytes_to_fields::bytes_to_fields,
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,

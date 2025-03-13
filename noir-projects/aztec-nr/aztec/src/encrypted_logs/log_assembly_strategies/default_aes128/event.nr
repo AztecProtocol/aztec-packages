@@ -18,7 +18,10 @@ use crate::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
         random::{get_random_bytes, random_with_max_byte_size},
     },
-    utils::{conversion::bytes_to_fields::bytes_to_fields, point::get_sign_of_point},
+    utils::{
+        conversion::{bytes_to_fields::bytes_to_fields, fields_to_bytes::fields_to_bytes},
+        point::get_sign_of_point,
+    },
 };
 use dep::protocol_types::{
     address::AztecAddress,
@@ -75,7 +78,7 @@ where
         fields[i + 1] = serialized_event[i];
     }
 
-    fields_to_be_bytes_32(fields)
+    fields_to_bytes(fields)
 }
 
 // Note: This function is basically a copy of ./note/encryption.nr::encrypt_log. TODO: Merge the functions once

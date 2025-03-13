@@ -76,8 +76,4 @@ export class PrivateLog {
       fields: [${this.fields.map(x => inspect(x)).join(', ')}],
     }`;
   }
-
-  equals(other: PrivateLog) {
-    return this.fields.every((field, index) => field.equals(other.fields[index]));
-  }
 }
