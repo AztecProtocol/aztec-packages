@@ -26,6 +26,7 @@ case "$type" in
       $name_arg \
       --cpus=${CPUS:-4} \
       --memory=${MEM:-8g} \
+      --uid=$(id -u):$(id -g) \
       -v$(git rev-parse --show-toplevel):/root/aztec-packages \
       -v$HOME/.bb-crs:/root/.bb-crs \
       --mount type=tmpfs,target=/tmp,tmpfs-size=1g \

@@ -141,17 +141,22 @@ function test {
 
 # Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
 function bb_client_ivc_captures {
+  export CAPTURE_IVC_FOLDER=client-ivc-inputs-out
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
+    echo "$(pwd)/$CAPTURE_IVC_FOLDER"
     return
   fi
+
+    # scripts/run_test.sh simple e2e_amm
+    # scripts/run_test.sh simple e2e_nft
   # This is a bit of a hack, but we need to run the test again to reliably generate the inputs
   # as otherwise test caching might get in the way.
-  export CAPTURE_IVC_FOLDER=client-ivc-inputs-out
-
   # TODO parallel should call scripts/run_test.sh simple e2e_amm and others
   echo "
-    scripts/run_test.sh simple e2e_amm
+    scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
   " | parallel --line-buffer --halt now,fail=1
+  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+  echo "$(pwd)/$CAPTURE_IVC_FOLDER"
 }
 
 function bench {

@@ -272,6 +272,7 @@ case "$cmd" in
       # ./cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
       echo "$bb_hash" | redis_setexz last-publish-hashs-bb $seven_days
     fi
+    ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then
       echo "Not connected to CI redis."

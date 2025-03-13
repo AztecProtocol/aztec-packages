@@ -1,6 +1,7 @@
 import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
+import { capturePrivateExecutionStepsIfEnvSet } from '../shared/capture_private_execution_steps.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract transfer private', () => {
@@ -120,6 +121,8 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[1].addAuthWitness(witness);
+
+      await capturePrivateExecutionStepsIfEnvSet('token-transfer', action);
 
       // Perform the transfer
       await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
