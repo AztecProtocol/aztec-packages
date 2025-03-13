@@ -311,10 +311,8 @@ Combined P2P, and Service Address Setup Container
       value: "{{ .Values.network.public }}"
     - name: NAMESPACE
       value: {{ .Release.Namespace }}
-    - name: P2P_TCP_PORT
-      value: "{{ .Values.validator.service.p2pTcpPort }}"
-    - name: P2P_UDP_PORT
-      value: "{{ .Values.validator.service.p2pUdpPort }}"
+    - name: P2P_PORT
+      value: "{{ .Values.validator.service.p2pPort }}"
     - name: TELEMETRY
       value: "{{ .Values.telemetry.enabled }}"
     - name: OTEL_COLLECTOR_ENDPOINT

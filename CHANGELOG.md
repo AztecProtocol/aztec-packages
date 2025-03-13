@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.80.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.79.0...v0.80.0) (2025-03-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* disable PXE concurrency ([#12637](https://github.com/AztecProtocol/aztec-packages/issues/12637))
+
+### Features
+
+* add inspect command to bootstrap ([#12641](https://github.com/AztecProtocol/aztec-packages/issues/12641)) ([2f0c527](https://github.com/AztecProtocol/aztec-packages/commit/2f0c5273571d4c8d28d0fff1dbe1cbdb527ba708))
+* disable PXE concurrency ([#12637](https://github.com/AztecProtocol/aztec-packages/issues/12637)) ([2716898](https://github.com/AztecProtocol/aztec-packages/commit/27168983deb9346aacc68b43938a86a442aa01e4))
+* remove public bytecode from ts ContractArtifact ([#12653](https://github.com/AztecProtocol/aztec-packages/issues/12653)) ([6345158](https://github.com/AztecProtocol/aztec-packages/commit/6345158022a55ea1e0ccdd874d12bbcb39d3c639))
+
+
+### Bug Fixes
+
+* **cli:** fix tag resolution for `aztec update --contract` ([#12657](https://github.com/AztecProtocol/aztec-packages/issues/12657)) ([b58c123](https://github.com/AztecProtocol/aztec-packages/commit/b58c123972a136f4df904bbd57bde1115a6f9171))
+* **docs:** Fix link to source code after code snippets ([#12658](https://github.com/AztecProtocol/aztec-packages/issues/12658)) ([8bc5daf](https://github.com/AztecProtocol/aztec-packages/commit/8bc5daf4471d85b6d970bb3d25defbe8c5dcb0da))
+* fix yarn-project typos in release ([#12652](https://github.com/AztecProtocol/aztec-packages/issues/12652)) ([93a6f4e](https://github.com/AztecProtocol/aztec-packages/commit/93a6f4e6aba7b95d1fa95524033b89fe1e9b6e00))
+* handling undefined block number in sync data provider txe ([#12605](https://github.com/AztecProtocol/aztec-packages/issues/12605)) ([b764a9a](https://github.com/AztecProtocol/aztec-packages/commit/b764a9a48a19c4803671876f9df8b7af53fe3e49))
+* Inject blob sink client config to archiver start ([#12675](https://github.com/AztecProtocol/aztec-packages/issues/12675)) ([e2e857b](https://github.com/AztecProtocol/aztec-packages/commit/e2e857b5c12e220cb293dd7a681aaa7c3571fb97))
+* Load config from env on archiver start ([#12662](https://github.com/AztecProtocol/aztec-packages/issues/12662)) ([79579f3](https://github.com/AztecProtocol/aztec-packages/commit/79579f3c4fda4e3654d2b04ba4ea316c5b5f1dee))
+
+
+### Miscellaneous
+
+* aztec start should use pxe proving by default ([#12676](https://github.com/AztecProtocol/aztec-packages/issues/12676)) ([80cd840](https://github.com/AztecProtocol/aztec-packages/commit/80cd840a188ae14a313e15e46f642a05bbccfbb4)), closes [#12677](https://github.com/AztecProtocol/aztec-packages/issues/12677)
+* downgrade undici so its engine spec is compatible ([#12659](https://github.com/AztecProtocol/aztec-packages/issues/12659)) ([4f815ea](https://github.com/AztecProtocol/aztec-packages/commit/4f815ea3a25bf157d49afc9c3948341fbda89f34)), closes [#12645](https://github.com/AztecProtocol/aztec-packages/issues/12645)
+* fix warning in aztec-nr ([#12647](https://github.com/AztecProtocol/aztec-packages/issues/12647)) ([3831bab](https://github.com/AztecProtocol/aztec-packages/commit/3831bab7c40acd9aa2c0714bb61a08d6d613175e))
+* Merge is part of verification queue ([#12612](https://github.com/AztecProtocol/aztec-packages/issues/12612)) ([e324582](https://github.com/AztecProtocol/aztec-packages/commit/e3245823b0abdb351dddce2c9f821f28d691cd61))
+* Remove roots arg on __compute_fracs in blob lib ([#12663](https://github.com/AztecProtocol/aztec-packages/issues/12663)) ([8ec910b](https://github.com/AztecProtocol/aztec-packages/commit/8ec910b794ba3afa28517a7a58abe59bcf9560d7))
+* replace relative paths to noir-protocol-circuits ([f684528](https://github.com/AztecProtocol/aztec-packages/commit/f684528b268a958388f24c71b9e2b01013e21eb5))
+* test cli upgrade ([#12506](https://github.com/AztecProtocol/aztec-packages/issues/12506)) ([fc728f3](https://github.com/AztecProtocol/aztec-packages/commit/fc728f379c6c670664b7db6445d0a9b42294a685))
+
+
+### Documentation
+
+* **feat:** Aztec js intro page ([#11804](https://github.com/AztecProtocol/aztec-packages/issues/11804)) ([12d8f3f](https://github.com/AztecProtocol/aztec-packages/commit/12d8f3ffd4f7319e21d79002389cf19a8ebfc4bc))
+
 ## [0.79.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.78.1...v0.79.0) (2025-03-11)
 
 

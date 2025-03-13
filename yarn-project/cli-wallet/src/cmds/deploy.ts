@@ -29,13 +29,7 @@ export async function deploy(
   const contractArtifact = await getContractArtifact(artifactPath, log);
   const constructorArtifact = getInitializer(contractArtifact, initializer);
 
-  const nodeInfo = await client.getNodeInfo();
-  const expectedAztecNrVersion = `$v${nodeInfo.nodeVersion}`;
-  if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
-    log(
-      `\nWarning: Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}\n`,
-    );
-  }
+  // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
   const deployer = new ContractDeployer(contractArtifact, wallet, publicKeys ?? PublicKeys.default(), initializer);
 
