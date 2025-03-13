@@ -1,0 +1,226 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "add-validators.fullname" . }}-validator
+  labels:
+    {{- include "add-validators.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "add-validators.fullname" . }}-validator
+  replicas: {{ .Values.validator.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "add-validators.selectorLabels" . | nindent 6 }}
+      app: validator
+  volumeClaimTemplates:
+    - metadata:
+        name: validator-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.validator.storageSize }}
+  template:
+    metadata:
+      labels:
+        {{- include "add-validators.selectorLabels" . | nindent 8 }}
+        app: validator
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
+      initContainers:
+        - name: setup-private-key
+          image: {{ .Values.images.curl.image }}
+          imagePullPolicy: {{ .Values.images.curl.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              # Get the pod index from the pod name
+              POD_INDEX=$(echo $POD_NAME | awk -F'-' '{print $NF}')
+              echo "Pod index: $POD_INDEX"
+
+              # Get the private key for this validator from the array
+              PRIVATE_KEY=$(echo $VALIDATOR_PRIVATE_KEYS | jq -r ".[$POD_INDEX]")
+              echo "Using private key index: $POD_INDEX"
+
+              # Create the keys.env file
+              # Do not have the same as the VALIDATOR_PRIVATE_KEY env var
+              cat <<EOF >/shared/config/keys.env
+              export VAL_KEY=$PRIVATE_KEY
+              EOF
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: VALIDATOR_PRIVATE_KEYS
+              value: {{ .Values.validator.privateKeys | quote }}
+      containers:
+        - name: validator
+          {{- include "add-validators.image" . | nindent 10 }}
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              source /shared/config/keys.env && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --validator --l1-rpc-urls {{ .Values.network.l1ExecutionUrl }} --l1-consensus-url {{ .Values.network.l1ConsensusUrl }} --sequencer.validatorPrivateKey $VAL_KEY --p2p.bootstrapNodes
+          startupProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.validator.service.nodePort }}
+            failureThreshold: {{ .Values.validator.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.validator.startupProbe.periodSeconds }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - curl -fSs http://127.0.0.1:{{ .Values.validator.service.nodePort }}/status
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 30
+            failureThreshold: 3
+          volumeMounts:
+            - name: contracts-env
+              mountPath: /shared/contracts
+            - name: config
+              mountPath: /shared/config
+            - name: validator-data
+              mountPath: {{ .Values.validator.dataDir }}
+          env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.validator.maxOldSpaceSize}}"
+            - name: AZTEC_PORT
+              value: "{{ .Values.validator.service.nodePort }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.validator.logLevel }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: P2P_ENABLED
+              value: "{{ .Values.validator.p2p.enabled }}"
+            - name: VALIDATOR_DISABLED
+              value: "{{ .Values.validator.validator.disabled }}"
+            - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
+              value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
+            - name: SEQ_MIN_TX_PER_BLOCK
+              value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
+            - name: SEQ_MAX_TX_PER_BLOCK
+              value: "{{ .Values.validator.sequencer.maxTxsPerBlock }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
+            - name: ETHEREUM_SLOT_DURATION
+              value: "{{ .Values.ethereum.blockTime }}"
+            - name: AZTEC_SLOT_DURATION
+              value: "{{ .Values.aztec.slotDuration }}"
+            - name: AZTEC_EPOCH_DURATION
+              value: "{{ .Values.aztec.epochDuration }}"
+            - name: AZTEC_PROOF_SUBMISSION_WINDOW
+              value: "{{ .Values.aztec.proofSubmissionWindow }}"
+            - name: VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS
+              value: {{ .Values.validator.attestationPollingInterval | quote }}
+            - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
+              value: {{ .Values.validator.l1GasLimitBufferPercentage | quote }}
+            - name: L1_GAS_PRICE_MAX
+              value: {{ .Values.validator.l1GasPriceMax | quote }}
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.validator.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
+            - name: WS_DB_MAP_SIZE_KB
+              value: "{{ .Values.storage.worldStateMapSize }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
+            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
+              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
+          ports:
+            - containerPort: {{ .Values.validator.service.nodePort }}
+            - containerPort: {{ .Values.validator.service.p2pPort }}
+            - containerPort: {{ .Values.validator.service.p2pPort }}
+              protocol: UDP
+          resources:
+            {{- toYaml .Values.validator.resources | nindent 12 }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "add-validators.fullname" . }}-scripts
+            defaultMode: 0755
+        - name: contracts-env
+          emptyDir: {}
+        - name: pxe-url
+          emptyDir: {}
+        - name: config
+          emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: validator-data
+          emptyDir: {}
+      {{ else }}
+        - name: validator-data
+          persistentVolumeClaim:
+            claimName: validator-data
+      {{- end }}
+---
+# If this is not a public network, create a headless service for StatefulSet DNS entries
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "add-validators.fullname" . }}-validator
+  labels:
+    {{- include "add-validators.labels" . | nindent 4 }}
+    app: validator
+spec:
+  clusterIP: None
+  selector:
+    {{- include "add-validators.selectorLabels" . | nindent 4 }}
+    app: validator
+  ports:
+    - port: {{ .Values.validator.service.p2pPort }}
+      name: p2p-tcp
+      protocol: TCP
+    - port: {{ .Values.validator.service.p2pPort }}
+      name: p2p-udp
+      protocol: UDP
+    - port: {{ .Values.validator.service.nodePort }}
+      name: node
+      protocol: TCP
+---
+# If we want to send traffic to any validator, then we need a LoadBalancer service on top of a headless service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "add-validators.fullname" . }}-validator-lb
+  labels:
+    {{- include "add-validators.labels" . | nindent 4 }}
+    app: validator
+spec:
+  selector:
+    {{- include "add-validators.selectorLabels" . | nindent 4 }}
+    app: validator
+  ports:
+    - port: {{ .Values.validator.service.nodePort }}
+      name: node
+      protocol: TCP
