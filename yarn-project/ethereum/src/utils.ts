@@ -164,19 +164,38 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
 
   // Strip ABI from the error object before formatting
   if (error && typeof error === 'object') {
-    // Remove abi property if it exists
-    if ('abi' in error) {
-      delete error.abi;
-    }
+    // Create a clone to avoid modifying the original
+    const errorClone = structuredClone(error);
 
-    // Also check cause chain for abi
-    let current = error.cause;
-    while (current) {
-      if (current && typeof current === 'object' && 'abi' in current) {
-        delete current.abi;
+    // Helper function to recursively remove ABI properties
+    const stripAbis = (obj: any) => {
+      if (!obj || typeof obj !== 'object') {
+        return;
       }
-      current = current.cause;
-    }
+
+      // Delete ABI property at current level
+      if ('abi' in obj) {
+        delete obj.abi;
+      }
+
+      // Process cause property
+      if (obj.cause) {
+        stripAbis(obj.cause);
+      }
+
+      // Process arrays and objects
+      Object.values(obj).forEach(value => {
+        if (value && typeof value === 'object') {
+          stripAbis(value);
+        }
+      });
+    };
+
+    // Strip ABIs from the clone
+    stripAbis(errorClone);
+
+    // Use the cleaned clone for further processing
+    error = errorClone;
   }
 
   // If it's a regular Error instance, return it with its message
