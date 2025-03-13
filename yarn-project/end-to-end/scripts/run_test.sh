@@ -20,23 +20,25 @@ case "$type" in
     # Strip leading non alpha numerics and replace / with _ for the container name.
     name="$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')${NAME_POSTFIX:-}"
     name_arg="--name $name"
+    repo_dir=$(git rev-parse --show-toplevel)
     trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM EXIT
     docker rm -f $name &>/dev/null || true
     docker run --rm \
       $name_arg \
       --cpus=${CPUS:-4} \
       --memory=${MEM:-8g} \
-      --uid=$(id -u):$(id -g) \
-      -v$(git rev-parse --show-toplevel):/root/aztec-packages \
-      -v$HOME/.bb-crs:/root/.bb-crs \
+      --user $(id -u):$(id -g) \
+      "-v$repo_dir:$repo_dir" \
+      "-v$HOME/.bb-crs:$HOME/.bb-crs" \
       --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
       --mount type=tmpfs,target=/tmp-jest,tmpfs-size=512m \
+      -e HOME \
       -e JEST_CACHE_DIR=/tmp-jest \
       -e FAKE_PROOFS \
       -e BENCH_OUTPUT \
       -e CAPTURE_IVC_FOLDER \
       -e LOG_LEVEL \
-      --workdir /root/aztec-packages/yarn-project/end-to-end \
+      --workdir "$repo_dir/yarn-project/end-to-end" \
       aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST
   ;;
   "compose")

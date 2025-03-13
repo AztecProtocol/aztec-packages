@@ -29,7 +29,11 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
-    await asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0).send().wait();
+    const tokenTransferInteraction = asset
+      .withWallet(wallets[0])
+      .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0);
+    await capturePrivateExecutionStepsIfEnvSet('token-transfer', tokenTransferInteraction);
+    await tokenTransferInteraction.send().wait();
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
     // We give wallets[0] access to wallets[1]'s notes to be able to check balances after the test.
@@ -121,8 +125,6 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[1].addAuthWitness(witness);
-
-      await capturePrivateExecutionStepsIfEnvSet('token-transfer', action);
 
       // Perform the transfer
       await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');

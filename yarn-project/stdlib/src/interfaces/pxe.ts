@@ -482,7 +482,11 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
   profileTx: z
     .function()
-    .args(TxExecutionRequest.schema, z.union([z.literal('gates'), z.literal('debug')]), optional(schemas.AztecAddress))
+    .args(
+      TxExecutionRequest.schema,
+      z.union([z.literal('gates'), z.literal('full'), z.literal('execution-steps')]),
+      optional(schemas.AztecAddress),
+    )
     .returns(TxProfileResult.schema),
   simulateTx: z
     .function()
