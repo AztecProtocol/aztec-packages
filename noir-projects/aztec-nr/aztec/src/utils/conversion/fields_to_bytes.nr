@@ -45,8 +45,8 @@ pub fn fields_from_bytes<let N: u32>(bytes: BoundedVec<u8, N>) -> BoundedVec<Fie
     // Since fields are ~254 bits, we must ensure the most significant byte of each 32-byte chunk
     // contains no more than 6 bits, preventing overflow when converting back to fields.
     for i in 0..bytes.len() / 32 {
-        let last_byte = bytes.get(i * 32) as Field;
-        last_byte.assert_max_bit_size::<6>();
+        let most_significant_byte = bytes.get(i * 32) as Field;
+        most_significant_byte.assert_max_bit_size::<6>();
     }
 
     let mut fields = BoundedVec::new();
@@ -123,5 +123,20 @@ mod tests {
 
         // The result should be a largest value storable in a field (-1 since we are modulo-ing)
         assert_eq(fields.get(0), -1);
+    }
+
+    #[test(should_fail_with = "call to assert_max_bit_size")]
+    fn fields_from_bytes_254_bits() {
+        // Create a 254-bit number that's too large for a field
+        // All bytes are 0xFF except the first byte which is 0x3F to make it 254 bits
+        let input = BoundedVec::<_, 32>::from_array([
+            0x3F, // 0b00111111
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF,
+        ]);
+
+        // This should fail since the number is too large for a field
+        let _fields = fields_from_bytes(input);
     }
 }
