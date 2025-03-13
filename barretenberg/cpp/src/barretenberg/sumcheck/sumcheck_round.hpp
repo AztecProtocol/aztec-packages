@@ -9,11 +9,16 @@
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "zk_sumcheck_data.hpp"
 
-#ifndef DISABLE_AZTEC_VM
-#include "barretenberg/vm2/generated/flavor.hpp"
-#endif // DISABLE_AZTEC_VM
-
 namespace bb {
+
+// Whether a Flavor specifies the number of chunks for univariate computation.
+// Used for the AVM.
+template <typename Flavor>
+concept specifiesUnivariateChunks = requires() {
+    {
+        Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION
+    } -> std::same_as<size_t>;
+};
 
 /*! \brief Imlementation of the Sumcheck prover round.
     \class SumcheckProverRound
@@ -175,9 +180,7 @@ template <typename Flavor> class SumcheckProverRound {
         // processes one part of the chunk.
         // For non-AVM flavor, we use a single chunk.
         size_t num_of_chunks = 1;
-#ifndef DISABLE_AZTEC_VM
-
-        if constexpr (std::same_as<Flavor, bb::avm2::AvmFlavor>) {
+        if constexpr (specifiesUnivariateChunks<Flavor>) {
             num_of_chunks = Flavor::NUM_OF_CHUNKS_FOR_UNIVARIATE_COMPUTATION;
         }
 
@@ -186,7 +189,6 @@ template <typename Flavor> class SumcheckProverRound {
         if (round_size / (2 * num_threads) <= num_of_chunks) {
             num_of_chunks = 1;
         }
-#endif // DISABLE_AZTEC_VM
 
         size_t chunk_size = round_size / num_of_chunks;
         size_t chunk_thread_portion_size = chunk_size / num_threads;
