@@ -172,7 +172,6 @@ export class TXE implements TypedOracle {
     const baseFork = await nativeWorldStateService.fork();
 
     const addressDataProvider = new AddressDataProvider(store);
-    const authWitnessDataProvider = new AuthWitnessDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
