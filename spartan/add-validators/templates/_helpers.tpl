@@ -50,12 +50,3 @@ app.kubernetes.io/name: {{ include "add-validators.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Aztec Image
-*/}}
-{{- define "add-validators.image" -}}
-image: {{ .Values.images.aztec.image }}
-imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
-{{- end -}}
-
-

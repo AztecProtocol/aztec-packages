@@ -30,6 +30,7 @@ describe('add additional validators', () => {
   let pxe: PXE;
   const forwardProcesses: ChildProcess[] = [];
   let ETHEREUM_HOSTS: string;
+  let ETHEREUM_CONSENSUS_HOST: string;
   beforeAll(async () => {
     let PXE_URL: string;
     {
@@ -49,6 +50,15 @@ describe('add additional validators', () => {
       });
       forwardProcesses.push(process);
       ETHEREUM_HOSTS = `http://127.0.0.1:${port}`;
+    }
+    {
+      const { process, port } = await startPortForward({
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-beacon`,
+        namespace: config.NAMESPACE,
+        containerPort: config.CONTAINER_ETHEREUM_CONSENSUS_PORT,
+      });
+      forwardProcesses.push(process);
+      ETHEREUM_CONSENSUS_HOST = `http://127.0.0.1:${port}`;
     }
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
   });
@@ -110,6 +120,10 @@ describe('add additional validators', () => {
       values: {
         'validator.privateKeys': keys.join(','),
         'validator.bootNodes': enr,
+        'validator.replicas': keys.length,
+        'aztec.image': `aztecprotocol/aztec:${config.AZTEC_DOCKER_TAG}`,
+        'aztec.l1ExecutionUrl': ETHEREUM_HOSTS,
+        'aztec.l1ConsensusUrl': ETHEREUM_CONSENSUS_HOST,
       },
       valuesFile: undefined,
       timeout: '15m',

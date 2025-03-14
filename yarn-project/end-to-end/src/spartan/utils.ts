@@ -44,6 +44,7 @@ const k8sLocalConfigSchema = z.object({
   CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   CONTAINER_ETHEREUM_PORT: z.coerce.number().default(8545),
+  CONTAINER_ETHEREUM_CONSENSUS_PORT: z.coerce.number().default(5052),
   CONTAINER_METRICS_PORT: z.coerce.number().default(80),
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
@@ -52,8 +53,8 @@ const k8sLocalConfigSchema = z.object({
   L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
   SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
-  ADMIN_PRIVATE_KEY: z.string().optional(),
   VALUES_FILE: z.string(),
+  AZTEC_DOCKER_TAG: z.string(),
 });
 
 const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({

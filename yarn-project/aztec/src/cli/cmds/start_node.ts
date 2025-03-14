@@ -2,6 +2,7 @@ import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
@@ -40,6 +41,9 @@ export async function startNode(
     ...configFromEnvVars,
     ...relevantOptions,
   };
+
+  // Map L1 contract addresses from top-level options to nodeConfig.l1Contracts
+  mapContractAddressesToNodeConfig(options, nodeConfig);
 
   if (options.proverNode) {
     userLog(`Running a Prover Node within a Node is not yet supported`);
@@ -170,4 +174,39 @@ export async function startNode(
   }
 
   return { config: nodeConfig };
+}
+
+/**
+ * Maps contract addresses from top-level options to nodeConfig.l1Contracts
+ * @param options Command line options
+ * @param nodeConfig Aztec node configuration
+ */
+function mapContractAddressesToNodeConfig(options: any, nodeConfig: AztecNodeConfig): void {
+  // Ensure contract addresses from top-level options are included in nodeConfig.l1Contracts
+  nodeConfig.l1Contracts = nodeConfig.l1Contracts || {};
+
+  if (options.registryAddress) {
+    nodeConfig.l1Contracts.registryAddress = EthAddress.fromString(options.registryAddress);
+  }
+  if (options.rollupAddress) {
+    nodeConfig.l1Contracts.rollupAddress = EthAddress.fromString(options.rollupAddress);
+  }
+  if (options.inboxAddress) {
+    nodeConfig.l1Contracts.inboxAddress = EthAddress.fromString(options.inboxAddress);
+  }
+  if (options.outboxAddress) {
+    nodeConfig.l1Contracts.outboxAddress = EthAddress.fromString(options.outboxAddress);
+  }
+  if (options.feeJuiceAddress) {
+    nodeConfig.l1Contracts.feeJuiceAddress = EthAddress.fromString(options.feeJuiceAddress);
+  }
+  if (options.feeJuicePortalAddress) {
+    nodeConfig.l1Contracts.feeJuicePortalAddress = EthAddress.fromString(options.feeJuicePortalAddress);
+  }
+  if (options.stakingAssetAddress) {
+    nodeConfig.l1Contracts.stakingAssetAddress = EthAddress.fromString(options.stakingAssetAddress);
+  }
+  if (options.slashFactoryAddress) {
+    nodeConfig.l1Contracts.slashFactoryAddress = EthAddress.fromString(options.slashFactoryAddress);
+  }
 }
