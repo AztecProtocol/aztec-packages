@@ -45,25 +45,45 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('should add attestations to pool', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
+    const attestations = await Promise.all(
+      signers.slice(0, -1).map(signer => mockAttestation(signer, slotNumber, archive)),
+    );
 
     await ap.addAttestations(attestations);
 
     // Check metrics have been updated.
     expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
 
-    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), archive.toString());
+    const retrievedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), archive.toString());
+    expect(retrievedAttestations.length).toBe(attestations.length);
+    compareAttestations(retrievedAttestations, attestations);
 
-    expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
+    const retrievedAttestationsForSlot = await ap.getAttestationsForSlot(BigInt(slotNumber));
+    expect(retrievedAttestationsForSlot.length).toBe(attestations.length);
+    compareAttestations(retrievedAttestationsForSlot, attestations);
 
-    compareAttestations(retreivedAttestations, attestations);
+    // Add another one
+    const newAttestation = await mockAttestation(signers[NUMBER_OF_SIGNERS_PER_TEST - 1], slotNumber, archive);
+    await ap.addAttestations([newAttestation]);
+    expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(1);
+    const retrievedAttestationsAfterAdd = await ap.getAttestationsForSlotAndProposal(
+      BigInt(slotNumber),
+      archive.toString(),
+    );
+    expect(retrievedAttestationsAfterAdd.length).toBe(attestations.length + 1);
+    compareAttestations(retrievedAttestationsAfterAdd, [...attestations, newAttestation]);
+    const retrievedAttestationsForSlotAfterAdd = await ap.getAttestationsForSlot(BigInt(slotNumber));
+    expect(retrievedAttestationsForSlotAfterAdd.length).toBe(attestations.length + 1);
+    compareAttestations(retrievedAttestationsForSlotAfterAdd, [...attestations, newAttestation]);
 
     // Delete by slot
     await ap.deleteAttestationsForSlot(BigInt(slotNumber));
+    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length + 1);
 
-    expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
-
-    const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), archive.toString());
+    const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlotAndProposal(
+      BigInt(slotNumber),
+      archive.toString(),
+    );
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
   });
 
@@ -82,7 +102,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     // Add them to store and check we end up with only one
     await ap.addAttestations(attestations);
 
-    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), archive.toString());
+    const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), archive.toString());
     expect(retreivedAttestations.length).toBe(1);
     expect(retreivedAttestations[0].toBuffer()).toEqual(attestations[0].toBuffer());
     expect(retreivedAttestations[0].payload.txHashes).toEqual(txs);
@@ -90,7 +110,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     // Try adding them on another operation and check they are still not duplicated
     await ap.addAttestations([attestations[0]]);
-    expect(await ap.getAttestationsForSlot(BigInt(slotNumber), archive.toString())).toHaveLength(1);
+    expect(await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), archive.toString())).toHaveLength(1);
   });
 
   it('should store attestations by differing slot', async () => {
@@ -103,7 +123,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       const slot = attestation.payload.header.globalVariables.slotNumber;
       const archive = attestation.archive.toString();
 
-      const retreivedAttestations = await ap.getAttestationsForSlot(slot.toBigInt(), archive);
+      const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(slot.toBigInt(), archive);
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
       expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
@@ -123,7 +143,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       const slot = attestation.payload.header.globalVariables.slotNumber;
       const proposalId = attestation.archive.toString();
 
-      const retreivedAttestations = await ap.getAttestationsForSlot(slot.toBigInt(), proposalId);
+      const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(slot.toBigInt(), proposalId);
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
       expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
@@ -140,7 +160,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
 
-    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     compareAttestations(retreivedAttestations, attestations);
 
@@ -148,7 +168,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
-    const gottenAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    const gottenAfterDelete = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(gottenAfterDelete.length).toBe(0);
   });
 
@@ -160,13 +180,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     await ap.addAttestations(attestations);
 
-    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     compareAttestations(retreivedAttestations, attestations);
 
     await ap.deleteAttestationsForSlot(BigInt(slotNumber));
 
-    const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
   });
 
@@ -187,7 +207,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations.length);
     expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(attestations2.length);
 
-    const retreivedAttestations = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     compareAttestations(retreivedAttestations, attestations);
 
@@ -195,10 +215,10 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     expect(metricsMock.recordRemovedObjects).toHaveBeenCalledWith(attestations.length);
 
-    const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlot(BigInt(slotNumber), proposalId);
+    const retreivedAttestationsAfterDelete = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
 
-    const retreivedAttestationsAfterDeleteForOtherProposal = await ap.getAttestationsForSlot(
+    const retreivedAttestationsAfterDeleteForOtherProposal = await ap.getAttestationsForSlotAndProposal(
       BigInt(slotNumber),
       proposalId2,
     );
@@ -215,14 +235,14 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     await ap.addAttestations(attestations);
 
-    const attestationsForSlot1 = await ap.getAttestationsForSlot(BigInt(1), proposalId);
+    const attestationsForSlot1 = await ap.getAttestationsForSlotAndProposal(BigInt(1), proposalId);
     expect(attestationsForSlot1.length).toBe(signers.length);
 
     const deleteAttestationsSpy = jest.spyOn(ap, 'deleteAttestationsForSlot');
 
     await ap.deleteAttestationsOlderThan(BigInt(73));
 
-    const attestationsForSlot1AfterDelete = await ap.getAttestationsForSlot(BigInt(1), proposalId);
+    const attestationsForSlot1AfterDelete = await ap.getAttestationsForSlotAndProposal(BigInt(1), proposalId);
     expect(attestationsForSlot1AfterDelete.length).toBe(0);
 
     expect(deleteAttestationsSpy).toHaveBeenCalledTimes(5);

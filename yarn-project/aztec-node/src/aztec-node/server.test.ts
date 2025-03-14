@@ -118,6 +118,7 @@ describe('aztec node', () => {
       nullifierWithBlockSource,
       worldState,
       undefined,
+      undefined,
       12345,
       1,
       globalVariablesBuilder,

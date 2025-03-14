@@ -11,7 +11,7 @@ import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes. */
-export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
+export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, number>;
   private readonly l2BlockHashesStore: AztecAsyncMap<number, string>;
 

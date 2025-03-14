@@ -26,6 +26,14 @@ export const L1RollupConstantsSchema = z.object({
   ethereumSlotDuration: z.number(),
 }) satisfies ZodFor<L1RollupConstants>;
 
+/** Returns the timestamp for a given L2 slot. */
+export function getTimestampForSlot(
+  slot: bigint,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>,
+) {
+  return constants.l1GenesisTime + slot * BigInt(constants.slotDuration);
+}
+
 /** Returns the slot number for a given timestamp. */
 export function getSlotAtTimestamp(ts: bigint, constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'>) {
   return ts < constants.l1GenesisTime ? 0n : (ts - constants.l1GenesisTime) / BigInt(constants.slotDuration);

@@ -50,6 +50,11 @@ describe('P2PApiSchema', () => {
     const peers = await context.client.getPeers(true);
     expect(peers).toEqual(peers);
   });
+
+  it('addAttestation', async () => {
+    const attestation = BlockAttestation.empty();
+    await context.client.addAttestation(attestation);
+  });
 });
 
 const peers: PeerInfo[] = [
@@ -76,5 +81,10 @@ class MockP2P implements P2PApi {
   getPeers(includePending?: boolean): Promise<PeerInfo[]> {
     expect(includePending === undefined || includePending === true).toBeTruthy();
     return Promise.resolve(peers);
+  }
+
+  addAttestation(attestation: BlockAttestation): Promise<void> {
+    expect(attestation).toBeInstanceOf(BlockAttestation);
+    return Promise.resolve();
   }
 }
