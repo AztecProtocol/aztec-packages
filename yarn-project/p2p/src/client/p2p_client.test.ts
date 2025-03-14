@@ -237,15 +237,17 @@ describe('In-Memory P2P Client', () => {
       const advanceToProvenBlockNumber = 20;
       const keepAttestationsInPoolFor = 12;
 
+      const deleteAttestationsOlderThanSpy = jest.spyOn(attestationPool, 'deleteAttestationsOlderThan');
+
       blockSource.setProvenBlockNumber(0);
       (client as any).keepAttestationsInPoolFor = keepAttestationsInPoolFor;
       await client.start();
-      expect(attestationPool.deleteAttestationsOlderThan).not.toHaveBeenCalled();
+      expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
       await advanceToProvenBlock(advanceToProvenBlockNumber);
 
-      expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledTimes(1);
-      expect(attestationPool.deleteAttestationsOlderThan).toHaveBeenCalledWith(
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(
         BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor),
       );
     });
