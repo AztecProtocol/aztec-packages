@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_address_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
@@ -21,7 +22,10 @@
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
+#include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
@@ -31,10 +35,12 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
+#include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2 {
@@ -67,6 +73,10 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_integral_tag_length(trace));
             AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",
                            precomputed_builder.process_wire_instruction_spec(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/to_radix_safe_limbs",
+                           precomputed_builder.process_to_radix_safe_limbs(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
+                           precomputed_builder.process_to_radix_p_decompositions(trace));
         },
     };
 }
@@ -167,6 +177,12 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.addressing);
                 },
                 [&]() {
+                    AddressDerivationTraceBuilder address_derivation_builder;
+                    AVM_TRACK_TIME("tracegen/address_derivation",
+                                   address_derivation_builder.process(events.address_derivation, trace));
+                    clear_events(events.address_derivation);
+                },
+                [&]() {
                     AluTraceBuilder alu_builder;
                     AVM_TRACK_TIME("tracegen/alu", alu_builder.process(events.alu, trace));
                     clear_events(events.alu);
@@ -227,7 +243,13 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AVM_TRACK_TIME("tracegen/poseidon2_permutation",
                                    poseidon2_builder.process_permutation(events.poseidon2_permutation, trace));
                     clear_events(events.poseidon2_permutation);
-                } });
+                },
+                [&]() {
+                    ToRadixTraceBuilder to_radix_builder;
+                    AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
+                    clear_events(events.to_radix);
+                },
+            });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
 
@@ -267,7 +289,36 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_1_settings>>(),
             // Scalar mul
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_settings>>(),
-            std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>());
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_settings>>(),
+            // To radix
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_range_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_fetch_safe_limbs_settings>>(),
+            std::make_unique<LookupIntoPDecomposition<lookup_to_radix_fetch_p_limb_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_p_diff_range_settings>>(),
+            // Address derivation
+            std::make_unique<LookupIntoDynamicTableSequential<
+                lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<
+                lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_partial_address_poseidon2_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_0_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_1_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_2_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_3_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_4_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_poseidon2_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_scalar_mul_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_address_derivation_address_ecadd_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

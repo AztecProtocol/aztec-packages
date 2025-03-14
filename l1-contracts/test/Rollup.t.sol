@@ -13,7 +13,9 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "./harnesses/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {TestConstants} from "./harnesses/TestConstants.sol";
+
 import {
   IRollupCore,
   BlockLog,
@@ -30,9 +32,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {
-  ProposeArgs, OracleInput, ProposeLib
-} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
@@ -94,11 +94,20 @@ contract RollupTest is RollupBase {
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
-    rollup =
-      IInstance(address(new Rollup(feeJuicePortal, rewardDistributor, testERC20, address(this))));
+    rollup = IInstance(
+      address(
+        new Rollup(
+          feeJuicePortal,
+          rewardDistributor,
+          testERC20,
+          address(this),
+          TestConstants.getGenesisState(),
+          TestConstants.getRollupConfigInput()
+        )
+      )
+    );
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));
-
     registry.upgrade(address(rollup));
 
     merkleTestUtil = new MerkleTestUtil();

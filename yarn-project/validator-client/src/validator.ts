@@ -134,6 +134,10 @@ export class ValidatorClient extends WithTracer implements Validator {
     return validator;
   }
 
+  public getValidatorAddress() {
+    return this.keyStore.getAddress();
+  }
+
   public async start() {
     // Sync the committee from the smart contract
     // https://github.com/AztecProtocol/aztec-packages/issues/7962

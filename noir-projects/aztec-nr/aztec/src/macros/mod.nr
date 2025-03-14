@@ -5,7 +5,10 @@ pub mod notes;
 pub mod storage;
 pub mod events;
 
-use functions::{stub_registry, utils::transform_unconstrained};
+use functions::{
+    stub_registry,
+    utils::{create_note_discovery_call, find_and_transform_top_level_unconstrained_fns},
+};
 use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
@@ -19,12 +22,8 @@ use crate::discovery::MAX_NOTE_PACKED_LEN;
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-    let unconstrained_functions = m.functions().filter(|f: FunctionDefinition| {
-        f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
-    });
-    for f in unconstrained_functions {
-        transform_unconstrained(f);
-    }
+
+    find_and_transform_top_level_unconstrained_fns(m);
 
     let contract_library_method_compute_note_hash_and_nullifier =
         generate_contract_library_method_compute_note_hash_and_nullifier();
@@ -255,7 +254,8 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 _storage_slot: Field,
                 _note_type_id: Field,
                 _contract_address: aztec::protocol_types::address::AztecAddress,
-            ) -> pub Option<aztec::discovery::NoteHashAndNullifier> {
+                _nonce: Field,
+            ) -> Option<aztec::discovery::NoteHashAndNullifier> {
                 panic(f"This contract does not use private notes")
             }
         }
@@ -328,9 +328,15 @@ comptime fn generate_note_exports() -> Quoted {
 }
 
 comptime fn generate_sync_notes() -> Quoted {
+    let note_discovery_call = create_note_discovery_call();
     quote {
         unconstrained fn sync_notes() {
-            aztec::oracle::note_discovery::sync_notes();
+            // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
+            // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
+            // unconstrained execution context since it will not be available otherwise.
+            let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
+
+            $note_discovery_call
         }
     }
 }

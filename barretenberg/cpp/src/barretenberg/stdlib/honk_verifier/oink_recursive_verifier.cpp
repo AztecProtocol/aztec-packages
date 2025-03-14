@@ -43,23 +43,12 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    FF circuit_size = transcript->template receive_from_prover<FF>(domain_separator + "circuit_size");
-    FF public_input_size = transcript->template receive_from_prover<FF>(domain_separator + "public_input_size");
-    FF pub_inputs_offset = transcript->template receive_from_prover<FF>(domain_separator + "pub_inputs_offset");
-
-    if (static_cast<uint32_t>(circuit_size.get_value()) != verification_key->verification_key->circuit_size) {
-        throw_or_abort("OinkRecursiveVerifier::verify: proof circuit size does not match verification key");
-    }
-    if (static_cast<uint32_t>(public_input_size.get_value()) != verification_key->verification_key->num_public_inputs) {
-        const std::string message = "OinkRecursiveVerifier::verify: proof public input size (" +
-                                    std::to_string(static_cast<uint32_t>(public_input_size.get_value())) +
-                                    ") does not match verification key public input size (" +
-                                    std::to_string(verification_key->verification_key->num_public_inputs) + ")";
-        throw_or_abort(message);
-    }
-    if (static_cast<uint32_t>(pub_inputs_offset.get_value()) != verification_key->verification_key->pub_inputs_offset) {
-        throw_or_abort("OinkRecursiveVerifier::verify: proof public input offset does not match verification key");
-    }
+    FF circuit_size = FF::from_witness(builder, verification_key->verification_key->circuit_size);
+    FF public_input_size = FF::from_witness(builder, verification_key->verification_key->num_public_inputs);
+    FF pub_inputs_offset = FF::from_witness(builder, verification_key->verification_key->pub_inputs_offset);
+    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
+    transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
+    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < verification_key->verification_key->num_public_inputs; ++i) {

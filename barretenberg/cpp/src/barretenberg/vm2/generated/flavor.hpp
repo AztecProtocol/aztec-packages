@@ -18,6 +18,7 @@
 #include "flavor_settings.hpp"
 
 // Relations
+#include "relations/address_derivation.hpp"
 #include "relations/alu.hpp"
 #include "relations/bc_decomposition.hpp"
 #include "relations/bc_hashing.hpp"
@@ -32,8 +33,10 @@
 #include "relations/range_check.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
+#include "relations/to_radix.hpp"
 
 // Lookup and permutation relations
+#include "relations/lookups_address_derivation.hpp"
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
@@ -44,6 +47,7 @@
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
+#include "relations/lookups_to_radix.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -85,18 +89,19 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 38;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 772;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 102;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 854;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 115;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 912;
+    static constexpr size_t NUM_ALL_ENTITIES = 1013;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = std::tuple<
         // Relations
+        avm2::address_derivation<FF_>,
         avm2::alu<FF_>,
         avm2::bc_decomposition<FF_>,
         avm2::bc_hashing<FF_>,
@@ -110,7 +115,8 @@ class AvmFlavor {
         avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
         avm2::scalar_mul<FF_>,
-        avm2::sha256<FF_>>;
+        avm2::sha256<FF_>,
+        avm2::to_radix<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
 
@@ -118,6 +124,17 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
+        lookup_address_derivation_address_ecadd_relation<FF_>,
+        lookup_address_derivation_partial_address_poseidon2_relation<FF_>,
+        lookup_address_derivation_preaddress_poseidon2_relation<FF_>,
+        lookup_address_derivation_preaddress_scalar_mul_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_0_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_1_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_2_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_3_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
+        lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
+        lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_decomposition_bytes_to_read_as_unary_relation<FF_>,
@@ -145,7 +162,13 @@ class AvmFlavor {
         lookup_range_check_r7_is_u16_relation<FF_>,
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
-        lookup_sha256_round_constant_relation<FF_>>;
+        lookup_scalar_mul_to_radix_relation<FF_>,
+        lookup_sha256_round_constant_relation<FF_>,
+        lookup_to_radix_fetch_p_limb_relation<FF_>,
+        lookup_to_radix_fetch_safe_limbs_relation<FF_>,
+        lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
+        lookup_to_radix_limb_p_diff_range_relation<FF_>,
+        lookup_to_radix_limb_range_relation<FF_>>;
 
     using LookupRelations = LookupRelations_<FF>;
 
@@ -355,6 +378,7 @@ class AvmFlavor {
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size);
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size);
     };
 
     /**
@@ -401,6 +425,9 @@ class AvmFlavor {
             this->precomputed_first_row = verification_key->precomputed_first_row;
             this->precomputed_instr_size_in_bytes = verification_key->precomputed_instr_size_in_bytes;
             this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
+            this->precomputed_p_decomposition_limb = verification_key->precomputed_p_decomposition_limb;
+            this->precomputed_p_decomposition_limb_index = verification_key->precomputed_p_decomposition_limb_index;
+            this->precomputed_p_decomposition_radix = verification_key->precomputed_p_decomposition_radix;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
             this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
@@ -422,13 +449,16 @@ class AvmFlavor {
             this->precomputed_sel_op_dc_7 = verification_key->precomputed_sel_op_dc_7;
             this->precomputed_sel_op_dc_8 = verification_key->precomputed_sel_op_dc_8;
             this->precomputed_sel_op_dc_9 = verification_key->precomputed_sel_op_dc_9;
+            this->precomputed_sel_p_decomposition = verification_key->precomputed_sel_p_decomposition;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
             this->precomputed_sel_range_wire_opcode = verification_key->precomputed_sel_range_wire_opcode;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
+            this->precomputed_sel_to_radix_safe_limbs = verification_key->precomputed_sel_to_radix_safe_limbs;
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =
                 verification_key->precomputed_sha256_compression_round_constant;
+            this->precomputed_to_radix_safe_limbs = verification_key->precomputed_to_radix_safe_limbs;
             this->precomputed_zero = verification_key->precomputed_zero;
         }
     };

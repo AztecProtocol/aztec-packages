@@ -50,19 +50,14 @@ export async function makeTestP2PClient(
     logger = createLogger('p2p-test-client'),
   }: MakeTestP2PClientOptions,
 ) {
-  const addr = `127.0.0.1:${port}`;
-  const listenAddr = `0.0.0.0:${port}`;
-
   // Filter nodes so that we only dial active peers
 
   const config: P2PConfig & DataStoreConfig = {
     ...p2pBaseConfig,
     p2pEnabled: true,
     peerIdPrivateKey,
-    tcpListenAddress: listenAddr, // run on port 0
-    udpListenAddress: listenAddr,
-    tcpAnnounceAddress: addr,
-    udpAnnounceAddress: addr,
+    p2pIp: `127.0.0.1`,
+    p2pPort: port,
     bootstrapNodes: peers,
     peerCheckIntervalMS: 1000,
     maxPeerCount: 10,

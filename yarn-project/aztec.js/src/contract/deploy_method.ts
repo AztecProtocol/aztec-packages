@@ -1,5 +1,5 @@
 import type { Fr } from '@aztec/foundation/fields';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
+import { type ContractArtifact, type FunctionAbi, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
@@ -11,7 +11,7 @@ import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/index.js';
+import type { Wallet } from '../account/wallet.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
 import { type ExecutionRequestInit, mergeExecutionRequestInits } from '../entrypoint/entrypoint.js';
@@ -51,7 +51,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   private instance?: ContractInstanceWithAddress = undefined;
 
   /** Constructor function to call. */
-  private constructorArtifact: FunctionArtifact | undefined;
+  private constructorArtifact: FunctionAbi | undefined;
 
   constructor(
     private publicKeys: PublicKeys,

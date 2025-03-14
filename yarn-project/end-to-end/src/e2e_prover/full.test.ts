@@ -10,7 +10,8 @@ import { type Chain, type GetContractReturnType, type HttpTransport, type Public
 
 import { FullProverTest } from './e2e_prover_test.js';
 
-const TIMEOUT = 5_000_000;
+// Set a very long 20 minute timeout.
+const TIMEOUT = 1_200_000;
 
 // This makes AVM proving throw if there's a failure.
 process.env.AVM_PROVING_STRICT = '1';

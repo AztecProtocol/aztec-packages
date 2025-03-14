@@ -56,7 +56,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
         , trace_usage_tracker(trace_usage_tracker)
     {}
 
-    void prove();
+    HonkProof prove();
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();

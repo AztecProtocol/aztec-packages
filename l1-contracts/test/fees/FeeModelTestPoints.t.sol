@@ -4,11 +4,11 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "../base/Base.sol";
-import {OracleInput} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+import {OracleInput} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
   MAX_FEE_ASSET_PRICE_MODIFIER,
   MINIMUM_CONGESTION_MULTIPLIER
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 // Remember that foundry json parsing is alphabetically done, so you MUST

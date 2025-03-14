@@ -2,7 +2,6 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
-  type CheatCodes,
   EthAddress,
   Fr,
   type Logger,
@@ -10,6 +9,7 @@ import {
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import {
   type DeployL1ContractsReturnType,
   type ViemPublicClient,

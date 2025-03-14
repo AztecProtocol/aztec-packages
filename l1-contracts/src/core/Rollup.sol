@@ -2,7 +2,19 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IRollup, ChainTips, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  IRollup,
+  ChainTips,
+  PublicInputArgs,
+  L1FeeData,
+  ManaBaseFeeComponents,
+  FeeAssetPerEthE9,
+  EpochRewards,
+  BlockLog,
+  BlockHeaderValidationFlags,
+  FeeHeader,
+  RollupConfigInput
+} from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking,
   ValidatorInfo,
@@ -11,20 +23,17 @@ import {
   EnumerableSet
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {FeeAssetValue} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
-import {FeeMath} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
-import {HeaderLib} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
-import {EpochProofLib} from "./libraries/RollupLibs/EpochProofLib.sol";
-import {ValidatorSelectionLib} from "./libraries/ValidatorSelectionLib/ValidatorSelectionLib.sol";
+import {FeeLib, FeeAssetValue, PriceLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
+import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
+import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
 import {
   RollupCore,
-  RollupConfig,
   GenesisState,
   IRewardDistributor,
   IFeeJuicePortal,
   IERC20,
-  BlockLog,
   StakingLib,
   TimeLib,
   Slot,
@@ -34,13 +43,10 @@ import {
   Signature,
   ExtRollupLib,
   EthValue,
-  PriceLib,
   STFLib,
   RollupStore,
   IInbox,
-  IOutbox,
-  ProposeLib,
-  EpochRewards
+  IOutbox
 } from "./RollupCore.sol";
 
 /**
@@ -64,7 +70,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IERC20 _stakingAsset,
     address _governance,
     GenesisState memory _genesisState,
-    RollupConfig memory _config
+    RollupConfigInput memory _config
   )
     RollupCore(
       _fpcJuicePortal,
@@ -110,6 +116,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getActiveAttesterCount() external view override(IStaking) returns (uint256) {
     return StakingLib.getStorage().attesters.length();
+  }
+
+  function getManaTarget() external view override(IRollup) returns (uint256) {
+    return FeeLib.getStorage().manaTarget;
+  }
+
+  function getManaLimit() external view override(IRollup) returns (uint256) {
+    return FeeLib.getManaLimit();
   }
 
   function getTips() external view override(IRollup) returns (ChainTips memory) {
@@ -185,16 +199,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,
-    DataStructures.ExecutionFlags memory _flags
+    BlockHeaderValidationFlags memory _flags
   ) external view override(IRollup) {
     ProposeLib.validateHeader(
-      HeaderLib.decode(_header),
-      _signatures,
-      _digest,
-      _currentTime,
-      getManaBaseFeeAt(_currentTime, true),
-      _blobsHash,
-      _flags
+      ValidateHeaderArgs({
+        header: HeaderLib.decode(_header),
+        attestations: _signatures,
+        digest: _digest,
+        currentTime: _currentTime,
+        manaBaseFee: getManaBaseFeeAt(_currentTime, true),
+        blobsHashesCommitment: _blobsHash,
+        flags: _flags
+      })
     );
   }
 
@@ -236,6 +252,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
     );
     return rollupStore.blocks[_blockNumber];
+  }
+
+  function getFeeHeader(uint256 _blockNumber)
+    external
+    view
+    override(IRollup)
+    returns (FeeHeader memory)
+  {
+    return FeeLib.getStorage().feeHeaders[_blockNumber];
   }
 
   function getBlobPublicInputsHash(uint256 _blockNumber)
@@ -497,7 +522,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getProvingCostPerManaInEth() external view override(IRollup) returns (EthValue) {
-    return STFLib.getStorage().provingCostPerMana;
+    return FeeLib.getStorage().provingCostPerMana;
   }
 
   function getProvingCostPerManaInFeeAsset()
@@ -506,11 +531,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (FeeAssetValue)
   {
-    return STFLib.getStorage().provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
-  }
-
-  function getCuauhxicalli() external view override(IRollup) returns (address) {
-    return EpochProofLib.CUAUHXICALLI;
+    return FeeLib.getStorage().provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
   }
 
   function getVersion() external view override(IRollup) returns (uint256) {
@@ -555,30 +576,45 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    // Consider if a prune will hit in this slot
-    uint256 pendingBlockNumber =
-      canPruneAtTime(_ts) ? rollupStore.tips.provenBlockNumber : rollupStore.tips.pendingBlockNumber;
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
 
-    {
-      Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
 
-      require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-      // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-      bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
-      require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
-    }
+    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
+    bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
+    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
     Signature[] memory sigs = new Signature[](0);
-    DataStructures.ExecutionFlags memory flags =
-      DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
 
-    Epoch currentEpoch = slot.epochFromSlot();
-    ValidatorSelectionLib.validateValidatorSelection(
-      StakingLib.getStorage(), slot, currentEpoch, sigs, _archive, flags
+    ValidatorSelectionLib.verify(
+      StakingLib.getStorage(),
+      slot,
+      slot.epochFromSlot(),
+      sigs,
+      _archive,
+      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
     );
 
     return (slot, pendingBlockNumber + 1);
+  }
+
+  function getL1FeesAt(Timestamp _timestamp)
+    external
+    view
+    override(IRollup)
+    returns (L1FeeData memory)
+  {
+    return FeeLib.getL1FeesAt(_timestamp);
+  }
+
+  function canPruneAtTime(Timestamp _ts) external view override(IRollup) returns (bool) {
+    return STFLib.canPruneAtTime(_ts);
+  }
+
+  function getBurnAddress() external pure override(IRollup) returns (address) {
+    return EpochProofLib.BURN_ADDRESS;
   }
 
   /**
@@ -594,7 +630,29 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return FeeMath.summedBaseFee(getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset));
+    return FeeLib.summedBaseFee(getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset));
+  }
+
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+    public
+    view
+    override(IRollup)
+    returns (ManaBaseFeeComponents memory)
+  {
+    return ProposeLib.getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset);
+  }
+
+  /**
+   * @notice  Gets the fee asset price as fee_asset / eth with 1e9 precision
+   *
+   * @return The fee asset price
+   */
+  function getFeeAssetPerEth() public view override(IRollup) returns (FeeAssetPerEthE9) {
+    return FeeLib.getFeeAssetPerEthAtBlock(STFLib.getStorage().tips.pendingBlockNumber);
+  }
+
+  function getEpochForBlock(uint256 _blockNumber) public view override(IRollup) returns (Epoch) {
+    return STFLib.getEpochForBlock(_blockNumber);
   }
 
   /**

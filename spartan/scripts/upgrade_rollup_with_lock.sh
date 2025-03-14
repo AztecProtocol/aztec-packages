@@ -16,7 +16,7 @@ set -exu
 # ETHEREUM_HOST=http://localhost:8545 \
 # MNEMONIC="test test test test test test test test test test test junk" \
 # ./upgrade_rollup_with_lock.sh \
-#   --aztec-docker-tag c5e2b43044862882a68de47cac07b7116e74e51e \
+#   --aztec-docker-image aztecprotocol/aztec:c5e2b43044862882a68de47cac07b7116e74e51e \
 #   --registry 0x29f815e32efdef19883cf2b92a766b7aebadd326 \
 #   --address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
 #   --deposit-amount 200000000000000000000000 \
@@ -47,13 +47,13 @@ MINT=""
 SALT=$((RANDOM % 1000000))
 # The default path to the aztec binary within the docker image
 AZTEC_BIN="/usr/src/yarn-project/aztec/dest/bin/index.js"
-AZTEC_DOCKER_TAG=""
+AZTEC_DOCKER_IMAGE=""
 
 # Parse command line arguments (these will override env vars if provided)
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --aztec-docker-tag)
-      AZTEC_DOCKER_TAG="$2"
+    --aztec-docker-image)
+      AZTEC_DOCKER_IMAGE="$2"
       shift 2
       ;;
     --aztec-bin)
@@ -105,13 +105,12 @@ cleanup() {
 }
 
 # if aztec-docker-tag is set, use it
-if [ -n "$AZTEC_DOCKER_TAG" ]; then
-  IMAGE_NAME="aztecprotocol/aztec:${AZTEC_DOCKER_TAG}"
-  EXE="docker run --rm --network=host --env-file .env.tmp $IMAGE_NAME $AZTEC_BIN"
+if [ -n "$AZTEC_DOCKER_IMAGE" ]; then
+  EXE="docker run --rm --network=host --env-file .env.tmp $AZTEC_DOCKER_IMAGE $AZTEC_BIN"
   # Check if the image exists locally before pulling it
-  if ! docker images $IMAGE_NAME -q; then
-    echo "Pulling docker image $IMAGE_NAME"
-    docker pull $IMAGE_NAME
+  if ! docker images $AZTEC_DOCKER_IMAGE -q; then
+    echo "Pulling docker image $AZTEC_DOCKER_IMAGE"
+    docker pull $AZTEC_DOCKER_IMAGE
   fi
   trap cleanup EXIT INT TERM HUP QUIT
   # Create a temporary .env file

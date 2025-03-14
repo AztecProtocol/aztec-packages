@@ -1,12 +1,13 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { deployL1Contract, sleep } from '@aztec/aztec.js';
+import { sleep } from '@aztec/aztec.js';
+import { L1TxUtils, deployL1Contract } from '@aztec/ethereum';
 import {
-  TestERC20Abi as FeeJuiceAbi,
   GovernanceAbi,
   GovernanceProposerAbi,
   NewGovernanceProposerPayloadAbi,
   NewGovernanceProposerPayloadBytecode,
   RollupAbi,
+  TestERC20Abi as StakingAssetAbi,
 } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
@@ -36,6 +37,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_governance_proposer', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let l1TxUtils: L1TxUtils;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -48,8 +50,11 @@ describe('e2e_p2p_governance_proposer', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG,
       },
     });
+
     await t.applyBaseSnapshots();
     await t.setup();
+
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.publicClient, t.ctx.deployL1ContractsValues.walletClient);
   });
 
   afterEach(async () => {
@@ -85,12 +90,9 @@ describe('e2e_p2p_governance_proposer', () => {
     });
 
     const waitL1Block = async () => {
-      await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
-          to: emperor.address,
-          value: 1n,
-          account: emperor,
-        }),
+      await l1TxUtils.sendAndMonitorTransaction({
+        to: emperor.address,
+        value: 1n,
       });
     };
 
@@ -181,8 +183,8 @@ describe('e2e_p2p_governance_proposer', () => {
     t.logger.info(`Executed proposal ${govData.round}`);
 
     const token = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: FeeJuiceAbi,
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
+      abi: StakingAssetAbi,
       client: t.ctx.deployL1ContractsValues.walletClient,
     });
 

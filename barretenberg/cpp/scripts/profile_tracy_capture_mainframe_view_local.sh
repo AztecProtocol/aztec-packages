@@ -17,6 +17,9 @@ HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-memory}
 
+# Check if cmake exists
+cmake --version
+
 ssh $BOX "
 	set -eux ;
 	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;

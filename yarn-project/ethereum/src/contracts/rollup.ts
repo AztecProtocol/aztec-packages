@@ -1,7 +1,9 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
-import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
+import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
 import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
 
@@ -112,6 +114,21 @@ export class RollupContract {
   @memoize
   getMinimumStake() {
     return this.rollup.read.getMinimumStake();
+  }
+
+  @memoize
+  getManaTarget() {
+    return this.rollup.read.getManaTarget();
+  }
+
+  @memoize
+  getProvingCostPerMana() {
+    return this.rollup.read.getProvingCostPerManaInEth();
+  }
+
+  @memoize
+  getManaLimit() {
+    return this.rollup.read.getManaLimit();
   }
 
   public async getSlashingProposerAddress() {

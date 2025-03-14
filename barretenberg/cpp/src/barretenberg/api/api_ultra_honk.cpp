@@ -29,7 +29,7 @@ Circuit _compute_circuit(const std::string& bytecode_path,
         honk_recursion = 2;
     }
 
-    // TODO: Don't init grumpkin crs when unnecessary.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     const acir_format::ProgramMetadata metadata{ .recursive = init_kzg_accumulator, .honk_recursion = honk_recursion };
@@ -98,7 +98,7 @@ bool _verify(const bool honk_recursion_2, const std::filesystem::path& proof_pat
     bool verified;
     if (honk_recursion_2) {
         const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1]));
+        const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =

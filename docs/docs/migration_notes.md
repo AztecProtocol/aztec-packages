@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [PXE] Concurrent contract function simulation disabled
+
+PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
+
 ### [aztec.js] Changes to `BatchCall` and `BaseContractInteraction`
 
 The constructor arguments of `BatchCall` have been updated to improve usability. Previously, it accepted an array of `FunctionCall`, requiring users to manually set additional data such as `authwit` and `capsules`. Now, `BatchCall` takes an array of `BaseContractInteraction`, which encapsulates all necessary information.
