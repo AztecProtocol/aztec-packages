@@ -73,11 +73,12 @@ void avm_prove(const std::filesystem::path&, const std::filesystem::path&, const
     auto const [verification_key, proof] =
         AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(avm_public_inputs, avm_hints));
     */
-    bb::avm::AvmFlavor::VerificationKey verification_key;
-    bb::HonkProof proof(AVM_PROOF_LENGTH_IN_FIELDS * 32);
+    bb::HonkProof proof(AVM_PROOF_LENGTH_IN_FIELDS);
+    std::fill(proof.begin(), proof.end(), fr::zero());
     sleep(60);
 
-    std::vector<fr> vk_as_fields = verification_key.to_field_elements();
+    std::vector<fr> vk_as_fields(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+    std::fill(vk_as_fields.begin(), vk_as_fields.end(), fr::zero());
 
     vinfo("vk fields size: ", vk_as_fields.size());
     vinfo("circuit size: ", static_cast<uint64_t>(vk_as_fields[0]));
