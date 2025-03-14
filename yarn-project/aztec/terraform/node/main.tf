@@ -253,6 +253,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "80"
         },
         {
+          name  = "AZTEC_ADMIN_PORT"
+          value = "8880"
+        },
+        {
           name  = "ETHEREUM_HOSTS"
           value = "${local.eth_host}"
         },

@@ -57,6 +57,7 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -292,7 +293,7 @@ export type SetupOptions = {
 /** Context for an end-to-end test as returned by the `setup` function */
 export type EndToEndContext = {
   /** The Aztec Node service or client a connected to it. */
-  aztecNode: AztecNode;
+  aztecNode: AztecNode & AztecNodeAdmin;
   /** The prover node service (only set if startProverNode is true) */
   proverNode: ProverNode | undefined;
   /** A client to the sequencer service (undefined if connected to remote environment) */
