@@ -103,7 +103,13 @@ pub contract AvmTest {
 
     #[public]
     fn add_args_return(arg_a: Field, arg_b: Field) -> Field {
-        arg_a + arg_b
+        add(arg_a, arg_b)
+    }
+
+    // Auxiliary method to test usage of contract library methods in public fns
+    #[contract_library_method]
+    unconstrained fn add(lhs: Field, rhs: Field) -> Field {
+        lhs + rhs
     }
 
     /************************************************************************
