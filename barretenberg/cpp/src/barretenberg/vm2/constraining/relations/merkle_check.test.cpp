@@ -49,26 +49,6 @@ TEST(MerkleCheckConstrainingTest, EmptyRow)
     check_relation<merkle_check>(testing::empty_trace());
 }
 
-TEST(MerkleCheckConstrainingTest, SelIsBool)
-{
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 } },
-        { { C::merkle_check_sel, 0 } },
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_MERKLE_SEL_IS_BOOL);
-}
-
-TEST(MerkleCheckConstrainingTest, NegativeSelIsBool)
-{
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 2 } },
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_MERKLE_SEL_IS_BOOL),
-                              "MERKLE_SEL_IS_BOOL");
-}
-
 TEST(MerkleCheckConstrainingTest, PathLenDecrements)
 {
     TestTraceContainer trace({
@@ -127,28 +107,6 @@ TEST(MerkleCheckConstrainingTest, NegativeLatchHighWhenPathEmpty)
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_LATCH_HIGH_WHEN_PATH_EMPTY),
                               "LATCH_HIGH_WHEN_PATH_EMPTY");
-}
-
-TEST(MerkleCheckConstrainingTest, LeafIndexIsBool)
-{
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_leaf_index_is_even, 1 } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_leaf_index_is_even, 0 } },
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_LEAF_INDEX_IS_BOOL);
-}
-
-TEST(MerkleCheckConstrainingTest, NegativeLeafIndexIsBool)
-{
-    TestTraceContainer trace({
-        {
-            { C::merkle_check_sel, 1 }, { C::merkle_check_leaf_index_is_even, 2 } // Should be 0 or 1
-        },
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_LEAF_INDEX_IS_BOOL),
-                              "LEAF_INDEX_IS_BOOL");
 }
 
 TEST(MerkleCheckConstrainingTest, NextLeafIndexIsHalved)

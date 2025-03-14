@@ -1,9 +1,9 @@
 include "./poseidon2_hash.pil";
 
-// Handles membership and insertion into a merkle tree
+// A merkle membership check to compute a root given a sibling path.
+// One sibling pair per row.
 namespace merkle_check(256);
     pol commit sel;
-    #[MERKLE_SEL_IS_BOOL]
     sel * (1 - sel) = 0;
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
@@ -19,7 +19,6 @@ namespace merkle_check(256);
     pol commit sibling_value;
 
     pol commit latch;
-    #[LATCH_IS_BOOL]
     latch * (1 - latch) = 0;
 
     // If we are not done, the path_len decrements by 1
@@ -31,10 +30,10 @@ namespace merkle_check(256);
     #[LATCH_HIGH_WHEN_PATH_EMPTY]
     sel * (path_len * (latch * (1 - path_len_inv) + path_len_inv) - 1 + latch) = 0;
 
-    // TODO: Constrain that this is indeed even.
     // Note this might be covered by the halving of the leaf index if the original index is constrained.
+    // TODO(dbanks12): May need a range check on leaf index to enforce that this is indeed even.
+    // https://aztecprotocol.slack.com/archives/C04DL2L1UP2/p1738189301548169
     pol commit leaf_index_is_even;
-    #[LEAF_INDEX_IS_BOOL]
     leaf_index_is_even * (1 - leaf_index_is_even) = 0;
     pol LEAF_INDEX_IS_ODD = (1 - leaf_index_is_even);
     // If we are not done, the next leaf index is half the current leaf index;
@@ -68,4 +67,4 @@ namespace merkle_check(256);
     // Permutation to the full poseidon2 gadget
     #[MERKLE_POSEIDON2]
     sel { left_hash, right_hash, output_hash }
-    in poseidon2_hash.sel {poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
+    in poseidon2_hash.end {poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };

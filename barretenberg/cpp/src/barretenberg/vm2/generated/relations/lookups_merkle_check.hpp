@@ -28,7 +28,7 @@ class lookup_merkle_check_merkle_poseidon2_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::merkle_check_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_merkle_check_merkle_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_merkle_check_merkle_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -44,7 +44,7 @@ class lookup_merkle_check_merkle_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._merkle_check_sel() == 1 || in._poseidon2_hash_sel() == 1);
+        return (in._merkle_check_sel() == 1 || in._poseidon2_hash_end() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -52,7 +52,7 @@ class lookup_merkle_check_merkle_poseidon2_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in._merkle_check_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        const auto is_table_entry = View(in._poseidon2_hash_end());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -71,7 +71,7 @@ class lookup_merkle_check_merkle_poseidon2_settings {
         return std::forward_as_tuple(in._lookup_merkle_check_merkle_poseidon2_inv(),
                                      in._lookup_merkle_check_merkle_poseidon2_counts(),
                                      in._merkle_check_sel(),
-                                     in._poseidon2_hash_sel(),
+                                     in._poseidon2_hash_end(),
                                      in._merkle_check_left_hash(),
                                      in._merkle_check_right_hash(),
                                      in._merkle_check_output_hash(),

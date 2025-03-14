@@ -13,11 +13,12 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     FF curr_value = leaf_value;
     uint64_t curr_index = leaf_index;
     std::vector<FF> path_values;
+    path_values.reserve(sibling_path.size());
     for (const auto& i : sibling_path) {
         // Is true if the current index is even
-        bool path_parity = (curr_index % 2 == 0);
+        bool index_is_even = (curr_index % 2 == 0);
 
-        curr_value = path_parity ? poseidon2.hash({ curr_value, i }) : poseidon2.hash({ i, curr_value });
+        curr_value = index_is_even ? poseidon2.hash({ curr_value, i }) : poseidon2.hash({ i, curr_value });
         path_values.push_back(curr_value);
         // Halve the index (to get the parent index) as we move up the tree
         curr_index >>= 1;

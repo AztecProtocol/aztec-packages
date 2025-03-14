@@ -107,16 +107,10 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 0:
-            return "MERKLE_SEL_IS_BOOL";
-        case 1:
-            return "LATCH_IS_BOOL";
         case 2:
             return "PATH_LEN_DECREMENTS";
         case 3:
             return "LATCH_HIGH_WHEN_PATH_EMPTY";
-        case 4:
-            return "LEAF_INDEX_IS_BOOL";
         case 5:
             return "NEXT_LEAF_INDEX_IS_HALVED";
         case 6:
@@ -130,11 +124,8 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_MERKLE_SEL_IS_BOOL = 0;
-    static constexpr size_t SR_LATCH_IS_BOOL = 1;
     static constexpr size_t SR_PATH_LEN_DECREMENTS = 2;
     static constexpr size_t SR_LATCH_HIGH_WHEN_PATH_EMPTY = 3;
-    static constexpr size_t SR_LEAF_INDEX_IS_BOOL = 4;
     static constexpr size_t SR_NEXT_LEAF_INDEX_IS_HALVED = 5;
     static constexpr size_t SR_ASSIGN_LEAF_VALUE_LEFT_OR_RIGHT = 6;
     static constexpr size_t SR_ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT = 7;
