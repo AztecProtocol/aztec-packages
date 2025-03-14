@@ -3,10 +3,8 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
-  type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
@@ -20,6 +18,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
@@ -31,12 +30,12 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
+  PublicContractsDB,
   PublicProcessorFactory,
+  type PublicTreesDB,
   type PublicTxResult,
   PublicTxSimulator,
-  type WorldStateDB,
 } from '@aztec/simulator/server';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -636,16 +635,16 @@ class TestPublicTxSimulator extends PublicTxSimulator {
 }
 class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
-    db: MerkleTreeWriteOperations,
-    worldStateDB: WorldStateDB,
+    treesDB: PublicTreesDB,
+    contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient?: TelemetryClient,
   ): PublicTxSimulator {
     return new TestPublicTxSimulator(
-      db,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,

@@ -6,11 +6,11 @@ import { inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import type { NullifierWithBlockSource } from '../block/nullifier_with_block_source.js';
+import { PublishedL2BlockSchema } from '../block/published_l2_block.js';
 import {
   ContractClassPublicSchema,
   type ContractDataSource,
   ContractInstanceWithAddressSchema,
-  PublicFunctionSchema,
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
@@ -44,6 +44,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(L2Block.schema)),
+  getPublishedBlocks: z
+    .function()
+    .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
+    .returns(z.array(PublishedL2BlockSchema)),
   getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.BigInt),
@@ -62,13 +66,12 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
-  getPublicFunction: z
-    .function()
-    .args(schemas.AztecAddress, schemas.FunctionSelector)
-    .returns(PublicFunctionSchema.optional()),
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
   getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
-  getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
+  getContract: z
+    .function()
+    .args(schemas.AztecAddress, optional(schemas.Integer))
+    .returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
   getL1ToL2Messages: z.function().args(schemas.BigInt).returns(z.array(schemas.Fr)),

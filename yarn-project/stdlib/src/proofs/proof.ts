@@ -18,9 +18,6 @@ export class Proof {
   // Honk proofs start with a 4 byte length prefix
   // the proof metadata starts immediately after
   private readonly metadataOffset = 4;
-  // the metadata is 3 Frs long
-  // the public inputs are after it
-  private readonly publicInputsOffset = 100;
 
   constructor(
     /**
@@ -65,15 +62,12 @@ export class Proof {
   }
 
   public withoutPublicInputs(): Buffer {
-    return Buffer.concat([
-      this.buffer.subarray(this.metadataOffset, this.publicInputsOffset),
-      this.buffer.subarray(this.publicInputsOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),
-    ]);
+    return Buffer.concat([this.buffer.subarray(this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs)]);
   }
 
   public extractPublicInputs(): Fr[] {
     const reader = BufferReader.asReader(
-      this.buffer.subarray(this.publicInputsOffset, this.publicInputsOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),
+      this.buffer.subarray(this.metadataOffset, this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),
     );
     return reader.readArray(this.numPublicInputs, Fr);
   }

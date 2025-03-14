@@ -181,6 +181,10 @@ Sets up the OpenTelemetry resource attributes for a service
       value: "{{ $serviceName }}"
     - name: OTEL_RESOURCE_ATTRIBUTES
       value: 'service.namespace={{ .Release.Namespace }},environment={{ .Values.environment | default "production" }}'
+    - name: AZTEC_SLOT_DURATION
+      value: "{{ .Values.aztec.slotDuration }}"
+    - name: AZTEC_EPOCH_DURATION
+      value: "{{ .Values.aztec.epochDuration }}"
   volumeMounts:
     - name: scripts
       mountPath: /scripts
@@ -287,12 +291,12 @@ Combined wait-for-services and configure-env container for full nodes
 {{- end -}}
 
 {{/*
-Combined P2P, Service Address, and OpenTelemetry Setup Container
+Combined P2P, and Service Address Setup Container
 */}}
 {{- define "aztec-network.combinedAllSetupContainer" -}}
 {{- $serviceName := base $.Template.Name | trimSuffix ".yaml" -}}
 - name: setup-all
-  {{- include "aztec-network.image" . | nindent 2 }}
+  image: bitnami/kubectl
   command:
     - /bin/bash
     - -c
@@ -302,18 +306,13 @@ Combined P2P, Service Address, and OpenTelemetry Setup Container
 
       # Setup service addresses
       /scripts/setup-service-addresses.sh
-
-      # Setup OpenTelemetry resource
-      /scripts/setup-otel-resource.sh
   env:
     - name: NETWORK_PUBLIC
       value: "{{ .Values.network.public }}"
     - name: NAMESPACE
       value: {{ .Release.Namespace }}
-    - name: P2P_TCP_PORT
-      value: "{{ .Values.validator.service.p2pTcpPort }}"
-    - name: P2P_UDP_PORT
-      value: "{{ .Values.validator.service.p2pUdpPort }}"
+    - name: P2P_PORT
+      value: "{{ .Values.validator.service.p2pPort }}"
     - name: TELEMETRY
       value: "{{ .Values.telemetry.enabled }}"
     - name: OTEL_COLLECTOR_ENDPOINT
@@ -342,6 +341,10 @@ Combined P2P, Service Address, and OpenTelemetry Setup Container
       value: "{{ .Values.proverBroker.service.nodePort }}"
     - name: USE_GCLOUD_LOGGING
       value: "{{ .Values.telemetry.useGcloudLogging }}"
+    - name: AZTEC_SLOT_DURATION
+      value: "{{ .Values.aztec.slotDuration }}"
+    - name: AZTEC_EPOCH_DURATION
+      value: "{{ .Values.aztec.epochDuration }}"
     - name: SERVICE_NAME
       value: {{ include "aztec-network.fullname" . }}
     - name: POD_IP

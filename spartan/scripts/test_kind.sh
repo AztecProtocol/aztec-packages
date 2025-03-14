@@ -38,6 +38,7 @@ install_metrics=${INSTALL_METRICS:-true}
 use_docker=${USE_DOCKER:-true}
 sepolia_run=${SEPOLIA_RUN:-false}
 
+resources_file="${RESOURCES_FILE:-default.yaml}"
 OVERRIDES="${OVERRIDES:-}"
 
 # Ensure we have kind context
@@ -89,7 +90,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  deploy_result=$(OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
+  deploy_result=$(RESOURCES_FILE="$resources_file" OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
 fi
 
 if [ "$install_metrics" = "true" ]; then

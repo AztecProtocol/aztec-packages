@@ -10,7 +10,6 @@ import Typography from '@mui/material/Typography';
 import { css } from '@mui/styled-engine';
 import { useContext, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
-import { GITHUB_TAG_PREFIX } from '../../../utils/constants';
 
 const creationForm = css({
   display: 'flex',
@@ -42,13 +41,7 @@ export function RegisterContractDialog({
   const register = async () => {
     setRegistering(true);
 
-    const nodeInfo = await wallet.getNodeInfo();
-    const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
-    if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
-      throw new Error(
-        `Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}`,
-      );
-    }
+    // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
     const contractInstance = await node.getContract(AztecAddress.fromString(address));
 

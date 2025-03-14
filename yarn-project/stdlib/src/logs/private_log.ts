@@ -61,6 +61,10 @@ export class PrivateLog {
       .transform(({ fields }) => PrivateLog.fromFields(fields));
   }
 
+  equals(other: PrivateLog) {
+    return this.fields.every((field, i) => field.equals(other.fields[i]));
+  }
+
   [inspect.custom](): string {
     return `PrivateLog {
       fields: [${this.fields.map(x => inspect(x)).join(', ')}],

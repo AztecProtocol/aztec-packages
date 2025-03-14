@@ -43,6 +43,7 @@ spec:
       terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
 
         # Get the private key from the mnemonic - based on the pod replica index
         - name: get-private-key
@@ -194,8 +195,8 @@ spec:
             {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
-            - containerPort: {{ .Values.validator.service.p2pTcpPort }}
-            - containerPort: {{ .Values.validator.service.p2pUdpPort }}
+            - containerPort: {{ .Values.validator.service.p2pPort }}
+            - containerPort: {{ .Values.validator.service.p2pPort }}
               protocol: UDP
           resources:
             {{- toYaml .Values.validator.resources | nindent 12 }}
@@ -234,10 +235,10 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pTcpPort }}
+    - port: {{ .Values.validator.service.p2pPort }}
       name: p2p-tcp
       protocol: TCP
-    - port: {{ .Values.validator.service.p2pUdpPort }}
+    - port: {{ .Values.validator.service.p2pPort }}
       name: p2p-udp
       protocol: UDP
     - port: {{ .Values.validator.service.nodePort }}

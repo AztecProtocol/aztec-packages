@@ -143,14 +143,11 @@ template <typename FF> class Graph_ {
     size_t process_current_decompose_chain(bb::UltraCircuitBuilder& ultra_circuit_constructor,
                                            std::unordered_set<uint32_t>& variables_in_one_gate,
                                            size_t index);
-    void process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                      std::unordered_set<uint32_t>& variables_in_one_gate,
-                                      size_t gate_index);
+    void process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder, size_t gate_index);
     void remove_unnecessary_decompose_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                 std::unordered_set<uint32_t>& variables_in_on_gate,
                                                 const std::unordered_set<uint32_t>& decompose_variables);
-    void remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                              std::unordered_set<uint32_t>& variables_in_on_gate);
+    void remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder);
     void remove_unnecessary_range_constrains_variables(bb::UltraCircuitBuilder& ultra_builder);
     std::unordered_set<uint32_t> show_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_circuit_builder);
 

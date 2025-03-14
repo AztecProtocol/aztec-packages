@@ -11,6 +11,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import { LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -26,6 +27,7 @@ import {
   toArray,
   toForeignCallResult,
   toSingle,
+  toSingleOrArray,
 } from '../util/encoding.js';
 import { ExpectedFailureError } from '../util/expected_failure_error.js';
 
@@ -519,6 +521,41 @@ export class TXEService {
   async syncNotes() {
     await this.typedOracle.syncNotes();
     return toForeignCallResult([]);
+  }
+
+  public async deliverNote(
+    contractAddress: ForeignCallSingle,
+    storageSlot: ForeignCallSingle,
+    nonce: ForeignCallSingle,
+    content: ForeignCallArray,
+    contentLength: ForeignCallSingle,
+    noteHash: ForeignCallSingle,
+    nullifier: ForeignCallSingle,
+    txHash: ForeignCallSingle,
+    recipient: ForeignCallSingle,
+  ) {
+    await this.typedOracle.deliverNote(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(storageSlot),
+      fromSingle(nonce),
+      fromArray(content.slice(0, Number(BigInt(contentLength)))),
+      fromSingle(noteHash),
+      fromSingle(nullifier),
+      fromSingle(txHash),
+      AztecAddress.fromField(fromSingle(recipient)),
+    );
+
+    return toForeignCallResult([toSingle(Fr.ONE)]);
+  }
+
+  async getLogByTag(tag: ForeignCallSingle) {
+    const log = await this.typedOracle.getLogByTag(fromSingle(tag));
+
+    if (log == null) {
+      return toForeignCallResult([toSingle(Fr.ZERO), ...LogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray)]);
+    } else {
+      return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
+    }
   }
 
   async storeCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, capsule: ForeignCallArray) {

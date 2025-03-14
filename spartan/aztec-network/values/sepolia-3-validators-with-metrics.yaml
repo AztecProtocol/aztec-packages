@@ -3,6 +3,7 @@ telemetry:
 
 aztec:
   realProofs: false
+  numberOfDefaultAccounts: 0
 
 network:
   setupL2Contracts: false

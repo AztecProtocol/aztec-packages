@@ -84,6 +84,11 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
+    name  = "grafana.env.SLACK_WEBHOOK_URL"
+    value = var.SLACK_WEBHOOK_URL
+  }
+
+  set {
     name  = "opentelemetry-collector.service.loadBalancerIP"
     value = google_compute_address.otel_collector_ip.address
   }
@@ -117,8 +122,6 @@ resource "helm_release" "aztec-gke-cluster" {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[2].static_configs[0].targets[0]"
     value = "${google_compute_address.otel_collector_ip.address}:8889"
   }
-
-
 
   # Setting timeout and wait conditions
   timeout       = 600 # 10 minutes in seconds

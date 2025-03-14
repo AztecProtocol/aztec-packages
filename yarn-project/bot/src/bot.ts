@@ -6,10 +6,9 @@ import {
   type Wallet,
   createLogger,
 } from '@aztec/aztec.js';
-import { timesParallel } from '@aztec/foundation/collection';
+import { times } from '@aztec/foundation/collection';
 import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { FunctionCall } from '@aztec/stdlib/abi';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 
@@ -55,25 +54,12 @@ export class Bot {
       logCtx,
     );
 
-    const calls: FunctionCall[] = [];
-    if (isStandardTokenContract(token)) {
-      calls.push(
-        ...(await timesParallel(privateTransfersPerTx, () =>
-          token.methods.transfer(recipient, TRANSFER_AMOUNT).request(),
-        )),
-      );
-      calls.push(
-        ...(await timesParallel(publicTransfersPerTx, () =>
-          token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
-        )),
-      );
-    } else {
-      calls.push(
-        ...(await timesParallel(privateTransfersPerTx, () =>
-          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request(),
-        )),
-      );
-    }
+    const calls = isStandardTokenContract(token)
+      ? [
+          times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT)),
+          times(publicTransfersPerTx, () => token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0)),
+        ].flat()
+      : times(privateTransfersPerTx, () => token.methods.transfer(TRANSFER_AMOUNT, sender, recipient));
 
     const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);
