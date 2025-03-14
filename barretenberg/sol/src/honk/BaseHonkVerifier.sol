@@ -332,24 +332,6 @@ abstract contract BaseHonkVerifier is IVerifier {
          * \f]
          * and adds them to the 'constant_term_accumulator'.
          */
-        mem.constantTermAccumulator = ZERO;
-        mem.batchingChallenge = tp.shplonkNu.sqr();
-
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            bool dummy_round = i >= (logN - 1);
-
-            Fr scalingFactor = ZERO;
-            if (!dummy_round) {
-                scalingFactor = mem.batchingChallenge * mem.inverse_vanishing_denominators[i + 2];
-                scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactor.neg();
-            }
-
-            mem.constantTermAccumulator =
-                mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
-            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
-
-            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
-        }
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute evaluation A₀(r)
@@ -360,6 +342,29 @@ abstract contract BaseHonkVerifier is IVerifier {
             powers_of_evaluation_challenge,
             logN
         );
+
+        mem.constantTermAccumulator = ZERO;
+        mem.batchingChallenge = tp.shplonkNu.sqr();
+
+        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            bool dummy_round = i >= (logN - 1);
+            uint256 posLocation = 2 * i + 2;
+            Fr scalingFactorNeg = ZERO;
+            Fr scalingFactorPos = ZERO;
+            if (!dummy_round) {
+                scalingFactorPos = mem.batchingChallenge * mem.inverse_vanishing_denominators[posLocation];
+                scalingFactorNeg =
+                    mem.batchingChallenge * tp.shplonkNu * mem.inverse_vanishing_denominators[posLocation + 1];
+                scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactorNeg.neg() + scalingFactorPos.neg();
+            }
+
+            Fr accumContribution = scalingFactorNeg * proof.geminiAEvaluations[i + 1];
+            accumContribution = accumContribution + scalingFactorPos * mem.foldPosEvaluations[i + 1];
+            mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu.sqr();
+
+            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
+        }
 
         Fr a_0_pos = mem.foldPosEvaluations[0];
 
