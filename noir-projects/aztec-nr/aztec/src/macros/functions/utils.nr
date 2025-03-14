@@ -271,7 +271,45 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     fn_abi
 }
 
-pub(crate) comptime fn transform_unconstrained(f: FunctionDefinition) {
+pub(crate) comptime fn find_and_transform_top_level_unconstrained_fns(m: Module) {
+    // Top-level unconstrained fns are contract entrypoints, but they're not explicitly designated in any way. They're
+    // the fallback case for a function that matches no other rules.
+    // TODO(#12743): improve this
+
+    // We first find non-standard contract entrypoints, i.e. functions in the `contract` mod that are not private or
+    // public, but which *are* contract entrypoints (i.e. they're not opting out via the #[test] or
+    // #[contract_library_method] attributes). Ideally entrypoints would be explicitly designated instead.
+    let non_private_public_entrypoint_functions = m.functions().filter(|f: FunctionDefinition| {
+        !f.has_named_attribute("private")
+            & !f.has_named_attribute("public")
+            & !f.has_named_attribute("contract_library_method")
+            & !f.has_named_attribute("test")
+    });
+
+    // TODO: uncomment the code below and emit a warning once support for them is added to Noir (tracked in
+    // https://github.com/noir-lang/noir/issues/7714). We can't simply print a message since that'd otherwise break the
+    // output of utils such as `nargo test --list-tests`.
+    // // We don't expect to see any custom constrained entrypoints (i.e. private functions created outside of aztec-nr's
+    // // #[private] macro, possibly resulting in a non-standard interface).
+    // for f in non_private_public_entrypoint_functions.filter(|f: FunctionDefinition| {
+    //     !f.is_unconstrained()
+    // }) {
+    //     let name = f.name();
+    //     warn(
+    //         f"found private contract function '{name}' which does not have the #[private] attribute - make sure you know what you're doing!",
+    //     );
+    // }
+
+    // An unconstrained contract entrypoints is what we call a top-level unconstrained function, to which we apply the
+    // appropriate transformation. Ideally these would be explicitly designated as such instead.
+    for f in non_private_public_entrypoint_functions.filter(|f: FunctionDefinition| {
+        f.is_unconstrained()
+    }) {
+        transform_top_level_unconstrained(f);
+    }
+}
+
+pub(crate) comptime fn transform_top_level_unconstrained(f: FunctionDefinition) {
     let context_creation = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
     let module_has_storage = module_has_storage(f.module());
 
