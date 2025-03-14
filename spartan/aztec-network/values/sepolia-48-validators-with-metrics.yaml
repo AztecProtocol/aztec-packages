@@ -3,6 +3,7 @@ telemetry:
 
 aztec:
   l1DeploymentMnemonic: ""
+  numberOfDefaultAccounts: 0
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 48
   botKeyIndexStart: 49

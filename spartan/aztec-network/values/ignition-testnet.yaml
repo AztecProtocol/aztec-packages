@@ -3,6 +3,7 @@ telemetry:
 
 aztec:
   realProofs: true
+  numberOfDefaultAccounts: 0
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 3
   testAccounts: true

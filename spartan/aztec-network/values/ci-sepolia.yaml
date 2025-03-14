@@ -3,6 +3,7 @@ aztec:
   proofSubmissionWindow: 8
   realProofs: false
   l1DeploymentMnemonic: ""
+  numberOfDefaultAccounts: 0
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 3
   botKeyIndexStart: 4

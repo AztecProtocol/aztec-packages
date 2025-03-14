@@ -42,7 +42,6 @@ ContractInstance HintedRawContractDB::get_contract_instance(const AztecAddress& 
     auto contract_instance_hint = contract_instances.at(address);
 
     return {
-        .address = contract_instance_hint.address,
         .salt = contract_instance_hint.salt,
         .deployer_addr = contract_instance_hint.deployer,
         .contract_class_id = contract_instance_hint.originalContractClassId,
