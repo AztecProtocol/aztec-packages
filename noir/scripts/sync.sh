@@ -3,7 +3,7 @@ set -eu
 
 # Commands related to syncing with the noir-repo.
 
-NOIR_REPO_URL=git@github.com:noir-lang/noir.git
+NOIR_REPO_URL=https://github.com/noir-lang/noir.git
 # Special message we use to indicate the commit we do after the fixup.
 # This commit has changes we do *not* want to migrate back to Noir,
 # they exist only to make the Noir codebase work with the projects
