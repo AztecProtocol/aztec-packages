@@ -216,10 +216,13 @@ pub contract AvmTest {
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
+    #[contract_library_method]
     fn inner_helper_with_failed_assertion() {
         let not_true = false;
         assert(not_true == true, "This assertion should fail!");
     }
+
+    #[contract_library_method]
     fn helper_with_failed_assertion() {
         inner_helper_with_failed_assertion();
     }
