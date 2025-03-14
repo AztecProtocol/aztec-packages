@@ -31,19 +31,17 @@ spec:
       terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         - name: setup-private-key
-          image: {{ .Values.images.curl.image }}
-          imagePullPolicy: {{ .Values.images.curl.pullPolicy }}
+          image: {{ .Values.images.aztec.image }}
+          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           command:
             - "/bin/sh"
             - "-c"
             - |
               # Get the pod index from the pod name
-              POD_INDEX=$(echo $POD_NAME | awk -F'-' '{print $NF}')
-              echo "Pod index: $POD_INDEX"
-
               # Get the private key for this validator from the array
-              PRIVATE_KEY=$(echo $VALIDATOR_PRIVATE_KEYS | jq -r ".[$POD_INDEX]")
-              echo "Using private key index: $POD_INDEX"
+
+              POD_INDEX=$(echo "$POD_NAME" | awk -F'-' '{print $NF}')
+              PRIVATE_KEY=$(echo "$VALIDATOR_PRIVATE_KEYS" | jq -r ".[$POD_INDEX]")
 
               # Create the keys.env file
               # Do not have the same as the VALIDATOR_PRIVATE_KEY env var
@@ -59,16 +57,25 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: VALIDATOR_PRIVATE_KEYS
-              value: {{ .Values.validator.privateKeys | quote }}
+              value: '{{ .Values.validator.privateKeys | toJson }}'
       containers:
         - name: validator
-          {{- include "add-validators.image" . | nindent 10 }}
+          image: {{ .Values.images.aztec.image }}
+          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
           command:
             - "/bin/bash"
             - "-c"
             - |
               source /shared/config/keys.env && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --validator --l1-rpc-urls {{ .Values.network.l1ExecutionUrl }} --l1-consensus-url {{ .Values.network.l1ConsensusUrl }} --sequencer.validatorPrivateKey $VAL_KEY --p2p.bootstrapNodes
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start \
+                --node \
+                --archiver \
+                --sequencer \
+                --l1-rpc-urls {{ .Values.network.l1ExecutionUrl }} \
+                --l1-consensus-url {{ .Values.network.l1ConsensusUrl }} \
+                --sequencer.validatorPrivateKey $VAL_KEY \
+                --p2p.bootstrapNodes {{ .Values.network.bootNodes }} \
+                --registry-address {{ .Values.network.registryAddress }}
           startupProbe:
             httpGet:
               path: /status
@@ -86,8 +93,6 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
-            - name: contracts-env
-              mountPath: /shared/contracts
             - name: config
               mountPath: /shared/config
             - name: validator-data
@@ -165,24 +170,11 @@ spec:
           resources:
             {{- toYaml .Values.validator.resources | nindent 12 }}
       volumes:
-        - name: scripts
-          configMap:
-            name: {{ include "add-validators.fullname" . }}-scripts
-            defaultMode: 0755
-        - name: contracts-env
-          emptyDir: {}
-        - name: pxe-url
-          emptyDir: {}
         - name: config
           emptyDir: {}
-      {{- if .Values.storage.localSsd }}
-        - name: validator-data
-          emptyDir: {}
-      {{ else }}
         - name: validator-data
           persistentVolumeClaim:
             claimName: validator-data
-      {{- end }}
 ---
 # If this is not a public network, create a headless service for StatefulSet DNS entries
 apiVersion: v1
