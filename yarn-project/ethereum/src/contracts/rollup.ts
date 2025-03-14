@@ -1,25 +1,17 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
-import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
+import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
+import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
 
-import { createEthereumChain } from '../chain.js';
-import { type DeployL1Contracts } from '../deploy_l1_contracts.js';
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
-import { type L1ReaderConfig } from '../l1_reader.js';
+import { getPublicClient } from '../client.js';
+import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ReaderConfig } from '../l1_reader.js';
+import type { ViemPublicClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 
@@ -32,10 +24,21 @@ export type L1RollupContractAddresses = Pick<
   | 'feeJuiceAddress'
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
+  | 'slashFactoryAddress'
 >;
 
+export type EpochProofPublicInputArgs = {
+  previousArchive: `0x${string}`;
+  endArchive: `0x${string}`;
+  previousBlockHash: `0x${string}`;
+  endBlockHash: `0x${string}`;
+  endTimestamp: bigint;
+  outHash: `0x${string}`;
+  proverId: `0x${string}`;
+};
+
 export class RollupContract {
-  private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -45,7 +48,7 @@ export class RollupContract {
     return BigInt(asString);
   }
 
-  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1Contracts) {
+  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
     const {
       publicClient,
       l1ContractAddresses: { rollupAddress },
@@ -54,15 +57,15 @@ export class RollupContract {
   }
 
   static getFromConfig(config: L1ReaderConfig) {
-    const client = createPublicClient({
-      transport: http(config.l1RpcUrl),
-      chain: createEthereumChain(config.l1RpcUrl, config.l1ChainId).chainInfo,
-    });
+    const client = getPublicClient(config);
     const address = config.l1Contracts.rollupAddress.toString();
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex) {
+  constructor(public readonly client: ViemPublicClient, address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 
@@ -111,6 +114,21 @@ export class RollupContract {
   @memoize
   getMinimumStake() {
     return this.rollup.read.getMinimumStake();
+  }
+
+  @memoize
+  getManaTarget() {
+    return this.rollup.read.getManaTarget();
+  }
+
+  @memoize
+  getProvingCostPerMana() {
+    return this.rollup.read.getProvingCostPerManaInEth();
+  }
+
+  @memoize
+  getManaLimit() {
+    return this.rollup.read.getManaLimit();
   }
 
   public async getSlashingProposerAddress() {
@@ -186,11 +204,11 @@ export class RollupContract {
       stakingAssetAddress,
     ] = (
       await Promise.all([
-        this.rollup.read.INBOX(),
-        this.rollup.read.OUTBOX(),
-        this.rollup.read.FEE_JUICE_PORTAL(),
-        this.rollup.read.REWARD_DISTRIBUTOR(),
-        this.rollup.read.ASSET(),
+        this.rollup.read.getInbox(),
+        this.rollup.read.getOutbox(),
+        this.rollup.read.getFeeAssetPortal(),
+        this.rollup.read.getRewardDistributor(),
+        this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
       ] as const)
     ).map(EthAddress.fromString);
@@ -211,32 +229,9 @@ export class RollupContract {
   }
 
   getEpochProofPublicInputs(
-    args: readonly [
-      bigint,
-      bigint,
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-      ],
-      readonly `0x${string}`[],
-      `0x${string}`,
-      `0x${string}`,
-    ],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`, `0x${string}`],
   ) {
     return this.rollup.read.getEpochProofPublicInputs(args);
-  }
-
-  public async getEpochToProve(): Promise<bigint | undefined> {
-    try {
-      return await this.rollup.read.getEpochToProve();
-    } catch (err: unknown) {
-      throw formatViemError(err);
-    }
   }
 
   public async validateHeader(
@@ -287,5 +282,10 @@ export class RollupContract {
     } catch (err: unknown) {
       throw formatViemError(err);
     }
+  }
+
+  /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
+  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: EthAddress) {
+    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover.toString()]);
   }
 }

@@ -1,5 +1,4 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,7 +7,10 @@ import {
   parseBooleanEnv,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { type Network } from '@aztec/types/network';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import type { Network } from '@aztec/stdlib/network';
+
+export { getPackageInfo } from './package_info.js';
 
 /**
  * Temporary configuration until WASM can be used instead of native
@@ -105,6 +107,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEService
     parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,
     description: 'Enable real proofs',
     isBoolean: true,
+    defaultValue: true,
   },
 };
 

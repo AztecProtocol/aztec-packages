@@ -44,6 +44,7 @@ library DataStructures {
     uint256 nea;
   }
 
+  // @notice if this changes, please update the enum in governance.ts
   enum ProposalState {
     Pending,
     Active,

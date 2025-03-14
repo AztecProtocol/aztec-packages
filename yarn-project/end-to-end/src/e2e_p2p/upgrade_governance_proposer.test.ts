@@ -1,21 +1,24 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
-import { deployL1Contract, sleep } from '@aztec/aztec.js';
+import type { AztecNodeService } from '@aztec/aztec-node';
+import { sleep } from '@aztec/aztec.js';
+import { L1TxUtils, deployL1Contract } from '@aztec/ethereum';
 import {
-  TestERC20Abi as FeeJuiceAbi,
   GovernanceAbi,
   GovernanceProposerAbi,
   NewGovernanceProposerPayloadAbi,
   NewGovernanceProposerPayloadBytecode,
   RollupAbi,
+  TestERC20Abi as StakingAssetAbi,
 } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
@@ -23,7 +26,7 @@ const NUM_NODES = 4;
 // interfere with each other.
 const BOOT_NODE_UDP_PORT = 45000;
 
-const DATA_DIR = './data/upgrade_governance_proposer';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'upgrade-'));
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -34,6 +37,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_governance_proposer', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let l1TxUtils: L1TxUtils;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -42,16 +46,22 @@ describe('e2e_p2p_governance_proposer', () => {
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
+      initialConfig: {
+        ...SHORTENED_BLOCK_TIME_CONFIG,
+      },
     });
+
     await t.applyBaseSnapshots();
     await t.setup();
+
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.publicClient, t.ctx.deployL1ContractsValues.walletClient);
   });
 
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
 
@@ -80,12 +90,9 @@ describe('e2e_p2p_governance_proposer', () => {
     });
 
     const waitL1Block = async () => {
-      await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
-          to: emperor.address,
-          value: 1n,
-          account: emperor,
-        }),
+      await l1TxUtils.sendAndMonitorTransaction({
+        to: emperor.address,
+        value: 1n,
       });
     };
 
@@ -176,8 +183,8 @@ describe('e2e_p2p_governance_proposer', () => {
     t.logger.info(`Executed proposal ${govData.round}`);
 
     const token = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: FeeJuiceAbi,
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
+      abi: StakingAssetAbi,
       client: t.ctx.deployL1ContractsValues.walletClient,
     });
 

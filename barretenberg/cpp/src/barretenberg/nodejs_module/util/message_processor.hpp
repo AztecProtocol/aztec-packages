@@ -4,49 +4,61 @@
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/nodejs_module/util/async_op.hpp"
 #include "napi.h"
+#include <atomic>
 
 namespace bb::nodejs {
 
 class AsyncMessageProcessor {
   public:
-    template <typename T, typename R> void register_handler(uint32_t msgType, T* self, R (T::*handler)() const)
+    template <typename T, typename R>
+    void register_handler(uint32_t msgType, T* self, R (T::*handler)() const, bool unique = false)
     {
-        register_handler(msgType, self, handler);
+        register_handler(msgType, self, handler, unique);
     }
 
-    template <typename T, typename R> void register_handler(uint32_t msgType, T* self, R (T::*handler)())
+    template <typename T, typename R>
+    void register_handler(uint32_t msgType, T* self, R (T::*handler)(), bool unique = false)
     {
         _register_handler<messaging::HeaderOnlyMessage, R>(
-            msgType, [=](auto, const msgpack::object&) { return (self->*handler)(); });
+            msgType, [=](auto, const msgpack::object&) { return (self->*handler)(); }, unique);
     }
 
     template <typename T, typename P, typename R>
-    void register_handler(uint32_t msgType, T* self, R (T::*handler)(const P&) const)
+    void register_handler(uint32_t msgType, T* self, R (T::*handler)(const P&) const, bool unique = false)
     {
-        register_handler(msgType, self, handler);
+        register_handler(msgType, self, handler, unique);
     }
 
     template <typename T, typename P, typename R>
-    void register_handler(uint32_t msgType, T* self, R (T::*handler)(const P&))
+    void register_handler(uint32_t msgType, T* self, R (T::*handler)(const P&), bool unique = false)
     {
         _register_handler<messaging::TypedMessage<P>, R>(
             msgType,
-            [=](const messaging::TypedMessage<P>& req, const msgpack::object&) { return (self->*handler)(req.value); });
+            [=](const messaging::TypedMessage<P>& req, const msgpack::object&) { return (self->*handler)(req.value); },
+            unique);
     }
 
     template <typename T, typename P, typename R>
-    void register_handler(uint32_t msgType, T* self, R (T::*handler)(const P&, const msgpack::object&) const)
+    void register_handler(uint32_t msgType,
+                          T* self,
+                          R (T::*handler)(const P&, const msgpack::object&) const,
+                          bool unique = false)
     {
-        register_handler(msgType, self, handler);
+        register_handler(msgType, self, handler, unique);
     }
 
     template <typename T, typename P, typename R>
-    void register_handler(uint32_t msgType, T* self, R (T::*handler)(const P&, const msgpack::object&))
+    void register_handler(uint32_t msgType,
+                          T* self,
+                          R (T::*handler)(const P&, const msgpack::object&),
+                          bool unique = false)
     {
         _register_handler<messaging::TypedMessage<P>, R>(
-            msgType, [=](const messaging::TypedMessage<P>& req, const msgpack::object& obj) {
+            msgType,
+            [=](const messaging::TypedMessage<P>& req, const msgpack::object& obj) {
                 return (self->*handler)(req.value, obj);
-            });
+            },
+            unique);
     }
 
     Napi::Promise process_message(const Napi::CallbackInfo& info)
@@ -74,7 +86,7 @@ class AsyncMessageProcessor {
             auto* op = new bb::nodejs::AsyncOperation(env, deferred, [=](msgpack::sbuffer& buf) {
                 msgpack::object_handle obj_handle = msgpack::unpack(data->data(), length);
                 msgpack::object obj = obj_handle.get();
-                dispatcher.onNewData(obj, buf);
+                dispatcher.on_new_data(obj, buf);
             });
 
             // Napi is now responsible for destroying this object
@@ -88,23 +100,28 @@ class AsyncMessageProcessor {
 
   private:
     bb::messaging::MessageDispatcher dispatcher;
-    bool open = true;
+    std::atomic_bool open = true;
 
     template <typename P, typename R>
-    void _register_handler(uint32_t msgType, const std::function<R(const P&, const msgpack::object&)>& fn)
+    void _register_handler(uint32_t msgType,
+                           const std::function<R(const P&, const msgpack::object&)>& fn,
+                           bool unique = false)
     {
-        dispatcher.registerTarget(msgType, [=](msgpack::object& obj, msgpack::sbuffer& buffer) {
-            P req_msg;
-            obj.convert(req_msg);
+        dispatcher.register_target(
+            msgType,
+            [=](msgpack::object& obj, msgpack::sbuffer& buffer) {
+                P req_msg;
+                obj.convert(req_msg);
 
-            R response = fn(req_msg, obj);
+                R response = fn(req_msg, obj);
 
-            bb::messaging::MsgHeader header(req_msg.header.messageId);
-            bb::messaging::TypedMessage<R> resp_msg(msgType, header, response);
-            msgpack::pack(buffer, resp_msg);
+                bb::messaging::MsgHeader header(req_msg.header.messageId);
+                bb::messaging::TypedMessage<R> resp_msg(msgType, header, response);
+                msgpack::pack(buffer, resp_msg);
 
-            return true;
-        });
+                return true;
+            },
+            unique);
     }
 };
 

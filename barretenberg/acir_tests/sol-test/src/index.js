@@ -6,8 +6,8 @@ import solc from "solc";
 
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 443;
-const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 494;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 440;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 491;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
@@ -60,14 +60,13 @@ const [test, verifier] = await Promise.all([
 const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
 const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
 
-const verifierContract = hasZK ? "ZKVerifier.sol" : "Verifier.sol";
 export const compilationInput = {
   language: "Solidity",
   sources: {
     "Test.sol": {
       content: test,
     },
-    [verifierContract]: {
+    "Verifier.sol": {
       content: verifier,
     },
   },
@@ -75,7 +74,11 @@ export const compilationInput = {
     // we require the optimizer
     optimizer: {
       enabled: true,
-      runs: 200,
+      runs: 1,
+    },
+    metadata: {
+      appendCBOR: false,
+      bytecodeHash: "none",
     },
     outputSelection: {
       "*": {
@@ -171,15 +174,8 @@ const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // Compute the number of public inputs, not accounted  for in the constant NUMBER_OF_FIELDS_IN_PROOF
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
-  let publicInputsOffset = 0;
-
-  // Honk proofs contain 3 pieces of metadata before the public inputs, while plonk does not
-  if (testingHonk) {
-    publicInputsOffset = 3;
-  }
-
   for (let i = 0; i < numPublicInputs; i++) {
-    publicInputs.push(proofAsFields[publicInputsOffset + i]);
+    publicInputs.push(proofAsFields[i]);
   }
   return [numPublicInputs, publicInputs];
 };
@@ -235,10 +231,8 @@ try {
   if (testingHonk) {
     // Cut off the serialised buffer size at start
     proofStr = proofStr.substring(8);
-    // Get the part before and after the public inputs
-    const proofStart = proofStr.slice(0, 64 * 3);
-    const proofEnd = proofStr.substring(64 * 3 + 64 * numPublicInputs);
-    proofStr = proofStart + proofEnd;
+    // Get the part after the public inputs
+    proofStr = proofStr.substring(64 * numPublicInputs);
   } else {
     proofStr = proofStr.substring(64 * numPublicInputs);
   }
@@ -262,7 +256,7 @@ try {
     switch (errorType) {
       case WRONG_PROOF_LENGTH:
         throw new Error(
-          "Proof length wrong. Check the constant and the proof surgery."
+          "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_* constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
         );
       case WRONG_PUBLIC_INPUTS_LENGTH:
         throw new Error("Number of inputs in the proof is wrong");

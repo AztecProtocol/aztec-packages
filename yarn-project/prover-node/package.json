@@ -56,8 +56,7 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
     "@aztec/blob-sink": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
@@ -69,12 +68,12 @@
     "@aztec/prover-client": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "2.22.8"
+    "viem": "2.23.7"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

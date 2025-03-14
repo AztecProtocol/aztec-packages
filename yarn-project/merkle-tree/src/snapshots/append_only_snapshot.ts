@@ -1,11 +1,11 @@
-import { SiblingPath } from '@aztec/circuit-types';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import { type Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/foundation/trees';
+import type { Hasher } from '@aztec/foundation/trees';
+import type { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
-import { type AppendOnlyTree } from '../interfaces/append_only_tree.js';
-import { type TreeBase } from '../tree_base.js';
-import { type TreeSnapshot, type TreeSnapshotBuilder } from './snapshot_builder.js';
+import type { AppendOnlyTree } from '../interfaces/append_only_tree.js';
+import type { TreeBase } from '../tree_base.js';
+import type { TreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
 
 // stores the last block that modified this node
 const nodeModifiedAtBlockKey = (level: number, index: bigint) => `node:${level}:${index}:modifiedAtBlock`;

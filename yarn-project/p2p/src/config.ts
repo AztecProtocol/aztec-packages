@@ -1,4 +1,3 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,6 +7,7 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
@@ -31,11 +31,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   blockRequestBatchSize: number;
 
   /**
-   * DEBUG: Disable message validation - for testing purposes only
-   */
-  debugDisableMessageValidation: boolean;
-
-  /**
    * DEBUG: Disable colocation penalty - for testing purposes only
    */
   debugDisableColocationPenalty: boolean;
@@ -51,24 +46,19 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   l2QueueSize: number;
 
   /**
-   * The announce address for TCP.
+   * The port for the P2P service.
    */
-  tcpAnnounceAddress?: string;
+  p2pPort: number;
 
   /**
-   * The announce address for UDP.
+   * The IP address for the P2P service.
    */
-  udpAnnounceAddress?: string;
+  p2pIp?: string;
 
   /**
-   * The listen address for TCP.
+   * The listen address.
    */
-  tcpListenAddress: string;
-
-  /**
-   * The listen address for UDP.
-   */
-  udpListenAddress: string;
+  listenAddress: string;
 
   /**
    * An optional peer id private key. If blank, will generate a random key.
@@ -83,10 +73,8 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /** Whether to execute the version check in the bootstrap node ENR. */
   bootstrapNodeEnrVersionCheck: boolean;
 
-  /**
-   * Protocol identifier for transaction gossiping.
-   */
-  transactionProtocol: string;
+  /** Whether to consider any configured bootnodes as full peers, e.g. for transaction gossiping */
+  bootstrapNodesAsFullPeers: boolean;
 
   /**
    * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
@@ -147,7 +135,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /**
    * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
    */
-  severePeerPenaltyBlockLength: number;
+  doubleSpendSeverePeerPenaltyWindow: number;
 
   /**
    * The weight of the tx topic for the gossipsub protocol.  This determines how much the score for this specific topic contributes to the overall peer score.
@@ -171,6 +159,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
+
+  /**
+   * A list of trusted peers.
+   */
+  trustedPeers: string[];
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -183,11 +176,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new L2 blocks.',
     ...numberConfigHelper(100),
-  },
-  debugDisableMessageValidation: {
-    env: 'DEBUG_P2P_DISABLE_MESSAGE_VALIDATION',
-    description: 'DEBUG: Disable message validation - NEVER set to true in production',
-    ...booleanConfigHelper(false),
   },
   debugDisableColocationPenalty: {
     env: 'DEBUG_P2P_DISABLE_COLOCATION_PENALTY',
@@ -204,25 +192,19 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Size of queue of L2 blocks to store.',
     ...numberConfigHelper(1_000),
   },
-  tcpListenAddress: {
-    env: 'P2P_TCP_LISTEN_ADDR',
-    defaultValue: '0.0.0.0:40400',
-    description: 'The listen address for TCP. Format: <IP_ADDRESS>:<PORT>.',
+  listenAddress: {
+    env: 'P2P_LISTEN_ADDR',
+    defaultValue: '0.0.0.0',
+    description: 'The listen address. ipv4 address.',
   },
-  udpListenAddress: {
-    env: 'P2P_UDP_LISTEN_ADDR',
-    defaultValue: '0.0.0.0:40400',
-    description: 'The listen address for UDP. Format: <IP_ADDRESS>:<PORT>.',
+  p2pPort: {
+    env: 'P2P_PORT',
+    description: 'The port for the P2P service.',
+    ...numberConfigHelper(40400),
   },
-  tcpAnnounceAddress: {
-    env: 'P2P_TCP_ANNOUNCE_ADDR',
-    description:
-      'The announce address for TCP. Format: <IP_ADDRESS>:<PORT>. Leave IP_ADDRESS blank to query for public IP.',
-  },
-  udpAnnounceAddress: {
-    env: 'P2P_UDP_ANNOUNCE_ADDR',
-    description:
-      'The announce address for UDP. Format: <IP_ADDRESS>:<PORT>. Leave IP_ADDRESS blank to query for public IP.',
+  p2pIp: {
+    env: 'P2P_IP',
+    description: 'The IP address for the P2P service. ipv4 address.',
   },
   peerIdPrivateKey: {
     env: 'PEER_ID_PRIVATE_KEY',
@@ -238,10 +220,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Whether to check the version of the bootstrap node ENR.',
     ...booleanConfigHelper(),
   },
-  transactionProtocol: {
-    env: 'P2P_TX_PROTOCOL',
-    description: 'Protocol identifier for transaction gossiping.',
-    defaultValue: '/aztec/0.1.0',
+  bootstrapNodesAsFullPeers: {
+    env: 'P2P_BOOTSTRAP_NODES_AS_FULL_PEERS',
+    description: 'Whether to consider our configured bootnodes as full peers',
+    ...booleanConfigHelper(false),
   },
   maxPeerCount: {
     env: 'P2P_MAX_PEERS',
@@ -288,7 +270,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubDLazy: {
     env: 'P2P_GOSSIPSUB_DLAZY',
     description: 'The Dlazy parameter for the gossipsub protocol.',
-    ...numberConfigHelper(6),
+    ...numberConfigHelper(8),
   },
   gossipsubFloodPublish: {
     env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
@@ -327,8 +309,8 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
   },
-  severePeerPenaltyBlockLength: {
-    env: 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH',
+  doubleSpendSeverePeerPenaltyWindow: {
+    env: 'P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW',
     description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
     ...numberConfigHelper(30),
   },
@@ -342,6 +324,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.',
     ...numberConfigHelper(0),
+  },
+  trustedPeers: {
+    env: 'P2P_TRUSTED_PEERS',
+    parseEnv: (val: string) => val.split(','),
+    description: 'A list of trusted peers ENRs. Separated by commas.',
+    defaultValue: [],
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
@@ -362,21 +350,25 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'maxPeerCount'> &
-  Required<Pick<P2PConfig, 'udpListenAddress'>> &
+export type BootnodeConfig = Pick<
+  P2PConfig,
+  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'bootstrapNodes' | 'listenAddress'
+> &
+  Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
-  ChainConfig;
+  Pick<ChainConfig, 'l1ChainId'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
-  'udpAnnounceAddress',
+  'p2pIp',
+  'p2pPort',
   'peerIdPrivateKey',
-  'maxPeerCount',
-  'udpListenAddress',
   'dataDirectory',
   'dataStoreMapSizeKB',
+  'bootstrapNodes',
+  'l1ChainId',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
-  { ...p2pConfigMappings, ...dataConfigMappings },
+  { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
   bootnodeConfigKeys,
 );

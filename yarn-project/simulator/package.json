@@ -3,9 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./common": "./dest/common.js",
     "./server": "./dest/server.js",
-    "./client": "./dest/client/index.js",
+    "./client": "./dest/client.js",
     "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
@@ -60,17 +59,16 @@
     ]
   },
   "dependencies": {
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js",
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/noir-types": "portal:../../noir/packages/types",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
-    "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
-    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
-    "@noir-lang/types": "portal:../../noir/packages/types",
     "levelup": "^5.1.1",
     "lodash.clonedeep": "^4.5.0",
     "lodash.merge": "^4.6.2",
@@ -92,7 +90,7 @@
     "jest-mock-extended": "^3.0.4",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "viem": "2.22.8"
+    "viem": "2.23.7"
   },
   "files": [
     "dest",

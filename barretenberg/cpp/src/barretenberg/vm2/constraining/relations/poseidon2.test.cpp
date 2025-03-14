@@ -10,9 +10,11 @@
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_perm.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
+
 // Temporary imports, see comment in test.
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -34,16 +36,12 @@ using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 
 using tracegen::LookupIntoDynamicTableSequential;
-using lookup_pos2_perm_relation = bb::avm2::lookup_pos2_perm_relation<FF>;
+using lookup_poseidon2_perm_relation = bb::avm2::lookup_poseidon2_hash_poseidon2_perm_relation<FF>;
 
 TEST(Poseidon2ConstrainingTest, Poseidon2EmptyRow)
 {
-    auto trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-    });
-
-    check_relation<poseidon2_hash>(trace);
-    check_relation<poseidon2_perm>(trace);
+    check_relation<poseidon2_hash>(testing::empty_trace());
+    check_relation<poseidon2_perm>(testing::empty_trace());
 }
 
 // These tests imports a bunch of external code since hand-generating the poseidon2 trace is a bit laborious atm.
@@ -181,13 +179,13 @@ TEST(Poseidon2ConstrainingTest, HashPermInteractions)
 
     builder.process_hash(poseidon2_hash_event_emitter.dump_events(), trace);
     builder.process_permutation(poseidon2_perm_event_emitter.dump_events(), trace);
-    LookupIntoDynamicTableSequential<lookup_pos2_perm_relation::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_poseidon2_perm_relation::Settings>().process(trace);
 
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + /*first_invocation=*/2);
 
     check_relation<poseidon2_hash>(trace);
     check_relation<poseidon2_perm>(trace);
-    check_interaction<lookup_pos2_perm_relation>(trace);
+    check_interaction<lookup_poseidon2_perm_relation>(trace);
 }
 
 TEST(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
@@ -210,14 +208,15 @@ TEST(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
 
     // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this even though we
     // know it will fail.
-    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_pos2_perm_relation::Settings>().process(trace),
-                              "Failed.*LOOKUP_POS2_PERM. Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE(
+        LookupIntoDynamicTableSequential<lookup_poseidon2_perm_relation::Settings>().process(trace),
+        "Failed.*POSEIDON2_PERM. Could not find tuple in destination.");
 
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + /*first_invocation=*/2);
 
     check_relation<poseidon2_hash>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_pos2_perm_relation>(trace),
-                              "Relation LOOKUP_POS2_PERM.* ACCUMULATION.* is non-zero");
+    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_perm_relation>(trace),
+                              "Relation.*POSEIDON2_PERM.* ACCUMULATION.* is non-zero");
 }
 
 } // namespace bb::avm2::constraining

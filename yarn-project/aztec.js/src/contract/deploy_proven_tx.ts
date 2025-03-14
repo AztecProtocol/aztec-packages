@@ -1,8 +1,10 @@
-import { type PXE, type Tx } from '@aztec/circuit-types';
-import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { Tx } from '@aztec/stdlib/tx';
 
-import { type Wallet } from '../account/index.js';
-import { type Contract } from './contract.js';
+import type { Wallet } from '../account/wallet.js';
+import type { Contract } from './contract.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 import { ProvenTx } from './proven_tx.js';
 

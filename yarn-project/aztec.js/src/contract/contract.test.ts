@@ -1,26 +1,19 @@
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
-} from '@aztec/circuit-types';
-import {
-  AztecAddress,
   CompleteAddress,
   type ContractInstanceWithAddress,
-  EthAddress,
-  GasFees,
   type NodeInfo,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+} from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { Tx, TxExecutionRequest, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type Wallet } from '../account/wallet.js';
+import type { Wallet } from '../account/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -48,7 +41,6 @@ describe('Contract Class', () => {
     coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
     governanceProposerAddress: EthAddress.random(),
-    slashFactoryAddress: EthAddress.random(),
   };
 
   const defaultArtifact: ContractArtifact = {
@@ -129,6 +121,7 @@ describe('Contract Class', () => {
         errorTypes: {},
       },
     ],
+    nonDispatchPublicFunctions: [],
     outputs: {
       structs: {},
       globals: {},

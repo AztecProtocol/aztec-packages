@@ -1,5 +1,7 @@
+// docs:start:import_aztecjs
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { ContractDeployer, Fr, type Wallet } from '@aztec/aztec.js';
+// docs:end:import_aztecjs
 // eslint-disable-next-line no-restricted-imports
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
@@ -36,7 +38,7 @@ describe('e2e_simple', () => {
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
         aztecEpochDuration: 8,
-        aztecProofSubmissionWindow: 16,
+        aztecProofSubmissionWindow: 15,
         aztecSlotDuration: 12,
         ethereumSlotDuration: 12,
         startProverNode: true,

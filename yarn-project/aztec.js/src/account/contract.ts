@@ -1,8 +1,10 @@
-import { type CompleteAddress } from '@aztec/circuit-types';
-import { type Fr, type NodeInfo, deriveKeys, getContractInstanceFromDeployParams } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { Fr } from '@aztec/foundation/fields';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
+import type { CompleteAddress, NodeInfo } from '@aztec/stdlib/contract';
+import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { deriveKeys } from '@aztec/stdlib/keys';
 
-import { type AccountInterface, type AuthWitnessProvider } from './interface.js';
+import type { AccountInterface, AuthWitnessProvider } from './interface.js';
 
 // docs:start:account-contract-interface
 /**
@@ -13,12 +15,20 @@ export interface AccountContract {
   /**
    * Returns the artifact of this account contract.
    */
-  getContractArtifact(): ContractArtifact;
+  getContractArtifact(): Promise<ContractArtifact>;
 
   /**
-   * Returns the deployment arguments for this instance, or undefined if this contract does not require deployment.
+   * Returns the deployment function name and arguments for this instance, or undefined if this contract does not require deployment.
    */
-  getDeploymentArgs(): Promise<any[] | undefined>;
+  getDeploymentFunctionAndArgs(): Promise<
+    | {
+        /** The name of the function used to deploy the contract */
+        constructorName: string;
+        /** The args to the function used to deploy the contract */
+        constructorArgs: any[];
+      }
+    | undefined
+  >;
 
   /**
    * Returns the account interface for this account contract given a deployment at the provided address.
@@ -43,8 +53,13 @@ export interface AccountContract {
  */
 export async function getAccountContractAddress(accountContract: AccountContract, secret: Fr, salt: Fr) {
   const { publicKeys } = await deriveKeys(secret);
-  const constructorArgs = await accountContract.getDeploymentArgs();
-  const instance = await getContractInstanceFromDeployParams(accountContract.getContractArtifact(), {
+  const { constructorName, constructorArgs } = (await accountContract.getDeploymentFunctionAndArgs()) ?? {
+    constructorName: undefined,
+    constructorArgs: undefined,
+  };
+  const artifact = await accountContract.getContractArtifact();
+  const instance = await getContractInstanceFromDeployParams(artifact, {
+    constructorArtifact: constructorName,
     constructorArgs,
     salt,
     publicKeys,

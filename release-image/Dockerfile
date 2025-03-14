@@ -25,9 +25,17 @@ RUN apt update && apt install -y \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt update && apt install -y nodejs=18.19.1-1nodesource1 && \
     rm -rf /var/lib/apt/lists/*
-# Install foundry.
-COPY --from=build /opt/foundry /opt/foundry
+# Install anvil.
+COPY --from=build /opt/foundry/bin/anvil /opt/foundry/bin/anvil
 ENV PATH="/opt/foundry/bin:$PATH"
 # Copy in project files.
 COPY --from=build /usr/src /usr/src
+
+# Provide paths to bb and acvm for use in yarn-project, also create default working directories for each
+ENV BB_WORKING_DIRECTORY=/usr/src/bb
+ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
+ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
+ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
+RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY
+
 WORKDIR "/usr/src/yarn-project"

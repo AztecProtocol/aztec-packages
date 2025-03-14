@@ -134,7 +134,6 @@ pub struct FixtureBuilder {
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
     pub public_logs: BoundedVec<PublicLog, MAX_PUBLIC_LOGS_PER_TX>,
     pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
-    pub contract_class_log_preimages_length: Field,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
@@ -159,7 +158,6 @@ pub struct FixtureBuilder {
     pub contract_class_artifact_hash: Field,
     pub contract_class_public_bytecode_commitment: Field,
     pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    pub acir_hash: Field,
 
     // Public call.
     pub bytecode_hash: Field,
@@ -313,7 +311,6 @@ impl FixtureBuilder {
     ) -> Self {
         self.function_data = function_data.data;
         self.function_leaf_membership_witness = function_data.membership_witness;
-        self.acir_hash = function_data.acir_hash;
         self.client_ivc_vk = VerificationKey { key: vk, hash: function_data.vk_hash };
         *self
     }
@@ -437,11 +434,13 @@ impl FixtureBuilder {
                 .contract_class_public_bytecode_commitment,
             protocol_contract_membership_witness: self.protocol_contract_membership_witness,
             protocol_contract_leaf: self.protocol_contract_leaf,
-            acir_hash: self.acir_hash,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
-            updated_class_id_value_change: self.updated_class_id_value_change.pack(),
-            updated_class_id_delay_change: self.updated_class_id_delay_change.pack(),
+            updated_class_id_shared_mutable_values: SharedMutableValues::new(
+                self.updated_class_id_value_change,
+                self.updated_class_id_delay_change,
+            )
+                .pack(),
         }
     }
 
@@ -573,7 +572,6 @@ impl FixtureBuilder {
             contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.expose_to_public(),
             ),
-            contract_class_log_preimages_length: self.contract_class_log_preimages_length,
         }
     }
 
@@ -1012,10 +1010,9 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_contract_class_log_hash(&mut self, hash: Field, length: Field) {
+    pub fn add_contract_class_log_hash(&mut self, hash: Field, length: u32) {
         let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
         self.contract_class_logs_hashes.push(log_hash.scope(self.contract_address));
-        self.contract_class_log_preimages_length += length;
     }
 
     pub fn add_private_call_request_for_private_call(&mut self, private_call: PrivateCallData) {
@@ -1235,7 +1232,6 @@ impl Empty for FixtureBuilder {
             private_logs: BoundedVec::new(),
             public_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
-            contract_class_log_preimages_length: 0,
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
@@ -1252,7 +1248,6 @@ impl Empty for FixtureBuilder {
             public_keys: PublicKeys::default(),
             contract_class_artifact_hash: 0,
             contract_class_public_bytecode_commitment: 0,
-            acir_hash: 0,
             bytecode_hash: 0,
             prover_address: AztecAddress::zero(),
             proof: NestedRecursiveProof::empty(),

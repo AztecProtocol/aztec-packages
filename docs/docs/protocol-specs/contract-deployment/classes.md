@@ -121,8 +121,7 @@ artifact_crh(
 
   let private_functions_artifact_leaves: Field[] = artifact.private_functions.map(|f|
     sha256_modulo(
-      be_string_to_bits("az_artifact_private_function_leaf"),
-
+      VERSION, // 8-bits
       f.selector, // 32-bits
       f.metadata_hash, // 256-bits
       sha256(f.private_bytecode)
@@ -132,8 +131,7 @@ artifact_crh(
 
   let unconstrained_functions_artifact_leaves: Field[] = artifact.unconstrained_functions.map(|f|
     sha256_modulo(
-      be_string_to_bits("az_artifact_unconstrained_function_leaf"),
-
+      VERSION, // 8-bits
       f.selector, // 32-bits
       f.metadata_hash, // 256-bits
       sha256(f.unconstrained_bytecode)
@@ -142,11 +140,10 @@ artifact_crh(
   let unconstrained_functions_artifact_tree_root: Field = merkleize(unconstrained_functions_artifact_leaves);
 
   let artifact_hash: Field = sha256_modulo(
-    be_string_to_field("az_artifact"),
-
+    VERSION, // 8-bits
     private_functions_artifact_tree_root, // 256-bits
     unconstrained_functions_artifact_tree_root, // 256-bits
-    artifact_metadata
+    artifact_metadata_hash
   );
 
   let artifact_hash: Field = artifact_hash_256_bit % FIELD_MODULUS;
@@ -155,13 +152,15 @@ artifact_crh(
 }
 ```
 
-For the artifact hash merkleization and hashing is done using sha256, since it is computed and verified outside of circuits and does not need to be SNARK friendly, and then wrapped around the field's maximum value. Fields are left-padded with zeros to 256 bits before being hashed. Function leaves are sorted in ascending order before being merkleized, according to their function selectors. Note that a tree with dynamic height is built instead of having a tree with a fixed height, since the merkleization is done out of a circuit.
+For the artifact hash merkleization and hashing is done using sha256, since it is computed and verified outside of circuits and does not need to be SNARK friendly, and then wrapped around the field's maximum value. Fields are left-padded with zeros to 256 bits before being hashed.
+
+Function leaves are sorted in ascending order before being merkleized, according to their function selectors. Note that a tree with dynamic height is built instead of having a tree with a fixed height, since the merkleization is done out of a circuit.
 
 <!-- TODO: Verify with the crypto team it is ok to wrap around the field modulus, or consider going Poseidon everywhere. -->
 
 Bytecode for private functions is a mix of ACIR and Brillig, whereas unconstrained function bytecode is Brillig exclusively, as described on the [bytecode section](../bytecode/index.md).
 
-The metadata hash for each function is suggested to be computed as the sha256 of all JSON-serialized fields in the function struct of the compilation artifact, except for bytecode and debug symbols. The metadata is JSON-serialized using no spaces, and sorting ascending all keys in objects before serializing them.
+The metadata hash for each function is suggested to be computed as the sha256 (modulo) of all JSON-serialized ABI types of the function returns. Other function data is represented in the leaf hash by its bytecode and selector.
 
 <!-- HASH DEFINITION -->
 
@@ -169,29 +168,25 @@ The metadata hash for each function is suggested to be computed as the sha256 of
 function_metadata_crh(
   function // This type is out of protocol, e.g. the format output by Nargo
 ) -> Field {
-  let function_metadata = omit(function, "bytecode", "debug_symbols");
-
   let function_metadata_hash: Field = sha256_modulo(
-    be_string_to_bits("az_function_metadata"),
-
-    json_serialize(function_metadata)
+    json_serialize(function.return_types)
   );
 
   function_metadata_hash
 }
 ```
 
-The artifact metadata stores all data that is not contained within the contract functions and is not debug specific. This includes the compiler version identifier, events interface, and name. Metadata is JSON-serialized in the same fashion as the function metadata.
+<!-- TODO(#12081): After removal of aztecNrVersion from ContractArtifact, replace with Noir.lock hash or similar? -->
+
+The artifact metadata stores all data that is not contained within the contract functions, is not debug specific, and is not derivable from other properties. This leaves only the `name` and `outputs` properties. Metadata is JSON-serialized in the same fashion as the function metadata.
 
 ```rust
 artifact_metadata_crh(
   artifact // This type is out of protocol, e.g. the format output by Nargo
 ) -> Field {
-  let artifact_metadata = omit(artifact, "functions", "file_map");
+  let artifact_metadata = pick(artifact, "name", "outputs");
 
   let artifact_metadata_hash: Field = sha256_modulo(
-    be_string_to_bits("az_artifact_metadata"),
-
     json_serialize(artifact_metadata)
   );
 
@@ -349,7 +344,7 @@ It is strongly recommended for developers registering new classes to broadcast t
 
 ### Encoding Bytecode
 
-The `register`, `broadcast_unconstrained_function`, and `broadcast_private_function` functions all receive and emit variable-length bytecode in unencrypted events. In every function, bytecode is encoded in a fixed-length array of field elements, which sets a maximum length for each:
+The `register`, `broadcast_unconstrained_function`, and `broadcast_private_function` functions all receive and emit variable-length bytecode in contract class logs. In every function, bytecode is encoded in a fixed-length array of field elements, which sets a maximum length for each:
 
 - `MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS`: 3000 field elements, used for a contract's public bytecode in the `register` function.
 - `MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS`: 3000 field elements, used for the ACIR and Brillig bytecode of a broadcasted private function in `broadcast_private_function`.
@@ -357,11 +352,13 @@ The `register`, `broadcast_unconstrained_function`, and `broadcast_private_funct
 
 To encode the bytecode into a fixed-length array of Fields, the bytecode is first split into 31-byte chunks, and each chunk interpreted big-endian as a field element. The total length in bytes is then prepended as an initial element, and then right-padded with zeroes.
 
+The log itself is prepended by the address of the contract that emitted it. This is not stictly necessary because the only contract able to broadcast contract class logs is the `ContractClassRegisterer` (this is enforced in the kernel circuits), but exists to easily check and manage logs of published blocks.
+
 ```
 chunks = chunk bytecode into 31 bytes elements, last element right-padded with zeroes
 fields = right-align each chunk into 32 bytes and cast to a field element
 padding = repeat a zero-value field MAX_SIZE - fields.count - 1 times
-encoded = [bytecode.length as field, ...fields, ...padding]
+encoded = [bytecode.length as field, contract_address, ...fields, ...padding]
 ```
 
 ## Discarded Approaches

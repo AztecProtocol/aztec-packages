@@ -1,59 +1,43 @@
-import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
-import {
-  type ContractInstanceWithAddress,
-  DEPLOYER_CONTRACT_ADDRESS,
-  Fr,
-  FunctionSelector,
-  PublicDataWrite,
-  computePartialAddress,
-} from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
-import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Logger } from '@aztec/foundation/log';
-import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { protocolContractNames } from '@aztec/protocol-contracts';
-import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { enrichPublicSimulationError } from '@aztec/pxe';
-import { type TypedOracle } from '@aztec/simulator/client';
-import { HashedValuesCache } from '@aztec/simulator/server';
-import { NativeWorldStateService } from '@aztec/world-state';
+import { type ContractInstanceWithAddress, Fr } from '@aztec/aztec.js';
+import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
+import type { Logger } from '@aztec/foundation/log';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { ProtocolContract } from '@aztec/protocol-contracts';
+import { enrichPublicSimulationError } from '@aztec/pxe/server';
+import type { TypedOracle } from '@aztec/simulator/client';
+import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computePartialAddress } from '@aztec/stdlib/contract';
+import { SimulationError } from '@aztec/stdlib/errors';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import { LogWithTxData } from '@aztec/stdlib/logs';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
 import {
   type ForeignCallArray,
   type ForeignCallSingle,
   addressFromSingle,
+  arrayToBoundedVec,
+  bufferToU8Array,
   fromArray,
   fromSingle,
   fromUintArray,
   toArray,
   toForeignCallResult,
   toSingle,
+  toSingleOrArray,
 } from '../util/encoding.js';
 import { ExpectedFailureError } from '../util/expected_failure_error.js';
-import { TXEDatabase } from '../util/txe_database.js';
 
 export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
-  static async init(logger: Logger) {
-    const store = openTmpStore(true);
-    const executionCache = new HashedValuesCache();
-    const nativeWorldStateService = await NativeWorldStateService.tmp();
-    const baseFork = await nativeWorldStateService.fork();
-
-    const keyStore = new KeyStore(store);
-    const txeDatabase = new TXEDatabase(store);
-    // Register protocol contracts.
-    for (const name of protocolContractNames) {
-      const { contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
-      await txeDatabase.addContractArtifact(contractClass.id, artifact);
-      await txeDatabase.addContractInstance(instance);
-    }
+  static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
     logger.debug(`TXE service initialized`);
-    const txe = await TXE.create(logger, executionCache, keyStore, txeDatabase, nativeWorldStateService, baseFork);
+    const store = await openTmpStore('test');
+    const txe = await TXE.create(logger, store, protocolContracts);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -141,8 +125,10 @@ export class TXEService {
     const secretFr = fromSingle(secret);
     // This is a footgun !
     const completeAddress = await keyStore.addAccount(secretFr, secretFr);
-    const accountStore = (this.typedOracle as TXE).getTXEDatabase();
-    await accountStore.setAccount(completeAddress.address, completeAddress);
+    const accountDataProvider = (this.typedOracle as TXE).getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
@@ -157,8 +143,10 @@ export class TXEService {
 
     const keyStore = (this.typedOracle as TXE).getKeyStore();
     const completeAddress = await keyStore.addAccount(fromSingle(secret), await computePartialAddress(instance));
-    const accountStore = (this.typedOracle as TXE).getTXEDatabase();
-    await accountStore.setAccount(completeAddress.address, completeAddress);
+    const accountDataProvider = (this.typedOracle as TXE).getAccountDataProvider();
+    await accountDataProvider.setAccount(completeAddress.address, completeAddress);
+    const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
+    await addressDataProvider.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
     return toForeignCallResult([
       toSingle(completeAddress.address),
@@ -535,6 +523,41 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  public async deliverNote(
+    contractAddress: ForeignCallSingle,
+    storageSlot: ForeignCallSingle,
+    nonce: ForeignCallSingle,
+    content: ForeignCallArray,
+    contentLength: ForeignCallSingle,
+    noteHash: ForeignCallSingle,
+    nullifier: ForeignCallSingle,
+    txHash: ForeignCallSingle,
+    recipient: ForeignCallSingle,
+  ) {
+    await this.typedOracle.deliverNote(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(storageSlot),
+      fromSingle(nonce),
+      fromArray(content.slice(0, Number(BigInt(contentLength)))),
+      fromSingle(noteHash),
+      fromSingle(nullifier),
+      fromSingle(txHash),
+      AztecAddress.fromField(fromSingle(recipient)),
+    );
+
+    return toForeignCallResult([toSingle(Fr.ONE)]);
+  }
+
+  async getLogByTag(tag: ForeignCallSingle) {
+    const log = await this.typedOracle.getLogByTag(fromSingle(tag));
+
+    if (log == null) {
+      return toForeignCallResult([toSingle(Fr.ZERO), ...LogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray)]);
+    } else {
+      return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
+    }
+  }
+
   async storeCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, capsule: ForeignCallArray) {
     await this.typedOracle.storeCapsule(
       AztecAddress.fromField(fromSingle(contractAddress)),
@@ -587,14 +610,9 @@ export class TXEService {
     const ivBuffer = fromUintArray(iv, 8);
     const symKeyBuffer = fromUintArray(symKey, 8);
 
-    // TODO(AD): this is a hack to shut up linter - this shouldn't be async!
-    const paddedPlaintext = await Promise.resolve(
-      this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer),
-    );
+    const plaintextBuffer = await this.typedOracle.aes128Decrypt(ciphertextBuffer, ivBuffer, symKeyBuffer);
 
-    // We convert each byte of the buffer to its own Field, so that the Noir
-    // function correctly receives [u8; N].
-    return toForeignCallResult([toArray(Array.from(paddedPlaintext).map(byte => new Fr(byte)))]);
+    return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBuffer.length));
   }
 
   // AVM opcodes
@@ -720,8 +738,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
-          (this.typedOracle as TXE).getTXEDatabase(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           this.logger,
         );
         throw new Error(result.revertReason.message);
@@ -730,7 +747,7 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
   }
 
   async avmOpcodeStaticCall(
@@ -750,8 +767,7 @@ export class TXEService {
       if (result.revertReason && result.revertReason instanceof SimulationError) {
         await enrichPublicSimulationError(
           result.revertReason,
-          (this.typedOracle as TXE).getContractDataOracle(),
-          (this.typedOracle as TXE).getTXEDatabase(),
+          (this.typedOracle as TXE).getContractDataProvider(),
           this.logger,
         );
         throw new Error(result.revertReason.message);
@@ -760,6 +776,11 @@ export class TXEService {
       }
     }
 
-    return toForeignCallResult([toSingle(new Fr(result.revertCode.isOK()))]);
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeSuccessCopy() {
+    const success = (this.typedOracle as TXE).avmOpcodeSuccessCopy();
+    return toForeignCallResult([toSingle(new Fr(success))]);
   }
 }

@@ -1,17 +1,10 @@
-import {
-  type L1RollupConstants,
-  L2Block,
-  L2BlockHash,
-  type L2BlockSource,
-  type L2Tips,
-  type TxHash,
-  TxReceipt,
-  TxStatus,
-  getSlotRangeForEpoch,
-} from '@aztec/circuit-types';
-import { type BlockHeader, EthAddress } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
@@ -19,7 +12,6 @@ import { createLogger } from '@aztec/foundation/log';
 export class MockL2BlockSource implements L2BlockSource {
   protected l2Blocks: L2Block[] = [];
 
-  private provenEpochNumber: number = 0;
   private provenBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
@@ -46,10 +38,6 @@ export class MockL2BlockSource implements L2BlockSource {
 
   public setProvenBlockNumber(provenBlockNumber: number) {
     this.provenBlockNumber = provenBlockNumber;
-  }
-
-  public setProvenEpochNumber(provenEpochNumber: number) {
-    this.provenEpochNumber = provenEpochNumber;
   }
 
   /**
@@ -80,10 +68,6 @@ export class MockL2BlockSource implements L2BlockSource {
     return Promise.resolve(this.provenBlockNumber);
   }
 
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.provenEpochNumber);
-  }
-
   /**
    * Gets an l2 block.
    * @param number - The block number to return (inclusive).
@@ -105,6 +89,19 @@ export class MockL2BlockSource implements L2BlockSource {
         .slice(from - 1, from - 1 + limit)
         .filter(b => !proven || this.provenBlockNumber === undefined || b.number <= this.provenBlockNumber),
     );
+  }
+
+  public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
+    const blocks = await this.getBlocks(from, limit, proven);
+    return blocks.map(block => ({
+      block,
+      l1: {
+        blockNumber: BigInt(block.number),
+        blockHash: Buffer32.random().toString(),
+        timestamp: BigInt(block.number),
+      },
+      signatures: [],
+    }));
   }
 
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
@@ -172,9 +169,18 @@ export class MockL2BlockSource implements L2BlockSource {
     const finalizedBlock = this.l2Blocks[finalized - 1];
 
     return {
-      latest: { number: latest, hash: (await latestBlock?.hash())?.toString() },
-      proven: { number: proven, hash: (await provenBlock?.hash())?.toString() },
-      finalized: { number: finalized, hash: (await finalizedBlock?.hash())?.toString() },
+      latest: {
+        number: latest,
+        hash: (await latestBlock?.hash())?.toString(),
+      },
+      proven: {
+        number: proven,
+        hash: (await provenBlock?.hash())?.toString(),
+      },
+      finalized: {
+        number: finalized,
+        hash: (await finalizedBlock?.hash())?.toString(),
+      },
     };
   }
 

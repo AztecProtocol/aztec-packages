@@ -5,15 +5,18 @@ use crate::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
-    note::{note_emission::NoteEmission, note_interface::NoteInterface},
+    note::{note_emission::NoteEmission, note_interface::NoteType},
     oracle::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::random,
+        random::{get_random_bytes, random},
     },
-    utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
+    utils::{conversion::bytes_to_fields::bytes_to_fields, point::get_sign_of_point},
 };
 use dep::protocol_types::{
-    abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    abis::note_hash::NoteHash,
+    address::AztecAddress,
+    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    traits::{Packable, ToField},
 };
 use std::aes128::aes128_encrypt;
 
@@ -201,12 +204,7 @@ pub(crate) fn get_arr_of_size__log_bytes__from_PT<let PT: u32>() -> [u8; (((PT +
 /********************************************************/
 
 // TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
-fn assert_note_exists<Note, let N: u32>(context: PrivateContext, note: Note)
-where
-    Note: NoteInterface<N>,
-{
-    let note_header = note.get_header();
-    let note_hash_counter = note_header.note_hash_counter;
+fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u32) {
     // TODO(#8589): use typesystem to skip this check when not needed
     let note_exists =
         context.note_hashes.storage().any(|n: NoteHash| n.counter == note_hash_counter);
@@ -222,15 +220,14 @@ fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
     storage_slot: Field,
 ) -> [u8; N * 32 + 64]
 where
-    Note: NoteInterface<N>,
+    Note: NoteType + Packable<N>,
 {
-    let packed_note = note.pack_content();
+    let packed_note = note.pack();
 
-    let note_header = note.get_header();
     let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
 
     // TODO(#10952): The following can be reduced to 7 bits
-    let note_type_id_bytes: [u8; 32] = Note::get_note_type_id().to_be_bytes();
+    let note_type_id_bytes: [u8; 32] = Note::get_id().to_be_bytes();
 
     // We combine all the bytes into plaintext_bytes:
     let mut plaintext_bytes: [u8; N * 32 + 64] = [0; N * 32 + 64];
@@ -257,7 +254,7 @@ fn compute_log<Note, let N: u32>(
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteInterface<N>,
+    Note: NoteType + Packable<N>,
 {
     // *****************************************************************************
     // Compute the shared secret
@@ -377,10 +374,10 @@ where
     );
 
     // *****************************************************************************
-    // Convert bytes back to fields
+    // Convert the encrypted bytes to fields, because logs are field-based
     // *****************************************************************************
 
-    let log_bytes_as_fields = be_bytes_31_to_fields(log_bytes);
+    let log_bytes_as_fields = bytes_to_fields(log_bytes);
 
     // *****************************************************************************
     // Prepend / append fields, to create the final log
@@ -421,7 +418,7 @@ unconstrained fn compute_log_unconstrained<Note, let N: u32>(
     sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteInterface<N>,
+    Note: NoteType + Packable<N>,
 {
     compute_log(context, note, storage_slot, recipient, sender)
 }
@@ -436,14 +433,13 @@ pub fn encode_and_encrypt_note<Note, let N: u32>(
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteInterface<N>,
+    Note: NoteType + Packable<N>,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
         let storage_slot = e.storage_slot;
-        assert_note_exists(*context, note);
-
-        let note_hash_counter = note.get_header().note_hash_counter;
+        let note_hash_counter = e.note_hash_counter;
+        assert_note_exists(*context, note_hash_counter);
 
         let encrypted_log = compute_log(*context, note, storage_slot, recipient, sender);
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
@@ -460,14 +456,14 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
-    Note: NoteInterface<N>,
+    Note: NoteType + Packable<N>,
 {
     |e: NoteEmission<Note>| {
         let note = e.note;
         let storage_slot = e.storage_slot;
-        assert_note_exists(*context, note);
+        let note_hash_counter = e.note_hash_counter;
 
-        let note_hash_counter = note.get_header().note_hash_counter;
+        assert_note_exists(*context, note_hash_counter);
 
         //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
         // recipient is unable to decrypt the payload.
@@ -488,6 +484,7 @@ where
 mod test {
     use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
     use dep::protocol_types::address::AztecAddress;
+    use dep::protocol_types::traits::FromField;
     use std::test::OracleMock;
 
     #[test]
@@ -503,7 +500,7 @@ mod test {
         ); // This is an address copied to match the typescript one.
 
         let storage_slot = 42;
-        let note = MockNote::new(1234).contract_address(context.this_address()).build();
+        let note = MockNote::new(1234).build_note();
         let contract_address = context.this_address();
 
         // All the values in this test were copied over from `encrypted_log_payload.test.ts`

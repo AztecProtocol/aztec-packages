@@ -1,9 +1,10 @@
-import { InboxLeaf } from '@aztec/circuit-types';
-import { Fr, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
+import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
 
-import { type DataRetrieval } from '../structs/data_retrieval.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.

@@ -2,7 +2,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { Registry } from 'prom-client';
 
-import { type Meter, type MetricsType, type ObservableGauge, type TelemetryClient } from './telemetry.js';
+import type { Meter, MetricsType, ObservableGauge, TelemetryClient } from './telemetry.js';
 
 /**
  * Types matching the gossipsub and libp2p services
@@ -254,7 +254,7 @@ class NoopOtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHis
 
   reset(): void {
     // OpenTelemetry histograms cannot be reset, but we implement the interface
-    this.logger.warn('OpenTelemetry histograms cannot be reset');
+    this.logger.silent('OpenTelemetry histograms cannot be reset');
   }
 }
 

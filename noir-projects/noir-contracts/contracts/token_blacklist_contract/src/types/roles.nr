@@ -1,4 +1,5 @@
 use dep::aztec::protocol_types::traits::{Deserialize, Packable, Serialize};
+use aztec::protocol_types::traits::ToField;
 
 global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
@@ -72,6 +73,7 @@ impl Deserialize<3> for UserFlags {
 
 mod test {
     use crate::types::roles::UserFlags;
+    use aztec::protocol_types::traits::Packable;
 
     fn assert_packable(is_minter: bool, is_admin: bool, is_blacklisted: bool) {
         let flags = UserFlags { is_minter, is_admin, is_blacklisted };

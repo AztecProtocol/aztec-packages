@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+set -eou pipefail
+
 cmd=${1:-}
 [ -n "$cmd" ] && shift
+
+# Update the noir-repo before we hash its content, unless the command is exempt.
+no_update=(clean make-patch bump-noir-repo-ref)
+if [[ -z "$cmd" || ! ${no_update[*]} =~ "$cmd" ]]; then
+  scripts/sync.sh init
+  scripts/sync.sh update
+fi
 
 export hash=$(cache_content_hash .rebuild_patterns)
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
@@ -71,6 +80,9 @@ function build_packages {
     mv packages/package packages/${project#*/}
   done
 
+  # Find all files in packages dir and use sed to in-place replace @noir-lang with @aztec/noir-
+  find packages -type f -exec sed -i 's|@noir-lang/|@aztec/noir-|g' {} \;
+
   cache_upload noir-packages-$hash.tar.gz \
     packages \
     noir-repo/acvm-repo/acvm_js/nodejs \
@@ -133,7 +145,7 @@ function test_cmds {
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
   # We need to include these as they will go out of date otherwise and externals use these examples.
-  local example_test_hash=$(hash_str $test_hash-$(../barretenberg/cpp/bootstrap.sh hash))
+  local example_test_hash=$(hash_str $test_hash-$(../../barretenberg/cpp/bootstrap.sh hash))
   echo "$example_test_hash noir/bootstrap.sh test_example codegen_verifier"
   echo "$example_test_hash noir/bootstrap.sh test_example prove_and_verify"
   echo "$example_test_hash noir/bootstrap.sh test_example recursion"
@@ -179,13 +191,27 @@ function release {
   release_packages $(dist_tag) ${REF_NAME#v}
 }
 
-function release_commit {
-  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
+# Bump the Noir repo reference on a given branch to a given ref.
+# The branch might already exist, e.g. this could be a daily job bumping the version to the
+# latest nightly, and we might have to deal with updating the patch file because the latest
+# Noir code conflicts with the contents of the patch, or we're debugging some integration
+# test failure on CI. In that case just push another commit to the branch to bump the version
+# further without losing any other commit on the branch.
+function bump_noir_repo_ref {
+  branch=$1
+  ref=$2
+  git fetch --depth 1 origin $branch || true
+  git checkout --track origin/$branch || git checkout $branch || git checkout -b $branch
+  scripts/sync.sh write-noir-repo-ref $ref
+  git add .
+  git commit -m "chore: Update noir-repo-ref to $ref" || true
+  do_or_dryrun git push --set-upstream origin $branch
 }
 
 case "$cmd" in
   "clean")
-    git clean -fdx
+    # Double `f` needed to delete the nested git repository.
+    git clean -ffdx
     ;;
   "ci")
     build
@@ -194,7 +220,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  test_cmds|build_native|build_packages|format|test|release|release_commit|test_example)
+  test_cmds|build_native|build_packages|format|test|release|test_example)
     $cmd "$@"
     ;;
   "hash")
@@ -202,6 +228,12 @@ case "$cmd" in
     ;;
   "hash-test")
     echo $test_hash
+    ;;
+  "make-patch")
+    scripts/sync.sh make-patch
+    ;;
+  "bump-noir-repo-ref")
+    bump_noir_repo_ref $@
     ;;
   *)
     echo "Unknown command: $cmd"

@@ -12,7 +12,7 @@ pub contract AvmTest {
 
     // Libs
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::context::public_context::{call, gas_for_call, returndata_size};
+    use dep::aztec::context::public_context::{call, gas_for_call, returndata_size, success_copy};
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
@@ -26,12 +26,17 @@ pub contract AvmTest {
         scalar::Scalar,
     };
     use dep::aztec::protocol_types::{
-        constants::MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
-        contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
+        constants::{GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS},
+        contract_class_id::ContractClassId,
+        storage::map::derive_storage_slot_in_map,
+        traits::{Empty, FromField, ToField},
     };
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
+    use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
+
+    use std::ops::Add;
 
     #[storage]
     struct Storage<Context> {
@@ -135,7 +140,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn add_u128(a: U128, b: U128) -> U128 {
+    fn add_u128(a: u128, b: u128) -> u128 {
         a + b
     }
 
@@ -151,11 +156,7 @@ pub contract AvmTest {
 
     #[public]
     fn elliptic_curve_add_and_double() -> Point {
-        let g = Point {
-            x: 1,
-            y: 17631683881184975370165255887551781615748388533673675138860,
-            is_infinite: false,
-        };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -163,15 +164,18 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn variable_base_msm() -> Point {
-        let g = Point {
-            x: 1,
-            y: 17631683881184975370165255887551781615748388533673675138860,
-            is_infinite: false,
-        };
-        let scalar = Scalar { lo: 3, hi: 0 };
-        let scalar2 = Scalar { lo: 20, hi: 0 };
-        let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
+    fn variable_base_msm(
+        scalar_lo: Field,
+        scalar_hi: Field,
+        scalar2_lo: Field,
+        scalar2_hi: Field,
+    ) -> Point {
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
+
+        let triple_g = multi_scalar_mul(
+            [g, g],
+            [Scalar { lo: scalar_lo, hi: scalar_hi }, Scalar { lo: scalar2_lo, hi: scalar2_hi }],
+        );
         triple_g
     }
 
@@ -186,16 +190,10 @@ pub contract AvmTest {
      ************************************************************************/
 
     #[public]
-    fn u128_addition_overflow() -> U128 {
-        let max_u128: U128 = U128::from_hex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-        let one: U128 = U128::from_integer(1);
+    fn u128_addition_overflow() -> u128 {
+        let max_u128: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+        let one: u128 = 1;
         max_u128 + one
-    }
-
-    #[public]
-    fn u128_from_integer_overflow() -> U128 {
-        let should_overflow: Field = 2.pow_32(128); // U128::max() + 1;
-        U128::from_integer(should_overflow)
     }
 
     #[public]
@@ -243,11 +241,17 @@ pub contract AvmTest {
         let da_gas_left = context.da_gas_left();
         let gas_allocation: [Field; 2] = [l2_gas_left - 200_000, da_gas_left - 200_000];
         let selector = FunctionSelector::from_signature("divide_by_zero()");
-        let success = call(
+
+        // Call without capturing a return value since call no longer returns success
+        call(
             gas_allocation,
             context.this_address(),
             &[selector.to_field()],
         );
+
+        // Use SUCCESSCOPY to get the success status
+        let success = success_copy();
+
         assert(!success, "Nested CALL instruction should return failure on exceptional halt");
         assert(
             returndata_size() == 0,
@@ -401,12 +405,6 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn assert_timestamp(expected_timestamp: u64) {
-        let timestamp = context.timestamp();
-        assert(timestamp == expected_timestamp, "timestamp does not match");
-    }
-
-    #[public]
     fn get_args_hash(_a: u8, _fields: [Field; 3]) -> Field {
         context.get_args_hash()
     }
@@ -525,7 +523,8 @@ pub contract AvmTest {
     fn nested_call_to_nothing_recovers() {
         let garbageAddress = AztecAddress::from_field(42);
         let gas = [1, 1];
-        let success = call(gas, garbageAddress, &[]);
+        call(gas, garbageAddress, &[]);
+        let success = success_copy();
         assert(
             !success,
             "Nested CALL instruction should return failure if target contract does not exist",
