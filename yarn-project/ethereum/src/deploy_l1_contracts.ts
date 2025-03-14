@@ -328,6 +328,8 @@ export const deployRollup = async (
     minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
+    manaTarget: args.manaTarget,
+    provingCostPerMana: args.provingCostPerMana,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
@@ -535,7 +537,7 @@ export const deployL1Contracts = async (
   // @note @LHerskind the assets are expected to be the same at some point, but for better
   // configurability they are different for now.
   const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
-    feeAssetAddress.toString(),
+    stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);

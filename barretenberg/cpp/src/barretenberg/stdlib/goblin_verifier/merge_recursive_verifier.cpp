@@ -24,11 +24,10 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  */
 template <typename CircuitBuilder>
 std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
-    const HonkProof& proof)
+    const StdlibProof<CircuitBuilder>& proof)
 {
     // Transform proof into a stdlib object
-    StdlibProof<CircuitBuilder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript = std::make_shared<Transcript>(proof);
 
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
 

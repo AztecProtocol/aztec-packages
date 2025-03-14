@@ -32,9 +32,6 @@ validator:
   replicas: 48
   l1GasPriceMax: 500
   storageSize: "100Gi"
-  resources:
-    requests:
-      memory: "512Mi"
   validatorKeys:
   validator:
     disabled: false

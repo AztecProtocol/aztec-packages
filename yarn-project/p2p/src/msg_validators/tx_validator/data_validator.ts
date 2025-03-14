@@ -18,9 +18,11 @@ export class DataTxValidator implements TxValidator<Tx> {
     ];
     if (callRequests.length !== tx.enqueuedPublicFunctionCalls.length) {
       this.#log.warn(
-        `Rejecting tx ${Tx.getHash(tx)} because of mismatch number of execution requests for public calls. Expected ${
-          callRequests.length
-        }. Got ${tx.enqueuedPublicFunctionCalls.length}.`,
+        `Rejecting tx ${await Tx.getHash(
+          tx,
+        )} because of mismatch number of execution requests for public calls. Expected ${callRequests.length}. Got ${
+          tx.enqueuedPublicFunctionCalls.length
+        }.`,
       );
       return { result: 'invalid', reason: ['Wrong number of execution requests for public calls'] };
     }
@@ -66,7 +68,7 @@ export class DataTxValidator implements TxValidator<Tx> {
     const hashedContractClasslogs = await Promise.all(tx.contractClassLogs.map(l => l.hash()));
     if (contractClassLogsHashes.length !== hashedContractClasslogs.length) {
       this.#log.warn(
-        `Rejecting tx ${Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
+        `Rejecting tx ${await Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
           contractClassLogsHashes.length
         }. Got ${hashedContractClasslogs.length}.`,
       );
@@ -78,14 +80,14 @@ export class DataTxValidator implements TxValidator<Tx> {
         if (hashedContractClasslogs.some(l => logHash.value.equals(l))) {
           const matchingLogIndex = hashedContractClasslogs.findIndex(l => logHash.value.equals(l));
           this.#log.warn(
-            `Rejecting tx ${Tx.getHash(
+            `Rejecting tx ${await Tx.getHash(
               tx,
             )} because of mismatched contract class logs indices. Expected ${i} from the kernel's log hashes. Got ${matchingLogIndex} in the tx.`,
           );
           return { result: 'invalid', reason: ['Incorrectly sorted contract class logs'] };
         } else {
           this.#log.warn(
-            `Rejecting tx ${Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
+            `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
               logHash.value
             } from the kernels. Got ${hashedLog} in the tx.`,
           );
@@ -94,7 +96,7 @@ export class DataTxValidator implements TxValidator<Tx> {
       }
       if (logHash.logHash.length !== tx.contractClassLogs[i].getEmittedLength()) {
         this.#log.warn(
-          `Rejecting tx ${Tx.getHash(tx)} because of mismatched contract class logs length. Expected ${
+          `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs length. Expected ${
             logHash.logHash.length
           } from the kernel's log hashes. Got ${tx.contractClassLogs[i].getEmittedLength()} in the tx.`,
         );

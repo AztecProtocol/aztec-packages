@@ -77,4 +77,8 @@ export class PublicDataWrite {
   isEmpty() {
     return this.leafSlot.isZero() && this.value.isZero();
   }
+
+  equals(other: PublicDataWrite): boolean {
+    return this.leafSlot.equals(other.leafSlot) && this.value.equals(other.value);
+  }
 }

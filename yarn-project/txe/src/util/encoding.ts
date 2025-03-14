@@ -49,6 +49,10 @@ export function toArray(objs: Fr[]): ForeignCallArray {
   return objs.map(obj => obj.toString());
 }
 
+export function toSingleOrArray(value: Fr | Fr[]) {
+  return Array.isArray(value) ? value.map(toSingle) : toSingle(value);
+}
+
 export function bufferToU8Array(buffer: Buffer): ForeignCallArray {
   return toArray(Array.from(buffer).map(byte => new Fr(byte)));
 }
