@@ -43,15 +43,14 @@ export RUSTFLAGS="-Dwarnings"
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  cd noir-repo
-  if cache_download noir-$hash.tar.gz; then
+  if cache_download noir-$hash.tar.gz ./noir-repo; then
     return
   fi
-  parallel --tag --line-buffer --halt now,fail=1 ::: \
+  (cd noir-repo && parallel --tag --line-buffer --halt now,fail=1 ::: \
     "cargo fmt --all --check" \
     "cargo build --locked --release --target-dir target" \
-    "cargo clippy --target-dir target/clippy --workspace --locked --release"
-  cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm target/release/noir-profiler
+    "cargo clippy --target-dir target/clippy --workspace --locked --release")
+  cache_upload noir-$hash.tar.gz ./noir-repo/target/release/nargo ./noir-repo/target/release/acvm ./noir-repo/target/release/noir-profiler
 }
 
 # Builds js packages.
