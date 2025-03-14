@@ -329,9 +329,9 @@ class MockArchiver implements ArchiverApi {
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
     return Promise.resolve([PrivateLog.random()]);
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
+    return [await Promise.all(tags.map(() => TxScopedL2Log.random()))];
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
