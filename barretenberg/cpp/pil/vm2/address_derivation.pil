@@ -35,6 +35,7 @@ namespace address_derivation;
     pol commit salted_init_hash;
 
     // It's reused between the partial address and salted initialization hash. Weird.
+    // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
     pol commit partial_address_domain_separator;
     sel * (partial_address_domain_separator - constants.GENERATOR_INDEX__PARTIAL_ADDRESS) = 0;
 
@@ -60,6 +61,7 @@ namespace address_derivation;
 
     pol commit public_keys_hash;
 
+    // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
     pol commit public_keys_hash_domain_separator;
     sel * (public_keys_hash_domain_separator - constants.GENERATOR_INDEX__PUBLIC_KEYS_HASH) = 0;
 
@@ -90,6 +92,7 @@ namespace address_derivation;
 
     pol commit preaddress;
 
+    // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
     pol commit preaddress_domain_separator;
     sel * (preaddress_domain_separator - constants.GENERATOR_INDEX__CONTRACT_ADDRESS_V1) = 0;
 
@@ -103,6 +106,7 @@ namespace address_derivation;
     pol commit preaddress_public_key_x;
     pol commit preaddress_public_key_y;
 
+    // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
     pol commit g1_x;
     sel * (g1_x - 1) = 0;
 

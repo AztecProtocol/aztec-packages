@@ -230,7 +230,7 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_address_derivation_partial_address_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_partial_address_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -248,7 +248,7 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_start() == 1);
+        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -256,7 +256,7 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_start());
+        const auto is_table_entry = View(in._poseidon2_hash_end());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -275,7 +275,7 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
         return std::forward_as_tuple(in._lookup_address_derivation_partial_address_poseidon2_inv(),
                                      in._lookup_address_derivation_partial_address_poseidon2_counts(),
                                      in._address_derivation_sel(),
-                                     in._poseidon2_hash_start(),
+                                     in._poseidon2_hash_end(),
                                      in._address_derivation_partial_address_domain_separator(),
                                      in._address_derivation_class_id(),
                                      in._address_derivation_salted_init_hash(),
