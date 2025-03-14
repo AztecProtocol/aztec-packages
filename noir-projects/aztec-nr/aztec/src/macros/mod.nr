@@ -13,7 +13,7 @@ use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
 use dispatch::generate_public_dispatch;
-use utils::{get_trait_impl_method, is_fn_public, module_has_storage};
+use utils::{get_trait_impl_method, module_has_storage};
 
 use crate::discovery::MAX_NOTE_PACKED_LEN;
 
