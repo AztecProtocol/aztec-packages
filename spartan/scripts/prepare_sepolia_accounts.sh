@@ -57,7 +57,7 @@ max_index=$((validator_max_index > prover_max_index ? validator_max_index : prov
 max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 
 # Total number of accounts needed
-total_accounts=$((max_index + 1))
+total_accounts=$((num_validators + num_provers + num_bots))
 
 # Install bc if needed
 if ! command -v bc &>/dev/null; then
@@ -136,6 +136,15 @@ gas_price=$((gas_price * 125 / 100)) # Add 25% to gas price
 
 # Total value = wei_amount * num_accounts_to_fund
 total_value=$(echo "$wei_amount * $num_accounts_to_fund" | bc)
+
+# Check that we're not sending more than 50% of the funding account balance
+funding_address=$(cast wallet address --private-key "$FUNDING_PRIVATE_KEY")
+funding_balance=$(cast balance --rpc-url "$ETHEREUM_HOST" "$funding_address")
+half_balance=$(echo "$funding_balance / 2" | bc)
+if (($(echo "$total_value > $half_balance" | bc -l))); then
+  echo "Error: Total value of this tx exceeds 50% of funding account balance"
+  exit 1
+fi
 
 multicall_address="0xcA11bde05977b3631167028862bE2a173976CA11" # Sepolia Multicall3 contract
 
