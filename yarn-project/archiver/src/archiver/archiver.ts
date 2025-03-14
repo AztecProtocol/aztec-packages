@@ -613,6 +613,21 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return blocks.reverse();
   }
 
+  // public async getBlockHeaderAtSlot(targetSlot: bigint): Promise<BlockHeader | undefined> {
+  //   let blockNumber = await this.store.getSynchedL2BlockNumber();
+  //   let slot = (await this.getBlockHeader(blockNumber))?.getSlot();
+
+  //   // There are not blocks, or we are being asked a slot we have not synced yet.
+  //   if (slot === undefined || slot < targetSlot) {
+  //     return undefined;
+  //   }
+
+  //   // We have the block, so we can return it.
+  //   if (slot === targetSlot) {
+  //     return await this.getBlockHeader(blockNumber);
+  //   }
+  // }
+
   public async isEpochComplete(epochNumber: bigint): Promise<boolean> {
     // The epoch is complete if the current L2 block is the last one in the epoch (or later)
     const header = await this.getBlockHeader('latest');

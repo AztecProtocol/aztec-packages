@@ -43,7 +43,7 @@ export class RunningPromise {
   public start() {
     if (this.running) {
       this.logger.warn(`Attempted to start running promise that was already started`);
-      return;
+      return this;
     }
     this.running = true;
 
@@ -73,6 +73,7 @@ export class RunningPromise {
       }
     };
     this.runningPromise = poll();
+    return this;
   }
 
   /**

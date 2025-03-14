@@ -45,7 +45,7 @@ describe('EpochCache', () => {
       epochDuration: EPOCH_DURATION,
     };
 
-    epochCache = new EpochCache(rollupContract, testCommittee, 0n, testConstants);
+    epochCache = new EpochCache(rollupContract, 0n, testCommittee, 0n, testConstants);
   });
 
   afterEach(() => {
@@ -54,7 +54,7 @@ describe('EpochCache', () => {
 
   it('should cache the validator set for the length of an epoch', async () => {
     // Initial call to get validators
-    const initialCommittee = await epochCache.getCommittee();
+    const { committee: initialCommittee } = await epochCache.getCommittee();
     expect(initialCommittee).toEqual(testCommittee);
     // Not called as we should cache with the initial validator set
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0);
@@ -66,7 +66,7 @@ describe('EpochCache', () => {
     rollupContract.getCommitteeAt.mockResolvedValue([...testCommittee, extraTestValidator].map(v => v.toString()));
 
     // Should use cached validators
-    const midEpochCommittee = await epochCache.getCommittee();
+    const { committee: midEpochCommittee } = await epochCache.getCommittee();
     expect(midEpochCommittee).toEqual(testCommittee);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0); // Still cached
 
@@ -74,7 +74,7 @@ describe('EpochCache', () => {
     jest.setSystemTime(Date.now() + Number(EPOCH_DURATION * SLOT_DURATION) * 1000);
 
     // Should fetch new validator
-    const nextEpochCommittee = await epochCache.getCommittee();
+    const { committee: nextEpochCommittee } = await epochCache.getCommittee();
     expect(nextEpochCommittee).toEqual([...testCommittee, extraTestValidator]);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1); // Called again for new epoch
   });
