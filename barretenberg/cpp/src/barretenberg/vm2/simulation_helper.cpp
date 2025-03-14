@@ -75,8 +75,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
 
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
+    ToRadix to_radix(to_radix_emitter);
+    Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
 
-    AddressDerivation address_derivation(address_derivation_emitter);
+    AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(inputs.hints);
     HintedRawMerkleDB raw_merkle_db(inputs.hints, inputs.publicInputs.startTreeSnapshots);
@@ -101,8 +103,6 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Execution execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
-    ToRadix to_radix(to_radix_emitter);
-    Ecc ecc_add(to_radix, ecc_add_emitter, scalar_mul_emitter);
 
     tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
 

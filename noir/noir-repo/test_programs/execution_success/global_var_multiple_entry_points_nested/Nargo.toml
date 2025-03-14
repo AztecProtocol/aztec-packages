@@ -1,6 +1,0 @@
-[package]
-name = "global_var_multiple_entry_points_nested"
-type = "bin"
-authors = [""]
-
-[dependencies]

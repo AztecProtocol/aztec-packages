@@ -26,7 +26,7 @@ pub contract AvmTest {
         scalar::Scalar,
     };
     use dep::aztec::protocol_types::{
-        constants::MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+        constants::{GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS},
         contract_class_id::ContractClassId,
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
@@ -156,11 +156,7 @@ pub contract AvmTest {
 
     #[public]
     fn elliptic_curve_add_and_double() -> Point {
-        let g = Point {
-            x: 1,
-            y: 17631683881184975370165255887551781615748388533673675138860,
-            is_infinite: false,
-        };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -174,11 +170,7 @@ pub contract AvmTest {
         scalar2_lo: Field,
         scalar2_hi: Field,
     ) -> Point {
-        let g = Point {
-            x: 1,
-            y: 17631683881184975370165255887551781615748388533673675138860,
-            is_infinite: false,
-        };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let triple_g = multi_scalar_mul(
             [g, g],
