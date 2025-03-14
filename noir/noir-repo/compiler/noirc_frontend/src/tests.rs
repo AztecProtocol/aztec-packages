@@ -17,11 +17,12 @@ mod visibility;
 // what we should do is have test cases which are passed to a test harness
 // A test harness will allow for more expressive and readable tests
 use std::collections::{BTreeMap, HashMap};
+use std::path::Path;
 
 use crate::elaborator::{FrontendOptions, UnstableFeature};
-use fm::FileId;
 
 use iter_extended::vecmap;
+use noirc_errors::reporter::report_all;
 use noirc_errors::{CustomDiagnostic, Location, Span};
 
 use crate::hir::Context;
@@ -33,9 +34,6 @@ use crate::hir::def_collector::dc_crate::DefCollector;
 use crate::hir::def_map::{CrateDefMap, LocalModuleId};
 use crate::hir_def::expr::HirExpression;
 use crate::hir_def::stmt::HirStatement;
-use crate::monomorphization::ast::Program;
-use crate::monomorphization::errors::MonomorphizationError;
-use crate::monomorphization::monomorphize;
 use crate::parser::{ItemKind, ParserErrorReason};
 use crate::token::SecondaryAttribute;
 use crate::{ParsedModule, parse_program};
@@ -79,11 +77,11 @@ pub(crate) fn get_program_with_options(
     options: FrontendOptions,
 ) -> (ParsedModule, Context<'static, 'static>, Vec<CompilationError>) {
     let root = std::path::Path::new("/");
-    let fm = FileManager::new(root);
-
+    let mut fm = FileManager::new(root);
+    let root_file_id = fm.add_file_with_source(Path::new("test_file"), src.to_string()).unwrap();
     let mut context = Context::new(fm, Default::default());
+
     context.def_interner.populate_dummy_operator_traits();
-    let root_file_id = FileId::dummy();
     let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
 
     let (program, parser_errors) = parse_program(src, root_file_id);
@@ -139,9 +137,11 @@ pub(crate) fn get_program_errors(src: &str) -> Vec<CompilationError> {
 }
 
 fn assert_no_errors(src: &str) {
-    let errors = get_program_errors(src);
+    let (_, context, errors) = get_program(src);
     if !errors.is_empty() {
-        panic!("Expected no errors, got: {:?}; src = {src}", errors);
+        let errors = errors.iter().map(CustomDiagnostic::from).collect::<Vec<_>>();
+        report_all(context.file_manager.as_file_map(), &errors, false, false);
+        panic!("Expected no errors");
     }
 }
 
@@ -161,17 +161,45 @@ fn assert_no_errors(src: &str) {
 /// will produce errors at those locations and with/ those messages.
 fn check_errors(src: &str) {
     let allow_parser_errors = false;
-    check_errors_with_options(src, allow_parser_errors, FrontendOptions::test_default());
+    let monomorphize = false;
+    check_errors_with_options(
+        src,
+        allow_parser_errors,
+        monomorphize,
+        FrontendOptions::test_default(),
+    );
 }
 
 fn check_errors_using_features(src: &str, features: &[UnstableFeature]) {
     let allow_parser_errors = false;
-    let mut options = FrontendOptions::test_default();
-    options.enabled_unstable_features = features;
-    check_errors_with_options(src, allow_parser_errors, options);
+    let monomorphize = false;
+    let options =
+        FrontendOptions { enabled_unstable_features: features, ..FrontendOptions::test_default() };
+    check_errors_with_options(src, allow_parser_errors, monomorphize, options);
 }
 
-fn check_errors_with_options(src: &str, allow_parser_errors: bool, options: FrontendOptions) {
+#[allow(unused)]
+pub(super) fn check_monomorphization_error(src: &str) {
+    check_monomorphization_error_using_features(src, &[]);
+}
+
+pub(super) fn check_monomorphization_error_using_features(src: &str, features: &[UnstableFeature]) {
+    let allow_parser_errors = false;
+    let monomorphize = true;
+    check_errors_with_options(
+        src,
+        allow_parser_errors,
+        monomorphize,
+        FrontendOptions { enabled_unstable_features: features, ..FrontendOptions::test_default() },
+    );
+}
+
+fn check_errors_with_options(
+    src: &str,
+    allow_parser_errors: bool,
+    monomorphize: bool,
+    options: FrontendOptions,
+) {
     let lines = src.lines().collect::<Vec<_>>();
 
     // Here we'll hold just the lines that are code
@@ -216,12 +244,32 @@ fn check_errors_with_options(src: &str, allow_parser_errors: bool, options: Fron
         secondary_spans_with_errors.into_iter().collect();
 
     let src = code_lines.join("\n");
-    let (_, _, errors) = get_program_with_options(&src, allow_parser_errors, options);
+    let (_, mut context, errors) = get_program_with_options(&src, allow_parser_errors, options);
+    let mut errors = errors.iter().map(CustomDiagnostic::from).collect::<Vec<_>>();
+
+    if monomorphize {
+        if !errors.is_empty() {
+            report_all(context.file_manager.as_file_map(), &errors, false, false);
+            panic!("Expected no errors before monomorphization");
+        }
+
+        let main = context.get_main_function(context.root_crate_id()).unwrap_or_else(|| {
+            panic!("get_monomorphized: test program contains no 'main' function")
+        });
+
+        let result = crate::monomorphization::monomorphize(main, &mut context.def_interner, false);
+        match result {
+            Ok(_) => panic!("Expected a monomorphization error but got none"),
+            Err(error) => {
+                errors.push(error.into());
+            }
+        }
+    }
+
     if errors.is_empty() && !primary_spans_with_errors.is_empty() {
         panic!("Expected some errors but got none");
     }
 
-    let errors = errors.iter().map(CustomDiagnostic::from).collect::<Vec<_>>();
     for error in &errors {
         let secondary = error
             .secondaries
@@ -232,17 +280,25 @@ fn check_errors_with_options(src: &str, allow_parser_errors: bool, options: Fron
 
         let Some(expected_message) = primary_spans_with_errors.remove(&span) else {
             if let Some(message) = secondary_spans_with_errors.get(&span) {
+                report_all(context.file_manager.as_file_map(), &errors, false, false);
                 panic!(
                     "Error at {span:?} with message {message:?} is annotated as secondary but should be primary"
                 );
             } else {
+                report_all(context.file_manager.as_file_map(), &errors, false, false);
                 panic!(
                     "Couldn't find primary error at {span:?} with message {message:?}.\nAll errors: {errors:?}"
                 );
             }
         };
 
-        assert_eq!(message, &expected_message, "Primary error at {span:?} has unexpected message");
+        if message != &expected_message {
+            report_all(context.file_manager.as_file_map(), &errors, false, false);
+            assert_eq!(
+                message, &expected_message,
+                "Primary error at {span:?} has unexpected message"
+            );
+        }
 
         for secondary in &error.secondaries {
             let message = &secondary.message;
@@ -252,6 +308,7 @@ fn check_errors_with_options(src: &str, allow_parser_errors: bool, options: Fron
 
             let span = secondary.location.span;
             let Some(expected_message) = secondary_spans_with_errors.remove(&span) else {
+                report_all(context.file_manager.as_file_map(), &errors, false, false);
                 if let Some(message) = primary_spans_with_errors.get(&span) {
                     panic!(
                         "Error at {span:?} with message {message:?} is annotated as primary but should be secondary"
@@ -263,18 +320,23 @@ fn check_errors_with_options(src: &str, allow_parser_errors: bool, options: Fron
                 };
             };
 
-            assert_eq!(
-                message, &expected_message,
-                "Secondary error at {span:?} has unexpected message"
-            );
+            if message != &expected_message {
+                report_all(context.file_manager.as_file_map(), &errors, false, false);
+                assert_eq!(
+                    message, &expected_message,
+                    "Secondary error at {span:?} has unexpected message"
+                );
+            }
         }
     }
 
     if !primary_spans_with_errors.is_empty() {
+        report_all(context.file_manager.as_file_map(), &errors, false, false);
         panic!("These primary errors didn't happen: {primary_spans_with_errors:?}");
     }
 
     if !secondary_spans_with_errors.is_empty() {
+        report_all(context.file_manager.as_file_map(), &errors, false, false);
         panic!("These secondary errors didn't happen: {secondary_spans_with_errors:?}");
     }
 }
@@ -381,7 +443,6 @@ fn check_trait_implementation_duplicate_method() {
 
 #[test]
 fn check_trait_wrong_method_return_type() {
-    // TODO: improve the error location
     let src = "
     trait Default {
         fn default() -> Self;
@@ -406,7 +467,6 @@ fn check_trait_wrong_method_return_type() {
 
 #[test]
 fn check_trait_wrong_method_return_type2() {
-    // TODO: improve the error location
     let src = "
     trait Default {
         fn default(x: Field, y: Field) -> Self;
@@ -531,7 +591,6 @@ fn check_trait_wrong_method_name() {
 
 #[test]
 fn check_trait_wrong_parameter() {
-    // TODO: improve the error location
     let src = "
     trait Default {
         fn default(x: Field) -> Self;
@@ -1127,52 +1186,6 @@ fn resolve_fmt_strings() {
     check_errors(src);
 }
 
-fn monomorphize_program(src: &str) -> Result<Program, MonomorphizationError> {
-    let (_program, mut context, _errors) = get_program(src);
-    let main_func_id = context.def_interner.find_function("main").unwrap();
-    monomorphize(main_func_id, &mut context.def_interner, false)
-}
-
-fn get_monomorphization_error(src: &str) -> Option<MonomorphizationError> {
-    monomorphize_program(src).err()
-}
-
-fn check_rewrite(src: &str, expected: &str) {
-    let program = monomorphize_program(src).unwrap();
-    assert!(format!("{}", program) == expected);
-}
-
-#[test]
-fn simple_closure_with_no_captured_variables() {
-    let src = r#"
-    fn main() -> pub Field {
-        let x = 1;
-        let closure = || x;
-        closure()
-    }
-    "#;
-
-    let expected_rewrite = r#"fn main$f0() -> Field {
-    let x$0 = 1;
-    let closure$3 = {
-        let closure_variable$2 = {
-            let env$1 = (x$l0);
-            (env$l1, lambda$f1)
-        };
-        closure_variable$l2
-    };
-    {
-        let tmp$4 = closure$l3;
-        tmp$l4.1(tmp$l4.0)
-    }
-}
-fn lambda$f1(mut env$l1: (Field)) -> Field {
-    env$l1.0
-}
-"#;
-    check_rewrite(src, expected_rewrite);
-}
-
 #[test]
 fn deny_cyclic_globals() {
     let src = r#"
@@ -1524,7 +1537,6 @@ fn numeric_generic_binary_operation_type_mismatch() {
 
 #[test]
 fn bool_generic_as_loop_bound() {
-    // TODO: improve the error location of the last error (should be just on N)
     let src = r#"
     pub fn read<let N: bool>() {
                     ^ N has a type of bool. The only supported numeric generic types are `u1`, `u8`, `u16`, and `u32`.
@@ -1565,8 +1577,6 @@ fn numeric_generic_in_function_signature() {
 
 #[test]
 fn numeric_generic_as_struct_field_type_fails() {
-    // TODO: improve error message, in Rust it says "expected type, found const parameter `N`"
-    // which might be more understandable
     let src = r#"
     pub struct Foo<let N: u32> {
         a: Field,
@@ -1594,7 +1604,6 @@ fn normal_generic_as_array_length() {
 
 #[test]
 fn numeric_generic_as_param_type() {
-    // TODO: improve the error message, see what Rust does
     let src = r#"
     pub fn foo<let I: u32>(x: I) -> I {
                                     ^ Expected type, found numeric generic
@@ -1614,7 +1623,6 @@ fn numeric_generic_as_param_type() {
 
 #[test]
 fn numeric_generic_as_unused_param_type() {
-    // TODO: improve the error message
     let src = r#"
     pub fn foo<let I: u32>(_x: I) { }
                                ^ Expected type, found numeric generic
@@ -1625,7 +1633,6 @@ fn numeric_generic_as_unused_param_type() {
 
 #[test]
 fn numeric_generic_as_unused_trait_fn_param_type() {
-    // TODO: improve the error message
     let src = r#"
     trait Foo {
           ^^^ unused trait Foo
@@ -1640,7 +1647,6 @@ fn numeric_generic_as_unused_trait_fn_param_type() {
 
 #[test]
 fn numeric_generic_as_return_type() {
-    // TODO: improve the error message
     let src = r#"
     // std::mem::zeroed() without stdlib
     trait Zeroed {
@@ -1662,7 +1668,6 @@ fn numeric_generic_as_return_type() {
 
 #[test]
 fn numeric_generic_used_in_nested_type_fails() {
-    // TODO: improve the error message
     let src = r#"
     pub struct Foo<let N: u32> {
         a: Field,
@@ -1679,7 +1684,6 @@ fn numeric_generic_used_in_nested_type_fails() {
 
 #[test]
 fn normal_generic_used_in_nested_array_length_fail() {
-    // TODO: improve the error message
     let src = r#"
     pub struct Foo<N> {
         a: Field,
@@ -2479,7 +2483,6 @@ fn bit_not_on_untyped_integer() {
 
 #[test]
 fn duplicate_struct_field() {
-    // TODO: the primary error location should be on the second field
     let src = r#"
     pub struct Foo {
         x: i32,
@@ -4123,6 +4126,50 @@ fn deny_attaching_mut_ref_to_immutable_object() {
                    ^^^ Cannot mutate immutable variable `foo`
         f();
         assert(foo.value == 2);
+    }
+    "#;
+    check_errors(src);
+}
+
+#[test]
+fn immutable_references_with_ownership_feature() {
+    let src = r#"
+        unconstrained fn main() {
+            let mut array = [1, 2, 3];
+            borrow(&array);
+        }
+
+        fn borrow(_array: &[Field; 3]) {}
+    "#;
+
+    let (_, _, errors) = get_program_using_features(src, &[UnstableFeature::Ownership]);
+    assert_eq!(errors.len(), 0);
+}
+
+#[test]
+fn immutable_references_without_ownership_feature() {
+    let src = r#"
+        fn main() {
+            let mut array = [1, 2, 3];
+            borrow(&array);
+                   ^^^^^^ This requires the unstable feature 'ownership' which is not enabled
+                   ~~~~~~ Pass -Zownership to nargo to enable this feature at your own risk.
+        }
+
+        fn borrow(_array: &[Field; 3]) {}
+                          ^^^^^^^^^^^ This requires the unstable feature 'ownership' which is not enabled
+                          ~~~~~~~~~~~ Pass -Zownership to nargo to enable this feature at your own risk.
+    "#;
+    check_errors(src);
+}
+
+#[test]
+fn errors_on_invalid_integer_bit_size() {
+    let src = r#"
+    fn main() {
+        let _: u42 = 4;
+               ^^^ Use of invalid bit size 42
+               ~~~ Allowed bit sizes for integers are 1, 8, 16, 32, 64, 128
     }
     "#;
     check_errors(src);

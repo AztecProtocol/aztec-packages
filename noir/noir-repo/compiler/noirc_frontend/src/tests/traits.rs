@@ -102,7 +102,6 @@ fn trait_inheritance_with_generics_4() {
 
 #[test]
 fn trait_inheritance_dependency_cycle() {
-    // TODO: maybe the error location should be just on Foo
     let src = r#"
         trait Foo: Bar {}
               ^^^ Dependency cycle found
@@ -115,7 +114,6 @@ fn trait_inheritance_dependency_cycle() {
 
 #[test]
 fn trait_inheritance_missing_parent_implementation() {
-    // TODO: the secondary errors are missing a closing backtick
     let src = r#"
         pub trait Foo {}
 
@@ -1244,6 +1242,50 @@ fn as_trait_path_in_expression() {
         impl Foo2 for S {
             fn bar<Z>(_x: Z) {}
         }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn allows_renaming_trait_during_import() {
+    // Regression test for https://github.com/noir-lang/noir/issues/7632
+    let src = r#"
+    mod trait_mod {
+        pub trait Foo {
+            fn foo(_: Self) {}
+        }
+
+        impl Foo for Field {}
+    }
+
+    use trait_mod::Foo as FooTrait;
+
+    fn main(x: Field) {
+        x.foo();
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn renaming_trait_avoids_name_collisions() {
+    // Regression test for https://github.com/noir-lang/noir/issues/7632
+    let src = r#"
+    mod trait_mod {
+        pub trait Foo {
+            fn foo(_: Self) {}
+        }
+
+        impl Foo for Field {}
+    }
+
+    use trait_mod::Foo as FooTrait;
+
+    pub struct Foo {}
+
+    fn main(x: Field) {
+        x.foo();
+    }
     "#;
     assert_no_errors(src);
 }
