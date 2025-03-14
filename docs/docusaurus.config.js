@@ -313,7 +313,7 @@ const config = {
                 className: "no-external-icon",
               }] : []),
               {
-                to: "https://noir-lang.org/docs",
+                to: "https://noir-lang.org/docs/",
                 label: "Noir docs",
                 target: "_blank",
                 rel: "noopener noreferrer",
