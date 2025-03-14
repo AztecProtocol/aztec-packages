@@ -1,5 +1,8 @@
-#include "barretenberg/vm2/common/field.hpp"
+#pragma once
+
 #include <cstdint>
+
+#include "barretenberg/vm2/common/field.hpp"
 
 namespace bb::avm2::simulation {
 

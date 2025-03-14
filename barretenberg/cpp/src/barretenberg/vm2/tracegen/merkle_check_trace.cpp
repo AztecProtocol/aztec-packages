@@ -15,7 +15,9 @@ void MerkleCheckTraceBuilder::process(
 {
     using C = Column;
 
-    uint32_t row = 0;
+    // Skip 0th row since this gadget has shifts
+    uint32_t row = 1;
+
     for (const auto& event : events) {
         const size_t full_path_len = event.sibling_path.size();
         // Iterate over the path starting at the leaf.

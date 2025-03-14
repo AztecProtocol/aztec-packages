@@ -384,10 +384,7 @@ TEST(MerkleCheckConstrainingTest, NegativeWithTracegen)
     std::vector<FF> sibling_path = { FF(456), FF(789), FF(3333) };
 
     // Compute expected root
-    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
-
-    // Use an incorrect root
-    FF incorrect_root = root + 1;
+    FF incorrect_root = 42;
 
     simulation::MerkleCheckEvent event = {
         .leaf_value = leaf_value,
@@ -465,9 +462,10 @@ TEST(MerkleCheckConstrainingTest, NegativeWithHashInteraction)
     // Corrupt the output hash for the last merkle row
     trace.set(Column::merkle_check_output_hash, static_cast<uint32_t>(sibling_path.size()), 66);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
-
-    check_interaction<lookup_poseidon2_hash>(trace);
+    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace),
+                              "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
+    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_hash>(trace),
+                              "Relation.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* ACCUMULATION.* is non-zero");
 }
 
 } // namespace
