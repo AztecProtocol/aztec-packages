@@ -5,7 +5,10 @@ pub mod notes;
 pub mod storage;
 pub mod events;
 
-use functions::{stub_registry, utils::{create_note_discovery_call, transform_unconstrained}};
+use functions::{
+    stub_registry,
+    utils::{create_note_discovery_call, find_and_transform_top_level_unconstrained_fns},
+};
 use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
@@ -19,12 +22,8 @@ use crate::discovery::MAX_NOTE_PACKED_LEN;
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-    let unconstrained_functions = m.functions().filter(|f: FunctionDefinition| {
-        f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
-    });
-    for f in unconstrained_functions {
-        transform_unconstrained(f);
-    }
+
+    find_and_transform_top_level_unconstrained_fns(m);
 
     let contract_library_method_compute_note_hash_and_nullifier =
         generate_contract_library_method_compute_note_hash_and_nullifier();
