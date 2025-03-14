@@ -228,6 +228,7 @@ pub fn encrypt_log<let PT: u32>(
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
         // We need to get a random value that fits in 31 bytes to not leak information about the size of the log
         // (all the "real" log fields contain at most 31 bytes because of the way we convert the bytes to fields).
+        // TODO(#12749): Long term, this is not a good solution.
         // Safety: randomness cannot be constrained.
         final_log[i] = unsafe { random_with_max_byte_size::<31>() };
     }

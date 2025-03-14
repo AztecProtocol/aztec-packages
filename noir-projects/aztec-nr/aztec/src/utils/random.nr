@@ -17,6 +17,7 @@ pub unconstrained fn get_random_bytes<let N: u32>() -> [u8; N] {
 }
 
 /// Just like `random`, but returns a field that fits in `N` bytes.
+/// TODO(#12749): Nuke this function.
 pub unconstrained fn random_with_max_byte_size<let N: u32>() -> Field {
     let random_field = random();
 
