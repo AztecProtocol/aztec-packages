@@ -122,8 +122,8 @@ mod test {
         let mut bad_sym_key = sym_key;
         bad_sym_key[0] = 0;
 
-        // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's design to work
-        // with logs with unknown length.
+        // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's designed to work
+        // with logs of unknown length.
         let ciphertext_bvec = BoundedVec::<u8, 48>::from_array(ciphertext);
         let received_plaintext = aes128_decrypt_oracle(ciphertext_bvec, iv, bad_sym_key);
 
