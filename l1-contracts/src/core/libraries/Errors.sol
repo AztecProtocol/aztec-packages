@@ -96,6 +96,7 @@ library Errors {
 
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
+  error SampleLib__SampleLargerThanIndex(uint256 sample, uint256 index); // 0xa11b0f79
 
   // Sequencer Selection (ValidatorSelection)
   error ValidatorSelection__EpochNotSetup(); // 0x10816cae
