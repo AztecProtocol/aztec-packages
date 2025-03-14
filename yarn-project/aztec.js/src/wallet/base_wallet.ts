@@ -1,4 +1,4 @@
-import type { ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
+import type { ExecutionRequestInit, FeeOptions, UserExecutionRequest } from '@aztec/entrypoints/interfaces';
 import type { Fr, Point } from '@aztec/foundation/fields';
 import type { AbiDecoded, ContractArtifact } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -37,7 +37,7 @@ export abstract class BaseWallet implements Wallet {
 
   abstract getVersion(): Fr;
 
-  abstract createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest>;
+  abstract createTxExecutionRequest(exec: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest>;
 
   abstract createAuthWit(intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness>;
 

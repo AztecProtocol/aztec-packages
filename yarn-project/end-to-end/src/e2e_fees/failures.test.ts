@@ -1,5 +1,6 @@
 import {
   type AccountWallet,
+  AuthWitness,
   type AztecAddress,
   Fr,
   type FunctionCall,
@@ -324,7 +325,9 @@ describe('e2e_fees failures', () => {
 });
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
-  override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+  override async getFunctionCalls(
+    gasSettings: GasSettings,
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>> {
     const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
@@ -348,17 +351,20 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       true,
     );
 
-    return [
-      ...(await setPublicAuthWitInteraction.request()).calls,
-      {
-        name: 'fee_entrypoint_public',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [tooMuchFee, nonce],
-        returnTypes: [],
-      },
-    ];
+    return {
+      calls: [
+        ...(await setPublicAuthWitInteraction.request()).calls,
+        {
+          name: 'fee_entrypoint_public',
+          to: this.paymentContract,
+          selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
+          type: FunctionType.PRIVATE,
+          isStatic: false,
+          args: [tooMuchFee, nonce],
+          returnTypes: [],
+        },
+      ],
+      authwits: [],
+    };
   }
 }

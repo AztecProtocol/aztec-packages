@@ -1,4 +1,4 @@
-import type { ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
+import type { ExecutionRequestInit, FeeOptions, UserExecutionRequest } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
@@ -25,8 +25,8 @@ export class AccountWallet extends BaseWallet {
     super(pxe);
   }
 
-  createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    return this.account.createTxExecutionRequest(exec);
+  createTxExecutionRequest(exec: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest> {
+    return this.account.createTxExecutionRequest(exec, fee);
   }
 
   getChainId(): Fr {

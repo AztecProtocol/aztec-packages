@@ -417,13 +417,13 @@ export class PXEService implements PXE {
    * The function takes in a transaction execution request, and the result of private execution
    * and then generates a kernel proof.
    *
-   * @param txExecutionRequest - The transaction request to be simulated and proved.
+   * @param TxExecutionRequest - The transaction request to be simulated and proved.
    * @param proofCreator - The proof creator to use for proving the execution.
    * @param privateExecutionResult - The result of the private execution
    * @returns An object that contains the output of the kernel execution, including the ClientIvcProof if proving is enabled.
    */
   async #prove(
-    txExecutionRequest: TxExecutionRequest,
+    TxExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
     { simulate, skipFeeEnforcement, profile }: ProvingConfig,
@@ -434,7 +434,7 @@ export class PXEService implements PXE {
     const kernelOracle = new KernelOracle(this.contractDataProvider, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile})...`);
-    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
+    return await kernelProver.prove(TxExecutionRequest.toTxRequest(), privateExecutionResult, {
       simulate,
       skipFeeEnforcement,
       profile,

@@ -1,4 +1,10 @@
-import type { ExecutionRequestInit, FeeOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
+import type {
+  ExecutionPayload,
+  ExecutionRequestInit,
+  FeeOptions,
+  UserExecutionRequest,
+  UserFeeOptions,
+} from '@aztec/entrypoints/interfaces';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -54,7 +60,7 @@ export abstract class BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public abstract request(options?: SendMethodOptions): Promise<Omit<ExecutionRequestInit, 'fee'>>;
+  public abstract request(options?: SendMethodOptions): Promise<UserExecutionRequest>;
 
   /**
    * Creates a transaction execution request, simulates and proves it. Differs from .prove in
@@ -146,19 +152,17 @@ export abstract class BaseContractInteraction {
    * @param pad - Percentage to pad the suggested gas limits by, as decimal (e.g., 0.10 for 10%).
    * @returns Fee options for the actual transaction.
    */
-  protected async getFeeOptions(
-    request: Omit<ExecutionRequestInit, 'fee'> & { /** User-provided fee options */ fee?: UserFeeOptions },
-  ): Promise<FeeOptions> {
+  protected async getFeeOptions(request: UserExecutionRequest, fee?: UserFeeOptions): Promise<FeeOptions> {
     // docs:end:getFeeOptions
-    const defaultFeeOptions = await this.getDefaultFeeOptions(request.fee);
+    const defaultFeeOptions = await this.getDefaultFeeOptions(fee);
     const paymentMethod = defaultFeeOptions.paymentMethod;
     const maxFeesPerGas = defaultFeeOptions.gasSettings.maxFeesPerGas;
     const maxPriorityFeesPerGas = defaultFeeOptions.gasSettings.maxPriorityFeesPerGas;
 
     let gasSettings = defaultFeeOptions.gasSettings;
-    if (request.fee?.estimateGas) {
+    if (fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
-      const txRequest = await this.wallet.createTxExecutionRequest({ ...request, fee: feeForEstimation });
+      const txRequest = await this.wallet.createTxExecutionRequest(request, feeForEstimation);
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
@@ -168,7 +172,7 @@ export abstract class BaseContractInteraction {
       );
       const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
         simulationResult,
-        request.fee?.estimatedGasPadding,
+        fee?.estimatedGasPadding,
       );
       gasSettings = GasSettings.from({ maxFeesPerGas, maxPriorityFeesPerGas, gasLimits, teardownGasLimits });
       this.log.verbose(

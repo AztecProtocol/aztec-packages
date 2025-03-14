@@ -1,5 +1,4 @@
-import { type ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
-import { mergeExecutionRequestInits } from '@aztec/entrypoints/utils';
+import { type ExecutionRequestInit, type UserExecutionRequest } from '@aztec/entrypoints/interfaces';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
@@ -23,9 +22,9 @@ export class BatchCall extends BaseContractInteraction {
     const requestWithoutFee = await this.request(options);
 
     const { fee: userFee } = options;
-    const fee = await this.getFeeOptions({ ...requestWithoutFee, fee: userFee });
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee);
 
-    return await this.wallet.createTxExecutionRequest({ ...requestWithoutFee, fee });
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee);
   }
 
   /**
@@ -33,7 +32,7 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public async request(options: SendMethodOptions = {}): Promise<Omit<ExecutionRequestInit, 'fee'>> {
+  public async request(options: SendMethodOptions = {}): Promise<UserExecutionRequest> {
     const requests = await this.getRequests();
     const { nonce, cancellable } = options;
     return mergeExecutionRequestInits(requests, { nonce, cancellable });
@@ -55,7 +54,7 @@ export class BatchCall extends BaseContractInteraction {
       /** Keep track of the number of public calls to retrieve the return values */
       publicIndex: 0;
       /** The public and private function execution requests in the batch */
-      indexedRequests: [Omit<ExecutionRequestInit, 'fee'>, number, number][];
+      indexedRequests: [UserExecutionRequest, number, number][];
       /** The unconstrained function calls in the batch. */
       unconstrained: [FunctionCall, number][];
     }>(
@@ -79,7 +78,7 @@ export class BatchCall extends BaseContractInteraction {
     const requestWithoutFee = mergeExecutionRequestInits(requests);
     const { fee: userFee } = options;
     const fee = await this.getFeeOptions({ ...requestWithoutFee, fee: userFee });
-    const txRequest = await this.wallet.createTxExecutionRequest({ ...requestWithoutFee, fee });
+    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee);
 
     const unconstrainedCalls = unconstrained.map(
       async ([call, index]) =>

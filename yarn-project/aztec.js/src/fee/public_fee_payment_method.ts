@@ -1,6 +1,5 @@
-import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
+import type { ExecutionPayload, FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
-import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -68,7 +67,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    * @param gasSettings - The gas settings.
    * @returns The function call to pay the fee.
    */
-  async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+  async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
     const nonce = Fr.random();
     const maxFee = gasSettings.getFeeLimit();
 
@@ -88,17 +87,21 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       true,
     );
 
-    return [
-      ...(await setPublicAuthWitInteraction.request()).calls,
-      {
-        name: 'fee_entrypoint_public',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [maxFee, nonce],
-        returnTypes: [],
-      },
-    ];
+    return {
+      calls: [
+        ...(await setPublicAuthWitInteraction.request()).calls,
+        {
+          name: 'fee_entrypoint_public',
+          to: this.paymentContract,
+          selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
+          type: FunctionType.PRIVATE,
+          isStatic: false,
+          args: [maxFee, nonce],
+          returnTypes: [],
+        },
+      ],
+      authWitnesses: [],
+      capsules: [],
+    };
   }
 }

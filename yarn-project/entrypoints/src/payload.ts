@@ -4,10 +4,11 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { HashedValues } from '@aztec/stdlib/tx';
+import { Capsule, HashedValues } from '@aztec/stdlib/tx';
 
-import type { FeeOptions } from './interfaces.js';
+import type { EncodedExecutionPayload, EncodedFunctionCall, FeeOptions } from './interfaces.js';
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr
@@ -15,39 +16,26 @@ const APP_MAX_CALLS = 4;
 // - and noir-projects/aztec-nr/aztec/src/entrypoint/fee.nr
 const FEE_MAX_CALLS = 2;
 
-/* eslint-disable camelcase */
-/** Encoded function call for account contract entrypoint */
-type EncodedFunctionCall = {
-  /** Arguments hash for the call */
-  args_hash: Fr;
-  /** Selector of the function to call */
-  function_selector: Fr;
-  /** Address of the contract to call */
-  target_address: Fr;
-  /** Whether the function is public or private */
-  is_public: boolean;
-  /** Whether the function can alter state */
-  is_static: boolean;
-};
-/* eslint-enable camelcase */
-
 /** Assembles an entrypoint payload */
-export abstract class EntrypointPayload {
+export abstract class EntrypointPayload implements EncodedExecutionPayload {
   protected constructor(
-    private functionCalls: EncodedFunctionCall[],
-    private _hashedArguments: HashedValues[],
+    public encodedFunctionCalls: EncodedFunctionCall[],
+    public hashedArguments: HashedValues[],
+    public authWitnesses: AuthWitness[],
+    public capsules: Capsule[],
     private generatorIndex: number,
-    private _nonce: Fr,
   ) {}
 
-  protected static async create(functionCalls: FunctionCall[]) {
+  protected static async create(
+    calls: FunctionCall[],
+  ): Promise<Omit<EncodedExecutionPayload, 'authWitnesses' | 'capsules'>> {
     const hashedArguments: HashedValues[] = [];
-    for (const call of functionCalls) {
+    for (const call of calls) {
       hashedArguments.push(await HashedValues.fromValues(call.args));
     }
 
     /* eslint-disable camelcase */
-    const encodedFunctionCalls = functionCalls.map((call, index) => ({
+    const encodedFunctionCalls: EncodedFunctionCall[] = calls.map((call, index) => ({
       args_hash: hashedArguments[index].hash,
       function_selector: call.selector.toField(),
       target_address: call.to.toField(),
@@ -60,31 +48,6 @@ export abstract class EntrypointPayload {
       encodedFunctionCalls,
       hashedArguments,
     };
-  }
-
-  /* eslint-disable camelcase */
-  /**
-   * The function calls to execute. This uses snake_case naming so that it is compatible with Noir encoding
-   * @internal
-   */
-  get function_calls() {
-    return this.functionCalls;
-  }
-  /* eslint-enable camelcase */
-
-  /**
-   * The nonce
-   * @internal
-   */
-  get nonce() {
-    return this._nonce;
-  }
-
-  /**
-   * The hashed arguments for the function calls
-   */
-  get hashedArguments() {
-    return this._hashedArguments;
   }
 
   /**
@@ -103,7 +66,7 @@ export abstract class EntrypointPayload {
 
   /** Serializes the function calls to an array of fields. */
   protected functionCallsToFields() {
-    return this.functionCalls.flatMap(call => [
+    return this.encodedFunctionCalls.flatMap(call => [
       call.args_hash,
       call.function_selector,
       call.target_address,
@@ -119,7 +82,7 @@ export abstract class EntrypointPayload {
    */
   static async fromFunctionCalls(functionCalls: FunctionCall[]) {
     const { encodedFunctionCalls, hashedArguments } = await this.create(functionCalls);
-    return new AppEntrypointPayload(encodedFunctionCalls, hashedArguments, 0, Fr.random());
+    return new AppEntrypointPayload(encodedFunctionCalls, hashedArguments, [], [], 0);
   }
 
   /**
@@ -128,13 +91,13 @@ export abstract class EntrypointPayload {
    * @param nonce - The nonce for the payload, used to emit a nullifier identifying the call
    * @returns The execution payload
    */
-  static async fromAppExecution(functionCalls: FunctionCall[] | Tuple<FunctionCall, 4>, nonce = Fr.random()) {
+  static async fromAppExecution(functionCalls: FunctionCall[] | Tuple<FunctionCall, 4>) {
     if (functionCalls.length > APP_MAX_CALLS) {
       throw new Error(`Expected at most ${APP_MAX_CALLS} function calls, got ${functionCalls.length}`);
     }
     const paddedCalls = padArrayEnd(functionCalls, FunctionCall.empty(), APP_MAX_CALLS);
     const { encodedFunctionCalls, hashedArguments } = await this.create(paddedCalls);
-    return new AppEntrypointPayload(encodedFunctionCalls, hashedArguments, GeneratorIndex.SIGNATURE_PAYLOAD, nonce);
+    return new AppEntrypointPayload(encodedFunctionCalls, hashedArguments, [], [], GeneratorIndex.SIGNATURE_PAYLOAD);
   }
 
   /**
@@ -144,7 +107,10 @@ export abstract class EntrypointPayload {
    * @returns The execution payload
    */
   static async fromFeeOptions(sender: AztecAddress, feeOpts?: FeeOptions) {
-    const calls = (await feeOpts?.paymentMethod.getFunctionCalls(feeOpts?.gasSettings)) ?? [];
+    const { calls, authWitnesses } = (await feeOpts?.paymentMethod.getExecutionPayload(feeOpts?.gasSettings)) ?? {
+      calls: [],
+      authWitnesses: [],
+    };
     const feePayer = await feeOpts?.paymentMethod.getFeePayer(feeOpts?.gasSettings);
     const isFeePayer = !!feePayer && feePayer.equals(sender);
     const paddedCalls = padArrayEnd(calls, FunctionCall.empty(), FEE_MAX_CALLS);
@@ -152,8 +118,8 @@ export abstract class EntrypointPayload {
     return new FeeEntrypointPayload(
       encodedFunctionCalls,
       hashedArguments,
+      authWitnesses ?? [],
       GeneratorIndex.FEE_PAYLOAD,
-      Fr.random(),
       isFeePayer,
     );
   }
@@ -162,7 +128,7 @@ export abstract class EntrypointPayload {
 /** Entrypoint payload for app phase execution. */
 export class AppEntrypointPayload extends EntrypointPayload {
   override toFields(): Fr[] {
-    return [...this.functionCallsToFields(), this.nonce];
+    return [...this.functionCallsToFields()];
   }
 }
 
@@ -173,16 +139,16 @@ export class FeeEntrypointPayload extends EntrypointPayload {
   constructor(
     functionCalls: EncodedFunctionCall[],
     hashedArguments: HashedValues[],
+    authWitnesses: AuthWitness[],
     generatorIndex: number,
-    nonce: Fr,
     isFeePayer: boolean,
   ) {
-    super(functionCalls, hashedArguments, generatorIndex, nonce);
+    super(functionCalls, hashedArguments, authWitnesses, [], generatorIndex);
     this.#isFeePayer = isFeePayer;
   }
 
   override toFields(): Fr[] {
-    return [...this.functionCallsToFields(), this.nonce, new Fr(this.#isFeePayer)];
+    return [...this.functionCallsToFields(), new Fr(this.#isFeePayer)];
   }
 
   /* eslint-disable camelcase */

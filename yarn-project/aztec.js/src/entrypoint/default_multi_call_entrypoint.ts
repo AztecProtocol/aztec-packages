@@ -1,5 +1,11 @@
-import { type EntrypointInterface, type ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
+import {
+  type EntrypointInterface,
+  type ExecutionRequestInit,
+  type FeeOptions,
+  type UserExecutionRequest,
+} from '@aztec/entrypoints/interfaces';
 import { EntrypointPayload } from '@aztec/entrypoints/payload';
+import { mergeEncodedExecutionPayloads } from '@aztec/entrypoints/utils';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -15,20 +21,26 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint,
   ) {}
 
-  async createTxExecutionRequest(executions: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { fee, calls, authWitnesses = [], hashedArguments = [], capsules = [] } = executions;
+  async createTxExecutionRequest(exec: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest> {
+    const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [] } = exec;
     const payload = await EntrypointPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
     const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload]));
+
+    const executionPayload = mergeEncodedExecutionPayloads([payload], {
+      extraHashedArgs: [entrypointHashedArgs],
+      extraAuthWitnesses: userAuthWitnesses,
+      extraCapsules: userCapsules,
+    });
 
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...payload.hashedArguments, ...hashedArguments, entrypointHashedArgs],
-      authWitnesses,
-      capsules,
+      argsOfCalls: executionPayload.hashedArguments,
+      authWitnesses: executionPayload.authWitnesses,
+      capsules: executionPayload.capsules,
     });
 
     return Promise.resolve(txRequest);

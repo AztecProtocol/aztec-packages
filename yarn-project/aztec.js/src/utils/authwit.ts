@@ -57,13 +57,13 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const action =
+    const fnCall =
       intent.action instanceof ContractFunctionInteraction ? (await intent.action.request()).calls[0] : intent.action;
     return computeOuterAuthWitHash(
-      action.to,
+      fnCall.to,
       chainId,
       version,
-      await computeInnerAuthWitHashFromAction(intent.caller, action),
+      await computeInnerAuthWitHashFromFunctionCall(intent.caller, fnCall),
     );
   } else {
     const inner = Buffer.isBuffer(intent.innerHash) ? Fr.fromBuffer(intent.innerHash) : intent.innerHash;
@@ -72,9 +72,22 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
 };
 // docs:end:authwit_computeAuthWitMessageHash
 
-export const computeInnerAuthWitHashFromAction = async (caller: AztecAddress, action: FunctionCall) =>
-  computeInnerAuthWitHash([
+export const computeInnerAuthWitHashFromFunctionCall = async (caller: AztecAddress, fnCall: FunctionCall) => {
+  return computeInnerAuthWitHash([
+    caller.toField(),
+    fnCall.selector.toField(),
+    (await HashedValues.fromValues(fnCall.args)).hash,
+  ]);
+};
+
+export const computeInnerAuthWitHashFromAction = async (
+  caller: AztecAddress,
+  action: FunctionCall | ContractFunctionInteraction,
+) => {
+  action = action instanceof ContractFunctionInteraction ? (await action.request()).calls[0] : action;
+  return computeInnerAuthWitHash([
     caller.toField(),
     action.selector.toField(),
     (await HashedValues.fromValues(action.args)).hash,
   ]);
+};

@@ -56,6 +56,7 @@ export class DeployAccountMethod extends DeployMethod {
       call.addAuthWitness(
         await this.#authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(emptyAppPayload, feePayload)),
       );
+      call.addAuthWitnesses(feePayload.authWitnesses);
 
       call.addHashedArguments(emptyAppPayload.hashedArguments);
       call.addHashedArguments(feePayload.hashedArguments);

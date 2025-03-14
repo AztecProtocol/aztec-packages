@@ -1,6 +1,8 @@
 import type { FeePaymentMethod } from '@aztec/aztec.js';
+import type { ExecutionPayload } from '@aztec/entrypoints/interfaces';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
@@ -30,17 +32,21 @@ export class SponsoredFeePaymentMethod implements FeePaymentMethod {
     return Promise.resolve(this.paymentContract);
   }
 
-  async getFunctionCalls(): Promise<FunctionCall[]> {
-    return [
-      {
-        name: 'sponsor_unconditionally',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('sponsor_unconditionally()'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [],
-        returnTypes: [],
-      },
-    ];
+  async getExecutionPayload(): Promise<ExecutionPayload> {
+    return {
+      calls: [
+        {
+          name: 'sponsor_unconditionally',
+          to: this.paymentContract,
+          selector: await FunctionSelector.fromSignature('sponsor_unconditionally()'),
+          type: FunctionType.PRIVATE,
+          isStatic: false,
+          args: [],
+          returnTypes: [],
+        },
+      ],
+      authWitnesses: [],
+      capsules: [],
+    };
   }
 }

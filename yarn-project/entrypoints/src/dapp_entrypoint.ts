@@ -5,8 +5,15 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
-import { type AuthWitnessProvider, type EntrypointInterface, type ExecutionRequestInit } from './interfaces.js';
+import {
+  type AuthWitnessProvider,
+  type EntrypointInterface,
+  type ExecutionRequestInit,
+  type FeeOptions,
+  type UserExecutionRequest,
+} from './interfaces.js';
 import { EntrypointPayload } from './payload.js';
+import { mergeEncodedExecutionPayloads } from './utils.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -21,8 +28,8 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee, authWitnesses = [], capsules = [] } = exec;
+  async createTxExecutionRequest(exec: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest> {
+    const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [] } = exec;
     if (calls.length !== 1) {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
@@ -47,14 +54,20 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
 
     const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);
 
+    const executionPayload = await mergeEncodedExecutionPayloads([payload], {
+      extraAuthWitnesses: [authWitness, ...userAuthWitnesses],
+      extraHashedArgs: [entrypointHashedArgs],
+      extraCapsules: userCapsules,
+    });
+
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.dappEntrypointAddress,
       functionSelector,
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...payload.hashedArguments, entrypointHashedArgs],
-      authWitnesses: [...authWitnesses, authWitness],
-      capsules,
+      argsOfCalls: executionPayload.hashedArguments,
+      authWitnesses: executionPayload.authWitnesses,
+      capsules: executionPayload.capsules,
     });
 
     return txRequest;

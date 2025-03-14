@@ -1,26 +1,50 @@
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import type { Fr } from '@aztec/foundation/fields';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { Capsule, HashedValues } from '@aztec/stdlib/tx';
 
 import { GeneratorIndex } from '../../constants/src/constants.gen.js';
-import type { ExecutionRequestInit } from './interfaces.js';
+import type { EncodedExecutionPayload, ExecutionRequestInit } from './interfaces.js';
 import type { AppEntrypointPayload, FeeEntrypointPayload } from './payload.js';
 
 /**
- * Merges an array of ExecutionRequestInits.
+ * Merges an array of EncodedExecutionPayloads and adds a nonce and cancellable flags,
+ * in order to create a single ExecutionRequestInit.
  */
-export function mergeExecutionRequestInits(
-  requests: Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>[],
-  { nonce, cancellable }: Pick<ExecutionRequestInit, 'nonce' | 'cancellable'> = {},
-): Omit<ExecutionRequestInit, 'fee'> {
-  const calls = requests.map(r => r.calls).flat();
-  const authWitnesses = requests.map(r => r.authWitnesses ?? []).flat();
-  const hashedArguments = requests.map(r => r.hashedArguments ?? []).flat();
-  const capsules = requests.map(r => r.capsules ?? []).flat();
+export function mergeEncodedExecutionPayloads(
+  requests: EncodedExecutionPayload[],
+  {
+    nonce,
+    cancellable,
+    extraHashedArgs,
+    extraAuthWitnesses,
+    extraCapsules,
+  }: {
+    nonce?: Fr;
+    cancellable?: boolean;
+    extraHashedArgs?: HashedValues[];
+    extraAuthWitnesses?: AuthWitness[];
+    extraCapsules?: Capsule[];
+  } = { extraAuthWitnesses: [], extraCapsules: [], extraHashedArgs: [] },
+): ExecutionRequestInit {
+  const encodedFunctionCalls = requests.map(r => r.encodedFunctionCalls).flat();
+  const combinedAuthWitnesses = requests
+    .map(r => r.authWitnesses ?? [])
+    .flat()
+    .concat(extraAuthWitnesses ?? []);
+  const hashedArguments = requests
+    .map(r => r.hashedArguments ?? [])
+    .flat()
+    .concat(extraHashedArgs ?? []);
+  const combinedCapsules = requests
+    .map(r => r.capsules ?? [])
+    .flat()
+    .concat(extraCapsules ?? []);
   return {
-    calls,
-    authWitnesses,
+    encodedFunctionCalls,
+    authWitnesses: combinedAuthWitnesses,
     hashedArguments,
-    capsules,
+    capsules: combinedCapsules,
     nonce,
     cancellable,
   };

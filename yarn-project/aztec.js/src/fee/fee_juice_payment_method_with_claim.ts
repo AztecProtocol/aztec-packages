@@ -1,7 +1,9 @@
+import type { ExecutionPayload } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 
 import { getFeeJuice } from '../contract/protocol_contracts.js';
 import type { L2AmountClaim } from '../ethereum/portal_manager.js';
@@ -23,27 +25,31 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
    * Creates a function call to pay the fee in Fee Juice.
    * @returns A function call
    */
-  override async getFunctionCalls(): Promise<FunctionCall[]> {
+  override async getExecutionPayload(): Promise<ExecutionPayload> {
     const canonicalFeeJuice = await getFeeJuice(this.senderWallet);
     const selector = await FunctionSelector.fromNameAndParameters(
       canonicalFeeJuice.artifact.functions.find(f => f.name === 'claim')!,
     );
 
-    return Promise.resolve([
-      {
-        to: ProtocolContractAddress.FeeJuice,
-        name: 'claim',
-        selector,
-        isStatic: false,
-        args: [
-          this.senderWallet.getAddress().toField(),
-          new Fr(this.claim.claimAmount),
-          this.claim.claimSecret,
-          new Fr(this.claim.messageLeafIndex),
-        ],
-        returnTypes: [],
-        type: FunctionType.PRIVATE,
-      },
-    ]);
+    return {
+      calls: [
+        {
+          to: ProtocolContractAddress.FeeJuice,
+          name: 'claim',
+          selector,
+          isStatic: false,
+          args: [
+            this.senderWallet.getAddress().toField(),
+            new Fr(this.claim.claimAmount),
+            this.claim.claimSecret,
+            new Fr(this.claim.messageLeafIndex),
+          ],
+          returnTypes: [],
+          type: FunctionType.PRIVATE,
+        },
+      ],
+      authWitnesses: [],
+      capsules: [],
+    };
   }
 }

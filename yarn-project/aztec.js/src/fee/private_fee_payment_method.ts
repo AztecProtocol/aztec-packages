@@ -1,11 +1,10 @@
-import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
+import type { ExecutionPayload, FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { type FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
-import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { SignerlessWallet } from '../wallet/signerless_wallet.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { simulateWithoutSignature } from './utils.js';
 
@@ -76,13 +75,13 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    * @param gasSettings - The gas settings.
    * @returns The function call to pay the fee.
    */
-  async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+  async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
     // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit
     // (maxFee) to be in token denomination.
     const maxFee = this.setMaxFeeToOne ? Fr.ONE : gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
-    await this.wallet.createAuthWit({
+    const witness = await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
         name: 'transfer_to_public',
@@ -95,16 +94,20 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       },
     });
 
-    return [
-      {
-        name: 'fee_entrypoint_private',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_private(u128,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [maxFee, nonce],
-        returnTypes: [],
-      },
-    ];
+    return {
+      calls: [
+        {
+          name: 'fee_entrypoint_private',
+          to: this.paymentContract,
+          selector: await FunctionSelector.fromSignature('fee_entrypoint_private(u128,Field)'),
+          type: FunctionType.PRIVATE,
+          isStatic: false,
+          args: [maxFee, nonce],
+          returnTypes: [],
+        },
+      ],
+      authWitnesses: [witness],
+      capsules: [],
+    };
   }
 }

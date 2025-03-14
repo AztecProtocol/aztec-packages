@@ -1,4 +1,4 @@
-import type { ExecutionRequestInit } from '@aztec/entrypoints/interfaces';
+import type { ExecutionPayload, ExecutionRequestInit, UserExecutionRequest } from '@aztec/entrypoints/interfaces';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -67,9 +67,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const requestWithoutFee = await this.request(options);
 
     const { fee: userFee } = options;
-    const fee = await this.getFeeOptions({ ...requestWithoutFee, fee: userFee });
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee);
 
-    return await this.wallet.createTxExecutionRequest({ ...requestWithoutFee, fee });
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee);
   }
 
   // docs:start:request
@@ -79,7 +79,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public async request(options: SendMethodOptions = {}): Promise<Omit<ExecutionRequestInit, 'fee'>> {
+  public async request(options: SendMethodOptions = {}): Promise<UserExecutionRequest> {
     // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
     const calls = [
@@ -95,13 +95,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     ];
     this.addAuthWitnesses(options.authwits ?? []);
     const authWitnesses = this.getAuthWitnesses();
-    const hashedArguments = this.getHashedArguments();
     const capsules = this.getCapsules();
     const { nonce, cancellable } = options;
     return {
       calls,
       authWitnesses,
-      hashedArguments,
       capsules,
       nonce,
       cancellable,

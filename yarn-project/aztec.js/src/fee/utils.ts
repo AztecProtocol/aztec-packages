@@ -18,7 +18,7 @@ export async function simulateWithoutSignature(wallet: Wallet, contractAddress: 
 
   const { l1ChainId: chainId, protocolVersion } = await wallet.getNodeInfo();
   const entrypoint = new DefaultEntrypoint(chainId, protocolVersion);
-  const signerlessTxExecutionRequest = await entrypoint.createTxExecutionRequest({ ...request, fee });
+  const signerlessTxExecutionRequest = await entrypoint.createTxExecutionRequest(request, fee);
 
   const simulationResult = await wallet.simulateTx(signerlessTxExecutionRequest, false, undefined, undefined, true);
   const rawReturnValues = simulationResult.getPrivateReturnValues().values;

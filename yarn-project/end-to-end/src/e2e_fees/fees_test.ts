@@ -180,10 +180,10 @@ export class FeesTest {
 
         const canonicalFeeJuice = await getCanonicalFeeJuice();
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
-        if (this.numberOfAccounts > 1) {
-          const bobInstance = (await this.bobWallet.getContractMetadata(this.bobAddress)).contractInstance;
-          await this.aliceWallet.registerAccount(deployedAccounts[1].secret, await computePartialAddress(bobInstance!));
-        }
+        // if (this.numberOfAccounts > 1) {
+        //   const bobInstance = (await this.bobWallet.getContractMetadata(this.bobAddress)).contractInstance;
+        //   await this.aliceWallet.registerAccount(deployedAccounts[1].secret, await computePartialAddress(bobInstance!));
+        // }
         this.coinbase = EthAddress.random();
 
         const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, MNEMONIC);
