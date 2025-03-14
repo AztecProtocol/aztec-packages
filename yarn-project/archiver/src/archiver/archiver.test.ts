@@ -514,6 +514,40 @@ describe('Archiver', () => {
     expect(await archiver.isEpochComplete(0n)).toBe(true);
   });
 
+  // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12631
+  it('reports an epoch as complete due to timestamp only once all its blocks have been synced', async () => {
+    const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
+    const l2Slot = 1;
+    const l1BlockForL2Block = l1StartBlock + BigInt((l2Slot * slotDuration) / ethereumSlotDuration);
+    const lastL1BlockForEpoch = l1StartBlock + BigInt((epochDuration * slotDuration) / ethereumSlotDuration) - 1n;
+
+    logger.info(`Syncing epoch 0 with L2 block on slot ${l2Slot} mined in L1 block ${l1BlockForL2Block}`);
+    const l2Block = blocks[0];
+    l2Block.header.globalVariables.slotNumber = new Fr(l2Slot);
+    blocks = [l2Block];
+    const blobHashes = await makeVersionedBlobHashes(l2Block);
+
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    publicClient.getBlockNumber.mockResolvedValueOnce(lastL1BlockForEpoch);
+    mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
+    makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
+
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
+    blobsFromBlocks.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+    await archiver.start(false);
+
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
+    while (!(await archiver.isEpochComplete(0n))) {
+      // No sleep, we want to know exactly when the epoch completes
+    }
+
+    // Once epoch is flagged as complete, block number must be 1
+    expect(await archiver.getBlockNumber()).toEqual(1);
+    expect(await archiver.isEpochComplete(0n)).toBe(true);
+  });
+
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
   xit('handles an upcoming L2 prune', () => {});
 

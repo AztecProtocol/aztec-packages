@@ -95,7 +95,7 @@ export async function proposeWithLock({
     withdrawAddress: clients.walletClient.account.address,
   });
   if (json) {
-    log(JSON.stringify({ proposalId }, null, 2));
+    log(JSON.stringify({ proposalId: Number(proposalId) }, null, 2));
   } else {
     log(`Proposed with lock`);
     log(`Proposal ID: ${proposalId}`);

@@ -278,29 +278,6 @@ function release_dryrun {
   DRY_RUN=1 release
 }
 
-function release_commit {
-  export REF_NAME="commit-$COMMIT_HASH"
-
-  release_github
-
-  projects=(
-    barretenberg/cpp
-    barretenberg/ts
-    noir
-    l1-contracts
-    yarn-project
-    boxes
-    aztec-up
-    playground
-    docs
-    release-image
-  )
-
-  for project in "${projects[@]}"; do
-    $project/bootstrap.sh release_commit
-  done
-}
-
 case "$cmd" in
   "clean")
     echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
@@ -340,7 +317,7 @@ case "$cmd" in
       release
     fi
     ;;
-  test|test_cmds|bench|release|release_dryrun|release_commit)
+  test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
     ;;
   *)

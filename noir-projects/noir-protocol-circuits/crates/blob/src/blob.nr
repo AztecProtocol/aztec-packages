@@ -289,14 +289,10 @@ fn compute_factor(z: F) -> F {
     factor
 }
 
-unconstrained fn __compute_fracs(
-    z: F,
-    ys: [F; FIELDS_PER_BLOB],
-    unconstrained_roots: [F; FIELDS_PER_BLOB],
-) -> [F; FIELDS_PER_BLOB] {
+unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     let mut denoms = [F::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
+        denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
     }
     let inv_denoms: [F; FIELDS_PER_BLOB] = F::__batch_invert(denoms); // 1 / (z - omega^i), for all i
     // We're now done with `denoms` so we can reuse the allocated array to build `fracs`.
@@ -313,7 +309,7 @@ unconstrained fn __compute_fracs(
 fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     // Safety: We immediately constrain these `fracs` to be correct in the following call
     // to `F::evaluate_quadratic_expression`.
-    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, ROOTS) };
+    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys) };
 
     if !std::runtime::is_unconstrained() {
         for i in 0..FIELDS_PER_BLOB {

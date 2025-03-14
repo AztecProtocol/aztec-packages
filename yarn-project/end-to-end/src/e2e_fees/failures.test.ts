@@ -349,7 +349,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
     );
 
     return [
-      await setPublicAuthWitInteraction.request(),
+      ...(await setPublicAuthWitInteraction.request()).calls,
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,

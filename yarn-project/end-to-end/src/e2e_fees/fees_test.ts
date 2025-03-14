@@ -3,15 +3,15 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
-  ChainMonitor,
-  CheatCodes,
   type Logger,
   type PXE,
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { type DeployL1ContractsArgs, RollupContract, createL1Clients } from '@aztec/ethereum';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';

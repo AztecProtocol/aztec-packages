@@ -6,6 +6,37 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [PXE] Concurrent contract function simulation disabled
+
+PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
+
+### [aztec.js] Changes to `BatchCall` and `BaseContractInteraction`
+
+The constructor arguments of `BatchCall` have been updated to improve usability. Previously, it accepted an array of `FunctionCall`, requiring users to manually set additional data such as `authwit` and `capsules`. Now, `BatchCall` takes an array of `BaseContractInteraction`, which encapsulates all necessary information.
+
+```diff
+class BatchCall extends BaseContractInteraction {
+-    constructor(wallet: Wallet, protected calls: FunctionCall[]) {
++    constructor(wallet: Wallet, protected calls: BaseContractInteraction[]) {
+        ...
+    }
+```
+
+The `request` method of `BaseContractInteraction` now returns `ExecutionRequestInit` without the fee (`Omit<ExecutionRequestInit, 'fee'>`). This object includes all the necessary data to execute one or more functions. `BatchCall` invokes this method on all interactions to aggregate the required information. It is also used internally in simulations for fee estimation.
+
+Declaring a `BatchCall`:
+
+```diff
+new BatchCall(wallet, [
+-    await token.methods.transfer(alice, amount).request(),
+-    await token.methods.transfer_to_private(bob, amount).request(),
++    token.methods.transfer(alice, amount),
++    token.methods.transfer_to_private(bob, amount),
+])
+```
+
 ## 0.77.0
 
 ### [aztec-nr] `TestEnvironment::block_number()` refactored

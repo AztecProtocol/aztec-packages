@@ -80,6 +80,9 @@ function build_packages {
     mv packages/package packages/${project#*/}
   done
 
+  # Find all files in packages dir and use sed to in-place replace @noir-lang with @aztec/noir-
+  find packages -type f -exec sed -i 's|@noir-lang/|@aztec/noir-|g' {} \;
+
   cache_upload noir-packages-$hash.tar.gz \
     packages \
     noir-repo/acvm-repo/acvm_js/nodejs \
@@ -188,6 +191,7 @@ function release {
   release_packages $(dist_tag) ${REF_NAME#v}
 }
 
+<<<<<<< HEAD
 function release_commit {
   release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
 }
@@ -209,6 +213,8 @@ function bump_noir_repo_ref {
   do_or_dryrun git push --set-upstream origin $branch
 }
 
+=======
+>>>>>>> origin/master
 case "$cmd" in
   "clean")
     # Double `f` needed to delete the nested git repository.
@@ -221,7 +227,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  test_cmds|build_native|build_packages|format|test|release|release_commit|test_example)
+  test_cmds|build_native|build_packages|format|test|release|test_example)
     $cmd "$@"
     ;;
   "hash")

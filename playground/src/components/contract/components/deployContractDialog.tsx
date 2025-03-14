@@ -14,14 +14,14 @@ import { css } from '@mui/styled-engine';
 import { useContext, useEffect, useState } from 'react';
 import {
   type ContractArtifact,
-  type FunctionArtifact,
   encodeArguments,
+  type FunctionAbi,
   getDefaultInitializer,
   getInitializer,
+  getAllFunctionAbis,
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/fnParameter';
-import { GITHUB_TAG_PREFIX } from '../../../utils/constants';
 
 const creationForm = css({
   display: 'flex',
@@ -41,14 +41,16 @@ export function DeployContractDialog({
   onClose: (contract?: ContractInstanceWithAddress, alias?: string) => void;
 }) {
   const [alias, setAlias] = useState('');
-  const [initializer, setInitializer] = useState<FunctionArtifact>(null);
+  const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
   const [deploying, setDeploying] = useState(false);
   const { wallet, setLogsOpen } = useContext(AztecContext);
+  const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
 
   useEffect(() => {
     const defaultInitializer = getDefaultInitializer(contractArtifact);
     setInitializer(defaultInitializer);
+    setFunctionAbis(getAllFunctionAbis(contractArtifact));
   }, [contractArtifact]);
 
   const handleParameterChange = (index, value) => {
@@ -64,13 +66,7 @@ export function DeployContractDialog({
     setDeploying(true);
     setLogsOpen(true);
 
-    const nodeInfo = await wallet.getNodeInfo();
-    const expectedAztecNrVersion = `${GITHUB_TAG_PREFIX}-v${nodeInfo.nodeVersion}`;
-    if (contractArtifact.aztecNrVersion && contractArtifact.aztecNrVersion !== expectedAztecNrVersion) {
-      throw new Error(
-        `Contract was compiled with a different version of Aztec.nr: ${contractArtifact.aztecNrVersion}. Consider updating Aztec.nr to ${expectedAztecNrVersion}`,
-      );
-    }
+    // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
     const deployer = new ContractDeployer(contractArtifact, wallet, PublicKeys.default(), initializer?.name);
 
@@ -105,12 +101,12 @@ export function DeployContractDialog({
                 <Select
                   value={initializer?.name ?? ''}
                   label="Initializer"
-                  disabled={!contractArtifact.functions.some(fn => fn.isInitializer)}
+                  disabled={!functionAbis.some(fn => fn.isInitializer)}
                   onChange={e => {
                     setInitializer(getInitializer(contractArtifact, e.target.value));
                   }}
                 >
-                  {contractArtifact.functions
+                  {functionAbis
                     .filter(fn => fn.isInitializer)
                     .map(fn => (
                       <MenuItem key={fn.name} value={fn.name}>

@@ -23,7 +23,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder);
 
-    PairingPoints verify_proof(const HonkProof& proof);
+    PairingPoints verify_proof(const StdlibProof<CircuitBuilder>& proof);
 };
 
 } // namespace bb::stdlib::recursion::goblin
