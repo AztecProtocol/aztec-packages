@@ -212,13 +212,12 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
-        mem.inverse_vanishing_denominators =
-            PCS.computeInvertedGeminiDenominators(tp.shplonkZ, powers_of_evaluation_challenge, logN);
+        mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
+        mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
 
-        mem.unshiftedScalar =
-            mem.inverse_vanishing_denominators[0] + (tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
-        mem.shiftedScalar = tp.geminiR.invert()
-            * (mem.inverse_vanishing_denominators[0] - (tp.shplonkNu * mem.inverse_vanishing_denominators[1]));
+        mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
+        mem.shiftedScalar =
+            tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = ONE;
         commitments[0] = convertProofPoint(proof.shplonkQ);
@@ -344,33 +343,33 @@ abstract contract BaseHonkVerifier is IVerifier {
         );
 
         mem.constantTermAccumulator = ZERO;
+
+        mem.constantTermAccumulator =
+            mem.constantTermAccumulator + (mem.foldPosEvaluations[0] * mem.posInvertedDenominator);
+        mem.constantTermAccumulator =
+            mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.negInvertedDenominator);
+
         mem.batchingChallenge = tp.shplonkNu.sqr();
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
             bool dummy_round = i >= (logN - 1);
-            uint256 posLocation = 2 * i + 2;
-            Fr scalingFactorNeg = ZERO;
-            Fr scalingFactorPos = ZERO;
+
             if (!dummy_round) {
-                scalingFactorPos = mem.batchingChallenge * mem.inverse_vanishing_denominators[posLocation];
-                scalingFactorNeg =
-                    mem.batchingChallenge * tp.shplonkNu * mem.inverse_vanishing_denominators[posLocation + 1];
-                scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactorNeg.neg() + scalingFactorPos.neg();
+                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
+                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+
+                mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
+                mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
+                scalars[NUMBER_OF_ENTITIES + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
             }
 
-            Fr accumContribution = scalingFactorNeg * proof.geminiAEvaluations[i + 1];
-            accumContribution = accumContribution + scalingFactorPos * mem.foldPosEvaluations[i + 1];
+            Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
+            accumContribution = accumContribution + mem.scalingFactorPos * mem.foldPosEvaluations[i + 1];
             mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
-            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu.sqr();
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
 
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
-
-        Fr a_0_pos = mem.foldPosEvaluations[0];
-
-        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * mem.inverse_vanishing_denominators[0]);
-        mem.constantTermAccumulator = mem.constantTermAccumulator
-            + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
 
         // Finalise the batch opening claim
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});

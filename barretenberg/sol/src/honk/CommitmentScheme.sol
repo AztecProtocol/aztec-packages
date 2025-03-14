@@ -32,7 +32,10 @@ library CommitmentSchemeLib {
         Fr batchedEvaluation;
         Fr[4] denominators;
         Fr[4] batchingScalars;
-        Fr[2 * CONST_PROOF_SIZE_LOG_N] inverse_vanishing_denominators;
+        Fr negInvertedDenominator;
+        Fr posInvertedDenominator;
+        Fr scalingFactorNeg;
+        Fr scalingFactorPos;
         Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
     }
 
@@ -40,23 +43,6 @@ library CommitmentSchemeLib {
         squares[0] = r;
         for (uint256 i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             squares[i] = squares[i - 1].sqr();
-        }
-    }
-
-    function computeInvertedGeminiDenominators(
-        Fr shplonkZ,
-        Fr[CONST_PROOF_SIZE_LOG_N] memory eval_challenge_powers,
-        uint256 logSize
-    ) internal view returns (Fr[2 * CONST_PROOF_SIZE_LOG_N] memory inverse_vanishing_evals) {
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-            Fr negInvertedDenominator = ZERO;
-            Fr posInvertedDenominator = ZERO;
-            if (i <= logSize + 1) {
-                posInvertedDenominator = (shplonkZ - eval_challenge_powers[i]).invert();
-                negInvertedDenominator = (shplonkZ + eval_challenge_powers[i]).invert();
-            }
-            inverse_vanishing_evals[2 * i] = posInvertedDenominator;
-            inverse_vanishing_evals[2 * i + 1] = negInvertedDenominator;
         }
     }
 
