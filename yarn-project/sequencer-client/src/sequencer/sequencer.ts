@@ -111,6 +111,10 @@ export class Sequencer {
     return this.metrics.tracer;
   }
 
+  public getValidatorAddress() {
+    return this.validatorClient?.getValidatorAddress();
+  }
+
   /**
    * Updates sequencer config.
    * @param config - New parameters.

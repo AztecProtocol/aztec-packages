@@ -3,12 +3,13 @@ pragma solidity >=0.8.27;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../harnesses/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 
 // Interfaces
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -62,7 +63,14 @@ contract TokenPortalTest is Test {
     registry = new Registry(address(this));
     testERC20 = new TestERC20("test", "TEST", address(this));
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
-    rollup = new Rollup(new MockFeeJuicePortal(), rewardDistributor, testERC20, address(this));
+    rollup = new Rollup(
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      testERC20,
+      address(this),
+      TestConstants.getGenesisState(),
+      TestConstants.getRollupConfigInput()
+    );
     inbox = rollup.getInbox();
     outbox = rollup.getOutbox();
 
