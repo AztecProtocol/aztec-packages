@@ -18,8 +18,6 @@ import {
 
 const config = setupEnvironment(process.env);
 
-// technically it doesn't require a k8s env, but it doesn't seem we're keeping the "local" versions of the spartan scripts up to date
-// and I didn't want to plumb through the config and test this with the local scripts.
 if (!isK8sConfig(config)) {
   throw new Error('This test must be run in a k8s environment');
 }
