@@ -208,6 +208,9 @@ where
     // Convert the encrypted bytes to fields, because logs are field-based
     // *****************************************************************************
 
+    // TODO(#12749): As Mike pointed out, we need to make logs produced by different encryption schemes
+    // indistinguishable from each other and for this reason the output here and in the last for-loop of this function
+    // should cover a full field.
     let log_bytes_as_fields = bytes_to_fields(log_bytes);
 
     // *****************************************************************************
