@@ -108,10 +108,10 @@ namespace address_derivation;
 
     // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
     pol commit g1_x;
-    sel * (g1_x - 1) = 0;
+    sel * (g1_x - constants.GRUMPKIN_ONE_X) = 0;
 
     pol commit g1_y;
-    sel * (g1_y - 17631683881184975370165255887551781615748388533673675138860) = 0;
+    sel * (g1_y - constants.GRUMPKIN_ONE_Y) = 0;
 
     #[PREADDRESS_SCALAR_MUL]
     sel {

@@ -26,6 +26,9 @@ template <typename FF_> class address_derivationImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        const auto constants_GRUMPKIN_ONE_X = FF(1);
+        const auto constants_GRUMPKIN_ONE_Y =
+            FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL });
         const auto constants_GENERATOR_INDEX__CONTRACT_ADDRESS_V1 = FF(15);
         const auto constants_GENERATOR_INDEX__PARTIAL_ADDRESS = FF(27);
         const auto constants_GENERATOR_INDEX__PUBLIC_KEYS_HASH = FF(52);
@@ -60,15 +63,13 @@ template <typename FF_> class address_derivationImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.address_derivation_sel * (new_term.address_derivation_g1_x - FF(1));
+            auto tmp = new_term.address_derivation_sel * (new_term.address_derivation_g1_x - constants_GRUMPKIN_ONE_X);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.address_derivation_sel *
-                       (new_term.address_derivation_g1_y -
-                        FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL }));
+            auto tmp = new_term.address_derivation_sel * (new_term.address_derivation_g1_y - constants_GRUMPKIN_ONE_Y);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
