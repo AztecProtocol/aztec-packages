@@ -355,6 +355,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         mem.batchingChallenge = tp.shplonkNu.sqr();
         logFr("batched eval ", mem.batchedEvaluation);
+        console2.log("circ size ", logN);
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
             bool dummy_round = i >= (logN - 1);
@@ -371,12 +372,13 @@ abstract contract BaseHonkVerifier is IVerifier {
                 accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
                 mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
                 mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
+                logFr("gemini fold pos ", foldPosEvaluations[i + 1]);
+                logFr("gemini fold neg ", proof.geminiAEvaluations[i + 1]);
             }
 
+            logFr("const term accum ", mem.constantTermAccumulator);
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
             console.log(i + 1);
-            logFr("gemini fold pos ", foldPosEvaluations[i + 1]);
-            logFr("gemini fold neg ", proof.geminiAEvaluations[i + 1]);
         }
 
         logFr("a_0_pos", foldPosEvaluations[0]);

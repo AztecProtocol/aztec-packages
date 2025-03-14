@@ -63,12 +63,9 @@ library CommitmentSchemeLib {
             );
             // Divide by the denominator
             batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ONE - u) + u).invert();
-
             if (i <= logSize) {
                 batchedEvalAccumulator = batchedEvalRoundAcc;
-                foldPosEvaluations[CONST_PROOF_SIZE_LOG_N - i] = batchedEvalRoundAcc;
-            } else {
-                foldPosEvaluations[CONST_PROOF_SIZE_LOG_N - i] = ZERO;
+                foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
             }
         }
     }
