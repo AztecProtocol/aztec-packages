@@ -191,11 +191,6 @@ function release {
   release_packages $(dist_tag) ${REF_NAME#v}
 }
 
-<<<<<<< HEAD
-function release_commit {
-  release_packages next "$CURRENT_VERSION-commit.$COMMIT_HASH"
-}
-
 # Bump the Noir repo reference on a given branch to a given ref.
 # The branch might already exist, e.g. this could be a daily job bumping the version to the
 # latest nightly, and we might have to deal with updating the patch file because the latest
@@ -213,8 +208,6 @@ function bump_noir_repo_ref {
   do_or_dryrun git push --set-upstream origin $branch
 }
 
-=======
->>>>>>> origin/master
 case "$cmd" in
   "clean")
     # Double `f` needed to delete the nested git repository.
