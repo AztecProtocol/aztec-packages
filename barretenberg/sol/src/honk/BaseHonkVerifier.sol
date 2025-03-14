@@ -212,12 +212,13 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
-        Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals =
+        mem.inverse_vanishing_denominators =
             PCS.computeInvertedGeminiDenominators(tp.shplonkZ, powers_of_evaluation_challenge, logN);
 
-        mem.unshiftedScalar = inverse_vanishing_evals[0] + (tp.shplonkNu * inverse_vanishing_evals[1]);
-        mem.shiftedScalar =
-            tp.geminiR.invert() * (inverse_vanishing_evals[0] - (tp.shplonkNu * inverse_vanishing_evals[1]));
+        mem.unshiftedScalar =
+            mem.inverse_vanishing_denominators[0] + (tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
+        mem.shiftedScalar = tp.geminiR.invert()
+            * (mem.inverse_vanishing_denominators[0] - (tp.shplonkNu * mem.inverse_vanishing_denominators[1]));
 
         scalars[0] = ONE;
         commitments[0] = convertProofPoint(proof.shplonkQ);
@@ -339,7 +340,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
             Fr scalingFactor = ZERO;
             if (!dummy_round) {
-                scalingFactor = mem.batchingChallenge * inverse_vanishing_evals[i + 2];
+                scalingFactor = mem.batchingChallenge * mem.inverse_vanishing_denominators[i + 2];
                 scalars[NUMBER_OF_ENTITIES + 1 + i] = scalingFactor.neg();
             }
 
@@ -362,9 +363,9 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         Fr a_0_pos = mem.foldPosEvaluations[0];
 
-        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * inverse_vanishing_evals[0]);
-        mem.constantTermAccumulator =
-            mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * inverse_vanishing_evals[1]);
+        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * mem.inverse_vanishing_denominators[0]);
+        mem.constantTermAccumulator = mem.constantTermAccumulator
+            + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
 
         // Finalise the batch opening claim
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});

@@ -32,7 +32,7 @@ library CommitmentSchemeLib {
         Fr batchedEvaluation;
         Fr[4] denominators;
         Fr[4] batchingScalars;
-        Fr[CONST_PROOF_SIZE_LOG_N + 1] inverse_vanishing_denominators;
+        Fr[2 * CONST_PROOF_SIZE_LOG_N] inverse_vanishing_denominators;
         Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
     }
 
@@ -47,15 +47,16 @@ library CommitmentSchemeLib {
         Fr shplonkZ,
         Fr[CONST_PROOF_SIZE_LOG_N] memory eval_challenge_powers,
         uint256 logSize
-    ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals) {
-        inverse_vanishing_evals[0] = (shplonkZ - eval_challenge_powers[0]).invert();
-
+    ) internal view returns (Fr[2 * CONST_PROOF_SIZE_LOG_N] memory inverse_vanishing_evals) {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-            Fr round_inverted_denominator = ZERO;
+            Fr negInvertedDenominator = ZERO;
+            Fr posInvertedDenominator = ZERO;
             if (i <= logSize + 1) {
-                round_inverted_denominator = (shplonkZ + eval_challenge_powers[i]).invert();
+                posInvertedDenominator = (shplonkZ - eval_challenge_powers[i]).invert();
+                negInvertedDenominator = (shplonkZ + eval_challenge_powers[i]).invert();
             }
-            inverse_vanishing_evals[i + 1] = round_inverted_denominator;
+            inverse_vanishing_evals[2 * i] = posInvertedDenominator;
+            inverse_vanishing_evals[2 * i + 1] = negInvertedDenominator;
         }
     }
 
