@@ -540,15 +540,6 @@ export class PXEService implements PXE {
           profileMode,
         });
 
-        if (profileMode === 'gates') {
-          const gateFilter = ({ functionName, gateCount }: PrivateExecutionStep) => ({
-            functionName,
-            gateCount,
-            bytecode: Buffer.from([]),
-            witness: new Map(),
-          });
-          return new TxProfileResult(executionSteps.map(gateFilter));
-        }
         return new TxProfileResult(executionSteps);
       } catch (err: any) {
         throw this.contextualizeError(

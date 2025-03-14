@@ -31,13 +31,17 @@ function get_projects {
 }
 
 function format {
-  arg=${1:-"-w"}
+  local arg=${1:-"-w"}
   find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
     parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
 }
 
 function lint {
-  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
+  local arg=${1:-"--fix"}
+  if [ "$arg" == "--check" ]; then
+    arg=""
+  fi
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
 }
 
 function compile_all {
@@ -69,7 +73,7 @@ function compile_all {
   cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
+    cmds+=('yarn tsc -b --emitDeclarationOnly && lint --check')
   else
     # We just need the type declarations required for downstream consumers.
     cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
