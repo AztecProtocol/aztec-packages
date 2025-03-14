@@ -13,7 +13,7 @@ pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHashe
 /// should have this macro (or `storage_no_init`) applied to it.
 /// The contract's storage is accessed via the `storage` variable, which will will automatically be made available in
 /// all functions as an instance of the struct this macro was applied to.
-pub comptime fn storage(s: StructDefinition) -> Quoted {
+pub comptime fn storage(s: TypeDefinition) -> Quoted {
     // This macro performs three things:
     //  - it marks the contract as having storage, so that `macros::utils::module_has_storage` will return true and
     //    functions will have the storage variable injected and initialized via the `init` function.
@@ -94,7 +94,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
 /// with signature `fn init<Context>(context: Context) -> Self`, which allows for manual control of storage slot
 /// allocation. Similarly, no `StorageLayout` struct will be created.
 /// Only a single struct in the entire contract should have this macro (or `storage`) applied to it.
-pub comptime fn storage_no_init(_s: StructDefinition) {
+pub comptime fn storage_no_init(_s: TypeDefinition) {
     // All `storage` does is provide the `init` implementation, so we don't need to do anything here. Applying this
     // macro however will cause for `macros::utils::module_has_storage` to return true, resulting in the injection of
     // the `storage` variable.
@@ -108,10 +108,10 @@ comptime fn generate_storage_field_constructor(
     parent_is_map: bool,
 ) -> (Quoted, u32) {
     assert(
-        typ.as_struct().is_some(),
+        typ.as_data_type().is_some(),
         "Storage containers must be generic structs of the form `Container<_, Context>`, or Map<Key, _, Context>",
     );
-    let (container_struct, generics) = typ.as_struct().unwrap();
+    let (container_struct, generics) = typ.as_data_type().unwrap();
     let struct_name = container_struct.name();
 
     if is_storage_map(typ) {
@@ -125,7 +125,7 @@ comptime fn generate_storage_field_constructor(
             // in slots very far away from one another.
             1
         } else {
-            let (_, container_struct_generics) = typ.as_struct().unwrap();
+            let (_, container_struct_generics) = typ.as_data_type().unwrap();
             let stored_struct = container_struct_generics[0];
 
             if is_note(stored_struct) {
@@ -144,8 +144,8 @@ comptime fn generate_storage_field_constructor(
 
 /// Returns true if `typ` is `state_vars::map::Map`.
 comptime fn is_storage_map(typ: Type) -> bool {
-    if typ.as_struct().is_some() {
-        let (def, generics) = typ.as_struct().unwrap();
+    if typ.as_data_type().is_some() {
+        let (def, generics) = typ.as_data_type().unwrap();
         let maybe_map = if (def.name() == quote { Map }) & (generics.len() == 3) {
             let maybe_key = generics[0];
             let maybe_value = generics[1];
@@ -161,7 +161,7 @@ comptime fn is_storage_map(typ: Type) -> bool {
 }
 
 comptime fn add_context_generic(typ: Type, context_generic: Type) -> Type {
-    let (def, mut generics) = typ.as_struct().expect(
+    let (def, mut generics) = typ.as_data_type().expect(
         f"Storage containers must be generic structs of the form `Container<..., Context>`",
     );
     let name = def.name();

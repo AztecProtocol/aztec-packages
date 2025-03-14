@@ -341,8 +341,9 @@ where
 
     let mut log_bytes_padding_to_mult_31 =
         get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 64>();
-    // Safety: this randomness won't be constrained to be random. It's in the
-    // interest of the executor of this fn to encrypt with random bytes.
+
+    // Safety: we assume that the sender wants for the log to be private - a malicious one could simply reveal its
+    // contents publicly. It is therefore fine to trust the sender to provide random padding.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
     let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 64>();
@@ -385,9 +386,9 @@ where
 
     // In this strategy, we prepend [tag, eph_pk.x]
 
-    // We assume that the sender wants for the recipient to find the tagged note,
-    // and therefore that they will cooperate and use the correct tag. Usage of a bad
-    // tag will result in the recipient not being able to find the note automatically.
+    // Safety: we assume that the sender wants for the recipient to find the tagged note, and therefore that they will
+    // cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the
+    // note automatically.
     let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
 
@@ -403,7 +404,8 @@ where
     offset += log_bytes_as_fields.len();
 
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
-        // Safety: randomness cannot be constrained.
+        // Safety: we assume that the sender wants for the log to be private - a malicious one could simply reveal its
+        // contents publicly. It is therefore fine to trust the sender to provide random padding.
         final_log[i] = unsafe { random() };
     }
 
@@ -423,9 +425,8 @@ where
     compute_log(context, note, storage_slot, recipient, sender)
 }
 
-// This function seems to be affected by the following Noir bug:
-// https://github.com/noir-lang/noir/issues/5771
-// If you get weird behavior it might be because of it.
+/// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
+/// private logs.
 pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -446,9 +447,11 @@ where
     }
 }
 
-// Important note: this function -- although called "unconstrained" -- the
-// function is not labelled as `unconstrained`, because we pass a reference to the
-// context.
+/// Same as `encode_and_encrypt_note`, except encryption is unconstrained. This means that the sender is free to make
+/// the log contents be whatever they wish, potentially resulting in scenarios in which the recipient is unable to
+/// decrypt and process the payload, **leading to the note being lost**.
+///
+/// Only use this function in scenarios where the recipient not receiving the note is an acceptable outcome.
 pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -465,16 +468,7 @@ where
 
         assert_note_exists(*context, note_hash_counter);
 
-        //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
-        // recipient is unable to decrypt the payload.
-        //   Regarding the note hash counter, this is used for squashing. The kernel assumes that a given note can have
-        // more than one log and removes all of the matching ones, so all a malicious sender could do is either: cause
-        // for the log to be deleted when it shouldn't have (which is fine - they can already make the content be
-        // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
-        // for a note that doesn't exist).
-        //   It's important here that we do not
-        // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
-        // be wrong.
+        // Safety: this function does not constrain the encryption of the log, as explainted on its description.
         let encrypted_log =
             unsafe { compute_log_unconstrained(*context, note, storage_slot, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
@@ -501,14 +495,8 @@ mod test {
 
         let storage_slot = 42;
         let note = MockNote::new(1234).build_note();
-        let contract_address = context.this_address();
 
         // All the values in this test were copied over from `encrypted_log_payload.test.ts`
-        let contract_address = AztecAddress::from_field(
-            0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04,
-        );
-
-        let plaintext = super::compute_note_plaintext_for_this_strategy(note, storage_slot);
 
         let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
         let _ = OracleMock::mock("getRandomField").returns(eph_sk).times(1);
