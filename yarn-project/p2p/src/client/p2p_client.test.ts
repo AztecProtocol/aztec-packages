@@ -9,10 +9,10 @@ import { L2Block, randomPublishedL2Block } from '@aztec/stdlib/block';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 
-import { expect } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { P2PService } from '../index.js';
+import { InMemoryAttestationPool, type P2PService } from '../index.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
@@ -20,7 +20,7 @@ import { P2PClient } from './p2p_client.js';
 
 describe('In-Memory P2P Client', () => {
   let txPool: MockProxy<TxPool>;
-  let attestationPool: MockProxy<AttestationPool>;
+  let attestationPool: AttestationPool;
   let mempools: MemPools;
   let blockSource: MockL2BlockSource;
   let p2pService: MockProxy<P2PService>;
@@ -36,7 +36,7 @@ describe('In-Memory P2P Client', () => {
 
     p2pService = mock<P2PService>();
 
-    attestationPool = mock<AttestationPool>();
+    attestationPool = new InMemoryAttestationPool();
 
     blockSource = new MockL2BlockSource();
     await blockSource.createBlocks(100);
@@ -255,8 +255,9 @@ describe('In-Memory P2P Client', () => {
     it('adds attestations to the pool', async () => {
       await client.start();
       const block = await randomPublishedL2Block(1);
+      const addAttestationsSpy = jest.spyOn(attestationPool, 'addAttestations');
       await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
-      expect(attestationPool.addAttestations).toHaveBeenCalledWith(
+      expect(addAttestationsSpy).toHaveBeenCalledWith(
         block.signatures.map(signature => expect.objectContaining({ signature })),
       );
     });
@@ -265,8 +266,11 @@ describe('In-Memory P2P Client', () => {
       await client.start();
       const block = await randomPublishedL2Block(1);
       block.signatures[0] = Signature.empty();
+      const addAttestationsSpy = jest.spyOn(attestationPool, 'addAttestations');
       await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
-      expect(attestationPool.addAttestations).toHaveBeenCalledWith([]);
+      expect(addAttestationsSpy).toHaveBeenCalledWith(
+        block.signatures.filter(sig => !sig.isEmpty).map(signature => expect.objectContaining({ signature })),
+      );
     });
   });
 });
