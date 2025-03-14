@@ -15,7 +15,6 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     std::vector<FF> path_values;
     path_values.reserve(sibling_path.size());
     for (const auto& i : sibling_path) {
-        // Is true if the current index is even
         bool index_is_even = (curr_index % 2 == 0);
 
         curr_value = index_is_even ? poseidon2.hash({ curr_value, i }) : poseidon2.hash({ i, curr_value });
