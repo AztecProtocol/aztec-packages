@@ -124,8 +124,6 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
-            - name: VALIDATOR_DISABLED
-              value: "{{ .Values.validator.validator.disabled }}"
             - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
               value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
@@ -142,26 +140,10 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_PROOF_SUBMISSION_WINDOW
               value: "{{ .Values.aztec.proofSubmissionWindow }}"
-            - name: VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS
-              value: {{ .Values.validator.attestationPollingInterval | quote }}
-            - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
-              value: {{ .Values.validator.l1GasLimitBufferPercentage | quote }}
-            - name: L1_GAS_PRICE_MAX
-              value: {{ .Values.validator.l1GasPriceMax | quote }}
-            - name: DATA_DIRECTORY
-              value: "{{ .Values.validator.dataDir }}"
-            - name: DATA_STORE_MAP_SIZE_KB
-              value: "{{ .Values.storage.dataStoreMapSize }}"
-            - name: WS_DB_MAP_SIZE_KB
-              value: "{{ .Values.storage.worldStateMapSize }}"
-            - name: USE_GCLOUD_LOGGING
-              value: "{{ .Values.telemetry.useGcloudLogging }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
-              value: "{{ .Values.aztec.testAccounts }}"
+              value: true
             - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
-              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
+              value: true
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}
