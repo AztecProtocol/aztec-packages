@@ -26,7 +26,7 @@ template <typename FF_> class merkle_checkImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        const auto merkle_check_LEAF_INDEX_IS_ODD = (FF(1) - new_term.merkle_check_leaf_index_is_even);
+        const auto merkle_check_INDEX_IS_ODD = (FF(1) - new_term.merkle_check_index_is_even);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -36,54 +36,56 @@ template <typename FF_> class merkle_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_latch * (FF(1) - new_term.merkle_check_latch);
+            auto tmp = new_term.merkle_check_root_latch * (FF(1) - new_term.merkle_check_root_latch);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_sel * (FF(1) - new_term.merkle_check_latch) *
-                       ((new_term.merkle_check_path_len_shift - new_term.merkle_check_path_len) + FF(1));
+            auto tmp =
+                new_term.merkle_check_sel * (FF(1) - new_term.merkle_check_root_latch) *
+                ((new_term.merkle_check_remaining_path_len_shift - new_term.merkle_check_remaining_path_len) + FF(1));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_sel *
-                       ((new_term.merkle_check_path_len *
-                             (new_term.merkle_check_latch * (FF(1) - new_term.merkle_check_path_len_inv) +
-                              new_term.merkle_check_path_len_inv) -
-                         FF(1)) +
-                        new_term.merkle_check_latch);
+            auto tmp =
+                new_term.merkle_check_sel *
+                ((new_term.merkle_check_remaining_path_len *
+                      (new_term.merkle_check_root_latch * (FF(1) - new_term.merkle_check_remaining_path_len_inv) +
+                       new_term.merkle_check_remaining_path_len_inv) -
+                  FF(1)) +
+                 new_term.merkle_check_root_latch);
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_leaf_index_is_even * (FF(1) - new_term.merkle_check_leaf_index_is_even);
+            auto tmp = new_term.merkle_check_index_is_even * (FF(1) - new_term.merkle_check_index_is_even);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_sel * (FF(1) - new_term.merkle_check_latch) *
-                       ((new_term.merkle_check_leaf_index_shift * FF(2) + merkle_check_LEAF_INDEX_IS_ODD) -
-                        new_term.merkle_check_leaf_index);
+            auto tmp = new_term.merkle_check_sel * (FF(1) - new_term.merkle_check_root_latch) *
+                       ((new_term.merkle_check_current_index_in_layer_shift * FF(2) + merkle_check_INDEX_IS_ODD) -
+                        new_term.merkle_check_current_index_in_layer);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = ((new_term.merkle_check_sel * new_term.merkle_check_leaf_index_is_even *
+            auto tmp = ((new_term.merkle_check_sel * new_term.merkle_check_index_is_even *
                              (new_term.merkle_check_left_hash - new_term.merkle_check_right_hash) +
                          new_term.merkle_check_right_hash) -
-                        new_term.merkle_check_leaf_value);
+                        new_term.merkle_check_current_node_value);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = ((new_term.merkle_check_sel * new_term.merkle_check_leaf_index_is_even *
+            auto tmp = ((new_term.merkle_check_sel * new_term.merkle_check_index_is_even *
                              (new_term.merkle_check_right_hash - new_term.merkle_check_left_hash) +
                          new_term.merkle_check_left_hash) -
                         new_term.merkle_check_sibling_value);
@@ -92,8 +94,8 @@ template <typename FF_> class merkle_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_sel * (FF(1) - new_term.merkle_check_latch) *
-                       (new_term.merkle_check_leaf_value_shift - new_term.merkle_check_output_hash);
+            auto tmp = new_term.merkle_check_sel * (FF(1) - new_term.merkle_check_root_latch) *
+                       (new_term.merkle_check_current_node_value_shift - new_term.merkle_check_output_hash);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
@@ -110,26 +112,26 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
         case 2:
             return "PATH_LEN_DECREMENTS";
         case 3:
-            return "LATCH_HIGH_WHEN_PATH_EMPTY";
+            return "ROOT_LATCH_HIGH_WHEN_PATH_EMPTY";
         case 5:
-            return "NEXT_LEAF_INDEX_IS_HALVED";
+            return "NEXT_INDEX_IS_HALVED";
         case 6:
-            return "ASSIGN_LEAF_VALUE_LEFT_OR_RIGHT";
+            return "ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT";
         case 7:
             return "ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT";
         case 8:
-            return "OUTPUT_HASH_IS_NEXT_ROWS_LEAF_VALUE";
+            return "OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_PATH_LEN_DECREMENTS = 2;
-    static constexpr size_t SR_LATCH_HIGH_WHEN_PATH_EMPTY = 3;
-    static constexpr size_t SR_NEXT_LEAF_INDEX_IS_HALVED = 5;
-    static constexpr size_t SR_ASSIGN_LEAF_VALUE_LEFT_OR_RIGHT = 6;
+    static constexpr size_t SR_ROOT_LATCH_HIGH_WHEN_PATH_EMPTY = 3;
+    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 5;
+    static constexpr size_t SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT = 6;
     static constexpr size_t SR_ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT = 7;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_LEAF_VALUE = 8;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE = 8;
 };
 
 } // namespace bb::avm2
