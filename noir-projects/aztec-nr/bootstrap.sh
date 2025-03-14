@@ -12,7 +12,7 @@ function build {
   # Being a library, aztec-nr does not technically need to be built. But we can still run nargo check to find any type
   # errors and prevent warnings
   echo_stderr "Checking aztec-nr for warnings..."
-  nargo check --deny-warnings
+  $NARGO check --deny-warnings
 }
 
 function test_cmds {
