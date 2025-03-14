@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -18,7 +19,7 @@ class MerkleCheckInterface {
     virtual ~MerkleCheckInterface() = default;
     virtual void assert_membership(const FF& leaf_value,
                                    const uint64_t leaf_index,
-                                   const std::vector<FF>& sibling_path,
+                                   std::span<const FF> sibling_path,
                                    const FF& root) = 0;
 };
 
@@ -31,7 +32,7 @@ class MerkleCheck : public MerkleCheckInterface {
 
     void assert_membership(const FF& leaf_value,
                            const uint64_t leaf_index,
-                           const std::vector<FF>& sibling_path,
+                           std::span<const FF> sibling_path,
                            const FF& root) override;
 
   private:

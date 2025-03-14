@@ -7,7 +7,7 @@ namespace bb::avm2::simulation {
 
 void MerkleCheck::assert_membership(const FF& leaf_value,
                                     const uint64_t leaf_index,
-                                    const std::vector<FF>& sibling_path,
+                                    std::span<const FF> sibling_path,
                                     const FF& root)
 {
     FF curr_value = leaf_value;
@@ -26,7 +26,8 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
 
     FF computed_root = curr_value;
     assert(computed_root == root && "Merkle membership or non-membership check failed");
-    events.emit({ .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root });
+    std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
+    events.emit({ .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_vec, .root = root });
 }
 
 } // namespace bb::avm2::simulation
