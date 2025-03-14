@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_address_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
@@ -24,6 +25,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
+#include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
@@ -175,6 +177,12 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.addressing);
                 },
                 [&]() {
+                    AddressDerivationTraceBuilder address_derivation_builder;
+                    AVM_TRACK_TIME("tracegen/address_derivation",
+                                   address_derivation_builder.process(events.address_derivation, trace));
+                    clear_events(events.address_derivation);
+                },
+                [&]() {
                     AluTraceBuilder alu_builder;
                     AVM_TRACK_TIME("tracegen/alu", alu_builder.process(events.alu, trace));
                     clear_events(events.alu);
@@ -288,7 +296,29 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_less_than_radix_range_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_fetch_safe_limbs_settings>>(),
             std::make_unique<LookupIntoPDecomposition<lookup_to_radix_fetch_p_limb_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_p_diff_range_settings>>());
+            std::make_unique<LookupIntoIndexedByClk<lookup_to_radix_limb_p_diff_range_settings>>(),
+            // Address derivation
+            std::make_unique<LookupIntoDynamicTableSequential<
+                lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<
+                lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_partial_address_poseidon2_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_0_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_1_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_2_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_3_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_public_keys_hash_poseidon2_4_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_poseidon2_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_scalar_mul_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_address_derivation_address_ecadd_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

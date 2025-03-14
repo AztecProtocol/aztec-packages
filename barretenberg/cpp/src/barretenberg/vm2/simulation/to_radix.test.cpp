@@ -1,7 +1,7 @@
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 
-#include "gmock/gmock.h"
 #include <cstdint>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
