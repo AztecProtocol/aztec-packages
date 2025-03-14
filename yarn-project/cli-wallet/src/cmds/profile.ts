@@ -55,7 +55,7 @@ export async function profile(
   debugOutputPath: string | undefined,
   log: LogFn,
 ) {
-  const profileMode = debugOutputPath ? ('execution-steps' as const) : ('gates' as const);
+  const profileMode = debugOutputPath ? ('full' as const) : ('gates' as const);
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
 
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
