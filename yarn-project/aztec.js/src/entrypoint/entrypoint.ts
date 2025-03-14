@@ -8,6 +8,7 @@ import { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash } from '
 export { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash };
 
 export { DefaultEntrypoint } from './default_entrypoint.js';
+export { DefaultMultiCallEntrypoint } from './default_multi_call_entrypoint.js';
 
 /** Encodes the calls to be done in a transaction. */
 export type ExecutionRequestInit = {

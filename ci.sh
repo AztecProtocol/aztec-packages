@@ -61,7 +61,7 @@ function get_latest_run_id {
 function tail_live_instance {
   get_ip_for_instance
   [ -z "$ip" ] && return 1;
-  ssh -F $aws/build_instance_ssh_config -q -t -o ConnectTimeout=5 ubuntu@$ip "
+  ssh -F $ci3/aws/build_instance_ssh_config -q -t -o ConnectTimeout=5 ubuntu@$ip "
     trap 'exit 0' SIGINT
     docker ps -a --filter name=aztec_build --format '{{.Names}}' | grep -q '^aztec_build$' || exit 1
     docker logs -f aztec_build
@@ -107,7 +107,7 @@ case "$cmd" in
     get_ip_for_instance
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     [ "$#" -eq 0 ] && set -- "zsh" || true
-    ssh -tq -F $aws/build_instance_ssh_config ubuntu@$ip \
+    ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
       "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
     ;;
   "trigger")
@@ -182,7 +182,7 @@ case "$cmd" in
   "shell-host")
     get_ip_for_instance
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $aws/build_instance_ssh_config ubuntu@$ip
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
     ;;
   "kill")
     existing_instance=$(aws ec2 describe-instances \

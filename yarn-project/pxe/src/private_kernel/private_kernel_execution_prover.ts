@@ -60,7 +60,7 @@ export interface PrivateKernelExecutionProverConfig {
  * inform state tree updates.
  */
 export class PrivateKernelExecutionProver {
-  private log = createLogger('pxe:private-kernel-trace-prover');
+  private log = createLogger('pxe:private-kernel-execution-prover');
 
   constructor(
     private oracle: PrivateKernelOracle,
