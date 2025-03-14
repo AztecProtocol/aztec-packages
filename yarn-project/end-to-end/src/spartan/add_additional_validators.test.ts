@@ -1,20 +1,12 @@
 import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
-import { type ViemWalletClient, createL1Clients } from '@aztec/ethereum';
+import { type ViemWalletClient, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { ChildProcess } from 'child_process';
 import { type Account, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { parseEther } from 'viem/utils';
 
-import {
-  execHelmCommand,
-  getChartDir,
-  isK8sConfig,
-  readFromValuesFile,
-  runProjectScript,
-  setupEnvironment,
-  startPortForward,
-} from './utils.js';
+import { execHelmCommand, getChartDir, isK8sConfig, runAztecBin, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
@@ -28,7 +20,6 @@ describe('add additional validators', () => {
   let pxe: PXE;
   const forwardProcesses: ChildProcess[] = [];
   let ETHEREUM_HOSTS: string;
-  let ETHEREUM_CONSENSUS_HOST: string;
   beforeAll(async () => {
     let PXE_URL: string;
     {
@@ -48,15 +39,6 @@ describe('add additional validators', () => {
       });
       forwardProcesses.push(process);
       ETHEREUM_HOSTS = `http://127.0.0.1:${port}`;
-    }
-    {
-      const { process, port } = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-beacon`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_ETHEREUM_CONSENSUS_PORT,
-      });
-      forwardProcesses.push(process);
-      ETHEREUM_CONSENSUS_HOST = `http://127.0.0.1:${port}`;
     }
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
   });
@@ -87,11 +69,10 @@ describe('add additional validators', () => {
 
   const addValidatorViaCli = async (rollupAddress: string, account: Account) => {
     const validatorAddress = account.address;
-    const l1ChainId = readFromValuesFile('aztec-network', config.VALUES_FILE, 'ethereum.chainId');
 
-    const exitCode = await runProjectScript(
-      'node yarn-project/aztec/dest/bin/index.js add-l1-validator',
+    const exitCode = await runAztecBin(
       [
+        'add-l1-validator',
         '--validator',
         validatorAddress,
         '--mnemonic',
@@ -99,7 +80,9 @@ describe('add additional validators', () => {
         '--rollup',
         rollupAddress,
         '--l1-chain-id',
-        l1ChainId.toString(),
+        '1337',
+        '--l1-rpc-urls',
+        ETHEREUM_HOSTS,
       ],
       debugLogger,
     );
@@ -112,16 +95,16 @@ describe('add additional validators', () => {
    */
   const deployAdditionalValidators = async (keys: string[], enr: string, registryAddress: string) => {
     await execHelmCommand({
-      instanceName: 'add-additional-validators',
+      instanceName: 'add-val',
       namespace: config.NAMESPACE,
       helmChartDir: getChartDir(config.SPARTAN_DIR, 'add-validators'),
       values: {
         'aztec.image': `aztecprotocol/aztec:${config.AZTEC_DOCKER_TAG}`,
         'network.bootNodes': enr,
-        'network.l1ExecutionUrl': ETHEREUM_HOSTS,
-        'network.l1ConsensusUrl': ETHEREUM_CONSENSUS_HOST,
+        'network.l1ExecutionUrl': `http://${config.INSTANCE_NAME}-aztec-network-eth-execution.${config.NAMESPACE}.svc.cluster.local:8545`,
+        'network.l1ConsensusUrl': `http://${config.INSTANCE_NAME}-aztec-network-eth-beacon.${config.NAMESPACE}.svc.cluster.local:5052`,
         'network.registryAddress': registryAddress,
-        'validator.privateKeys': keys.join(','),
+        'validator.privateKeys': keys,
         'validator.replicas': keys.length,
       },
       valuesFile: undefined,
@@ -136,10 +119,10 @@ describe('add additional validators', () => {
       if (!info.enr) {
         throw new Error('No ENR found for the boot node');
       }
+      const chain = createEthereumChain([ETHEREUM_HOSTS], 1337);
 
       // Get the L1 client to interact with the registry contract
-      const l1Clients = createL1Clients([ETHEREUM_HOSTS], config.L1_ACCOUNT_MNEMONIC);
-      debugLogger.info(`Chain ID: ${await l1Clients.publicClient.getChainId()}`);
+      const l1Clients = createL1Clients([ETHEREUM_HOSTS], config.L1_ACCOUNT_MNEMONIC, chain.chainInfo);
 
       // Generate new validators (2 in this example)
       const { keys, accounts } = generateValidatorAddresses(2);

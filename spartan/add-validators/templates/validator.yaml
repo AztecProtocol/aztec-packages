@@ -141,9 +141,9 @@ spec:
             - name: AZTEC_PROOF_SUBMISSION_WINDOW
               value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: TEST_ACCOUNTS
-              value: true
+              value: "true"
             - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
-              value: true
+              value: "true"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}
