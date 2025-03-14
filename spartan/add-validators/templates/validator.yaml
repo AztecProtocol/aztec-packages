@@ -72,7 +72,7 @@ spec:
                 --archiver \
                 --sequencer \
                 --l1-rpc-urls {{ .Values.network.l1ExecutionUrl }} \
-                --l1-consensus-url {{ .Values.network.l1ConsensusUrl }} \
+                --l1-consensus-host-url {{ .Values.network.l1ConsensusUrl }} \
                 --sequencer.validatorPrivateKey $VAL_KEY \
                 --p2p.bootstrapNodes {{ .Values.network.bootNodes }} \
                 --registry-address {{ .Values.network.registryAddress }}
