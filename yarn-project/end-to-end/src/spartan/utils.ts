@@ -302,9 +302,16 @@ export function getChartDir(spartanDir: string, chartName: string) {
   return path.join(spartanDir.trim(), chartName);
 }
 
-function valuesToArgs(values: Record<string, string | number>) {
+function valuesToArgs(values: Record<string, string | number | boolean | object | any[]>) {
   return Object.entries(values)
-    .map(([key, value]) => `--set ${key}=${value}`)
+    .map(([key, value]) => {
+      // For arrays and objects, use --set-json and JSON.stringify
+      if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+        return `--set-json ${key}='${JSON.stringify(value)}'`;
+      }
+      // For simple values (strings, numbers, booleans), use normal --set
+      return `--set ${key}=${value}`;
+    })
     .join(' ');
 }
 
@@ -322,7 +329,7 @@ function createHelmCommand({
   namespace: string;
   valuesFile: string | undefined;
   timeout: string;
-  values: Record<string, string | number>;
+  values: Record<string, string | number | boolean | object | any[]>;
   reuseValues?: boolean;
 }) {
   const valuesFileArgs = valuesFile ? `--values ${helmChartDir}/values/${valuesFile}` : '';
@@ -374,7 +381,7 @@ export async function installChaosMeshChart({
   chaosMeshNamespace?: string;
   timeout?: string;
   clean?: boolean;
-  values?: Record<string, string | number>;
+  values?: Record<string, string | number | boolean | object | any[]>;
   logger: Logger;
 }) {
   if (clean) {
