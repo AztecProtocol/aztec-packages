@@ -13,7 +13,7 @@ use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
 
 use dispatch::generate_public_dispatch;
-use utils::{get_trait_impl_method, module_has_storage};
+use utils::{get_trait_impl_method, is_fn_public, module_has_storage};
 
 use crate::discovery::MAX_NOTE_PACKED_LEN;
 
@@ -116,11 +116,10 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
     let notes = NOTES.entries();
 
-    let mut max_note_packed_len: u32 = 0;
     if notes.len() > 0 {
-        max_note_packed_len = notes.fold(
+        let max_note_packed_len = notes.fold(
             0,
-            |acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]))| {
+            |acc, (_, (_, len, _, _)): (Type, (TypeDefinition, u32, Field, [(Quoted, u32, bool)]))| {
                 if len > acc {
                     len
                 } else {
@@ -321,7 +320,7 @@ comptime fn generate_note_exports() -> Quoted {
     // Second value in each tuple is `note_packed_len` and that is ignored here because it's only used when
     // generating partial note helper functions.
     notes
-        .map(|(s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)])| {
+        .map(|(s, _, note_type_id, fields): (TypeDefinition, u32, Field, [(Quoted, u32, bool)])| {
             generate_note_export(s, note_type_id, fields)
         })
         .join(quote {})
