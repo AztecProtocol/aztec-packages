@@ -18,7 +18,7 @@ use crate::{
     utils::{
         conversion::{bytes_to_fields::bytes_to_fields, fields_to_bytes::fields_to_bytes},
         point::get_sign_of_point,
-        random::{get_random_bytes, random_with_max_byte_size},
+        random::get_random_bytes,
     },
 };
 use dep::protocol_types::{
@@ -243,7 +243,8 @@ where
 
         // Safety: we assume that the sender wants for the log to be private - a malicious one could simply reveal its
         // contents publicly. It is therefore fine to trust the sender to provide random padding.
-        final_log[i] = unsafe { random_with_max_byte_size::<31>() };
+        let field_bytes = unsafe { get_random_bytes::<31>() };
+        final_log[i] = Field::from_be_bytes::<31>(field_bytes);
     }
 
     final_log

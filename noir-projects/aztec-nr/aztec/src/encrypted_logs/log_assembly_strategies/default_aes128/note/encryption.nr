@@ -21,7 +21,7 @@ use crate::{
             fields_to_bytes::{fields_from_bytes, fields_to_bytes},
         },
         point::{get_sign_of_point, point_from_x_coord_and_sign},
-        random::{get_random_bytes, random_with_max_byte_size},
+        random::get_random_bytes,
     },
 };
 use protocol_types::{address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::ToField};
@@ -230,7 +230,8 @@ pub fn encrypt_log<let PT: u32>(
         // (all the "real" log fields contain at most 31 bytes because of the way we convert the bytes to fields).
         // TODO(#12749): Long term, this is not a good solution.
         // Safety: randomness cannot be constrained.
-        final_log[i] = unsafe { random_with_max_byte_size::<31>() };
+        let field_bytes = unsafe { get_random_bytes::<31>() };
+        final_log[i] = Field::from_be_bytes::<31>(field_bytes);
     }
 
     final_log
