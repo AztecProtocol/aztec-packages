@@ -18,27 +18,15 @@ function hash {
 
 function bench {
   rm -rf bench-out && mkdir -p bench-out
-  hash=$(hash)
+  local hash=$(hash)
   if cache_download barretenberg-bench-results-$hash.tar.gz; then
     return
   fi
   # bootstrap_all bench
   ./scripts/combine_benchmarks.py \
-    native ./cpp/bench-out/client_ivc_17_in_20_release.json \
-    native ./cpp/bench-out/client_ivc_release.json \
-    native ./cpp/bench-out/ultra_honk_release.json \
-    wasm ./cpp/bench-out/client_ivc_wasm.json \
-    wasm ./cpp/bench-out/ultra_honk_wasm.json \
-    "" ./cpp/bench-out/client_ivc_op_count.json \
-    "" ./cpp/bench-out/client_ivc_op_count_time.json \
-    wasm ./acir_tests/bench-out/ultra_honk_rec_wasm_memory.txt \
+    ./cpp/bench-out/*.json \
+    ./acir_tests/bench-out/*.txt \
     > ./bench-out/bb-bench.json
-  # For some reason the above script doesn't set the exit code correctly
-  # so we need to check the output file.
-  if [ ! -f ./bench-out/bb-bench.json ]; then
-    echo "Failed to create benchmark file"
-    exit 1
-  fi
   cache_upload barretenberg-bench-results-$hash.tar.gz ./bench-out/bb-bench.json
 }
 

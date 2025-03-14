@@ -471,6 +471,11 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
 
+
+#### Debugging and proiling realistic ClientIVC flows
+
+To download realistic ClientIVC benchmark inputs from last master, use `./barretenberg/cpp/bootstrap.sh download_e2e_ivc_inputs` and run ClientIVC proving with --input runtime_stack on those inputs. By default, tries to pull from last master, but you can pass a historic commit as an argument.
+
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 
 Tracy is a tool that gives us an in-depth look at certain performance related metrics, including memory, CPU usage, time, and circuit gate counts.

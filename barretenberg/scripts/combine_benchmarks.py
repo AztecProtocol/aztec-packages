@@ -21,8 +21,8 @@ TIME_COUNTERS_USED = ["commit(t)", "Goblin::merge(t)"]
 #  *      projective_point_doubling            :    194.2
 #  *      scalar_multiplication                :  50060.1
 #  *      sequential_copy                      :      3.3
-# Cody analyzed the following asm operations as not correlated with one another:
 
+# Cody analyzed the following asm operations as not correlated with one another:
 FIELD_OPS_WEIGHTS = {
     "fr::asm_add_with_coarse_reduction": 3.8,
     "fr::asm_conditional_negate": 3.8,
@@ -63,6 +63,8 @@ def process_json_file(file_path, prefix):
     """
     Processes a JSON file to prefix benchmark names and extract additional counter data.
     """
+    # print to stderr
+    print(f"Processing JSON file: {file_path}", file=sys.stderr)
     with open(file_path, 'r') as file:
         data = json.load(file)
 
@@ -70,7 +72,6 @@ def process_json_file(file_path, prefix):
     for benchmark in data['benchmarks']:
         # Prefix the benchmark's name and run name
         benchmark['name'] = f"{prefix}{benchmark['name']}"
-        benchmark['run_name'] = f"{prefix}{benchmark['run_name']}"
 
         # Include benchmark only if a prefix is provided.
         if prefix != "":
@@ -96,13 +97,21 @@ def process_json_file(file_path, prefix):
                 })
     return results
 
-def modify_benchmark_data(file_paths, prefixes):
+def modify_benchmark_data(file_paths):
     """
     Combines benchmark data from multiple files (both text and JSON) with associated prefixes.
     """
     combined_results = {"benchmarks": []}
 
-    for file_path, prefix in zip(file_paths, prefixes):
+    for file_path in file_paths:
+        prefix = ""
+        # Historical name compatibility:
+        if "wasm" in file_path:
+            prefix = "wasm"
+        elif "release" in file_path:
+            prefix = "native"
+        elif "-ivc.json" in file_path:
+            prefix = "ivc-"
         if file_path.endswith(".txt"):
             # Process text files to extract memory data.
             memory_value = extract_memory_from_text(file_path)
@@ -122,13 +131,8 @@ def modify_benchmark_data(file_paths, prefixes):
     return combined_results
 
 def main():
-    if len(sys.argv) < 3 or len(sys.argv) % 2 != 1:
-        print("Usage: python script.py <Prefix1> <file1> <Prefix2> <file2> ...")
-        sys.exit(1)
-
-    prefixes = sys.argv[1::2]
-    file_paths = sys.argv[2::2]
-    final_data = modify_benchmark_data(file_paths, prefixes)
+    file_paths = sys.argv[1::]
+    final_data = modify_benchmark_data(file_paths)
 
     # Output the combined benchmark data as formatted JSON.
     print(json.dumps(final_data, indent=4))

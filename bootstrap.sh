@@ -208,7 +208,7 @@ function release_github {
   # Add an easy link for comparing to previous release.
   local compare_link=""
   if gh release view "v$CURRENT_VERSION" &>/dev/null; then
-    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/v${CURRENT_VERSION}...${COMMIT_eeee}")
+    compare_link=$(echo -e "See changes: https://github.com/AztecProtocol/aztec-packages/compare/v${CURRENT_VERSION}...${COMMIT_HASH}")
   fi
   # Legacy releases. TODO: Eventually remove.
   if gh release view "aztec-packages-v$CURRENT_VERSION" &>/dev/null; then

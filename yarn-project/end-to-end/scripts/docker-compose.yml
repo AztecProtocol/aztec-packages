@@ -46,8 +46,7 @@ services:
       FORCE_COLOR: ${FORCE_COLOR:-1}
       PXE_URL: http://sandbox:8080
       AZTEC_NODE_URL: http://sandbox:8080
-      # Relevant for when TEST matches *.sh:
-      # Allow git usage despite different ownership.
+      # Allow git usage despite different ownership. Relevant for script tests.
       GIT_CONFIG_GLOBAL: /root/aztec-packages/build-images/src/home/.gitconfig
       # For debugging scripts that were passed as TEST.
       BUILD_SYSTEM_DEBUG: ${BUILD_SYSTEM_DEBUG:-}
@@ -69,12 +68,7 @@ services:
     entrypoint: >
       bash -c '
         while ! nc -z sandbox 8080; do sleep 1; done;
-        # Check if TEST is a shell script, if so, run it directly.
-        if [[ ${TEST:-} == *.sh ]]; then
-          setsid ${TEST:-} 2>&1 &
-        else
-          setsid ./scripts/test_simple.sh ${TEST:-./src/e2e_deploy_contract.test.ts} &
-        fi
+        setsid ./scripts/test_simple.sh ${TEST:-./src/e2e_deploy_contract.test.ts} &
         pid=$$!
         pgid=$$(($$(ps -o pgid= -p $$pid)))
         trap "kill -SIGTERM -$$pgid" SIGTERM

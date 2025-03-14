@@ -3,8 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-[ -n "$cmd" ] && shift
-
 hash=$(../bootstrap.sh hash)
 
 function test_cmds {
@@ -142,9 +140,14 @@ function test {
 }
 
 # Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
-function generate_private_flows_ivc_inputs {
-  export CAPTURE_IVC_FOLDER="$1"
+function generate_private_ivc_inputs {
+  export CAPTURE_IVC_FOLDER=private-flows-ivc-inputs-out
+  rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
+    return
+  fi
+  if [ -n "${DOWNLOAD_ONLY:-}" ]; then
+    echo "Could not find ivc inputs cached!"
     return
   fi
   # Running these again separately from tests is a bit of a hack,
@@ -154,7 +157,7 @@ function generate_private_flows_ivc_inputs {
     scripts/run_test.sh simple e2e_nft
     scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
   " | parallel --line-buffer --halt now,fail=1
-  cache_upload bb-client-ivc-captures-$hash.tar.gz $1
+  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
 
 function bench {
@@ -171,10 +174,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  generate_private_flows_ivc_inputs)
-    generate_private_flows_ivc_inputs $@
-    ;;
-  test|test_cmds|bench)
+  test|test_cmds|bench|generate_private_ivc_inputs)
     $cmd
     ;;
   *)
