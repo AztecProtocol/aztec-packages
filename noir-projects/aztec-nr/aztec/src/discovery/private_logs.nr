@@ -70,7 +70,7 @@ pub unconstrained fn do_process_log<Env>(
     if log_type_id == 0 {
         debug_log("Processing private note log");
 
-        process_private_note_log(
+        attempt_note_discovery(
             contract_address,
             tx_hash,
             unique_note_hashes_in_tx,
@@ -130,7 +130,7 @@ unconstrained fn destructure_log_plaintext(
 
 /// Attempts discovery of a note given information about its contents and the transaction in which it is
 /// suspected the note was created.
-pub unconstrained fn process_private_note_log<Env>(
+pub unconstrained fn attempt_note_discovery<Env>(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,

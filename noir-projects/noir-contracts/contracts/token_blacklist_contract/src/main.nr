@@ -18,7 +18,7 @@ use dep::aztec::macros::aztec;
 pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
-        discovery::private_logs::process_private_note_log,
+        discovery::private_logs::attempt_note_discovery,
         encrypted_logs::log_assembly_strategies::default_aes128::note::{
             encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
         },
@@ -315,7 +315,7 @@ pub contract TokenBlacklist {
         let note_type_id = TransparentNote::get_id();
         let packed_note = BoundedVec::from_array(note.pack());
 
-        process_private_note_log(
+        attempt_note_discovery(
             contract_address,
             tx_hash,
             unique_note_hashes_in_tx,

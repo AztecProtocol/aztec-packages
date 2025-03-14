@@ -32,7 +32,7 @@ pub contract Test {
 
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
-        discovery::private_logs::process_private_note_log,
+        discovery::private_logs::attempt_note_discovery,
         event::event_interface::EventInterface,
         hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
@@ -466,7 +466,7 @@ pub contract Test {
         let note_type_id = TestNote::get_id();
         let log_payload = BoundedVec::from_array(note.pack());
 
-        process_private_note_log(
+        attempt_note_discovery(
             contract_address,
             tx_hash,
             unique_note_hashes_in_tx,
