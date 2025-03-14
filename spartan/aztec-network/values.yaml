@@ -65,12 +65,13 @@ aztec:
   # The derivation path of the calcualted private keys
   # Starting from this index, the number of keys is equal to the number of replicas for the given service
   # Set the "extraAccounts" to start at 0 so that just using the default mnemonic won't clash with validator, prover, and bot accounts
-  extraAccountsStartIndex: 0
-  ## The number of extra accounts to prefund
-  extraAccounts: 10
+  numberOfDefaultAccounts: 10
   proverKeyIndexStart: 1000
   validatorKeyIndexStart: 2000
   botKeyIndexStart: 3000
+  extraAccountsStartIndex: 4000
+  ## The number of extra accounts to prefund
+  extraAccounts: 10
 
 bootNode:
   enabled: true
