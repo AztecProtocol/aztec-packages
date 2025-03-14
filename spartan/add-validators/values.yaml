@@ -7,6 +7,8 @@ network:
   p2pBootstrapNodesAsFullPeers: true
   l1ExecutionUrl: ""
   l1ConsensusUrl: ""
+  registryAddress: ""
+  bootNodes: ""
 
 storage:
   localSsd: false
@@ -20,27 +22,23 @@ telemetry:
 
 images:
   aztec:
-    image: aztecprotocol/aztec
-    pullPolicy: IfNotPresent
-  curl:
-    image: curlimages/curl:7.81.0
+    image: aztecprotocol/aztec:784c3d23c70f75ab62f7afdf96854185fd852590
     pullPolicy: IfNotPresent
 
 aztec:
-  slotDuration: 36
-  epochDuration: 32
-  proofSubmissionWindow: 64
+  slotDuration: 12
+  epochDuration: 4
+  proofSubmissionWindow: 128
   testAccounts: true
   realProofs: false
 
 ethereum:
-  chainId: 31337
-  blockTime: 12
+  chainId: 1337
+  blockTime: 4
 
 validator:
   # This will be set by the install script
-  bootNodes: "enr:-La4QAXITCh6x60GnySW1Tv8xbGO7ZvdCpSzq5BDBRGX44yXBGGvv62QS-A_hyH-2t-kBfqZuVvFcbkUiw1LeHvh3BcGhWF6dGVjpDAwLTEzMzctZjQ4YWNlYjQtMS0wNTNiZDlkOS0yNmU5N2I2MYJpZIJ2NIJpcIQK9ABhiXNlY3AyNTZrMaECx8cwlwBKDMyy-Fd9A3fqP_EAOnXTysWoJAl8AjWuOYiDdGNwgp3Qg3VkcIKd0A"
-  privateKeys: ["0x3fde152c3df55eff94d3ac60b601f08b830e6bf97a0a2b6d2e3daa36b1dc3dc8"]
+  privateKeys: ""
   replicas: 1
   service:
     p2pPort: 40400
@@ -65,7 +63,7 @@ validator:
   maxOldSpaceSize: "4608"
   attestationPollingInterval: 1000
   l1GasLimitBufferPercentage: 20
-  l1GasPriceMax: 100000000000
+  l1GasPriceMax: "100000000000"
   dataDir: "/data"
   storageSize: "1Gi"
 

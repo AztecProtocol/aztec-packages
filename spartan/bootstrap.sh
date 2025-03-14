@@ -159,6 +159,11 @@ case "$cmd" in
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;
+  "test-cli-add-validators")
+    OVERRIDES="telemetry.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/add_additional_validators.test.ts add-validators.yaml add-validators${NAME_POSTFIX:-}
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

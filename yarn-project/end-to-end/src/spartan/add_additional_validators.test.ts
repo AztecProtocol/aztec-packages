@@ -67,7 +67,7 @@ describe('add additional validators', () => {
     forwardProcesses.forEach(p => p.kill());
   });
 
-  const generateValidatorAddresses = async (numberOfValidators: number) => {
+  const generateValidatorAddresses = (numberOfValidators: number) => {
     const keys: string[] = [];
     const accounts: Account[] = [];
     for (let i = 0; i < numberOfValidators; i++) {
@@ -112,18 +112,19 @@ describe('add additional validators', () => {
    * Deploy the additional validators using the helm chart
    * @param keys - The private keys of the validators to deploy
    */
-  const deployAdditionalValidators = async (keys: string[], enr: string) => {
+  const deployAdditionalValidators = async (keys: string[], enr: string, registryAddress: string) => {
     await execHelmCommand({
       instanceName: 'add-additional-validators',
       namespace: config.NAMESPACE,
       helmChartDir: getChartDir(config.SPARTAN_DIR, 'add-validators'),
       values: {
-        'validator.privateKeys': keys.join(','),
-        'validator.bootNodes': enr,
-        'validator.replicas': keys.length,
         'aztec.image': `aztecprotocol/aztec:${config.AZTEC_DOCKER_TAG}`,
-        'aztec.l1ExecutionUrl': ETHEREUM_HOSTS,
-        'aztec.l1ConsensusUrl': ETHEREUM_CONSENSUS_HOST,
+        'network.bootNodes': enr,
+        'network.l1ExecutionUrl': ETHEREUM_HOSTS,
+        'network.l1ConsensusUrl': ETHEREUM_CONSENSUS_HOST,
+        'network.registryAddress': registryAddress,
+        'validator.privateKeys': keys.join(','),
+        'validator.replicas': keys.length,
       },
       valuesFile: undefined,
       timeout: '15m',
@@ -143,7 +144,7 @@ describe('add additional validators', () => {
       debugLogger.info(`Chain ID: ${await l1Clients.publicClient.getChainId()}`);
 
       // Generate new validators (2 in this example)
-      const { keys, accounts } = await generateValidatorAddresses(2);
+      const { keys, accounts } = generateValidatorAddresses(2);
       debugLogger.info(`Generated ${accounts.length} new validator accounts`, {
         addresses: accounts.map(a => a.address.toString()),
       });
@@ -160,7 +161,7 @@ describe('add additional validators', () => {
       }
 
       debugLogger.info(`Deploying additional validators`);
-      await deployAdditionalValidators(keys, info.enr);
+      await deployAdditionalValidators(keys, info.enr, info.l1ContractAddresses.registryAddress.toString());
     },
     6 * config.AZTEC_PROOF_SUBMISSION_WINDOW * config.AZTEC_SLOT_DURATION * 1000,
   );
