@@ -127,7 +127,7 @@ where
 
     let mut fields = [0; N + 2];
     fields[0] = storage_slot;
-    fields[1] = Note::get_id(); // TODO(#10952): The note type ID can be reduced to 7 bits
+    fields[1] = Note::get_id(); // Note that the note id only uses 7 bits of this field.
     for i in 0..packed_note.len() {
         fields[i + 2] = packed_note[i];
     }
