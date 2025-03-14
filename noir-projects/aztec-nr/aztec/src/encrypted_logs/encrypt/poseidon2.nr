@@ -227,7 +227,6 @@ mod test {
         let bob_pk = fixed_base_scalar_mul(fr_to_fq_unsafe(bob_sk));
 
         let eph_sk = 0x5678;
-        let eph_pk = fixed_base_scalar_mul(fr_to_fq_unsafe(eph_sk));
         let shared_secret = multi_scalar_mul([bob_pk], [fr_to_fq_unsafe(eph_sk)]);
 
         let nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?

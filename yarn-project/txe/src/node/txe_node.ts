@@ -186,13 +186,7 @@ export class TXENode implements AztecNode {
       this.#logger.verbose(`Found private log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber)),
-        this.#noteIndex,
-        blockNumber,
-        false,
-        log.toBuffer(),
-      );
+      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
     });
@@ -211,13 +205,7 @@ export class TXENode implements AztecNode {
       this.#logger.verbose(`Found public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber)),
-        this.#noteIndex,
-        blockNumber,
-        true,
-        log.toBuffer(),
-      );
+      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
 
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
