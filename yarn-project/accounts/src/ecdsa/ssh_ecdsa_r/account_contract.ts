@@ -22,8 +22,11 @@ export abstract class EcdsaRSSHBaseAccountContract extends DefaultAccountContrac
     super();
   }
 
-  getDeploymentArgs() {
-    return Promise.resolve([this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)]);
+  getDeploymentFunctionAndArgs() {
+    return Promise.resolve({
+      constructorName: 'constructor',
+      constructorArgs: [this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)],
+    });
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {
