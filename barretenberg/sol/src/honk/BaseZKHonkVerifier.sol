@@ -334,7 +334,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute evaluation A₀(r)
-        mem.foldPosEvaluations = PCS.computeGeminiBatchedUnivariateEvaluation(
+        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = PCS.computeGeminiBatchedUnivariateEvaluation(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
@@ -343,8 +343,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         );
 
         mem.constantTermAccumulator = Fr.wrap(0);
-        mem.constantTermAccumulator =
-            mem.constantTermAccumulator + (mem.foldPosEvaluations[0] * mem.posInvertedDenominator);
+        mem.constantTermAccumulator = mem.constantTermAccumulator + (foldPosEvaluations[0] * mem.posInvertedDenominator);
         mem.constantTermAccumulator =
             mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.negInvertedDenominator);
 
@@ -364,7 +363,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             }
 
             Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
-            accumContribution = accumContribution + mem.scalingFactorPos * mem.foldPosEvaluations[i + 1];
+            accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
             mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
 
