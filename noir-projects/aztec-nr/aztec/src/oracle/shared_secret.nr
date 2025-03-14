@@ -4,6 +4,7 @@ use dep::protocol_types::{
     traits::Deserialize,
 };
 
+// TODO(#12656): return an app-siloed secret + document this
 #[oracle(getSharedSecret)]
 pub unconstrained fn get_shared_secret_oracle(
     address: AztecAddress,
