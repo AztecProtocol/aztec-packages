@@ -286,16 +286,19 @@ pub(crate) comptime fn find_and_transform_top_level_unconstrained_fns(m: Module)
             & !f.has_named_attribute("test")
     });
 
-    // We don't expect to see any custom constrained entrypoints (i.e. private functions created outside of aztec-nr's
-    // #[private] macro, possibly resulting in a non-standard interface).
-    for f in non_private_public_entrypoint_functions.filter(|f: FunctionDefinition| {
-        !f.is_unconstrained()
-    }) {
-        let name = f.name();
-        println(
-            f"warning: found private contract function '{name}' which does not have the #[private] attribute - make sure you know what you're doing!",
-        );
-    }
+    // TODO: uncomment the code below and emit a warning once support for them is added to Noir (tracked in
+    // https://github.com/noir-lang/noir/issues/7714). We can't simply print a message since that'd otherwise break the
+    // output of utils such as `nargo test --list-tests`.
+    // // We don't expect to see any custom constrained entrypoints (i.e. private functions created outside of aztec-nr's
+    // // #[private] macro, possibly resulting in a non-standard interface).
+    // for f in non_private_public_entrypoint_functions.filter(|f: FunctionDefinition| {
+    //     !f.is_unconstrained()
+    // }) {
+    //     let name = f.name();
+    //     warn(
+    //         f"found private contract function '{name}' which does not have the #[private] attribute - make sure you know what you're doing!",
+    //     );
+    // }
 
     // An unconstrained contract entrypoints is what we call a top-level unconstrained function, to which we apply the
     // appropriate transformation. Ideally these would be explicitly designated as such instead.
