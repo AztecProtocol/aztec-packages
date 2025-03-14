@@ -171,29 +171,66 @@ template <typename Flavor> class SumcheckProverRound {
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
         size_t num_threads = bb::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
 
-        // In the AVM, the trace is more dense at the top and therefore it is worth to split the work over the threads
-        // a bit more evenly on the vertical axis. To achieve this, we split the trace into chunks and each thread
-        // processes one part of the chunk.
+        // In the AVM, the trace is more dense at the top and therefore it is worth to split the work per thread
+        // in a more distributed way over the edges. To achieve this, we split the trace into chunks and each chunk is
+        // evenly divided among the threads. Below we name a portion in the chunk being processed by any given thread
+        // a "chunk thread portion".
+        // We have: round_size = num_of_chunks * chunk_size and chunk_size = num_threads * chunk_thread_portion_size
+        // Important invariant: round_size = num_of_chunks * num_threads * chunk_thread_portion_size
+        // All the involved values are power of 2. We also require chunk_thread_portion_size >= 2
+        // because a "work unit" cannot be smaller than 2 as extended_edges() process 2 edges at a time.
+        //
+        // Example: round_size = 4096, num_threads = 16, chunk_thread_portion_size = 8
+        // - chunk_size = 16 * 8 = 128
+        // - num_of_chunks = 4096/128 = 32
+        //
+        // For each chunk with index chunk_idx, the thread with index thread_idx will process the edges
+        // in range starting at index: chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size
+        // up to index (not included): chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size
+        //
+        // Pattern over edges is now:
+        //
+        //          chunk_0             |           chunk_1             |         chunk_2 ....
+        //  thread_0 | thread_1 ...     | thread_0 | thread_1 ...       | thread_0 | thread_1 ...
+        //
+        // Any thread now processes edges which are distributed at different locations in the trace contrary
+        // to the "standard" method where thread_0 processes all the low indices and the last thread processes
+        // all the high indices.
+        //
+        // This "chunk mechanism" is only enabled for the AVM at the time being and is guarded
+        // by a compile time routine (specifiesUnivariateChunks<Flavor>) checking whether the constant
+        // MAX_CHUNK_THREAD_PORTION_SIZE is defined in the flavor.
+        // This constant defines the maximum value for chunk_thread_portion_size. Whenever the round_size
+        // is large enough, we set chunk_thread_portion_size = MAX_CHUNK_THREAD_PORTION_SIZE. When it is
+        // not possible we use a smaller value but must be at least 2 as mentioned above. If chunk_thread_portion_size
+        // is not at least 2, we fallback to using a single chunk.
+        // Note that chunk_size and num_of_chunks are not constant but are derived by round_size, num_threads and
+        // the chunk_thread_portion_size which needs to satisfy:
+        // 1) 2 <= chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE
+        // 2) chunk_thread_portion_size * num_threads <= round_size
         // For the non-AVM flavors, we use a single chunk.
 
         // Non AVM flavors
         size_t num_of_chunks = 1;
         size_t chunk_thread_portion_size = round_size / num_threads;
 
-        // AVM flavor
+        // AVM flavor (guarded by defined constant MAX_CHUNK_THREAD_PORTION_SIZE in flavor)
         if constexpr (specifiesUnivariateChunks<Flavor>) {
             // This constant is assumed to be a power of 2 greater or equal to 2.
             static_assert(Flavor::MAX_CHUNK_THREAD_PORTION_SIZE >= 2);
             static_assert((Flavor::MAX_CHUNK_THREAD_PORTION_SIZE & (Flavor::MAX_CHUNK_THREAD_PORTION_SIZE - 1)) == 0);
 
-            const auto thread_portion_size_candidate =
-                std::min(round_size / num_threads, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
-
-            // When the trace is shrunk to a point where the chunk portion size per thread is lower than 2,
+            // When the number of edges is so small that the chunk portion size per thread is lower than 2,
             // we fall back to a single chunk, i.e., we keep the "non-AVM" values.
-            if (thread_portion_size_candidate >= 2) {
-                chunk_thread_portion_size = thread_portion_size_candidate;
+            if (round_size / num_threads >= 2) {
+                chunk_thread_portion_size = std::min(round_size / num_threads, Flavor::MAX_CHUNK_THREAD_PORTION_SIZE);
                 num_of_chunks = round_size / (chunk_thread_portion_size * num_threads);
+                // We show that chunk_thread_portion_size satisfies 1) and 2) defined above.
+                // From "std::min()": chunk_thread_portion_size <= round_size/num_threads implying 2)
+                // From static_assert above, and "if condition", we know that both values in "std::min()"
+                // are >= 2 and therefore: chunk_thread_portion_size >= 2
+                // Finally, "std::min()" guarantees that: chunk_thread_portion_size <= MAX_CHUNK_THREAD_PORTION_SIZE
+                // which completes 1).
             }
         }
 
