@@ -73,12 +73,14 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
-        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, /*pubInputsOffset=*/1);
+        ZKTranscript memory t =
+            ZKTranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, /*pubInputsOffset=*/ 1);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
-        t.relationParameters.publicInputsDelta =
-            computePublicInputDelta(publicInputs, t.relationParameters.beta, t.relationParameters.gamma, /*pubInputsOffset=*/1);
+        t.relationParameters.publicInputsDelta = computePublicInputDelta(
+            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, /*pubInputsOffset=*/ 1
+        );
 
         // Sumcheck
         if (!verifySumcheck(p, t)) revert SumcheckFailed();
@@ -354,13 +356,15 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute evaluation A₀(r)
-        Fr a_0_pos = PCS.computeGeminiBatchedUnivariateEvaluation(
+        mem.foldPosEvaluations = PCS.computeGeminiBatchedUnivariateEvaluation(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
             powers_of_evaluation_challenge,
             logN
         );
+
+        Fr a_0_pos = mem.foldPosEvaluations[0];
 
         mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * mem.inverse_vanishing_denominators[0]);
         mem.constantTermAccumulator = mem.constantTermAccumulator

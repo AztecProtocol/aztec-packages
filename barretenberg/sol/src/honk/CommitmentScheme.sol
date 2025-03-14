@@ -33,6 +33,7 @@ library CommitmentSchemeLib {
         Fr[4] denominators;
         Fr[4] batchingScalars;
         Fr[CONST_PROOF_SIZE_LOG_N + 1] inverse_vanishing_denominators;
+        Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
     }
 
     function computeSquares(Fr r) internal pure returns (Fr[CONST_PROOF_SIZE_LOG_N] memory squares) {
@@ -64,7 +65,7 @@ library CommitmentSchemeLib {
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers,
         uint256 logSize
-    ) internal view returns (Fr a_0_pos) {
+    ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations) {
         for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = sumcheckUChallenges[i - 1];
@@ -78,9 +79,10 @@ library CommitmentSchemeLib {
 
             if (i <= logSize) {
                 batchedEvalAccumulator = batchedEvalRoundAcc;
+                foldPosEvaluations[CONST_PROOF_SIZE_LOG_N - i] = batchedEvalRoundAcc;
+            } else {
+                foldPosEvaluations[CONST_PROOF_SIZE_LOG_N - i] = ZERO;
             }
         }
-
-        a_0_pos = batchedEvalAccumulator;
     }
 }
