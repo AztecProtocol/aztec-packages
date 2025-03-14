@@ -22,13 +22,13 @@ $NARGO_BACKEND_PATH OLD_API contract -k $KEYS/1_mul -o $contracts_dir/1_mul.sol
 
 # Codegen verifier contract for assert_statement
 assert_statement_dir=$repo_root/test_programs/execution_success/assert_statement
-nargo --program-dir $assert_statement_dir compile
+nargo --program-dir $assert_statement_dir compile --pedantic-solving
 $NARGO_BACKEND_PATH OLD_API write_vk -b $assert_statement_dir/target/assert_statement.json -o $KEYS/assert_statement
 $NARGO_BACKEND_PATH OLD_API contract -k $KEYS/assert_statement -o $contracts_dir/assert_statement.sol
 
 # Codegen verifier contract for recursion
 recursion_dir=$repo_root/compiler/integration-tests/circuits/recursion
-nargo --program-dir $recursion_dir compile
+nargo --program-dir $recursion_dir compile --pedantic-solving
 $NARGO_BACKEND_PATH OLD_API write_vk -b $recursion_dir/target/recursion.json -o $KEYS/recursion
 $NARGO_BACKEND_PATH OLD_API contract -k $KEYS/recursion -o $contracts_dir/recursion.sol
 

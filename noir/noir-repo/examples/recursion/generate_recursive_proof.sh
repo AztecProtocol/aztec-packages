@@ -3,7 +3,7 @@ set -eu
 
 BACKEND=${BACKEND:-bb}
 
-nargo execute sum_witness --package sum
+nargo execute sum_witness --package sum --pedantic-solving
 $BACKEND OLD_API prove -b ./target/sum.json -w ./target/sum_witness.gz -o ./target/sum_proof --recursive
 
 # Once we have generated our inner proof, we must use this to generate inputs to `recurse_leaf``
@@ -27,7 +27,7 @@ echo "public_inputs = $PUBLIC_INPUTS" >> $RECURSE_LEAF_PROVER_TOML
 
 # We can now execute and prove `recurse_leaf`
 
-nargo execute recurse_leaf_witness --package recurse_leaf
+nargo execute recurse_leaf_witness --package recurse_leaf --pedantic-solving
 $BACKEND OLD_API prove -b ./target/recurse_leaf.json -w ./target/recurse_leaf_witness.gz -o ./target/recurse_leaf_proof --recursive
 
 # Let's do a sanity check that the proof we've generated so far is valid.
@@ -53,7 +53,7 @@ echo "public_inputs = $PUBLIC_INPUTS" >> $RECURSE_NODE_PROVER_TOML
 
 # We can now execute and prove `recurse_node`
 
-nargo execute recurse_node_witness --package recurse_node
+nargo execute recurse_node_witness --package recurse_node --pedantic-solving
 $BACKEND OLD_API prove -b ./target/recurse_node.json -w ./target/recurse_node_witness.gz -o ./target/recurse_node_proof
 
 # We finally verify that the generated recursive proof is valid.
