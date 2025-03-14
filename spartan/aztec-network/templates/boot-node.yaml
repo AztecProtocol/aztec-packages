@@ -111,6 +111,8 @@ spec:
               value: "{{ .Values.ethereum.l1GasPriceMax }}"
             - name: L1_FIXED_PRIORITY_FEE_PER_GAS
               value: "{{ .Values.ethereum.l1FixedPriorityFeePerGas }}"
+            - name: AZTEC_MANA_TARGET
+              value: "{{ .Values.aztec.manaTarget }}"
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -234,8 +236,8 @@ spec:
             {{- end }}
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
-            - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
-            - containerPort: {{ .Values.bootNode.service.p2pUdpPort }}
+            - containerPort: {{ .Values.bootNode.service.p2pPort }}
+            - containerPort: {{ .Values.bootNode.service.p2pPort }}
               protocol: UDP
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
@@ -282,9 +284,9 @@ spec:
   ports:
     # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
     {{- if not .Values.network.public }}
-    - port: {{ .Values.bootNode.service.p2pTcpPort }}
+    - port: {{ .Values.bootNode.service.p2pPort }}
       name: p2p-tcp
-    - port: {{ .Values.bootNode.service.p2pUdpPort }}
+    - port: {{ .Values.bootNode.service.p2pPort }}
       name: p2p-udp
       protocol: UDP
     {{- end }}

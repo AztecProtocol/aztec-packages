@@ -45,29 +45,20 @@ class WorkerClientManager {
   }
 
   /**
-   * Creates address strings from a port
-   */
-  private getAddresses(port: number) {
-    return {
-      addr: `127.0.0.1:${port}`,
-      listenAddr: `0.0.0.0:${port}`,
-    };
-  }
-
-  /**
    * Creates a client configuration object
    */
-  private createClientConfig(clientIndex: number, port: number, otherNodes: string[]) {
-    const { addr, listenAddr } = this.getAddresses(port);
-
+  private createClientConfig(
+    clientIndex: number,
+    port: number,
+    otherNodes: string[],
+  ): P2PConfig & Partial<ChainConfig> {
     return {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
       peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
-      tcpListenAddress: listenAddr,
-      udpListenAddress: listenAddr,
-      tcpAnnounceAddress: addr,
-      udpAnnounceAddress: addr,
+      listenAddress: '127.0.0.1',
+      p2pIp: '127.0.0.1',
+      p2pPort: port,
       bootstrapNodes: [...otherNodes],
       ...this.p2pConfig,
     };

@@ -35,11 +35,12 @@ export function injectCommands(program: Command, log: LogFn) {
     .summary('Generates the encoded ENR record for a bootnode.')
     .description('Generates the encoded ENR record for a bootnode.')
     .argument('<privateKey>', 'The peer id private key of the bootnode')
-    .argument('<udpAnnounceAddress>', 'The bootnode UDP announce address')
+    .argument('<p2pIp>', 'The bootnode P2P IP address')
+    .argument('<p2pPort>', 'The bootnode P2P port')
     .addOption(l1ChainIdOption)
-    .action(async (privateKey: string, udpAnnounceAddress: string, options) => {
+    .action(async (privateKey: string, p2pIp: string, p2pPort: number, options) => {
       const { generateEncodedBootnodeENR } = await import('./generate_bootnode_enr.js');
-      await generateEncodedBootnodeENR(privateKey, udpAnnounceAddress, options.l1ChainId, log);
+      await generateEncodedBootnodeENR(privateKey, p2pIp, p2pPort, options.l1ChainId, log);
     });
 
   program

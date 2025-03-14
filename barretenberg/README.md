@@ -473,11 +473,49 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
 
-#### Using Tracy to Profile Memory/CPU
+#### Using Tracy to Profile Memory/CPU/Gate Counts
+
+Tracy is a tool that gives us an in-depth look at certain performance related metrics, including memory, CPU usage, time, and circuit gate counts.
 
 See Tracy manual linked here <https://github.com/wolfpld/tracy> for in-depth Tracy documentation.
 
-The basic use of Tracy is to run a benchmark with the `cmake --preset tracy` build type, create a capture file, then
-transfer it to a local machine for interactive UI introspection.
+The basic use of Tracy is to run a benchmark with the `cmake --preset tracy-memory` build type, or any of the other tracy presets, create a capture file, then transfer it to a local machine for interactive UI introspection.
 
-All the steps to do this effectively are included in various scripts in cpp/scripts/.
+The steps to do this effectively are included in various scripts in cpp/scripts/. The main one to look at is the profile_tracy_capture_mainframe_view_local.sh script. This will capture on the mainframe and copy the script locally for you to view on a GUI. Unfortunately, this script is meant for internal use only, but there exists other variants of this script like profile_tracy_local.sh that don't depend on our internal mainframe.
+
+##### Set Up and Script Usage
+
+For profile_tracy_capture_mainframe_view_local.sh, the first step is copying this script locally either manually or using scp.
+Now, you need to specify a few environment variables. The first is the USER. This is just your mainframe username, likely just your first name. Next, the BENCHMARK is the target or executable you are trying to build in barretenberg. The COMMAND should be set to the command you want to run, usually some google benchmark or some flow through bb. Lastly, the PRESET is defaulted to the memory one, but could be changed to a different one if you wanted to measure gates or time instead.
+
+It shouldn't matter where the script is locally. You can now try running the script with the env vars set, or with them as arguments like this:
+
+```
+./profile_tracy_capture_mainframe_view_local.sh <USER> <BENCHMARK> <COMMAND>
+```
+
+The script will ssh to the mainframe and then build the BENCHMARK specified and run the COMMAND specified. It will capture the tracy data in a trace while the COMMAND is run. Then, it will scp this trace to your local machine, build the profiler with cmake, and pop open the GUI for viewing.
+
+##### Using the GUI
+
+The view will likely be cluttered with a lot of information. This is because we set our HARDWARE_CONCURRENCY to 16 by default, so you will get 16 different rows of zones, and then a row with the memory graph , and lastly a time graph. In the Options tab in the top left, we can declutter this through the visibility options which allow you to toggle on and off the zones for the non-main threads. We can usually opt to only keep the zones for the main thread, but maybe keeping around one or a few non-main threads is also useful.
+
+The Find Zone tab is also of use to locate specific zones you care about. Searching for zones will highlight them in the GUI.
+
+The Statistics tab will tell you about time spent in each zone and an overall breakdown of time. Note that time may be inaccurate since tracy adds overhead.
+
+The Memory tab is very useful. It allows you to limit a range (Limit Range checkbox), look at all of the allocations (things that got allocated in the range) and active allocations (allocations that were not freed), and a rough Memory Map so you can get a sense of fragmentation. You can also see the stack trace for a particular memory alloc or free, if you click "alloc" or "free" while looking at the allocations or active allocations list, which is extremely useful. There's also a more global bottom up and top down allocation tree which can show the locations of major allocations.
+
+In terms of general usage, you should be able to use scrolling or the WASD keys to zoom in/out and go left and right in the GUI. You can also Command/Ctrl + click + drag to look at particular range, which tells you the time of that range, and allows you to better pick the zone you want to limit to.
+
+##### Adding Zones
+
+Zones are how you can keep track of where you are relative in the code and how you can bucket allocations together. All of the colored blocks in the Main Thread row and other threads' rows refer to zones. You can nest zones in deeper and deeper scopes, which leads to stacks of these zones. To add a named zone, all you have to do is add PROFILE_THIS() or PROFILE_THIS_NAME(<name>) to a scope and it will create a zone. Note that you can't create multiple zones in the same scope.
+
+##### Analyzing Fragmentation
+
+The main memory graph will only keep track of a sum of active allocations, which can be misleading as it omits possible fragmentation. The most useful tools for analyzing fragmentation are in the Memory tab. Here, in the active allocations/allocations subtabs, you can see the exact addresses that certain allocations are located at. Moreover, you can look at when they are allocated and freed exactly, and the stack traces of those allocate/free calls. The Memory map also gives a more visual layout of memory, as it shows the layout of allocations in memory.
+
+##### Final Thoughts
+
+What's described here is mostly relating to memory, but should in part pertain to time, gate count, and other metric analysis that we have set up with tracy. It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only this displayed Memory usage number; please account for real memory usage which must include memory fragmentation.

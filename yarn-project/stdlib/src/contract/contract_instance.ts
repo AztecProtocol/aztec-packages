@@ -2,7 +2,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector, getDefaultInitializer } from '../abi/index.js';
+import {
+  type ContractArtifact,
+  type FunctionAbi,
+  type FunctionArtifact,
+  FunctionSelector,
+  getAllFunctionAbis,
+  getDefaultInitializer,
+} from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { PublicKeys } from '../keys/public_keys.js';
@@ -101,7 +108,7 @@ export class SerializableContractInstance {
 export async function getContractInstanceFromDeployParams(
   artifact: ContractArtifact,
   opts: {
-    constructorArtifact?: FunctionArtifact | string;
+    constructorArtifact?: FunctionAbi | string;
     constructorArgs?: any[];
     skipArgsDecoding?: boolean;
     salt?: Fr;
@@ -138,14 +145,15 @@ export async function getContractInstanceFromDeployParams(
 
 function getConstructorArtifact(
   artifact: ContractArtifact,
-  requestedConstructorArtifact: FunctionArtifact | string | undefined,
-): FunctionArtifact | undefined {
+  requestedConstructorArtifact: FunctionArtifact | FunctionAbi | string | undefined,
+): FunctionAbi | undefined {
   if (typeof requestedConstructorArtifact === 'string') {
-    const found = artifact.functions.find(fn => fn.name === requestedConstructorArtifact);
+    const found = getAllFunctionAbis(artifact).find(fn => fn.name === requestedConstructorArtifact);
     if (!found) {
       throw new Error(`No constructor found with name ${requestedConstructorArtifact}`);
     }
     return found;
   }
+  // TODO: shouldn't we check that requestedConstructorArtifact exists on artifact before returning?
   return requestedConstructorArtifact ?? getDefaultInitializer(artifact);
 }

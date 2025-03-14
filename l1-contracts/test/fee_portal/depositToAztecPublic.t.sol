@@ -8,7 +8,8 @@ import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {Rollup} from "../harnesses/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -34,7 +35,14 @@ contract DepositToAztecPublic is Test {
     token.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.initialize();
     rewardDistributor = new RewardDistributor(token, registry, address(this));
-    rollup = new Rollup(feeJuicePortal, rewardDistributor, token, address(this));
+    rollup = new Rollup(
+      feeJuicePortal,
+      rewardDistributor,
+      token,
+      address(this),
+      TestConstants.getGenesisState(),
+      TestConstants.getRollupConfigInput()
+    );
 
     vm.prank(OWNER);
     registry.upgrade(address(rollup));
@@ -65,7 +73,14 @@ contract DepositToAztecPublic is Test {
 
     uint256 numberOfRollups = bound(_numberOfRollups, 1, 5);
     for (uint256 i = 0; i < numberOfRollups; i++) {
-      Rollup freshRollup = new Rollup(feeJuicePortal, rewardDistributor, token, address(this));
+      Rollup freshRollup = new Rollup(
+        feeJuicePortal,
+        rewardDistributor,
+        token,
+        address(this),
+        TestConstants.getGenesisState(),
+        TestConstants.getRollupConfigInput()
+      );
       vm.prank(OWNER);
       registry.upgrade(address(freshRollup));
     }

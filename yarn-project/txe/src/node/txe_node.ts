@@ -1,10 +1,9 @@
-import {
-  type ARCHIVE_HEIGHT,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  type PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+import type {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import type { L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -12,7 +11,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type InBlock, L2Block, L2BlockHash, type L2BlockNumber, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type InBlock,
+  L2Block,
+  L2BlockHash,
+  type L2BlockNumber,
+  type L2Tips,
+  type PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractInstanceWithAddress,
@@ -139,7 +145,7 @@ export class TXENode implements AztecNode {
 
     const nullifiersInBlock: Fr[] = [];
     for (const [key, val] of this.#blockNumberToNullifiers.entries()) {
-      if (key < parsedBlockNumber) {
+      if (key <= parsedBlockNumber) {
         nullifiersInBlock.push(...val);
       }
     }
@@ -170,13 +176,15 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Adds note logs to the txe node, given a block
-   * @param blockNumber - The block number at which to add the note logs.
-   * @param privateLogs - The privateLogs that contain the note logs to be added.
+   * Adds private logs to the txe node, given a block
+   * @param blockNumber - The block number at which to add the private logs.
+   * @param privateLogs - The privateLogs that contain the private logs to be added.
    */
-  addNoteLogsByTags(blockNumber: number, privateLogs: PrivateLog[]) {
+  addPrivateLogsByTags(blockNumber: number, privateLogs: PrivateLog[]) {
     privateLogs.forEach(log => {
       const tag = log.fields[0];
+      this.#logger.verbose(`Found private log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
+
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
       const scopedLog = new TxScopedL2Log(
         new TxHash(new Fr(blockNumber)),
@@ -189,7 +197,6 @@ export class TXENode implements AztecNode {
       this.#logsByTags.set(tag.toString(), currentLogs);
     });
 
-    // TODO: DISTINGUISH BETWEEN EVENT LOGS AND NOTE LOGS ?
     this.#noteIndex += privateLogs.length;
   }
 
@@ -200,30 +207,8 @@ export class TXENode implements AztecNode {
    */
   addPublicLogsByTags(blockNumber: number, publicLogs: PublicLog[]) {
     publicLogs.forEach(log => {
-      // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
-      const firstFieldBuf = log.log[0].toBuffer();
-      // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
-      // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
-      if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
-        // See parseLogFromPublic - the first field of a tagged log is 5 bytes structured:
-        // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
-        this.#logger.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
-        return;
-      }
-      // Check that the length values line up with the log contents
-      const publicValuesLength = firstFieldBuf.subarray(-5).readUint16BE();
-      const privateValuesLength = firstFieldBuf.subarray(-5).readUint16BE(3);
-      // Add 1 for the first field holding lengths
-      const totalLogLength = 1 + publicValuesLength + privateValuesLength;
-      // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
-      if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
-        this.#logger.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
-        return;
-      }
-      // The first elt stores lengths => tag is in fields[1]
-      const tag = log.log[1];
-
-      this.#logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
+      const tag = log.log[0];
+      this.#logger.verbose(`Found public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
       const scopedLog = new TxScopedL2Log(
@@ -245,9 +230,9 @@ export class TXENode implements AztecNode {
    array implies no logs match that tag.
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    const noteLogs = tags.map(tag => this.#logsByTags.get(tag.toString()) ?? []);
+    const logs = tags.map(tag => this.#logsByTags.get(tag.toString()) ?? []);
 
-    return Promise.resolve(noteLogs);
+    return Promise.resolve(logs);
   }
 
   /**
@@ -448,6 +433,10 @@ export class TXENode implements AztecNode {
    */
   getBlocks(_from: number, _limit: number): Promise<L2Block[]> {
     throw new Error('TXE Node method getBlocks not implemented');
+  }
+
+  getPublishedBlocks(_from: number, _limit: number): Promise<PublishedL2Block[]> {
+    throw new Error('TXE Node method getPublishedBlocks not implemented');
   }
 
   /**

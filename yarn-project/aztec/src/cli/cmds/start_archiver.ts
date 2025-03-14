@@ -6,7 +6,12 @@ import {
   getArchiverConfigFromEnv,
 } from '@aztec/archiver';
 import { createLogger } from '@aztec/aztec.js';
-import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import {
+  type BlobSinkConfig,
+  blobSinkConfigMapping,
+  createBlobSinkClient,
+  getBlobSinkConfigFromEnv,
+} from '@aztec/blob-sink/client';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
@@ -24,10 +29,10 @@ export async function startArchiver(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
 ): Promise<{ config: ArchiverConfig & DataStoreConfig }> {
-  const envConfig = { ...getArchiverConfigFromEnv(), ...getDataConfigFromEnv() };
-  const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig>(
+  const envConfig = { ...getArchiverConfigFromEnv(), ...getDataConfigFromEnv(), ...getBlobSinkConfigFromEnv() };
+  const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig & BlobSinkConfig>(
     options,
-    { ...archiverConfigMappings, ...dataConfigMappings },
+    { ...archiverConfigMappings, ...dataConfigMappings, ...blobSinkConfigMapping },
     'archiver',
   );
 
@@ -51,8 +56,7 @@ export async function startArchiver(
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/10056): place CL url in config here
-  const blobSinkClient = createBlobSinkClient();
+  const blobSinkClient = createBlobSinkClient(archiverConfig);
   const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobSinkClient }, true);
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);

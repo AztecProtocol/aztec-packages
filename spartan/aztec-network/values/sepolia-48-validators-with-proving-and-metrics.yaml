@@ -4,6 +4,7 @@ telemetry:
 aztec:
   realProofs: true
   l1DeploymentMnemonic: ""
+  numberOfDefaultAccounts: 0
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 48
   botKeyIndexStart: 49
@@ -32,9 +33,6 @@ validator:
   replicas: 48
   l1GasPriceMax: 500
   storageSize: "100Gi"
-  resources:
-    requests:
-      memory: "512Mi"
   validatorKeys:
   validator:
     disabled: false

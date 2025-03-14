@@ -108,8 +108,8 @@ unconstrained fn destructure_log_plaintext(
     // combined type ID. We can do this because the note type ID is only 7 bits long, and so use an 8th bit to
     // distinguish private note logs and partial note logs.
     // This abuses the fact that the encoding of both of these logs is extremely similar, and will need improving and
-    // more formalization once we introduce other disimilar log types, such as events. Ideally we'd be able to leverage
-    // enums and tagged unions to achieve this goal.
+    // more formalization once we introduce other dissimilar log types, such as events. Ideally we'd be able to
+    // leverage enums and tagged unions to achieve this goal.
     let combined_type_id = log_plaintext.get(1);
     let note_type_id = ((combined_type_id as u64) % 128) as Field;
     let log_type_id = ((combined_type_id as u64) / 128) as Field;
