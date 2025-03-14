@@ -9,6 +9,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { jest } from '@jest/globals';
+import { encode } from '@msgpack/msgpack';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
