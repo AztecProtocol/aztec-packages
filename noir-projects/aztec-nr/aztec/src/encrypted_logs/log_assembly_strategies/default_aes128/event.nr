@@ -14,13 +14,11 @@ use crate::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
-    oracle::{
-        notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::{get_random_bytes, random_with_max_byte_size},
-    },
+    oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
     utils::{
         conversion::{bytes_to_fields::bytes_to_fields, fields_to_bytes::fields_to_bytes},
         point::get_sign_of_point,
+        random::{get_random_bytes, random_with_max_byte_size},
     },
 };
 use dep::protocol_types::{

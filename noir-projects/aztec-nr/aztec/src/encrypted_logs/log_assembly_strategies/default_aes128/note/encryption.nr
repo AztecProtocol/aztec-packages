@@ -12,7 +12,6 @@ use crate::{
     oracle::{
         aes128_decrypt::aes128_decrypt_oracle,
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::{get_random_bytes, random_with_max_byte_size},
         shared_secret::get_shared_secret,
     },
     utils::{
@@ -22,6 +21,7 @@ use crate::{
             fields_to_bytes::{fields_from_bytes, fields_to_bytes},
         },
         point::{get_sign_of_point, point_from_x_coord_and_sign},
+        random::{get_random_bytes, random_with_max_byte_size},
     },
 };
 use protocol_types::{address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::ToField};
