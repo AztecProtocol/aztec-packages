@@ -1,4 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -258,6 +259,14 @@ describe('In-Memory P2P Client', () => {
       expect(attestationPool.addAttestations).toHaveBeenCalledWith(
         block.signatures.map(signature => expect.objectContaining({ signature })),
       );
+    });
+
+    it('handles empty signatures in block stream events', async () => {
+      await client.start();
+      const block = await randomPublishedL2Block(1);
+      block.signatures[0] = Signature.empty();
+      await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      expect(attestationPool.addAttestations).toHaveBeenCalledWith([]);
     });
   });
 });
