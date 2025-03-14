@@ -210,7 +210,7 @@ describe('sequencer', () => {
     publicProcessor.process.mockImplementation(async txsIter => {
       const txs = await toArray(txsIter);
       const processed = await processTxs(txs);
-      logger.verbose(`Processed ${txs.length} txs`, { txHashes: txs.map(tx => tx.getTxHash()) });
+      logger.verbose(`Processed ${txs.length} txs`, { txHashes: await Promise.all(txs.map(tx => tx.getTxHash())) });
       return [processed, [], []];
     });
 

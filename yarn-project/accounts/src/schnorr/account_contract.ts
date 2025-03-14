@@ -17,9 +17,9 @@ export abstract class SchnorrBaseAccountContract extends DefaultAccountContract 
     super();
   }
 
-  async getDeploymentArgs() {
+  async getDeploymentFunctionAndArgs() {
     const signingPublicKey = await new Schnorr().computePublicKey(this.signingPrivateKey);
-    return [signingPublicKey.x, signingPublicKey.y];
+    return { constructorName: 'constructor', constructorArgs: [signingPublicKey.x, signingPublicKey.y] };
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {

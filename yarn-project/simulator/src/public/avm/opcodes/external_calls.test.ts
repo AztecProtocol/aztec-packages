@@ -6,7 +6,7 @@ import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec
 import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
 import { markBytecodeAsAvm } from '../bytecode_utils.js';
@@ -29,14 +29,16 @@ import { SStore } from './storage.js';
 
 describe('External Calls', () => {
   let context: AvmContext;
-  let worldStateDB: WorldStateDB;
+  let treesDB: PublicTreesDB;
+  let contractsDB: PublicContractsDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
   beforeEach(() => {
-    worldStateDB = mock<WorldStateDB>();
+    treesDB = mock<PublicTreesDB>();
+    contractsDB = mock<PublicContractsDB>();
     trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ worldStateDB, trace });
+    persistableState = initPersistableStateManager({ treesDB, contractsDB, trace });
     context = initContext({ persistableState });
     mockTraceFork(trace); // make sure trace.fork() works on nested call
   });
@@ -130,11 +132,11 @@ describe('External Calls', () => {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
-      mockGetContractClass(worldStateDB, contractClass);
-      mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+      mockGetContractClass(contractsDB, contractClass);
+      mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-      mockGetContractInstance(worldStateDB, contractInstance);
-      mockGetNullifierIndex(worldStateDB, contractInstance.address.toField());
+      mockGetContractInstance(contractsDB, contractInstance);
+      mockGetNullifierIndex(treesDB, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -182,17 +184,17 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
-      mockGetNullifierIndex(worldStateDB, addr);
+      mockGetNullifierIndex(treesDB, addr);
 
       const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
-      mockGetContractClass(worldStateDB, contractClass);
-      mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+      mockGetContractClass(contractsDB, contractClass);
+      mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-      mockGetContractInstance(worldStateDB, contractInstance);
-      mockGetNullifierIndex(worldStateDB, contractInstance.address.toField());
+      mockGetContractInstance(contractsDB, contractInstance);
+      mockGetNullifierIndex(treesDB, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -263,16 +265,16 @@ describe('External Calls', () => {
       ];
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
-      mockGetNullifierIndex(worldStateDB, addr.toFr());
+      mockGetNullifierIndex(treesDB, addr.toFr());
 
       const contractClass = await makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
         selector: FunctionSelector.random(),
       });
-      mockGetContractClass(worldStateDB, contractClass);
-      mockGetBytecodeCommitment(worldStateDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
+      mockGetContractClass(contractsDB, contractClass);
+      mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
-      mockGetContractInstance(worldStateDB, contractInstance);
+      mockGetContractInstance(contractsDB, contractInstance);
 
       const instruction = new StaticCall(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);

@@ -1,6 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../../public_db_sources.js';
 
 /**
  * A class to manage new nullifier staging and existence checks during a contract call's AVM simulation.
@@ -10,7 +10,7 @@ import type { WorldStateDB } from '../../public_db_sources.js';
 export class NullifierManager {
   constructor(
     /** Reference to node storage. Checked on parent cache-miss. */
-    private readonly hostNullifiers: WorldStateDB,
+    private readonly hostNullifiers: PublicTreesDB,
     /** Cache of siloed nullifiers. */
     private cache: Set<bigint> = new Set(),
     /** Parent nullifier manager to fall back on */

@@ -232,8 +232,11 @@ export class EpochProvingJob implements Traceable {
     const [processedTxs, failedTxs] = await publicProcessor.process(txs, { deadline });
 
     if (failedTxs.length) {
+      const failedTxHashes = await Promise.all(failedTxs.map(({ tx }) => tx.getTxHash()));
       throw new Error(
-        `Txs failed processing: ${failedTxs.map(({ tx, error }) => `${tx.getTxHash()} (${error})`).join(', ')}`,
+        `Txs failed processing: ${failedTxs
+          .map(({ error }, index) => `${failedTxHashes[index]} (${error})`)
+          .join(', ')}`,
       );
     }
 
