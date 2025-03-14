@@ -108,4 +108,3 @@ Note that MegaHonk:
 ### Maximum circuit size
 
 Currently the binary downloads an SRS that can be used to prove the maximum circuit size. This maximum circuit size parameter is a constant in the code and has been set to $2^{23}$ as of writing. This maximum circuit size differs from the maximum circuit size that one can prove in the browser, due to WASM limits.
-w
