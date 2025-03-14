@@ -215,7 +215,8 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
    */
   public override async checkNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
-    return this.executionDataProvider.checkNullifierExists(nullifier);
+    const index = await this.executionDataProvider.getNullifierIndex(nullifier);
+    return index !== undefined;
   }
 
   /**

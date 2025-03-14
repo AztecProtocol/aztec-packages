@@ -216,4 +216,8 @@ export class SequencerClient {
   get forwarderAddress(): EthAddress {
     return this.sequencer.getForwarderAddress();
   }
+
+  get validatorAddress(): EthAddress | undefined {
+    return this.sequencer.getValidatorAddress();
+  }
 }

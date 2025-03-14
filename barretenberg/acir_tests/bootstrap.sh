@@ -17,6 +17,54 @@ tests_hash=$(cache_content_hash \
     ../cpp/.rebuild_patterns \
     ../ts/.rebuild_patterns)
 
+# Generate inputs for a given recursively verifying program.
+function run_proof_generation() {
+    local program=$1
+    local outdir=$(mktemp -d)
+    trap "rm -rf $outdir" EXIT
+    local adjustment=16
+    local ipa_accumulation_flag=""
+
+    # Adjust settings based on program type
+    if [[ $program == *"rollup"* ]]; then
+        adjustment=26
+        ipa_accumulation_flag="--ipa_accumulation"
+    fi
+    local prove_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+    echo_stderr "$prove_cmd"
+    dump_fail "$prove_cmd"
+
+    local vk_fields=$(cat "$outdir/vk_fields.json")
+    local proof_fields=$(cat "$outdir/proof_fields.json")
+    local num_inner_public_inputs=$(( 16#$(echo "$vk_fields" | jq -r '.[1] | ltrimstr("0x")') - adjustment ))
+
+    echo "num_inner_public_inputs for $program = $num_inner_public_inputs"
+
+    generate_toml "$program" "$vk_fields" "$proof_fields" "$num_inner_public_inputs"
+}
+
+function generate_toml() {
+    local program=$1
+    local vk_fields=$2
+    local proof_fields=$3
+    local num_inner_public_inputs=$4
+    local output_file="../$program/Prover.toml"
+    local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
+
+    jq -nr \
+        --arg key_hash "$key_hash" \
+        --argjson vkf "$vk_fields" \
+        --argjson prooff "$proof_fields" \
+        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
+        '[
+          "key_hash = \($key_hash)",
+          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
+          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
+          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
+          '"$( [[ $program == *"double"* ]] && echo ',"proof_b = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]"' )"'
+        ] | join("\n")' > "$output_file"
+}
+
 function build {
   echo_header "acir_tests build"
 
@@ -26,17 +74,23 @@ function build {
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
+    # Don't compile these until we generate their inputs
+    rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}
 
     # COMPILE=2 only compiles the test.
     denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
-    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1279): Fix this workflow.
-    echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
+    cp -R ../../noir/noir-repo/test_programs/execution_success/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof} acir_tests
+    echo "Regenerating verify_honk_proof, double_verify_honk_proof, verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
-    (cd ./acir_tests/assert_statement && \
-      # TODO(https://github.com/AztecProtocol/barretenberg/issues/1253) Deprecate command and construct TOML (e.g., via yq or via conversion from a JSON)
-      $bb OLD_API write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
-      $bb OLD_API write_recursion_inputs_ultra_honk --ipa_accumulation -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+    cd ./acir_tests/assert_statement
+    for program in verify_honk_proof double_verify_honk_proof verify_rollup_honk_proof; do
+      echo $program
+      run_proof_generation "$program"
+    done
+    cd ../..
+
+    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}"
 
     cache_upload $tests_tar acir_tests
   fi

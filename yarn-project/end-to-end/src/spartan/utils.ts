@@ -1,6 +1,7 @@
 import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec.js/testing';
 import type { Logger } from '@aztec/foundation/log';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { SequencerConfig } from '@aztec/sequencer-client';
 
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
@@ -559,7 +560,8 @@ export async function runAlertCheck(config: EnvConfig, alerts: AlertConfig[], lo
 
 export async function updateSequencerConfig(url: string, config: Partial<SequencerConfig>) {
   const node = createAztecNodeClient(url);
-  await node.setConfig(config);
+  // Retry incase the port forward is not ready yet
+  await retry(() => node.setConfig(config), 'Update sequencer config', makeBackoff([1, 3, 6]), logger);
 }
 
 export async function getSequencers(namespace: string) {
