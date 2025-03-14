@@ -122,7 +122,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: (val: string) => val.split(',').map(url => url.trim()),
     },
     {
-      flag: '--l1-consensus-url <value>',
+      flag: '--l1-consensus-host-url <value>',
       description: 'URL of the Ethereum consensus node that services will connect to',
       defaultValue: undefined,
       envVar: 'L1_CONSENSUS_HOST_URL',
