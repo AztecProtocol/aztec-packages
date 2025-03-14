@@ -22,6 +22,7 @@ use crate::discovery::{
     },
 };
 use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::decrypt_log;
+// TODO(#12750): don't make this value assume we're using AES.
 use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
 pub global PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN: u32 = 1;
@@ -91,11 +92,11 @@ pub unconstrained fn do_process_log<Env>(
             recipient,
         );
     } else {
+        // TODO(#11569): handle events
         debug_log_format(
             "Unknown log type id {0} (probably belonging to an event log)",
             [log_type_id],
         );
-        // panic(f"Unknown log type id {log_type_id}");
     }
 }
 
@@ -127,8 +128,8 @@ unconstrained fn destructure_log_plaintext(
     (storage_slot, note_type_id, log_type_id, log_payload)
 }
 
-// This function was exposed only because of e2e_offchain_note_delivery test. This is not great, but it was the best
-// thing to do at the time.
+/// Attempts discovery of a note given information about its contents and the transaction in which it is
+/// suspected the note was created.
 pub unconstrained fn process_private_note_log<Env>(
     contract_address: AztecAddress,
     tx_hash: Field,
