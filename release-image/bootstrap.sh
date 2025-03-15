@@ -9,7 +9,7 @@ function build {
   echo_header "release-image build"
 
   if ! cache_download release-image-base-$hash.zst; then
-    denoise "cd .. && docker build -f release-image/Dockerfile -t aztecprotocol/release-image-base --target release-image-base ."
+    denoise "cd .. && docker build -f release-image/Dockerfile.base -t aztecprotocol/release-image-base ."
     docker save aztecprotocol/release-image-base:latest > release-image-base
     cache_upload release-image-base-$hash.zst release-image-base
   else

@@ -1,0 +1,7 @@
+*
+# These are copied in so we can perform a "production dependency install" in the release base image.
+!/yarn-project/package.json
+!/yarn-project/yarn.lock
+!/yarn-project/*/package.json
+!/yarn-project/.yarn/
+!/yarn-project/.yarnrc.yml
