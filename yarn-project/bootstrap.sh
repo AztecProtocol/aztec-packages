@@ -37,9 +37,10 @@ function format {
 }
 
 function lint {
-  local arg=${1:-"--fix"}
-  if [ "$arg" == "--check" ]; then
+  local arg="--fix"
+  if [ "$1" == "--check" ]; then
     arg=""
+    shift 1
   fi
   get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
 }
