@@ -550,7 +550,8 @@ export class TXEService {
   }
 
   async getLogByTag(tag: ForeignCallSingle) {
-    const log = await this.typedOracle.getLogByTag(fromSingle(tag));
+    // TODO(AD): this was warning that getLogByTag did not return a promise.
+    const log = await Promise.resolve(this.typedOracle.getLogByTag(fromSingle(tag)));
 
     if (log == null) {
       return toForeignCallResult([toSingle(Fr.ZERO), ...LogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray)]);

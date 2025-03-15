@@ -1,6 +1,7 @@
 #!/bin/bash
-set -e
-source ../utils/setup.sh
+
+source $(git rev-parse --show-toplevel)/ci3/source
+source shared/setup.sh
 
 test_title "Create an account and deploy using native fee payment with bridging"
 

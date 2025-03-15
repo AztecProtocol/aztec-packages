@@ -113,7 +113,7 @@ function test_cmds {
   echo "$prefix simple e2e_token_contract/transfer_to_public"
   echo "$prefix simple e2e_token_contract/transfer.test"
 
-  # compose-based tests
+  # compose-based tests (use running sandbox)
   echo "$prefix compose composed/docs_examples"
   echo "$prefix compose composed/e2e_pxe"
   echo "$prefix compose composed/e2e_sandbox_example"
@@ -125,6 +125,13 @@ function test_cmds {
   echo "$prefix compose guides/writing_an_account_contract"
   echo "$prefix compose e2e_token_bridge_tutorial_test"
   echo "$prefix compose uniswap_trade_on_l1_from_l2"
+
+  # compose-based tests with custom scripts
+  for flow in ../cli-wallet/test/flows/*.sh; do
+    # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
+    # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
+    echo "$hash LOG_LEVEL=info $run_test_script compose $flow"
+  done
 }
 
 function test {
@@ -132,17 +139,42 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+# Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
+function generate_private_ivc_inputs {
+  export CAPTURE_IVC_FOLDER=private-flows-ivc-inputs-out
+  rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
+  if cache_download bb-client-ivc-captures-$hash.tar.gz; then
+    return
+  fi
+  if [ -n "${DOWNLOAD_ONLY:-}" ]; then
+    echo "Could not find ivc inputs cached!"
+    return
+  fi
+  # Running these again separately from tests is a bit of a hack,
+  # but we need to ensure test caching does not get in the way.
+  echo "
+    scripts/run_test.sh simple e2e_amm
+    scripts/run_test.sh simple e2e_nft
+    scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
+  " | parallel --line-buffer --halt now,fail=1
+  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+}
+
 function bench {
+  rm -rf bench-out
   mkdir -p bench-out
-  BENCH_OUTPUT=bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
-  cache_upload yarn-project-bench-results-$COMMIT_HASH.tar.gz ./bench-out/yp-bench.json
+  if cache_download yarn-project-bench-results-$hash.tar.gz; then
+    return
+  fi
+  BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
+  cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  test|test_cmds|bench)
+  test|test_cmds|bench|generate_private_ivc_inputs)
     $cmd
     ;;
   *)

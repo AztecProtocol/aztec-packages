@@ -7,6 +7,7 @@ cmd=${1:-}
 export preset=clang16-assert
 export pic_preset="clang16-pic"
 export hash=$(cache_content_hash .rebuild_patterns)
+export capture_ivc_folder=../../yarn-project/end-to-end/private-flows-ivc-inputs-out
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -173,7 +174,7 @@ function test_cmds {
       grep -v 'DISABLED_' | \
       while read -r test; do
         echo -e "$hash barretenberg/cpp/scripts/run_test.sh $bin_name $test"
-      done
+      done || (echo "Failed to list tests in $bin" && exit 1)
   done
 }
 
@@ -204,6 +205,10 @@ function bench {
   export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
   rm -rf bench-out && mkdir -p bench-out
+
+  # A bit pattern breaking, but the best code to instrument our private IVC flows exists in yarn-project,
+  # while the best code for benchmarking these IVC flows exists here.
+  # ../../yarn-project/end-to-end/bootstrap.sh generate_private_ivc_inputs
 
   # Ultra honk.
   function ultra_honk_release {
@@ -245,14 +250,44 @@ function bench {
         --benchmark_out=./bench-out/client_ivc_wasm.json \
         --benchmark_filter="ClientIVCBench/Full/6$"
   }
+  function client_ivc_flow {
+    set -eu
+    local flow=$1
+    local inputs_folder="$capture_ivc_folder/$flow"
+    local start=$(date +%s%N)
+    local maybe_allow_fail="false"
+    # TODO(AD) this should verify!
+    if [ "$flow" == "amm-add-liquidity" ]; then
+      maybe_allow_fail="true"
+    fi
+    mkdir -p "bench-out/$flow-proof-files"
+    ./build/bin/bb prove -o "bench-out/$flow-proof-files" -b "$inputs_folder/acir.msgpack" -w "$inputs_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack || $maybe_allow_fail
+    echo "$flow has proven."
+    local end=$(date +%s%N)
+    local elapsed_ns=$(( end - start ))
+    local elapsed_ms=$(( elapsed_ns / 1000000 ))
+    cat > "./bench-out/$flow-ivc.json" <<EOF
+    {
+      "benchmarks": [
+      {
+        "name": "$flow-ivc-proof",
+        "time_unit": "ms",
+        "real_time": ${elapsed_ms}
+      }
+      ]
+    }
+EOF
+  }
+
   function run_benchmark {
+    set -eu
     local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
     local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
     echo taskset -c $start_core-$end_core bash -c "$2"
     taskset -c $start_core-$end_core bash -c "$2"
   }
 
-  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm run_benchmark
+  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm client_ivc_flow run_benchmark
 
   local num_cpus=$(get_num_cpus)
   local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
@@ -266,6 +301,8 @@ function bench {
     client_ivc_op_count_time \
     client_ivc_wasm
 
+  # Split up the flows into chunks to run in parallel - otherwise we run out of CPUs to pin.
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow {}"' ::: $(ls "$capture_ivc_folder")
 }
 
 # Upload assets to release.
@@ -290,6 +327,18 @@ case "$cmd" in
   "ci")
     build
     test
+    ;;
+  download_e2e_ivc_inputs)
+    # Download the inputs for the private flows.
+    # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
+    git fetch origin master
+    # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
+    export AZTEC_CACHE_COMMIT=${1:-origin/master}
+
+    # Error if the inputs are not found in cache.
+    export DOWNLOAD_ONLY=${DOWNLOAD_ONLY:-1}
+    ../../yarn-project/end-to-end/bootstrap.sh generate_private_ivc_inputs
+    echo "Downloaded inputs for private flows to $capture_ivc_folder"
     ;;
   "hash")
     echo $hash

@@ -3,6 +3,7 @@ import { Encoder } from 'msgpackr';
 import type { Key, Range } from '../interfaces/common.js';
 import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
 import type { ReadTransaction } from './read_transaction.js';
+// eslint-disable-next-line import/no-cycle
 import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
 import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 

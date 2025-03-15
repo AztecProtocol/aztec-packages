@@ -43,15 +43,16 @@ export RUSTFLAGS="-Dwarnings"
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  cd noir-repo
   if cache_download noir-$hash.tar.gz; then
     return
   fi
+  cd noir-repo
   parallel --tag --line-buffer --halt now,fail=1 ::: \
     "cargo fmt --all --check" \
     "cargo build --locked --release --target-dir target" \
     "cargo clippy --target-dir target/clippy --workspace --locked --release"
-  cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm target/release/noir-profiler
+  cd ..
+  cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,acvm,noir-profiler}
 }
 
 # Builds js packages.
@@ -145,7 +146,7 @@ function test_cmds {
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
   # We need to include these as they will go out of date otherwise and externals use these examples.
-  local example_test_hash=$(hash_str $test_hash-$(../../barretenberg/cpp/bootstrap.sh hash))
+  local example_test_hash=$(hash_str $test_hash-$(cd ../../ && barretenberg/cpp/bootstrap.sh hash))
   echo "$example_test_hash noir/bootstrap.sh test_example codegen_verifier"
   echo "$example_test_hash noir/bootstrap.sh test_example prove_and_verify"
   echo "$example_test_hash noir/bootstrap.sh test_example recursion"

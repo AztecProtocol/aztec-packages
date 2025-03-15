@@ -3,6 +3,7 @@ import { Encoder } from 'msgpackr/pack';
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { ReadTransaction } from './read_transaction.js';
+// eslint-disable-next-line import/no-cycle
 import { AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
 import { deserializeKey, serializeKey } from './utils.js';
 

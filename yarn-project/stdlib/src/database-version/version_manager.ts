@@ -3,6 +3,7 @@ import { jsonParseWithSchemaSync, jsonStringify } from '@aztec/foundation/json-r
 import { createLogger } from '@aztec/foundation/log';
 
 import fs from 'fs/promises';
+import { inspect } from 'node:util';
 import { join } from 'path';
 import { z } from 'zod';
 
@@ -57,6 +58,15 @@ export class DatabaseVersion {
         rollupAddress: EthAddress.schema,
       })
       .transform(({ schemaVersion, rollupAddress }) => new DatabaseVersion(schemaVersion, rollupAddress));
+  }
+
+  /** Allows for better introspection. */
+  public [inspect.custom](): string {
+    return this.toString();
+  }
+
+  public toString(): string {
+    return this.schemaVersion.toString();
   }
 
   /**

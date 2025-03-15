@@ -1,6 +1,6 @@
 #!/bin/bash
-set -e
-source ../utils/setup.sh
+source $(git rev-parse --show-toplevel)/ci3/source
+source shared/setup.sh
 
 test_title "Tx management"
 

@@ -46,6 +46,10 @@ services:
       FORCE_COLOR: ${FORCE_COLOR:-1}
       PXE_URL: http://sandbox:8080
       AZTEC_NODE_URL: http://sandbox:8080
+      # Allow git usage despite different ownership. Relevant for script tests.
+      GIT_CONFIG_GLOBAL: /root/aztec-packages/build-images/src/home/.gitconfig
+      # For debugging scripts that were passed as TEST.
+      BUILD_SYSTEM_DEBUG: ${BUILD_SYSTEM_DEBUG:-}
     # Voodoo explanation.
     # Why do we do all this? To ensure tests can have their own traps for cleanup. Namely up_quick_start...
     # Propagating the signal (e.g. via exec) isn't much use, as jest provides no mechanism for cleanup on signals.

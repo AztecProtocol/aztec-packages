@@ -2,8 +2,8 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { serializeWitness } from '@aztec/noir-noirc_abi';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
-import type { WitnessMap } from '@aztec/noir-types';
 import type { SimulationProvider } from '@aztec/simulator/server';
+import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { encode } from '@msgpack/msgpack';
@@ -40,18 +40,26 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     );
   }
 
+  // TODO(#7371): This is duplicated.
+  // Longer term we won't use this hacked together msgpack format
+  // Leaving duplicated as this eventually bb will provide a serialization
+  // helper for passing to a generic msgpack RPC endpoint.
+  private async _createClientIvcProofFiles(directory: string, executionSteps: PrivateExecutionStep[]) {
+    const acirPath = path.join(directory, 'acir.msgpack');
+    const witnessPath = path.join(directory, 'witnesses.msgpack');
+    await fs.writeFile(acirPath, encode(executionSteps.map(map => map.bytecode)));
+    await fs.writeFile(witnessPath, encode(executionSteps.map(map => serializeWitness(map.witness))));
+    return {
+      acirPath,
+      witnessPath,
+    };
+  }
+
   private async _createClientIvcProof(
     directory: string,
-    acirs: Buffer[],
-    witnessStack: WitnessMap[],
+    executionSteps: PrivateExecutionStep[],
   ): Promise<ClientIvcProof> {
-    // TODO(#7371): Longer term we won't use this hacked together msgpack format
-    // and instead properly create the bincode serialization from rust
-    await fs.writeFile(path.join(directory, 'acir.msgpack'), encode(acirs));
-    await fs.writeFile(
-      path.join(directory, 'witnesses.msgpack'),
-      encode(witnessStack.map(map => serializeWitness(map))),
-    );
+    await this._createClientIvcProofFiles(directory, executionSteps);
     const provingResult = await executeBbClientIvcProof(
       this.bbBinaryPath,
       directory,
@@ -75,10 +83,10 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     return proof;
   }
 
-  public override async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+  public override async createClientIvcProof(executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof> {
     this.log.info(`Generating Client IVC proof`);
     const operation = async (directory: string) => {
-      return await this._createClientIvcProof(directory, acirs, witnessStack);
+      return await this._createClientIvcProof(directory, executionSteps);
     };
     return await this.runInDirectory(operation);
   }

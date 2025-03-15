@@ -31,7 +31,7 @@ export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export tmp_dir=./target/tmp
 
 # Create our tmp working directory, ensure it's removed on exit.
-function on_exit() {
+function on_exit {
   rm -rf $tmp_dir
   rm -f joblog.txt
 }
@@ -46,7 +46,7 @@ export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(mem
 # stdout receives the function json with the vk added (if private).
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 # If debugging, a set -x at the start can help.
-function process_function() {
+function process_function {
   set -euo pipefail
   local func name bytecode_b64 hash vk
 

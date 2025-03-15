@@ -48,6 +48,7 @@ module.exports = {
     'no-constant-condition': 'off',
     curly: ['error', 'all'],
     camelcase: 2,
+    'import/no-relative-packages': 'error',
     'no-restricted-imports': [
       'error',
       {

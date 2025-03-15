@@ -17,7 +17,7 @@ claimSecret=$(retrieve claimSecret)
 messageLeafIndex=$(retrieve messageLeafIndex)
 
 # The following produces two blocks, allowing the claim to be used in the next block.
-source $TEST_FOLDER/shared/deploy_token.sh $TOKEN_ALIAS test1
+source $flows/shared/deploy_token.sh $TOKEN_ALIAS test1
 
 # Claim the fee juice by calling the fee juice contract directly (address = 5).
 feeJuice=0x0000000000000000000000000000000000000000000000000000000000000005

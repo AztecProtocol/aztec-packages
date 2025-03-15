@@ -16,6 +16,8 @@ export * from './tx_hash.js';
 export * from './tx_receipt.js';
 export * from './tx.js';
 export * from './processed_tx.js';
+export * from './proven_tx.js';
+export * from './profiled_tx.js';
 export * from './simulated_tx.js';
 export * from './tx_effect.js';
 export * from './public_simulation_output.js';

@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd $(dirname $0)
 
-is_branch=$3
+is_branch=${3:-}
 
 if [ "$is_branch" == "1" ] && scripts/sync.sh needs-patch; then
     echo "Warning: the noir-repo has outstanding commits that need to be put in a patch file"

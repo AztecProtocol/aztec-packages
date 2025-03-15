@@ -1,4 +1,5 @@
 #! /bin/bash
+# TODO needs porting to ci3
 ## Run an end to end test with alerts
 
 # This will run an end to end test running the otel-lgtm stack (otel-collector, grafana, prometheus, tempo and loki)

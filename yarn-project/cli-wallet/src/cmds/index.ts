@@ -36,7 +36,7 @@ import {
   createArgsOption,
   createArtifactOption,
   createContractAddressOption,
-  createProfileOption,
+  createDebugExecutionStepsDirOption,
   createTypeOption,
   integerArgParser,
   parseGasFees,
@@ -316,7 +316,6 @@ export function injectCommands(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(createProfileOption())
     .action(async (functionName, _options, command) => {
       const { simulate } = await import('./simulate.js');
       const options = command.optsWithGlobals();
@@ -327,14 +326,46 @@ export function injectCommands(
         from: parsedFromAddress,
         rpcUrl,
         secretKey,
-        profile,
       } = options;
 
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      await simulate(wallet, functionName, args, artifactPath, contractAddress, profile, log);
+      await simulate(wallet, functionName, args, artifactPath, contractAddress, log);
+    });
+
+  program
+    .command('profile')
+    .description('Profiles a private function by counting the unconditional operations in its execution steps')
+    .argument('<functionName>', 'Name of function to simulate')
+    .addOption(pxeOption)
+    .addOption(createArgsOption(false, db))
+    .addOption(createContractAddressOption(db))
+    .addOption(createArtifactOption(db))
+    .addOption(createDebugExecutionStepsDirOption())
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .action(async (functionName, _options, command) => {
+      const { profile } = await import('./profile.js');
+      const options = command.optsWithGlobals();
+      const {
+        args,
+        contractArtifact: artifactPathPromise,
+        contractAddress,
+        from: parsedFromAddress,
+        rpcUrl,
+        secretKey,
+        debugExecutionStepsDir,
+      } = options;
+
+      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
+      const wallet = await getWalletWithScopes(account, db);
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+      await profile(wallet, functionName, args, artifactPath, contractAddress, debugExecutionStepsDir, log);
     });
 
   program
