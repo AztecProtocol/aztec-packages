@@ -1,0 +1,6 @@
+apiVersion: v2
+name: add-validators
+description: A Helm chart for deploying additional validators to an existing Aztec network
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

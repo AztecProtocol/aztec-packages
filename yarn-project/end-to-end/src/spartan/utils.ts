@@ -4,7 +4,9 @@ import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { SequencerConfig } from '@aztec/sequencer-client';
 
+import { parse as tomlParse } from '@iarna/toml';
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
+import { readFileSync } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
@@ -40,6 +42,7 @@ const k8sLocalConfigSchema = z.object({
   CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   CONTAINER_ETHEREUM_PORT: z.coerce.number().default(8545),
+  CONTAINER_ETHEREUM_CONSENSUS_PORT: z.coerce.number().default(5052),
   CONTAINER_METRICS_PORT: z.coerce.number().default(80),
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
@@ -48,6 +51,8 @@ const k8sLocalConfigSchema = z.object({
   L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
   SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
+  VALUES_FILE: z.string(),
+  AZTEC_DOCKER_TAG: z.string(),
 });
 
 const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
@@ -128,6 +133,36 @@ export function runAztecBin(args: string[], logger: Logger, env?: Record<string,
 export function runProjectScript(script: string, args: string[], logger: Logger, env?: Record<string, string>) {
   const scriptPath = script.startsWith('/') ? script : path.join(getGitProjectRoot(), script);
   return runScript(scriptPath, args, logger, env);
+}
+
+export function readFromValuesFile(chart: string, file: string, key: string) {
+  const valuesFilePath = path.join(getGitProjectRoot(), 'spartan', chart, 'values', file);
+  const defaultFilePath = path.join(getGitProjectRoot(), 'spartan', chart, 'values.yaml');
+
+  // Read the toml file
+  const value = readTomlKey(valuesFilePath, key);
+  if (!value) {
+    const defaultValue = readTomlKey(defaultFilePath, key);
+    if (!defaultValue) {
+      throw new Error(`Key ${key} not found in ${valuesFilePath} or ${defaultFilePath}`);
+    }
+    return defaultValue;
+  }
+  return value;
+}
+
+function readTomlKey(filePath: string, key: string) {
+  const values = readTomlFile(filePath);
+  return values?.[key];
+}
+
+function readTomlFile(filePath: string) {
+  try {
+    return tomlParse(readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    logger.error(`Error reading toml file ${filePath}: ${error}`);
+    return null;
+  }
 }
 
 export async function startPortForward({
@@ -264,9 +299,16 @@ export function getChartDir(spartanDir: string, chartName: string) {
   return path.join(spartanDir.trim(), chartName);
 }
 
-function valuesToArgs(values: Record<string, string | number>) {
+function valuesToArgs(values: Record<string, string | number | boolean | object | any[]>) {
   return Object.entries(values)
-    .map(([key, value]) => `--set ${key}=${value}`)
+    .map(([key, value]) => {
+      // For arrays and objects, use --set-json and JSON.stringify
+      if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+        return `--set-json ${key}='${JSON.stringify(value)}'`;
+      }
+      // For simple values (strings, numbers, booleans), use normal --set
+      return `--set ${key}=${value}`;
+    })
     .join(' ');
 }
 
@@ -284,7 +326,7 @@ function createHelmCommand({
   namespace: string;
   valuesFile: string | undefined;
   timeout: string;
-  values: Record<string, string | number>;
+  values: Record<string, string | number | boolean | object | any[]>;
   reuseValues?: boolean;
 }) {
   const valuesFileArgs = valuesFile ? `--values ${helmChartDir}/values/${valuesFile}` : '';
@@ -294,7 +336,7 @@ function createHelmCommand({
   )}`;
 }
 
-async function execHelmCommand(args: Parameters<typeof createHelmCommand>[0]) {
+export async function execHelmCommand(args: Parameters<typeof createHelmCommand>[0]) {
   const helmCommand = createHelmCommand(args);
   logger.info(`helm command: ${helmCommand}`);
   const { stdout } = await execAsync(helmCommand);
@@ -336,7 +378,7 @@ export async function installChaosMeshChart({
   chaosMeshNamespace?: string;
   timeout?: string;
   clean?: boolean;
-  values?: Record<string, string | number>;
+  values?: Record<string, string | number | boolean | object | any[]>;
   logger: Logger;
 }) {
   if (clean) {
