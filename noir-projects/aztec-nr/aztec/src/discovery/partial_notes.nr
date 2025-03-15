@@ -5,7 +5,7 @@ use crate::{
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
         private_logs::MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN,
     },
-    oracle::note_discovery::{deliver_note, get_log_by_tag},
+    oracle::message_discovery::{deliver_note, get_log_by_tag},
     utils::array,
 };
 
@@ -72,8 +72,8 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                 );
                 *i += 1 as u32;
                 // Note that we're not removing the pending partial note from the PXE DB, so we will continue searching
-                // for this tagged log when performing note discovery in the future until we either find it or the entry
-                // is somehow removed from the PXE DB.
+                // for this tagged log when performing message discovery in the future until we either find it or the
+                // entry is somehow removed from the PXE DB.
             } else {
                 debug_log_format(
                     "Completion log found for partial note with tag {}",

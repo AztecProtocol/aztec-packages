@@ -7,7 +7,7 @@ pub mod events;
 
 use functions::{
     stub_registry,
-    utils::{create_note_discovery_call, find_and_transform_top_level_unconstrained_fns},
+    utils::{create_message_discovery_call, find_and_transform_top_level_unconstrained_fns},
 };
 use notes::{generate_note_export, NOTES};
 use storage::STORAGE_LAYOUT_NAME;
@@ -189,7 +189,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
                         let note_hash = $compute_note_hash(note, storage_slot);
     
-                        // The note discovery process finds settled notes, that is, notes that were created in prior
+                        // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
                         // nullification note hash by treating the note as a settled note with the provided nonce.
                         let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
@@ -221,8 +221,8 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             /// tree with `nonce`.
             ///
             /// The signature of this function notably matches the `aztec::discovery::ComputeNoteHashAndNullifier` type,
-            /// and so it can be used to call functions from that module such as `discover_new_notes`, `do_process_log`
-            /// and `attempt_note_discovery`.
+            /// and so it can be used to call functions from that module such as `discover_new_messages`, 
+            /// `do_process_log` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
@@ -263,7 +263,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 
 comptime fn generate_process_log() -> Quoted {
     // This mandatory function processes a log emitted by the contract. This is currently used to process private logs
-    // and perform note discovery of either private notes or partial notes.
+    // and perform message discovery, resulting in new private notes, partial notes and events.
     // The bulk of the work of this function is done by aztec::discovery::do_process_log, so all we need to do is call
     // that function.
 
@@ -279,9 +279,9 @@ comptime fn generate_process_log() -> Quoted {
                 first_nullifier_in_tx: Field,
                 recipient: aztec::protocol_types::address::AztecAddress,
             ) {
-                // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
-                // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
-                // unconstrained execution context since it will not be available otherwise.
+                // Because this unconstrained function is injected after the contract is processed by the macros, it'll
+                // not be modified by the macros that alter unconstrained functions. As such, we need to manually inject
+                // the unconstrained execution context since it will not be available otherwise.
                 let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
 
                 // TODO(#10727): allow other contracts to process logs and deliver notes
@@ -327,7 +327,7 @@ comptime fn generate_note_exports() -> Quoted {
 }
 
 comptime fn generate_sync_notes() -> Quoted {
-    let note_discovery_call = create_note_discovery_call();
+    let message_discovery_call = create_message_discovery_call();
     quote {
         unconstrained fn sync_notes() {
             // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
@@ -335,7 +335,7 @@ comptime fn generate_sync_notes() -> Quoted {
             // unconstrained execution context since it will not be available otherwise.
             let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
 
-            $note_discovery_call
+            $message_discovery_call
         }
     }
 }

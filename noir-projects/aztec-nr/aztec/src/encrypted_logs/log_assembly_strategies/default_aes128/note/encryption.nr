@@ -46,7 +46,7 @@ pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS: u32 = PRIVATE_LOG_PLAINTEXT_SIZ
 /// The resulting log has the following format:
 /// ```text
 /// [
-///   tag: Field,                    // Tag for note discovery, derived from sender/recipient
+///   tag: Field,                    // Tag for message discovery, derived from sender/recipient
 ///   epk_x: Field,                  // X coordinate of ephemeral public key
 ///   log_bytes: [Field],            // Encrypted data converted from bytes to fields, containing:
 ///     [

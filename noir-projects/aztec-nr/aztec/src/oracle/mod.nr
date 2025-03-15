@@ -17,7 +17,7 @@ pub mod get_membership_witness;
 pub mod keys;
 pub mod key_validation_request;
 pub mod logs;
-pub mod note_discovery;
+pub mod message_discovery;
 pub mod notes;
 pub mod random;
 pub mod shared_secret;
