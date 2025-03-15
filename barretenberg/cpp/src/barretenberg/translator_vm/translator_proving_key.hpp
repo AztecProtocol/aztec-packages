@@ -63,6 +63,7 @@ class TranslatorProvingKey {
 
         // First and last lagrange polynomials (in the full circuit size)
         proving_key->polynomials.lagrange_first.at(0) = 1;
+        proving_key->polynomials.lagrange_real_last.at(dyadic_circuit_size - 1) = 1;
         proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
 
         // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
@@ -105,7 +106,7 @@ class TranslatorProvingKey {
 
     void compute_extra_range_constraint_numerator();
 
-    void compute_translator_range_constraint_ordered_polynomials();
+    void compute_translator_range_constraint_ordered_polynomials(bool masking = false);
 
     void compute_interleaved_polynomials();
 };

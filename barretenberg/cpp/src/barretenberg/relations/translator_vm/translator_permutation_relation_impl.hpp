@@ -52,7 +52,7 @@ void TranslatorPermutationRelationImpl<FF>::accumulate(ContainerOverSubrelations
         using View = typename Accumulator::View;
 
         const auto z_perm_shift = View(in.z_perm_shift);
-        const auto lagrange_last = View(in.lagrange_last);
+        const auto lagrange_last = View(in.lagrange_last); // we need to
 
         // Contribution (2)
         std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
