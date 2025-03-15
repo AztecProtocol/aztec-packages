@@ -303,7 +303,7 @@ mod test {
     };
     use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
     use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
-    use std::test::OracleMock;
+    use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]
     unconstrained fn test_encrypt_decrypt_log() {
@@ -341,7 +341,7 @@ mod test {
 
         // Mock shared secret for deterministic test
         let shared_secret = derive_ecdh_shared_secret_using_aztec_address(
-            std::hash::from_field_unsafe(eph_sk),
+            EmbeddedCurveScalar::from_field(eph_sk),
             recipient,
         );
         let _ = OracleMock::mock("getSharedSecret").returns(shared_secret.serialize());

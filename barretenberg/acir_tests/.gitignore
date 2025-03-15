@@ -4,3 +4,4 @@ crs
 !**/.yarn/releases
 *.jsonl
 bench-out
+internal_test_programs/*/target

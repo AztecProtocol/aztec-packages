@@ -74,13 +74,11 @@ function build {
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
-    # Don't compile these until we generate their inputs
-    rm -rf acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}
 
     # COMPILE=2 only compiles the test.
     denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
-    cp -R ../../noir/noir-repo/test_programs/execution_success/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof} acir_tests
+    cp -R ./internal_test_programs/* acir_tests
     echo "Regenerating verify_honk_proof, double_verify_honk_proof, verify_rollup_honk_proof recursive inputs."
     local bb=$(realpath ../cpp/build/bin/bb)
     cd ./acir_tests/assert_statement
@@ -90,7 +88,10 @@ function build {
     done
     cd ../..
 
-    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{verify_honk_proof,double_verify_honk_proof,verify_rollup_honk_proof}"
+
+    local internal_tests=($(ls -d internal_test_programs/* | xargs -n1 basename))
+    local internal_tests_string=$(echo ${internal_tests[@]} | awk -v OFS="," '{$1=$1;print}')
+    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{$internal_tests_string}"
 
     cache_upload $tests_tar acir_tests
   fi
