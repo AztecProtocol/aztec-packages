@@ -32,8 +32,8 @@ class lookup_merkle_check_merkle_poseidon2_settings {
     static constexpr Column COUNTS = Column::lookup_merkle_check_merkle_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_merkle_check_merkle_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::merkle_check_left_hash,
-        ColumnAndShifts::merkle_check_right_hash,
+        ColumnAndShifts::merkle_check_left_node,
+        ColumnAndShifts::merkle_check_right_node,
         ColumnAndShifts::merkle_check_output_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -72,8 +72,8 @@ class lookup_merkle_check_merkle_poseidon2_settings {
                                      in._lookup_merkle_check_merkle_poseidon2_counts(),
                                      in._merkle_check_sel(),
                                      in._poseidon2_hash_end(),
-                                     in._merkle_check_left_hash(),
-                                     in._merkle_check_right_hash(),
+                                     in._merkle_check_left_node(),
+                                     in._merkle_check_right_node(),
                                      in._merkle_check_output_hash(),
                                      in._poseidon2_hash_input_0(),
                                      in._poseidon2_hash_input_1(),

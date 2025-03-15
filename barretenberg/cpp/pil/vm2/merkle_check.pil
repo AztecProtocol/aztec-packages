@@ -63,27 +63,28 @@ namespace merkle_check(256);
 
     // These are what are sent to poseidon2
     // These arrange the current_node_value and sibling_value in the correct order
-    pol commit left_hash;
-    pol commit right_hash;
-    // This is accomplished by using index_is_even to toggle the (left_hash - right_hash) term.
-    // If current_index_in_layer is even, left_hash (to send to poseidon2) is current_node_value and right_hash is sibling_value.
+    pol commit left_node;
+    pol commit right_node;
+    // This is accomplished by using index_is_even to toggle the (left_node - right_node) term.
+    // If current_index_in_layer is even, left_node (to send to poseidon2) is current_node_value and right_node is sibling_value.
     // And vice-versa.
     #[ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT]
-    sel * index_is_even * (left_hash - right_hash) + right_hash - current_node_value = 0;
+    sel * index_is_even * (left_node - right_node) + right_node - current_node_value = 0;
     #[ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT]
-    sel * index_is_even * (right_hash - left_hash) + left_hash - sibling_value = 0;
+    sel * index_is_even * (right_node - left_node) + left_node - sibling_value = 0;
     // NOTE: don't think these can be safely combined
 
-    // output_hash = hash(current_node_value, sibling_value)
+    // output_hash = hash(current_node_value, sibling_value) == hash(left_node, right_node)
     pol commit output_hash;
     // If we are not done, this row's output_hash is the next row's current_node_value input
     #[OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE]
     sel * (1 - root_latch) * (current_node_value' - output_hash) = 0;
 
-    pol LAST_COMPUTE = sel * root_latch;
-    // LAST_COMPUTE will be used in permutations to other traces
-
     // Permutation to the full poseidon2 gadget
     #[MERKLE_POSEIDON2]
-    sel { left_hash, right_hash, output_hash }
+    sel { left_node, right_node, output_hash }
     in poseidon2_hash.end {poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
+
+    // LAST_COMPUTE will be used in permutations to other traces
+    pol LAST_COMPUTE = sel * root_latch;
+    // TODO(dbanks12): this would be the place to constrain `if LAST_COMPUTE: assert(output_hash == expected_tree_root)`

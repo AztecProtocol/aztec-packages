@@ -77,8 +77,8 @@ template <typename FF_> class merkle_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = ((new_term.merkle_check_sel * new_term.merkle_check_index_is_even *
-                             (new_term.merkle_check_left_hash - new_term.merkle_check_right_hash) +
-                         new_term.merkle_check_right_hash) -
+                             (new_term.merkle_check_left_node - new_term.merkle_check_right_node) +
+                         new_term.merkle_check_right_node) -
                         new_term.merkle_check_current_node_value);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
@@ -86,8 +86,8 @@ template <typename FF_> class merkle_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = ((new_term.merkle_check_sel * new_term.merkle_check_index_is_even *
-                             (new_term.merkle_check_right_hash - new_term.merkle_check_left_hash) +
-                         new_term.merkle_check_left_hash) -
+                             (new_term.merkle_check_right_node - new_term.merkle_check_left_node) +
+                         new_term.merkle_check_left_node) -
                         new_term.merkle_check_sibling_value);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);

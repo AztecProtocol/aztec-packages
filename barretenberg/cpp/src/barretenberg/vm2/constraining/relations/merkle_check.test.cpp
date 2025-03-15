@@ -52,11 +52,11 @@ TEST(MerkleCheckConstrainingTest, EmptyRow)
 TEST(MerkleCheckConstrainingTest, PathLenDecrements)
 {
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_latch, 0 }, { C::merkle_check_path_len, 3 } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_latch, 0 }, { C::merkle_check_path_len, 2 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_root_latch, 0 }, { C::merkle_check_remaining_path_len, 3 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_root_latch, 0 }, { C::merkle_check_remaining_path_len, 2 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 1 },
-          { C::merkle_check_path_len, 1 } }, // Final row with latch=1
+          { C::merkle_check_root_latch, 1 },
+          { C::merkle_check_remaining_path_len, 1 } }, // Final row with root_latch=1
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_PATH_LEN_DECREMENTS);
@@ -65,11 +65,11 @@ TEST(MerkleCheckConstrainingTest, PathLenDecrements)
 TEST(MerkleCheckConstrainingTest, NegativePathLenDecrements)
 {
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_latch, 0 }, { C::merkle_check_path_len, 3 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_root_latch, 0 }, { C::merkle_check_remaining_path_len, 3 } },
         {
             { C::merkle_check_sel, 1 },
-            { C::merkle_check_latch, 0 },
-            { C::merkle_check_path_len, 1 } // Should be 2, not 1
+            { C::merkle_check_root_latch, 0 },
+            { C::merkle_check_remaining_path_len, 1 } // Should be 2, not 1
         },
     });
 
@@ -77,158 +77,158 @@ TEST(MerkleCheckConstrainingTest, NegativePathLenDecrements)
                               "PATH_LEN_DECREMENTS");
 }
 
-TEST(MerkleCheckConstrainingTest, LatchHighWhenPathEmpty)
+TEST(MerkleCheckConstrainingTest, RootLatchHighWhenPathEmpty)
 {
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_path_len, 1 },
-          { C::merkle_check_path_len_inv, FF(1).invert() },
-          { C::merkle_check_latch, 0 } },
+          { C::merkle_check_remaining_path_len, 1 },
+          { C::merkle_check_remaining_path_len_inv, FF(1).invert() },
+          { C::merkle_check_root_latch, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_path_len, 0 },
-          { C::merkle_check_path_len_inv, 0 },
-          { C::merkle_check_latch, 1 } },
+          { C::merkle_check_remaining_path_len, 0 },
+          { C::merkle_check_remaining_path_len_inv, 0 },
+          { C::merkle_check_root_latch, 1 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_LATCH_HIGH_WHEN_PATH_EMPTY);
+    check_relation<merkle_check>(trace, merkle_check::SR_ROOT_LATCH_HIGH_WHEN_PATH_EMPTY);
 }
 
-TEST(MerkleCheckConstrainingTest, NegativeLatchHighWhenPathEmpty)
+TEST(MerkleCheckConstrainingTest, NegativeRootLatchHighWhenPathEmpty)
 {
     // TODO(dbanks12): does inv need to be properly initialized here?
     TestTraceContainer trace({
         {
             { C::merkle_check_sel, 1 },
-            { C::merkle_check_path_len, 0 },
-            { C::merkle_check_path_len_inv, 0 }, // TODO(dbanks12): can't invert 0?
-            { C::merkle_check_latch, 0 }         // Should be 1 when path_len is 0
+            { C::merkle_check_remaining_path_len, 0 },
+            { C::merkle_check_remaining_path_len_inv, 0 }, // TODO(dbanks12): can't invert 0?
+            { C::merkle_check_root_latch, 0 }              // Should be 1 when path_len is 0
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_LATCH_HIGH_WHEN_PATH_EMPTY),
-                              "LATCH_HIGH_WHEN_PATH_EMPTY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_ROOT_LATCH_HIGH_WHEN_PATH_EMPTY),
+                              "ROOT_LATCH_HIGH_WHEN_PATH_EMPTY");
 }
 
-TEST(MerkleCheckConstrainingTest, NextLeafIndexIsHalved)
+TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
 {
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 0 },
-          { C::merkle_check_leaf_index, 6 },
-          { C::merkle_check_leaf_index_is_even, 1 } },
+          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_current_index_in_layer, 6 },
+          { C::merkle_check_index_is_even, 1 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 0 },
-          { C::merkle_check_leaf_index, 3 }, // 6/2 = 3
-          { C::merkle_check_leaf_index_is_even, 0 } },
+          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_current_index_in_layer, 3 }, // 6/2 = 3
+          { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 1 },      // Set latch=1 for final row
-          { C::merkle_check_leaf_index, 1 }, // 3/2 = 1
-          { C::merkle_check_leaf_index_is_even, 0 } },
+          { C::merkle_check_root_latch, 1 },             // Set root_latch=1 for final row
+          { C::merkle_check_current_index_in_layer, 1 }, // 3/2 = 1
+          { C::merkle_check_index_is_even, 0 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_NEXT_LEAF_INDEX_IS_HALVED);
+    check_relation<merkle_check>(trace, merkle_check::SR_NEXT_INDEX_IS_HALVED);
 
     // Test with odd index
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 0 },
-          { C::merkle_check_leaf_index, 7 },
-          { C::merkle_check_leaf_index_is_even, 0 } },
+          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_current_index_in_layer, 7 },
+          { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 0 },
-          { C::merkle_check_leaf_index, 3 }, // (7-1)/2 = 3
-          { C::merkle_check_leaf_index_is_even, 0 } },
+          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_current_index_in_layer, 3 }, // (7-1)/2 = 3
+          { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 1 },      // Set latch=1 for final row
-          { C::merkle_check_leaf_index, 1 }, // 6/2 = 3
-          { C::merkle_check_leaf_index_is_even, 0 } },
+          { C::merkle_check_root_latch, 1 },             // Set root_latch=1 for final row
+          { C::merkle_check_current_index_in_layer, 1 }, // 6/2 = 3
+          { C::merkle_check_index_is_even, 0 } },
     });
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_NEXT_LEAF_INDEX_IS_HALVED);
+    check_relation<merkle_check>(trace2, merkle_check::SR_NEXT_INDEX_IS_HALVED);
 }
 
-TEST(MerkleCheckConstrainingTest, NegativeNextLeafIndexIsHalved)
+TEST(MerkleCheckConstrainingTest, NegativeNextIndexIsHalved)
 {
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 0 },
-          { C::merkle_check_leaf_index, 6 },
-          { C::merkle_check_leaf_index_is_even, 1 } },
+          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_current_index_in_layer, 6 },
+          { C::merkle_check_index_is_even, 1 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_leaf_index, 4 }, // Should be 3, not 4
-          { C::merkle_check_leaf_index_is_even, 1 } },
+          { C::merkle_check_current_index_in_layer, 4 }, // Should be 3, not 4
+          { C::merkle_check_index_is_even, 1 } },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_NEXT_LEAF_INDEX_IS_HALVED),
-                              "NEXT_LEAF_INDEX_IS_HALVED");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_NEXT_INDEX_IS_HALVED),
+                              "NEXT_INDEX_IS_HALVED");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignLeafValueLeftOrRight)
+TEST(MerkleCheckConstrainingTest, AssignCurrentNodeLeftOrRight)
 {
-    // Test even index (leaf_value goes to left_hash)
+    // Test even index (current_node_value goes to left_node)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_leaf_index_is_even, 1 },
-          { C::merkle_check_leaf_value, 123 },
+          { C::merkle_check_index_is_even, 1 },
+          { C::merkle_check_current_node_value, 123 },
           { C::merkle_check_sibling_value, 456 },
-          { C::merkle_check_left_hash, 123 },
-          { C::merkle_check_right_hash, 456 } },
+          { C::merkle_check_left_node, 123 },
+          { C::merkle_check_right_node, 456 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_LEAF_VALUE_LEFT_OR_RIGHT);
+    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT);
 
-    // Test odd index (leaf_value goes to right_hash)
+    // Test odd index (current_node_value goes to right_node)
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_leaf_index_is_even, 0 },
-          { C::merkle_check_leaf_value, 123 },
+          { C::merkle_check_index_is_even, 0 },
+          { C::merkle_check_current_node_value, 123 },
           { C::merkle_check_sibling_value, 456 },
-          { C::merkle_check_left_hash, 456 },
-          { C::merkle_check_right_hash, 123 } },
+          { C::merkle_check_left_node, 456 },
+          { C::merkle_check_right_node, 123 } },
     });
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_LEAF_VALUE_LEFT_OR_RIGHT);
+    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT);
 }
 
-TEST(MerkleCheckConstrainingTest, NegativeAssignLeafValueLeftOrRight)
+TEST(MerkleCheckConstrainingTest, NegativeAssignCurrentNodeLeftOrRight)
 {
     TestTraceContainer trace({
         {
             { C::merkle_check_sel, 1 },
-            { C::merkle_check_leaf_index_is_even, 1 },
-            { C::merkle_check_leaf_value, 123 },
+            { C::merkle_check_index_is_even, 1 },
+            { C::merkle_check_current_node_value, 123 },
             { C::merkle_check_sibling_value, 456 },
-            { C::merkle_check_left_hash, 456 }, // Should be 123
-            { C::merkle_check_right_hash, 123 } // Should be 456
+            { C::merkle_check_left_node, 456 }, // Should be 123
+            { C::merkle_check_right_node, 123 } // Should be 456
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_LEAF_VALUE_LEFT_OR_RIGHT),
-                              "ASSIGN_LEAF_VALUE_LEFT_OR_RIGHT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT),
+                              "ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT");
 }
 
 TEST(MerkleCheckConstrainingTest, AssignSiblingValueLeftOrRight)
 {
-    // Test even index (sibling_value goes to right_hash)
+    // Test even index (sibling_value goes to right_node)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_leaf_index_is_even, 1 },
-          { C::merkle_check_leaf_value, 123 },
+          { C::merkle_check_index_is_even, 1 },
+          { C::merkle_check_current_node_value, 123 },
           { C::merkle_check_sibling_value, 456 },
-          { C::merkle_check_left_hash, 123 },
-          { C::merkle_check_right_hash, 456 } },
+          { C::merkle_check_left_node, 123 },
+          { C::merkle_check_right_node, 456 } },
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT);
 
-    // Test odd index (sibling_value goes to left_hash)
+    // Test odd index (sibling_value goes to left_node)
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_leaf_index_is_even, 0 },
-          { C::merkle_check_leaf_value, 123 },
+          { C::merkle_check_index_is_even, 0 },
+          { C::merkle_check_current_node_value, 123 },
           { C::merkle_check_sibling_value, 456 },
-          { C::merkle_check_left_hash, 456 },
-          { C::merkle_check_right_hash, 123 } },
+          { C::merkle_check_left_node, 456 },
+          { C::merkle_check_right_node, 123 } },
     });
 
     check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT);
@@ -239,11 +239,11 @@ TEST(MerkleCheckConstrainingTest, NegativeAssignSiblingValueLeftOrRight)
     TestTraceContainer trace({
         {
             { C::merkle_check_sel, 1 },
-            { C::merkle_check_leaf_index_is_even, 0 },
-            { C::merkle_check_leaf_value, 123 },
+            { C::merkle_check_index_is_even, 0 },
+            { C::merkle_check_current_node_value, 123 },
             { C::merkle_check_sibling_value, 456 },
-            { C::merkle_check_left_hash, 123 }, // Should be 456
-            { C::merkle_check_right_hash, 456 } // Should be 123
+            { C::merkle_check_left_node, 123 }, // Should be 456
+            { C::merkle_check_right_node, 456 } // Should be 123
         },
     });
 
@@ -251,57 +251,58 @@ TEST(MerkleCheckConstrainingTest, NegativeAssignSiblingValueLeftOrRight)
                               "ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT");
 }
 
-TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsLeafValue)
+TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsCurrentNodeValue)
 {
-    FF left_hash = FF(123);
-    FF right_hash = FF(456);
-    FF output_hash = UnconstrainedPoseidon2::hash({ left_hash, right_hash });
+    FF left_node = FF(123);
+    FF right_node = FF(456);
+    FF output_hash = UnconstrainedPoseidon2::hash({ left_node, right_node });
 
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 0 },
-          { C::merkle_check_left_hash, left_hash },
-          { C::merkle_check_right_hash, right_hash },
+          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_left_node, left_node },
+          { C::merkle_check_right_node, right_node },
           { C::merkle_check_output_hash, output_hash } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 1 }, // Set latch=1 for final row
-          { C::merkle_check_leaf_value, output_hash } },
+          { C::merkle_check_root_latch, 1 }, // Set root_latch=1 for final row
+          { C::merkle_check_current_node_value, output_hash } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_LEAF_VALUE);
+    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE);
 }
 
-TEST(MerkleCheckConstrainingTest, NegativeOutputHashIsNextRowsLeafValue)
+TEST(MerkleCheckConstrainingTest, NegativeOutputHashIsNextRowsCurrentNodeValue)
 {
-    FF left_hash = FF(123);
-    FF right_hash = FF(456);
-    FF output_hash = UnconstrainedPoseidon2::hash({ left_hash, right_hash });
-    FF wrong_next_leaf_value = output_hash + 1; // Incorrect value
+    FF left_node = FF(123);
+    FF right_node = FF(456);
+    FF output_hash = UnconstrainedPoseidon2::hash({ left_node, right_node });
+    FF wrong_next_current_node_value = output_hash + 1; // Incorrect value
 
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_latch, 0 },
-          { C::merkle_check_left_hash, left_hash },
-          { C::merkle_check_right_hash, right_hash },
+          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_left_node, left_node },
+          { C::merkle_check_right_node, right_node },
           { C::merkle_check_output_hash, output_hash } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_leaf_value, wrong_next_leaf_value } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_current_node_value, wrong_next_current_node_value } },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_LEAF_VALUE),
-                              "OUTPUT_HASH_IS_NEXT_ROWS_LEAF_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE),
+        "OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE");
 }
 
-TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsLeafValueForLastRow)
+TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsCurrentNodeValueForLastRow)
 {
     FF output_hash = FF(456);
-    FF next_leaf_value = FF(789);
+    FF next_current_node_value = FF(789);
 
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_latch, 1 }, { C::merkle_check_output_hash, output_hash } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_leaf_value, next_leaf_value } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_root_latch, 1 }, { C::merkle_check_output_hash, output_hash } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_current_node_value, next_current_node_value } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_LEAF_VALUE);
+    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE);
 }
 
 TEST(MerkleCheckConstrainingTest, WithTracegen)
@@ -356,7 +357,7 @@ TEST(MerkleCheckConstrainingTest, NegativeWithTracegen)
     // Use a trace manipulation to break the output hash value in the last row
     auto rows = trace.as_rows();
     // Corrupt the last row
-    trace.set(C::merkle_check_path_len, static_cast<uint32_t>(rows.size() - 1), 66);
+    trace.set(C::merkle_check_remaining_path_len, static_cast<uint32_t>(rows.size() - 1), 66);
 
     // The relation should fail
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");

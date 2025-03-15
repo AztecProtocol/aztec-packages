@@ -30,9 +30,9 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
     FF sibling_value = FF(456);
 
     // Compute expected hash output
-    FF left_hash = leaf_value; // For even index, leaf is left
-    FF right_hash = sibling_value;
-    FF output_hash = Poseidon2::hash({ left_hash, right_hash });
+    FF left_node = leaf_value; // For even index, leaf is left
+    FF right_node = sibling_value;
+    FF output_hash = Poseidon2::hash({ left_node, right_node });
 
     std::vector<FF> sibling_path = { sibling_value };
     FF root = output_hash; // Root should match output hash
@@ -43,22 +43,23 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
 
     builder.process({ event }, trace);
 
-    EXPECT_THAT(trace.as_rows(),
-                ElementsAre(
-                    // First row is empty
-                    AllOf(Field(&R::merkle_check_sel, 0)),
-                    // First real row
-                    AllOf(Field(&R::merkle_check_sel, 1),
-                          Field(&R::merkle_check_leaf_value, leaf_value),
-                          Field(&R::merkle_check_leaf_index, leaf_index),
-                          Field(&R::merkle_check_path_len, 0), // only one layer, so remaining path is 0 immediately
-                          Field(&R::merkle_check_path_len_inv, 0),
-                          Field(&R::merkle_check_sibling_value, sibling_value),
-                          Field(&R::merkle_check_latch, 1), // done after only one layer
-                          Field(&R::merkle_check_leaf_index_is_even, 1),
-                          Field(&R::merkle_check_left_hash, left_hash),
-                          Field(&R::merkle_check_right_hash, right_hash),
-                          Field(&R::merkle_check_output_hash, output_hash))));
+    EXPECT_THAT(
+        trace.as_rows(),
+        ElementsAre(
+            // First row is empty
+            AllOf(Field(&R::merkle_check_sel, 0)),
+            // First real row
+            AllOf(Field(&R::merkle_check_sel, 1),
+                  Field(&R::merkle_check_current_node_value, leaf_value),
+                  Field(&R::merkle_check_current_index_in_layer, leaf_index),
+                  Field(&R::merkle_check_remaining_path_len, 0), // only one layer, so remaining path is 0 immediately
+                  Field(&R::merkle_check_remaining_path_len_inv, 0),
+                  Field(&R::merkle_check_sibling_value, sibling_value),
+                  Field(&R::merkle_check_root_latch, 1), // done after only one layer
+                  Field(&R::merkle_check_index_is_even, 1),
+                  Field(&R::merkle_check_left_node, left_node),
+                  Field(&R::merkle_check_right_node, right_node),
+                  Field(&R::merkle_check_output_hash, output_hash))));
 }
 
 TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
@@ -73,17 +74,17 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
     FF sibling_value_1 = FF(456);
 
     // Compute hash for level 1
-    FF left_hash_1 = sibling_value_1; // For odd index, sibling is left
-    FF right_hash_1 = leaf_value;     // For odd index, leaf is right
-    FF output_hash_1 = Poseidon2::hash({ left_hash_1, right_hash_1 });
+    FF left_node_1 = sibling_value_1; // For odd index, sibling is left
+    FF right_node_1 = leaf_value;     // For odd index, leaf is right
+    FF output_hash_1 = Poseidon2::hash({ left_node_1, right_node_1 });
 
     // Level 2 sibling
     FF sibling_value_2 = FF(789);
 
     // Compute hash for level 2
-    FF left_hash_2 = output_hash_1; // For odd index 1 in level 1, parent is at index 0 (even) in level 2
-    FF right_hash_2 = sibling_value_2;
-    FF output_hash_2 = Poseidon2::hash({ left_hash_2, right_hash_2 });
+    FF left_node_2 = output_hash_1; // For odd index 1 in level 1, parent is at index 0 (even) in level 2
+    FF right_node_2 = sibling_value_2;
+    FF output_hash_2 = Poseidon2::hash({ left_node_2, right_node_2 });
 
     std::vector<FF> sibling_path = { sibling_value_1, sibling_value_2 };
     FF root = output_hash_2; // Root is the final output hash
@@ -100,27 +101,27 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                     AllOf(Field(&R::merkle_check_sel, 0)),
                     // First real row
                     AllOf(Field(&R::merkle_check_sel, 1),
-                          Field(&R::merkle_check_leaf_value, leaf_value),
-                          Field(&R::merkle_check_leaf_index, leaf_index),
-                          Field(&R::merkle_check_path_len, 1), // remaining path length is 1 after one layer
-                          Field(&R::merkle_check_path_len_inv, FF(1).invert()),
+                          Field(&R::merkle_check_current_node_value, leaf_value),
+                          Field(&R::merkle_check_current_index_in_layer, leaf_index),
+                          Field(&R::merkle_check_remaining_path_len, 1), // remaining path length is 1 after one layer
+                          Field(&R::merkle_check_remaining_path_len_inv, FF(1).invert()),
                           Field(&R::merkle_check_sibling_value, sibling_value_1),
-                          Field(&R::merkle_check_latch, 0),              // Not done yet
-                          Field(&R::merkle_check_leaf_index_is_even, 0), // Odd index
-                          Field(&R::merkle_check_left_hash, left_hash_1),
-                          Field(&R::merkle_check_right_hash, right_hash_1),
+                          Field(&R::merkle_check_root_latch, 0),    // Not done yet
+                          Field(&R::merkle_check_index_is_even, 0), // Odd index
+                          Field(&R::merkle_check_left_node, left_node_1),
+                          Field(&R::merkle_check_right_node, right_node_1),
                           Field(&R::merkle_check_output_hash, output_hash_1)),
                     // Second real row
                     AllOf(Field(&R::merkle_check_sel, 1),
-                          Field(&R::merkle_check_leaf_value, output_hash_1), // Previous output becomes new leaf
+                          Field(&R::merkle_check_current_node_value, output_hash_1), // Previous output becomes new leaf
                           // Leaf index should be 0 (even) at level 2
-                          Field(&R::merkle_check_path_len, 0), // Remaining path length is 0
-                          Field(&R::merkle_check_path_len_inv, 0),
+                          Field(&R::merkle_check_remaining_path_len, 0), // Remaining path length is 0
+                          Field(&R::merkle_check_remaining_path_len_inv, 0),
                           Field(&R::merkle_check_sibling_value, sibling_value_2),
-                          Field(&R::merkle_check_latch, 1),              // Done after two layers
-                          Field(&R::merkle_check_leaf_index_is_even, 1), // Even index at level 2
-                          Field(&R::merkle_check_left_hash, left_hash_2),
-                          Field(&R::merkle_check_right_hash, right_hash_2),
+                          Field(&R::merkle_check_root_latch, 1), // Done after two layers
+                          Field(&R::merkle_check_index_is_even, 1),
+                          Field(&R::merkle_check_left_node, left_node_2),
+                          Field(&R::merkle_check_right_node, right_node_2),
                           Field(&R::merkle_check_output_hash, output_hash_2))));
 }
 
@@ -159,23 +160,27 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                     AllOf(Field(&R::merkle_check_sel, 0)),
                     // First real row
                     AllOf(Field(&R::merkle_check_sel, 1),
-                          Field(&R::merkle_check_leaf_value, leaf_value_1),
-                          Field(&R::merkle_check_leaf_index, leaf_index_1),
-                          Field(&R::merkle_check_path_len, 0),
-                          Field(&R::merkle_check_path_len_inv, 0),
+                          Field(&R::merkle_check_current_node_value, leaf_value_1),
+                          Field(&R::merkle_check_current_index_in_layer, leaf_index_1),
+                          Field(&R::merkle_check_remaining_path_len, 0),
+                          Field(&R::merkle_check_remaining_path_len_inv, 0),
                           Field(&R::merkle_check_sibling_value, sibling_value_1),
-                          Field(&R::merkle_check_latch, 1),
-                          Field(&R::merkle_check_leaf_index_is_even, 1),
+                          Field(&R::merkle_check_root_latch, 1),
+                          Field(&R::merkle_check_index_is_even, 1),
+                          Field(&R::merkle_check_left_node, leaf_value_1),
+                          Field(&R::merkle_check_right_node, sibling_value_1),
                           Field(&R::merkle_check_output_hash, output_hash_1)),
                     // Second real row
                     AllOf(Field(&R::merkle_check_sel, 1),
-                          Field(&R::merkle_check_leaf_value, leaf_value_2),
-                          Field(&R::merkle_check_leaf_index, leaf_index_2),
-                          Field(&R::merkle_check_path_len, 0),
-                          Field(&R::merkle_check_path_len_inv, 0),
+                          Field(&R::merkle_check_current_node_value, leaf_value_2),
+                          Field(&R::merkle_check_current_index_in_layer, leaf_index_2),
+                          Field(&R::merkle_check_remaining_path_len, 0),
+                          Field(&R::merkle_check_remaining_path_len_inv, 0),
                           Field(&R::merkle_check_sibling_value, sibling_value_2),
-                          Field(&R::merkle_check_latch, 1),
-                          Field(&R::merkle_check_leaf_index_is_even, 0),
+                          Field(&R::merkle_check_root_latch, 1),
+                          Field(&R::merkle_check_index_is_even, 0),
+                          Field(&R::merkle_check_left_node, sibling_value_2),
+                          Field(&R::merkle_check_right_node, leaf_value_2),
                           Field(&R::merkle_check_output_hash, output_hash_2))));
 }
 
