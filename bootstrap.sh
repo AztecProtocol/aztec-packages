@@ -23,12 +23,6 @@ function encourage_dev_container {
 # Checks for required utilities, toolchains and their versions.
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
-  # TODO: Needs build image rebuild before can remove.
-  {
-    if ! command -v zstd; then
-      sudo apt update && sudo apt install zstd -y
-    fi
-  } &>/dev/null
   # Check for various required utilities.
   for util in jq parallel awk git curl zstd; do
     if ! command -v $util > /dev/null; then
