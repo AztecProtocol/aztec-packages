@@ -329,8 +329,6 @@ template <typename Curve> class ZeroMorphProver_ {
      * @param multilinear_challenge Multilinear challenge point u
      * @param commitment_key
      * @param transcript
-     *
-     * @todo https://github.com/AztecProtocol/barretenberg/issues/1030: document concatenation trick
      */
     template <typename Transcript>
     static OpeningClaim prove(FF circuit_size,

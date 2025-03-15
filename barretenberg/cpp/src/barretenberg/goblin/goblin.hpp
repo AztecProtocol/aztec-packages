@@ -241,8 +241,7 @@ class GoblinVerifier {
 
         bool accumulator_construction_verified = translator_verifier.verify_proof(
             proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
-        // correctly
+
         bool translation_verified = translator_verifier.verify_translation(
             proof.translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 

@@ -227,7 +227,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
     goblin_element dbl() const { return batch_mul({ *this }, { 2 }); }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) max_num_bits is unused; could implement and
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1291) max_num_bits is unused; could implement and
     // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter
     // handle_edge_cases is not needed as this is always done in the eccvm
     static goblin_element batch_mul(const std::vector<goblin_element>& points,

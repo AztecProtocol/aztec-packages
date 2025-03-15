@@ -4,7 +4,6 @@
 #include "barretenberg/plonk_honk_shared/execution_trace/standard_execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
-#include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "circuit_builder_base.hpp"
 #include <array>
@@ -24,7 +23,6 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
     static constexpr std::string_view NAME_STRING = "StandardExecutionTrace";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::STANDARD;
     static constexpr merkle::HashType merkle_hash_type = merkle::HashType::FIXED_BASE_PEDERSEN;
-    static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::FIXED_BASE_PEDERSEN;
 
     // Storage for wires and selectors for all gate types
     GateBlocks blocks;

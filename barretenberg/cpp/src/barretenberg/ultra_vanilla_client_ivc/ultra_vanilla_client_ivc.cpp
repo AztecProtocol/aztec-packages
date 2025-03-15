@@ -50,7 +50,7 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
             previous_proof = prover.construct_proof();
             vinfo("constructed proof");
         } else {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1176) Use UltraKeccakZKProver when it exists
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1294) Use UltraKeccakZKProver when it exists
             UltraProver prover{ proving_key, commitment_key };
             previous_proof = prover.construct_proof();
         }

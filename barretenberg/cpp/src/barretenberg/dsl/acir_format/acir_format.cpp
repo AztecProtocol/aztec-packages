@@ -229,8 +229,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     // RecursionConstraints
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
-    // not yet dealing with proper recursion
     if constexpr (IsMegaBuilder<Builder>) {
         if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains unhandled recursion_constraints!");

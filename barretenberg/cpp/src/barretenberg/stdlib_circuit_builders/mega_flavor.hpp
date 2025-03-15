@@ -334,8 +334,6 @@ class MegaFlavor {
         // fully-formed constructor
         ProverPolynomials(size_t circuit_size)
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
-            // of these polys (in client_ivc_bench only).
             PROFILE_THIS_NAME("ProverPolynomials(size_t)");
 
             for (auto& poly : get_to_be_shifted()) {
