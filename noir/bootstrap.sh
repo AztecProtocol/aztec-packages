@@ -65,11 +65,11 @@ function build_packages {
 
   cd noir-repo
   yarn install
-  yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
+  yarn workspaces foreach -R --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
   # These can be useful for testing, or portaling into other projects.
-  yarn workspaces foreach --parallel $js_include pack
+  yarn workspaces foreach -R --parallel $js_include pack
 
   cd ..
   rm -rf packages && mkdir -p packages
