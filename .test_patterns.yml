@@ -176,6 +176,10 @@ tests:
     owners:
       - *adam
 
+  - regex: "spartan/bootstrap.sh test-prod-deployment"
+    owners:
+      - *adam
+
   # Slack testing.
   - regex: "nonsense to match"
     owners:
