@@ -97,6 +97,16 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 1013;
 
+    // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
+    // evenly processed by all the threads. This constant defines the maximum number of rows
+    // that a given thread will process per chunk. This constant is assumed to be a power of 2
+    // greater or equal to 2.
+    // The current constant 32 is the result of time measurements using 16 threads and against
+    // bulk test v2. It was performed at a stage where the trace was not large.
+    // We note that all the experiments with constants below 256 did not exhibit any significant differences.
+    // TODO: Fine-tune the following constant when avm is close to completion.
+    static constexpr size_t MAX_CHUNK_THREAD_PORTION_SIZE = 32;
+
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = std::tuple<
