@@ -266,7 +266,9 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
+template class OinkProver<UltraStarknetFlavor>;
 template class OinkProver<UltraKeccakZKFlavor>;
+template class OinkProver<UltraStarknetZKFlavor>;
 template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
