@@ -60,12 +60,12 @@ function build_packages {
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
-    yarn install
+    npm_install_deps
     return
   fi
 
   cd noir-repo
-  yarn install
+  npm_install_deps
   yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.

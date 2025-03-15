@@ -17,7 +17,7 @@ hash=$(cache_content_hash \
 
 function build {
   echo_header "boxes build"
-  denoise yarn
+  npm_install_deps
 
   if ! cache_download boxes-$hash.tar.gz; then
     denoise 'yarn build'
