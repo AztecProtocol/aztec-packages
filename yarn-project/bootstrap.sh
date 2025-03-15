@@ -88,7 +88,6 @@ function build {
   denoise "./bootstrap.sh clean-lite"
   npm_install_deps
   denoise "compile_all"
-  echo -e "${green}Yarn project successfully built!${reset}"
 }
 
 function test_cmds {
