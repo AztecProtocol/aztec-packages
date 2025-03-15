@@ -160,6 +160,10 @@ tests:
     owners:
       - *leila
 
+  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    owners:
+      - *adam
+
   # Slack testing.
   - regex: "nonsense to match"
     owners:
