@@ -71,6 +71,9 @@ export const L1_PUBLISHER_BLOB_TX_SUCCESS = 'aztec.l1_publisher.blob_tx_success'
 export const L1_PUBLISHER_BLOB_TX_FAILURE = 'aztec.l1_publisher.blob_tx_failure';
 export const L1_PUBLISHER_BALANCE = 'aztec.l1_publisher.balance';
 
+export const L1_BLOCK_HEIGHT = 'aztec.l1.block_height';
+export const L1_BALANCE = 'aztec.l1.balance';
+
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
 export const PEER_MANAGER_PEER_COUNT = 'aztec.peer_manager.peer_count';
