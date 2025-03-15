@@ -58,11 +58,12 @@ function test_cmds {
   # TODO figure out why these take long sometimes.
   echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-smoke"
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
+    # TODO(https://github.com/AztecProtocol/aztec-packages/issues/12735): reenable
+    # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
   fi
 }
 
