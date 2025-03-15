@@ -289,7 +289,7 @@ __metadata:
     "@aztec/bb.js": ../../ts
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen"
-    "@aztec/noir-noir_js": "file:../../noir/packages/noir_js"
+    "@aztec/noir-noir_js": "portal:../../noir/packages/noir_js"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.8.1"
@@ -783,7 +783,7 @@ __metadata:
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen"
-    "@aztec/noir-noir_js": "file:../../noir/packages/noir_js"
+    "@aztec/noir-noir_js": "portal:../../noir/packages/noir_js"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@aztec/noir-types": "portal:../../noir/packages/types"
     "@aztec/simulator": "workspace:^"
@@ -952,16 +952,15 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.3
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=1c440e&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+"@aztec/noir-noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/noir-noir_js@portal:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.3"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.3"
     "@aztec/noir-types": "npm:1.0.0-beta.3"
-  checksum: 10/08fd293b038e8e3700f6a5dede8ad80ed8254ad49f177dc4e4f3b0528661621f36bf02a2335dd7002ae0caf9ca6bdbc7c494e4093a40b1e58acb37352dcf22dd
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
