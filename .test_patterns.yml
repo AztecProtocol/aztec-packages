@@ -168,6 +168,10 @@ tests:
     owners:
       - *adam
 
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    owners:
+      - *adam
+
   - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:
       - *adam
