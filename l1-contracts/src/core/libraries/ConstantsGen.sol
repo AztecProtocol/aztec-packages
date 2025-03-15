@@ -317,4 +317,7 @@ library Constants {
   uint256 internal constant MINIMUM_UPDATE_DELAY = 25;
   uint256 internal constant UPDATES_VALUE_SIZE = 1;
   uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 3;
+  uint256 internal constant GRUMPKIN_ONE_X = 1;
+  uint256 internal constant GRUMPKIN_ONE_Y =
+    17631683881184975370165255887551781615748388533673675138860;
 }

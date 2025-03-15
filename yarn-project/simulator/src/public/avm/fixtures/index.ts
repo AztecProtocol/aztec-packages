@@ -23,6 +23,7 @@ import {
 import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 import { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -284,17 +285,20 @@ export async function createContractClassAndInstance(
   );
 
   const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
+  const { publicKeys } = await deriveKeys(Fr.random());
   const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
   const contractInstance =
     originalContractClassId === undefined
       ? await makeContractInstanceFromClassId(contractClass.id, seed, {
           deployer,
           initializationHash,
+          publicKeys,
         })
       : await makeContractInstanceFromClassId(originalContractClassId, seed, {
           deployer,
           initializationHash,
           currentClassId: contractClass.id,
+          publicKeys,
         });
 
   const contractAddressNullifier = await siloNullifier(

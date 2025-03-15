@@ -502,10 +502,7 @@ export async function setup(
   const blobSinkClient = createBlobSinkClient(config);
   const aztecNode = await AztecNodeService.createAndSync(
     config,
-    {
-      dateProvider,
-      blobSinkClient,
-    },
+    { dateProvider, blobSinkClient, telemetry },
     { prefilledPublicData },
   );
   const sequencer = aztecNode.getSequencer();

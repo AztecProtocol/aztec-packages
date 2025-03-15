@@ -2,7 +2,7 @@ use dep::aztec::{
     macros::notes::note, oracle::random::random, protocol_types::address::AztecAddress,
 };
 
-trait OwnedNote {
+pub trait OwnedNote {
     fn new(amount: u128, owner: AztecAddress) -> Self;
     fn get_amount(self) -> u128;
 }
