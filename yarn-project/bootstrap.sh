@@ -38,7 +38,7 @@ function format {
 
 function lint {
   local arg="--fix"
-  if [ "$1" == "--check" ]; then
+  if [ "${1-}" == "--check" ]; then
     arg=""
     shift 1
   fi
