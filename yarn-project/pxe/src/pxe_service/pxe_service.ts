@@ -48,11 +48,7 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import type {
-  PrivateExecutionStep,
-  PrivateKernelExecutionProofOutput,
-  PrivateKernelTailCircuitPublicInputs,
-} from '@aztec/stdlib/kernel';
+import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
