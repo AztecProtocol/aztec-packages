@@ -11,6 +11,18 @@ function build_dind_image {
   denoise "docker build -t aztecprotocol/dind ."
 }
 
+function update_manifest {
+  # We update the manifest to point to the latest arch specific images, pushed above.
+  local image=aztecprotocol/dind:latest
+  # Remove any old local manifest if present.
+  docker manifest rm $image || true
+  # Create new manifest and push.
+  docker manifest create $image \
+    --amend aztecprotocol/dind:latest-amd64 \
+    --amend aztecprotocol/dind:latest-arm64
+  docker manifest push $image
+}
+
 function test_cmds {
   echo "$hash aztec-up/scripts/run_test.sh basic_install"
   echo "$hash aztec-up/scripts/run_test.sh counter_contract"
@@ -52,9 +64,8 @@ function release {
 
 case "$cmd" in
   ""|"full"|"fast")
-    build_dind_image
     ;;
-  test_cmds|test|release)
+  test_cmds|test|release|build_dind_image|update_manifest)
     $cmd
     ;;
   *)

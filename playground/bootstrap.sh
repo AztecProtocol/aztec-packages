@@ -11,11 +11,11 @@ hash=$(cache_content_hash \
 
 function build {
   echo_header "playground build"
-  denoise yarn
+  npm_install_deps
 
   if ! cache_download playground-$hash.tar.gz; then
     denoise 'yarn build'
-    cache_upload playground-$hash.tar.gz $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+    cache_upload playground-$hash.tar.gz $(git ls-files --others --ignored --exclude-standard | grep -vE '^"?node_modules/')
   fi
 }
 
