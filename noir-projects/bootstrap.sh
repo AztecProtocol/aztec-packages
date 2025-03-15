@@ -23,7 +23,8 @@ function build {
   parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 denoise "'./{}/bootstrap.sh $cmd'" ::: \
     mock-protocol-circuits \
     noir-protocol-circuits \
-    noir-contracts
+    noir-contracts \
+    aztec-nr
 }
 
 function test_cmds {

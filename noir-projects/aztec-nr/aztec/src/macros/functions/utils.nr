@@ -3,7 +3,8 @@ use crate::macros::{
     notes::NOTES,
     utils::{
         add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
-        is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+        is_fn_private, is_fn_public, is_fn_view, modify_fn_body, module_has_initializer,
+        module_has_storage,
     },
 };
 use protocol_types::meta::generate_serialize_to_fields;
@@ -280,8 +281,8 @@ pub(crate) comptime fn find_and_transform_top_level_unconstrained_fns(m: Module)
     // public, but which *are* contract entrypoints (i.e. they're not opting out via the #[test] or
     // #[contract_library_method] attributes). Ideally entrypoints would be explicitly designated instead.
     let non_private_public_entrypoint_functions = m.functions().filter(|f: FunctionDefinition| {
-        !f.has_named_attribute("private")
-            & !f.has_named_attribute("public")
+        !is_fn_private(f)
+            & !is_fn_public(f)
             & !f.has_named_attribute("contract_library_method")
             & !f.has_named_attribute("test")
     });
