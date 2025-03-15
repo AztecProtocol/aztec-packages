@@ -9,8 +9,8 @@ cmd=${1:-}
 # Update the noir-repo before we hash its content, unless the command is exempt.
 no_update=(clean make-patch bump-noir-repo-ref)
 if [[ -z "$cmd" || ! ${no_update[*]} =~ "$cmd" ]]; then
-  scripts/sync.sh init
-  scripts/sync.sh update
+  echo_header "noir sync"
+  denoise "scripts/sync.sh init && scripts/sync.sh update"
 fi
 
 export hash=$(cache_content_hash .rebuild_patterns)
