@@ -1,3 +1,5 @@
+import { numToUInt32BE } from "../serialize/serialize.js";
+
 /**
  * @description
  * The representation of a proof
@@ -28,16 +30,12 @@ export function splitHonkProof(
   proofWithPublicInputs: Uint8Array,
   numPublicInputs: number,
 ): { publicInputs: Uint8Array; proof: Uint8Array } {
-  // Account for the serialized buffer size at start
-  // Get the part before and after the public inputs
-  const proofStart = proofWithPublicInputs.slice(0, serializedBufferSize);
-  const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
-  const proofEnd = proofWithPublicInputs.slice(serializedBufferSize + publicInputsSplitIndex);
-  // Construct the proof without the public inputs
-  const proof = new Uint8Array([...proofStart, ...proofEnd]);
+  // `proofWithPublicInputs` is publicInputs (32 bytes per input) concatenated with the proof bytes
+  // The first 4 bytes is the size of the buffer - this can be removed
+  const proofWithPublicInputsCleaned = proofWithPublicInputs.slice(serializedBufferSize);
 
-  // Fetch the number of public inputs out of the proof string
-  const publicInputs = proofWithPublicInputs.slice(serializedBufferSize, serializedBufferSize + publicInputsSplitIndex);
+  const publicInputs = proofWithPublicInputsCleaned.slice(0, numPublicInputs * fieldByteSize);
+  const proof = proofWithPublicInputsCleaned.slice(numPublicInputs * fieldByteSize);
 
   return {
     proof,
@@ -46,12 +44,10 @@ export function splitHonkProof(
 }
 
 export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array): Uint8Array {
-  const proofStart = proof.slice(0, serializedBufferSize);
-  const proofEnd = proof.slice(serializedBufferSize);
+  // Append the buffer length to the concatenated proof
+  const bufferLength = numToUInt32BE((publicInputs.length + proof.length) / fieldByteSize);
 
-  // Concatenate publicInputs and proof
-  const proofWithPublicInputs = Uint8Array.from([...proofStart, ...publicInputs, ...proofEnd]);
-
+  const proofWithPublicInputs = Uint8Array.from([...bufferLength, ...publicInputs, ...proof]);
   return proofWithPublicInputs;
 }
 
