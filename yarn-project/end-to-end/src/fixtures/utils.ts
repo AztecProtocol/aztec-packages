@@ -10,13 +10,10 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
   BatchCall,
-  CheatCodes,
   type ContractMethod,
-  type DeployL1ContractsReturnType,
   FeeJuicePaymentMethod,
   type Logger,
   type PXE,
@@ -25,20 +22,22 @@ import {
   createAztecNodeClient,
   createLogger,
   createPXEClient,
-  deployL1Contracts,
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import type { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
+  type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
   createL1Clients,
+  deployL1Contracts,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
   l1Artifacts,
@@ -408,12 +407,6 @@ export async function setup(
     return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
   }
 
-  // Blob sink service - blobs get posted here and served from here
-  const blobSinkPort = await getPort();
-  const blobSink = await createBlobSinkServer({ port: blobSinkPort });
-  await blobSink.start();
-  config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
-
   const initialFundedAccounts =
     opts.initialFundedAccounts ??
     (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts));
@@ -475,6 +468,22 @@ export async function setup(
 
   await watcher.start();
 
+  const telemetry = getTelemetryClient(opts.telemetryConfig);
+
+  // Blob sink service - blobs get posted here and served from here
+  const blobSinkPort = await getPort();
+  const blobSink = await createBlobSinkServer(
+    {
+      l1ChainId: config.l1ChainId,
+      l1RpcUrls: config.l1RpcUrls,
+      rollupAddress: config.l1Contracts.rollupAddress,
+      port: blobSinkPort,
+    },
+    telemetry,
+  );
+  await blobSink.start();
+  config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+
   logger.verbose('Creating and synching an aztec node...');
 
   const acvmConfig = await getACVMConfig(logger);
@@ -490,15 +499,10 @@ export async function setup(
   }
   config.l1PublishRetryIntervalMS = 100;
 
-  const telemetry = getTelemetryClient(opts.telemetryConfig);
-
   const blobSinkClient = createBlobSinkClient(config);
   const aztecNode = await AztecNodeService.createAndSync(
     config,
-    {
-      dateProvider,
-      blobSinkClient,
-    },
+    { dateProvider, blobSinkClient, telemetry },
     { prefilledPublicData },
   );
   const sequencer = aztecNode.getSequencer();
@@ -628,10 +632,8 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
   if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
-  const requests = await Promise.all(
-    instances.map(async instance => (await deployInstance(sender, instance!)).request()),
-  );
-  const batch = new BatchCall(sender, [...requests]);
+  const requests = await Promise.all(instances.map(async instance => await deployInstance(sender, instance!)));
+  const batch = new BatchCall(sender, requests);
   await batch.send().wait();
 }
 // docs:end:public_deploy_accounts

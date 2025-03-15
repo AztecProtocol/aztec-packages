@@ -1,18 +1,17 @@
-import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
+import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fq, Fr } from '@aztec/foundation/fields';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, randomInBlock, wrapInBlock } from '@aztec/stdlib/block';
+import { randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
-import { EncryptedLogPayload, IndexedTaggingSecret, L1NotePayload, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import { Note } from '@aztec/stdlib/note';
+import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
@@ -26,73 +25,10 @@ import { ContractDataProvider } from '../storage/contract_data_provider/contract
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { PXEOracleInterface } from './index.js';
+import { PXEOracleInterface } from './pxe_oracle_interface.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
 
-const TXS_PER_BLOCK = 4;
-const NUM_NOTE_HASHES_PER_BLOCK = TXS_PER_BLOCK * MAX_NOTE_HASHES_PER_TX;
-
 jest.setTimeout(30_000);
-
-async function getRandomNoteLogPayload(tag = Fr.random(), app?: AztecAddress): Promise<EncryptedLogPayload> {
-  return new EncryptedLogPayload(
-    tag,
-    app ?? (await AztecAddress.random()),
-    (await L1NotePayload.random(app)).toIncomingBodyPlaintext(),
-  );
-}
-
-/** A wrapper containing info about a note we want to mock and insert into a block. */
-class MockNoteRequest {
-  constructor(
-    /** Log payload corresponding to a note we want to insert into a block. */
-    public readonly logPayload: EncryptedLogPayload,
-    /** Block number this note corresponds to. */
-    public readonly blockNumber: number,
-    /** Index of a tx within a block this note corresponds to. */
-    public readonly txIndex: number,
-    /** Index of a note hash within a list of note hashes for 1 tx. */
-    public readonly noteHashIndex: number,
-    /** Address point we use when encrypting a note. */
-    public readonly recipient: AztecAddress,
-  ) {
-    if (blockNumber < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Block number should be greater than or equal to ${INITIAL_L2_BLOCK_NUM}.`);
-    }
-    if (noteHashIndex >= MAX_NOTE_HASHES_PER_TX) {
-      throw new Error(`Data index should be less than ${MAX_NOTE_HASHES_PER_TX}.`);
-    }
-    if (txIndex >= TXS_PER_BLOCK) {
-      throw new Error(`Tx index should be less than ${TXS_PER_BLOCK}.`);
-    }
-  }
-
-  async encrypt(): Promise<Buffer> {
-    const ephSk = GrumpkinScalar.random();
-    const log = await this.logPayload.generatePayload(ephSk, this.recipient);
-    return log.toBuffer();
-  }
-
-  get indexWithinNoteHashTree(): bigint {
-    return BigInt(
-      (this.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK + this.txIndex * MAX_NOTE_HASHES_PER_TX + this.noteHashIndex,
-    );
-  }
-
-  get snippetOfNoteDao() {
-    const payload = L1NotePayload.fromIncomingBodyPlaintextContractAndPublicValues(
-      this.logPayload.incomingBodyPlaintext,
-      this.logPayload.contractAddress,
-      [],
-    )!;
-    return {
-      note: new Note(payload.privateNoteValues),
-      contractAddress: payload.contractAddress,
-      storageSlot: payload.storageSlot,
-      noteTypeId: payload.noteTypeId,
-    };
-  }
-}
 
 async function computeSiloedTagForIndex(
   sender: { completeAddress: CompleteAddress; ivsk: Fq },
@@ -168,14 +104,7 @@ describe('PXEOracleInterface', () => {
       for (const sender of senders) {
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex);
         const blockNumber = 1;
-        const randomNote = new MockNoteRequest(
-          await getRandomNoteLogPayload(tag, contractAddress),
-          blockNumber,
-          1,
-          1,
-          recipient.address,
-        );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, await randomNote.encrypt());
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -184,9 +113,7 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = await computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, tagIndex);
-      const payload = await getRandomNoteLogPayload(tag, contractAddress);
-      const logData = (await payload.generatePayload(GrumpkinScalar.random(), recipient.address)).toBuffer();
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, false, logData);
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, PrivateLog.random(tag));
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -196,14 +123,7 @@ describe('PXEOracleInterface', () => {
         const sender = senders[i];
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex + 1);
         const blockNumber = 2;
-        const randomNote = new MockNoteRequest(
-          await getRandomNoteLogPayload(tag, contractAddress),
-          blockNumber,
-          1,
-          1,
-          recipient.address,
-        );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, await randomNote.encrypt());
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -216,14 +136,7 @@ describe('PXEOracleInterface', () => {
         const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
         const tag = await computeSiloedTagForIndex(sender, randomRecipient, contractAddress, tagIndex);
         const blockNumber = 3;
-        const randomNote = new MockNoteRequest(
-          await getRandomNoteLogPayload(tag, contractAddress),
-          blockNumber,
-          1,
-          1,
-          randomRecipient,
-        );
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, false, await randomNote.encrypt());
+        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -514,18 +427,23 @@ describe('PXEOracleInterface', () => {
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
     });
 
+    // IMPORTANT: This test has a misleading name and behavior. When TxScopedL2Log was updated to work with
+    // PrivateLog and PublicLog types directly, the `isFromPublic` getter was initially left unimplemented.
+    // At that time, this test appeared to pass - not because it was correctly filtering logs by contract address,
+    // but because `isFromPublic` was returning undefined (falsey). As a result, the test is actually filtering
+    // based on the log type (public vs private) rather than the intended contract address check.
     it('should not sync public tagged logs with incorrect contract address', async () => {
       const logs: { [k: string]: TxScopedL2Log[] } = {};
       const tag = await computeSiloedTagForIndex(senders[0], recipient.address, contractAddress, 0);
       // Create a public log with an address which doesn't match the tag
-      const logData = PublicLog.fromFields([
+      const log = PublicLog.fromFields([
         AztecAddress.fromNumber(2).toField(),
         Fr.ONE,
         tag,
         ...Array(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 2).fill(Fr.random()),
-      ]).toBuffer();
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, true, logData);
-      logs[tag.toString()] = [log];
+      ]);
+      const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, log);
+      logs[tag.toString()] = [scopedLog];
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
@@ -536,10 +454,7 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('Process notes', () => {
-    let addNotesSpy: any;
-    let getNotesSpy: any;
-    let removeNullifiedNotesSpy: any;
+  describe('Process logs', () => {
     let simulator: MockProxy<AcirSimulator>;
     let runUnconstrainedSpy: any;
 
@@ -568,148 +483,34 @@ describe('PXEOracleInterface', () => {
       await contractDataProvider.addContractArtifact(contractInstance.currentContractClassId, contractArtifact);
       contractAddress = contractInstance.address;
 
-      addNotesSpy = jest.spyOn(noteDataProvider, 'addNotes');
-      getNotesSpy = jest.spyOn(noteDataProvider, 'getNotes');
-      removeNullifiedNotesSpy = jest.spyOn(noteDataProvider, 'removeNullifiedNotes');
-      removeNullifiedNotesSpy.mockImplementation(() => Promise.resolve([]));
       simulator = mock<AcirSimulator>();
       simulator.runUnconstrained.mockImplementation(() => Promise.resolve({}));
 
       runUnconstrainedSpy = jest.spyOn(simulator, 'runUnconstrained');
+
+      aztecNode.getTxEffect.mockResolvedValue(randomInBlock(await TxEffect.random()));
     });
 
-    afterEach(() => {
-      addNotesSpy.mockReset();
-      getNotesSpy.mockReset();
-      removeNullifiedNotesSpy.mockReset();
-      aztecNode.getTxEffect.mockReset();
-    });
-
-    async function mockTaggedLogs(requests: MockNoteRequest[], nullifiers: number = 0) {
-      const txEffectsMap: { [k: string]: { noteHashes: Fr[]; txHash: TxHash; nullifiers: Fr[] } } = {};
-      const taggedLogs: TxScopedL2Log[] = [];
-      const groupedByTx = requests.reduce<{ [i: number]: { [j: number]: MockNoteRequest[] } }>((acc, request) => {
-        if (!acc[request.blockNumber]) {
-          acc[request.blockNumber] = {};
-        }
-        if (!acc[request.blockNumber][request.txIndex]) {
-          acc[request.blockNumber][request.txIndex] = [];
-        }
-        acc[request.blockNumber][request.txIndex].push(request);
-        return acc;
-      }, {});
-      for (const blockNumberKey in groupedByTx) {
-        const blockNumber = parseInt(blockNumberKey);
-        for (const txIndexKey in groupedByTx[blockNumber]) {
-          const txIndex = parseInt(txIndexKey);
-          const requestsInTx = groupedByTx[blockNumber][txIndex];
-          const maxNoteIndex = Math.max(...requestsInTx.map(request => request.noteHashIndex));
-          const txHash = TxHash.random();
-          for (const request of requestsInTx) {
-            if (!txEffectsMap[txHash.toString()]) {
-              txEffectsMap[txHash.toString()] = {
-                txHash,
-                nullifiers: [new Fr(txHash.hash.toBigInt() + 27n)],
-                noteHashes: Array(maxNoteIndex + 1)
-                  .fill(0)
-                  .map(() => Fr.random()),
-              };
-            }
-            const dataStartIndex =
-              (request.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK + request.txIndex * MAX_NOTE_HASHES_PER_TX;
-            const taggedLog = new TxScopedL2Log(txHash, dataStartIndex, blockNumber, false, await request.encrypt());
-            const note = request.snippetOfNoteDao.note;
-            const noteHash = await pedersenHash(note.items);
-            txEffectsMap[txHash.toString()].noteHashes[request.noteHashIndex] = noteHash;
-            taggedLogs.push(taggedLog);
-          }
-        }
-      }
-
-      aztecNode.getTxEffect.mockImplementation(txHash => {
-        return Promise.resolve(randomInBlock(txEffectsMap[txHash.toString()] as TxEffect));
-      });
-      aztecNode.findNullifiersIndexesWithBlock.mockImplementation((_blockNumber, requestedNullifiers) =>
-        Promise.resolve(
-          Array(requestedNullifiers.length - nullifiers)
-            .fill(undefined)
-            .concat(Array(nullifiers).fill({ data: 1n, l2BlockNumber: 1n, l2BlockHash: '0x' })),
-        ),
-      );
-      return taggedLogs;
+    function mockTaggedLogs(numLogs: number) {
+      return Array(numLogs)
+        .fill(0)
+        .map(() => new TxScopedL2Log(TxHash.random(), 0, 0, PrivateLog.random(Fr.random())));
     }
-    it('should call processLog on multiple notes', async () => {
-      const requests = [
-        new MockNoteRequest(await getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
-        new MockNoteRequest(
-          await getRandomNoteLogPayload(Fr.random(), contractAddress),
-          2,
-          3,
-          0,
-          await AztecAddress.random(),
-        ),
-        new MockNoteRequest(await getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
-        new MockNoteRequest(
-          await getRandomNoteLogPayload(Fr.random(), contractAddress),
-          9,
-          3,
-          2,
-          await AztecAddress.random(),
-        ),
-        new MockNoteRequest(await getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
-      ];
 
-      const taggedLogs = await mockTaggedLogs(requests);
+    it('should call processLog on multiple logs', async () => {
+      const numLogs = 3;
 
-      await pxeOracleInterface.processTaggedLogs(taggedLogs, recipient.address, simulator);
+      const taggedLogs = mockTaggedLogs(numLogs);
+
+      await pxeOracleInterface.processTaggedLogs(contractAddress, taggedLogs, recipient.address, simulator);
 
       // We test that a call to `processLog` is made with the correct function artifact and contract address
-      expect(runUnconstrainedSpy).toHaveBeenCalledTimes(3);
+      expect(runUnconstrainedSpy).toHaveBeenCalledTimes(numLogs);
       expect(runUnconstrainedSpy).toHaveBeenCalledWith(
         expect.anything(),
         contractAddress,
         await FunctionSelector.fromNameAndParameters(processLogFuncArtifact.name, processLogFuncArtifact.parameters),
         [],
-      );
-    }, 30_000);
-
-    it('should not store notes that do not belong to us', async () => {
-      // Both notes should be ignored because the encryption keys do not belong to owner (they are random).
-      const requests = [
-        new MockNoteRequest(await getRandomNoteLogPayload(), 2, 1, 1, await AztecAddress.random()),
-        new MockNoteRequest(await getRandomNoteLogPayload(), 2, 3, 0, await AztecAddress.random()),
-      ];
-
-      const taggedLogs = await mockTaggedLogs(requests);
-
-      await pxeOracleInterface.processTaggedLogs(taggedLogs, recipient.address, simulator);
-
-      expect(addNotesSpy).toHaveBeenCalledTimes(0);
-    });
-
-    it('should remove nullified notes', async () => {
-      const requests = [
-        new MockNoteRequest(await getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
-        new MockNoteRequest(await getRandomNoteLogPayload(Fr.random(), contractAddress), 6, 3, 2, recipient.address),
-        new MockNoteRequest(await getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
-      ];
-
-      getNotesSpy.mockResolvedValueOnce(
-        Promise.resolve(requests.map(request => ({ siloedNullifier: Fr.random(), ...request.snippetOfNoteDao }))),
-      );
-      let requestedNullifier;
-      aztecNode.findNullifiersIndexesWithBlock.mockImplementationOnce(async (_blockNumber, nullifiers) => {
-        const block = await L2Block.random(2);
-        requestedNullifier = await wrapInBlock(nullifiers[0], block);
-        return [await wrapInBlock(1n, await L2Block.random(2)), undefined, undefined];
-      });
-
-      await pxeOracleInterface.removeNullifiedNotes(contractAddress);
-
-      expect(removeNullifiedNotesSpy).toHaveBeenCalledTimes(1);
-      expect(removeNullifiedNotesSpy).toHaveBeenCalledWith(
-        [requestedNullifier],
-        await recipient.address.toAddressPoint(),
       );
     }, 30_000);
   });

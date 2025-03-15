@@ -7,8 +7,8 @@ import { deriveKeys } from '@aztec/stdlib/keys';
 import type { AccountContract } from '../account/contract.js';
 import type { Salt, Wallet } from '../account/index.js';
 import type { AccountInterface } from '../account/interface.js';
+import { Contract } from '../contract/contract.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
-import { Contract } from '../contract/index.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
 import { AccountWalletWithSecretKey, SignerlessWallet } from '../wallet/index.js';
@@ -48,9 +48,15 @@ export class AccountManager {
     const { publicKeys } = await deriveKeys(secretKey);
     salt = salt !== undefined ? new Fr(salt) : Fr.random();
 
+    const { constructorName, constructorArgs } = (await accountContract.getDeploymentFunctionAndArgs()) ?? {
+      constructorName: undefined,
+      constructorArgs: undefined,
+    };
+
     const artifact = await accountContract.getContractArtifact();
     const instance = await getContractInstanceFromDeployParams(artifact, {
-      constructorArgs: await accountContract.getDeploymentArgs(),
+      constructorArtifact: constructorName,
+      constructorArgs,
       salt: salt,
       publicKeys,
     });
@@ -149,7 +155,10 @@ export class AccountManager {
 
     await this.pxe.registerAccount(this.secretKey, completeAddress.partialAddress);
 
-    const args = (await this.accountContract.getDeploymentArgs()) ?? [];
+    const { constructorName, constructorArgs } = (await this.accountContract.getDeploymentFunctionAndArgs()) ?? {
+      constructorName: undefined,
+      constructorArgs: undefined,
+    };
 
     if (deployWallet) {
       // If deploying using an existing wallet/account, treat it like regular contract deployment.
@@ -159,8 +168,8 @@ export class AccountManager {
         deployWallet,
         artifact,
         address => Contract.at(address, artifact, thisWallet),
-        args,
-        'constructor',
+        constructorArgs,
+        constructorName,
       );
     }
 
@@ -175,8 +184,8 @@ export class AccountManager {
       this.getPublicKeys(),
       wallet,
       artifact,
-      args,
-      'constructor',
+      constructorArgs,
+      constructorName,
       'entrypoint',
     );
   }
@@ -221,7 +230,7 @@ export class AccountManager {
    * Returns whether this account contract has a constructor and needs deployment.
    */
   public async isDeployable() {
-    return (await this.accountContract.getDeploymentArgs()) !== undefined;
+    return (await this.accountContract.getDeploymentFunctionAndArgs()) !== undefined;
   }
 }
 

@@ -46,7 +46,7 @@ export function createValidatorForAcceptingTxs(
     new DataTxValidator(),
     new MetadataTxValidator(new Fr(l1ChainId), new Fr(blockNumber)),
     new DoubleSpendTxValidator(new NullifierCache(db)),
-    new PhasesTxValidator(contractDataSource, setupAllowList),
+    new PhasesTxValidator(contractDataSource, setupAllowList, blockNumber),
     new BlockHeaderTxValidator(new ArchiveCache(db)),
   ];
 
@@ -109,7 +109,7 @@ function preprocessValidator(
   return new AggregateTxValidator(
     new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
     new DoubleSpendTxValidator(nullifierCache),
-    new PhasesTxValidator(contractDataSource, setupAllowList),
+    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber.toNumber()),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );

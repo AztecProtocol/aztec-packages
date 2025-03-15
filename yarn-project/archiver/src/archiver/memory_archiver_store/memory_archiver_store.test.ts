@@ -1,4 +1,5 @@
-import { timesParallel } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { L2Block } from '@aztec/stdlib/block';
 
 import type { ArchiverDataStore } from '../archiver_store.js';
@@ -19,12 +20,13 @@ describe('MemoryArchiverStore', () => {
       const maxLogs = 5;
       archiverStore = new MemoryArchiverStore(maxLogs);
       const blocks = await timesParallel(10, async (index: number) => ({
-        data: await L2Block.random(index + 1, 4, 3, 2),
+        block: await L2Block.random(index + 1, 4, 3, 2),
         l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
+        signatures: times(3, Signature.random),
       }));
 
       await archiverStore.addBlocks(blocks);
-      await archiverStore.addLogs(blocks.map(b => b.data));
+      await archiverStore.addLogs(blocks.map(b => b.block));
 
       const response = await archiverStore.getPublicLogs({});
 

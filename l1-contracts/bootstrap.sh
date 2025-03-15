@@ -43,7 +43,8 @@ function build {
     # Step 2: Build the the generated verifier contract with optimization.
     forge build $(find generated -name '*.sol') \
       --optimize \
-      --optimizer-runs 200
+      --optimizer-runs 1 \
+      --no-metadata
 
     cache_upload $artifact out
   fi
@@ -52,12 +53,74 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  echo "$hash cd l1-contracts && forge test && ./bootstrap.sh gas_report"
 }
 
 function test {
   echo_header "l1-contracts test"
   test_cmds | filter_test_cmds | parallelise
+}
+
+function inspect {
+    echo_header "l1-contracts inspect"
+
+    # Find all .sol files in the src directory
+    find src -type f -name "*.sol" | while read -r file; do
+
+        # Get all contract/library/interface names from the file
+        while read -r line; do
+            if [[ $line =~ ^(contract|library|interface)[[:space:]]+([a-zA-Z0-9_]+) ]]; then
+                contract_name="${BASH_REMATCH[2]}"
+                full_path="${file}:${contract_name}"
+
+                # Run forge inspect and capture output
+                methods_output=$(forge inspect "$full_path" methodIdentifiers 2>/dev/null)
+                errors_output=$(forge inspect "$full_path" errors 2>/dev/null)
+
+                # Only display if we have methods or errors
+                if [ "$methods_output" != "{}" ] || [ "$errors_output" != "{}" ]; then
+                    echo "----------------------------------------"
+                    echo "Inspecting $full_path"
+                    echo "----------------------------------------"
+
+                    if [ "$methods_output" != "{}" ]; then
+                        echo "Methods:"
+                        echo "$methods_output"
+                        echo ""
+                    fi
+
+                    if [ "$errors_output" != "{}" ]; then
+                        echo "Errors:"
+                        echo "$errors_output"
+                        echo ""
+                    fi
+                fi
+            fi
+        done < <(grep -E "^[[:space:]]*(contract|library|interface)[[:space:]]+[a-zA-Z0-9_]+" "$file")
+    done
+}
+
+function gas_report {
+  check=${1:-"no"}
+  echo_header "l1-contracts gas report"
+  forge --version
+
+  FORGE_GAS_REPORT=true forge test \
+    --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)|(UniswapPortalTest)" \
+    --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" \
+    --fuzz-seed 42 \
+    --isolate \
+    > gas_report.new.tmp
+  grep "^|" gas_report.new.tmp > gas_report.new.md
+  rm gas_report.new.tmp
+  diff gas_report.new.md gas_report.md > gas_report.diff || true
+
+  if [ -s gas_report.diff -a "$check" = "check" ]; then
+    cat gas_report.diff
+    echo "Gas report has changed. Please check the diffs above, then run './bootstrap.sh gas_report' to update the gas report."
+    exit 1
+  fi
+  mv gas_report.new.md gas_report.md
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
@@ -151,6 +214,13 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "inspect")
+    inspect
+    ;;
+  "gas_report")
+    shift
+    gas_report "$@"
     ;;
   test_cmds|release)
     $cmd

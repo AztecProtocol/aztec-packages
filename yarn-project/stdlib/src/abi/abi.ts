@@ -334,11 +334,11 @@ export interface ContractArtifact {
   /** The name of the contract. */
   name: string;
 
-  /** The version of compiler used to create this artifact */
-  aztecNrVersion?: string;
-
-  /** The functions of the contract. */
+  /** The functions of the contract. Includes private and unconstrained functions, plus the public dispatch function. */
   functions: FunctionArtifact[];
+
+  /** The public functions of the contract, excluding dispatch. */
+  nonDispatchPublicFunctions: FunctionAbi[];
 
   /** The outputs of the contract. */
   outputs: {
@@ -358,8 +358,8 @@ export interface ContractArtifact {
 
 export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
   name: z.string(),
-  aztecNrVersion: z.string().optional(),
   functions: z.array(FunctionArtifactSchema),
+  nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
   outputs: z.object({
     structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
       for (const [key, value] of Object.entries(structs)) {
@@ -419,6 +419,15 @@ export async function getFunctionArtifact(
   return { ...functionArtifact, debug: debugMetadata };
 }
 
+/** Gets all function abis */
+export function getAllFunctionAbis(artifact: ContractArtifact): FunctionAbi[] {
+  return artifact.functions.map(f => f as FunctionAbi).concat(artifact.nonDispatchPublicFunctions || []);
+}
+
+export function parseDebugSymbols(debugSymbols: string): DebugInfo[] {
+  return JSON.parse(inflate(Buffer.from(debugSymbols, 'base64'), { to: 'string', raw: true })).debug_infos;
+}
+
 /**
  * Gets the debug metadata of a given function from the contract artifact
  * @param artifact - The contract build artifact
@@ -432,14 +441,12 @@ export function getFunctionDebugMetadata(
   try {
     if (functionArtifact.debugSymbols && contractArtifact.fileMap) {
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/10546) investigate why debugMetadata is so big for some tests.
-      const programDebugSymbols = JSON.parse(
-        inflate(Buffer.from(functionArtifact.debugSymbols, 'base64'), { to: 'string', raw: true }),
-      );
+      const programDebugSymbols = parseDebugSymbols(functionArtifact.debugSymbols);
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5813)
       // We only support handling debug info for the contract function entry point.
       // So for now we simply index into the first debug info.
       return {
-        debugSymbols: programDebugSymbols.debug_infos[0],
+        debugSymbols: programDebugSymbols[0],
         files: contractArtifact.fileMap,
       };
     }
@@ -465,8 +472,9 @@ export function getFunctionDebugMetadata(
  * @param contractArtifact - The contract artifact.
  * @returns An initializer function, or none if there are no functions flagged as initializers in the contract.
  */
-export function getDefaultInitializer(contractArtifact: ContractArtifact): FunctionArtifact | undefined {
-  const initializers = contractArtifact.functions.filter(f => f.isInitializer);
+export function getDefaultInitializer(contractArtifact: ContractArtifact): FunctionAbi | undefined {
+  const functionAbis = getAllFunctionAbis(contractArtifact);
+  const initializers = functionAbis.filter(f => f.isInitializer);
   return initializers.length > 1
     ? initializers.find(f => f.name === 'constructor') ??
         initializers.find(f => f.name === 'initializer') ??
@@ -484,9 +492,10 @@ export function getDefaultInitializer(contractArtifact: ContractArtifact): Funct
 export function getInitializer(
   contract: ContractArtifact,
   initializerNameOrArtifact: string | undefined | FunctionArtifact,
-): FunctionArtifact | undefined {
+): FunctionAbi | undefined {
   if (typeof initializerNameOrArtifact === 'string') {
-    const found = contract.functions.find(f => f.name === initializerNameOrArtifact);
+    const functionAbis = getAllFunctionAbis(contract);
+    const found = functionAbis.find(f => f.name === initializerNameOrArtifact);
     if (!found) {
       throw new Error(`Constructor method ${initializerNameOrArtifact} not found in contract artifact`);
     } else if (!found.isInitializer) {

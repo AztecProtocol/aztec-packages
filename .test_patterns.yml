@@ -42,7 +42,6 @@ tests:
     owners:
       - *tom
 
-
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
   - regex: "noir_lsp-.* notifications::notification_tests::test_caches_open_files"
@@ -166,18 +165,6 @@ tests:
     owners:
       - *leila
 
-  - regex: "spartan/bootstrap.sh test-prod-deployment"
-    owners:
-      - *mitch
-
-  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
-    owners:
-      - *mitch
-
-  - regex: "spartan/bootstrap.sh test-kind-transfer"
-    owners:
-      - *phil
-      - *mitch
   - regex: "spartan/bootstrap.sh test-local"
     skip: true
     owners:

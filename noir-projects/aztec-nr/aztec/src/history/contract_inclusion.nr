@@ -4,9 +4,8 @@ use dep::protocol_types::{
 };
 
 use crate::history::{
-    note_inclusion::ProveNoteInclusion,
     nullifier_inclusion::ProveNullifierInclusion,
-    nullifier_non_inclusion::{ProveNoteNotNullified, ProveNullifierNonInclusion},
+    nullifier_non_inclusion::ProveNullifierNonInclusion,
 };
 
 // This is tested in `noir-projects/noir-contracts/test_contract/src/test.nr because we cannot define a contract

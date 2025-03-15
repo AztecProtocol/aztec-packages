@@ -26,7 +26,7 @@ pub contract AvmTest {
         scalar::Scalar,
     };
     use dep::aztec::protocol_types::{
-        constants::MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+        constants::{GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS},
         contract_class_id::ContractClassId,
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
@@ -103,7 +103,13 @@ pub contract AvmTest {
 
     #[public]
     fn add_args_return(arg_a: Field, arg_b: Field) -> Field {
-        arg_a + arg_b
+        add(arg_a, arg_b)
+    }
+
+    // Auxiliary method to test usage of contract library methods in public fns
+    #[contract_library_method]
+    unconstrained fn add(lhs: Field, rhs: Field) -> Field {
+        lhs + rhs
     }
 
     /************************************************************************
@@ -156,11 +162,7 @@ pub contract AvmTest {
 
     #[public]
     fn elliptic_curve_add_and_double() -> Point {
-        let g = Point {
-            x: 1,
-            y: 17631683881184975370165255887551781615748388533673675138860,
-            is_infinite: false,
-        };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -174,11 +176,7 @@ pub contract AvmTest {
         scalar2_lo: Field,
         scalar2_hi: Field,
     ) -> Point {
-        let g = Point {
-            x: 1,
-            y: 17631683881184975370165255887551781615748388533673675138860,
-            is_infinite: false,
-        };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let triple_g = multi_scalar_mul(
             [g, g],
@@ -210,10 +208,13 @@ pub contract AvmTest {
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
+    #[contract_library_method]
     fn inner_helper_with_failed_assertion() {
         let not_true = false;
         assert(not_true == true, "This assertion should fail!");
     }
+
+    #[contract_library_method]
     fn helper_with_failed_assertion() {
         inner_helper_with_failed_assertion();
     }

@@ -11,7 +11,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
 import { getContractFunctionArtifact, getFunctionSelector } from '../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { createTxForPublicCalls } from './index.js';
 
@@ -35,19 +35,14 @@ export type TestEnqueuedCall = {
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private txCount = 0;
 
-  constructor(
-    private worldStateDB: WorldStateDB,
-    contractDataSource: SimpleContractDataSource,
-    merkleTrees: MerkleTreeWriteOperations,
-  ) {
-    super(contractDataSource, merkleTrees);
+  constructor(private merkleTree: MerkleTreeWriteOperations, contractDataSource: SimpleContractDataSource) {
+    super(contractDataSource, merkleTree);
   }
 
   public static async create(): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    return new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
+    const merkleTree = await (await NativeWorldStateService.tmp()).fork();
+    return new PublicTxSimulationTester(merkleTree, contractDataSource);
   }
 
   public async createTx(
@@ -137,7 +132,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     await this.setFeePayerBalance(feePayer);
 
-    const simulator = new PublicTxSimulator(this.merkleTrees, this.worldStateDB, globals, /*doMerkleOperations=*/ true);
+    const treesDB = new PublicTreesDB(this.merkleTree);
+    const contractsDB = new PublicContractsDB(this.contractDataSource);
+    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
 
     const startTime = performance.now();
     const avmResult = await simulator.simulate(tx);
@@ -170,7 +167,7 @@ async function executionRequestForCall(
   return new PublicExecutionRequest(callContext, calldata);
 }
 
-function defaultGlobals() {
+export function defaultGlobals() {
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
   globals.gasFees = DEFAULT_GAS_FEES; // apply some nonzero default gas fees
