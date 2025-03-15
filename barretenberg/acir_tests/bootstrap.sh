@@ -93,7 +93,7 @@ function build {
     local internal_tests_string=$(echo ${internal_tests[@]} | awk -v OFS="," '{$1=$1;print}')
     denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{$internal_tests_string}"
 
-    cache_upload $tests_tar acir_tests internal_test_programs
+    cache_upload $tests_tar acir_tests
   fi
 
   # TODO: Revisit. Update yarn.lock so it can be committed.
