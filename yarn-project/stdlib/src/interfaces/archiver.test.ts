@@ -127,6 +127,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(L2Block)]);
   });
 
+  it('getBlockHeadersForEpoch', async () => {
+    const result = await context.client.getBlockHeadersForEpoch(1n);
+    expect(result).toEqual([expect.any(BlockHeader)]);
+  });
+
   it('isEpochComplete', async () => {
     const result = await context.client.isEpochComplete(1n);
     expect(result).toBe(true);
@@ -303,6 +308,11 @@ class MockArchiver implements ArchiverApi {
   async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
     expect(epochNumber).toEqual(1n);
     return [await L2Block.random(Number(epochNumber))];
+  }
+  async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    expect(epochNumber).toEqual(1n);
+    const { header } = await L2Block.random(Number(epochNumber));
+    return [header];
   }
   isEpochComplete(epochNumber: bigint): Promise<boolean> {
     expect(epochNumber).toEqual(1n);

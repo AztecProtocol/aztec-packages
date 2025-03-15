@@ -98,6 +98,13 @@ export interface L2BlockSource {
   getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]>;
 
   /**
+   * Returns all block headers for a given epoch.
+   * @dev Use this method only with recent epochs, since it walks the block list backwards.
+   * @param epochNumber - The epoch number to return headers for.
+   */
+  getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]>;
+
+  /**
    * Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
    * @param epochNumber - The epoch number to check.
    */

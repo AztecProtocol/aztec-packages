@@ -32,10 +32,6 @@ describe('ProvingNodeApiSchema', () => {
   it('startProof', async () => {
     await context.client.startProof(1);
   });
-
-  it('prove', async () => {
-    await context.client.prove(1);
-  });
 });
 
 class MockProverNode implements ProverNodeApi {
@@ -50,10 +46,6 @@ class MockProverNode implements ProverNodeApi {
     ]);
   }
   startProof(epochNumber: number): Promise<void> {
-    expect(typeof epochNumber).toBe('number');
-    return Promise.resolve();
-  }
-  prove(epochNumber: number): Promise<void> {
     expect(typeof epochNumber).toBe('number');
     return Promise.resolve();
   }

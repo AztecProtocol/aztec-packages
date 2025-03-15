@@ -73,6 +73,7 @@ export class RunningPromise {
       }
     };
     this.runningPromise = poll();
+    return this;
   }
 
   /**

@@ -3,6 +3,7 @@ import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -85,9 +86,12 @@ describe('epoch-proving-job', () => {
 
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
+    l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
+    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.header));
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
+    prover.startNewBlock.mockImplementation(() => sleep(200));
     prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof });
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
@@ -146,7 +150,6 @@ describe('epoch-proving-job', () => {
   });
 
   it('halts if stopped externally', async () => {
-    prover.startNewBlock.mockImplementation(() => sleep(200));
     const job = createJob();
     void job.run();
     await sleep(100);
@@ -154,5 +157,17 @@ describe('epoch-proving-job', () => {
 
     expect(job.getState()).toEqual('stopped');
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+  });
+
+  it('halts if a new block for the epoch is found', async () => {
+    const newBlocks = await timesParallel(NUM_BLOCKS + 1, i => L2Block.random(i + 1, TXS_PER_BLOCK));
+    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(newBlocks.map(b => b.header));
+
+    const job = createJob();
+    await job.run();
+
+    expect(job.getState()).toEqual('reorg');
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+    expect(prover.cancel).toHaveBeenCalled();
   });
 });
