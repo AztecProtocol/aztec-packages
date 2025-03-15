@@ -65,11 +65,11 @@ function build_packages {
 
   cd noir-repo
   yarn install
-  yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
+  yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
   # These can be useful for testing, or portaling into other projects.
-  yarn workspaces foreach --parallel $js_include pack
+  yarn workspaces foreach -A --parallel $js_include pack
 
   cd ..
   rm -rf packages && mkdir -p packages
@@ -140,12 +140,13 @@ function test_cmds {
         "noir/scripts/run_test.sh \($binary) \(.key)"' | \
       sed "s|$PWD/target/release/deps/||" | \
       awk "{print \"$test_hash \" \$0 }"
-  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+  cd ../
+  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run test"
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
   # We need to include these as they will go out of date otherwise and externals use these examples.
-  local example_test_hash=$(hash_str $test_hash-$(../../barretenberg/cpp/bootstrap.sh hash))
-  echo "$example_test_hash noir/bootstrap.sh test_example codegen_verifier"
+  local example_test_hash=$(hash_str $test_hash-$(../barretenberg/cpp/bootstrap.sh hash))
+  echo "$example_test_hash noir/bootstrap.sh test_example solidity_verifier"
   echo "$example_test_hash noir/bootstrap.sh test_example prove_and_verify"
   echo "$example_test_hash noir/bootstrap.sh test_example recursion"
 }

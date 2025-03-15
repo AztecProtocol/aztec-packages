@@ -1,7 +1,7 @@
-From c4f3775e38d33a2c154d14defb8c26bf312fc393 Mon Sep 17 00:00:00 2001
+From b94c17de13c626b745a1c742dc28d3dfd447a67f Mon Sep 17 00:00:00 2001
 From: aakoshh <akosh@aztecprotocol.com>
 Date: Fri, 14 Mar 2025 09:53:02 +0000
-Subject: [PATCH 2/2] patch: Make public inputs the start of the UH and MH
+Subject: [PATCH 1/4] patch: Make public inputs the start of the UH and MH
  proof #12266
 
 ---
@@ -79,6 +79,65 @@ index e5f08ef..a18a1cd 100644
  global ROLLUP_HONK_IDENTIFIER: u32 = 5;
  fn main(
      verification_key: [Field; 139],
+-- 
+2.43.0
+
+From 57a0b0e47184ee7c2d699def09ace69fe8e1bed3 Mon Sep 17 00:00:00 2001
+From: TomAFrench <tom@tomfren.ch>
+Date: Sat, 15 Mar 2025 15:36:12 +0000
+Subject: [PATCH 2/4] chore: turn on `skipLibCheck`
+
+---
+ tooling/noir_codegen/tsconfig.json | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tooling/noir_codegen/tsconfig.json b/tooling/noir_codegen/tsconfig.json
+index 30dd2a7..a2712fd 100644
+--- a/tooling/noir_codegen/tsconfig.json
++++ b/tooling/noir_codegen/tsconfig.json
+@@ -10,6 +10,7 @@
+     "resolveJsonModule": true,
+     "strict": true,
+     "noImplicitAny": false,
++    "skipLibCheck": true
+   },
+   "include": [
+     "src/**/*.ts"
+-- 
+2.43.0
+
+From e966663a726eb2ab6b2ab45a36292837db37445c Mon Sep 17 00:00:00 2001
+From: TomAFrench <tom@tomfren.ch>
+Date: Sat, 15 Mar 2025 17:13:08 +0000
+Subject: [PATCH 4/4] chore: update examples
+
+---
+ examples/recursion/recurse_leaf/src/main.nr | 2 +-
+ examples/recursion/recurse_node/src/main.nr | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/examples/recursion/recurse_leaf/src/main.nr b/examples/recursion/recurse_leaf/src/main.nr
+index 7987ea1..c49a0a9 100644
+--- a/examples/recursion/recurse_leaf/src/main.nr
++++ b/examples/recursion/recurse_leaf/src/main.nr
+@@ -1,5 +1,5 @@
+ global ULTRA_HONK_VK_SIZE: u32 = 128;
+-global ULTRA_HONK_PROOF_SIZE: u32 = 459;
++global ULTRA_HONK_PROOF_SIZE: u32 = 456;
+ global NUM_NON_ACCUMULATOR_PUBLIC_INPUTS: u32 = 3;
+ global HONK_IDENTIFIER: u32 = 1;
+ 
+diff --git a/examples/recursion/recurse_node/src/main.nr b/examples/recursion/recurse_node/src/main.nr
+index aa19783..f0531c9 100644
+--- a/examples/recursion/recurse_node/src/main.nr
++++ b/examples/recursion/recurse_node/src/main.nr
+@@ -1,5 +1,5 @@
+ global ULTRA_HONK_VK_SIZE: u32 = 128;
+-global ULTRA_HONK_PROOF_SIZE: u32 = 459; // Number of fields when recursion is enabled
++global ULTRA_HONK_PROOF_SIZE: u32 = 456; // Number of fields when recursion is enabled
+ global NUM_NON_ACCUMULATOR_PUBLIC_INPUTS: u32 = 4;
+ global HONK_IDENTIFIER: u32 = 1;
+ 
 -- 
 2.43.0
 

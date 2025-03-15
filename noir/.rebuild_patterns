@@ -1,4 +1,3 @@
-^noir/Dockerfile
 ^noir/scripts/bootstrap_native.sh
 ^noir/scripts/test_native.sh
 ^noir/noir-repo/acvm-repo
@@ -14,7 +13,6 @@
 ^noir/noir-repo/tooling/nargo_fmt
 ^noir/noir-repo/tooling/noirc_abi
 ^noir/noir-repo/tooling/acvm_cli
-^noir/Dockerfile.packages
 ^noir/scripts/bootstrap_packages.sh
 ^noir/scripts/test_js_packages.sh
 ^noir/noir-repo/.yarn
