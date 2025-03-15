@@ -8,6 +8,13 @@ export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 hash=$(cache_content_hash "^noir-projects/aztec-nr")
 
+function build {
+  # Being a library, aztec-nr does not technically need to be built. But we can still run nargo check to find any type
+  # errors and prevent warnings
+  echo_stderr "Checking aztec-nr for warnings..."
+  $NARGO check --deny-warnings
+}
+
 function test_cmds {
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
@@ -32,7 +39,11 @@ function test {
 }
 
 case "$cmd" in
+  ""|"fast"|"full")
+    build
+    ;;
   "ci")
+    build
     test
     ;;
   test|test_cmds)

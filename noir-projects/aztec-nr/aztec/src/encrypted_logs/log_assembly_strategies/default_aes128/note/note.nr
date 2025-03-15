@@ -2,7 +2,6 @@ use crate::{
     context::PrivateContext,
     encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::encrypt_log,
     note::{note_emission::NoteEmission, note_interface::NoteType},
-    utils::conversion::bytes_to_fields::bytes_to_fields,
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -163,9 +162,8 @@ where
     compute_log(context, note, storage_slot, recipient, sender)
 }
 
-// This function seems to be affected by the following Noir bug:
-// https://github.com/noir-lang/noir/issues/5771
-// If you get weird behavior it might be because of it.
+/// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
+/// private logs.
 pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -186,9 +184,11 @@ where
     }
 }
 
-// Important note: this function -- although called "unconstrained" -- the
-// function is not labelled as `unconstrained`, because we pass a reference to the
-// context.
+/// Same as `encode_and_encrypt_note`, except encryption is unconstrained. This means that the sender is free to make
+/// the log contents be whatever they wish, potentially resulting in scenarios in which the recipient is unable to
+/// decrypt and process the payload, **leading to the note being lost**.
+///
+/// Only use this function in scenarios where the recipient not receiving the note is an acceptable outcome.
 pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -205,16 +205,7 @@ where
 
         assert_note_exists(*context, note_hash_counter);
 
-        //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
-        // recipient is unable to decrypt the payload.
-        //   Regarding the note hash counter, this is used for squashing. The kernel assumes that a given note can have
-        // more than one log and removes all of the matching ones, so all a malicious sender could do is either: cause
-        // for the log to be deleted when it shouldn't have (which is fine - they can already make the content be
-        // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
-        // for a note that doesn't exist).
-        //   It's important here that we do not
-        // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
-        // be wrong.
+        // Safety: this function does not constrain the encryption of the log, as explainted on its description.
         let encrypted_log =
             unsafe { compute_log_unconstrained(*context, note, storage_slot, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
