@@ -38,15 +38,15 @@
  *  - A₀₊(X) = F(X) + G(X)/r
  *  - A₀₋(X) = F(X) − G(X)/r
  * So that A₀₊(r) = A₀(r) and A₀₋(-r) = A₀(-r).
- * The verifier is able to computed the simulated commitments to A₀₊(X) and A₀₋(X)
+ * The verifier is able to compute the simulated commitments to A₀₊(X) and A₀₋(X)
  * since they are linear-combinations of the commitments [fⱼ] and [gⱼ].
  */
 namespace bb {
 
 /**
  * @brief Prover output (evalutation pair, witness) that can be passed on to Shplonk batch opening.
- * @details Evaluation pairs {r, A₀₊(r)}, {-r, A₀₋(-r)}, {-r^{2^j}, Aⱼ(-r^{2^j)}, j = [1, ..., m-1]
- * and witness (Fold) polynomials
+ * @details Evaluation pairs {r, A₀₊(r)}, {-r, A₀₋(-r)}, {r^{2^j}, Aⱼ(r^{2^j)}, {-r^{2^j}, Aⱼ(-r^{2^j)}, j = [1, ...,
+ * m-1] and witness (Fold) polynomials
  * [
  *   A₀₊(X) = F(X) + r⁻¹⋅G(X)
  *   A₀₋(X) = F(X) - r⁻¹⋅G(X)
@@ -443,18 +443,23 @@ template <typename Curve> class GeminiVerifier_ {
             p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
         }
 
-        // Compute the full of evaluation A₀(r) = A₀₊(r) + P₊(r^s)
-        Fr full_a_0_pos = compute_gemini_batched_univariate_evaluation(
+        // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
+        std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
             num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
+        // Extract the evaluation A₀(r) = A₀₊(r) + P₊(r^s)
+        auto full_a_0_pos = gemini_fold_pos_evaluations[0];
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
-        fold_polynomial_opening_claims.reserve(num_variables + 1);
+        fold_polynomial_opening_claims.reserve(2 * num_variables + 2);
 
         // ( [A₀₊], r, A₀₊(r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_pos }, C0_r_pos });
         // ( [A₀₋], -r, A₀-(-r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, C0_r_neg });
         for (size_t l = 0; l < num_variables - 1; ++l) {
-            // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
+            // ([Aₗ], r^{2ˡ}, Aₗ(r^{2ˡ}) )
+            fold_polynomial_opening_claims.emplace_back(
+                OpeningClaim<Curve>{ { r_squares[l + 1], gemini_fold_pos_evaluations[l + 1] }, commitments[l] });
+            // ([Aₗ], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
             fold_polynomial_opening_claims.emplace_back(
                 OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
         }
@@ -493,36 +498,49 @@ template <typename Curve> class GeminiVerifier_ {
     }
 
     /**
-     * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
+     * @brief Compute \f$ A_0(r), A_1(r^2), \ldots, A_{d-1}(r^{2^{d-1}})\f$
      *
-     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
+     * Recall that \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
      * k \f$ is the number of "unshifted" commitments.
      *
-     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum \rho^{i+k}
-     * g_i(\vec{u}) \f$. The folding property ensures that
-     * \f{align}{
-     * A_\ell\left(r^{2^\ell}\right) = (1 - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) +
-     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
-     * + u_{\ell-1} \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) -
-     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2r^{2^{\ell-1}}}
-     * \f}
-     * Therefore, the verifier can recover \f$ A_0(r) \f$ by solving several linear equations.
+     * @details Initialize `a_pos` = \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum
+     * \rho^{i+k} g_i(\vec{u}) \f$. The verifier recovers \f$ A_{l-1}(r^{2^{l-1}}) \f$ from the "negative" value \f$
+     * A_{l-1}\left(-r^{2^{l-1}}\right) \f$ received from the prover and the value \f$ A_{l}\left(r^{2^{l}}\right) \f$
+     * computed at the previous step. Namely, the verifier computes
+     * \f{align}{ A_{l-1}\left(r^{2^{l-1}}\right) =
+     * \frac{2 \cdot r^{2^{l-1}} \cdot A_{l}\left(r^{2^l}\right) - A_{l-1}\left( -r^{2^{l-1}} \right)\cdot
+     * \left(r^{2^{l-1}} (1-u_{l-1}) - u_{l-1}\right)} {r^{2^{l-1}} (1- u_{l-1}) + u_{l-1}}. \f}
      *
-     * @param batched_mle_eval The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
-     * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$.
-     * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{m-1}} \f$.
-     * @param fold_polynomial_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
+     * In the case of interleaving, the first "negative" evaluation has to be corrected by the contribution from \f$
+     * P_{-}(-r^s)\f$, where \f$ s \f$ is the size of the group to be interleaved.
+     *
+     * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
+     * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$ padded to CONST_PROOF_SIZE_LOG_N.
+     * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{d-1}} \f$.
+     * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_gemini_batched_univariate_evaluation(
+    static std::vector<Fr> compute_fold_pos_evaluations(
         const size_t num_variables,
-        Fr& batched_eval_accumulator,
+        const Fr& batched_evaluation,
         std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
         std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
-        std::span<const Fr> fold_polynomial_evals,
+        std::span<const Fr> fold_neg_evals,
         Fr p_neg = Fr(0))
     {
-        std::vector<Fr> evals(fold_polynomial_evals.begin(), fold_polynomial_evals.end());
+        std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
+
+        Fr eval_pos_prev = batched_evaluation;
+
+        Fr zero{ 0 };
+        if constexpr (Curve::is_stdlib_type) {
+            zero.convert_constant_to_fixed_witness(fold_neg_evals[0].get_context());
+        }
+
+        std::vector<Fr> fold_pos_evaluations;
+        fold_pos_evaluations.reserve(CONST_PROOF_SIZE_LOG_N);
+        // Either a computed eval of A_i at r^{2^i}, or 0
+        Fr value_to_emplace;
 
         // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
         evals[0] += p_neg;
@@ -536,26 +554,33 @@ template <typename Curve> class GeminiVerifier_ {
             const Fr& eval_neg = evals[l - 1];
             // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
             // Compute the numerator
-            Fr batched_eval_round_acc =
-                ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
+            Fr eval_pos = ((challenge_power * eval_pos_prev * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
             // Divide by the denominator
-            batched_eval_round_acc *= (challenge_power * (Fr(1) - u) + u).invert();
+            eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
 
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > num_variables);
-                batched_eval_accumulator =
-                    Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);
+                // If current index is bigger than log_circuit_size, we propagate `batched_evaluation` to the next
+                // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+                eval_pos_prev = Fr::conditional_assign(dummy_round, eval_pos_prev, eval_pos);
+                // If current index is bigger than log_circuit_size, we emplace 0, which is later multiplied against
+                // Commitment::one().
+                value_to_emplace = Fr::conditional_assign(dummy_round, zero, eval_pos_prev);
 
             } else {
-                if (l <= num_variables) {
-                    batched_eval_accumulator = batched_eval_round_acc;
-                }
-            }
+                // Perform the same logic as above natively
+                bool dummy_round = l > num_variables;
+                eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
+                value_to_emplace = dummy_round ? zero : eval_pos_prev;
+            };
+            fold_pos_evaluations.emplace_back(value_to_emplace);
         }
 
-        return batched_eval_accumulator;
+        std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());
+
+        return fold_pos_evaluations;
     }
 };
 
