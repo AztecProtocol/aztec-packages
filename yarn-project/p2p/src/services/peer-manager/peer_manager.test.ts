@@ -743,6 +743,419 @@ describe('PeerManager', () => {
     });
   });
 
+  describe('private peers', () => {
+    it('should not include private peers in getPeers results', async () => {
+      const privatePeerId = await createSecp256k1PeerId();
+      const regularPeerId = await createSecp256k1PeerId();
+
+      peerManager.addPrivatePeer(privatePeerId);
+
+      mockLibP2PNode.getPeers.mockReturnValue([privatePeerId, regularPeerId]);
+
+      const peers = peerManager.getPeers();
+
+      expect(peers).toHaveLength(1);
+      expect(peers[0].id).toBe(regularPeerId.toString());
+      expect(peers.some(peer => peer.id === privatePeerId.toString())).toBe(false);
+    });
+
+    it('should not include private peers in getPeers results when includePending is true', async () => {
+      const privatePeerId = await createSecp256k1PeerId();
+      const regularPeerId = await createSecp256k1PeerId();
+
+      peerManager.addPrivatePeer(privatePeerId);
+
+      mockLibP2PNode.getPeers.mockReturnValue([privatePeerId, regularPeerId]);
+
+      const privateDialPeer = {
+        peerId: privatePeerId,
+        status: 'queued',
+        multiaddrs: [multiaddr('/ip4/127.0.0.1/tcp/8000')]
+      };
+      const regularDialPeer = {
+        peerId: regularPeerId,
+        status: 'queued',
+        multiaddrs: [multiaddr('/ip4/127.0.0.1/tcp/8000')]
+      };
+      mockLibP2PNode.getDialQueue.mockReturnValue([privateDialPeer, regularDialPeer]);
+
+      const privateEnr = await createMockENR();
+      const privateCachedPeer = {
+        peerId: privatePeerId,
+        enr: privateEnr,
+        multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+        dialAttempts: 0,
+        addedUnixMs: Date.now()
+      };
+
+      const regularEnr = await createMockENR();
+      const regularCachedPeer = {
+        peerId: regularPeerId,
+        enr: regularEnr,
+        multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+        dialAttempts: 0,
+        addedUnixMs: Date.now()
+      };
+
+      const cachedPeersMap = (peerManager as any).cachedPeers;
+      cachedPeersMap.set(privatePeerId.toString(), privateCachedPeer);
+      cachedPeersMap.set(regularPeerId.toString(), regularCachedPeer);
+
+      const peers = peerManager.getPeers(true);
+
+      expect(peers.every(peer => peer.id !== privatePeerId.toString())).toBe(true);
+      expect(peers.some(peer => peer.id === regularPeerId.toString())).toBe(true);
+    });
+
+    it('should not prune private peers with low scores', async () => {
+      const privatePeerId = await createSecp256k1PeerId();
+      const regularPeerId = await createSecp256k1PeerId();
+
+      peerManager.addPrivatePeer(privatePeerId);
+
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: privatePeerId },
+        { remotePeer: regularPeerId }
+      ]);
+
+      peerManager.penalizePeer(privatePeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(privatePeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
+
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(privatePeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not remove private peers from the cache during pruning', async () => {
+      const privatePeerId = await createSecp256k1PeerId();
+
+      peerManager.addPrivatePeer(privatePeerId);
+
+      const privateEnr = await createMockENR();
+      const privateCachedPeer = {
+        peerId: privatePeerId,
+        enr: privateEnr,
+        multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+        dialAttempts: 0,
+        addedUnixMs: Date.now() - 1000,
+      };
+
+      const cachedPeersMap = (peerManager as any).cachedPeers;
+      cachedPeersMap.set(privatePeerId.toString(), privateCachedPeer);
+
+      for (let i = 0; i < 101; i++) {
+        const regularPeerId = await createSecp256k1PeerId();
+        const regularEnr = await createMockENR();
+        const regularCachedPeer = {
+          peerId: regularPeerId,
+          enr: regularEnr,
+          multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+          dialAttempts: 0,
+          addedUnixMs: Date.now(),
+        };
+        cachedPeersMap.set(regularPeerId.toString(), regularCachedPeer);
+      }
+
+      (peerManager as any).pruneCachedPeers();
+
+      expect(cachedPeersMap.has(privatePeerId.toString())).toBe(true);
+      expect(cachedPeersMap.size).toBeLessThanOrEqual(100);
+    });
+
+    it('should return false from isPrivatePeer when private peers are not initialized', async () => {
+      const newPeerManager = new PeerManager(
+        mockLibP2PNode,
+        mockPeerDiscoveryService,
+        getP2PDefaultConfig(),
+        getTelemetryClient(),
+        createLogger('test'),
+        peerScoring,
+        mockReqResp,
+      );
+
+      const peerId = await createSecp256k1PeerId();
+
+      const isPrivatePeer = (newPeerManager as any).isPrivatePeer.bind(newPeerManager);
+
+      expect(isPrivatePeer(peerId)).toBe(false);
+    });
+
+    it('should initialize private peers from config', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
+      enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
+      const encodedEnr = enr.encodeTxt();
+
+      const config = {
+        ...getP2PDefaultConfig(),
+        privatePeers: [encodedEnr],
+        trustedPeers: []
+      };
+
+      const newPeerManager = new PeerManager(
+        mockLibP2PNode,
+        mockPeerDiscoveryService,
+        config,
+        getTelemetryClient(),
+        createLogger('test'),
+        peerScoring,
+        mockReqResp,
+      );
+
+      await newPeerManager.initializePeers();
+
+      const isPrivatePeer = (newPeerManager as any).isPrivatePeer.bind(newPeerManager);
+
+      expect(isPrivatePeer(peerId)).toBe(true);
+    });
+
+    it('should not share private peers in discovery', async () => {
+      const privatePeerId = await createSecp256k1PeerId();
+      const regularPeerId = await createSecp256k1PeerId();
+
+      peerManager.addPrivatePeer(privatePeerId);
+
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: privatePeerId },
+        { remotePeer: regularPeerId }
+      ]);
+
+      mockLibP2PNode.getPeers.mockReturnValue([privatePeerId, regularPeerId]);
+
+      const peers = peerManager.getPeers();
+
+      expect(peers).toHaveLength(1);
+      expect(peers[0].id).toBe(regularPeerId.toString());
+      expect(peers.some(peer => peer.id === privatePeerId.toString())).toBe(false);
+    });
+
+    it('should handle a peer being both trusted and private', async () => {
+      const bothPeerId = await createSecp256k1PeerId();
+      const regularPeerId = await createSecp256k1PeerId();
+
+      peerManager.addTrustedPeer(bothPeerId);
+      peerManager.addPrivatePeer(bothPeerId);
+
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: bothPeerId },
+        { remotePeer: regularPeerId }
+      ]);
+
+      mockLibP2PNode.getPeers.mockReturnValue([bothPeerId, regularPeerId]);
+
+      peerManager.penalizePeer(bothPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(bothPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
+
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(bothPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
+
+      const peers = peerManager.getPeers();
+
+      expect(peers.length).toBeLessThanOrEqual(1);
+      if (peers.length === 1) {
+        expect(peers[0].id).toBe(regularPeerId.toString());
+      }
+      expect(peers.some(peer => peer.id === bothPeerId.toString())).toBe(false);
+    });
+
+    it('should not share discovered private peers with other nodes', async () => {
+      const privatePeerId = await createSecp256k1PeerId();
+
+      peerManager.addPrivatePeer(privatePeerId);
+
+      const privateEnr = await createMockENR();
+
+      jest.spyOn(privateEnr, 'peerId').mockResolvedValue(privatePeerId);
+
+      await discoveredPeerCallback(privateEnr);
+
+      const peers = peerManager.getPeers(true);
+
+      expect(peers.some(peer => peer.id === privatePeerId.toString())).toBe(false);
+    });
+
+    it('should handle discovered private peers internally but not share them', async () => {
+      const privatePeerId = await createSecp256k1PeerId();
+
+      peerManager.addPrivatePeer(privatePeerId);
+
+      const privateEnr = await createMockENR();
+
+      jest.spyOn(privateEnr, 'peerId').mockResolvedValue(privatePeerId);
+      jest.spyOn(privateEnr, 'getFullMultiaddr').mockResolvedValue(multiaddr('/ip4/127.0.0.1/tcp/8000'));
+
+      mockLibP2PNode.dial.mockResolvedValue(undefined);
+
+      await discoveredPeerCallback(privateEnr);
+
+      expect(mockLibP2PNode.dial).toHaveBeenCalled();
+
+      const peers = peerManager.getPeers(true);
+
+      expect(peers.some(peer => peer.id === privatePeerId.toString())).toBe(false);
+    });
+
+    it('should protect private peers during discovery process', async () => {
+      const privatePeerId = await createSecp256k1PeerId();
+      const regularPeerId = await createSecp256k1PeerId();
+
+      peerManager.addPrivatePeer(privatePeerId);
+
+      mockLibP2PNode.getConnections.mockReturnValue([
+        { remotePeer: privatePeerId },
+        { remotePeer: regularPeerId }
+      ]);
+
+      const onlyNotProtectedPeers = (peerManager as any).onlyNotProtectedPeers.bind(peerManager);
+
+      const filteredConnections = onlyNotProtectedPeers(mockLibP2PNode.getConnections());
+
+      expect(filteredConnections).toHaveLength(1);
+      expect(filteredConnections[0].remotePeer).toBe(regularPeerId);
+      expect(filteredConnections.some((conn: { remotePeer: PeerId }) => conn.remotePeer === privatePeerId)).toBe(false);
+    });
+
+    it('should not allow other nodes to discover private peers in a multi-node setup', async () => {
+      // Create three peer IDs for our test nodes
+      const node1PeerId = await createSecp256k1PeerId();
+      const node2PeerId = await createSecp256k1PeerId();
+      const privatePeerId = await createSecp256k1PeerId();
+
+      // Create ENRs for each node
+      const node1Enr = SignableENR.createFromPeerId(node1PeerId);
+      node1Enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/10001'));
+      const node1EnrTxt = node1Enr.encodeTxt();
+
+      const node2Enr = SignableENR.createFromPeerId(node2PeerId);
+      node2Enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/10002'));
+
+      const privateEnr = SignableENR.createFromPeerId(privatePeerId);
+      privateEnr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/10003'));
+      const privateEnrTxt = privateEnr.encodeTxt();
+
+      // Create mock LibP2P nodes
+      const mockNode1: any = {
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        getPeers: jest.fn().mockReturnValue([privatePeerId]),
+        getDialQueue: jest.fn().mockReturnValue([]),
+        getConnections: jest.fn().mockReturnValue([{ remotePeer: privatePeerId }]),
+        peerStore: { merge: jest.fn() },
+        dial: jest.fn().mockImplementation(() => Promise.resolve()),
+        hangUp: jest.fn(),
+      };
+
+      const mockNode2: any = {
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        getPeers: jest.fn().mockReturnValue([node1PeerId]),
+        getDialQueue: jest.fn().mockReturnValue([]),
+        getConnections: jest.fn().mockReturnValue([{ remotePeer: node1PeerId }]),
+        peerStore: { merge: jest.fn() },
+        dial: jest.fn().mockImplementation(() => Promise.resolve()),
+        hangUp: jest.fn(),
+      };
+
+      // Create simplified mock discovery services
+      const mockDiscovery1: any = {
+        on: jest.fn(),
+        off: jest.fn(),
+        isBootstrapPeer: jest.fn().mockReturnValue(false),
+        runRandomNodesQuery: jest.fn(),
+        getAllPeers: jest.fn().mockReturnValue([privateEnr]),
+      };
+
+      const mockDiscovery2: any = {
+        on: jest.fn(),
+        off: jest.fn(),
+        isBootstrapPeer: jest.fn().mockReturnValue(false),
+        runRandomNodesQuery: jest.fn(),
+        getAllPeers: jest.fn().mockReturnValue([]),
+      };
+
+      // Create mock ReqResp services
+      const mockReqResp1: any = { sendRequestToPeer: jest.fn() };
+      const mockReqResp2: any = { sendRequestToPeer: jest.fn() };
+
+      // Create configs for each node
+      const config1 = {
+        ...getP2PDefaultConfig(),
+        trustedPeers: [],
+        privatePeers: [privateEnrTxt], // Node 1 has the private peer
+        maxPeerCount: 10,
+      };
+
+      const config2 = {
+        ...getP2PDefaultConfig(),
+        trustedPeers: [node1EnrTxt], // Node 2 trusts Node 1
+        privatePeers: [],
+        maxPeerCount: 10,
+      };
+
+      // Create peer scoring instances
+      const peerScoring1 = new PeerScoring(config1);
+      const peerScoring2 = new PeerScoring(config2);
+
+      // Create peer managers
+      const peerManager1 = new PeerManager(
+        mockNode1,
+        mockDiscovery1,
+        config1,
+        getTelemetryClient(),
+        createLogger('test-node1'),
+        peerScoring1,
+        mockReqResp1,
+      );
+
+      const peerManager2 = new PeerManager(
+        mockNode2,
+        mockDiscovery2,
+        config2,
+        getTelemetryClient(),
+        createLogger('test-node2'),
+        peerScoring2,
+        mockReqResp2,
+      );
+
+      // Initialize the peer managers
+      await peerManager1.initializePeers();
+      await peerManager2.initializePeers();
+
+      // Get the peers that Node 1 would share with other nodes
+      const node1Peers = peerManager1.getPeers(true);
+
+      // Run the heartbeat to ensure that the private peer is protected
+      for (let i = 0; i < 10; i++) {
+        peerManager1.heartbeat();
+        peerManager2.heartbeat();
+      }
+
+      // Verify that Node 1 has the private peer in its connections
+      expect(mockNode1.getConnections().some((conn: { remotePeer: PeerId }) =>
+        conn.remotePeer.equals(privatePeerId)
+      )).toBe(true);
+
+      // Verify that Node 1 doesn't expose the private peer in its peer list
+      expect(node1Peers.some((peer: { id: string }) => peer.id === privatePeerId.toString())).toBe(false);
+
+      // Verify that the private peer is not included in the peers that would be shared
+      expect(node1Peers.length).toBeLessThan(mockNode1.getPeers().length);
+    }, 10000);
+  });
+
   describe('goodbye metrics', () => {
     it('should record metrics when receiving goodbye messages', async () => {
       const peerId = await createSecp256k1PeerId();
