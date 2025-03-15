@@ -43,7 +43,7 @@ export RUSTFLAGS="-Dwarnings"
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  if cache_download noir-$hash.tar.gz ./noir-repo; then
+  if cache_download noir-$hash.tar.gz; then
     return
   fi
   (cd noir-repo && parallel --tag --line-buffer --halt now,fail=1 ::: \
