@@ -70,7 +70,7 @@ export class FullProverTest {
   pxe!: PXEService;
   cheatCodes!: CheatCodes;
   blobSink!: BlobSinkServer;
-  private provenComponents: ProvenSetup[] = [];
+  public provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
   circuitProofVerifier?: ClientProtocolCircuitVerifier;
@@ -80,12 +80,13 @@ export class FullProverTest {
   private simulatedProverNode!: ProverNode;
   public l1Contracts!: DeployL1ContractsReturnType;
   public proverAddress!: EthAddress;
+  public l1RpcUrls!: string[];
 
   constructor(
     testName: string,
     private minNumberOfTxsPerBlock: number,
     coinbase: EthAddress,
-    private realProofs = true,
+    public readonly realProofs = true,
   ) {
     this.logger = createLogger(`e2e:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(
@@ -305,6 +306,7 @@ export class FullProverTest {
     this.proverNode.start();
 
     this.logger.warn(`Proofs are now enabled`);
+    this.l1RpcUrls = this.context.aztecNodeConfig.l1RpcUrls;
     return this;
   }
 

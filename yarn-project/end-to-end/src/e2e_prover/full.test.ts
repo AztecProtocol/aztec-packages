@@ -1,4 +1,5 @@
-import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
+import { getBotDefaultConfig } from '@aztec/bot';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
@@ -8,6 +9,8 @@ import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
 
+import { BotFactory } from '../../../bot/src/factory.js';
+import { setupCanonicalFeeJuice } from '../fixtures/utils.js';
 import { FullProverTest } from './e2e_prover_test.js';
 
 // Set a very long 20 minute timeout.
@@ -19,7 +22,7 @@ process.env.AVM_PROVING_STRICT = '1';
 describe('full_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
-  const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
+  const t = new FullProverTest('full_prover', 0, COINBASE_ADDRESS, REAL_PROOFS);
 
   let { provenAssets, accounts, tokenSim, logger, cheatCodes } = t;
   let sender: AztecAddress;
@@ -283,5 +286,29 @@ describe('full_prover', () => {
 
     expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
     expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
+  });
+
+  it.only('can deploy the bot', async () => {
+    // const [account] = await getInitialTestAccounts();
+    // await deployFundedSchnorrAccount(t.provenComponents[0].pxe, account);
+    await setupCanonicalFeeJuice(t.provenComponents[0].pxe);
+    const factory = new BotFactory(
+      {
+        ...getBotDefaultConfig(),
+        followChain: 'PENDING',
+        senderPrivateKey: Fr.random(),
+        l1RpcUrls: t.l1RpcUrls,
+        l1Mnemonic: 'test test test test test test test test test test test junk',
+      },
+      { pxe: t.provenComponents[0].pxe, node: t.aztecNode },
+    );
+
+    await expect(factory.setup()).rejects.toThrow();
+    ['private-kernel-tail-to-public'].forEach(circuitName => {
+      const data = getTestData(circuitName);
+      if (data) {
+        updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[data.length - 1] as any));
+      }
+    });
   });
 });
