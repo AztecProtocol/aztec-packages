@@ -164,6 +164,14 @@ tests:
     owners:
       - *adam
 
+  - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-kind-transfer"
+    owners:
+      - *adam
+
   # Slack testing.
   - regex: "nonsense to match"
     owners:
