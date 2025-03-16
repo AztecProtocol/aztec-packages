@@ -4,11 +4,6 @@ set -eu
 # Commands related to syncing with the noir-repo.
 
 NOIR_REPO_URL=https://github.com/noir-lang/noir.git
-# Special message we use to indicate the commit we do after the fixup.
-# This commit has changes we do *not* want to migrate back to Noir,
-# they exist only to make the Noir codebase work with the projects
-# in aztec-packages, rather than their released versions.
-FIXUP_COMMIT_MSG="Noir local fixup commit."
 # Special message we use to indicate the commit we do after applying
 # any patch file committed in aztec-packages, which contains changes
 # Aztec developers made to Noir. These are changes we do want to see
@@ -18,12 +13,11 @@ PATCH_COMMIT_MSG="Noir local patch commit."
 # There can be a patch file committed in `aztec-packages` with commits
 # to be applied on top of any Noir checkout.
 # The `noir/bootstrap.sh make-patch` commands takes all commits since
-# the local fixup commit and compiles them into this single patch file,
-# (so it will include previously applied patch commits as well as new ones),
-# replacing any previous value.
+# the checkout commit and converts them into patch files in this directory,
+# replacing any previous patches.
 # The patch commits can be pushed to Noir if they represent bugfixes;
 # to do so we have to rebase on the origin and remove the fixup commit.
-NOIR_REPO_PATCH=noir-repo.patch
+NOIR_REPO_PATCH_DIR=patches
 # Certain commands such as `noir/bootstrap.sh test_cmds` are expected to print
 # executable scripts, which would be corrupted by any extra logs coming from here.
 NOIR_REPO_VERBOSE=${NOIR_REPO_VERBOSE:-0}
@@ -81,7 +75,7 @@ function is_detached_head {
 function has_uncommitted_changes {
   ! repo_exists && return 1
   # Add any untracked files, because otherwise we might switch branches,
-  # apply the patch fixup, create an artifical commit and inadvertedly
+  # apply the patches, create an artificial commit and inadvertently
   # add these files to a commit they have nothing to do with.
   if git -C noir-repo add . && \
      git -C noir-repo diff --quiet && \
@@ -113,21 +107,10 @@ function has_patch_commit {
   fi
 }
 
-# Find the commit hash of the last applied fixup commit.
-# This is a commit we don't want to include in a patch file.
-function find_fixup_commit {
-  ! repo_exists && return 1
-  fixup=$(git -C noir-repo log --oneline --no-abbrev-commit --grep "$FIXUP_COMMIT_MSG" --max-count=1 | awk '{print $1}')
-  [ -z "$fixup" ] && return 1
-  echo $fixup
-}
-
 # Find the commit hash of the last checkout.
 function find_checkout_commit {
   ! repo_exists && return 1
-  fixup=$(find_fixup_commit)
-  [ -z "$fixup" ] && return 1
-  git -C noir-repo rev-parse "$fixup~1"
+  git -C noir-repo rev-list -n 1 $(read_wanted_ref)
 }
 
 # Check if a ref is a tag we have locally
@@ -156,11 +139,6 @@ function needs_patch {
   is_detached_head && ! is_last_commit_patch
 }
 
-# Indicate that both the fixup and the patch has been applied.
-function has_fixup_and_patch {
-  find_fixup_commit>/dev/null && has_patch_commit
-}
-
 # Indicate that we have to switch to the wanted branch.
 function needs_switch {
   ! repo_exists && return 0 # true
@@ -181,7 +159,7 @@ function needs_switch {
   # If we're on the wanted checkout, it could be that we rebased on origin in order
   # to push the branch without the fixup commit. In that case we'd need to do a fresh
   # checkout to re-apply the fixup and the patches.
-  if [ $have == true ] && has_fixup_and_patch; then
+  if [ $have == true ] && has_patch_commit; then
     return 1 # false
   else
     return 0 # true
@@ -198,16 +176,17 @@ function commit_patch_marker {
   git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
 }
 
-# Apply the fixup script and any local patch file.
+# Apply any local patch files.
 function patch_repo {
-  log Applying fixup on noir-repo
-  # Redirect the `bb` reference to the local one.
-  scripts/sync-in-fixup.sh
-  git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG" --allow-empty
-  # Apply any patch file.
-  if [ -f $NOIR_REPO_PATCH ]; then
-    log Applying patches from $NOIR_REPO_PATCH
-    git -C noir-repo am ../$NOIR_REPO_PATCH
+  # Apply any patch files.
+  if [ -d $NOIR_REPO_PATCH_DIR ]; then
+    log Applying patches from $NOIR_REPO_PATCH_DIR
+    for patch in $(find $NOIR_REPO_PATCH_DIR -name "*.patch"); do
+      # --- seems to separate the files in a patch; in an empty patch it does not appear
+      if cat $patch | grep -q "\-\-\-" ; then
+         git -C noir-repo am ../$patch
+      fi
+    done
   else
     log "No patch file to apply"
   fi
@@ -298,7 +277,7 @@ function update_repo {
   if needs_patch; then
     echo "Error: noir-repo is on a detached HEAD and the last commit is not the patch marker commit;"
     echo "switching to $want could mean losing those commits."
-    echo "Please use the 'make-patch' command to create a $NOIR_REPO_PATCH file and commit it in aztec-packages, "
+    echo "Please use the 'make-patch' command to create a $NOIR_REPO_PATCH_DIR directory and commit it in aztec-packages, "
     echo "so that it is re-applied after each checkout. Make sure to commit the patch on the branch where it should be."
     exit 1
   fi
@@ -312,25 +291,24 @@ function make_patch {
     echo "The last commit is the patch commit, there is nothing new to put in a patch."
     exit 0
   fi
-  fixup_rev=$(find_fixup_commit)
-  if [ -z "$fixup_rev" ]; then
-    echo "Could not determine the fixup commit hash, which is the commit we would like to apply patches from"
+  checkout_rev=$(find_checkout_commit)
+  if [ -z "$checkout_rev" ]; then
+    echo "Could not determine the checkout commit hash, which is the commit we would like to apply patches from"
     exit 1
   fi
-  mkdir -p patches
-  # The patch marker commit could be in the middle: fixup-commit from-patch-1 from-patch-2 patch-commit new-fix-1 new-fix-2
-  # wo we write all patches to files, then exclude the one which is just the empty patch commit.
-  git -C noir-repo format-patch -o ../patches $fixup_rev..HEAD
+  rm -rf $NOIR_REPO_PATCH_DIR
+  mkdir -p $NOIR_REPO_PATCH_DIR
+  # The patch marker commit could be in the middle: from-patch-1 from-patch-2 patch-commit new-fix-1 new-fix-2
+  # so we write all patches to files, then exclude the one which is just the empty patch commit.
+  git -C noir-repo format-patch -o ../$NOIR_REPO_PATCH_DIR $checkout_rev..HEAD
   # In theory we should be able to apply empty patches `git am --allow-empty`, but it seems to choke on them,
   # so we only keep non-empty patches, which conveniently also excludes `000*-Noir-local-patch-commit.patch` as well.
-  rm -f $NOIR_REPO_PATCH
-  for patch in $(find patches -name "*.patch"); do
-    # --- seems to separtate the files in a patch; in an empty patch it does not appear
-    if cat $patch | grep -q "\-\-\-" ; then
-      cat $patch >> $NOIR_REPO_PATCH
-    fi
+  for patch in $(find $NOIR_REPO_PATCH_DIR -name "*.patch"); do
+      # --- seems to separate the files in a patch; in an empty patch it does not appear
+      if ! cat $patch | grep -q "\-\-\-" ; then
+        rm $patch
+      fi
   done
-  rm -rf patches
   # Create an empty patch marker commit at the end to show that it is safe to switch now.
   if ! is_last_commit_patch; then
     commit_patch_marker
@@ -350,7 +328,6 @@ function info {
   }
   want=$(read_wanted_ref)
   echo_info "Repo exists" $(yesno repo_exists)
-  echo_info "Fixup commit" $(find_fixup_commit || echo "n/a")
   echo_info "Checkout commit" $(find_checkout_commit || echo "n/a")
   echo_info "Wanted" $want
   echo_info "Needs switch" $(yesno needs_switch)
@@ -362,7 +339,6 @@ function info {
   echo_info "Has tag commit" $(yesno has_tag_commit $want)
   echo_info "Has patch commit" $(yesno has_patch_commit)
   echo_info "Last commit is patch" $(yesno is_last_commit_patch)
-  echo_info "Has fixup and patch" $(yesno has_fixup_and_patch)
   echo_info "Has uncommitted changes" $(yesno has_uncommitted_changes)
   echo_info "Latest nightly" $(latest_nightly)
 }
