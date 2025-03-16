@@ -60,7 +60,6 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     executionSteps: PrivateExecutionStep[],
   ): Promise<ClientIvcProof> {
     await this._createClientIvcProofFiles(directory, executionSteps);
-    await this._createClientIvcProofFiles('/mnt/user-data/adam/aztec-packages/a', executionSteps);
     const provingResult = await executeBbClientIvcProof(
       this.bbBinaryPath,
       directory,
