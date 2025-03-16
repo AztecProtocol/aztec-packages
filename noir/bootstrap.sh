@@ -5,6 +5,7 @@ set -eou pipefail
 
 cmd=${1:-}
 [ -n "$cmd" ] && shift
+
 export js_projects="
   @noir-lang/acvm_js
   @noir-lang/types
@@ -13,15 +14,6 @@ export js_projects="
   @noir-lang/noir_js
 "
 export js_include=$(printf " --include %s" $js_projects)
-
-# Must be in dependency order.
-package_dirs=(
-  types
-  noir_js
-  noir_codegen
-  noirc_abi
-  acvm_js
-)
 
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
 export GIT_COMMIT="0000000000000000000000000000000000000000"
@@ -32,13 +24,12 @@ export RUSTFLAGS="-Dwarnings"
 # Update the noir-repo and compute hashes.
 function noir_sync {
   denoise "scripts/sync.sh init && scripts/sync.sh update"
-  export hash=$(cache_content_hash .rebuild_patterns)
-  export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
 }
 
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
+  local hash=$(cache_content_hash .rebuild_patterns)
   cd noir-repo
   if cache_download noir-$hash.tar.gz; then
     return
@@ -53,6 +44,7 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
+  local hash=$(cache_content_hash .rebuild_patterns)
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
@@ -127,6 +119,7 @@ function test_example {
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
+  local test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
@@ -163,6 +156,15 @@ function release_packages {
   local dist_tag=$1
   local version=$2
   cd packages
+
+  # Must be in dependency order.
+  local package_dirs=(
+    types
+    noir_js
+    noir_codegen
+    noirc_abi
+    acvm_js
+  )
 
   for package in ${package_dirs[@]}; do
     local path="$package"
@@ -217,12 +219,7 @@ case "$cmd" in
     $cmd "$@"
     ;;
   "hash")
-    noir_sync &>/dev/null
-    echo $hash
-    ;;
-  "hash-test")
-    noir_sync &>/dev/null
-    echo $test_hash
+    echo $(cache_content_hash .rebuild_patterns)
     ;;
   "make-patch")
     scripts/sync.sh make-patch
