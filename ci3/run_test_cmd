@@ -103,9 +103,6 @@ EOF
       -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
       -H "Content-type: application/json" \
       --data "$data" &>/dev/null
-  else
-    # If we can't post to slack, print to console
-    echo -e "${red}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   fi
   exit
 }
