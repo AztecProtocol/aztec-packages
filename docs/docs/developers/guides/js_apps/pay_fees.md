@@ -1,5 +1,5 @@
 ---
-title: How to Pay Fees
+title: How to Use Fee Juice
 tags: [fees, transactions, developers]
 ---
 
@@ -20,6 +20,54 @@ Processing this transaction first claims bridged fee juice then is paid for from
 ### Privately or publicly via a Fee Paying Contract
 
 A fee paying contract (FPC) is created and nominates a token that it accepts to then pay for txs in fee juice. So a user doesn't need to hold fee juice, they only need the token that the FPC accepts.
+
+## Bridging fee-juice
+
+To first get fee juice into an account it needs to be bridged from L1.
+
+:::note
+See here to [Bridge Fee Juice](../../../developers/reference/environment_reference/cli_wallet_reference#bridge-fee-juice) via the CLI wallet.
+
+:::
+
+One way of bridging of tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec). Below summarises specifically bridging fee juice on the sandbox.
+
+First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
+
+#include_code get_node_info_pub_client yarn-project/end-to-end/src/spartan/smoke.test.ts javascript
+
+Now import and create a new fee juice portal manager the L1FeeJuicePortalManager
+
+```ts
+import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
+
+l1PortalManager = await L1FeeJuicePortalManager.new(
+    pxe,
+    publicClient,
+    walletClient,
+    logger
+);
+```
+
+Bridge the tokens via minting them from L1, eg if you have an array of unfunded Aztec addresses, `myAddresses`
+
+```ts
+const claimAmount = 10n ** 22n;
+let claims: L2AmountClaim[] = [];
+// bridge sequentially to avoid l1 txs (nonces) being processed out of order
+for (let i = 0; i < myAddresses.length; i++) {
+    claims.push(await l1PortalManager.bridgeTokensPublic(myAddresses[i], claimAmount, true /*mint*/));
+}
+```
+
+Bridging can also be done privately with the corresponding function:
+
+#include_code bridge_tokens_private yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
+
+After any two other transactions are made to progress the bridging steps, an already deployed account should have fee juice ready to use in transactions.
+
+Alternatively, the resulting claim object can be used to create a payment method to claim and pay for a transaction in one, where the transaction is the contract's deployment.
+
 
 ## Fee Options
 
@@ -53,41 +101,24 @@ With the fee options explained, lets do a paid transaction.
 
 ## Examples
 
-### Bridging fee-juice on the sandbox (ready to claim)
+### Pay with FeeJuice
 
-Bridging of tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec), and below summarises bridging fee juice on the sandbox.
+To send a transaction from an already deployed account already holding fee juice:
+(Note: this example is a public token transfer call, but can equally be a private function call)
 
-First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
+#include_code pay_fee_juice_send yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts javascript
 
-#include_code get_node_info_pub_client yarn-project/end-to-end/src/spartan/smoke.test.ts javascript
+**The equivalent to specify fees via CLI...**
 
-Now import and create a new fee juice portal manager the L1FeeJuicePortalManager
+import { CLI_Fees } from '/components/snippets';
 
-```ts
-import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
+<CLI_Fees />
 
-l1PortalManager = await L1FeeJuicePortalManager.new(
-    pxe,
-    publicClient,
-    walletClient,
-    logger
-);
-```
-
-Bridge the tokens via minting them from L1, eg if you have an array of unfunded Aztec addresses, `myAddresses`
-
-```ts
-const claimAmount = 10n ** 22n;
-let claims: L2AmountClaim[] = [];
-// bridge sequentially to avoid l1 txs (nonces) being processed out of order
-for (let i = 0; i < myAddresses.length; i++) {
-    claims.push(await l1PortalManager.bridgeTokensPublic(myAddresses[i], claimAmount, true /*mint*/));
-}
-```
-
-After any two other transactions are made, the resulting object can then be used to claim fee-juice, or alternatively, claim and pay for a transaction in one.
+### Claim and deploy
 
 Here we will use the account managers and wallets of `myAddresses` to create the payment method, and use it for accounts to claim fee juice and pay for their own deployment.
+
+Note: This uses the `claim` object shown in the earlier bridging section.
 
 ```ts
 // claim and pay to deploy accounts
@@ -100,42 +131,11 @@ await Promise.all(sentTxs.map(stx => stx.wait()));
 ```
 
 
-See here to [Bridge Fee Juice](../../../developers/reference/environment_reference/cli_wallet_reference#bridge-fee-juice) via the CLI wallet.
+#### Claim and Pay
 
-### Pay with FeeJuice
-
-An account can be deployed directly via fee-juice payment if the address has been pre-funded.
-This is done using the AccountManager as follows:
-
-#include_code pay_fee_juice_deploy yarn-project/end-to-end/src/e2e_fees/account_init.test.ts javascript
-
-Or to send a transaction from an account holding fee juice:
-(Note: this example is a public token transfer call, but can equally be a private function call)
-
-#include_code pay_fee_juice_send yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts javascript
-
-**The equivalent to specify fees via CLI...**
-
-import { CLI_Fees } from '/components/snippets';
-
-<CLI_Fees />
-
-### Claim and pay
-
-A transaction can be made that claims bridged fee juice, and immediately uses it to pay for itself in one.
-
-The claim object:
-
-#include_code claim_type_amount yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
-
-
-#### Claim and Pay on Aztec
-
-Calling a function on an object (in this case checking the balance of the fee juice contract)
+Calling a function, in this case checking the balance of the fee juice contract:
 
 #include_code claim_and_pay yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts javascript
-
-Note: This uses the `claim` object shown in the earlier bridging section.
 
 ### Fee Paying Contract
 

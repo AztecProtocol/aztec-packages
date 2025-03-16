@@ -267,6 +267,7 @@ export class L1ToL2TokenPortalManager {
     };
   }
 
+  // docs:start:bridge_tokens_private
   /**
    * Bridges tokens from L1 to L2 privately. Handles token approvals. Returns once the tx has been mined.
    * @param to - Address to send the tokens to on L2.
@@ -278,6 +279,7 @@ export class L1ToL2TokenPortalManager {
     amount: bigint,
     mint = false,
   ): Promise<L2AmountClaimWithRecipient> {
+    // docs:end:bridge_tokens_private
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');
