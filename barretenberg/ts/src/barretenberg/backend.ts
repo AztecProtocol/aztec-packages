@@ -261,7 +261,6 @@ export class UltraHonkBackend {
     return { proof, publicInputs };
   }
 
-
   async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
     await this.instantiate();
 

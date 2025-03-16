@@ -22,20 +22,19 @@ export type ProofDataForRecursion = {
   proof: string[];
 };
 
-// Buffers are prepended with their size. The size takes 4 bytes.
-const serializedBufferSize = 4;
+// Honk proofs start with 4 bytes for the size of the proof in fields
+const metadataOffset = 4;
 const fieldByteSize = 32;
 
 export function splitHonkProof(
   proofWithPublicInputs: Uint8Array,
   numPublicInputs: number,
 ): { publicInputs: Uint8Array; proof: Uint8Array } {
-  // `proofWithPublicInputs` is publicInputs (32 bytes per input) concatenated with the proof bytes
-  // The first 4 bytes is the size of the buffer - this can be removed
-  const proofWithPublicInputsCleaned = proofWithPublicInputs.slice(serializedBufferSize);
+  // Remove the metadata (proof size in fields)
+  const proofWithPI = proofWithPublicInputs.slice(metadataOffset);
 
-  const publicInputs = proofWithPublicInputsCleaned.slice(0, numPublicInputs * fieldByteSize);
-  const proof = proofWithPublicInputsCleaned.slice(numPublicInputs * fieldByteSize);
+  const publicInputs = proofWithPI.slice(0, numPublicInputs * fieldByteSize);
+  const proof = proofWithPI.slice(numPublicInputs * fieldByteSize);
 
   return {
     proof,
@@ -44,10 +43,10 @@ export function splitHonkProof(
 }
 
 export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array): Uint8Array {
-  // Append the buffer length to the concatenated proof
-  const bufferLength = numToUInt32BE((publicInputs.length + proof.length) / fieldByteSize);
+  // Append proofWithPublicInputs size in fields
+  const proofSize = numToUInt32BE((publicInputs.length + proof.length) / fieldByteSize);
 
-  const proofWithPublicInputs = Uint8Array.from([...bufferLength, ...publicInputs, ...proof]);
+  const proofWithPublicInputs = Uint8Array.from([...proofSize, ...publicInputs, ...proof]);
   return proofWithPublicInputs;
 }
 
