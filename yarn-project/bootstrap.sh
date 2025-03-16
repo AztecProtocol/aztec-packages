@@ -82,7 +82,7 @@ function compile_all {
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
 
-  if [ "${CI:-0}" -eq 1 ]; then
+  if [ "$CI" -eq 1 ]; then
     cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
   fi
 }
@@ -92,16 +92,8 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  if [ "${CI:-0}" = 1 ]; then
-    # If in CI mode, retry as bcrypto can sometimes fail mysteriously.
-    # We set immutable since we don't expect the yarn.lock to change. Note that we have also added all package.json
-    # files to yarn immutablePatterns, so if they are also changed, this step will fail.
-    denoise "retry yarn install --immutable"
-  else
-    denoise "yarn install --no-immutable"
-  fi
+  npm_install_deps
   denoise "compile_all"
-  echo -e "${green}Yarn project successfully built!${reset}"
 }
 
 function test_cmds {

@@ -2,7 +2,6 @@ import { readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
-
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
 const { name } = JSON.parse(readFileSync(join(currentDir, '../package.json')));
