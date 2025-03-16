@@ -200,7 +200,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
-  ) external view override(IRollup) {
+  ) external override(IRollup) {
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
         header: HeaderLib.decode(_header),
@@ -337,7 +337,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getCurrentEpochCommittee()
     external
-    view
     override(IValidatorSelection)
     returns (address[] memory)
   {
@@ -353,7 +352,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getCommitteeAt(Timestamp _ts)
     external
-    view
     override(IValidatorSelection)
     returns (address[] memory)
   {
@@ -428,7 +426,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The address of the proposer
    */
-  function getCurrentProposer() external view override(IValidatorSelection) returns (address) {
+  function getCurrentProposer() external override(IValidatorSelection) returns (address) {
     return getProposerAt(Timestamp.wrap(block.timestamp));
   }
 
@@ -569,7 +567,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function canProposeAtTime(Timestamp _ts, bytes32 _archive)
     external
-    view
     override(IRollup)
     returns (Slot, uint256)
   {
@@ -710,7 +707,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The address of the proposer
    */
-  function getProposerAt(Timestamp _ts) public view override(IValidatorSelection) returns (address) {
+  function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
     Slot slot = _ts.slotFromTimestamp();
     Epoch epochNumber = slot.epochFromSlot();
     return ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot, epochNumber);

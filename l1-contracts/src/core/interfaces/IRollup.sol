@@ -188,9 +188,9 @@ interface IRollup is IRollupCore {
     Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
-  ) external view;
+  ) external;
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
 
   function validateBlobs(bytes calldata _blobsInputs)
     external

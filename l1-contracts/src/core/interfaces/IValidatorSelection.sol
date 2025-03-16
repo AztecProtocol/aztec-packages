@@ -30,8 +30,8 @@ interface IValidatorSelectionCore {
 
 interface IValidatorSelection is IValidatorSelectionCore {
   // Likely changing to optimize in Pleistarchus
-  function getCurrentProposer() external view returns (address);
-  function getProposerAt(Timestamp _ts) external view returns (address);
+  function getCurrentProposer() external returns (address);
+  function getProposerAt(Timestamp _ts) external returns (address);
 
   // Stable
   function getCurrentEpoch() external view returns (Epoch);
@@ -42,8 +42,8 @@ interface IValidatorSelection is IValidatorSelectionCore {
 
   // Likely removal of these to replace with a size and indiviual getter
   // Get the current epoch committee
-  function getCurrentEpochCommittee() external view returns (address[] memory);
-  function getCommitteeAt(Timestamp _ts) external view returns (address[] memory);
+  function getCurrentEpochCommittee() external returns (address[] memory);
+  function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
   function getEpochCommittee(Epoch _epoch) external view returns (address[] memory);
   function getAttesters() external view returns (address[] memory);
 

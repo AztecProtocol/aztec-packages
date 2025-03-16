@@ -175,7 +175,8 @@ library ProposeLib {
     return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
   }
 
-  function validateHeader(ValidateHeaderArgs memory _args) internal view {
+  // @note: not view as sampling validators uses tstore
+  function validateHeader(ValidateHeaderArgs memory _args) internal {
     require(
       block.chainid == _args.header.globalVariables.chainId,
       Errors.Rollup__InvalidChainId(block.chainid, _args.header.globalVariables.chainId)
