@@ -1,6 +1,7 @@
 ---
 title: How to Use Fee Juice
 tags: [fees, transactions, developers]
+sidebar_position: 3
 ---
 
 There a several ways to pay for transaction fees, thanks to fee abstraction implemented in the Aztec protocol.

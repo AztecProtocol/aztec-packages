@@ -82,4 +82,4 @@ The fees section of the protocol specification explains this distribution of fee
 
 More comprehensive technical details for implementers will be available from the updated protocol specifications soon.
 
-For a guide showing ways to pay fees programmatically, see [here](../../developers/guides/js_apps/pay_fees).
+For a guide showing ways to pay fees programmatically, see [here](../../developers/guides/js_apps/use_fee_juice).
