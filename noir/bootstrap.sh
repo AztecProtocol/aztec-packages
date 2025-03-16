@@ -5,17 +5,6 @@ set -eou pipefail
 
 cmd=${1:-}
 [ -n "$cmd" ] && shift
-
-# Update the noir-repo before we hash its content, unless the command is exempt.
-no_update=(clean make-patch bump-noir-repo-ref)
-if [[ -z "$cmd" || ! ${no_update[*]} =~ "$cmd" ]]; then
-  echo_header "noir sync"
-  denoise "scripts/sync.sh init && scripts/sync.sh update"
-fi
-
-export hash=$(cache_content_hash .rebuild_patterns)
-export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
-
 export js_projects="
   @noir-lang/acvm_js
   @noir-lang/types
@@ -39,6 +28,13 @@ export GIT_COMMIT="0000000000000000000000000000000000000000"
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
+
+# Update the noir-repo and compute hashes.
+function noir_sync {
+  denoise "scripts/sync.sh init && scripts/sync.sh update"
+  export hash=$(cache_content_hash .rebuild_patterns)
+  export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
+}
 
 # Builds nargo, acvm and profiler binaries.
 function build_native {
@@ -98,6 +94,8 @@ export -f build_native build_packages
 
 function build {
   echo_header "noir build"
+
+  noir_sync
 
   # TODO: Move to build image?
   denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
@@ -219,9 +217,11 @@ case "$cmd" in
     $cmd "$@"
     ;;
   "hash")
+    noir_sync &>/dev/null
     echo $hash
     ;;
   "hash-test")
+    noir_sync &>/dev/null
     echo $test_hash
     ;;
   "make-patch")
