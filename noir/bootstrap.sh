@@ -7,14 +7,14 @@ cmd=${1:-}
 [ -n "$cmd" ] && shift
 
 # Must be in dependency order for releasing.
-export js_projects=(
+export js_projects="
   @noir-lang/types
   @noir-lang/noir_js
   @noir-lang/noir_codegen
   @noir-lang/noirc_abi
   @noir-lang/acvm_js
-)
-export js_include=$(printf " --include %s" ${js_projects[@]})
+"
+export js_include=$(printf " --include %s" $js_projects)
 
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
 export GIT_COMMIT="0000000000000000000000000000000000000000"
@@ -152,7 +152,7 @@ function release {
   local version=${REF_NAME#v}
   cd packages
 
-  for package in ${js_projects[@]}; do
+  for package in $js_projects; do
     local dir=${package#*/}
     [ ! -d "$dir" ] && echo "Project path not found: $dir" && exit 1
     cd $dir
