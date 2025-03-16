@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr, Point } from '@aztec/foundation/fields';
 import type { FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -239,10 +239,11 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
 
   /**
    * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
+   * @param contractAddress - The address of the contract that emitted the logs.
    * @param logs - The logs to process.
    * @param recipient - The recipient of the logs.
    */
-  processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
+  processTaggedLogs(contractAddress: AztecAddress, logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
 
   /**
    * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
@@ -320,4 +321,12 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param numEntries - The number of entries to copy.
    */
   copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
+
+  /**
+   * Retrieves the shared secret for a given address and ephemeral public key.
+   * @param address - The address to get the secret for.
+   * @param ephPk - The ephemeral public key to get the secret for.
+   * @returns The secret for the given address.
+   */
+  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
 }

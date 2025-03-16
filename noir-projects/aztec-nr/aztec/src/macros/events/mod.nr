@@ -1,7 +1,7 @@
 use super::utils::{compute_event_selector, get_trait_impl_method};
 use protocol_types::meta::generate_serialize_to_fields;
 
-comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
+comptime fn generate_event_interface(s: TypeDefinition) -> Quoted {
     let name = s.name();
     let typ = s.as_type();
     let (serialization_fields, _) = generate_serialize_to_fields(quote { self }, typ, &[], false);
@@ -28,7 +28,7 @@ comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
     }
 }
 
-pub comptime fn event(s: StructDefinition) -> Quoted {
+pub comptime fn event(s: TypeDefinition) -> Quoted {
     let event_interface = generate_event_interface(s);
     s.add_attribute("abi(events)");
     quote {

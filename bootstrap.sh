@@ -236,7 +236,7 @@ function release {
   #     + noir
   #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if dist tag is latest
-  #   docs => publish docs if dist tag is latest. TODO Link build in github release.
+  #   docs, playground => publish if dist tag is latest. TODO Link build in github release.
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
@@ -262,7 +262,7 @@ function release {
     release-image
   )
   if [ $(arch) == arm64 ]; then
-    echo "Only deploying packages with platform-specific binaries on arm64."
+    echo "Only releasing packages with platform-specific binaries on arm64."
     projects=(
       barretenberg/cpp
       release-image

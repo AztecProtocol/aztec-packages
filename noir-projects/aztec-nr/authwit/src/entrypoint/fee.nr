@@ -42,7 +42,7 @@ impl FeePayload {
         bytes.storage()
     }
 
-    fn execute_calls(self, context: &mut PrivateContext) {
+    pub fn execute_calls(self, context: &mut PrivateContext) {
         for call in self.function_calls {
             if !call.target_address.is_zero() {
                 if call.is_public {

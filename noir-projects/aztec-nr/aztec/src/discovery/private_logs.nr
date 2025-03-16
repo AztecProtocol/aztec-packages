@@ -21,6 +21,9 @@ use crate::discovery::{
         DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT, DeliveredPendingPartialNote,
     },
 };
+use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::decrypt_log;
+// TODO(#12750): don't make this value assume we're using AES.
+use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
 pub global PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN: u32 = 1;
 /// Partial notes have a maximum packed length of their private fields bound by extra content in their private log (i.e.
@@ -42,22 +45,24 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     sync_notes();
 }
 
-/// Processes a log's plaintext, searching for private notes or partial notes. Private notes result in nonce discovery
-/// being performed prior to delivery, which requires knowledge of the transaction hash in which the notes would've been
-/// created (typically the same transaction in which the log was emitted), along with the list of unique note hashes in
-/// said transaction and the `compute_note_hash_and_nullifier` function.
+/// Processes a log's ciphertext by decrypting it and then searching the plaintext for private notes or partial notes. Private
+/// notes result in nonce discovery being performed prior to delivery, which requires knowledge of the transaction hash in
+/// which the notes would've been created (typically the same transaction in which the log was emitted), along with the
+/// list of unique note hashes in said transaction and the `compute_note_hash_and_nullifier` function.
 pub unconstrained fn do_process_log<Env>(
     contract_address: AztecAddress,
-    log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
+    log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    // The first thing to do is to determine what type of private log we're processing. We currently just have two log
-    // types: 0 for private notes and 1 for partial notes. This will likely be expanded and improved upon in the future
-    // to also handle events, etc.
+    let log_plaintext = decrypt_log(log, recipient);
+
+    // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
+    // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and
+    // improved upon in the future to also handle events, etc.
 
     let (storage_slot, note_type_id, log_type_id, log_payload) =
         destructure_log_plaintext(log_plaintext);
@@ -65,7 +70,7 @@ pub unconstrained fn do_process_log<Env>(
     if log_type_id == 0 {
         debug_log("Processing private note log");
 
-        process_private_note_log(
+        attempt_note_discovery(
             contract_address,
             tx_hash,
             unique_note_hashes_in_tx,
@@ -87,12 +92,16 @@ pub unconstrained fn do_process_log<Env>(
             recipient,
         );
     } else {
-        panic(f"Unknown log type id {log_type_id}");
+        // TODO(#11569): handle events
+        debug_log_format(
+            "Unknown log type id {0} (probably belonging to an event log)",
+            [log_type_id],
+        );
     }
 }
 
 unconstrained fn destructure_log_plaintext(
-    log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
+    log_plaintext: BoundedVec<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>,
 ) -> (Field, Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>) {
     assert(log_plaintext.len() >= NOTE_PRIVATE_LOG_RESERVED_FIELDS);
 
@@ -119,7 +128,9 @@ unconstrained fn destructure_log_plaintext(
     (storage_slot, note_type_id, log_type_id, log_payload)
 }
 
-unconstrained fn process_private_note_log<Env>(
+/// Attempts discovery of a note given information about its contents and the transaction in which it is
+/// suspected the note was created.
+pub unconstrained fn attempt_note_discovery<Env>(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
