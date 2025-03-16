@@ -139,17 +139,17 @@ function test_cmds_internal {
   local bbjs_bin="../ts/dest/node/main.js"
 
   # barretenberg-acir-tests-sol:
-  echo FLOW=sol $run_test assert_statement
-  echo FLOW=sol $run_test double_verify_proof
-  echo FLOW=sol $run_test double_verify_nested_proof
-  echo FLOW=sol_honk $run_test assert_statement
-  echo FLOW=sol_honk $run_test 1_mul
-  echo FLOW=sol_honk $run_test slices
-  echo FLOW=sol_honk $run_test verify_honk_proof
-  echo FLOW=sol_honk_zk $run_test assert_statement
-  echo FLOW=sol_honk_zk $run_test 1_mul
-  echo FLOW=sol_honk_zk $run_test slices
-  echo FLOW=sol_honk_zk $run_test verify_honk_proof
+  echo "docker_isolate 'FLOW=sol $run_test assert_statement'"
+  echo "docker_isolate 'FLOW=sol $run_test double_verify_proof'"
+  echo "docker_isolate 'FLOW=sol $run_test double_verify_nested_proof'"
+  echo "docker_isolate 'FLOW=sol_honk $run_test assert_statement'"
+  echo "docker_isolate 'FLOW=sol_honk $run_test 1_mul'"
+  echo "docker_isolate 'FLOW=sol_honk $run_test slices'"
+  echo "docker_isolate 'FLOW=sol_honk $run_test verify_honk_proof'"
+  echo "docker_isolate 'FLOW=sol_honk_zk $run_test assert_statement'"
+  echo "docker_isolate 'FLOW=sol_honk_zk $run_test 1_mul'"
+  echo "docker_isolate 'FLOW=sol_honk_zk $run_test slices'"
+  echo "docker_isolate 'FLOW=sol_honk_zk $run_test verify_honk_proof'"
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
