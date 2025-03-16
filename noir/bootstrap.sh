@@ -31,15 +31,16 @@ function noir_sync {
 function build_native {
   set -euo pipefail
   local hash=$(cache_content_hash .rebuild_patterns)
-  cd noir-repo
   if cache_download noir-$hash.tar.gz; then
     return
   fi
+  cd noir-repo
   parallel --tag --line-buffer --halt now,fail=1 ::: \
     "cargo fmt --all --check" \
     "cargo build --locked --release --target-dir target" \
     "cargo clippy --target-dir target/clippy --workspace --locked --release"
-  cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm target/release/noir-profiler
+  cd ..
+  cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,acvm,noir-profiler}
 }
 
 # Builds js packages.

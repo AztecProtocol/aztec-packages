@@ -165,8 +165,23 @@ tests:
     owners:
       - *leila
 
-  - regex: "spartan/bootstrap.sh test-local"
-    skip: true
+  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-kind-transfer"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-prod-deployment"
     owners:
       - *adam
 
