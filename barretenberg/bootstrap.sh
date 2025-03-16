@@ -22,7 +22,7 @@ function bench {
   if cache_download barretenberg-bench-results-$hash.tar.gz; then
     return
   fi
-  # bootstrap_all bench
+  bootstrap_all benh
   ./scripts/combine_benchmarks.py \
     ./cpp/bench-out/*.json \
     ./acir_tests/bench-out/*.txt \

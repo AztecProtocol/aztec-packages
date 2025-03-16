@@ -98,11 +98,15 @@ function flake {
     "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
-  curl -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-    -H "Content-type: application/json" \
-    --data "$data" &>/dev/null
-
+  if [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+    curl -X POST https://slack.com/api/chat.postMessage \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+      -H "Content-type: application/json" \
+      --data "$data" &>/dev/null
+  else
+    # If we can't post to slack, print to console
+    echo -e "${red}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  fi
   exit
 }
 
