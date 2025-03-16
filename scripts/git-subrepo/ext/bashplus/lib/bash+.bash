@@ -76,7 +76,7 @@ bash+:import() {
     if [[ $arg =~ ^: ]]; then
       # Word splitting required here
       # shellcheck disable=2046
-      bash+:import $(bash+:export"$arg")
+      bash+:import $(bash+:export "$arg")
     else
       bash+:fcopy "bash+:$arg" "$arg"
     fi
