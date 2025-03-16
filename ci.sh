@@ -260,8 +260,6 @@ case "$cmd" in
       echo "SKIP_BB_BENCH=true" >> $GITHUB_ENV
     else
       cache_download barretenberg-bench-results-$bb_hash.tar.gz
-      seven_days=$((7 * 24 * 60 * 60)) # in seconds
-      echo "$bb_hash" | redis_setexz last-publish-hash-bb $seven_days
     fi
 
     # yarn-project benchmarks.
@@ -272,7 +270,6 @@ case "$cmd" in
       cache_download yarn-project-bench-results-$yp_hash.tar.gz
       # TODO reenable
       # ./cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
-      echo "$bb_hash" | redis_setexz last-publish-hashs-bb $seven_days
     fi
     ;;
   "uncached-tests")
