@@ -34,7 +34,10 @@ library SampleLib {
     internal
     returns (uint256[] memory)
   {
-    require(_committeeSize <= _indexCount, Errors.SampleLib__SampleLargerThanIndex(_committeeSize, _indexCount));
+    require(
+      _committeeSize <= _indexCount,
+      Errors.SampleLib__SampleLargerThanIndex(_committeeSize, _indexCount)
+    );
 
     uint256[] memory sampledIndices = new uint256[](_committeeSize);
 
@@ -53,20 +56,17 @@ library SampleLib {
       }
     }
 
-
     return sampledIndices;
   }
 
   function getValue(uint256 _index) internal view returns (uint256) {
     uint256 overrideValue = getOverrideValue(_index);
     if (overrideValue != 0) {
-      // TODO: edge case where override actually is 0
       return overrideValue;
     }
 
     return _index;
   }
-
 
   function getOverrideValue(uint256 _index) internal view returns (uint256) {
     return _OVERRIDE_NAMESPACE.erc7201Slot().deriveMapping(_index).asUint256().tload();
@@ -76,9 +76,8 @@ library SampleLib {
     _OVERRIDE_NAMESPACE.erc7201Slot().deriveMapping(_index).asUint256().tstore(_value);
   }
 
-
   /**
-   * @notice  Compute the shuffled index for a given index, seed and index count.
+   * @notice  Compute the sample index for a given index, seed and index count.
    *
    * @param _index - The index to shuffle
    * @param _indexCount - The total number of indices
@@ -91,6 +90,11 @@ library SampleLib {
     pure
     returns (uint256)
   {
+    // Cannot modulo by 0
+    if (_indexCount == 0) {
+      return 0;
+    }
+
     return uint256(keccak256(abi.encodePacked(_seed, _index))) % _indexCount;
   }
 }

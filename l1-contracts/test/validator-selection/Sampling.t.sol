@@ -14,14 +14,15 @@ contract Sampler {
   {
     return SampleLib.computeCommittee(_committeeSize, _indexCount, _seed);
   }
-
 }
 
 contract SamplingTest is Test {
   Sampler sampler = new Sampler();
 
- function testSampleFuzz(uint8 _committeeSize, uint8 _validatorSetSize, uint256 _seed) public {
+  function testSampleFuzz(uint8 _committeeSize, uint8 _validatorSetSize, uint256 _seed) public {
     vm.assume(_committeeSize <= _validatorSetSize);
+    vm.assume(_committeeSize > 0);
+    vm.assume(_seed != 0); // Seed is computed from a hash, which we can safetly assume is non zero
 
     uint256[] memory committee = sampler.computeCommittee(_committeeSize, _validatorSetSize, _seed);
 
