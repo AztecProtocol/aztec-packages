@@ -82,6 +82,119 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     )
   {}
 
+  /**
+   * @notice  Validate a header for submission
+   *
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
+   *          without having to deal with viem or anvil for simulating timestamps in the future.
+   *
+   * @param _header - The header to validate
+   * @param _signatures - The signatures to validate
+   * @param _digest - The digest to validate
+   * @param _currentTime - The current time
+   * @param _blobsHash - The blobs hash for this block
+   * @param _flags - The flags to validate
+   */
+  function validateHeader(
+    bytes calldata _header,
+    Signature[] memory _signatures,
+    bytes32 _digest,
+    Timestamp _currentTime,
+    bytes32 _blobsHash,
+    BlockHeaderValidationFlags memory _flags
+  ) external override(IRollup) {
+    ProposeLib.validateHeader(
+      ValidateHeaderArgs({
+        header: HeaderLib.decode(_header),
+        attestations: _signatures,
+        digest: _digest,
+        currentTime: _currentTime,
+        manaBaseFee: getManaBaseFeeAt(_currentTime, true),
+        blobsHashesCommitment: _blobsHash,
+        flags: _flags
+      })
+    );
+  }
+
+  /**
+   * @notice  Get the validator set for the current epoch
+   * @return The validator set for the current epoch
+   */
+  function getCurrentEpochCommittee()
+    external
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getCurrentEpoch());
+  }
+
+  /**
+   * @notice  Get the committee for a given timestamp
+   *
+   * @param _ts - The timestamp to get the committee for
+   *
+   * @return The committee for the given timestamp
+   */
+  function getCommitteeAt(Timestamp _ts)
+    external
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
+  }
+
+  /**
+   * @notice  Get the proposer for the current slot
+   *
+   * @dev     Calls `getCurrentProposer(uint256)` with the current timestamp
+   *
+   * @return The address of the proposer
+   */
+  function getCurrentProposer() external override(IValidatorSelection) returns (address) {
+    return getProposerAt(Timestamp.wrap(block.timestamp));
+  }
+
+  /**
+   * @notice  Check if msg.sender can propose at a given time
+   *
+   * @param _ts - The timestamp to check
+   * @param _archive - The archive to check (should be the latest archive)
+   *
+   * @return uint256 - The slot at the given timestamp
+   * @return uint256 - The block number at the given timestamp
+   */
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
+    external
+    override(IRollup)
+    returns (Slot, uint256)
+  {
+    Slot slot = _ts.slotFromTimestamp();
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
+
+    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+
+    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
+    bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
+    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
+
+    Signature[] memory sigs = new Signature[](0);
+
+    ValidatorSelectionLib.verify(
+      StakingLib.getStorage(),
+      slot,
+      slot.epochFromSlot(),
+      sigs,
+      _archive,
+      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
+    );
+
+    return (slot, pendingBlockNumber + 1);
+  }
+
   function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
     return ValidatorSelectionLib.getStorage().targetCommitteeSize;
   }
@@ -177,40 +290,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   ) external view override(IRollup) returns (bytes32[] memory) {
     return ExtRollupLib.getEpochProofPublicInputs(
       _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
-    );
-  }
-
-  /**
-   * @notice  Validate a header for submission
-   *
-   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
-   *          without having to deal with viem or anvil for simulating timestamps in the future.
-   *
-   * @param _header - The header to validate
-   * @param _signatures - The signatures to validate
-   * @param _digest - The digest to validate
-   * @param _currentTime - The current time
-   * @param _blobsHash - The blobs hash for this block
-   * @param _flags - The flags to validate
-   */
-  function validateHeader(
-    bytes calldata _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    bytes32 _blobsHash,
-    BlockHeaderValidationFlags memory _flags
-  ) external override(IRollup) {
-    ProposeLib.validateHeader(
-      ValidateHeaderArgs({
-        header: HeaderLib.decode(_header),
-        attestations: _signatures,
-        digest: _digest,
-        currentTime: _currentTime,
-        manaBaseFee: getManaBaseFeeAt(_currentTime, true),
-        blobsHashesCommitment: _blobsHash,
-        flags: _flags
-      })
     );
   }
 
@@ -332,33 +411,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
-   * @notice  Get the validator set for the current epoch
-   * @return The validator set for the current epoch
-   */
-  function getCurrentEpochCommittee()
-    external
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getCurrentEpoch());
-  }
-
-  /**
-   * @notice  Get the committee for a given timestamp
-   *
-   * @param _ts - The timestamp to get the committee for
-   *
-   * @return The committee for the given timestamp
-   */
-  function getCommitteeAt(Timestamp _ts)
-    external
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
-  }
-
-  /**
    * @notice  Get the sample seed for a given timestamp
    *
    * @param _ts - The timestamp to get the sample seed for
@@ -417,17 +469,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     returns (Timestamp)
   {
     return _slotNumber.toTimestamp();
-  }
-
-  /**
-   * @notice  Get the proposer for the current slot
-   *
-   * @dev     Calls `getCurrentProposer(uint256)` with the current timestamp
-   *
-   * @return The address of the proposer
-   */
-  function getCurrentProposer() external override(IValidatorSelection) returns (address) {
-    return getProposerAt(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -556,47 +597,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().config.rewardDistributor;
   }
 
-  /**
-   * @notice  Check if msg.sender can propose at a given time
-   *
-   * @param _ts - The timestamp to check
-   * @param _archive - The archive to check (should be the latest archive)
-   *
-   * @return uint256 - The slot at the given timestamp
-   * @return uint256 - The block number at the given timestamp
-   */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
-    external
-    override(IRollup)
-    returns (Slot, uint256)
-  {
-    Slot slot = _ts.slotFromTimestamp();
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
-
-    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
-
-    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
-
-    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
-
-    Signature[] memory sigs = new Signature[](0);
-
-    ValidatorSelectionLib.verify(
-      StakingLib.getStorage(),
-      slot,
-      slot.epochFromSlot(),
-      sigs,
-      _archive,
-      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
-    );
-
-    return (slot, pendingBlockNumber + 1);
-  }
-
   function getL1FeesAt(Timestamp _timestamp)
     external
     view
@@ -612,6 +612,33 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getBurnAddress() external pure override(IRollup) returns (address) {
     return EpochProofLib.BURN_ADDRESS;
+  }
+
+  /**
+   * @notice  Get the proposer for the slot at a specific timestamp
+   *
+   * @dev     This function is very useful for off-chain usage, as it easily allow a client to
+   *          determine who will be the proposer at the NEXT ethereum block.
+   *          Should not be trusted when moving beyond the current epoch, since changes to the
+   *          validator set might not be reflected when we actually reach that epoch (more changes
+   *          might have happened).
+   *
+   * @dev     The proposer is selected from the validator set of the current epoch.
+   *
+   * @dev     Should only be access on-chain if epoch is setup, otherwise very expensive.
+   *
+   * @dev     A return value of address(0) means that the proposer is "open" and can be anyone.
+   *
+   * @dev     If the current epoch is the first epoch, returns address(0)
+   *          If the current epoch is setup, we will return the proposer for the current slot
+   *          If the current epoch is not setup, we will perform a sample as if it was (gas heavy)
+   *
+   * @return The address of the proposer
+   */
+  function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
+    Slot slot = _ts.slotFromTimestamp();
+    Epoch epochNumber = slot.epochFromSlot();
+    return ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot, epochNumber);
   }
 
   /**
@@ -684,32 +711,5 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getCurrentEpoch() public view override(IValidatorSelection) returns (Epoch) {
     return Timestamp.wrap(block.timestamp).epochFromTimestamp();
-  }
-
-  /**
-   * @notice  Get the proposer for the slot at a specific timestamp
-   *
-   * @dev     This function is very useful for off-chain usage, as it easily allow a client to
-   *          determine who will be the proposer at the NEXT ethereum block.
-   *          Should not be trusted when moving beyond the current epoch, since changes to the
-   *          validator set might not be reflected when we actually reach that epoch (more changes
-   *          might have happened).
-   *
-   * @dev     The proposer is selected from the validator set of the current epoch.
-   *
-   * @dev     Should only be access on-chain if epoch is setup, otherwise very expensive.
-   *
-   * @dev     A return value of address(0) means that the proposer is "open" and can be anyone.
-   *
-   * @dev     If the current epoch is the first epoch, returns address(0)
-   *          If the current epoch is setup, we will return the proposer for the current slot
-   *          If the current epoch is not setup, we will perform a sample as if it was (gas heavy)
-   *
-   * @return The address of the proposer
-   */
-  function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
-    Slot slot = _ts.slotFromTimestamp();
-    Epoch epochNumber = slot.epochFromSlot();
-    return ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot, epochNumber);
   }
 }

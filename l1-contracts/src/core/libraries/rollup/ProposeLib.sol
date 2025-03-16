@@ -140,41 +140,6 @@ library ProposeLib {
     emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
   }
 
-  /**
-   * @notice  Gets the mana base fee components
-   *          For more context, consult:
-   *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
-   *
-   * @param _timestamp - The timestamp of the block
-   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
-   *
-   * @return The mana base fee components
-   */
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
-    internal
-    view
-    returns (ManaBaseFeeComponents memory)
-  {
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    // If we are not the canonical rollup, we cannot claim any fees, so we return 0s
-    // The congestion multiplier could be computed, but as it could only be used to guide
-    // might as well save the gas and anyone interested can do it off-chain.
-    if (address(this) != rollupStore.config.feeAssetPortal.canonicalRollup()) {
-      return ManaBaseFeeComponents({
-        congestionCost: 0,
-        provingCost: 0,
-        congestionMultiplier: 0,
-        dataCost: 0,
-        gasCost: 0
-      });
-    }
-
-    uint256 blockOfInterest = STFLib.getEffectivePendingBlockNumber(_timestamp);
-
-    return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
-  }
-
   // @note: not view as sampling validators uses tstore
   function validateHeader(ValidateHeaderArgs memory _args) internal {
     require(
@@ -247,6 +212,41 @@ library ProposeLib {
       _args.digest,
       _args.flags
     );
+  }
+
+  /**
+   * @notice  Gets the mana base fee components
+   *          For more context, consult:
+   *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
+   *
+   * @param _timestamp - The timestamp of the block
+   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
+   *
+   * @return The mana base fee components
+   */
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+    internal
+    view
+    returns (ManaBaseFeeComponents memory)
+  {
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    // If we are not the canonical rollup, we cannot claim any fees, so we return 0s
+    // The congestion multiplier could be computed, but as it could only be used to guide
+    // might as well save the gas and anyone interested can do it off-chain.
+    if (address(this) != rollupStore.config.feeAssetPortal.canonicalRollup()) {
+      return ManaBaseFeeComponents({
+        congestionCost: 0,
+        provingCost: 0,
+        congestionMultiplier: 0,
+        dataCost: 0,
+        gasCost: 0
+      });
+    }
+
+    uint256 blockOfInterest = STFLib.getEffectivePendingBlockNumber(_timestamp);
+
+    return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
   }
 
   function digest(ProposeArgs memory _args) internal pure returns (bytes32) {

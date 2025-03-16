@@ -2,9 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SlotDerivation} from "@oz/utils/SlotDerivation.sol";
 import {TransientSlot} from "@oz/utils/TransientSlot.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 /**
  * @title   SampleLib
@@ -17,7 +17,7 @@ library SampleLib {
   using TransientSlot for *;
 
   // Namespace for transient storage keys used within this library
-  string private constant _OVERRIDE_NAMESPACE = "Aztec.SampleLib.Override";
+  string private constant OVERRIDE_NAMESPACE = "Aztec.SampleLib.Override";
 
   /**
    * Compute Committee
@@ -59,6 +59,10 @@ library SampleLib {
     return sampledIndices;
   }
 
+  function setOverrideValue(uint256 _index, uint256 _value) internal {
+    OVERRIDE_NAMESPACE.erc7201Slot().deriveMapping(_index).asUint256().tstore(_value);
+  }
+
   function getValue(uint256 _index) internal view returns (uint256) {
     uint256 overrideValue = getOverrideValue(_index);
     if (overrideValue != 0) {
@@ -69,11 +73,7 @@ library SampleLib {
   }
 
   function getOverrideValue(uint256 _index) internal view returns (uint256) {
-    return _OVERRIDE_NAMESPACE.erc7201Slot().deriveMapping(_index).asUint256().tload();
-  }
-
-  function setOverrideValue(uint256 _index, uint256 _value) internal {
-    _OVERRIDE_NAMESPACE.erc7201Slot().deriveMapping(_index).asUint256().tstore(_value);
+    return OVERRIDE_NAMESPACE.erc7201Slot().deriveMapping(_index).asUint256().tload();
   }
 
   /**
