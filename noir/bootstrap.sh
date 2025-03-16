@@ -6,14 +6,15 @@ set -eou pipefail
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-export js_projects="
-  @noir-lang/acvm_js
+# Must be in dependency order for releasing.
+export js_projects=(
   @noir-lang/types
-  @noir-lang/noirc_abi
-  @noir-lang/noir_codegen
   @noir-lang/noir_js
-"
-export js_include=$(printf " --include %s" $js_projects)
+  @noir-lang/noir_codegen
+  @noir-lang/noirc_abi
+  @noir-lang/acvm_js
+)
+export js_include=$(printf " --include %s" ${js_projects[@]})
 
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
 export GIT_COMMIT="0000000000000000000000000000000000000000"
@@ -57,7 +58,7 @@ function build_packages {
   yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
-  # These can be useful for testing, or portaling into other projects.
+  # These can be useful for testing, or to portal into other projects.
   yarn workspaces foreach --parallel $js_include pack
 
   cd ..
@@ -109,14 +110,6 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-function test_example {
-  local test="$1"
-  export PATH="$root/noir/noir-repo/target/release:${PATH}"
-  export BACKEND="$root/barretenberg/cpp/build/bin/bb"
-  cd "noir-repo/examples/$test"
-  ./test.sh
-}
-
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
   local test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
@@ -132,7 +125,8 @@ function test_cmds {
         "noir/scripts/run_test.sh \($binary) \(.key)"' | \
       sed "s|$PWD/target/release/deps/||" | \
       awk "{print \"$test_hash \" \$0 }"
-  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo" \
+    "yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
 }
@@ -152,38 +146,22 @@ function format {
   nargo fmt $arg
 }
 
-function release_packages {
-  local dist_tag=$1
-  local version=$2
+function release {
+  local dist_tag=$(dist_tag)
+  local version=${REF_NAME#v}
   cd packages
 
-  # Must be in dependency order.
-  local package_dirs=(
-    types
-    noir_js
-    noir_codegen
-    noirc_abi
-    acvm_js
-  )
+  for package in ${js_projects[@]}; do
+    local dir=${package#*/}
+    [ ! -d "$dir" ] && echo "Project path not found: $dir" && exit 1
+    cd $dir
 
-  for package in ${package_dirs[@]}; do
-    local path="$package"
-    [ ! -d "$path" ] && echo "Project path not found: $path" && exit 1
-    cd $path
-
-    # Rename package name @aztec/noir-<package> and update version.
-    jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json
-    mv tmp.json package.json
     jq --arg v $version '.version = $v' package.json >tmp.json
     mv tmp.json package.json
 
     deploy_npm $dist_tag $version
     cd ..
   done
-}
-
-function release {
-  release_packages $(dist_tag) ${REF_NAME#v}
 }
 
 # Bump the Noir repo reference on a given branch to a given ref.
@@ -215,7 +193,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  test_cmds|build_native|build_packages|format|test|release|test_example)
+  test_cmds|build_native|build_packages|format|test|release)
     $cmd "$@"
     ;;
   "hash")
