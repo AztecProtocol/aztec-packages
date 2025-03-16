@@ -268,7 +268,7 @@ export class PrivateKernelExecutionProver {
         entry.gateCount = gateCount;
       }
     }
-    if (profileMode !== 'execution-steps' && profileMode !== 'full') {
+    if (profileMode === 'gates') {
       for (const entry of executionSteps) {
         // These buffers are often a few megabytes in size - prevent accidentally serializing them if not requested.
         entry.bytecode = Buffer.from([]);
