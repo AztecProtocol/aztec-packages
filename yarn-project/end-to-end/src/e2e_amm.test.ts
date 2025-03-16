@@ -6,6 +6,7 @@ import { jest } from '@jest/globals';
 
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
+import { capturePrivateExecutionStepsIfEnvSet } from './shared/capture_private_execution_steps.js';
 
 const TIMEOUT = 120_000;
 
@@ -124,11 +125,11 @@ describe('AMM', () => {
         ),
       });
 
-      await amm
+      const addLiquidityInteraction = amm
         .withWallet(liquidityProvider)
-        .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits)
-        .send()
-        .wait();
+        .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits);
+      await capturePrivateExecutionStepsIfEnvSet('amm-add-liquidity', addLiquidityInteraction);
+      await addLiquidityInteraction.send().wait();
 
       const ammBalancesAfter = await getAmmBalances();
       const lpBalancesAfter = await getWalletBalances(liquidityProvider);
@@ -233,11 +234,12 @@ describe('AMM', () => {
       const amountOutMin = await amm.methods
         .get_amount_out_for_exact_in(ammBalancesBefore.token0, ammBalancesBefore.token1, amountIn)
         .simulate();
-      await amm
+
+      const swapExactTokensInteraction = amm
         .withWallet(swapper)
-        .methods.swap_exact_tokens_for_tokens(token0.address, token1.address, amountIn, amountOutMin, nonceForAuthwits)
-        .send()
-        .wait();
+        .methods.swap_exact_tokens_for_tokens(token0.address, token1.address, amountIn, amountOutMin, nonceForAuthwits);
+      await capturePrivateExecutionStepsIfEnvSet('amm-swap-exact-tokens', swapExactTokensInteraction);
+      await swapExactTokensInteraction.send().wait();
 
       // We know exactly how many tokens we're supposed to get because we know nobody else interacted with the AMM
       // before we did.
@@ -309,6 +311,7 @@ describe('AMM', () => {
       // real-life scenario we'd need to choose sensible amounts to avoid losing value due to slippage.
       const amount0Min = 1n;
       const amount1Min = 1n;
+
       await amm
         .withWallet(otherLiquidityProvider)
         .methods.remove_liquidity(liquidityTokenBalance, amount0Min, amount1Min, nonceForAuthwits)
