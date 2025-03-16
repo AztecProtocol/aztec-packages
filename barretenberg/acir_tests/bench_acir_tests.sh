@@ -47,19 +47,19 @@ echo
 echo -e "$TABLE_DATA" | awk -v threads="${THREADS[*]}" 'BEGIN {
     split(threads, t, " ");
     len_threads = length(t);
-    print "+--------------------------+------------+---------------+" genseparator(len_threads);
-    print "| Test                     | Gate Count | Subgroup Size |" genthreadheaders(t, len_threads);
-    print "+--------------------------+------------+---------------+" genseparator(len_threads);
+    print "+----------------------------------+------------+---------------+" genseparator(len_threads);
+    print "| Test                             | Gate Count | Subgroup Size |" genthreadheaders(t, len_threads);
+    print "+----------------------------------+------------+---------------+" genseparator(len_threads);
 }
 {
-    printf("| %-24s | %-10s | %-13s |", $1, $2, $3);
+    printf("| %-32s | %-10s | %-13s |", $1, $2, $3);
     for (i = 4; i <= len_threads+3; i++) {
         printf " %9s |", $(i);
     }
     print "";
 }
 END {
-    print "+--------------------------+------------+---------------+" genseparator(len_threads);
+    print "+----------------------------------+------------+---------------+" genseparator(len_threads);
 }
 function genseparator(len,   res) {
     for (i = 1; i <= len; i++) res = res "-----------+";

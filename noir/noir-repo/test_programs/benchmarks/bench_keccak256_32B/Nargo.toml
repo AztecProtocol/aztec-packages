@@ -1,0 +1,6 @@
+[package]
+name = "bench_keccak256_32B"
+type = "bin"
+authors = [""]
+
+[dependencies]
