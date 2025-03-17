@@ -1418,9 +1418,9 @@ struct ShpleminiIntermediates {
     Fr posInvertedDenominator;
     // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
     Fr negInvertedDenominator;
-    // ν^{2i} * 1/(z - r^{2^i})
+    // v^{2i} * 1/(z - r^{2^i})
     Fr scalingFactorPos;
-    // ν^{2i+1} * 1/(z + r^{2^i})
+    // v^{2i+1} * 1/(z + r^{2^i})
     Fr scalingFactorNeg;
 
     // Fold_i(r^{2^i}) reconstructed by Verifier
