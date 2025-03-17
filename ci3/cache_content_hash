@@ -25,7 +25,7 @@ for arg in "$@"; do
   fi
 done
 
-SUB_REPOS=$(echo "$rebuild_patterns" | grep ".git")
+SUB_REPOS=$(echo "$rebuild_patterns" | grep ".git" | sort | uniq)
 
 # For sanity when iterating on build scripts as bootstrap.sh scripts are in every .rebuild_patterns.
 if [ -n "${AZTEC_CACHE_NO_SCRIPTS:-}" ]; then
