@@ -25,12 +25,6 @@ using namespace bb;
  */
 poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
-    // to 0 is implicitly assuming that (builder.zero_idx == 0) which is no longer the case. Now, witness idx 0 in
-    // general will correspond to some non-zero value and some witnesses which are not explicitly set below will be
-    // erroneously populated with this value. This does not cause failures however because the corresponding selector
-    // will indeed be 0 so the gate will be satisfied. Still, its a bad idea to have erroneous wire values
-    // even if they dont break the relation. They'll still add cost in commitments, for example.
     poly_triple pt{
         .a = 0,
         .b = 0,
@@ -67,9 +61,6 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
         // index and the corresponding selector value.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the pt.a == witness_idx
-        // check (and the others like it) since we initialize a,b,c with 0 but 0 is a valid witness index once the
-        // +1 offset is removed from noir.
         if (!a_set || pt.a == witness_idx) { // q_l * w_l
             pt.a = witness_idx;
             pt.q_l = selector_value;
@@ -241,12 +232,6 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Program::Expression const& 
 
 mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
-    // to 0 is implicitly assuming that (builder.zero_idx == 0) which is no longer the case. Now, witness idx 0 in
-    // general will correspond to some non-zero value and some witnesses which are not explicitly set below will be
-    // erroneously populated with this value. This does not cause failures however because the corresponding selector
-    // will indeed be 0 so the gate will be satisfied. Still, its a bad idea to have erroneous wire values
-    // even if they dont break the relation. They'll still add cost in commitments, for example.
     mul_quad_<fr> quad{ .a = 0,
                         .b = 0,
                         .c = 0,
@@ -280,9 +265,6 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
         // index and the corresponding selector value.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the quad.a == witness_idx
-        // check (and the others like it) since we initialize a,b,c with 0 but 0 is a valid witness index once the
-        // +1 offset is removed from noir.
         if (!a_set || quad.a == witness_idx) {
             quad.a = witness_idx;
             quad.a_scaling = selector_value;
