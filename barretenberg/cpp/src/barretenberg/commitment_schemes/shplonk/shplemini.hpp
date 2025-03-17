@@ -264,6 +264,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // - Get Shplonk batching challenge
         const Fr shplonk_batching_challenge = transcript->template get_challenge<Fr>("Shplonk:nu");
 
+        // Compute the powers of ν that are required for batching Gemini, SmallSubgroupIPA, and committed sumcheck
+        // univariate opening claims.
         const std::vector<Fr> shplonk_batching_challenge_powers =
             compute_shplonk_batching_challenge_powers(shplonk_batching_challenge, has_zk, committed_sumcheck);
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
@@ -326,8 +328,12 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr shplonk_batching_pos = Fr{ 0 };
         Fr shplonk_batching_neg = Fr{ 0 };
         if (claim_batcher.interleaved) {
-            shplonk_batching_pos = shplonk_batching_challenge_powers[2 * log_circuit_size];
-            shplonk_batching_neg = shplonk_batching_challenge_powers[2 * log_circuit_size + 1];
+            // Currently, the prover places the Interleaving claims before the Gemini dummy claims.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving.
+            const size_t interleaved_pos_index = 2 * log_circuit_size;
+            const size_t interleaved_neg_index = interleaved_pos_index + 1;
+            shplonk_batching_pos = shplonk_batching_challenge_powers[interleaved_pos_index];
+            shplonk_batching_neg = shplonk_batching_challenge_powers[interleaved_neg_index];
             constant_term_accumulator += p_pos * interleaving_vanishing_eval * shplonk_batching_pos +
                                          p_neg * interleaving_vanishing_eval * shplonk_batching_neg;
         }
@@ -340,7 +346,9 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                      shplonk_batching_pos,
                                                                      shplonk_batching_neg);
 
-        // Compute A₀(r) = A₀₊(r) + P₊(r^s)
+        // Reconstruct Aᵢ(r²ⁱ) for i=0, ..., n-1 from the batched evaluation of the multilinear polynomials and Aᵢ(−r²ⁱ)
+        // for i = 0, ..., n-1.
+        // In the case of interleaving, we compute A₀(r) as A₀₊(r) + P₊(r^s).
         const std::vector<Fr> gemini_fold_pos_evaluations =
             GeminiVerifier_<Curve>::compute_fold_pos_evaluations(log_circuit_size,
                                                                  batched_evaluation,
@@ -457,14 +465,16 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N - 1; ++j) {
-            // Compute the scaling factor  (ν²⁺ⁱ) / (z + r²⁽ⁱ⁺²⁾) for i = 0, … , d-2
+            // Compute the "positive" scaling factor  (ν^{2j+1}) / (z - r^{2^{j}})
             size_t pos_location = 2 * j + 2;
             Fr scaling_factor_pos =
                 shplonk_batching_challenge_powers[pos_location] * inverse_vanishing_evals[pos_location];
+            // Compute the "negative" scaling factor  (ν^{2j+2}) / (z + r^{2^{j}})
             Fr scaling_factor_neg =
                 shplonk_batching_challenge_powers[pos_location + 1] * inverse_vanishing_evals[pos_location + 1];
 
-            // Add Aᵢ(−r²ⁱ) for i = 1, … , n-1 to the constant term accumulator
+            // Accumulate the const term contribution given by
+            // v^{2j+1} * A_j(r^{2^j}) /(z-r^{2^j}) + v^{2j+2} * A_j(-r^{2^j}) /(z+ r^{2^j})
             constant_term_accumulator += scaling_factor_neg * gemini_evaluations[j + 1] +
                                          scaling_factor_pos * gemini_fold_pos_evaluations[j + 1];
 

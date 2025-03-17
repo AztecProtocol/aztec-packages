@@ -570,7 +570,7 @@ template <typename Curve> class GeminiVerifier_ {
                 value_to_emplace = Fr::conditional_assign(dummy_round, zero, eval_pos_prev);
 
             } else {
-                // Perform the same logic as above natively
+                // Perform the same logic natively
                 bool dummy_round = l > num_variables;
                 eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
                 value_to_emplace = dummy_round ? zero : eval_pos_prev;
