@@ -140,9 +140,8 @@ where
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes: BoundedVec<RetrievedNote<Note>, 16> = crate::utils::array::collapse(filtered_notes);
-    let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> =
-        BoundedVec::new();
+    let notes = crate::utils::array::collapse(filtered_notes);
+    let mut note_hashes = BoundedVec::new();
 
     // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also
     // results in reduced gate counts when setting a limit value, since we guarantee that the limit is an upper bound
@@ -185,10 +184,8 @@ unconstrained fn get_note_internal<Note, let N: u32>(storage_slot: Field) -> Ret
 where
     Note: NoteType + Packable<N>,
 {
-    let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
-    let placeholder_note_length = [0; N];
-    oracle::notes::get_notes(
+    let opt_notes: [_; 1] = oracle::notes::get_notes(
         storage_slot,
         0,
         [],
@@ -203,11 +200,10 @@ where
         1, // limit
         0, // offset
         NoteStatus.ACTIVE,
-        placeholder_note,
         placeholder_fields,
-        placeholder_note_length,
-    )[0]
-        .expect(f"Failed to get a note") // Notice: we don't allow dummies to be returned from get_note (singular).
+    );
+
+    opt_notes[0].expect(f"Failed to get a note") // Notice: we don't allow dummies to be returned from get_note (singular).
 }
 
 unconstrained fn get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
@@ -220,9 +216,7 @@ where
     // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
         flatten_options(options.selects, options.sorts);
-    let placeholder_opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
-    let placeholder_note_length = [0; N];
 
     let opt_notes = oracle::notes::get_notes(
         storage_slot,
@@ -239,9 +233,7 @@ where
         options.limit,
         options.offset,
         options.status,
-        placeholder_opt_notes,
         placeholder_fields,
-        placeholder_note_length,
     );
 
     apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args)
@@ -256,11 +248,9 @@ where
 {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
         flatten_options(options.selects, options.sorts);
-    let placeholder_opt_notes = [Option::none(); MAX_NOTES_PER_PAGE];
     let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
-    let placeholder_note_length = [0; N];
 
-    let notes_array = oracle::notes::get_notes(
+    let notes_array: [_; MAX_NOTES_PER_PAGE] = oracle::notes::get_notes(
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -275,9 +265,7 @@ where
         options.limit,
         options.offset,
         options.status,
-        placeholder_opt_notes,
         placeholder_fields,
-        placeholder_note_length,
     );
 
     let mut notes = BoundedVec::new();

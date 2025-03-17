@@ -50,7 +50,12 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode, GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import type {
+  AztecNode,
+  AztecNodeAdmin,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+} from '@aztec/stdlib/interfaces/client';
 import {
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
@@ -93,7 +98,7 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode, Traceable {
+export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private packageVersion: string;
   private metrics: NodeMetrics;
 
