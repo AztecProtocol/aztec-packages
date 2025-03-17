@@ -200,6 +200,9 @@ case "$cmd" in
   "hash")
     echo $(cache_content_hash .rebuild_patterns)
     ;;
+  "hash-tests")
+    echo $(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
+    ;;
   "make-patch")
     scripts/sync.sh make-patch
     ;;
