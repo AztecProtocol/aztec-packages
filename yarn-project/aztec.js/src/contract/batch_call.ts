@@ -30,10 +30,10 @@ export class BatchCall extends BaseContractInteraction {
 
   /**
    * Returns an execution request that represents this operation.
-   * @param options - An optional object containing additional configuration for the transaction.
+   * @param _options - (ignored) An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public async request(options: SendMethodOptions = {}): Promise<ExecutionPayload> {
+  public async request(_options: SendMethodOptions = {}): Promise<ExecutionPayload> {
     const requests = await this.getRequests();
     return mergeExecutionPayloads(requests);
   }

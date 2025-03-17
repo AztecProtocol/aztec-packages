@@ -9,7 +9,6 @@ import { SiblingPath } from '@aztec/foundation/trees';
 import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
 import omit from 'lodash.omit';
-import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import type { AbiDecoded } from '../abi/decoder.js';

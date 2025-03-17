@@ -1,6 +1,5 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';

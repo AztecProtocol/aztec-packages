@@ -29,7 +29,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    * The asset used to pay the fee.
    * @returns The asset used to pay the fee.
    */
-  async getAsset(): Promise<AztecAddress> {
+  getAsset(): Promise<AztecAddress> {
     if (!this.assetPromise) {
       // We use the utility method to avoid a signature because this function could be triggered before the associated account is deployed.
       this.assetPromise = simulateWithoutSignature(this.wallet, this.paymentContract, {

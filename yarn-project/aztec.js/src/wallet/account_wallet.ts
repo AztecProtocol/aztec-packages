@@ -131,8 +131,7 @@ export class AccountWallet extends BaseWallet {
    *
    * @param onBehalfOf - The address of the "approver"
    * @param intent - The consumer and inner hash or the caller and action to lookup
-   *
-   * @param witness
+   * @param witness - The computed authentication witness to check
    * @returns - A struct containing the validity of the authwit in private and public contexts.
    */
   async lookupValidity(
@@ -156,6 +155,7 @@ export class AccountWallet extends BaseWallet {
         consumer,
         innerHash,
       ]).simulate({ authWitnesses: [witness] })) as boolean;
+      // eslint-disable-next-line no-empty
     } catch {}
 
     // check public

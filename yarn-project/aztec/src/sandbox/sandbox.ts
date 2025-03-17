@@ -2,7 +2,6 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { SignerlessWallet } from '@aztec/aztec.js';
 import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';

@@ -5,16 +5,12 @@ import type { TxReceipt } from '../index.js';
 import { DefaultWaitOpts } from './sent_tx.js';
 
 /**
- *
+ * Options for waiting for a transaction to be proven.
  */
 export type WaitForProvenOpts = {
-  /**
-   *
-   */
+  /** Time to wait for the tx to be proven before timing out */
   provenTimeout?: number;
-  /**
-   *
-   */
+  /** Ellapsed time between polls to the node */
   interval?: number;
 };
 
@@ -24,7 +20,7 @@ export const DefaultWaitForProvenOpts: WaitForProvenOpts = {
 };
 
 /**
- *
+ * Wait for a transaction to be proven by polling the node
  */
 export async function waitForProven(pxeOrNode: PXE | AztecNode, receipt: TxReceipt, opts?: WaitForProvenOpts) {
   if (!receipt.blockNumber) {

@@ -4,7 +4,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, HashedValues, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
+import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
@@ -147,8 +147,8 @@ export abstract class BaseContractInteraction {
    * Return fee options based on the user opts, estimating tx gas if needed.
    * @param request - Request to execute for this interaction.
    * @param pad - Percentage to pad the suggested gas limits by, as decimal (e.g., 0.10 for 10%).
-   * @param executionPayload
-   * @param fee
+   * @param executionPayload - Execution payload to get the fee for
+   * @param fee - User-provided fee options.
    * @returns Fee options for the actual transaction.
    */
   protected async getFeeOptions(executionPayload: ExecutionPayload, fee?: UserFeeOptions): Promise<FeeOptions> {
