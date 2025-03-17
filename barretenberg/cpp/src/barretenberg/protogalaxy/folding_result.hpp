@@ -10,7 +10,6 @@ namespace bb {
 template <class Flavor> struct FoldingResult {
   public:
     std::shared_ptr<DeciderProvingKey_<Flavor>> accumulator;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/656): turn folding data into a struct
     std::vector<typename Flavor::FF> proof;
 };
 } // namespace bb

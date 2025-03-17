@@ -4,6 +4,10 @@ on:
     # Run the workflow every night at 2:00 AM UTC.
     - cron: "0 2 * * *"
 
+# Add permissions for the GitHub Actions bot to push tags
+permissions:
+  contents: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
@@ -15,11 +19,10 @@ jobs:
       - uses: actions/checkout@v4
 
       # Extract the current release version from the manifest.
-      # Adjust the jq filter if your manifest structure differs.
       # Then, create a nightly tag using the current version and the current UTC date.
       - name: Create Nightly Tag
         run: |
-          current_version=$(jq -r '.version' .release-please-manifest.json)
+          current_version=$(jq -r '."."' .release-please-manifest.json)
           echo "Current version: $current_version"
           # Format the tag as: <current_version>-nightly.<YYYYMMDD>
           nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"

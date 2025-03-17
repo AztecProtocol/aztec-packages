@@ -2,7 +2,7 @@ use std::static_assert;
 
 use crate::{
     capsules::CapsuleArray,
-    oracle::note_discovery::{deliver_note, sync_notes},
+    oracle::message_discovery::{deliver_note, sync_notes},
     utils::array,
 };
 

@@ -118,6 +118,10 @@ export class MockL2BlockSource implements L2BlockSource {
     return Promise.resolve(blocks);
   }
 
+  getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    return this.getBlocksForEpoch(epochNumber).then(blocks => blocks.map(b => b.header));
+  }
+
   /**
    * Gets a tx effect.
    * @param txHash - The hash of a transaction which resulted in the returned tx effect.
