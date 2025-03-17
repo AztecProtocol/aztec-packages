@@ -3,6 +3,7 @@ aztec:
   proofSubmissionWindow: 8
   realProofs: false
   l1DeploymentMnemonic: ""
+  numberOfDefaultAccounts: 0
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 3
   botKeyIndexStart: 4
@@ -31,7 +32,6 @@ validator:
   validatorKeys:
   resources:
     requests:
-      memory: "512Mi"
       cpu: "200m"
   validator:
     disabled: false
@@ -46,23 +46,19 @@ bot:
 bootNode:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverAgent:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverBroker:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverNode:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"

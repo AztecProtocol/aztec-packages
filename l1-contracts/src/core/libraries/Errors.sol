@@ -81,6 +81,7 @@ library Errors {
   error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
+  error Rollup__ManaLimitExceeded();
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -129,6 +130,6 @@ library Errors {
   error ProofCommitmentEscrow__NotOwner(address caller); // 0x2ac332c1
   error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, Timestamp readyAt); // 0xb32ab8a7
 
-  // FeeMath
-  error FeeMath__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+  // FeeLib
+  error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
 }

@@ -8,9 +8,8 @@ import {
   ITestRollup,
   CheatDepositArgs,
   RollupStore,
-  L1GasOracleValues,
-  L1FeeData,
-  SubmitEpochRootProofArgs
+  SubmitEpochRootProofArgs,
+  RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -21,7 +20,7 @@ import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CheatLib} from "@aztec/core/libraries/rollup/CheatLib.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
-import {EthValue} from "@aztec/core/libraries/rollup/FeeMath.sol";
+import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -35,16 +34,6 @@ import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-
-struct RollupConfig {
-  uint256 aztecSlotDuration;
-  uint256 aztecEpochDuration;
-  uint256 targetCommitteeSize;
-  uint256 aztecProofSubmissionWindow;
-  uint256 minimumStake;
-  uint256 slashingQuorum;
-  uint256 slashingRoundSize;
-}
 
 /**
  * @title Rollup
@@ -81,7 +70,7 @@ contract RollupCore is
     IERC20 _stakingAsset,
     address _governance,
     GenesisState memory _genesisState,
-    RollupConfig memory _config
+    RollupConfigInput memory _config
   ) Ownable(_governance) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
 
@@ -105,12 +94,7 @@ contract RollupCore is
       IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     rollupStore.config.outbox = IOutbox(address(new Outbox(address(this))));
 
-    rollupStore.provingCostPerMana = EthValue.wrap(100);
-    rollupStore.l1GasOracleValues = L1GasOracleValues({
-      pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
-      post: L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee()}),
-      slotOfChange: ProposeLib.LIFETIME
-    });
+    FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }
 
   /* -------------------------------------------------------------------------- */
@@ -151,7 +135,7 @@ contract RollupCore is
     override(IRollupCore)
     onlyOwner
   {
-    STFLib.getStorage().provingCostPerMana = _provingCostPerMana;
+    FeeLib.getStorage().provingCostPerMana = _provingCostPerMana;
   }
 
   function claimSequencerRewards(address _recipient)
@@ -224,6 +208,6 @@ contract RollupCore is
    * @dev     This function is called by the `propose` function
    */
   function updateL1GasFeeOracle() public override(IRollupCore) {
-    ProposeLib.updateL1GasFeeOracle();
+    FeeLib.updateL1GasFeeOracle();
   }
 }

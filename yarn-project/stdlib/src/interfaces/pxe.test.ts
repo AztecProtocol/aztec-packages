@@ -36,7 +36,9 @@ import { UniqueNote } from '../note/index.js';
 import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
-import { PrivateExecutionResult, Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { PrivateExecutionResult, Tx, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -136,6 +138,11 @@ describe('PXESchema', () => {
     expect(result).toEqual([address]);
   });
 
+  it('profileTx', async () => {
+    const result = await context.client.profileTx(await TxExecutionRequest.random(), 'gates');
+    expect(result).toBeInstanceOf(TxProfileResult);
+  });
+
   it('proveTx', async () => {
     const result = await context.client.proveTx(
       await TxExecutionRequest.random(),
@@ -145,15 +152,7 @@ describe('PXESchema', () => {
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(
-      await TxExecutionRequest.random(),
-      true,
-      address,
-      false,
-      true,
-      false,
-      [],
-    );
+    const result = await context.client.simulateTx(await TxExecutionRequest.random(), true, address, false, true, []);
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
@@ -166,7 +165,6 @@ describe('PXESchema', () => {
     const result = await context.client.simulateTx(
       await TxExecutionRequest.random(),
       true,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -353,6 +351,18 @@ class MockPXE implements PXE {
   getContracts(): Promise<AztecAddress[]> {
     return Promise.resolve([this.address]);
   }
+  profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'gates' | 'full' | 'execution-steps' | 'none',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult> {
+    expect(txRequest).toBeInstanceOf(TxExecutionRequest);
+    expect(profileMode).toMatch(/gates|debug/);
+    if (msgSender) {
+      expect(msgSender).toBeInstanceOf(AztecAddress);
+    }
+    return Promise.resolve(new TxProfileResult([]));
+  }
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
     expect(privateExecutionResult).toBeInstanceOf(PrivateExecutionResult);
@@ -366,7 +376,6 @@ class MockPXE implements PXE {
     msgSender?: AztecAddress | undefined,
     _skipTxValidation?: boolean | undefined,
     _enforceFeePayment?: boolean | undefined,
-    _profile?: boolean | undefined,
     scopes?: AztecAddress[] | undefined,
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);

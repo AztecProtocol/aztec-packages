@@ -48,7 +48,7 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import { type PrivateKernelSimulateOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
@@ -57,11 +57,12 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   PrivateExecutionResult,
   PrivateSimulationResult,
-  type PublicSimulationOutput,
-  type Tx,
+  PublicSimulationOutput,
+  Tx,
   type TxEffect,
-  type TxExecutionRequest,
+  TxExecutionRequest,
   type TxHash,
+  TxProfileResult,
   TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
@@ -71,8 +72,11 @@ import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
-import { KernelOracle } from '../kernel_oracle/index.js';
-import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
+import {
+  PrivateKernelExecutionProver,
+  type PrivateKernelExecutionProverConfig,
+} from '../private_kernel/private_kernel_execution_prover.js';
+import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
 import { PXEOracleInterface } from '../pxe_oracle_interface/pxe_oracle_interface.js';
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
@@ -339,7 +343,7 @@ export class PXEService implements PXE {
     msgSender?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
-    const { contractAddress, functionSelector } = this.#getSimulationParameters(txRequest);
+    const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
       const result = await this.simulator.run(txRequest, contractAddress, functionSelector, msgSender, scopes);
@@ -362,8 +366,8 @@ export class PXEService implements PXE {
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  async #simulateUnconstrained(execRequest: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]) {
-    const { contractAddress, functionSelector } = this.#getSimulationParameters(execRequest);
+  async #simulateUnconstrained(execRequest: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
+    const { to: contractAddress, selector: functionSelector } = execRequest;
 
     this.log.debug('Executing unconstrained simulator...');
     try {
@@ -371,7 +375,7 @@ export class PXEService implements PXE {
         execRequest,
         contractAddress,
         functionSelector,
-        authwits,
+        authWitnesses ?? [],
         scopes,
       );
       this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionSelector} completed`);
@@ -417,28 +421,22 @@ export class PXEService implements PXE {
    * The function takes in a transaction execution request, and the result of private execution
    * and then generates a kernel proof.
    *
-   * @param TxExecutionRequest - The transaction request to be simulated and proved.
+   * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param proofCreator - The proof creator to use for proving the execution.
    * @param privateExecutionResult - The result of the private execution
    * @returns An object that contains the output of the kernel execution, including the ClientIvcProof if proving is enabled.
    */
   async #prove(
-    TxExecutionRequest: TxExecutionRequest,
+    txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profile }: ProvingConfig,
-  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    // use the block the tx was simulated against
-    const block =
-      privateExecutionResult.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
-    const kernelOracle = new KernelOracle(this.contractDataProvider, this.keyStore, this.node, block);
-    const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
-    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile})...`);
-    return await kernelProver.prove(TxExecutionRequest.toTxRequest(), privateExecutionResult, {
-      simulate,
-      skipFeeEnforcement,
-      profile,
-    });
+    config: PrivateKernelExecutionProverConfig,
+  ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const block = privateExecutionResult.getSimulationBlockNumber();
+    const kernelOracle = new PrivateKernelOracleImpl(this.contractDataProvider, this.keyStore, this.node, block);
+    const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
+    this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
+    return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
   // Public API
@@ -689,12 +687,54 @@ export class PXEService implements PXE {
           {
             simulate: false,
             skipFeeEnforcement: false,
-            profile: false,
+            profileMode: 'none',
           },
         );
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
+      }
+    });
+  }
+
+  public profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'full' | 'execution-steps' | 'gates',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult> {
+    // We disable concurrent profiles for consistency with simulateTx.
+    return this.#putInJobQueue(async () => {
+      try {
+        const txInfo = {
+          origin: txRequest.origin,
+          functionSelector: txRequest.functionSelector,
+          simulatePublic: false,
+          msgSender,
+          chainId: txRequest.txContext.chainId,
+          version: txRequest.txContext.version,
+          authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
+        };
+        this.log.info(
+          `Profiling transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
+          txInfo,
+        );
+        await this.synchronizer.sync();
+        const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
+
+        const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+          simulate: true,
+          skipFeeEnforcement: false,
+          profileMode,
+        });
+
+        return new TxProfileResult(executionSteps);
+      } catch (err: any) {
+        throw this.#contextualizeError(
+          err,
+          inspect(txRequest),
+          `profileMode=${profileMode}`,
+          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+        );
       }
     });
   }
@@ -706,7 +746,6 @@ export class PXEService implements PXE {
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
     skipFeeEnforcement: boolean = false,
-    profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -731,16 +770,11 @@ export class PXEService implements PXE {
         await this.synchronizer.sync();
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-        const { publicInputs, profileResult } = await this.#prove(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-          {
-            simulate: !profile,
-            skipFeeEnforcement,
-            profile,
-          },
-        );
+        const { publicInputs } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+          simulate: true,
+          skipFeeEnforcement,
+          profileMode: 'none',
+        });
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
         const simulatedTx = privateSimulationResult.toSimulatedTx();
@@ -760,7 +794,6 @@ export class PXEService implements PXE {
         this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
           txHash,
           ...txInfo,
-          ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
           ...(publicOutput
             ? {
                 gasUsed: publicOutput.gasUsed,
@@ -770,11 +803,7 @@ export class PXEService implements PXE {
             : {}),
         });
 
-        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
-          privateSimulationResult,
-          publicOutput,
-          profileResult,
-        );
+        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
       } catch (err: any) {
         throw this.#contextualizeError(
           err,
@@ -782,7 +811,6 @@ export class PXEService implements PXE {
           `simulatePublic=${simulatePublic}`,
           `msgSender=${msgSender?.toString() ?? 'undefined'}`,
           `skipTxValidation=${skipTxValidation}`,
-          `profile=${profile}`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
       }

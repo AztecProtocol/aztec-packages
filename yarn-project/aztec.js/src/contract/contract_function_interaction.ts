@@ -2,14 +2,25 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { PrivateKernelProverProfileResult } from '@aztec/stdlib/kernel';
-import type { TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
 export type { SendMethodOptions };
+
+/**
+ * Represents the options for simulating a contract function interaction.
+ * Allows specifying the address from which the view method should be called.
+ * Disregarded for simulation of public functions
+ */
+export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
+  /** Whether to return gates information or the bytecode/witnesses. */
+  profileMode: 'gates' | 'execution-steps' | 'full';
+  /** The sender's Aztec address. */
+  from?: AztecAddress;
+};
 
 /**
  * Represents the options for simulating a contract function interaction.
@@ -25,14 +36,6 @@ export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   skipFeeEnforcement?: boolean;
   /** Authwits to use in the simulation */
   authWitnesses?: AuthWitness[];
-};
-
-/**
- * The result of a profile() call.
- */
-export type ProfileResult = PrivateKernelProverProfileResult & {
-  /** The result of the transaction as returned by the contract function. */
-  returnValues: any;
 };
 
 /**
@@ -158,30 +161,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async simulateWithProfile(options: SimulateMethodOptions = {}): Promise<ProfileResult> {
+  public async profile(options: ProfileMethodOptions = { profileMode: 'gates' }): Promise<TxProfileResult> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       throw new Error("Can't profile an unconstrained function.");
     }
 
-    const txRequest = await this.create({ fee: options.fee, authWitnesses: options.authWitnesses });
-    const simulatedTx = await this.wallet.simulateTx(
-      txRequest,
-      true,
-      options?.from,
-      options?.skipTxValidation,
-      undefined,
-      true,
-    );
-
-    const rawReturnValues =
-      this.functionDao.functionType == FunctionType.PRIVATE
-        ? simulatedTx.getPrivateReturnValues().nested?.[0].values
-        : simulatedTx.getPublicReturnValues()?.[0].values;
-    const rawReturnValuesDecoded = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
-
-    return {
-      returnValues: rawReturnValuesDecoded,
-      gateCounts: simulatedTx.profileResult!.gateCounts,
-    };
+    const txRequest = await this.create({ fee: options.fee });
+    return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
   }
 }

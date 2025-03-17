@@ -18,6 +18,7 @@ import type {
   Tx,
   TxExecutionRequest,
   TxHash,
+  TxProfileResult,
   TxProvingResult,
   TxReceipt,
   TxSimulationResult,
@@ -74,15 +75,21 @@ export abstract class BaseWallet implements Wallet {
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
     return this.pxe.proveTx(txRequest, privateExecutionResult);
   }
+  profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'gates' | 'execution-steps' | 'full',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult> {
+    return this.pxe.profileTx(txRequest, profileMode, msgSender);
+  }
   simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    profile?: boolean,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, skipFeeEnforcement, profile);
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, skipFeeEnforcement);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);

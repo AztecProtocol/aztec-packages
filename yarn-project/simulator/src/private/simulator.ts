@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { FunctionCall } from '@aztec/stdlib/abi';
+import type { AbiDecoded, FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -116,7 +116,7 @@ export class AcirSimulator {
     selector: FunctionSelector,
     authwits: AuthWitness[],
     scopes?: AztecAddress[],
-  ) {
+  ): Promise<AbiDecoded> {
     await verifyCurrentClassId(contractAddress, this.executionDataProvider);
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
 

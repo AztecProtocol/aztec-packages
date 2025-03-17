@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
@@ -10,6 +11,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { type InBlock, randomInBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
+import type { PublishedL2Block } from '../block/published_l2_block.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
   type ContractClassPublic,
@@ -90,6 +92,14 @@ describe('ArchiverApiSchema', () => {
   it('getBlocks', async () => {
     const result = await context.client.getBlocks(1, 1);
     expect(result).toEqual([expect.any(L2Block)]);
+  });
+
+  it('getPublishedBlocks', async () => {
+    const response = await context.client.getPublishedBlocks(1, 1);
+    expect(response).toHaveLength(1);
+    expect(response[0].block.constructor.name).toEqual('L2Block');
+    expect(response[0].signatures[0]).toBeInstanceOf(Signature);
+    expect(response[0].l1).toBeDefined();
   });
 
   it('getTxEffect', async () => {
@@ -267,6 +277,15 @@ class MockArchiver implements ArchiverApi {
   async getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
     return [await L2Block.random(from)];
   }
+  async getPublishedBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<PublishedL2Block[]> {
+    return [
+      {
+        block: await L2Block.random(from),
+        signatures: [Signature.random()],
+        l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
+      },
+    ];
+  }
   async getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
     return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
@@ -310,9 +329,9 @@ class MockArchiver implements ArchiverApi {
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
     return Promise.resolve([PrivateLog.random()]);
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
+    return [await Promise.all(tags.map(() => TxScopedL2Log.random()))];
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);

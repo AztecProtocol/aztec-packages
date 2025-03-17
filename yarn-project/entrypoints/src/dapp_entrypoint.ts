@@ -76,11 +76,11 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     return txRequest;
   }
 
-  private getEntrypointAbi() {
+  private getEntrypointAbi(): FunctionAbi {
     return {
       name: 'entrypoint',
       isInitializer: false,
-      functionType: 'private',
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [
@@ -139,6 +139,6 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       ],
       returnTypes: [],
       errorTypes: {},
-    } as FunctionAbi;
+    } as const;
   }
 }

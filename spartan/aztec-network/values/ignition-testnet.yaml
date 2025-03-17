@@ -3,6 +3,7 @@ telemetry:
 
 aztec:
   realProofs: true
+  numberOfDefaultAccounts: 0
   validatorKeyIndexStart: 0
   proverKeyIndexStart: 3
   testAccounts: true
@@ -32,6 +33,7 @@ bootNode:
   enabled: false
   # unused.
   externalHost: "http://localhost:8080"
+  manaTarget: 0
 
 proverNode:
   l1FixedPriorityFeePerGas: 3

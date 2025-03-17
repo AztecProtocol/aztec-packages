@@ -19,9 +19,17 @@ export interface AccountContract {
   getContractArtifact(): Promise<ContractArtifact>;
 
   /**
-   * Returns the deployment arguments for this instance, or undefined if this contract does not require deployment.
+   * Returns the deployment function name and arguments for this instance, or undefined if this contract does not require deployment.
    */
-  getDeploymentArgs(): Promise<any[] | undefined>;
+  getDeploymentFunctionAndArgs(): Promise<
+    | {
+        /** The name of the function used to deploy the contract */
+        constructorName: string;
+        /** The args to the function used to deploy the contract */
+        constructorArgs: any[];
+      }
+    | undefined
+  >;
 
   /**
    * Returns the account interface for this account contract given a deployment at the provided address.
@@ -46,9 +54,13 @@ export interface AccountContract {
  */
 export async function getAccountContractAddress(accountContract: AccountContract, secret: Fr, salt: Fr) {
   const { publicKeys } = await deriveKeys(secret);
-  const constructorArgs = await accountContract.getDeploymentArgs();
+  const { constructorName, constructorArgs } = (await accountContract.getDeploymentFunctionAndArgs()) ?? {
+    constructorName: undefined,
+    constructorArgs: undefined,
+  };
   const artifact = await accountContract.getContractArtifact();
   const instance = await getContractInstanceFromDeployParams(artifact, {
+    constructorArtifact: constructorName,
     constructorArgs,
     salt,
     publicKeys,

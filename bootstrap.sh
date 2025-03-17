@@ -24,7 +24,7 @@ function encourage_dev_container {
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
   # Check for various required utilities.
-  for util in jq parallel awk git curl; do
+  for util in jq parallel awk git curl zstd; do
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "Utility $util not found."
@@ -54,7 +54,7 @@ function check_toolchains {
     exit 1
   fi
   # Check rustup installed.
-  local rust_version=$(yq '.toolchain.channel' ./noir/noir-repo/rust-toolchain.toml)
+  local rust_version=$(yq '.toolchain.channel' ./avm-transpiler/rust-toolchain.toml)
   if ! command -v rustup > /dev/null; then
     encourage_dev_container
     echo "Rustup not installed."
@@ -114,6 +114,8 @@ function install_hooks {
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
   echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
+  echo "(cd noir && ./postcheckout.sh $@)" >$hooks_dir/post-checkout
+  chmod +x $hooks_dir/post-checkout
 }
 
 function test_cmds {
@@ -234,7 +236,7 @@ function release {
   #     + noir
   #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if dist tag is latest
-  #   docs => publish docs if dist tag is latest. TODO Link build in github release.
+  #   docs, playground => publish if dist tag is latest. TODO Link build in github release.
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
@@ -260,7 +262,7 @@ function release {
     release-image
   )
   if [ $(arch) == arm64 ]; then
-    echo "Only deploying packages with platform-specific binaries on arm64."
+    echo "Only releasing packages with platform-specific binaries on arm64."
     projects=(
       barretenberg/cpp
       release-image
