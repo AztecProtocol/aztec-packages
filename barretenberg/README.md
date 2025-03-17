@@ -4,8 +4,6 @@
 > [!WARNING]
 > :warning: **<https://github.com/AztecProtocol/barretenberg> is a mirror-only repository, please only use <https://github.com/AztecProtocol/aztec-packages>. Do not use this for any purpose other than reference.** :warning:
 
-![banner](../.github/img/bb_banner.png)
-
 # Barretenberg
 
 Barretenberg (or `bb` for short) is an optimized elliptic curve library for the bn128 curve, and a PLONK SNARK prover.
@@ -472,6 +470,11 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 ```
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
+
+
+#### Debugging and profiling realistic ClientIVC flows
+
+To download realistic ClientIVC benchmark inputs from last master, use `./barretenberg/cpp/bootstrap.sh download_e2e_ivc_inputs` and run ClientIVC proving with --input runtime_stack on those inputs. By default, tries to pull from last master, but you can pass a historic commit as an argument.
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 

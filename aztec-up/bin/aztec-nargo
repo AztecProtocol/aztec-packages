@@ -15,6 +15,7 @@ if [ -t 0 ]; then
 fi
 
 docker run ${args:-} \
+  --user $(id -u):$(id -g) \
   -v $HOME:$HOME \
   -e HOME=$HOME \
   --workdir="$PWD" \

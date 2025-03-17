@@ -25,5 +25,5 @@ docker run --rm \
     source /root/aztec-packages/ci3/source
     dump_fail "cd browser-test-app && yarn serve:dest:$THREAD_MODEL" > /dev/null &
     while ! nc -z localhost 8080 &>/dev/null; do sleep 1; done;
-    BIN=./headless-test/bb.js.browser ./run_test.sh $TEST
+    BIN=./headless-test/bb.js.browser ./scripts/run_test.sh $TEST
   '

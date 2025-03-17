@@ -1,3 +1,5 @@
 joblog.txt
 results
+bench-out
+private-flows-ivc-inputs-out
 web/main.js*
