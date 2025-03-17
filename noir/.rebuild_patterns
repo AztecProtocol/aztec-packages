@@ -26,3 +26,5 @@
 ^noir/noir-repo/tooling/noir_js_types
 ^noir/noir-repo/tooling/noirc_abi_wasm
 ^noir/bootstrap.sh
+^noir/noir-repo-ref
+^noir/noir-repo.patch
