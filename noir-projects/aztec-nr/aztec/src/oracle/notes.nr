@@ -163,7 +163,6 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     status: u8,
     mut placeholder_opt_notes: [Option<RetrievedNote<Note>>; S], // TODO: Remove it and use `limit` to initialize the note array.
     placeholder_fields: [Field; NS], // TODO: Remove it and use `limit` to initialize the note array.
-    _placeholder_note_length: [Field; N], // Turbofish hack? Compiler breaks calculating read_offset unless we add this parameter TODO(benesjan): try removing this.
 ) -> [Option<RetrievedNote<Note>>; S]
 where
     Note: NoteType + Packable<N>,

@@ -187,7 +187,6 @@ where
 {
     let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
-    let placeholder_note_length = [0; N];
     oracle::notes::get_notes(
         storage_slot,
         0,
@@ -205,7 +204,6 @@ where
         NoteStatus.ACTIVE,
         placeholder_note,
         placeholder_fields,
-        placeholder_note_length,
     )[0]
         .expect(f"Failed to get a note") // Notice: we don't allow dummies to be returned from get_note (singular).
 }
@@ -222,7 +220,6 @@ where
         flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
-    let placeholder_note_length = [0; N];
 
     let opt_notes = oracle::notes::get_notes(
         storage_slot,
@@ -241,7 +238,6 @@ where
         options.status,
         placeholder_opt_notes,
         placeholder_fields,
-        placeholder_note_length,
     );
 
     apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args)
@@ -258,7 +254,6 @@ where
         flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_NOTES_PER_PAGE];
     let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
-    let placeholder_note_length = [0; N];
 
     let notes_array = oracle::notes::get_notes(
         storage_slot,
@@ -277,7 +272,6 @@ where
         options.status,
         placeholder_opt_notes,
         placeholder_fields,
-        placeholder_note_length,
     );
 
     let mut notes = BoundedVec::new();
