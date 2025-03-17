@@ -159,7 +159,7 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let MAX_NOTES: u32,
     limit: u32,
     offset: u32,
     status: u8,
-    _placeholder_fields: [Field; ORACLE_RETURN_FIELD_LENGTH], // TODO: Compute this value automatically from S
+    _placeholder_fields: [Field; ORACLE_RETURN_FIELD_LENGTH], // TODO: Compute this value automatically from MAX_NOTES
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTES]
 where
     Note: NoteType + Packable<N>,
