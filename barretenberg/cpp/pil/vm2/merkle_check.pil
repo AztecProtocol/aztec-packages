@@ -1,22 +1,41 @@
 include "./poseidon2_hash.pil";
 
 /**
- * A merkle membership check to compute a root given a sibling path.
- * One sibling pair per row.
+ * A merkle membership check to compute a root from a leaf and sibling path.
+ * One sibling pair is processed per row.
  *
- * @param current_node_value The value of the current node being processed alongside its sibling.
- * @param current_index_in_layer The index of the current node in the current layer.
- * @param remaining_path_len The remaining path length to process, not including this one. When 0, `output_hash` is the root.
- * @param expected_tree_root The expected root of the tree. Checked against `output_hash` when `remaining_path_len == 0`.
+ * Usage:
+ *     caller_sel { leaf, leaf_index, tree_height, expected_root }
+ *     in merkle_check.end { merkle_check.leaf, merkle_check.leaf_index, merkle_check.path_len, merkle_check.output_hash }
  *
- * @hint sibling_value The value of the sibling node to be hashed with `current_node_value`.
+ * Inputs
+ * @column leaf The value of the leaf node being processed.
+ * @column leaf_index The index of the leaf node being processed.
+ * @column path_len The length of the path to process, not including this one. When 0, `output_hash` is the root.
  *
- * @lookup to `poseidon2_hash` to constrain that `hash(current_node_value, sibling_value) == output_hash` for the current layer
+ * Outputs
+ * @column output_hash The hash of the current node and sibling. When `end == 1`, this is the root.
  *
- * @constrains that each layer's `output_hash` is the input (`current_node_value`) to the next layer except when `remaining_path_len == 0`
- * @constrains that `remaining_path_len` is decremented by 1 each layer except when `remaining_path_len == 0`
- * @constrains that `current_index_in_layer` is halved each layer until `remaining_path_len == 0`
- * @constrains that progression of `remaining_path_len`, `current_index_in_layer`, and `output_hash`->`current_node_value` stops when `remaining_path_len == 0` (when `root_latch` goes high)
+ * Internals/hints
+ * @column current_node The value of the current node being processed (alongside its `sibling`). When `end == 0`, the next `current_node` is the `output_hash` of the current row.
+ * @column current_index_in_layer The index of the current node in the current layer. This is halved each layer until `end == 1`.
+ * @column remaining_path_len The remaining path len to process, not including this one. Starts at `path_len - 1`, and decrements per layer until `end == 1`. When this is 0, `output_hash` is the root.
+ * @column sibling The value of the sibling node to be hashed with `current_node`.
+ * @column index_is_even Whether the current index is even.
+ *
+ * Interactions
+ * @lookup to `poseidon2_hash` to constrain that `hash(left_node, right_node) == output_hash` for the current layer
+ *
+ * +------+----------+----------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
+ * | leaf | leaf_idx | path_len | current_node | current_index | rem_path_len | sibling | start | end | not_end | index_is_even | left_node | right_node | output_hash |
+ * +------+----------+----------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
+ * |    0 |        0 |        0 | 0            |             0 |            0 | 0       |     0 |   0 |       0 |             0 | 0         | 0          | 0           |
+ * |   27 |       42 |        4 | 27           |            42 |            3 | s0      |     1 |   0 |       1 |             1 | 27        | s0         | h(27,s0)    |
+ * |   27 |       42 |        4 | n1           |            21 |            2 | s1      |     0 |   0 |       1 |             0 | s1        | n1         | h(s1,n1)    |
+ * |   27 |       42 |        4 | n2           |            10 |            1 | s2      |     0 |   0 |       1 |             1 | n2        | s2         | h(n2,s2)    |
+ * |   27 |       42 |        4 | n3           |             5 |            0 | s3      |     0 |   1 |       0 |             0 | s3        | n3         | h(s3,n3)    |
+ * |    0 |        0 |        0 | 0            |             0 |            0 | 0       |     0 |   0 |       0 |             0 | 0         | 0          | 0           |
+ * +------+----------+----------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
  */
 namespace merkle_check(256);
     pol commit sel;
@@ -25,66 +44,110 @@ namespace merkle_check(256);
     #[skippable_if]
     sel = 0;
 
-    // Inputs to the gadget
-    pol commit current_node_value;
+    // Inputs
+    // These are all propagated to the next row so that they are present
+    // alongside the root (output_hash) on the last row of a merkle check.
+    // This way an external caller can lookup { leaf, leaf_index, path_len, root }
+    pol commit leaf;
+    pol commit leaf_index;
+    pol commit path_len;
+    // Hints
+    pol commit sibling;
+
+    // Boundaries
+    pol commit start;
+    pol commit end;
+    pol commit not_end; // Commited to reduce the degree of expressions
+    start * (1 - start) = 0; // bool
+    end * (1 - end) = 0; // bool
+    sel * (1 - end) - not_end = 0; // not_end = sel==1 ? 1-end : 0
+
+    // only one of end or first_row can be 1
+    // end can't be high for first row
+    end * precomputed.first_row = 0;
+    // LATCH_CONDITION is true if either end is 1 or first_row is 1
+    pol LATCH_CONDITION = end + precomputed.first_row;
+
+    #[START_AFTER_LATCH]
+    sel' * (start' - LATCH_CONDITION) = 0;
+
+    // Selector must be 1 in a start row
+    #[SELECTOR_ON_START]
+    start * (1 - sel) = 0;
+    // Next selector must be current selector unless LATCH_CONDITION
+    #[SELECTOR_CONSISTENCY]
+    (sel' - sel) * (1 - LATCH_CONDITION) = 0;
+    // Selector must be 1 in an end row
+    end * (1 - sel) = 0;
+
+    // Internals
+    pol commit current_node;
     pol commit current_index_in_layer;
-    // Hinted
-    pol commit sibling_value;
-
     pol commit remaining_path_len;
-    // TODO(dbanks12): do we need root here. It is not used in vm1?
-    //pol commit expected_tree_root;
-    // These are all hinted
+    // On start, initialize internal vals like current_node, current_index_in_layer, remaining_path_len
+    // from start vals (inputs) like leaf, leaf_index, path_len
+    #[INITIALIZE_CURRENT_NODE]
+    start * (current_node - leaf) = 0;
+    #[INITIALIZE_CURRENT_INDEX_IN_LAYER]
+    start * (current_index_in_layer - leaf_index) = 0;
+    #[INITIALIZE_REMAINING_PATH_LEN]
+    start * (path_len - remaining_path_len - 1) = 0; // Remaining path length is initialized to path_len - 1
 
-    pol commit root_latch;
-    root_latch * (1 - root_latch) = 0;
+    #[PROPOGATE_LEAF]
+    not_end * (leaf' - leaf) = 0;
+    #[PROPOGATE_LEAF_INDEX]
+    not_end * (leaf_index' - leaf_index) = 0;
+    #[PROPOGATE_PATH_len]
+    not_end * (path_len' - path_len) = 0;
 
     // If we are not done, the remaining_path_len decrements by 1
     #[PATH_LEN_DECREMENTS]
-    sel * (1 - root_latch) * (remaining_path_len' - remaining_path_len + 1) = 0;
+    not_end * (remaining_path_len' - remaining_path_len + 1) = 0;
 
+    // End when remaining path reaches 0. In other words, (remaining_path_len == 0) == (end == 1)
     pol commit remaining_path_len_inv;
-    // root_latch == 1 when the remaining_path_len == 0
-    #[ROOT_LATCH_HIGH_WHEN_PATH_EMPTY]
-    sel * (remaining_path_len * (root_latch * (1 - remaining_path_len_inv) + remaining_path_len_inv) - 1 + root_latch) = 0;
+    #[END_WHEN_PATH_EMPTY]
+    sel * (remaining_path_len * (end * (1 - remaining_path_len_inv) + remaining_path_len_inv) - 1 + end) = 0;
 
-    // Note this might be covered by the halving of the current index if the original index is constrained.
     // TODO(dbanks12): May need a range check on current_index_in_layer to enforce that this is indeed even.
     // https://aztecprotocol.slack.com/archives/C04DL2L1UP2/p1738189301548169
+    // Note this might be covered by the halving of the current index if the original index is constrained.
     pol commit index_is_even;
     index_is_even * (1 - index_is_even) = 0;
     pol INDEX_IS_ODD = (1 - index_is_even);
-    // If we are not done, the index into the next layer is half the current index;
+    // The index into the next layer is half the current index.
     // We don't need to worry about underflowing the field since (current_index_in_layer - INDEX_IS_ODD)
     // will be even (over the integers) and as the field is not of characteristic 2, current_index_in_layer' == current_index_in_layer / 2 over the integers
     #[NEXT_INDEX_IS_HALVED]
-    sel * (1 - root_latch) * (current_index_in_layer' * 2 + INDEX_IS_ODD - current_index_in_layer) = 0;
-    // TODO(dbanks12): should there be some assertion that if root_latch is 1, current_index_in_layer should be 0 or 1?
+    not_end * (current_index_in_layer' * 2 + INDEX_IS_ODD - current_index_in_layer) = 0;
+    // TODO(dbanks12): should there be some assertion that if end is 1, current_index_in_layer should be 0 or 1?
 
     // These are what are sent to poseidon2
-    // These arrange the current_node_value and sibling_value in the correct order
+    // These arrange the current_node and sibling in the correct order
     pol commit left_node;
     pol commit right_node;
     // This is accomplished by using index_is_even to toggle the (left_node - right_node) term.
-    // If current_index_in_layer is even, left_node (to send to poseidon2) is current_node_value and right_node is sibling_value.
+    // If current_index_in_layer is even, left_node (to send to poseidon2) is current_node and right_node is sibling.
     // And vice-versa.
     #[ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT]
-    sel * index_is_even * (left_node - right_node) + right_node - current_node_value = 0;
-    #[ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT]
-    sel * index_is_even * (right_node - left_node) + left_node - sibling_value = 0;
+    sel * (index_is_even * (left_node - right_node) + right_node - current_node) = 0;
+    #[ASSIGN_SIBLING_LEFT_OR_RIGHT]
+    sel * (index_is_even * (right_node - left_node) + left_node - sibling) = 0;
     // NOTE: don't think these can be safely combined
 
-    // output_hash = hash(current_node_value, sibling_value) == hash(left_node, right_node)
+    // output_hash = hash(left_node, right_node)
+    //     if index_is_even: output_hash = hash(current_node, sibling)
+    //     if !index_is_even: output_hash = hash(sibling, current_node)
+    // On end, output_hash is the root
     pol commit output_hash;
-    // If we are not done, this row's output_hash is the next row's current_node_value input
-    #[OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE]
-    sel * (1 - root_latch) * (current_node_value' - output_hash) = 0;
 
     // Permutation to the full poseidon2 gadget
     #[MERKLE_POSEIDON2]
     sel { left_node, right_node, output_hash }
     in poseidon2_hash.end {poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
 
-    // LAST_COMPUTE will be used in permutations to other traces
-    pol LAST_COMPUTE = sel * root_latch;
-    // TODO(dbanks12): this would be the place to constrain `if LAST_COMPUTE: assert(output_hash == expected_tree_root)`
+    // If we are not done, this row's output_hash is the next row's current_node input
+    #[OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE]
+    not_end * (current_node' - output_hash) = 0;
+
+    // TODO: allow final row to be all 0s, and all 0s after that

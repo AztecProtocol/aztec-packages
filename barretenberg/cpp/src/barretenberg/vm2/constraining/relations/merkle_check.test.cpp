@@ -52,11 +52,18 @@ TEST(MerkleCheckConstrainingTest, EmptyRow)
 TEST(MerkleCheckConstrainingTest, PathLenDecrements)
 {
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_root_latch, 0 }, { C::merkle_check_remaining_path_len, 3 } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_root_latch, 0 }, { C::merkle_check_remaining_path_len, 2 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 1 },
-          { C::merkle_check_remaining_path_len, 1 } }, // Final row with root_latch=1
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_remaining_path_len, 3 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_remaining_path_len, 2 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 1 },
+          { C::merkle_check_not_end, 0 },
+          { C::merkle_check_remaining_path_len, 1 } }, // Final row with end=1
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_PATH_LEN_DECREMENTS);
@@ -65,10 +72,14 @@ TEST(MerkleCheckConstrainingTest, PathLenDecrements)
 TEST(MerkleCheckConstrainingTest, NegativePathLenDecrements)
 {
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_root_latch, 0 }, { C::merkle_check_remaining_path_len, 3 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_remaining_path_len, 3 } },
         {
             { C::merkle_check_sel, 1 },
-            { C::merkle_check_root_latch, 0 },
+            { C::merkle_check_end, 0 },
+            { C::merkle_check_not_end, 1 },
             { C::merkle_check_remaining_path_len, 1 } // Should be 2, not 1
         },
     });
@@ -77,23 +88,23 @@ TEST(MerkleCheckConstrainingTest, NegativePathLenDecrements)
                               "PATH_LEN_DECREMENTS");
 }
 
-TEST(MerkleCheckConstrainingTest, RootLatchHighWhenPathEmpty)
+TEST(MerkleCheckConstrainingTest, EndWhenPathEmpty)
 {
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_remaining_path_len, 1 },
           { C::merkle_check_remaining_path_len_inv, FF(1).invert() },
-          { C::merkle_check_root_latch, 0 } },
+          { C::merkle_check_end, 0 } },
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_remaining_path_len, 0 },
           { C::merkle_check_remaining_path_len_inv, 0 },
-          { C::merkle_check_root_latch, 1 } },
+          { C::merkle_check_end, 1 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ROOT_LATCH_HIGH_WHEN_PATH_EMPTY);
+    check_relation<merkle_check>(trace, merkle_check::SR_END_WHEN_PATH_EMPTY);
 }
 
-TEST(MerkleCheckConstrainingTest, NegativeRootLatchHighWhenPathEmpty)
+TEST(MerkleCheckConstrainingTest, NegativeEndWhenPathEmpty)
 {
     // TODO(dbanks12): does inv need to be properly initialized here?
     TestTraceContainer trace({
@@ -101,27 +112,30 @@ TEST(MerkleCheckConstrainingTest, NegativeRootLatchHighWhenPathEmpty)
             { C::merkle_check_sel, 1 },
             { C::merkle_check_remaining_path_len, 0 },
             { C::merkle_check_remaining_path_len_inv, 0 }, // TODO(dbanks12): can't invert 0?
-            { C::merkle_check_root_latch, 0 }              // Should be 1 when path_len is 0
+            { C::merkle_check_end, 0 }                     // Should be 1 when path_len is 0
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_ROOT_LATCH_HIGH_WHEN_PATH_EMPTY),
-                              "ROOT_LATCH_HIGH_WHEN_PATH_EMPTY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_END_WHEN_PATH_EMPTY),
+                              "END_WHEN_PATH_EMPTY");
 }
 
 TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
 {
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
           { C::merkle_check_current_index_in_layer, 6 },
           { C::merkle_check_index_is_even, 1 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
           { C::merkle_check_current_index_in_layer, 3 }, // 6/2 = 3
           { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 1 },             // Set root_latch=1 for final row
+          { C::merkle_check_end, 1 }, // Set end=1 for final row
+          { C::merkle_check_not_end, 0 },
           { C::merkle_check_current_index_in_layer, 1 }, // 3/2 = 1
           { C::merkle_check_index_is_even, 0 } },
     });
@@ -131,15 +145,18 @@ TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
     // Test with odd index
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
           { C::merkle_check_current_index_in_layer, 7 },
           { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
           { C::merkle_check_current_index_in_layer, 3 }, // (7-1)/2 = 3
           { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 1 },             // Set root_latch=1 for final row
+          { C::merkle_check_end, 1 }, // Set end=1 for final row
+          { C::merkle_check_not_end, 0 },
           { C::merkle_check_current_index_in_layer, 1 }, // 6/2 = 3
           { C::merkle_check_index_is_even, 0 } },
     });
@@ -151,7 +168,8 @@ TEST(MerkleCheckConstrainingTest, NegativeNextIndexIsHalved)
 {
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
           { C::merkle_check_current_index_in_layer, 6 },
           { C::merkle_check_index_is_even, 1 } },
         { { C::merkle_check_sel, 1 },
@@ -165,24 +183,24 @@ TEST(MerkleCheckConstrainingTest, NegativeNextIndexIsHalved)
 
 TEST(MerkleCheckConstrainingTest, AssignCurrentNodeLeftOrRight)
 {
-    // Test even index (current_node_value goes to left_node)
+    // Test even index (current_node goes to left_node)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_current_node_value, 123 },
-          { C::merkle_check_sibling_value, 456 },
+          { C::merkle_check_current_node, 123 },
+          { C::merkle_check_sibling, 456 },
           { C::merkle_check_left_node, 123 },
           { C::merkle_check_right_node, 456 } },
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT);
 
-    // Test odd index (current_node_value goes to right_node)
+    // Test odd index (current_node goes to right_node)
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_current_node_value, 123 },
-          { C::merkle_check_sibling_value, 456 },
+          { C::merkle_check_current_node, 123 },
+          { C::merkle_check_sibling, 456 },
           { C::merkle_check_left_node, 456 },
           { C::merkle_check_right_node, 123 } },
     });
@@ -196,8 +214,8 @@ TEST(MerkleCheckConstrainingTest, NegativeAssignCurrentNodeLeftOrRight)
         {
             { C::merkle_check_sel, 1 },
             { C::merkle_check_index_is_even, 1 },
-            { C::merkle_check_current_node_value, 123 },
-            { C::merkle_check_sibling_value, 456 },
+            { C::merkle_check_current_node, 123 },
+            { C::merkle_check_sibling, 456 },
             { C::merkle_check_left_node, 456 }, // Should be 123
             { C::merkle_check_right_node, 123 } // Should be 456
         },
@@ -207,31 +225,31 @@ TEST(MerkleCheckConstrainingTest, NegativeAssignCurrentNodeLeftOrRight)
                               "ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignSiblingValueLeftOrRight)
+TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRight)
 {
-    // Test even index (sibling_value goes to right_node)
+    // Test even index (sibling goes to right_node)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_current_node_value, 123 },
-          { C::merkle_check_sibling_value, 456 },
+          { C::merkle_check_current_node, 123 },
+          { C::merkle_check_sibling, 456 },
           { C::merkle_check_left_node, 123 },
           { C::merkle_check_right_node, 456 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT);
+    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT);
 
-    // Test odd index (sibling_value goes to left_node)
+    // Test odd index (sibling goes to left_node)
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_current_node_value, 123 },
-          { C::merkle_check_sibling_value, 456 },
+          { C::merkle_check_current_node, 123 },
+          { C::merkle_check_sibling, 456 },
           { C::merkle_check_left_node, 456 },
           { C::merkle_check_right_node, 123 } },
     });
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT);
+    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT);
 }
 
 TEST(MerkleCheckConstrainingTest, NegativeAssignSiblingValueLeftOrRight)
@@ -240,18 +258,18 @@ TEST(MerkleCheckConstrainingTest, NegativeAssignSiblingValueLeftOrRight)
         {
             { C::merkle_check_sel, 1 },
             { C::merkle_check_index_is_even, 0 },
-            { C::merkle_check_current_node_value, 123 },
-            { C::merkle_check_sibling_value, 456 },
+            { C::merkle_check_current_node, 123 },
+            { C::merkle_check_sibling, 456 },
             { C::merkle_check_left_node, 123 }, // Should be 456
             { C::merkle_check_right_node, 456 } // Should be 123
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT),
-                              "ASSIGN_SIBLING_VALUE_LEFT_OR_RIGHT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT),
+                              "ASSIGN_SIBLING_LEFT_OR_RIGHT");
 }
 
-TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsCurrentNodeValue)
+TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsCurrentNode)
 {
     FF left_node = FF(123);
     FF right_node = FF(456);
@@ -259,55 +277,63 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsCurrentNodeValue)
 
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
           { C::merkle_check_left_node, left_node },
           { C::merkle_check_right_node, right_node },
           { C::merkle_check_output_hash, output_hash } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 1 }, // Set root_latch=1 for final row
-          { C::merkle_check_current_node_value, output_hash } },
+          { C::merkle_check_end, 1 }, // Set end=1 for final row
+          { C::merkle_check_not_end, 0 },
+          { C::merkle_check_current_node, output_hash } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE);
+    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE);
 }
 
-TEST(MerkleCheckConstrainingTest, NegativeOutputHashIsNextRowsCurrentNodeValue)
+TEST(MerkleCheckConstrainingTest, NegativeOutputHashIsNextRowsCurrentNode)
 {
     FF left_node = FF(123);
     FF right_node = FF(456);
     FF output_hash = UnconstrainedPoseidon2::hash({ left_node, right_node });
-    FF wrong_next_current_node_value = output_hash + 1; // Incorrect value
+    FF wrong_next_current_node = output_hash + 1; // Incorrect value
 
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_root_latch, 0 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
           { C::merkle_check_left_node, left_node },
           { C::merkle_check_right_node, right_node },
           { C::merkle_check_output_hash, output_hash } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_current_node_value, wrong_next_current_node_value } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_current_node, wrong_next_current_node } },
     });
 
     EXPECT_THROW_WITH_MESSAGE(
-        check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE),
-        "OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE");
+        check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE),
+        "OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE");
 }
 
 TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsCurrentNodeValueForLastRow)
 {
     FF output_hash = FF(456);
-    FF next_current_node_value = FF(789);
+    FF next_current_node = FF(789);
 
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_root_latch, 1 }, { C::merkle_check_output_hash, output_hash } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_current_node_value, next_current_node_value } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 1 },
+          { C::merkle_check_not_end, 0 },
+          { C::merkle_check_output_hash, output_hash } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_current_node, next_current_node } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE_VALUE);
+    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE);
 }
 
 TEST(MerkleCheckConstrainingTest, WithTracegen)
 {
-    TestTraceContainer trace;
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
     MerkleCheckTraceBuilder builder;
 
     // Create a Merkle tree path with 3 levels
@@ -332,7 +358,9 @@ TEST(MerkleCheckConstrainingTest, WithTracegen)
 
 TEST(MerkleCheckConstrainingTest, NegativeWithTracegen)
 {
-    TestTraceContainer trace;
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
     MerkleCheckTraceBuilder builder;
 
     // Create a Merkle tree path with correct data
@@ -370,7 +398,7 @@ TEST(MerkleCheckConstrainingTest, WithHashInteraction)
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
-    MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
+    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
@@ -383,14 +411,15 @@ TEST(MerkleCheckConstrainingTest, WithHashInteraction)
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
     FF root = root_from_path(leaf_value, leaf_index, sibling_path);
-    merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root);
+    merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     builder.process(merkle_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
-
     check_interaction<lookup_poseidon2_hash>(trace);
+
+    check_relation<merkle_check>(trace);
 }
 
 TEST(MerkleCheckConstrainingTest, NegativeWithHashInteraction)
@@ -400,7 +429,7 @@ TEST(MerkleCheckConstrainingTest, NegativeWithHashInteraction)
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
-    MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
+    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
@@ -413,7 +442,7 @@ TEST(MerkleCheckConstrainingTest, NegativeWithHashInteraction)
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
     FF root = root_from_path(leaf_value, leaf_index, sibling_path);
-    merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root);
+    merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_builder.process(merkle_event_emitter.dump_events(), trace);
@@ -425,6 +454,90 @@ TEST(MerkleCheckConstrainingTest, NegativeWithHashInteraction)
                               "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
     EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_hash>(trace),
                               "Relation.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* ACCUMULATION.* is non-zero");
+}
+
+TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+    MerkleCheckTraceBuilder builder;
+
+    FF leaf_value = 333;
+    uint64_t leaf_index = 30;
+    std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
+    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    simulation::MerkleCheckEvent event = {
+        .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
+    };
+
+    FF leaf_value2 = 444;
+    uint64_t leaf_index2 = 40;
+    std::vector<FF> sibling_path2 = { 11, 22, 33, 44, 55, 66 };
+    FF root2 = root_from_path(leaf_value2, leaf_index2, sibling_path2);
+    simulation::MerkleCheckEvent event2 = {
+        .leaf_value = leaf_value2, .leaf_index = leaf_index2, .sibling_path = sibling_path2, .root = root2
+    };
+
+    builder.process({ event, event2 }, trace);
+
+    // Empty row after last real merkle row
+    uint32_t after_last_row_index = static_cast<uint32_t>(sibling_path.size()) + 1;
+    trace.set(Column::merkle_check_sel, after_last_row_index, 0);
+    trace.set(Column::merkle_check_leaf, after_last_row_index, 0);
+    trace.set(Column::merkle_check_leaf_index, after_last_row_index, 0);
+    trace.set(Column::merkle_check_path_len, after_last_row_index, 0);
+    trace.set(Column::merkle_check_current_node, after_last_row_index, 0);
+    trace.set(Column::merkle_check_current_index_in_layer, after_last_row_index, 0);
+    trace.set(Column::merkle_check_remaining_path_len, after_last_row_index, 0);
+    trace.set(Column::merkle_check_remaining_path_len_inv, after_last_row_index, 0);
+    trace.set(Column::merkle_check_sibling, after_last_row_index, 0);
+    trace.set(Column::merkle_check_start, after_last_row_index, 0);
+    trace.set(Column::merkle_check_end, after_last_row_index, 0);
+    trace.set(Column::merkle_check_not_end, after_last_row_index, 0);
+    trace.set(Column::merkle_check_index_is_even, after_last_row_index, 0);
+    trace.set(Column::merkle_check_left_node, after_last_row_index, 0);
+    trace.set(Column::merkle_check_right_node, after_last_row_index, 0);
+    trace.set(Column::merkle_check_output_hash, after_last_row_index, 0);
+
+    check_relation<merkle_check>(trace);
+}
+
+TEST(MerkleCheckConstrainingTest, MultipleWithHashInteraction)
+{
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+
+    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    MerkleCheckTraceBuilder builder;
+    Poseidon2TraceBuilder poseidon2_builder;
+
+    FF leaf_value = 333;
+    uint64_t leaf_index = 30;
+    std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
+    FF root = root_from_path(leaf_value, leaf_index, sibling_path);
+    merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
+
+    FF leaf_value2 = 444;
+    uint64_t leaf_index2 = 40;
+    std::vector<FF> sibling_path2 = { 11, 22, 33, 44, 55, 66 };
+    FF root2 = root_from_path(leaf_value2, leaf_index2, sibling_path2);
+    merkle_check_sim.assert_membership(leaf_value2, leaf_index2, sibling_path2, root2);
+
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+    builder.process(merkle_event_emitter.dump_events(), trace);
+
+    LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
+    check_interaction<lookup_poseidon2_hash>(trace);
+
+    check_relation<merkle_check>(trace);
 }
 
 } // namespace

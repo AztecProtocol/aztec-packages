@@ -25,31 +25,38 @@ void MerkleCheckTraceBuilder::process(
         // For the current level, gather info about the current pair of nodes
         // being hashed along with the path-length remaining after this level
         // to complete the merkle check.
-        FF current_node_value = event.leaf_value;
+        FF current_node = event.leaf_value;
         uint64_t current_index_in_layer = event.leaf_index;
         for (size_t i = 0; i < full_path_len; ++i) {
-            const FF sibling_value = event.sibling_path[i];
+            const FF sibling = event.sibling_path[i];
 
             // path-length decrements by 1 for each level until it reaches 0
             const FF remaining_path_len = FF(full_path_len - i - 1);
             const FF remaining_path_len_inv = remaining_path_len == 0 ? FF(0) : remaining_path_len.invert();
 
-            // root_latch == 1 when the remaining_path_len == 0
-            const bool root_latch = remaining_path_len == 0;
+            // end == 1 when the remaining_path_len == 0
+            const bool end = remaining_path_len == 0;
+            const bool start = i == 0; // First row in the chain is a start row
+            const bool not_end = !end;
             const bool index_is_even = current_index_in_layer % 2 == 0;
-            const FF left_node = index_is_even ? current_node_value : sibling_value;
-            const FF right_node = index_is_even ? sibling_value : current_node_value;
+            const FF left_node = index_is_even ? current_node : sibling;
+            const FF right_node = index_is_even ? sibling : current_node;
             const FF output_hash = Poseidon2::hash({ left_node, right_node });
 
             trace.set(row,
                       { {
                           { C::merkle_check_sel, 1 },
-                          { C::merkle_check_current_node_value, current_node_value },
+                          { C::merkle_check_leaf, event.leaf_value },
+                          { C::merkle_check_leaf_index, event.leaf_index },
+                          { C::merkle_check_path_len, full_path_len },
+                          { C::merkle_check_current_node, current_node },
                           { C::merkle_check_current_index_in_layer, current_index_in_layer },
                           { C::merkle_check_remaining_path_len, remaining_path_len },
                           { C::merkle_check_remaining_path_len_inv, remaining_path_len_inv },
-                          { C::merkle_check_sibling_value, sibling_value },
-                          { C::merkle_check_root_latch, root_latch },
+                          { C::merkle_check_sibling, sibling },
+                          { C::merkle_check_start, start },
+                          { C::merkle_check_end, end },
+                          { C::merkle_check_not_end, not_end },
                           { C::merkle_check_index_is_even, index_is_even },
                           { C::merkle_check_left_node, left_node },
                           { C::merkle_check_right_node, right_node },
@@ -57,7 +64,7 @@ void MerkleCheckTraceBuilder::process(
                       } });
 
             // Update the current/target node value for the next iteration
-            current_node_value = output_hash;
+            current_node = output_hash;
             current_index_in_layer >>= 1;
 
             row++;
