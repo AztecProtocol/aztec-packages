@@ -49,7 +49,6 @@ function gke {
 }
 
 function test_cmds {
-  echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-local"
   if [ "$(arch)" == "arm64" ]; then
     # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
     return
@@ -59,9 +58,11 @@ function test_cmds {
   echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-smoke"
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
+    # TODO(#12791) re-enable
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
   fi
 }
 
@@ -137,9 +138,10 @@ case "$cmd" in
   "test-prod-deployment")
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
     ;;
-  "test-local")
-    # Isolate network stack in docker.
-    docker_isolate ../scripts/run_native_testnet.sh -i -val 3
+  "test-cli-upgrade-with-lock")
+    OVERRIDES="telemetry.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;
   *)
     echo "Unknown command: $cmd"

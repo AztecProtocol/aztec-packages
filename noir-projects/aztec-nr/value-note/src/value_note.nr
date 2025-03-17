@@ -20,4 +20,8 @@ impl ValueNote {
 
         ValueNote { value, owner, randomness }
     }
+
+    pub fn value(self) -> Field {
+        self.value
+    }
 }

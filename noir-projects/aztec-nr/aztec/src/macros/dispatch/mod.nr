@@ -85,7 +85,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         // No dispatch function if there are no public functions
         quote {}
     } else {
-        let ifs = ifs.push_back(quote { panic(f"Unknown selector") });
+        let ifs = ifs.push_back(quote { panic(f"Unknown selector {selector}") });
         let dispatch = ifs.join(quote {  });
 
         let body = quote {
@@ -158,7 +158,7 @@ comptime fn str_size_in_fields(typ: Type) -> Option<u32> {
 }
 
 comptime fn struct_size_in_fields(typ: Type) -> Option<u32> {
-    typ.as_struct().map(|typ: (StructDefinition, [Type])| {
+    typ.as_data_type().map(|typ: (TypeDefinition, [Type])| {
         let struct_type = typ.0;
         let generics = typ.1;
         let mut size = 0;

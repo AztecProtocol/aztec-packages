@@ -1,6 +1,7 @@
 import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { bufferToHex } from '@aztec/foundation/string';
 
 import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
 
@@ -55,7 +56,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         return true;
       }
 
-      this.log.error('Failed to send blobs to blob sink', res.status);
+      this.log.error('Failed to send blobs to blob sink', { status: res.status });
       return false;
     } catch (err) {
       this.log.warn(`Blob sink url configured, but unable to send blobs`, {
@@ -84,25 +85,27 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   public async getBlobSidecar(blockHash: `0x${string}`, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
     let blobs: Blob[] = [];
 
-    if (this.config.blobSinkUrl) {
-      this.log.debug('Getting blob sidecar from blob sink');
-      blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, blobHashes, indices);
-      this.log.debug(`Got ${blobs.length} blobs from blob sink`);
+    const { blobSinkUrl, l1ConsensusHostUrl } = this.config;
+    const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex), indices };
+
+    if (blobSinkUrl) {
+      blobs = await this.getBlobSidecarFrom(blobSinkUrl, blockHash, blobHashes, indices);
+      this.log.debug(`Got ${blobs.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
       if (blobs.length > 0) {
         return blobs;
       }
     }
 
-    if (blobs.length == 0 && this.config.l1ConsensusHostUrl) {
+    if (blobs.length == 0 && l1ConsensusHostUrl) {
       // The beacon api can query by slot number, so we get that first
-      this.log.debug('Getting slot number from consensus host', {
-        blockHash,
-        consensusHostUrl: this.config.l1ConsensusHostUrl,
-      });
       const slotNumber = await this.getSlotNumber(blockHash);
+      this.log.debug(`Got slot number ${slotNumber} from consensus host for querying blobs`, {
+        blockHash,
+        l1ConsensusHostUrl,
+      });
       if (slotNumber) {
-        const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, blobHashes, indices);
-        this.log.debug(`Got ${blobs.length} blobs from consensus host`);
+        const blobs = await this.getBlobSidecarFrom(l1ConsensusHostUrl, slotNumber, blobHashes, indices);
+        this.log.debug(`Got ${blobs.length} blobs from consensus host`, { l1ConsensusHostUrl, slotNumber, ...ctx });
         if (blobs.length > 0) {
           return blobs;
         }
@@ -128,8 +131,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config);
 
-      this.log.debug(`Fetching blob sidecar from ${url} with options`, options);
-
+      this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
       const res = await this.fetch(url, options);
 
       if (res.ok) {
@@ -145,7 +147,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         }
       }
 
-      this.log.debug(`Unable to get blob sidecar`, res.status);
+      this.log.debug(`Unable to get blob sidecar for ${blockHashOrSlot}`, {
+        status: res.status,
+        statusText: res.statusText,
+      });
       return [];
     } catch (err: any) {
       this.log.warn(`Unable to get blob sidecar from ${hostUrl}`, err.message);

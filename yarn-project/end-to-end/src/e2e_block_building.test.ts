@@ -10,7 +10,6 @@ import {
   Fr,
   type GlobalVariables,
   L1EventPayload,
-  L1NotePayload,
   type Logger,
   type PXE,
   TxStatus,
@@ -30,12 +29,12 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
+  PublicContractsDB,
   PublicProcessorFactory,
+  type PublicTreesDB,
   type PublicTxResult,
   PublicTxSimulator,
-  type WorldStateDB,
 } from '@aztec/simulator/server';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -415,29 +414,6 @@ describe('e2e_block_building', () => {
 
     afterAll(() => teardown());
 
-    it('calls a method with nested note encrypted logs', async () => {
-      const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
-      const address = owner.address;
-
-      // call test contract
-      const action = testContract.methods.emit_encrypted_logs_nested(10, address, address);
-      const tx = await action.prove();
-      const rct = await tx.send().wait();
-
-      // compare logs
-      expect(rct.status).toEqual('success');
-      const noteValues = await Promise.all(
-        tx.data.getNonEmptyPrivateLogs().map(async log => {
-          const notePayload = await L1NotePayload.decryptAsIncoming(log, await thisWallet.getEncryptionSecret());
-          // In this test we care only about the privately delivered values
-          return notePayload?.privateNoteValues[0];
-        }),
-      );
-      expect(noteValues[0]).toEqual(new Fr(10));
-      expect(noteValues[1]).toEqual(new Fr(11));
-      expect(noteValues[2]).toEqual(new Fr(12));
-    }, 30_000);
-
     it('calls a method with nested encrypted logs', async () => {
       const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
       const address = owner.address;
@@ -635,16 +611,16 @@ class TestPublicTxSimulator extends PublicTxSimulator {
 }
 class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
-    db: MerkleTreeWriteOperations,
-    worldStateDB: WorldStateDB,
+    treesDB: PublicTreesDB,
+    contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient?: TelemetryClient,
   ): PublicTxSimulator {
     return new TestPublicTxSimulator(
-      db,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,

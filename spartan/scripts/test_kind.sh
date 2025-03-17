@@ -38,6 +38,7 @@ install_metrics=${INSTALL_METRICS:-true}
 use_docker=${USE_DOCKER:-true}
 sepolia_run=${SEPOLIA_RUN:-false}
 
+resources_file="${RESOURCES_FILE:-default.yaml}"
 OVERRIDES="${OVERRIDES:-}"
 
 # Ensure we have kind context
@@ -56,6 +57,8 @@ fi
 # If fresh_install is true, delete the namespace
 if [ "$fresh_install" = "true" ]; then
   echo "Deleting existing namespace due to FRESH_INSTALL=true"
+  # Run helm uninstall first to ensure post-delete hooks are run
+  helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
   kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
 fi
 
@@ -68,6 +71,8 @@ function cleanup {
   if [ "$cleanup_cluster" = "true" ]; then
     kind delete cluster || true
   elif [ "$fresh_install" = "true" ]; then
+    # Run helm uninstall first to ensure post-delete hooks are run
+    helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
     kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
   fi
 }
@@ -85,7 +90,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  deploy_result=$(OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
+  deploy_result=$(RESOURCES_FILE="$resources_file" OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
 fi
 
 if [ "$install_metrics" = "true" ]; then

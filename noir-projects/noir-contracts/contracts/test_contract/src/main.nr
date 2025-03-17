@@ -32,7 +32,7 @@ pub contract Test {
 
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
-        discovery::private_logs::do_process_log,
+        discovery::private_logs::attempt_note_discovery,
         event::event_interface::EventInterface,
         hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
@@ -374,27 +374,6 @@ pub contract Test {
         }
     }
 
-    #[private]
-    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress, sender: AztecAddress) {
-        let mut storage_slot =
-            aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant) + 1;
-        Test::at(context.this_address()).call_create_note(value, owner, sender, storage_slot).call(
-            &mut context,
-        );
-        storage_slot += 1;
-
-        let note = ValueNote::new(value + 1, owner);
-        create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            sender,
-        ));
-        storage_slot += 1;
-        Test::at(context.this_address())
-            .call_create_note(value + 2, owner, sender, storage_slot)
-            .call(&mut context);
-    }
-
     // docs:start:is-time-equal
     #[public]
     fn is_time_equal(time: u64) -> u64 {
@@ -482,23 +461,21 @@ pub contract Test {
         first_nullifier_in_tx: Field,
         recipient: AztecAddress,
     ) {
-        // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
-        // [ storage_slot, note_type_id, ...packed_note ]
-
         let note = TestNote::new(value);
-        let log_plaintext = BoundedVec::from_array(array_concat(
-            [Test::storage_layout().example_constant.slot, TestNote::get_id()],
-            note.pack(),
-        ));
+        let storage_slot = Test::storage_layout().example_constant.slot;
+        let note_type_id = TestNote::get_id();
+        let log_payload = BoundedVec::from_array(note.pack());
 
-        do_process_log(
+        attempt_note_discovery(
             contract_address,
-            log_plaintext,
             tx_hash,
             unique_note_hashes_in_tx,
             first_nullifier_in_tx,
             recipient,
             _compute_note_hash_and_nullifier,
+            storage_slot,
+            note_type_id,
+            log_payload,
         );
     }
 

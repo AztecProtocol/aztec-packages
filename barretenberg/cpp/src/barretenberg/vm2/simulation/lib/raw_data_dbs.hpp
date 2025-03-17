@@ -2,6 +2,7 @@
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
@@ -18,8 +19,11 @@ class HintedRawContractDB final : public ContractDBInterface {
     ContractClass get_contract_class(const ContractClassId& class_id) const override;
 
   private:
+    FF get_bytecode_commitment(const ContractClassId& class_id) const;
+
     unordered_flat_map<AztecAddress, ContractInstanceHint> contract_instances;
-    unordered_flat_map<AztecAddress, ContractClassHint> contract_classes;
+    unordered_flat_map<ContractClassId, ContractClassHint> contract_classes;
+    unordered_flat_map<ContractClassId, FF> bytecode_commitments;
 };
 
 // This class interacts with the external world, without emiting any simulation events.

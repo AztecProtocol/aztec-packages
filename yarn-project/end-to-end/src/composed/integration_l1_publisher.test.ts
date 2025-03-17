@@ -150,6 +150,20 @@ describe('L1Publisher integration', () => {
       getBlocks(from, limit, _proven) {
         return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
       },
+      getPublishedBlocks(from, limit, _proven) {
+        return Promise.resolve(
+          blocks.slice(from - 1, from - 1 + limit).map(block => ({
+            signatures: [],
+            block,
+            // Use L2 block number and hash for faking the L1 info
+            l1: {
+              blockNumber: BigInt(block.number),
+              blockHash: block.hash.toString(),
+              timestamp: BigInt(block.number),
+            },
+          })),
+        );
+      },
       getL2Tips(): Promise<L2Tips> {
         const latestBlock = blocks.at(-1);
         const res = latestBlock
