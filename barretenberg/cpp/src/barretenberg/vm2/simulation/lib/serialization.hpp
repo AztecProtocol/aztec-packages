@@ -71,7 +71,12 @@ struct Instruction {
     std::vector<Operand> operands;
 
     std::string to_string() const;
+
     // Serialize the instruction according to the specification from OPCODE_WIRE_FORMAT.
+    // There is no validation that the instructions operands comply to the format. Namely,
+    // they are casted according to the operand variant specified in format (throw only in
+    // truncation case). If the number of operands is larger than specified in format,
+    // no error will be thrown neither.
     std::vector<uint8_t> serialize() const;
 
     bool operator==(const Instruction& other) const = default;
