@@ -1422,10 +1422,6 @@ struct ShpleminiIntermediates {
     Fr scalingFactorPos;
     // v^{2i+1} * 1/(z + r^{2^i})
     Fr scalingFactorNeg;
-
-    // Fold_i(r^{2^i}) reconstructed by Verifier
-    Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
-
 }
 
 library CommitmentSchemeLib {
@@ -1729,7 +1725,7 @@ interface IVerifier {
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
             powers_of_evaluation_challenge,
-            logN
+            LOG_N
         );
 
         mem.constantTermAccumulator = foldPosEvaluations[0] * mem.posInvertedDenominator;
@@ -1740,7 +1736,7 @@ interface IVerifier {
         uint256 boundary = NUMBER_OF_ENTITIES + 2;
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            bool dummy_round = i >= (logN - 1);
+            bool dummy_round = i >= (LOG_N - 1);
 
             if (!dummy_round) {
                 mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();

@@ -1355,9 +1355,8 @@ struct ShpleminiIntermediates {
     Fr scalingFactorPos;
     // v^{2i+1} * 1/(z + r^{2^i})
     Fr scalingFactorNeg;
-
-    // Fold_i(r^{2^i}) reconstructed by Verifier
-    Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
+    // // Fold_i(r^{2^i}) reconstructed by Verifier
+    // Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
 }
 
 library CommitmentSchemeLib {
@@ -1369,7 +1368,8 @@ library CommitmentSchemeLib {
             squares[i] = squares[i - 1].sqr();
         }
     }
-    // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
+
+    // Compute the evaluations  A_l(r^{2^l}) for l = 0, ..., m-1
     function computeFoldPosEvaluations(
         Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckUChallenges,
         Fr batchedEvalAccumulator,
@@ -1387,14 +1387,15 @@ library CommitmentSchemeLib {
             );
             // Divide by the denominator
             batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
+
             if (i <= logSize) {
                 batchedEvalAccumulator = batchedEvalRoundAcc;
                 foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
             }
         }
+
     }
 }
-
 
 interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
@@ -1589,7 +1590,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
 
-
         mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
         mem.shiftedScalar =
             tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
@@ -1658,7 +1658,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         commitments[40] = convertProofPoint(proof.zPerm);
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
-        // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., logN - 1
+        // Compute the evaluations A_l(r^{2^l}) for l = 0, ..., logN - 1
         Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
