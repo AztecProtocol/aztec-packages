@@ -57,7 +57,7 @@ function show_status_until_pxe_ready {
 show_status_until_pxe_ready &
 
 function cleanup {
-  trap - SIGTERM && kill $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill $(jobs -p) &>/dev/null && rm "$mnemonic_file" || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
@@ -78,15 +78,41 @@ function generate_overrides {
   fi
 }
 
+helm_set_args=(
+  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
+)
+
 # Some configuration values are set in the eth-devnet/config/config.yaml file
 # and are used to generate the genesis.json file.
 # We need to read these values and pass them into the eth devnet create.sh script
 # so that it can generate the genesis.json and config.yaml file with the correct values.
 if [ "$sepolia_deployment" = "true" ]; then
   echo "Generating sepolia accounts..."
-  set +x
-  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file" "$mnemonic_file")
-  set -x
+  # Split EXTERNAL_ETHEREUM_HOSTS by comma and take first host
+  # set +x
+  export ETHEREUM_HOST=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | cut -d',' -f1)
+  ./prepare_sepolia_accounts.sh "$values_file" 1 "$mnemonic_file"
+  echo "mnemonic: $mnemonic_file"
+  L1_ACCOUNTS_MNEMONIC="$(cat "$mnemonic_file")"
+
+  # Escape the EXTERNAL_ETHEREUM_HOSTS value for Helm
+  ESCAPED_HOSTS=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | sed 's/,/\\,/g' | sed 's/=/\\=/g')
+
+  helm_set_args+=(
+    --set ethereum.execution.externalHosts="$ESCAPED_HOSTS"
+    --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
+    --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
+    --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
+  )
+
+  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-}" ]; then
+    helm_set_args+=(--set "ethereum.beacon.apiKey=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
+  fi
+
+  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
+    helm_set_args+=(--set "ethereum.beacon.apiKeyHeader=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
+  fi
+  # set -x
 else
   echo "Generating devnet config..."
   ./generate_devnet_config.sh "$values_file"
@@ -97,30 +123,6 @@ echo "Cleaning up any existing Helm releases..."
 helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
 kubectl delete clusterrole "$helm_instance"-aztec-network-node 2>/dev/null || true
 kubectl delete clusterrolebinding "$helm_instance"-aztec-network-node 2>/dev/null || true
-
-helm_set_args=(
-  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
-)
-
-# If this is a sepolia run, we need to write some values
-if [ "$sepolia_deployment" = "true" ]; then
-  set +x
-  helm_set_args+=(
-    --set ethereum.execution.externalHosts="$EXTERNAL_ETHEREUM_HOSTS"
-    --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
-    --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
-    --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
-  )
-
-  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKey="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
-  fi
-
-  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
-  fi
-  set -x
-fi
 
 helm upgrade --install "$helm_instance" ../aztec-network \
   --namespace "$namespace" \

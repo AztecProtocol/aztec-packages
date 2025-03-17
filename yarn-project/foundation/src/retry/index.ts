@@ -83,7 +83,12 @@ export async function retry<Result>(
  * @param interval - The optional interval, in seconds, between retry attempts. Defaults to 1 second.
  * @returns A Promise that resolves with the successful (truthy) result of the provided function, or rejects if timeout is exceeded.
  */
-export async function retryUntil<T>(fn: () => Promise<T | undefined>, name = '', timeout = 0, interval = 1) {
+export async function retryUntil<T>(
+  fn: () => (T | undefined) | Promise<T | undefined>,
+  name = '',
+  timeout = 0,
+  interval = 1,
+) {
   const timer = new Timer();
   while (true) {
     const result = await fn();
