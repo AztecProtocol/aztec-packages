@@ -218,7 +218,7 @@ export const uniswapL1L2TestSuite = (
       // 3. Owner gives uniswap approval to transfer the funds to public to self on its behalf
       logger.info('Approving uniswap to transfer funds to public to self on my behalf');
       const nonceForWETHTransferToPublicApproval = new Fr(1n);
-      await ownerWallet.createAuthWit({
+      const transferToPublicAuhtwit = await ownerWallet.createAuthWit({
         caller: uniswapL2Contract.address,
         action: wethCrossChainHarness.l2Token.methods.transfer_to_public(
           ownerAddress,
@@ -244,7 +244,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send()
+        .send({ authWitnesses: [transferToPublicAuhtwit] })
         .wait();
 
       const swapPrivateFunction = 'swap_private(address,uint256,uint24,address,uint256,bytes32,address)';
