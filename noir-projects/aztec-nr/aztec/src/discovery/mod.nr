@@ -3,6 +3,7 @@ use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryp
 use dep::protocol_types::{address::AztecAddress, debug_log::debug_log};
 
 pub mod private_logs;
+pub mod private_notes;
 pub mod partial_notes;
 pub mod nonce_discovery;
 
