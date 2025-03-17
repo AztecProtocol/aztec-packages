@@ -6,7 +6,6 @@ import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { type ZodFor, schemas } from '../schemas/index.js';
-import { TxHash } from '../tx/tx_hash.js';
 import { Note } from './note.js';
 
 /**
@@ -22,12 +21,10 @@ export class ExtendedNote {
     public contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
     public storageSlot: Fr,
-    /** The hash of the tx the note was created in. */
-    public txHash: TxHash,
   ) {}
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.note, this.recipient, this.contractAddress, this.storageSlot, this.txHash]);
+    return serializeToBuffer([this.note, this.recipient, this.contractAddress, this.storageSlot]);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -37,9 +34,8 @@ export class ExtendedNote {
     const recipient = reader.readObject(AztecAddress);
     const contractAddress = reader.readObject(AztecAddress);
     const storageSlot = reader.readObject(Fr);
-    const txHash = reader.readObject(TxHash);
 
-    return new this(note, recipient, contractAddress, storageSlot, txHash);
+    return new this(note, recipient, contractAddress, storageSlot);
   }
 
   static get schema(): ZodFor<ExtendedNote> {
@@ -49,10 +45,9 @@ export class ExtendedNote {
         recipient: schemas.AztecAddress,
         contractAddress: schemas.AztecAddress,
         storageSlot: schemas.Fr,
-        txHash: TxHash.schema,
       })
-      .transform(({ note, recipient, contractAddress, storageSlot, txHash }) => {
-        return new ExtendedNote(note, recipient, contractAddress, storageSlot, txHash);
+      .transform(({ note, recipient, contractAddress, storageSlot }) => {
+        return new ExtendedNote(note, recipient, contractAddress, storageSlot);
       });
   }
 
@@ -65,13 +60,7 @@ export class ExtendedNote {
   }
 
   static async random() {
-    return new ExtendedNote(
-      Note.random(),
-      await AztecAddress.random(),
-      await AztecAddress.random(),
-      Fr.random(),
-      TxHash.random(),
-    );
+    return new ExtendedNote(Note.random(), await AztecAddress.random(), await AztecAddress.random(), Fr.random());
   }
 }
 
@@ -85,12 +74,10 @@ export class UniqueNote extends ExtendedNote {
     contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
     storageSlot: Fr,
-    /** The hash of the tx the note was created in. */
-    txHash: TxHash,
     /** The nonce of the note. */
     public nonce: Fr,
   ) {
-    super(note, recipient, contractAddress, storageSlot, txHash);
+    super(note, recipient, contractAddress, storageSlot);
   }
 
   static override get schema() {
@@ -100,23 +87,15 @@ export class UniqueNote extends ExtendedNote {
         recipient: schemas.AztecAddress,
         contractAddress: schemas.AztecAddress,
         storageSlot: schemas.Fr,
-        txHash: TxHash.schema,
         nonce: schemas.Fr,
       })
-      .transform(({ note, recipient, contractAddress, storageSlot, txHash, nonce }) => {
-        return new UniqueNote(note, recipient, contractAddress, storageSlot, txHash, nonce);
+      .transform(({ note, recipient, contractAddress, storageSlot, nonce }) => {
+        return new UniqueNote(note, recipient, contractAddress, storageSlot, nonce);
       });
   }
 
   override toBuffer(): Buffer {
-    return serializeToBuffer([
-      this.note,
-      this.recipient,
-      this.contractAddress,
-      this.storageSlot,
-      this.txHash,
-      this.nonce,
-    ]);
+    return serializeToBuffer([this.note, this.recipient, this.contractAddress, this.storageSlot, this.nonce]);
   }
 
   static override async random() {
@@ -125,7 +104,6 @@ export class UniqueNote extends ExtendedNote {
       await AztecAddress.random(),
       await AztecAddress.random(),
       Fr.random(),
-      TxHash.random(),
       Fr.random(),
     );
   }
@@ -137,10 +115,9 @@ export class UniqueNote extends ExtendedNote {
     const recipient = reader.readObject(AztecAddress);
     const contractAddress = reader.readObject(AztecAddress);
     const storageSlot = reader.readObject(Fr);
-    const txHash = reader.readObject(TxHash);
     const nonce = reader.readObject(Fr);
 
-    return new this(note, recipient, contractAddress, storageSlot, txHash, nonce);
+    return new this(note, recipient, contractAddress, storageSlot, nonce);
   }
 
   static override fromString(str: string) {

@@ -39,10 +39,6 @@ export class NoteDao implements NoteData {
     public siloedNullifier: Fr,
 
     // Metadata
-    /** The hash of the tx in which this note was created. Knowing the tx hash allows for efficient node queries e.g.
-     *  when searching for txEffects.
-     */
-    public txHash: TxHash,
     /** The L2 block number in which the tx with this note was included. Used for note management while processing
      * reorgs.*/
     public l2BlockNumber: number,
@@ -66,7 +62,6 @@ export class NoteDao implements NoteData {
       this.nonce,
       this.noteHash,
       this.siloedNullifier,
-      this.txHash,
       this.l2BlockNumber,
       Fr.fromHexString(this.l2BlockHash),
       this.index,
@@ -83,7 +78,6 @@ export class NoteDao implements NoteData {
     const nonce = Fr.fromBuffer(reader);
     const noteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
-    const txHash = reader.readObject(TxHash);
     const l2BlockNumber = reader.readNumber();
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const index = toBigIntBE(reader.readBytes(32));
@@ -96,7 +90,6 @@ export class NoteDao implements NoteData {
       nonce,
       noteHash,
       siloedNullifier,
-      txHash,
       l2BlockNumber,
       l2BlockHash,
       index,
@@ -130,7 +123,6 @@ export class NoteDao implements NoteData {
     nonce = Fr.random(),
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
-    txHash = TxHash.random(),
     l2BlockNumber = Math.floor(Math.random() * 1000),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
@@ -143,7 +135,6 @@ export class NoteDao implements NoteData {
       nonce,
       noteHash,
       siloedNullifier,
-      txHash,
       l2BlockNumber,
       l2BlockHash,
       index,

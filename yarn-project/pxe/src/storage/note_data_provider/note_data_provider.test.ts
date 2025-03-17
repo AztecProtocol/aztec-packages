@@ -3,7 +3,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
-import { randomTxHash } from '@aztec/stdlib/testing';
 
 import times from 'lodash.times';
 
@@ -36,9 +35,6 @@ describe('NoteDataProvider', () => {
       () => Promise.resolve(notes.filter(note => note.storageSlot.equals(storageSlots[0]))),
     ],
     [() => Promise.resolve({ storageSlot: Fr.random() }), () => Promise.resolve([])],
-
-    [() => Promise.resolve({ txHash: notes[0].txHash }), () => Promise.resolve([notes[0]])],
-    [() => Promise.resolve({ txHash: randomTxHash() }), () => Promise.resolve([])],
 
     [
       () => Promise.resolve({ recipient: recipients[0] }),

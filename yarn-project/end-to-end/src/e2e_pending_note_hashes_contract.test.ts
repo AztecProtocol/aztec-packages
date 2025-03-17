@@ -290,12 +290,10 @@ describe('e2e_pending_note_hashes_contract', () => {
     const sender = owner;
     // Add a note of value 10, with a note log
     // Then emit another note log with the same counter as the one above, but with value 5
-    const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, sender).send().wait();
+    const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, sender).send().wait({ debug: true });
 
     await deployedContract.methods.sync_notes().simulate();
 
-    const notes = await wallet.getNotes({ txHash: txReceipt.txHash });
-
-    expect(notes.length).toBe(1);
+    expect(txReceipt.debugInfo?.noteHashes.length).toBe(1);
   });
 });

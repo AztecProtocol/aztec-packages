@@ -4,7 +4,6 @@ import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type ZodFor, schemas } from '../schemas/index.js';
-import { TxHash } from '../tx/tx_hash.js';
 import { NoteStatus } from './note_status.js';
 
 /**
@@ -12,8 +11,6 @@ import { NoteStatus } from './note_status.js';
  * @remarks This filter is applied as an intersection of all its params.
  */
 export type NotesFilter = {
-  /** Hash of a transaction from which to fetch the notes. */
-  txHash?: TxHash;
   /** The contract address the note belongs to. */
   contractAddress?: AztecAddress;
   /** The specific storage location of the note on the contract. */
@@ -29,7 +26,6 @@ export type NotesFilter = {
 };
 
 export const NotesFilterSchema: ZodFor<NotesFilter> = z.object({
-  txHash: TxHash.schema.optional(),
   contractAddress: schemas.AztecAddress.optional(),
   storageSlot: schemas.Fr.optional(),
   recipient: schemas.AztecAddress.optional(),

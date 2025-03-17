@@ -453,7 +453,7 @@ export class PXEService implements PXE {
         }
         recipient = completeAddress.address;
       }
-      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.nonce);
+      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.nonce);
     });
     return Promise.all(extendedNotes);
   }

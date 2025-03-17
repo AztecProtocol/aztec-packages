@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [aztec.js] Dropping note filtration by `TxHash`
+It's no longer possible to filter notes by `TxHash`.
+The utility of this feature has been low and it made the code less efficient.
+
 ### [PXE] Concurrent contract function simulation disabled
 
 PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.

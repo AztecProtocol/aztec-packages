@@ -47,7 +47,6 @@ export const randomExtendedNote = async ({
   note = Note.random(),
   recipient = undefined,
   contractAddress = undefined,
-  txHash = randomTxHash(),
   storageSlot = Fr.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(
@@ -55,7 +54,6 @@ export const randomExtendedNote = async ({
     recipient ?? (await AztecAddress.random()),
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
-    txHash,
   );
 };
 
@@ -63,7 +61,6 @@ export const randomUniqueNote = async ({
   note = Note.random(),
   recipient = undefined,
   contractAddress = undefined,
-  txHash = randomTxHash(),
   storageSlot = Fr.random(),
   nonce = Fr.random(),
 }: Partial<UniqueNote> = {}) => {
@@ -72,7 +69,6 @@ export const randomUniqueNote = async ({
     recipient ?? (await AztecAddress.random()),
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
-    txHash,
     nonce,
   );
 };

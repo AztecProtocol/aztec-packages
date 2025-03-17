@@ -159,22 +159,15 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // 2) We donate to the crowdfunding contract
     {
-      const donateTxReceipt = await crowdfundingContract
-        .withWallet(donorWallets[0])
-        .methods.donate(donationAmount)
-        .send()
-        .wait({
-          debug: true,
-        });
+      await crowdfundingContract.withWallet(donorWallets[0]).methods.donate(donationAmount).send().wait();
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
       await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
-      const notes = await donorWallets[0].getNotes({ txHash: donateTxReceipt.txHash });
-      const filteredNotes = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
-      expect(filteredNotes!.length).toEqual(1);
+      const notes = await donorWallets[0].getNotes({ contractAddress: crowdfundingContract.address });
+      expect(notes.length).toEqual(1);
 
       // Set the UintNote in a format which can be passed to claim function
-      uintNote = processUniqueNote(filteredNotes![0]);
+      uintNote = processUniqueNote(notes[0]);
     }
 
     // 3) We claim the reward token via the Claim contract
@@ -234,22 +227,14 @@ describe('e2e_crowdfunding_and_claim', () => {
     }
 
     // 2) We donate to the crowdfunding contract
-    const donateTxReceipt = await crowdfundingContract
-      .withWallet(donorWallet)
-      .methods.donate(donationAmount)
-      .send()
-      .wait({
-        debug: true,
-      });
+    await crowdfundingContract.withWallet(donorWallet).methods.donate(donationAmount).send().wait();
 
-    // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
+    // Get the latest note emitted by the Crowdfunding contract
     await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_notes().simulate();
-    const notes = await unrelatedWallet.getNotes({ txHash: donateTxReceipt.txHash });
-    const filtered = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
-    expect(filtered!.length).toEqual(1);
+    const notes = await unrelatedWallet.getNotes({ contractAddress: crowdfundingContract.address });
 
     // Set the UintNote in a format which can be passed to claim function
-    const anotherDonationNote = processUniqueNote(filtered![0]);
+    const anotherDonationNote = processUniqueNote(notes[notes.length - 1]);
 
     // 3) We try to claim the reward token via the Claim contract with the unrelated wallet
     {
@@ -288,12 +273,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     const arbitraryStorageSlot = 69;
     {
       const [arbitraryValue, sender] = [5n, owner];
-      const receipt = await testContract.methods
-        .call_create_note(arbitraryValue, owner, sender, arbitraryStorageSlot)
-        .send()
-        .wait({ debug: true });
+      await testContract.methods.call_create_note(arbitraryValue, owner, sender, arbitraryStorageSlot).send().wait();
       await testContract.methods.sync_notes().simulate();
-      const notes = await wallets[0].getNotes({ txHash: receipt.txHash });
+      const notes = await wallets[0].getNotes({ contractAddress: testContract.address });
       expect(notes.length).toEqual(1);
       note = processUniqueNote(notes[0]);
     }

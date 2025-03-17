@@ -3,7 +3,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
-import { type ExtendedNote, NoteStatus } from '@aztec/stdlib/note';
+import type { ExtendedNote } from '@aztec/stdlib/note';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
@@ -40,11 +40,7 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effectsInBlock, getNotes] = await Promise.all([
-    pxe.getTxReceipt(txHash),
-    pxe.getTxEffect(txHash),
-    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
-  ]);
+  const [receipt, effectsInBlock] = await Promise.all([pxe.getTxReceipt(txHash), pxe.getTxEffect(txHash)]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
   log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);
@@ -85,16 +81,10 @@ export async function inspectTx(
   }
 
   // Created notes
-  const notes = effects.noteHashes;
-  if (notes.length > 0) {
+  const noteHashes = effects.noteHashes;
+  if (noteHashes.length > 0) {
     log(' Created notes:');
-    log(`  Total: ${notes.length}. Found: ${getNotes.length}.`);
-    if (getNotes.length) {
-      log('  Found notes:');
-      for (const note of getNotes) {
-        inspectNote(note, artifactMap, log);
-      }
-    }
+    log(`  Total: ${noteHashes.length}.`);
   }
 
   // Nullifiers

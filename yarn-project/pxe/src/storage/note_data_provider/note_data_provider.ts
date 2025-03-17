@@ -20,7 +20,6 @@ export class NoteDataProvider implements DataProvider {
   #nullifiedNotesToScope: AztecAsyncMultiMap<string, string>;
   #nullifiedNotesByContract: AztecAsyncMultiMap<string, string>;
   #nullifiedNotesByStorageSlot: AztecAsyncMultiMap<string, string>;
-  #nullifiedNotesByTxHash: AztecAsyncMultiMap<string, string>;
   #nullifiedNotesByRecipient: AztecAsyncMultiMap<string, string>;
   #nullifiedNotesByNullifier: AztecAsyncMap<string, string>;
 
@@ -28,7 +27,6 @@ export class NoteDataProvider implements DataProvider {
   #notesToScope: AztecAsyncMultiMap<string, string>;
   #notesByContractAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
   #notesByStorageSlotAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
-  #notesByTxHashAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
   #notesByRecipientAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
 
   private constructor(store: AztecAsyncKVStore) {
@@ -41,7 +39,6 @@ export class NoteDataProvider implements DataProvider {
     this.#nullifiedNotesToScope = store.openMultiMap('nullified_notes_to_scope');
     this.#nullifiedNotesByContract = store.openMultiMap('nullified_notes_by_contract');
     this.#nullifiedNotesByStorageSlot = store.openMultiMap('nullified_notes_by_storage_slot');
-    this.#nullifiedNotesByTxHash = store.openMultiMap('nullified_notes_by_tx_hash');
     this.#nullifiedNotesByRecipient = store.openMultiMap('nullified_notes_by_recipient');
     this.#nullifiedNotesByNullifier = store.openMap('nullified_notes_by_nullifier');
 
@@ -49,7 +46,6 @@ export class NoteDataProvider implements DataProvider {
     this.#notesToScope = store.openMultiMap('notes_to_scope');
     this.#notesByContractAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
     this.#notesByStorageSlotAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
-    this.#notesByTxHashAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
     this.#notesByRecipientAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
   }
 
@@ -58,7 +54,6 @@ export class NoteDataProvider implements DataProvider {
     for await (const scope of pxeDB.#scopes.keysAsync()) {
       pxeDB.#notesByContractAndScope.set(scope, store.openMultiMap(`${scope}:notes_by_contract`));
       pxeDB.#notesByStorageSlotAndScope.set(scope, store.openMultiMap(`${scope}:notes_by_storage_slot`));
-      pxeDB.#notesByTxHashAndScope.set(scope, store.openMultiMap(`${scope}:notes_by_tx_hash`));
       pxeDB.#notesByRecipientAndScope.set(scope, store.openMultiMap(`${scope}:notes_by_recipient`));
     }
     return pxeDB;
@@ -74,7 +69,6 @@ export class NoteDataProvider implements DataProvider {
     await this.#scopes.set(scopeString, true);
     this.#notesByContractAndScope.set(scopeString, this.#store.openMultiMap(`${scopeString}:notes_by_contract`));
     this.#notesByStorageSlotAndScope.set(scopeString, this.#store.openMultiMap(`${scopeString}:notes_by_storage_slot`));
-    this.#notesByTxHashAndScope.set(scopeString, this.#store.openMultiMap(`${scopeString}:notes_by_tx_hash`));
     this.#notesByRecipientAndScope.set(scopeString, this.#store.openMultiMap(`${scopeString}:notes_by_recipient`));
 
     return true;
@@ -98,7 +92,6 @@ export class NoteDataProvider implements DataProvider {
 
         await this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
         await this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
-        await this.#notesByTxHashAndScope.get(scope.toString())!.set(dao.txHash.toString(), noteIndex);
         await this.#notesByRecipientAndScope.get(scope.toString())!.set(dao.recipient.toString(), noteIndex);
       }
     });
@@ -117,7 +110,6 @@ export class NoteDataProvider implements DataProvider {
           const scopes = await toArray(this.#scopes.keysAsync());
           for (const scope of scopes) {
             await this.#notesByRecipientAndScope.get(scope)!.deleteValue(noteDao.recipient.toString(), noteIndex);
-            await this.#notesByTxHashAndScope.get(scope)!.deleteValue(noteDao.txHash.toString(), noteIndex);
             await this.#notesByContractAndScope.get(scope)!.deleteValue(noteDao.contractAddress.toString(), noteIndex);
             await this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(noteDao.storageSlot.toString(), noteIndex);
           }
@@ -159,7 +151,6 @@ export class NoteDataProvider implements DataProvider {
         for (const scope of scopes) {
           await this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
           await this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
-          await this.#notesByTxHashAndScope.get(scope.toString())!.set(dao.txHash.toString(), noteIndex);
           await this.#notesByRecipientAndScope.get(scope.toString())!.set(dao.recipient.toString(), noteIndex);
           await this.#notesToScope.set(noteIndex, scope);
         }
@@ -169,7 +160,6 @@ export class NoteDataProvider implements DataProvider {
         await this.#nullifiersByBlockNumber.deleteValue(dao.l2BlockNumber, dao.siloedNullifier.toString());
         await this.#nullifiedNotesByContract.deleteValue(dao.contractAddress.toString(), noteIndex);
         await this.#nullifiedNotesByStorageSlot.deleteValue(dao.storageSlot.toString(), noteIndex);
-        await this.#nullifiedNotesByTxHash.deleteValue(dao.txHash.toString(), noteIndex);
         await this.#nullifiedNotesByRecipient.deleteValue(dao.recipient.toString(), noteIndex);
         await this.#nullifiedNotesByNullifier.delete(dao.siloedNullifier.toString());
       }
@@ -198,10 +188,6 @@ export class NoteDataProvider implements DataProvider {
           ? await toArray(
               this.#notesByRecipientAndScope.get(formattedScopeString)!.getValuesAsync(filter.recipient.toString()),
             )
-          : filter.txHash
-          ? await toArray(
-              this.#notesByTxHashAndScope.get(formattedScopeString)!.getValuesAsync(filter.txHash.toString()),
-            )
           : filter.contractAddress
           ? await toArray(
               this.#notesByContractAndScope
@@ -225,8 +211,6 @@ export class NoteDataProvider implements DataProvider {
       candidateNoteSources.push({
         ids: filter.recipient
           ? await toArray(this.#nullifiedNotesByRecipient.getValuesAsync(filter.recipient.toString()))
-          : filter.txHash
-          ? await toArray(this.#nullifiedNotesByTxHash.getValuesAsync(filter.txHash.toString()))
           : filter.contractAddress
           ? await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()))
           : filter.storageSlot
@@ -246,10 +230,6 @@ export class NoteDataProvider implements DataProvider {
 
         const note = NoteDao.fromBuffer(serializedNote);
         if (filter.contractAddress && !note.contractAddress.equals(filter.contractAddress)) {
-          continue;
-        }
-
-        if (filter.txHash && !note.txHash.equals(filter.txHash)) {
           continue;
         }
 
@@ -309,7 +289,6 @@ export class NoteDataProvider implements DataProvider {
 
         for (const scope of scopes) {
           await this.#notesByRecipientAndScope.get(scope)!.deleteValue(note.recipient.toString(), noteIndex);
-          await this.#notesByTxHashAndScope.get(scope)!.deleteValue(note.txHash.toString(), noteIndex);
           await this.#notesByContractAndScope.get(scope)!.deleteValue(note.contractAddress.toString(), noteIndex);
           await this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(note.storageSlot.toString(), noteIndex);
         }
@@ -323,7 +302,6 @@ export class NoteDataProvider implements DataProvider {
         await this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());
         await this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
         await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
-        await this.#nullifiedNotesByTxHash.set(note.txHash.toString(), noteIndex);
         await this.#nullifiedNotesByRecipient.set(note.recipient.toString(), noteIndex);
         await this.#nullifiedNotesByNullifier.set(nullifier.toString(), noteIndex);
 
