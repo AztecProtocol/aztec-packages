@@ -152,6 +152,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them
         // from Montgomery
         std::sort(current_vector.begin(), current_vector.end());
+        ASSERT(current_vector.size() == full_circuit_size - full_masking_offset);
         // Copy the values into the actual polynomial
         ordered_constraint_polynomials[i].copy_vector(current_vector);
     };
@@ -210,6 +211,7 @@ void TranslatorProvingKey::compute_extra_range_constraint_numerator()
 
     // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
     size_t sorted_elements_count = (MAX_VALUE / Flavor::SORT_STEP) + 1 + (MAX_VALUE % Flavor::SORT_STEP == 0 ? 0 : 1);
+    info("Sorted elements count: ", sorted_elements_count * (Flavor::NUM_INTERLEAVED_WIRES + 1));
 
     // Check that we can fit every element in the polynomial
     ASSERT((Flavor::NUM_INTERLEAVED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
