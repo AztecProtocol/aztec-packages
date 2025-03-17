@@ -2,7 +2,7 @@ import { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness, type MerkleTree } from '@aztec/foundation/trees';
-import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import {
   type ContractClassWithId,
   computePrivateFunctionLeaf,
@@ -34,7 +34,7 @@ export class PrivateFunctionsTree {
    * @param selector - The function selector.
    * @returns The artifact object containing relevant information about the targeted function.
    */
-  public async getFunctionArtifact(selector: FunctionSelector) {
+  public async getFunctionArtifact(selector: FunctionSelector): Promise<FunctionArtifact> {
     const functionsAndSelectors = await Promise.all(
       this.artifact.functions.map(async f => ({
         f,

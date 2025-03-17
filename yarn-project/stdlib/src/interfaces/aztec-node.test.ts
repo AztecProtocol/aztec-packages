@@ -561,10 +561,10 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([[TxScopedL2Log.random()]]);
+    return [[await TxScopedL2Log.random()]];
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);

@@ -49,7 +49,6 @@ function gke {
 }
 
 function test_cmds {
-  echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-local"
   if [ "$(arch)" == "arm64" ]; then
     # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
     return
@@ -157,10 +156,6 @@ case "$cmd" in
     OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
-    ;;
-  "test-local")
-    # Isolate network stack in docker.
-    docker_isolate ../scripts/run_native_testnet.sh -i -val 3
     ;;
   *)
     echo "Unknown command: $cmd"

@@ -57,7 +57,7 @@ function show_status_until_pxe_ready {
 show_status_until_pxe_ready &
 
 function cleanup {
-  trap - SIGTERM && kill $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill $(jobs -p) &>/dev/null && rm "$mnemonic_file" || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
@@ -94,7 +94,6 @@ if [ "$sepolia_deployment" = "true" ]; then
   ./prepare_sepolia_accounts.sh "$values_file" 1 "$mnemonic_file"
   echo "mnemonic: $mnemonic_file"
   L1_ACCOUNTS_MNEMONIC="$(cat "$mnemonic_file")"
-  echo "L1_ACCOUNTS_MNEMONIC: $L1_ACCOUNTS_MNEMONIC"
 
   # Escape the EXTERNAL_ETHEREUM_HOSTS value for Helm
   ESCAPED_HOSTS=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | sed 's/,/\\,/g' | sed 's/=/\\=/g')
@@ -107,11 +106,11 @@ if [ "$sepolia_deployment" = "true" ]; then
   )
 
   if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKey="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
+    helm_set_args+=(--set "ethereum.beacon.apiKey=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
   fi
 
   if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
+    helm_set_args+=(--set "ethereum.beacon.apiKeyHeader=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
   fi
   # set -x
 else

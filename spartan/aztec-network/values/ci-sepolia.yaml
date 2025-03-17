@@ -4,10 +4,10 @@ aztec:
   realProofs: false
   l1DeploymentMnemonic: ""
   numberOfDefaultAccounts: 0
-  validatorKeyIndexStart: 0
-  proverKeyIndexStart: 3
-  botKeyIndexStart: 4
   l1Salt: ""
+
+network:
+  setupL2Contracts: false
 
 ethereum:
   chainId: "11155111"

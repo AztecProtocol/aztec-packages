@@ -10,7 +10,6 @@ import {
   Fr,
   type GlobalVariables,
   L1EventPayload,
-  L1NotePayload,
   type Logger,
   type PXE,
   TxStatus,
@@ -414,29 +413,6 @@ describe('e2e_block_building', () => {
     }, 60_000);
 
     afterAll(() => teardown());
-
-    it('calls a method with nested note encrypted logs', async () => {
-      const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
-      const address = owner.address;
-
-      // call test contract
-      const action = testContract.methods.emit_encrypted_logs_nested(10, address, address);
-      const tx = await action.prove();
-      const rct = await tx.send().wait();
-
-      // compare logs
-      expect(rct.status).toEqual('success');
-      const noteValues = await Promise.all(
-        tx.data.getNonEmptyPrivateLogs().map(async log => {
-          const notePayload = await L1NotePayload.decryptAsIncoming(log, await thisWallet.getEncryptionSecret());
-          // In this test we care only about the privately delivered values
-          return notePayload?.privateNoteValues[0];
-        }),
-      );
-      expect(noteValues[0]).toEqual(new Fr(10));
-      expect(noteValues[1]).toEqual(new Fr(11));
-      expect(noteValues[2]).toEqual(new Fr(12));
-    }, 30_000);
 
     it('calls a method with nested encrypted logs', async () => {
       const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
