@@ -64,6 +64,11 @@ function test_cmds {
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
   fi
+
+  if [ "$CI_NIGHTLY" -eq 1 ]; then
+    echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
+  fi
 }
 
 function test {
@@ -123,6 +128,16 @@ case "$cmd" in
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml four-epochs${NAME_POSTFIX:-}
+    ;;
+  "test-kind-4epochs-sepolia")
+    OVERRIDES="bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false SEPOLIA_RUN=true \
+      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci-sepolia.yaml four-epochs${NAME_POSTFIX:-}
+    ;;
+  "test-kind-proving")
+    OVERRIDES="bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/proving.test.ts ci.yaml proving${NAME_POSTFIX:-}
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
