@@ -103,7 +103,7 @@ class MegaFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
         bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
@@ -427,7 +427,7 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;

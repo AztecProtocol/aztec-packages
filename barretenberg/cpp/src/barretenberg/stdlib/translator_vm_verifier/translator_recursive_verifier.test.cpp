@@ -108,9 +108,11 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
         }
 
-        EXPECT_EQ(verifier.key->circuit_size, verification_key->circuit_size);
-        EXPECT_EQ(verifier.key->log_circuit_size, verification_key->log_circuit_size);
-        EXPECT_EQ(verifier.key->num_public_inputs, verification_key->num_public_inputs);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->circuit_size.get_value()), verification_key->circuit_size);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->log_circuit_size.get_value()),
+                  verification_key->log_circuit_size);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->num_public_inputs.get_value()),
+                  verification_key->num_public_inputs);
         for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), verification_key->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
