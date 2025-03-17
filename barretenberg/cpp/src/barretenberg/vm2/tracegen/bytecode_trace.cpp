@@ -248,10 +248,10 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     using C = Column;
     using simulation::BytecodeId;
     using simulation::InstructionFetchingEvent;
-    using simulation::InstructionFetchingError::INSTRUCTION_OUT_OF_RANGE;
-    using simulation::InstructionFetchingError::NO_ERROR;
-    using simulation::InstructionFetchingError::OPCODE_OUT_OF_RANGE;
-    using simulation::InstructionFetchingError::PC_OUT_OF_RANGE;
+    using simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
+    using simulation::InstrDeserializationError::NO_ERROR;
+    using simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE;
+    using simulation::InstrDeserializationError::PC_OUT_OF_RANGE;
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
@@ -293,7 +293,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
             }
 
             const uint8_t wire_opcode = bytecode_at(event.pc);
-            const bool wire_opcode_in_range = wire_opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL);
+            const bool wire_opcode_in_range =
+                event.error != PC_OUT_OF_RANGE && wire_opcode < static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL);
             const auto wire_instr_spec = wire_opcode_in_range
                                              ? WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(wire_opcode))
                                              : WireInstructionSpec{ .exec_opcode = static_cast<ExecutionOpCode>(0),
@@ -401,7 +402,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                           { C::instr_fetching_parsing_err, event.error != NO_ERROR ? 1 : 0 },
 
                           // selector for lookups
-                          { C::instr_fetching_sel_lookup_bc_decomposition, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
+                          { C::instr_fetching_sel_opcode_defined, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
 
                           { C::instr_fetching_last_of_bytecode, is_last_of_bytecode ? 1 : 0 },
                           { C::instr_fetching_bc_id_diff_inv, bytecode_id_diff_inv },

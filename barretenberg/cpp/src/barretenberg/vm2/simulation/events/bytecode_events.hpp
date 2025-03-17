@@ -39,20 +39,13 @@ struct BytecodeRetrievalEvent {
     bool error = false;
 };
 
-enum class InstructionFetchingError : uint8_t {
-    NO_ERROR,
-    PC_OUT_OF_RANGE,
-    OPCODE_OUT_OF_RANGE,
-    INSTRUCTION_OUT_OF_RANGE,
-};
-
 struct InstructionFetchingEvent {
     BytecodeId bytecode_id;
     uint32_t pc;
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
-    InstructionFetchingError error = InstructionFetchingError::NO_ERROR;
+    InstrDeserializationError error = InstrDeserializationError::NO_ERROR;
 
     // To be used with deduplicating event emitters.
     using Key = std::tuple<BytecodeId, uint32_t>;

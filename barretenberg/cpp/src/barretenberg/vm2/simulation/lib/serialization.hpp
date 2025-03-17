@@ -66,7 +66,7 @@ class Operand {
 };
 
 struct Instruction {
-    WireOpCode opcode = WireOpCode::LAST_OPCODE_SENTINEL;
+    WireOpCode opcode = WireOpCode::ADD_8; // Opcode which value 0
     uint16_t indirect = 0;
     std::vector<Operand> operands;
 
@@ -77,6 +77,18 @@ struct Instruction {
     bool operator==(const Instruction& other) const = default;
 };
 
+enum class InstrDeserializationError : uint8_t {
+    NO_ERROR,
+    PC_OUT_OF_RANGE,
+    OPCODE_OUT_OF_RANGE,
+    INSTRUCTION_OUT_OF_RANGE,
+};
+
+struct InstructionWithError {
+    Instruction instruction;
+    InstrDeserializationError error = InstrDeserializationError::NO_ERROR;
+};
+
 /**
  * @brief Parsing of an instruction in the supplied bytecode at byte position pos. This
  *        checks that the WireOpCode value is in the defined range and extracts the operands
@@ -85,8 +97,8 @@ struct Instruction {
  * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
  * @param pos Bytecode position
  * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
- * @return The instruction
+ * @return The instruction enahnced with an error
  */
-Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
+InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
 
 } // namespace bb::avm2::simulation

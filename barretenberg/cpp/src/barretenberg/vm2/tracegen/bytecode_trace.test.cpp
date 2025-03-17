@@ -496,7 +496,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
                           ROW_FIELD_EQ(R,
                                        instr_fetching_bc_id_diff_inv,
                                        i == num_of_opcodes - 1 ? FF(FF::modulus - bytecode_id).invert() : 0),
-                          ROW_FIELD_EQ(R, instr_fetching_sel_lookup_bc_decomposition, 1)));
+                          ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1)));
     }
 }
 
@@ -567,21 +567,21 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
         .pc = 0,
         .instruction = testing::random_instruction(WireOpCode::ADD_8),
         .bytecode = bytecode_ptr,
-        .error = simulation::InstructionFetchingError::OPCODE_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 19,
         .instruction = testing::random_instruction(WireOpCode::ADD_8),
         .bytecode = bytecode_ptr,
-        .error = simulation::InstructionFetchingError::INSTRUCTION_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 38,
         .instruction = testing::random_instruction(WireOpCode::ADD_8),
         .bytecode = bytecode_ptr,
-        .error = simulation::InstructionFetchingError::PC_OUT_OF_RANGE,
+        .error = simulation::InstrDeserializationError::PC_OUT_OF_RANGE,
     });
 
     builder.process_instruction_fetching(events, trace);
@@ -592,29 +592,48 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
 
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_sel_lookup_bc_decomposition, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 20),
+                      ROW_FIELD_EQ(R, instr_fetching_bytes_remaining, 20),
+                      ROW_FIELD_EQ(R, instr_fetching_instr_size, 0),
+                      ROW_FIELD_EQ(R,
+                                   instr_fetching_instr_abs_diff,
+                                   20), // instr_size <= bytes_to_read: bytes_to_read - instr_size
                       ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 19),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_lo, 19),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_hi, 0),
                       ROW_FIELD_EQ(R, instr_fetching_opcode_out_of_range, 1)));
 
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_sel_lookup_bc_decomposition, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 19), // OR_16 opcode
                       ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 1),
                       ROW_FIELD_EQ(R, instr_fetching_bytes_remaining, 1),
                       ROW_FIELD_EQ(R, instr_fetching_instr_size, 8), // OR_16 is 8 bytes long
                       ROW_FIELD_EQ(R,
                                    instr_fetching_instr_abs_diff,
-                                   6), // instr_size < bytes_to_read: bytes_to_read - instr_size - 1
+                                   6), // instr_size > bytes_to_read: instr_size - bytes_to_read - 1
                       ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_lo, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_hi, 0),
                       ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 1)));
 
     EXPECT_THAT(rows.at(3),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_sel_lookup_bc_decomposition, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 0),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 38),
+                      ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_bytes_remaining, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_instr_size, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_instr_abs_diff, 0),
                       ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 18),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_lo, 18),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_hi, 0),
                       ROW_FIELD_EQ(R, instr_fetching_pc_out_of_range, 1)));
 }
 

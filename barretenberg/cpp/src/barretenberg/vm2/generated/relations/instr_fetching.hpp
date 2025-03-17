@@ -134,7 +134,7 @@ template <typename FF_> class instr_fetchingImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = (new_term.instr_fetching_sel_lookup_bc_decomposition -
+            auto tmp = (new_term.instr_fetching_sel_opcode_defined -
                         new_term.instr_fetching_sel * (FF(1) - new_term.instr_fetching_pc_out_of_range));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);

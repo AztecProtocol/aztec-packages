@@ -69,7 +69,7 @@ pol commit instr_abs_diff;
 // From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
 instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
 
-#[ABS_DIFF_POSITIVE]
+#[INSTR_ABS_DIFF_POSITIVE]
 sel {instr_abs_diff} in precomputed.sel_range_8 {precomputed.clk};
 
 // We have to enforce that: pc < bytecode_size <==> pc_out_of_range == 0
@@ -104,13 +104,13 @@ pol commit bd0, bd1, bd2, bd3, bd4,
            bd36;
 
 // selector for lookup to bc_decomposition.pil
-pol commit sel_lookup_bc_decomposition;
+pol commit sel_opcode_defined;
 // Toggled except when pc is out of range.
-sel_lookup_bc_decomposition = sel * (1 - pc_out_of_range);
+sel_opcode_defined = sel * (1 - pc_out_of_range);
 
 // Bring in the bytes from the bytecode columns.
 #[BYTES_FROM_BC_DEC]
-sel_lookup_bc_decomposition {
+sel_opcode_defined {
      pc,
      bytecode_id,
      bytes_remaining,
@@ -167,7 +167,7 @@ pol commit sel_op_dc_16;
 pol commit sel_op_dc_17;
 
 #[WIRE_INSTRUCTION_INFO]
-sel {
+sel_opcode_defined {
      bd0,
      opcode_out_of_range,
      exec_opcode,

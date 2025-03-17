@@ -10,11 +10,11 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_instr_fetching_abs_diff_positive ///////////////////
+/////////////////// lookup_instr_fetching_instr_abs_diff_positive ///////////////////
 
-class lookup_instr_fetching_abs_diff_positive_settings {
+class lookup_instr_fetching_instr_abs_diff_positive_settings {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_ABS_DIFF_POSITIVE";
+    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_INSTR_ABS_DIFF_POSITIVE";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
 
     static constexpr size_t READ_TERMS = 1;
@@ -29,8 +29,8 @@ class lookup_instr_fetching_abs_diff_positive_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
-    static constexpr Column COUNTS = Column::lookup_instr_fetching_abs_diff_positive_counts;
-    static constexpr Column INVERSES = Column::lookup_instr_fetching_abs_diff_positive_inv;
+    static constexpr Column COUNTS = Column::lookup_instr_fetching_instr_abs_diff_positive_counts;
+    static constexpr Column INVERSES = Column::lookup_instr_fetching_instr_abs_diff_positive_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::instr_fetching_instr_abs_diff
     };
@@ -62,8 +62,8 @@ class lookup_instr_fetching_abs_diff_positive_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_abs_diff_positive_inv(),
-                                     in._lookup_instr_fetching_abs_diff_positive_counts(),
+        return std::forward_as_tuple(in._lookup_instr_fetching_instr_abs_diff_positive_inv(),
+                                     in._lookup_instr_fetching_instr_abs_diff_positive_counts(),
                                      in._instr_fetching_sel(),
                                      in._precomputed_sel_range_8(),
                                      in._instr_fetching_instr_abs_diff(),
@@ -72,16 +72,17 @@ class lookup_instr_fetching_abs_diff_positive_settings {
 };
 
 template <typename FF_>
-class lookup_instr_fetching_abs_diff_positive_relation
-    : public GenericLookupRelation<lookup_instr_fetching_abs_diff_positive_settings, FF_> {
+class lookup_instr_fetching_instr_abs_diff_positive_relation
+    : public GenericLookupRelation<lookup_instr_fetching_instr_abs_diff_positive_settings, FF_> {
   public:
-    using Settings = lookup_instr_fetching_abs_diff_positive_settings;
-    static constexpr std::string_view NAME = lookup_instr_fetching_abs_diff_positive_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_instr_fetching_abs_diff_positive_settings::RELATION_NAME;
+    using Settings = lookup_instr_fetching_instr_abs_diff_positive_settings;
+    static constexpr std::string_view NAME = lookup_instr_fetching_instr_abs_diff_positive_settings::NAME;
+    static constexpr std::string_view RELATION_NAME =
+        lookup_instr_fetching_instr_abs_diff_positive_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lookup_instr_fetching_abs_diff_positive_inv.is_zero();
+        return in.lookup_instr_fetching_instr_abs_diff_positive_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -284,7 +285,7 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_lookup_bc_decomposition;
+    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_opcode_defined;
     static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel;
     static constexpr Column COUNTS = Column::lookup_instr_fetching_bytes_from_bc_dec_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_bytes_from_bc_dec_inv;
@@ -377,14 +378,14 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel_lookup_bc_decomposition() == 1 || in._bc_decomposition_sel() == 1);
+        return (in._instr_fetching_sel_opcode_defined() == 1 || in._bc_decomposition_sel() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel_lookup_bc_decomposition());
+        const auto is_operation = View(in._instr_fetching_sel_opcode_defined());
         const auto is_table_entry = View(in._bc_decomposition_sel());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
@@ -403,7 +404,7 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
     {
         return std::forward_as_tuple(in._lookup_instr_fetching_bytes_from_bc_dec_inv(),
                                      in._lookup_instr_fetching_bytes_from_bc_dec_counts(),
-                                     in._instr_fetching_sel_lookup_bc_decomposition(),
+                                     in._instr_fetching_sel_opcode_defined(),
                                      in._bc_decomposition_sel(),
                                      in._instr_fetching_pc(),
                                      in._instr_fetching_bytecode_id(),
@@ -531,7 +532,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
+    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_opcode_defined;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_instr_fetching_wire_instruction_info_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_wire_instruction_info_inv;
@@ -564,14 +565,14 @@ class lookup_instr_fetching_wire_instruction_info_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in._instr_fetching_sel_opcode_defined() == 1 || in._precomputed_sel_range_8() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel());
+        const auto is_operation = View(in._instr_fetching_sel_opcode_defined());
         const auto is_table_entry = View(in._precomputed_sel_range_8());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
@@ -590,7 +591,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
     {
         return std::forward_as_tuple(in._lookup_instr_fetching_wire_instruction_info_inv(),
                                      in._lookup_instr_fetching_wire_instruction_info_counts(),
-                                     in._instr_fetching_sel(),
+                                     in._instr_fetching_sel_opcode_defined(),
                                      in._precomputed_sel_range_8(),
                                      in._instr_fetching_bd0(),
                                      in._instr_fetching_opcode_out_of_range(),

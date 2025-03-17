@@ -286,7 +286,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // 40 elements long.
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_abs_diff_positive_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_instr_abs_diff_positive_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_pc_abs_diff_positive_lo_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_pc_abs_diff_positive_hi_settings>>(),
             // Class Id Derivation
