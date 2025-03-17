@@ -97,8 +97,8 @@ export -f process_function
 function get_contract_hash {
   hash_str \
     $(../../noir/bootstrap.sh hash) \
-    $(../../avm-transpiler/bootstrap.sh hash) \
     $(cache_content_hash \
+      ../../avm-transpiler/.rebuild_patterns \
       "^noir-projects/noir-contracts/contracts/$1/" \
       "^noir-projects/aztec-nr/" \
       "^noir-projects/noir-protocol-circuits/crates/types/")

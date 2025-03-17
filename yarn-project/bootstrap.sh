@@ -10,8 +10,6 @@ function hash {
     $(cache_content_hash \
       ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
       ../barretenberg/*/.rebuild_patterns)
-
-
 }
 
 function compile_project {
