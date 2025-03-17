@@ -43,7 +43,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < polynomial.size(); i++) {
+        info(polynomial.size(), " ", polynomial.end_index());
+        for (size_t i = polynomial.start_index(); i < polynomial.end_index(); i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
     };
