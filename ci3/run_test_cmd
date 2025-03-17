@@ -40,6 +40,34 @@ EOF
 # Remove the tmp fail on exit.
 trap "rm -f $tmp_file" EXIT
 
+function publish_log {
+  cat $tmp_file | redis_setexz $log_key $CI_REDIS_EXPIRE
+}
+
+function live_publish_log {
+  # If the test takes longer than 30s, we enter a loop to publish the log every 5s.
+  sleep 30
+  echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
+  while [ -f $tmp_file ]; do
+    if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
+      publish_log
+    fi
+    sleep 5
+  done
+}
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  log_key=$(uuid)
+  log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+
+  if [ "$CI" -eq 1 ]; then
+    # If we're in CI, we want to publish the log live.
+    live_publish_log &
+    publish_pid=$!
+    trap "kill $publish_pid &>/dev/null" EXIT
+  fi
+fi
+
 # Run the test. Disable exit on error. Handle timeout override in the test_cmd.
 set +e
 if [[ "$test_cmd" = timeout* ]]; then
@@ -53,19 +81,20 @@ wait $timeout_pid
 code=$?
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  log_key=$(uuid)
-
   # If the test succeeded and we're using the test cache, set success flag for test. This key is unique to the test.
-  if [ $code -eq 0 ] && [ "$USE_TEST_CACHE" -eq 1 ]; then
-    redis_cli SETEX $key 604800 $log_key &>/dev/null
-  fi
-
-  # If the test failed OR it succeeded and we're running in CI, save the test log.
-  # It's not worth spamming redis for local runs of tests that succeed.
-  if [ $code -ne 0 ] || [ "${CI:-0}" -eq 1 ]; then
-    # Set the test log. This key is globally unique.
-    cat $tmp_file | redis_setexz $log_key $CI_REDIS_EXPIRE
-    log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+  # If the test succeeded and we're in CI, save the test log.
+  # If the test failed, save the test log.
+  if [ $code -eq 0 ]; then
+    if [ "$USE_TEST_CACHE" -eq 1 ]; then
+      redis_cli SETEX $key 604800 $log_key &>/dev/null
+    fi
+    if [ "$CI" -eq 1 ]; then
+      publish_log
+    else
+      log_info=""
+    fi
+  else
+    publish_log
   fi
 fi
 
@@ -98,11 +127,12 @@ function flake {
     "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
-  curl -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-    -H "Content-type: application/json" \
-    --data "$data" &>/dev/null
-
+  if [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+    curl -X POST https://slack.com/api/chat.postMessage \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+      -H "Content-type: application/json" \
+      --data "$data" &>/dev/null
+  fi
   exit
 }
 

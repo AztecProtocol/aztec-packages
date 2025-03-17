@@ -212,17 +212,11 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  "test")
-    test
-    ;;
-  "inspect")
-    inspect
-    ;;
   "gas_report")
     shift
     gas_report "$@"
     ;;
-  test_cmds|release)
+  test|test_cmds|inspect|release)
     $cmd
     ;;
   "hash")

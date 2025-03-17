@@ -25,8 +25,9 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # exclusive with ci3-external.yml: if it is a pull request target only run if it is NOT a fork.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # exclusive with ci3-external.yml: never run on forks
+    # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
+    if: github.event.pull_request.head.repo.fork != true
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     strategy:
       fail-fast: false
@@ -47,6 +48,8 @@ jobs:
         with:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Include previous commit for master history comparisons.
+          fetch-depth: 2
 
       - name: Fail If Draft
         if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
@@ -89,12 +92,11 @@ jobs:
       - name: Download benchmarks
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         run: |
-          ./ci3/cache_download barretenberg-bench-results-$(git rev-parse HEAD).tar.gz
-          ./ci3/cache_download yarn-project-bench-results-$(git rev-parse HEAD).tar.gz
-          # ./ci3/cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+          # Note: sets SKIP_BB_BENCH in GITHUB_ENV for below step.
+          ./ci.sh gh-bench
 
       - name: Store barretenberg benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_BB_BENCH != 'true'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:

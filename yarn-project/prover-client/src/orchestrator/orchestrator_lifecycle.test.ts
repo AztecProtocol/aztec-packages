@@ -6,6 +6,8 @@ import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 
+// TODO(#12613) This means of sharing test code is not ideal.
+// eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';

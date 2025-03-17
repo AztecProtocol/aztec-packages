@@ -1,7 +1,7 @@
 import { Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
 import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
@@ -57,11 +57,11 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     return txRequest;
   }
 
-  private getEntrypointAbi() {
+  private getEntrypointAbi(): FunctionAbi {
     return {
       name: 'entrypoint',
       isInitializer: false,
-      functionType: 'private',
+      functionType: FunctionType.PRIVATE,
       isInternal: false,
       isStatic: false,
       parameters: [
@@ -120,6 +120,6 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       ],
       returnTypes: [],
       errorTypes: {},
-    } as FunctionAbi;
+    } as const;
   }
 }
