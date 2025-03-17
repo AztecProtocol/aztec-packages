@@ -345,7 +345,11 @@ template <typename Fr> class Polynomial {
      *
      * @return std::span<Fr> a span covering start_index() to end_index()
      */
-    std::span<Fr> coeffs(size_t offset = 0) { return { data() + offset, data() + size() }; }
+    std::span<Fr> coeffs(size_t offset = 0)
+    {
+        info("ensure size is gud: ", size());
+        return { data() + offset, data() + size() };
+    }
     std::span<const Fr> coeffs(size_t offset = 0) const { return { data() + offset, data() + size() }; }
     /**
      * @brief Convert to an std::span bundled with our start index.

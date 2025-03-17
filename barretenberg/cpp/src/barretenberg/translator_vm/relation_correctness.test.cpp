@@ -66,6 +66,63 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     // Compute the fixed numerator (part of verification key)
     key.compute_extra_range_constraint_numerator();
 
+    std::vector<FF> numerator_vec(prover_polynomials.interleaved_range_constraints_0.coeffs().begin(),
+                                  prover_polynomials.interleaved_range_constraints_0.coeffs().end());
+    numerator_vec.insert(numerator_vec.end(),
+                         prover_polynomials.interleaved_range_constraints_1.coeffs().begin(),
+                         prover_polynomials.interleaved_range_constraints_1.coeffs().end());
+    numerator_vec.insert(numerator_vec.end(),
+                         prover_polynomials.interleaved_range_constraints_2.coeffs().begin(),
+                         prover_polynomials.interleaved_range_constraints_2.coeffs().end());
+    numerator_vec.insert(numerator_vec.end(),
+                         prover_polynomials.interleaved_range_constraints_3.coeffs().begin(),
+                         prover_polynomials.interleaved_range_constraints_3.coeffs().end());
+    numerator_vec.insert(numerator_vec.end(),
+                         prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().begin(),
+                         prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().end());
+
+    std::vector<FF> denominator_vec(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
+                                    prover_polynomials.ordered_range_constraints_0.coeffs().end());
+    denominator_vec.insert(denominator_vec.end(),
+                           prover_polynomials.ordered_range_constraints_1.coeffs().begin(),
+                           prover_polynomials.ordered_range_constraints_1.coeffs().end());
+    denominator_vec.insert(denominator_vec.end(),
+                           prover_polynomials.ordered_range_constraints_2.coeffs().begin(),
+                           prover_polynomials.ordered_range_constraints_2.coeffs().end());
+    denominator_vec.insert(denominator_vec.end(),
+                           prover_polynomials.ordered_range_constraints_3.coeffs().begin(),
+                           prover_polynomials.ordered_range_constraints_3.coeffs().end());
+    denominator_vec.insert(denominator_vec.end(),
+                           prover_polynomials.ordered_range_constraints_4.coeffs().begin(),
+                           prover_polynomials.ordered_range_constraints_4.coeffs().end());
+    for (size_t i = 0; i < 5; i++) {
+        denominator_vec.emplace_back(FF(0));
+    }
+
+    std::vector<size_t> numerator(numerator_vec.size());
+    std::vector<size_t> denominator(denominator_vec.size());
+    std::transform(numerator_vec.begin(), numerator_vec.end(), numerator.begin(), [](const FF& ff) {
+        return static_cast<uint32_t>(uint256_t(ff));
+    });
+    std::transform(denominator_vec.begin(), denominator_vec.end(), denominator.begin(), [](const FF& ff) {
+        return static_cast<uint32_t>(uint256_t(ff));
+    });
+
+    std::sort(numerator.begin(), numerator.end());
+    std::sort(denominator.begin(), denominator.end());
+
+    bool first = true;
+    for (size_t i = 0; i < numerator.size(); i++) {
+        if (numerator[i] != denominator[i]) {
+            if (first) {
+                info("am I ever here?");
+                std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
+                std::cout << "denominator[" << i << "] = " << denominator[i] << std::endl;
+                first = false;
+            }
+        }
+    }
+
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
 
@@ -727,8 +784,9 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     using Flavor = TranslatorFlavor;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    auto& engine = numeric::get_debug_randomness();
+
     const size_t mini_circuit_size = 2048;
+    auto& engine = numeric::get_debug_randomness();
     const size_t circuit_size = mini_circuit_size * Flavor::INTERLEAVING_GROUP_SIZE;
 
     TranslatorProvingKey key{ mini_circuit_size };
@@ -778,10 +836,13 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
         auto& interleaved = prover_polynomials.get_interleaved()[i];
         for (size_t j = circuit_size - full_masking_offset; j < circuit_size; j++) {
             ASSERT(ordered.at(j) == FF(0));
+            ASSERT(interleaved.at(j) == FF(666666));
             ordered.at(j) = interleaved.at(j);
+            ASSERT(ordered.at(j) == FF(666666));
         }
     }
 
+    ASSERT(prover_polynomials.ordered_range_constraints_4.at(circuit_size - full_masking_offset - 1) != FF(0));
     for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
         FF random_value = FF(666666);
         ASSERT(prover_polynomials.ordered_extra_range_constraints_numerator.at(i) == FF(0) &&
@@ -789,19 +850,19 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
         prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = random_value;
         prover_polynomials.ordered_range_constraints_4.at(i) = random_value;
     }
-    std::vector<FF> numerator_vec(prover_polynomials.interleaved_range_constraints_0.coeffs().begin() + 1,
+    std::vector<FF> numerator_vec(prover_polynomials.interleaved_range_constraints_0.coeffs().begin(),
                                   prover_polynomials.interleaved_range_constraints_0.coeffs().end());
     numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_1.coeffs().begin() + 1,
+                         prover_polynomials.interleaved_range_constraints_1.coeffs().begin(),
                          prover_polynomials.interleaved_range_constraints_1.coeffs().end());
     numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_2.coeffs().begin() + 1,
+                         prover_polynomials.interleaved_range_constraints_2.coeffs().begin(),
                          prover_polynomials.interleaved_range_constraints_2.coeffs().end());
     numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_3.coeffs().begin() + 1,
+                         prover_polynomials.interleaved_range_constraints_3.coeffs().begin(),
                          prover_polynomials.interleaved_range_constraints_3.coeffs().end());
     numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().begin() + 1,
+                         prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().begin(),
                          prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().end());
 
     std::vector<FF> denominator_vec(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
@@ -818,6 +879,9 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     denominator_vec.insert(denominator_vec.end(),
                            prover_polynomials.ordered_range_constraints_4.coeffs().begin(),
                            prover_polynomials.ordered_range_constraints_4.coeffs().end());
+    for (size_t i = 0; i < 5; i++) {
+        denominator_vec.emplace_back(FF(0));
+    }
     info(numerator_vec.size());
     info(denominator_vec.size());
     // ASSERT(numerator_vec.size() == denominator_vec.size());
@@ -833,31 +897,34 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     std::sort(numerator.begin(), numerator.end());
     std::sort(denominator.begin(), denominator.end());
 
-    // bool first = true;
-    for (size_t i = 0; i < denominator_vec.size(); i++) {
-        if (denominator[i] != 0) {
-            std::cout << "denominator[" << i << "] = " << denominator[i] << std::endl;
-            break;
-        }
-    }
-
-    for (size_t i = 0; i < numerator_vec.size(); i++) {
-        if (numerator[i] != 0) {
-            std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
-            break;
-        }
-    }
-
-    // bool first = true;
-    // for (size_t i = 5527; i < 5599; i++) {
-    //     if (numerator[i] != denominator[i]) {
-    //         // if (first) {
-    //         std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
+    // // bool first = true;
+    // for (size_t i = 0; i < denominator_vec.size(); i++) {
+    //     if (denominator[i] != 0) {
     //         std::cout << "denominator[" << i << "] = " << denominator[i] << std::endl;
-    //         // first = false;
-    //         // }
+    //         break;
     //     }
     // }
+
+    // for (size_t i = 0; i < numerator_vec.size(); i++) {
+    //     if (numerator[i] != 0) {
+    //         std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
+    //         break;
+    //     }
+    // }
+
+    // for (size_t i = 0; i < numerator_vec.size(); i++) {
+    //     if (numerator[i] != denominator[i]) {
+    //         std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
+    //         std::cout << "denominator[" << i  << "] = " << denominator[i] << std::endl;
+    //     }
+    // }
+
+    for (size_t i = 0; i < numerator.size(); i++) {
+        if (numerator[i] != denominator[i]) {
+            std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
+            std::cout << "denominator[" << i << "] = " << denominator[i] << std::endl;
+        }
+    }
 
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);

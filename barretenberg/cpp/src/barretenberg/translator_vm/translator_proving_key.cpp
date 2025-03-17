@@ -77,15 +77,18 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     constexpr auto sort_step = Flavor::SORT_STEP;
     constexpr auto num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
     const auto full_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t mini_masking_offset = masking ? MASKING_OFFSET : 0;
+    const size_t full_masking_offset = masking ? mini_masking_offset * Flavor::INTERLEAVING_GROUP_SIZE : 0;
 
     // The value we have to end polynomials with
     constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     // Number of elements needed to go from 0 to MAX_VALUE with our step
     constexpr size_t sorted_elements_count = (max_value / sort_step) + 1 + (max_value % sort_step == 0 ? 0 : 1);
+    info("sorted element count in ordering ", sorted_elements_count);
 
     // Check if we can construct these polynomials
-    ASSERT((num_interleaved_wires + 1) * sorted_elements_count < full_circuit_size);
+    ASSERT((num_interleaved_wires + 1) * sorted_elements_count < full_circuit_size - full_masking_offset);
 
     // First use integers (easier to sort)
     std::vector<size_t> sorted_elements(sorted_elements_count);
@@ -96,8 +99,6 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         sorted_elements[i] = (sorted_elements_count - 1 - i) * sort_step;
     }
 
-    const size_t mini_masking_offset = masking ? MASKING_OFFSET : 0;
-    const size_t full_masking_offset = masking ? mini_masking_offset * Flavor::INTERLEAVING_GROUP_SIZE : 0;
     std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_interleaved_wires);
     RefArray ordered_constraint_polynomials{ proving_key->polynomials.ordered_range_constraints_0,
                                              proving_key->polynomials.ordered_range_constraints_1,
@@ -126,18 +127,17 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * mini_circuit_dyadic_size;
+            auto current_offset = j * (mini_circuit_dyadic_size - MASKING_OFFSET);
             // For each element in the polynomial
             for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_masking_offset; k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
-                    current_vector[current_offset + k] = static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
+                    current_vector[current_offset + k] = static_cast<uint32_t>(uint256_t(group[j][k]));
 
                     // Or in the extra one if there is no space left
                 } else {
-                    extra_denominator_uint[extra_denominator_offset] =
-                        static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
+                    extra_denominator_uint[extra_denominator_offset] = static_cast<uint32_t>(uint256_t(group[j][k]));
                     extra_denominator_offset++;
                 }
             }
@@ -167,6 +167,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     // Add steps to the extra denominator polynomial
     std::copy(sorted_elements.cbegin(), sorted_elements.cend(), sorted_element_insertion_offset);
 
+    ASSERT(extra_denominator_uint.size() == full_circuit_size - full_masking_offset);
     // Sort it
 #ifdef NO_PAR_ALGOS
     std::sort(extra_denominator_uint.begin(), extra_denominator_uint.end());
