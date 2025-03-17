@@ -17,6 +17,15 @@ You will have to update a couple things in the new `acir.hpp`:
 
 The same can then be done for any breaking changes introduced to `witness_stack.hpp`.
 
+The steps described above can be executed like so:
+
+```shell
+cd noir/noir-repo && NOIR_CODEGEN_OVERWRITE=1 cargo test -p acir cpp_codegen && cd -
+cp noir/noir-repo/acvm-repo/acir/codegen/acir.cpp barretenberg/cpp/src/barretenberg/dsl/acir_format/serde/acir.hpp
+cp noir/noir-repo/acvm-repo/acir/codegen/witness.cpp barretenberg/cpp/src/barretenberg/dsl/acir_format/serde/witness_stack.hpp
+cd barretenberg/cpp && ./format.sh changed && cd -
+```
+
 2. Full Breaking Change
 
 This type of breaking change is rarely expected to happen, however, due to its nature there are multiple consumers of the pre-existing serialization you should be aware of if you ever need to make this change.
