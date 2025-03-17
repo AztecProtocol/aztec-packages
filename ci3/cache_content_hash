@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Calculate the content hash for an artifact that controls rebuilds.
 # Takes a list of rebuild pattern files (regex files that match patterns from repo root) or directories.
+# The REPO_PATH env var can be used to point the script at the root of the git repository where the patterns
+# are rooted, and where the git commands will be executed, which can be used to compute the hash in a sub repo.
 # Two special test-only environment variables can control the cache.
 # These are used when iterating on build infrastructure:
 # - AZTEC_CACHE_NO_SCRIPTS: Don't include any shell files (namely bootstrap.sh) in cache patterns.
@@ -14,7 +16,6 @@ fi
 
 AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
 PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
-REPO_PATH=${REPO_PATH:-}
 
 rebuild_patterns=()
 for arg in "$@"; do
