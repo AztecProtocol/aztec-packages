@@ -10,6 +10,7 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 
@@ -57,22 +58,33 @@ UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path,
 }
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-ProofAndKey<VK> _compute_vk(const bool init_kzg_accumulator,
-                            const std::filesystem::path& bytecode_path,
-                            const std::filesystem::path& witness_path)
+PubInputsProofAndKey<VK> _compute_vk(const bool init_kzg_accumulator,
+                                     const std::filesystem::path& bytecode_path,
+                                     const std::filesystem::path& witness_path)
 {
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
-    return { HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
+    return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
 }
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-ProofAndKey<VK> _prove(const bool compute_vk,
-                       const bool init_kzg_accumulator,
-                       const std::filesystem::path& bytecode_path,
-                       const std::filesystem::path& witness_path)
+PubInputsProofAndKey<VK> _prove(const bool compute_vk,
+                                const bool init_kzg_accumulator,
+                                const std::filesystem::path& bytecode_path,
+                                const std::filesystem::path& witness_path)
 {
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
-    return { prover.construct_proof(), compute_vk ? std::make_shared<VK>(prover.proving_key->proving_key) : nullptr };
+    HonkProof concat_pi_and_proof = prover.construct_proof();
+    PublicInputsAndProof public_inputs_and_proof{
+        PublicInputsVector(concat_pi_and_proof.begin(),
+                           concat_pi_and_proof.begin() +
+                               static_cast<std::ptrdiff_t>(prover.proving_key->proving_key.num_public_inputs)),
+        HonkProof(concat_pi_and_proof.begin() +
+                      static_cast<std::ptrdiff_t>(prover.proving_key->proving_key.num_public_inputs),
+                  concat_pi_and_proof.end())
+    };
+    return { public_inputs_and_proof.public_inputs,
+             public_inputs_and_proof.proof,
+             compute_vk ? std::make_shared<VK>(prover.proving_key->proving_key) : nullptr };
 }
 
 template <typename Flavor>

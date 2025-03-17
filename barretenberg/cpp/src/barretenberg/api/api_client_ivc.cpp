@@ -123,7 +123,9 @@ void write_vk_for_ivc(const std::string& output_format,
     auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
     Prover prover{ proving_key };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    ProofAndKey<VerificationKey> to_write{ {}, std::make_shared<VerificationKey>(prover.proving_key->proving_key) };
+    PubInputsProofAndKey<VerificationKey> to_write{
+        PublicInputsVector{}, HonkProof{}, std::make_shared<VerificationKey>(prover.proving_key->proving_key)
+    };
 
     write(to_write, output_format, "vk", output_path);
 }
