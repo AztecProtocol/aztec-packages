@@ -157,7 +157,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       const donateTxReceipt = await crowdfundingContract
         .withWallet(donorWallets[0])
         .methods.donate(donationAmount)
-        .send({ authwits: [witness] })
+        .send({ authWitnesses: [witness] })
         .wait();
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
@@ -221,7 +221,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     const donateTxReceipt = await crowdfundingContract
       .withWallet(donorWallet)
       .methods.donate(donationAmount)
-      .send({ authwits: [witness] })
+      .send({ authWitnesses: [witness] })
       .wait();
 
     // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
@@ -300,7 +300,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     await crowdfundingContract
       .withWallet(donorWallets[1])
       .methods.donate(donationAmount)
-      .send({ authwits: [witness] })
+      .send({ authWitnesses: [witness] })
       .wait();
 
     // Calling the function normally will fail as msg_sender != operator
@@ -351,7 +351,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       crowdfundingContract
         .withWallet(donorWallets[1])
         .methods.donate(donationAmount)
-        .send({ authwits: [witness] })
+        .send({ authWitnesses: [witness] })
         .wait(),
     ).rejects.toThrow();
   });

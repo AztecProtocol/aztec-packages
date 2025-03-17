@@ -4,35 +4,62 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { Capsule, HashedValues } from '@aztec/stdlib/tx';
 
 import { GeneratorIndex } from '../../constants/src/constants.gen.js';
-import type { EncodedExecutionPayload, ExecutionRequestInit } from './interfaces.js';
-import type { AppEntrypointPayload, FeeEntrypointPayload } from './payload.js';
+import {
+  type AppEntrypointPayload,
+  type EncodedExecutionPayload,
+  ExecutionPayload,
+  type FeeEntrypointPayload,
+} from './payload.js';
 
 /**
- * Merges an array of EncodedExecutionPayloads and adds a nonce and cancellable flags,
- * in order to create a single ExecutionRequestInit.
+ * Merges an array ExecutionPayloads combining their calls, authWitnesses and capsules
  */
-export function mergeEncodedExecutionPayloads(
-  requests: EncodedExecutionPayload[],
+export function mergeExecutionPayloads(requests: ExecutionPayload[]): ExecutionPayload {
+  const calls = requests.map(r => r.calls).flat();
+  const combinedAuthWitnesses = requests.map(r => r.authWitnesses ?? []).flat();
+  const combinedCapsules = requests.map(r => r.capsules ?? []).flat();
+  return {
+    calls,
+    authWitnesses: combinedAuthWitnesses,
+    capsules: combinedCapsules,
+  };
+}
+
+/**
+ * Merges an array of mixed ExecutionPayloads and EncodedExecutionPayloads and adds a nonce and cancellable flags,
+ * in order to create a single EncodedExecutionPayload.
+ */
+export async function mergeAndEncodeExecutionPayloads(
+  requests: (ExecutionPayload | EncodedExecutionPayload)[],
   {
-    nonce,
-    cancellable,
     extraHashedArgs,
     extraAuthWitnesses,
     extraCapsules,
   }: {
-    nonce?: Fr;
-    cancellable?: boolean;
     extraHashedArgs?: HashedValues[];
     extraAuthWitnesses?: AuthWitness[];
     extraCapsules?: Capsule[];
   } = { extraAuthWitnesses: [], extraCapsules: [], extraHashedArgs: [] },
-): ExecutionRequestInit {
-  const encodedFunctionCalls = requests.map(r => r.encodedFunctionCalls).flat();
+): Promise<EncodedExecutionPayload> {
+  const isEncoded = (value: ExecutionPayload | EncodedExecutionPayload): value is EncodedExecutionPayload =>
+    'encodedFunctionCalls' in value;
+  const encoded = (
+    await Promise.all(
+      requests.map(async r => {
+        if (!isEncoded(r)) {
+          return await ExecutionPayload.encodeCalls(r.calls);
+        } else {
+          return { encodedFunctionCalls: r.encodedFunctionCalls, hashedArguments: r.hashedArguments };
+        }
+      }),
+    )
+  ).flat();
+  const encodedFunctionCalls = encoded.map(r => r.encodedFunctionCalls).flat();
   const combinedAuthWitnesses = requests
     .map(r => r.authWitnesses ?? [])
     .flat()
     .concat(extraAuthWitnesses ?? []);
-  const hashedArguments = requests
+  const hashedArguments = encoded
     .map(r => r.hashedArguments ?? [])
     .flat()
     .concat(extraHashedArgs ?? []);
@@ -45,8 +72,6 @@ export function mergeEncodedExecutionPayloads(
     authWitnesses: combinedAuthWitnesses,
     hashedArguments,
     capsules: combinedCapsules,
-    nonce,
-    cancellable,
   };
 }
 

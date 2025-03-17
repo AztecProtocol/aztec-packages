@@ -1,10 +1,6 @@
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
-import type {
-  EntrypointInterface,
-  ExecutionRequestInit,
-  FeeOptions,
-  UserExecutionRequest,
-} from '@aztec/entrypoints/interfaces';
+import type { EntrypointInterface, FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
@@ -21,14 +17,18 @@ export class SignerlessWallet extends BaseWallet {
   constructor(pxe: PXE, private entrypoint?: EntrypointInterface) {
     super(pxe);
   }
-  async createTxExecutionRequest(execution: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(
+    execution: ExecutionPayload,
+    fee: FeeOptions,
+    options: TxExecutionOptions,
+  ): Promise<TxExecutionRequest> {
     let entrypoint = this.entrypoint;
     if (!entrypoint) {
       const { l1ChainId: chainId, protocolVersion } = await this.pxe.getNodeInfo();
       entrypoint = new DefaultEntrypoint(chainId, protocolVersion);
     }
 
-    return entrypoint.createTxExecutionRequest(execution, fee);
+    return entrypoint.createTxExecutionRequest(execution, fee, options);
   }
 
   getChainId(): Fr {

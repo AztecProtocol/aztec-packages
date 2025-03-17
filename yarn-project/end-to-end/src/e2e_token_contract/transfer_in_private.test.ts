@@ -44,14 +44,14 @@ describe('e2e_token_contract transfer private', () => {
     // docs:end:authwit_transfer_example
 
     // Perform the transfer
-    await action.send({ authwits: [witness] }).wait();
+    await action.send({ authWitnesses: [witness] }).wait();
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
     // Perform the transfer again, should fail
     const txReplay = asset
       .withWallet(wallets[1])
       .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce)
-      .send({ authwits: [witness] });
+      .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
@@ -83,7 +83,7 @@ describe('e2e_token_contract transfer private', () => {
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
 
       // Perform the transfer
-      await expect(action.simulate({ authwits: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
       expect(await asset.methods.balance_of_private(accounts[0].address).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_private(accounts[1].address).simulate()).toEqual(balance1);
     });
@@ -138,7 +138,7 @@ describe('e2e_token_contract transfer private', () => {
 
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
 
-      await expect(action.simulate({ authwits: [witness] })).rejects.toThrow(
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
       expect(await asset.methods.balance_of_private(accounts[0].address).simulate()).toEqual(balance0);
@@ -176,7 +176,7 @@ describe('e2e_token_contract transfer private', () => {
       const txCancelledAuthwit = asset
         .withWallet(wallets[1])
         .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce)
-        .send({ authwits: [witness] });
+        .send({ authWitnesses: [witness] });
       await expect(txCancelledAuthwit.wait()).rejects.toThrowError(DUPLICATE_NULLIFIER_ERROR);
     });
 

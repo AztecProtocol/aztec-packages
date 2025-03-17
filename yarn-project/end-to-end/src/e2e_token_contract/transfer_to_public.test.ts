@@ -48,7 +48,7 @@ describe('e2e_token_contract transfer_to_public', () => {
     // But doing it in two actions to show the flow.
     const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
 
-    await action.send({ authwits: [witness] }).wait();
+    await action.send({ authWitnesses: [witness] }).wait();
     tokenSim.transferToPublic(accounts[0].address, accounts[1].address, amount);
 
     // Perform the transfer again, should fail
@@ -95,7 +95,7 @@ describe('e2e_token_contract transfer_to_public', () => {
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
 
-      await expect(action.simulate({ authwits: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
     });
 
     it('on behalf of other (invalid designated caller)', async () => {
@@ -117,7 +117,7 @@ describe('e2e_token_contract transfer_to_public', () => {
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
 
-      await expect(action.simulate({ authwits: [witness] })).rejects.toThrow(
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
     });

@@ -61,7 +61,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     // Perform the transfer
 
     // docs:start:add_authwit
-    await action.send({ authwits: [witness] }).wait();
+    await action.send({ authWitnesses: [witness] }).wait();
     // docs:end:add_authwit
     // docs:end:authwit_transfer_example
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
@@ -70,7 +70,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     const txReplay = asset
       .withWallet(wallets[1])
       .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
-      .send({ authwits: [witness] });
+      .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
@@ -112,7 +112,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
       // Perform the transfer
-      await expect(action.prove({ authwits: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
       expect(await asset.methods.balance_of_private(wallets[0].getAddress()).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_private(wallets[1].getAddress()).simulate()).toEqual(balance1);
     });
@@ -159,7 +159,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
 
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-      await expect(action.prove({ authwits: [witness] })).rejects.toThrow(
+      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
       expect(await asset.methods.balance_of_private(wallets[0].getAddress()).simulate()).toEqual(balance0);

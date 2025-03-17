@@ -1,8 +1,7 @@
 import { MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT } from '@aztec/constants';
-import type { ExecutionPayload } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/stdlib/abi';
+import { type ContractArtifact, bufferAsFields } from '@aztec/stdlib/abi';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { Capsule } from '@aztec/stdlib/tx';
 
@@ -21,32 +20,25 @@ export async function registerContractClass(
   wallet: Wallet,
   artifact: ContractArtifact,
   emitPublicBytecode = defaultEmitPublicBytecode,
-): Promise<ExecutionPayload> {
+): Promise<ContractFunctionInteraction> {
   const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
     await getContractClassFromArtifact(artifact);
   const registerer = await getRegistererContract(wallet);
-  const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
-  const executionPayload: ExecutionPayload = {
-    calls: [
-      {
-        name: 'register',
-        to: registerer.address,
-        selector: await FunctionSelector.fromSignature('register'),
-        args: [artifactHash, privateFunctionsRoot, publicBytecodeCommitment, emitPublicBytecode ? Fr.ONE : Fr.ZERO],
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        returnTypes: [],
-      },
-    ],
-    capsules: [
-      new Capsule(
-        ProtocolContractAddress.ContractClassRegisterer,
-        new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-        encodedBytecode,
-      ),
-    ],
-    authWitnesses: [],
-  };
+  const fn = registerer.methods.register(
+    artifactHash,
+    privateFunctionsRoot,
+    publicBytecodeCommitment,
+    emitPublicBytecode,
+  );
 
-  return executionPayload;
+  const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  fn.addCapsule(
+    new Capsule(
+      ProtocolContractAddress.ContractClassRegisterer,
+      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+      encodedBytecode,
+    ),
+  );
+
+  return fn;
 }

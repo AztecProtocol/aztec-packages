@@ -1,7 +1,7 @@
-import type { ExecutionPayload, FeePaymentMethod } from '@aztec/entrypoints/interfaces';
+import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
+import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
-import { type FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
-import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
 

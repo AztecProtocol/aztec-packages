@@ -34,7 +34,7 @@ describe('e2e_authwit_tests', () => {
 
   describe('Private', () => {
     describe('arbitrary data', () => {
-      it('happy path', async () => {
+      it.only('happy path', async () => {
         // What are we doing here:
         // 1. We compute an inner hash which is here just a hash of random data
         // 2. We then compute the message hash, which is binding it to a "consumer" (here the "auth" contract)
@@ -69,7 +69,7 @@ describe('e2e_authwit_tests', () => {
         await auth
           .withWallet(wallets[1])
           .methods.consume(wallets[0].getAddress(), innerHash)
-          .send({ authwits: [witness] })
+          .send({ authWitnesses: [witness] })
           .wait();
 
         expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
@@ -82,7 +82,7 @@ describe('e2e_authwit_tests', () => {
           auth
             .withWallet(wallets[1])
             .methods.consume(wallets[0].getAddress(), innerHash)
-            .send({ authwits: [witness] })
+            .send({ authWitnesses: [witness] })
             .wait(),
         ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
       });

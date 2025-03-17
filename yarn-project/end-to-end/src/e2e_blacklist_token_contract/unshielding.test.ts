@@ -49,14 +49,14 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     // But doing it in two actions to show the flow.
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-    await action.send({ authwits: [witness] }).wait();
+    await action.send({ authWitnesses: [witness] }).wait();
     tokenSim.transferToPublic(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
     // Perform the transfer again, should fail
     const txReplay = asset
       .withWallet(wallets[1])
       .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
-      .send({ authwits: [witness] });
+      .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     // @todo @LHerskind This error is weird?
   });
@@ -97,7 +97,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-      await expect(action.prove({ authwits: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
     });
 
     it('on behalf of other (invalid designated caller)', async () => {
@@ -119,7 +119,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-      await expect(action.prove({ authwits: [witness] })).rejects.toThrow(
+      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
     });

@@ -1,5 +1,5 @@
 import { type AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
-import { EntrypointPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { computeCombinedPayloadHash } from '@aztec/entrypoints/utils';
 import { type ContractArtifact, type FunctionArtifact, getFunctionArtifactByName } from '@aztec/stdlib/abi';
 import type { PublicKeys } from '@aztec/stdlib/keys';
@@ -46,9 +46,9 @@ export class DeployAccountMethod extends DeployMethod {
 
     if (options.fee && this.#feePaymentArtifact) {
       const { address } = await this.getInstance();
-      const emptyAppPayload = await EntrypointPayload.fromAppExecution([]);
+      const emptyAppPayload = await ExecutionPayload.fromAppExecution([]);
       const fee = await this.getDefaultFeeOptions(options.fee);
-      const feePayload = await EntrypointPayload.fromFeeOptions(address, fee);
+      const feePayload = await ExecutionPayload.fromFeeOptions(address, fee);
       const args = [emptyAppPayload, feePayload, false];
 
       const call = new ContractFunctionInteraction(this.wallet, address, this.#feePaymentArtifact, args);

@@ -1,4 +1,5 @@
-import type { ExecutionRequestInit, FeeOptions, UserExecutionRequest } from '@aztec/entrypoints/interfaces';
+import type { FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
@@ -25,8 +26,12 @@ export class AccountWallet extends BaseWallet {
     super(pxe);
   }
 
-  createTxExecutionRequest(exec: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest> {
-    return this.account.createTxExecutionRequest(exec, fee);
+  createTxExecutionRequest(
+    exec: ExecutionPayload,
+    fee: FeeOptions,
+    options: TxExecutionOptions,
+  ): Promise<TxExecutionRequest> {
+    return this.account.createTxExecutionRequest(exec, fee, options);
   }
 
   getChainId(): Fr {
@@ -149,7 +154,7 @@ export class AccountWallet extends BaseWallet {
       results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
         consumer,
         innerHash,
-      ]).simulate({ authwits: [witness] })) as boolean;
+      ]).simulate({ authWitnesses: [witness] })) as boolean;
     } catch {}
 
     // check public

@@ -1,7 +1,8 @@
 import { FunctionType } from '@aztec/stdlib/abi';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import type { EntrypointInterface, FeeOptions, UserExecutionRequest } from './interfaces.js';
+import type { EntrypointInterface, FeeOptions, TxExecutionOptions } from './interfaces.js';
+import type { ExecutionPayload } from './payload.js';
 
 /**
  * Default implementation of the entrypoint interface. It calls a function on a contract directly
@@ -9,7 +10,11 @@ import type { EntrypointInterface, FeeOptions, UserExecutionRequest } from './in
 export class DefaultEntrypoint implements EntrypointInterface {
   constructor(private chainId: number, private protocolVersion: number) {}
 
-  async createTxExecutionRequest(exec: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(
+    exec: ExecutionPayload,
+    fee: FeeOptions,
+    _options: TxExecutionOptions,
+  ): Promise<TxExecutionRequest> {
     const { calls, authWitnesses = [], capsules = [] } = exec;
 
     if (calls.length > 1) {

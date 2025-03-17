@@ -1,28 +1,11 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { FieldsOf } from '@aztec/foundation/types';
-import type { FunctionCall } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, HashedValues, TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-export type UserExecutionRequest = {
-  calls: FunctionCall[];
-  authWitnesses?: AuthWitness[];
-  capsules?: Capsule[];
-  nonce?: Fr;
-  cancellable?: boolean;
-};
-
-/** Represents data necessary to execute a list of function calls successfully */
-export interface ExecutionPayload {
-  /** The function calls to be executed. */
-  calls: FunctionCall[];
-  /** Any transient auth witnesses needed for this execution */
-  authWitnesses: AuthWitness[];
-  /** Data passed through an oracle for this execution. */
-  capsules: Capsule[];
-}
+import type { ExecutionPayload } from './payload.js';
 
 /* eslint-disable camelcase */
 /** Encoded function call for an Aztec entrypoint */
@@ -40,31 +23,9 @@ export type EncodedFunctionCall = {
 };
 /* eslint-enable camelcase */
 
-/** Represents the ExecutionPayload after encoding for the entrypint to execute */
-export type EncodedExecutionPayload = Omit<ExecutionPayload, 'calls'> & {
-  /** The function calls to be executed. */
-  encodedFunctionCalls: EncodedFunctionCall[];
-  /** Any transient hashed arguments for this execution */
-  hashedArguments: HashedValues[];
-};
-
-/**
- * Represents a transaction execution request, complete with the encoded payload, a nonce
- * and whether the transaction can be cancelled.
- */
-export type ExecutionRequestInit = EncodedExecutionPayload & {
-  /** An optional nonce. Used to repeat a previous tx with a higher fee so that the first one is cancelled */
-  nonce?: Fr;
-  /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
+export type TxExecutionOptions = {
   cancellable?: boolean;
-};
-
-/**
- * Completes a ExecutionRequest by including the fee payment method and gas settings.
- */
-export type ExecutionRequest = ExecutionRequestInit & {
-  /** How the fee is going to be payed */
-  fee: FeeOptions;
+  nonce?: Fr;
 };
 
 /** Creates transaction execution requests out of a set of function calls. */
@@ -74,7 +35,11 @@ export interface EntrypointInterface {
    * @param execution - The execution intents to be run.
    * @returns The authenticated transaction execution request.
    */
-  createTxExecutionRequest(exec: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest>;
+  createTxExecutionRequest(
+    exec: ExecutionPayload,
+    fee: FeeOptions,
+    options: TxExecutionOptions,
+  ): Promise<TxExecutionRequest>;
 }
 
 /** Creates authorization witnesses. */

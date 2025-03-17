@@ -9,6 +9,7 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
+import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { FunctionType } from '@aztec/stdlib/abi';
@@ -325,9 +326,7 @@ describe('e2e_fees failures', () => {
 });
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
-  override async getFunctionCalls(
-    gasSettings: GasSettings,
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>> {
+  override async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
     const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
@@ -364,7 +363,8 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
           returnTypes: [],
         },
       ],
-      authwits: [],
+      authWitnesses: [],
+      capsules: [],
     };
   }
 }

@@ -144,7 +144,7 @@ describe('e2e_token_contract transfer public', () => {
       });
 
       // Perform the transfer
-      await expect(action.simulate({ authwits: [witness] })).rejects.toThrow(U128_UNDERFLOW_ERROR);
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
       expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_public(accounts[1].address).simulate()).toEqual(balance1);

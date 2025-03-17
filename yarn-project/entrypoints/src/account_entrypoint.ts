@@ -7,10 +7,10 @@ import {
   type AuthWitnessProvider,
   type EntrypointInterface,
   type FeeOptions,
-  type UserExecutionRequest,
+  type TxExecutionOptions,
 } from './interfaces.js';
-import { EntrypointPayload } from './payload.js';
-import { computeCombinedPayloadHash, mergeEncodedExecutionPayloads } from './utils.js';
+import { ExecutionPayload } from './payload.js';
+import { computeCombinedPayloadHash, mergeAndEncodeExecutionPayloads, mergeExecutionPayloads } from './utils.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -24,10 +24,15 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(exec: UserExecutionRequest, fee: FeeOptions): Promise<TxExecutionRequest> {
-    const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [], nonce, cancellable } = exec;
-    const appPayload = await EntrypointPayload.fromAppExecution(calls);
-    const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
+  async createTxExecutionRequest(
+    exec: ExecutionPayload,
+    fee: FeeOptions,
+    options: TxExecutionOptions,
+  ): Promise<TxExecutionRequest> {
+    const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [] } = exec;
+    const { cancellable, nonce } = options;
+    const appPayload = await ExecutionPayload.fromAppExecution(calls, nonce);
+    const feePayload = await ExecutionPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
     const entrypointHashedArgs = await HashedValues.fromValues(
@@ -38,9 +43,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       await computeCombinedPayloadHash(appPayload, feePayload),
     );
 
-    const executionPayload = mergeEncodedExecutionPayloads([appPayload, feePayload], {
-      nonce,
-      cancellable,
+    const encodedExecutionPayload = await mergeAndEncodeExecutionPayloads([appPayload, feePayload], {
       extraHashedArgs: [entrypointHashedArgs],
       extraAuthWitnesses: [combinedPayloadAuthWitness, ...userAuthWitnesses],
       extraCapsules: userCapsules,
@@ -51,9 +54,9 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: executionPayload.hashedArguments,
-      authWitnesses: executionPayload.authWitnesses,
-      capsules: executionPayload.capsules,
+      argsOfCalls: encodedExecutionPayload.hashedArguments,
+      authWitnesses: encodedExecutionPayload.authWitnesses,
+      capsules: encodedExecutionPayload.capsules,
     });
 
     return txRequest;

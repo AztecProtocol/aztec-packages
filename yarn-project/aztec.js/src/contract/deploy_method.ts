@@ -1,14 +1,7 @@
-import { type ExecutionPayload, type UserExecutionRequest } from '@aztec/entrypoints/interfaces';
-import { EntrypointPayload } from '@aztec/entrypoints/payload';
-import { mergeEncodedExecutionPayloads } from '@aztec/entrypoints/utils';
+import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { mergeExecutionPayloads } from '@aztec/entrypoints/utils';
 import type { Fr } from '@aztec/foundation/fields';
-import {
-  type ContractArtifact,
-  type FunctionAbi,
-  type FunctionArtifact,
-  FunctionSelector,
-  getInitializer,
-} from '@aztec/stdlib/abi';
+import { type ContractArtifact, type FunctionAbi, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
@@ -26,6 +19,7 @@ import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 import type { Contract } from './contract.js';
 import type { ContractBase } from './contract_base.js';
+import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 
@@ -83,8 +77,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
+    const { nonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, options.fee);
-    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee);
+    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
   }
 
   // REFACTOR: Having a `request` method with different semantics than the ones in the other
@@ -114,13 +109,13 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     const bootstrap = await this.getInitializeFunctionCalls(options);
 
-    const requests = [...deployment, bootstrap];
+    const requests = await Promise.all([...deployment, ...bootstrap].map(c => c.request()));
+    console.log(requests);
     if (!requests.length) {
       throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
     }
 
-    const { nonce, cancellable } = options;
-    return mergeEncodedExecutionPayloads(requests, { nonce, cancellable });
+    return mergeExecutionPayloads(requests);
   }
 
   /**
@@ -138,8 +133,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns A function call array with potentially requests to the class registerer and instance deployer.
    */
-  protected async getDeploymentFunctionCalls(options: DeployOptions = {}): Promise<ExecutionPayload[]> {
-    const calls: ExecutionPayload[] = [];
+  protected async getDeploymentFunctionCalls(options: DeployOptions = {}): Promise<ContractFunctionInteraction[]> {
+    const calls: ContractFunctionInteraction[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
     const instance = await this.getInstance(options);
@@ -182,28 +177,19 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected async getInitializeFunctionCalls(options: DeployOptions): Promise<UserExecutionRequest> {
-    const result: UserExecutionRequest = {
-      calls: [],
-      authWitnesses: [],
-      capsules: [],
-    };
+  protected async getInitializeFunctionCalls(options: DeployOptions): Promise<ContractFunctionInteraction[]> {
+    const calls: ContractFunctionInteraction[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
       const { address } = await this.getInstance(options);
-      result.calls.push({
-        name: this.constructorArtifact.name,
-        to: address,
-        selector: await FunctionSelector.fromNameAndParameters(
-          this.constructorArtifact.name,
-          this.constructorArtifact.parameters,
-        ),
-        type: this.constructorArtifact.functionType,
-        args: this.args,
-        isStatic: this.constructorArtifact.isStatic,
-        returnTypes: this.constructorArtifact.returnTypes,
-      });
+      const constructorCall = new ContractFunctionInteraction(
+        this.wallet,
+        address,
+        this.constructorArtifact,
+        this.args,
+      );
+      calls.push(constructorCall);
     }
-    return result;
+    return calls;
   }
 
   /**

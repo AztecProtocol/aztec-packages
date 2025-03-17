@@ -155,7 +155,7 @@ describe('e2e_blacklist_token_contract burn', () => {
       await asset
         .withWallet(wallets[1])
         .methods.burn(wallets[0].getAddress(), amount, nonce)
-        .send({ authwits: [witness] })
+        .send({ authWitnesses: [witness] })
         .wait();
       tokenSim.burnPrivate(wallets[0].getAddress(), amount);
 
@@ -163,7 +163,7 @@ describe('e2e_blacklist_token_contract burn', () => {
       const txReplay = asset
         .withWallet(wallets[1])
         .methods.burn(wallets[0].getAddress(), amount, nonce)
-        .send({ authwits: [witness] });
+        .send({ authWitnesses: [witness] });
       await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
@@ -199,7 +199,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         // But doing it in two actions to show the flow.
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-        await expect(action.prove({ authwits: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
+        await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
       });
 
       it('burn on behalf of other without approval', async () => {
@@ -233,7 +233,7 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-        await expect(action.prove({ authwits: [witness] })).rejects.toThrow(
+        await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
         );
       });

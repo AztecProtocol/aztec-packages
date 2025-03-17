@@ -1,10 +1,5 @@
-import type {
-  ExecutionPayload,
-  ExecutionRequestInit,
-  FeeOptions,
-  UserExecutionRequest,
-  UserFeeOptions,
-} from '@aztec/entrypoints/interfaces';
+import type { FeeOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
+import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -31,7 +26,9 @@ export type SendMethodOptions = {
   /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
   cancellable?: boolean;
   /** Authwits to use in the simulation */
-  authwits?: AuthWitness[];
+  authWitnesses?: AuthWitness[];
+  /** Capsules to use in the simulation */
+  capsules?: Capsule[];
 };
 
 /**
@@ -60,7 +57,7 @@ export abstract class BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public abstract request(options?: SendMethodOptions): Promise<UserExecutionRequest>;
+  public abstract request(options?: SendMethodOptions): Promise<ExecutionPayload>;
 
   /**
    * Creates a transaction execution request, simulates and proves it. Differs from .prove in
@@ -152,7 +149,7 @@ export abstract class BaseContractInteraction {
    * @param pad - Percentage to pad the suggested gas limits by, as decimal (e.g., 0.10 for 10%).
    * @returns Fee options for the actual transaction.
    */
-  protected async getFeeOptions(request: UserExecutionRequest, fee?: UserFeeOptions): Promise<FeeOptions> {
+  protected async getFeeOptions(executionPayload: ExecutionPayload, fee?: UserFeeOptions): Promise<FeeOptions> {
     // docs:end:getFeeOptions
     const defaultFeeOptions = await this.getDefaultFeeOptions(fee);
     const paymentMethod = defaultFeeOptions.paymentMethod;
@@ -162,7 +159,7 @@ export abstract class BaseContractInteraction {
     let gasSettings = defaultFeeOptions.gasSettings;
     if (fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
-      const txRequest = await this.wallet.createTxExecutionRequest(request, feeForEstimation);
+      const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, {});
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
