@@ -630,13 +630,16 @@ TEST(InstrFetchingConstrainingTest, NegativeGapAfterFirstRow)
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
         {
-            .instr_fetching_sel = 0,
+            .instr_fetching_sel = 1, // Will be mutated to zero
         },
         {
             .instr_fetching_sel = 1,
         },
     });
 
+    check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY);
+
+    trace.set(C::instr_fetching_sel, 1, 0); // Mutate to wrong value
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY),
                               "TRACE_CONTINUITY");
 }
@@ -650,13 +653,16 @@ TEST(InstrFetchingConstrainingTest, NegativeGapInTheMiddle)
             .instr_fetching_sel = 1,
         },
         {
-            .instr_fetching_sel = 0,
+            .instr_fetching_sel = 1, // Will be mutated to 0
         },
         {
             .instr_fetching_sel = 1,
         },
     });
 
+    check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY);
+
+    trace.set(C::instr_fetching_sel, 2, 0); // Mutate to wrong value (row 2)
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY),
                               "TRACE_CONTINUITY");
 }
@@ -676,7 +682,7 @@ TEST(InstrFetchingConstrainingTest, NegativePcNotZeroFirstEntryBytecode1)
         },
         {
             .instr_fetching_bytecode_id = 3,
-            .instr_fetching_pc = 23,
+            .instr_fetching_pc = 0, // Will be mutated to 23
             .instr_fetching_sel = 1,
         },
         {
@@ -685,6 +691,10 @@ TEST(InstrFetchingConstrainingTest, NegativePcNotZeroFirstEntryBytecode1)
             .instr_fetching_sel = 1,
         },
     });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW);
+
+    trace.set(C::instr_fetching_pc, 2, 23); // Mutate to wrong value (row 2)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW),
@@ -699,7 +709,7 @@ TEST(InstrFetchingConstrainingTest, NegativePcNotZeroFirstEntryBytecode2)
         {
             .instr_fetching_bytecode_id = 2,
             .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_pc = 12,
+            .instr_fetching_pc = 0, // Will be mutated to 12
             .instr_fetching_sel = 1,
         },
         {
@@ -714,9 +724,259 @@ TEST(InstrFetchingConstrainingTest, NegativePcNotZeroFirstEntryBytecode2)
         },
     });
 
+    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW);
+
+    trace.set(C::instr_fetching_pc, 1, 12); // Mutate to wrong value (row 1)
+
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW),
         "PC_IS_ZERO_IN_BYTECODE_FIRST_ROW");
+}
+
+// Negative test on not toggling last_of_bytecode when bytecode_id changes
+TEST(InstrFetchingConstrainingTest, NegativeNotTogglingLastOfBytecode)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bc_id_diff_inv = 1,
+            .instr_fetching_bytecode_id = 2,
+            .instr_fetching_last_of_bytecode = 1, // Will be mutated to 0
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_bc_id_diff_inv = FF(FF::modulus - 3).invert(),
+            .instr_fetching_bytecode_id = 3,
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE);
+
+    trace.set(C::instr_fetching_bytecode_id, 1, 0); // Mutate to wrong value (row 1)
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE),
+                              "LAST_OF_BYTECODE_TOGGLE");
+
+    // Second attempt by mutating instr_fetching_bc_id_diff_inv to 0
+    trace.set(C::instr_fetching_bc_id_diff_inv, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE),
+                              "LAST_OF_BYTECODE_TOGGLE");
+}
+
+// Negative test on wrongly toggling last_of_bytecod when bytecode_id remains constant (equal to 11)
+TEST(InstrFetchingConstrainingTest, NegativeTogglingLastOfBytecode)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bc_id_diff_inv = 0,
+            .instr_fetching_bytecode_id = 11,
+            .instr_fetching_last_of_bytecode = 0, // Will be mutated to 1
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_bc_id_diff_inv = FF(FF::modulus - 11).invert(),
+            .instr_fetching_bytecode_id = 11,
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE);
+
+    trace.set(C::instr_fetching_last_of_bytecode, 1, 1); // Mutate to wrong value (row 1)
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE),
+                              "LAST_OF_BYTECODE_TOGGLE");
+}
+
+// Negative test on not keeping same bytecode_size when bytecode_id is the same
+TEST(InstrFetchingConstrainingTest, NegativeNotSameBytecodeSize)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytecode_id = 2,
+            .instr_fetching_bytecode_size = 12,
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_bytecode_id = 2,
+            .instr_fetching_bytecode_size = 12, // Will be mutated to 13
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_SAME_BYTECODE_SIZE);
+
+    trace.set(C::instr_fetching_bytecode_size, 2, 13); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_SAME_BYTECODE_SIZE),
+                              "SAME_BYTECODE_SIZE");
+}
+
+// Negative test on not initializing bytecode_size in the first row of a given bytecode.
+// Case first bytecode
+TEST(InstrFetchingConstrainingTest, NegativeNotInitBytecodeSize1)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytecode_id = 2,
+            .instr_fetching_bytecode_size = 12, // Will be mutated to 17
+            .instr_fetching_bytes_remaining = 12,
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_BYTECODE_SIZE_INIT);
+
+    trace.set(C::instr_fetching_bytecode_size, 1, 17); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_BYTECODE_SIZE_INIT),
+                              "BYTECODE_SIZE_INIT");
+}
+
+// Negative test on not initializing bytecode_size in the first row of a given bytecode.
+// Case: a bytecode in the middle
+TEST(InstrFetchingConstrainingTest, NegativeNotInitBytecodeSize2)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytecode_id = 2,
+            .instr_fetching_bytecode_size = 12,
+            .instr_fetching_bytes_remaining = 12,
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_bytecode_id = 3,
+            .instr_fetching_bytecode_size = 14, // Will be mutated to zero
+            .instr_fetching_bytes_remaining = 14,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_BYTECODE_SIZE_INIT);
+
+    trace.set(C::instr_fetching_bytecode_size, 2, 0); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_BYTECODE_SIZE_INIT),
+                              "BYTECODE_SIZE_INIT");
+}
+
+// Negative test on not toggling instr_out_of_range when instr_size > bytes_to_read
+TEST(InstrFetchingConstrainingTest, NegativeNotTogglingInstrOutOfRange)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytes_to_read = 11,
+            .instr_fetching_instr_abs_diff = 0,
+            .instr_fetching_instr_out_of_range = 1, // Will be mutated to zero
+            .instr_fetching_instr_size = 12,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE);
+
+    trace.set(C::instr_fetching_instr_out_of_range, 1, 0); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE),
+                              "INSTR_OUT_OF_RANGE_TOGGLE");
+}
+
+// Negative test on wrongly toggling instr_out_of_range when instr_size <= bytes_to_read
+TEST(InstrFetchingConstrainingTest, NegativeTogglingInstrInRange)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytes_to_read = 12,
+            .instr_fetching_instr_abs_diff = 0,
+            .instr_fetching_instr_out_of_range = 0, // Will be mutated to 1
+            .instr_fetching_instr_size = 12,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE);
+
+    trace.set(C::instr_fetching_instr_out_of_range, 1, 1); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE),
+                              "INSTR_OUT_OF_RANGE_TOGGLE");
+}
+
+// Negative test on not toggling pc_out_of_range when pc >= bytecode_size
+TEST(InstrFetchingConstrainingTest, NegativeNotTogglingPcOutOfRange)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytecode_size = 12,
+            .instr_fetching_pc = 12,
+            .instr_fetching_pc_abs_diff = 0,
+            .instr_fetching_pc_out_of_range = 1, // Will be mutated to 0
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE);
+
+    trace.set(C::instr_fetching_pc_out_of_range, 1, 0); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE),
+                              "PC_OUT_OF_RANGE_TOGGLE");
+}
+
+// Negative test on wrongly toggling pc_out_of_range when pc < bytecode_size
+TEST(InstrFetchingConstrainingTest, NegativeTogglingPcInRange)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytecode_size = 12,
+            .instr_fetching_pc = 11,
+            .instr_fetching_pc_abs_diff = 0,
+            .instr_fetching_pc_out_of_range = 0, // Will be mutated to 1
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE);
+
+    trace.set(C::instr_fetching_pc_out_of_range, 1, 1); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE),
+                              "PC_OUT_OF_RANGE_TOGGLE");
+}
+
+// Negative test on wrong decomposing pc_abs_diff into limbs
+TEST(InstrFetchingConstrainingTest, NegativePcAbsDiffLimbs)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_pc_abs_diff = 7 * (1 << 16) + 347,
+            .instr_fetching_pc_abs_diff_hi = 7,
+            .instr_fetching_pc_abs_diff_lo = 347, // Will be mutated to 348
+        },
+    });
+
+    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_ABS_DIFF_LIMBS);
+
+    trace.set(C::instr_fetching_pc_abs_diff_lo, 1, 348); // Mutate to wrong value
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_ABS_DIFF_LIMBS),
+                              "PC_ABS_DIFF_LIMBS");
 }
 
 } // namespace
