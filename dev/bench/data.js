@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742234395162,
+  "lastUpdate": 1742234791092,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b4891c14a2e49a8e475c6839840561a074c511cc",
-          "message": "feat(p2p): peer manager peer count metrics (#12575)",
-          "timestamp": "2025-03-07T17:59:55Z",
-          "tree_id": "2dcc6a19b32cee42a8ccc681154cf283074791d7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b4891c14a2e49a8e475c6839840561a074c511cc"
-        },
-        "date": 1741372551619,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18293.44404199992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16198.692377000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18906.065317999946,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16485.478682 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3920.5074030001015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3134.462611 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55658.072005999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55658072000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10188.03485,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10188036000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1910179552,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1910179552 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 213821318,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 213821318 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3616,6 +3544,84 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
             "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "392abc287812ccee2fc8be14132fda74d1e95672",
+          "message": "fix: redo \"fix: make vk metadata actual witnesses\" (#12535)\n\nReverts AztecProtocol/aztec-packages#12534. This was reverted due to\nbreaking e2e-prover-full\n\nCo-authored-by: Lucas Xia <lucasxia01@gmail.com>",
+          "timestamp": "2025-03-17T13:29:08-04:00",
+          "tree_id": "c8b56e6e40987052267cbfb0153b9fd57ab78b23",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/392abc287812ccee2fc8be14132fda74d1e95672"
+        },
+        "date": 1742234783501,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18574.072044000102,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16226.711718 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117735958245.4,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1617690716,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 218901781,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18900.791500999956,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16437.75797 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55143.730713,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55143731000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3842.8058100000726,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3117.095798 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10255.291738,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10255297000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2265.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
