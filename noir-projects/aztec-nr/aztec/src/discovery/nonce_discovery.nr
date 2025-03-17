@@ -35,7 +35,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
     let discovered_notes = &mut BoundedVec::new();
 
     debug_log_format(
-        "Attempting note discovery on {0} potential notes on contract {1} for storage slot {2}",
+        "Attempting nonce discovery on {0} potential notes on contract {1} for storage slot {2}",
         [unique_note_hashes_in_tx.len() as Field, contract_address.to_field(), storage_slot],
     );
 
