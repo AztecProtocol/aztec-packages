@@ -164,7 +164,7 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let MAX_NOTES: u32,
 where
     Note: NoteType + Packable<N>,
 {
-    let fields: [Field; ORACLE_RETURN_FIELD_LENGTH] = get_notes_oracle_wrapper(
+    let fields: [_; ORACLE_RETURN_FIELD_LENGTH] = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
         select_by_indexes,
