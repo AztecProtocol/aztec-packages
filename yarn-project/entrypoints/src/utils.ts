@@ -36,7 +36,7 @@ export async function mergeAndEncodeExecutionPayloads(
     'encodedFunctionCalls' in value;
   const encoded = (
     await Promise.all(
-      requests.map(async r => {
+      requests.map(r => {
         if (!isEncoded(r)) {
           return new ExecutionPayload(r.calls, r.authWitnesses, r.capsules).encode();
         } else {

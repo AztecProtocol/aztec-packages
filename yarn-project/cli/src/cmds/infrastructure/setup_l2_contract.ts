@@ -1,12 +1,5 @@
 import { type InitialAccountData, deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
-import {
-  type AztecAddress,
-  SignerlessWallet,
-  type WaitForProvenOpts,
-  type WaitOpts,
-  createPXEClient,
-  makeFetch,
-} from '@aztec/aztec.js';
+import { type AztecAddress, type WaitForProvenOpts, type WaitOpts, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

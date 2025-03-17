@@ -1,5 +1,4 @@
 import {
-  DefaultWaitForProvenOpts,
   DefaultWaitOpts,
   type EthAddress,
   FeeJuicePaymentMethod,

@@ -529,7 +529,7 @@ export function injectCommands(
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await account.getWallet();
-      await addAuthwit(wallet, authwit, authorizer, log);
+      addAuthwit(wallet, authwit, authorizer, log);
     });
 
   program
