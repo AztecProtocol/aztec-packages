@@ -282,6 +282,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // Bytecode Retrieval
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_address_derivation_settings>>(),
             // Class Id Derivation
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_0_settings>>(),

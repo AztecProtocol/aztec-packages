@@ -1,5 +1,3 @@
-include "range_check.pil";
-
 // Decomposes a field in radixes
 // Roughly, what we do is keep track of an accumulator where we reconstruct value using the limbs. We can end when the accumulator is equal to the value (found).
 // For overflow protection, we compare the limbs against the p limbs for the given radix. If we reach the last limb (is_unsafe) we assert that we are under p.

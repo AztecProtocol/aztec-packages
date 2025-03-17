@@ -19,7 +19,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     ContractInstance instance = contract_db.get_contract_instance(address);
     auto siloed_address = siloing.silo_nullifier(address, DEPLOYER_CONTRACT_ADDRESS);
     // TODO: check nullifier in the merkle tree.
-    ContractClass klass = contract_db.get_contract_class(instance.contract_class_id);
+    ContractClass klass = contract_db.get_contract_class(instance.current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarrantees
     // that if a contract instance exists, the class has been registered.
     auto bytecode_id = next_bytecode_id++;
