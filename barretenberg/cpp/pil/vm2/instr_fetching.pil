@@ -107,7 +107,7 @@ pol commit bd0, bd1, bd2, bd3, bd4,
            bd31, bd32, bd33, bd34, bd35,
            bd36;
 
-// selector for lookup to bc_decomposition.pil
+// Source selector for lookups to bc_decomposition.pil and instruction specifications in precomputed.pil.
 pol commit sel_opcode_defined;
 // Toggled except when pc is out of range.
 sel_opcode_defined = sel * (1 - pc_out_of_range);

@@ -387,7 +387,7 @@ InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, 
 
     const uint32_t instruction_size = WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
 
-    // We know we will throw an error but we delay throwing the error, because
+    // We know we will encounter a parsing error, but continue processing because
     // we need the partial instruction to be parsed for witness generation.
     if (pos + instruction_size > bytecode_length) {
         info("Instruction does not fit in remaining bytecode. Wire opcode: ",
@@ -417,7 +417,7 @@ InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, 
         std::array<uint8_t, 32> operand_padded = { 0 }; // Fill with zeros
         bool out_of_range = false;
 
-        // We will throw during processing of this operand
+        // Check whether we encounter the parsing error while processing this operand.
         // In this case, we need to pad the operand to get the partial instruction required
         // by witness generation.
         if (pos + operand_size > bytecode_length) {
