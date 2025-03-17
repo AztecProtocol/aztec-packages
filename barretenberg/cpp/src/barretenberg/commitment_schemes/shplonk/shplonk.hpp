@@ -177,6 +177,7 @@ template <typename Curve> class ShplonkProver_ {
                 G.add_scaled(tmp, -scaling_factor);
 
                 current_nu *= nu_challenge;
+                idx++;
             }
             // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             tmp = claim.polynomial;
