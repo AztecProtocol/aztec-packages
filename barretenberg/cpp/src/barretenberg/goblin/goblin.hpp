@@ -130,9 +130,8 @@ class GoblinProver {
      */
     void prove_translator()
     {
-        construct_translator_prover(eccvm_prover->translation_batching_challenge_v,
-                                    eccvm_prover->evaluation_challenge_x,
-                                    eccvm_prover->transcript);
+        construct_translator_prover(
+            translation_batching_challenge_v, eccvm_prover->evaluation_challenge_x, eccvm_prover->transcript);
         goblin_proof.translator_proof = translator_prover->construct_proof();
     }
 
