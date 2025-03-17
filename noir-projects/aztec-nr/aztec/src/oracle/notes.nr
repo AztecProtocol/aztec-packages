@@ -105,46 +105,7 @@ unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
     _offset: u32,
     _status: u8,
     _return_size: u32,
-    _placeholder_fields: [Field; S],
 ) -> [Field; S] {}
-
-unconstrained fn get_notes_oracle_wrapper<let N: u32, let S: u32>(
-    storage_slot: Field,
-    num_selects: u8,
-    select_by_indexes: [u8; N],
-    select_by_offsets: [u8; N],
-    select_by_lengths: [u8; N],
-    select_values: [Field; N],
-    select_comparators: [u8; N],
-    sort_by_indexes: [u8; N],
-    sort_by_offsets: [u8; N],
-    sort_by_lengths: [u8; N],
-    sort_order: [u8; N],
-    limit: u32,
-    offset: u32,
-    status: u8,
-    mut placeholder_fields: [Field; S],
-) -> [Field; S] {
-    let return_size = placeholder_fields.len() as u32;
-    get_notes_oracle(
-        storage_slot,
-        num_selects,
-        select_by_indexes,
-        select_by_offsets,
-        select_by_lengths,
-        select_values,
-        select_comparators,
-        sort_by_indexes,
-        sort_by_offsets,
-        sort_by_lengths,
-        sort_order,
-        limit,
-        offset,
-        status,
-        return_size,
-        placeholder_fields,
-    )
-}
 
 pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS: u32>(
     storage_slot: Field,
@@ -167,7 +128,7 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
 where
     Note: NoteType + Packable<N>,
 {
-    let fields = get_notes_oracle_wrapper(
+    let fields: [Field; NS] = get_notes_oracle(
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -182,7 +143,7 @@ where
         limit,
         offset,
         status,
-        placeholder_fields,
+        placeholder_fields.len(),
     );
     let num_notes = fields[0] as u32;
     let contract_address = AztecAddress::from_field(fields[1]);
