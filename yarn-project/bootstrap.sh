@@ -5,10 +5,13 @@ cmd=${1:-}
 [ -n "$cmd" ] && shift
 
 function hash {
-  cache_content_hash \
-    ../noir/.rebuild_patterns \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns
+  hash_str \
+    $(../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+      ../barretenberg/*/.rebuild_patterns)
+
+
 }
 
 function compile_project {
