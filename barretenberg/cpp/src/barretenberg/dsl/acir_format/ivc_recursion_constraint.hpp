@@ -8,9 +8,6 @@ namespace acir_format {
 
 using namespace bb;
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1148): logic in this file is incomplete. See issue for
-// details.
-
 std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
                                                             const TraceSettings& trace_settings);
 
