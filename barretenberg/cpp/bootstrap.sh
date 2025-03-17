@@ -208,7 +208,7 @@ function bench {
 
   # A bit pattern breaking, but the best code to instrument our private IVC flows exists in yarn-project,
   # while the best code for benchmarking these IVC flows exists here.
-  # ../../yarn-project/end-to-end/bootstrap.sh generate_private_ivc_inputs
+  ../../yarn-project/end-to-end/bootstrap.sh generate_private_ivc_inputs
 
   # Ultra honk.
   function ultra_honk_release {
