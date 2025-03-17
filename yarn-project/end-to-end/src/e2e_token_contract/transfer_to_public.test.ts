@@ -55,7 +55,7 @@ describe('e2e_token_contract transfer_to_public', () => {
     const txReplay = asset
       .withWallet(wallets[1])
       .methods.transfer_to_public(accounts[0].address, accounts[1].address, amount, nonce)
-      .send();
+      .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
