@@ -97,16 +97,13 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
 
 AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
     : circuit_size(circuit_size)
+    , log_circuit_size(numeric::get_msb(circuit_size))
+    , num_public_inputs(num_public_inputs)
     , evaluation_domain(bb::EvaluationDomain<FF>(circuit_size, circuit_size))
-    , commitment_key(std::make_shared<CommitmentKey>(circuit_size + 1))
-{
-    // TODO: These come from PrecomputedEntitiesBase, ideal we'd just call that class's constructor.
-    this->log_circuit_size = numeric::get_msb(circuit_size);
-    this->num_public_inputs = num_public_inputs;
-
-    // The proving key's polynomials are not allocated here because they are later overwritten
-    // AvmComposer::compute_witness(). We should probably refactor this flow.
-};
+    , commitment_key(std::make_shared<CommitmentKey>(circuit_size + 1)){
+        // The proving key's polynomials are not allocated here because they are later overwritten
+        // AvmComposer::compute_witness(). We should probably refactor this flow.
+    };
 
 /**
  * @brief Serialize verification key to field elements
