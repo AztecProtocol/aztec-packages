@@ -482,7 +482,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     builder.process({ event, event2 }, trace);
 
     // Empty row after last real merkle row
-    uint32_t after_last_row_index = static_cast<uint32_t>(sibling_path.size()) + 1;
+    uint32_t after_last_row_index = 1 + static_cast<uint32_t>(sibling_path.size() + sibling_path2.size());
     trace.set(Column::merkle_check_sel, after_last_row_index, 0);
     trace.set(Column::merkle_check_leaf, after_last_row_index, 0);
     trace.set(Column::merkle_check_leaf_index, after_last_row_index, 0);
