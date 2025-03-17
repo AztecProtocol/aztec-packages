@@ -1,18 +1,10 @@
 import { type AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
-import { EntrypointExecutionPayload, ExecutionPayload } from '@aztec/entrypoints/payload';
-import { computeCombinedPayloadHash, mergeExecutionPayloads } from '@aztec/entrypoints/utils';
-import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  FunctionCall,
-  FunctionSelector,
-  encodeArguments,
-  getFunctionArtifactByName,
-} from '@aztec/stdlib/abi';
+import { AccountDeploymentExecutionPayload, ExecutionPayload } from '@aztec/entrypoints/payload';
+import { mergeExecutionPayloads } from '@aztec/entrypoints/utils';
+import { type ContractArtifact, type FunctionArtifact, getFunctionArtifactByName } from '@aztec/stdlib/abi';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 
 import { Contract } from '../contract/contract.js';
-import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import type { Wallet } from '../wallet/wallet.js';
 
@@ -53,29 +45,13 @@ export class DeployAccountMethod extends DeployMethod {
 
     if (options.fee && this.#feePaymentArtifact) {
       const { address } = await this.getInstance();
-      const emptyAppPayload = await EntrypointExecutionPayload.fromAppExecution([]);
       const fee = await this.getDefaultFeeOptions(options.fee);
-      const feePayload = await EntrypointExecutionPayload.fromFeeOptions(address, fee);
-      const args = [emptyAppPayload, feePayload, false];
-      const entrypointFunctionCall = new FunctionCall(
-        this.#feePaymentArtifact.name,
-        address,
-        await FunctionSelector.fromNameAndParameters(
-          this.#feePaymentArtifact.name,
-          this.#feePaymentArtifact.parameters,
-        ),
-        this.#feePaymentArtifact.functionType,
-        this.#feePaymentArtifact.isStatic,
-        encodeArguments(this.#feePaymentArtifact, args),
-        this.#feePaymentArtifact.returnTypes,
-      );
-      const entrypointPayload = new ExecutionPayload(
-        [entrypointFunctionCall],
-        [
-          await this.#authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(emptyAppPayload, feePayload)),
-          ...feePayload.authWitnesses,
-        ],
+      const entrypointPayload = await AccountDeploymentExecutionPayload.fromAccountDeployment(
         [],
+        address,
+        this.#feePaymentArtifact,
+        fee,
+        this.#authWitnessProvider,
       );
       executionPayload = mergeExecutionPayloads([executionPayload, entrypointPayload]);
     }

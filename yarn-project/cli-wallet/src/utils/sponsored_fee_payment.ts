@@ -1,5 +1,5 @@
 import type { FeePaymentMethod } from '@aztec/aztec.js/fee';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -15,8 +15,8 @@ export class SponsoredFeePaymentMethod implements FeePaymentMethod {
   }
 
   async getExecutionPayload(): Promise<ExecutionPayload> {
-    return {
-      calls: [
+    return new ExecutionPayload(
+      [
         {
           name: 'sponsor_unconditionally',
           to: this.paymentContract,
@@ -27,8 +27,8 @@ export class SponsoredFeePaymentMethod implements FeePaymentMethod {
           returnTypes: [],
         },
       ],
-      authWitnesses: [],
-      capsules: [],
-    };
+      [],
+      [],
+    );
   }
 }

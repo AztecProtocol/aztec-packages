@@ -11,7 +11,7 @@ import {
   type FeeOptions,
   type TxExecutionOptions,
 } from './interfaces.js';
-import { EntrypointExecutionPayload, ExecutionPayload } from './payload.js';
+import { EncodedExecutionPayloadForEntrypoint, ExecutionPayload } from './payload.js';
 import { mergeAndEncodeExecutionPayloads } from './utils.js';
 
 /**
@@ -37,10 +37,12 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
 
-    const payload = await EntrypointExecutionPayload.fromFunctionCalls(calls);
+    const encodedPayload = await EncodedExecutionPayloadForEntrypoint.fromFunctionCalls(calls);
 
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
+    const entrypointHashedArgs = await HashedValues.fromValues(
+      encodeArguments(abi, [encodedPayload, this.userAddress]),
+    );
     const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
     // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     const innerHash = await computeInnerAuthWitHash([
@@ -57,7 +59,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
 
     const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);
 
-    const executionPayload = await mergeAndEncodeExecutionPayloads([payload], {
+    const executionPayload = await mergeAndEncodeExecutionPayloads([encodedPayload], {
       extraAuthWitnesses: [authWitness, ...userAuthWitnesses],
       extraHashedArgs: [entrypointHashedArgs],
       extraCapsules: userCapsules,

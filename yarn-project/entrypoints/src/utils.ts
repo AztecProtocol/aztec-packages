@@ -1,14 +1,16 @@
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import type { Fr } from '@aztec/foundation/fields';
+import { type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { Capsule, HashedValues } from '@aztec/stdlib/tx';
+import { type Capsule, HashedValues } from '@aztec/stdlib/tx';
 
 import { GeneratorIndex } from '../../constants/src/constants.gen.js';
+import type { EncodedFunctionCall } from './interfaces.js';
 import {
-  type AppEntrypointPayload,
+  EncodedAppEntrypointPayload,
   type EncodedExecutionPayload,
+  EncodedFeeEntrypointPayload,
   ExecutionPayload,
-  type FeeEntrypointPayload,
 } from './payload.js';
 
 /**
@@ -68,6 +70,7 @@ export async function mergeAndEncodeExecutionPayloads(
     authWitnesses: combinedAuthWitnesses,
     hashedArguments,
     capsules: combinedCapsules,
+    function_calls: encodedFunctionCalls,
   };
 }
 
@@ -78,8 +81,8 @@ export async function mergeAndEncodeExecutionPayloads(
  * @returns A hash of a combined payload.
  */
 export async function computeCombinedPayloadHash(
-  appPayload: AppEntrypointPayload,
-  feePayload: FeeEntrypointPayload,
+  appPayload: EncodedAppEntrypointPayload,
+  feePayload: EncodedFeeEntrypointPayload,
 ): Promise<Fr> {
   return poseidon2HashWithSeparator(
     [await appPayload.hash(), await feePayload.hash()],

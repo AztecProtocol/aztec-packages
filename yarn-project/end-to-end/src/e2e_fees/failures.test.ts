@@ -9,7 +9,7 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { FunctionType } from '@aztec/stdlib/abi';
@@ -350,8 +350,8 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       true,
     );
 
-    return {
-      calls: [
+    return new ExecutionPayload(
+      [
         ...(await setPublicAuthWitInteraction.request()).calls,
         {
           name: 'fee_entrypoint_public',
@@ -363,8 +363,8 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
           returnTypes: [],
         },
       ],
-      authWitnesses: [],
-      capsules: [],
-    };
+      [],
+      [],
+    );
   }
 }

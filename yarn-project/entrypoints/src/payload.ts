@@ -3,7 +3,6 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
-import type { FieldsOf } from '@aztec/foundation/types';
 import {
   type FunctionArtifact,
   FunctionCall,
@@ -15,7 +14,8 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Capsule, HashedValues } from '@aztec/stdlib/tx';
 
-import type { EncodedFunctionCall, FeeOptions } from './interfaces.js';
+import type { AuthWitnessProvider, EncodedFunctionCall, FeeOptions } from './interfaces.js';
+import { computeCombinedPayloadHash } from './utils.js';
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr
@@ -59,17 +59,66 @@ export class ExecutionPayload {
       hashedArguments,
       authWitnesses: this.authWitnesses,
       capsules: this.capsules,
+      function_calls: encodedFunctionCalls,
     };
+  }
+}
+
+export class AccountDeploymentExecutionPayload extends ExecutionPayload {
+  constructor(
+    calls: FunctionCall[],
+    authWitnesses: AuthWitness[],
+    capsules: Capsule[],
+    private extraHashedArgs: HashedValues[],
+  ) {
+    super(calls, authWitnesses, capsules);
+  }
+
+  static async fromAccountDeployment(
+    functionCalls: FunctionCall[],
+    address: AztecAddress,
+    feePaymentArtifact: FunctionArtifact,
+    fee: FeeOptions,
+    authWitnessProvider: AuthWitnessProvider,
+  ) {
+    const appPayload = await EncodedExecutionPayloadForEntrypoint.fromAppExecution(functionCalls);
+    const feePayload = await EncodedExecutionPayloadForEntrypoint.fromFeeOptions(address, fee);
+    const args = encodeArguments(feePaymentArtifact, [appPayload, feePayload, false]);
+    const entrypointFunctionCall = new FunctionCall(
+      feePaymentArtifact.name,
+      address,
+      await FunctionSelector.fromNameAndParameters(feePaymentArtifact.name, feePaymentArtifact.parameters),
+      feePaymentArtifact.functionType,
+      feePaymentArtifact.isStatic,
+      args,
+      feePaymentArtifact.returnTypes,
+    );
+    return new AccountDeploymentExecutionPayload(
+      [entrypointFunctionCall],
+      [
+        await authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(appPayload, feePayload)),
+        ...feePayload.authWitnesses,
+      ],
+      [],
+      [...appPayload.hashedArguments, ...feePayload.hashedArguments],
+    );
+  }
+
+  public override async encode(): Promise<EncodedExecutionPayload> {
+    const encoded = await super.encode();
+    encoded.hashedArguments.push(...this.extraHashedArgs);
+    return encoded;
   }
 }
 
 export type EncodedExecutionPayload = Omit<ExecutionPayload, 'calls' | 'encode'> & {
   encodedFunctionCalls: EncodedFunctionCall[];
   hashedArguments: HashedValues[];
+  get function_calls(): EncodedFunctionCall[];
 };
 
 /** Represents the ExecutionPayload after encoding for the entrypint to execute */
-export abstract class EntrypointExecutionPayload implements EncodedExecutionPayload {
+export abstract class EncodedExecutionPayloadForEntrypoint implements EncodedExecutionPayload {
   constructor(
     public encodedFunctionCalls: EncodedFunctionCall[],
     public hashedArguments: HashedValues[],
@@ -123,12 +172,16 @@ export abstract class EntrypointExecutionPayload implements EncodedExecutionPayl
    * @param functionCalls - The function calls to execute
    * @returns The execution payload
    */
-  static async fromFunctionCalls(
-    functionCalls: FunctionCall[],
-    authWitnesses: AuthWitness[] = [],
-    capsules: Capsule[] = [],
-  ) {
-    return new ExecutionPayload(functionCalls, authWitnesses, capsules).encode();
+  static async fromFunctionCalls(functionCalls: FunctionCall[]) {
+    const encoded = await new ExecutionPayload(functionCalls, [], []).encode();
+    return new EncodedAppEntrypointPayload(
+      encoded.encodedFunctionCalls,
+      encoded.hashedArguments,
+      [],
+      [],
+      0,
+      Fr.random(),
+    );
   }
 
   /**
@@ -137,18 +190,13 @@ export abstract class EntrypointExecutionPayload implements EncodedExecutionPayl
    * @param nonce - The nonce for the payload, used to emit a nullifier identifying the call
    * @returns The execution payload
    */
-  static async fromAppExecution(
-    functionCalls: FunctionCall[] | Tuple<FunctionCall, 4>,
-    nonce = Fr.random(),
-    authWitnesses: AuthWitness[] = [],
-    capsules: Capsule[] = [],
-  ) {
+  static async fromAppExecution(functionCalls: FunctionCall[] | Tuple<FunctionCall, 4>, nonce = Fr.random()) {
     if (functionCalls.length > APP_MAX_CALLS) {
       throw new Error(`Expected at most ${APP_MAX_CALLS} function calls, got ${functionCalls.length}`);
     }
     const paddedCalls = padArrayEnd(functionCalls, FunctionCall.empty(), APP_MAX_CALLS);
-    const encoded = await new ExecutionPayload(paddedCalls, authWitnesses, capsules).encode();
-    return new AppEntrypointPayload(
+    const encoded = await new ExecutionPayload(paddedCalls, [], []).encode();
+    return new EncodedAppEntrypointPayload(
       encoded.encodedFunctionCalls,
       encoded.hashedArguments,
       [],
@@ -173,7 +221,7 @@ export abstract class EntrypointExecutionPayload implements EncodedExecutionPayl
     const isFeePayer = !!feePayer && feePayer.equals(sender);
     const paddedCalls = padArrayEnd(calls, FunctionCall.empty(), FEE_MAX_CALLS);
     const encoded = await new ExecutionPayload(paddedCalls, authWitnesses, []).encode();
-    return new FeeEntrypointPayload(
+    return new EncodedFeeEntrypointPayload(
       encoded.encodedFunctionCalls,
       encoded.hashedArguments,
       encoded.authWitnesses,
@@ -186,7 +234,7 @@ export abstract class EntrypointExecutionPayload implements EncodedExecutionPayl
 }
 
 /** Entrypoint payload for app phase execution. */
-export class AppEntrypointPayload extends EntrypointExecutionPayload {
+export class EncodedAppEntrypointPayload extends EncodedExecutionPayloadForEntrypoint {
   constructor(
     encodedFunctionCalls: EncodedFunctionCall[],
     hashedArguments: HashedValues[],
@@ -204,7 +252,7 @@ export class AppEntrypointPayload extends EntrypointExecutionPayload {
 }
 
 /** Entrypoint payload for fee payment to be run during setup phase. */
-export class FeeEntrypointPayload extends EntrypointExecutionPayload {
+export class EncodedFeeEntrypointPayload extends EncodedExecutionPayloadForEntrypoint {
   #isFeePayer: boolean;
 
   constructor(
