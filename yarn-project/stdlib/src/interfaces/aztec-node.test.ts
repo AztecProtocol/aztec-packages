@@ -317,10 +317,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual({ result: 'invalid', reason: ['Invalid'] });
   });
 
-  it('setConfig', async () => {
-    await context.client.setConfig({ coinbase: EthAddress.random() });
-  });
-
   it('getContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const response = await context.client.getContractClass(Fr.random());
@@ -343,10 +339,6 @@ describe('AztecNodeApiSchema', () => {
       salt: expect.any(Fr),
       version: 1,
     });
-  });
-
-  it('flushTxs', async () => {
-    await context.client.flushTxs();
   });
 
   it('getEncodedEnr', async () => {
