@@ -247,7 +247,7 @@ where
     apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args)
 }
 
-/// Unconstrained variant of `get_notes`, meant to be used in unconstrained execution contents. Notably only the note
+/// Unconstrained variant of `get_notes`, meant to be used in unconstrained execution contexts. Notably only the note
 /// content is returned, and not any of the information used when proving its existence (e.g. nonce, note hash, etc.).
 pub unconstrained fn view_notes<Note, let N: u32>(
     storage_slot: Field,
@@ -280,7 +280,7 @@ where
         placeholder_fields,
     );
 
-    // Even though we don't expect for the opt_notes array to be sparse, collapse is still useuful in this case to
+    // Even though we don't expect for the opt_notes array to be sparse, collapse is still useful in this case to
     // convert it into a BoundedVec.
     array::collapse(opt_notes).map(
         // view_notes just returns the actual note, so we drop the metadata
