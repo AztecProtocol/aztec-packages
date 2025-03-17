@@ -4,8 +4,8 @@ import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 import type { AuthWitnessProvider, EntrypointInterface, FeeOptions, TxExecutionOptions } from './interfaces.js';
-import { EncodedExecutionPayloadForEntrypoint, ExecutionPayload } from './payload.js';
-import { computeCombinedPayloadHash, mergeAndEncodeExecutionPayloads } from './utils.js';
+import { EncodedExecutionPayloadForEntrypoint, ExecutionPayload, computeCombinedPayloadHash } from './payload.js';
+import { mergeAndEncodeExecutionPayloads } from './utils.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
