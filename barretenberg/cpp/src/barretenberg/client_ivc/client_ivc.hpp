@@ -165,7 +165,7 @@ class ClientIVC {
     void construct_vk();
     Proof prove();
 
-    std::shared_ptr<ClientIVC::DeciderProvingKey> construct_hiding_circuit_key();
+    std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, MergeProof> construct_hiding_circuit_key();
     std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);

@@ -125,7 +125,7 @@ void write_standalone_vk(const std::string& output_data_type,
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     ProofAndKey<VerificationKey> to_write{ {}, std::make_shared<VerificationKey>(prover.proving_key->proving_key) };
 
-    write(to_write, output_format, "vk", output_path);
+    write(to_write, output_data_type, "vk", output_path);
 }
 
 size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& bytecode_path)
@@ -257,11 +257,17 @@ void ClientIVCAPI::prove(const Flags& flags,
     std::shared_ptr<ClientIVC> ivc = _accumulate(folding_stack);
     ClientIVC::Proof proof = ivc->prove();
 
+    // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
+    // and it is mysterious if this transaction fails later in the lifecycle.
+    // The files are still written in case they are needed to investigate this failure.
+    if (!ivc->verify(proof)) {
+        throw std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
+    }
+
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating string
     // representations of vks that don't feel worth implementing
     const bool output_to_stdout = output_dir == "-";
 
-<<<<<<< HEAD
     const auto write_proof = [&]() {
         const auto buf = to_buffer(proof);
         if (output_to_stdout) {
@@ -287,12 +293,12 @@ void ClientIVCAPI::prove(const Flags& flags,
         }
     };
 
-    if (flags.output_content_type == "proof") {
+    if (flags.output_format == "proof") {
         write_proof();
-    } else if (flags.output_content_type == "vk") {
+    } else if (flags.output_format == "vk") {
         write_vk();
     } else {
-        ASSERT(flags.output_content_type == "proof_and_vk"); // should be caught already by CLI11
+        ASSERT(flags.output_format == "proof_and_vk"); // should be caught already by CLI11
         write_proof();
         write_vk();
     }
@@ -357,7 +363,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
     if (flags.verifier_type == "ivc") {
         write_vk_for_ivc(bytecode_path, output_path);
     } else if (flags.verifier_type == "standalone") {
-        write_standalone_vk(flags.output_data_type, bytecode_path, output_path);
+        write_standalone_vk(flags.output_format, bytecode_path, output_path);
     } else {
         const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
         throw_or_abort(msg);

@@ -207,7 +207,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
  * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
  * decider proof.
  */
-std::shared_ptr<ClientIVC::DeciderProvingKey> ClientIVC::construct_hiding_circuit_key()
+std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, ClientIVC::MergeProof> ClientIVC::
+    construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);
@@ -261,7 +262,7 @@ std::shared_ptr<ClientIVC::DeciderProvingKey> ClientIVC::construct_hiding_circui
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
 
-    return decider_pk;
+    return { decider_pk, merge_proof };
 }
 
 /**
@@ -269,9 +270,9 @@ std::shared_ptr<ClientIVC::DeciderProvingKey> ClientIVC::construct_hiding_circui
  *
  * @return HonkProof - a Mega proof
  */
-HonkProof ClientIVC::construct_and_prove_hiding_circuit()
+std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hiding_circuit()
 {
-    auto decider_pk = construct_hiding_circuit_key();
+    auto [decider_pk, merge_proof] = construct_hiding_circuit_key();
     MegaProver prover(decider_pk);
     HonkProof proof = prover.construct_proof();
 
@@ -292,8 +293,6 @@ void ClientIVC::construct_vk()
 ClientIVC::Proof ClientIVC::prove()
 {
     auto [mega_proof, merge_proof] = construct_and_prove_hiding_circuit();
-    ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
-
     return { mega_proof, goblin.prove(merge_proof) };
 };
 
