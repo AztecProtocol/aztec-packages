@@ -1,5 +1,5 @@
 import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -88,8 +88,8 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       true,
     );
 
-    return {
-      calls: [
+    return new ExecutionPayload(
+      [
         ...(await setPublicAuthWitInteraction.request()).calls,
         {
           name: 'fee_entrypoint_public',
@@ -101,8 +101,8 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
           returnTypes: [],
         },
       ],
-      authWitnesses: [],
-      capsules: [],
-    };
+      [],
+      [],
+    );
   }
 }

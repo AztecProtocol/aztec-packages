@@ -121,13 +121,6 @@ export class BatchCall extends BaseContractInteraction {
   }
 
   /**
-   * Return all hashedArguments added for this interaction.
-   */
-  public override getHashedArguments() {
-    return [this.hashedArguments, ...this.calls.map(c => c.getHashedArguments())].flat();
-  }
-
-  /**
    * Return all capsules added for this interaction.
    */
   public override getCapsules() {

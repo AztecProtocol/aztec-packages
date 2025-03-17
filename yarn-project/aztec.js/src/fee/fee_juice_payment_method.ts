@@ -1,5 +1,5 @@
 import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -16,7 +16,7 @@ export class FeeJuicePaymentMethod implements FeePaymentMethod {
   }
 
   getExecutionPayload(): Promise<ExecutionPayload> {
-    return Promise.resolve({ calls: [], authWitnesses: [], capsules: [] });
+    return Promise.resolve(ExecutionPayload.empty());
   }
 
   getFeePayer(): Promise<AztecAddress> {

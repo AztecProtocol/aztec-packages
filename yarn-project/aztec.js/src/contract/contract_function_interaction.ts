@@ -2,7 +2,7 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
@@ -48,8 +48,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
+    authWitnesses: AuthWitness[] = [],
+    capsules: Capsule[] = [],
   ) {
-    super(wallet);
+    super(wallet, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error('All function interaction arguments must be defined and not null. Received: ' + args);
     }
@@ -98,11 +100,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       },
     ];
     const { authWitnesses, capsules } = options;
-    return {
+    return new ExecutionPayload(
       calls,
-      authWitnesses: authWitnesses ?? [],
-      capsules: capsules ?? [],
-    };
+      this.authWitnesses.concat(authWitnesses ?? []),
+      this.capsules.concat(capsules ?? []),
+    );
   }
 
   // docs:start:simulate

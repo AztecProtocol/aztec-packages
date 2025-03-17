@@ -18,11 +18,7 @@ export function mergeExecutionPayloads(requests: ExecutionPayload[]): ExecutionP
   const calls = requests.map(r => r.calls).flat();
   const combinedAuthWitnesses = requests.map(r => r.authWitnesses ?? []).flat();
   const combinedCapsules = requests.map(r => r.capsules ?? []).flat();
-  return {
-    calls,
-    authWitnesses: combinedAuthWitnesses,
-    capsules: combinedCapsules,
-  };
+  return new ExecutionPayload(calls, combinedAuthWitnesses, combinedCapsules);
 }
 
 /**
@@ -47,15 +43,15 @@ export async function mergeAndEncodeExecutionPayloads(
     await Promise.all(
       requests.map(async r => {
         if (!isEncoded(r)) {
-          return await ExecutionPayload.encodeCalls(r.calls);
+          return new ExecutionPayload(r.calls, r.authWitnesses, r.capsules).encode();
         } else {
-          return { encodedFunctionCalls: r.encodedFunctionCalls, hashedArguments: r.hashedArguments };
+          return r;
         }
       }),
     )
   ).flat();
   const encodedFunctionCalls = encoded.map(r => r.encodedFunctionCalls).flat();
-  const combinedAuthWitnesses = requests
+  const combinedAuthWitnesses = encoded
     .map(r => r.authWitnesses ?? [])
     .flat()
     .concat(extraAuthWitnesses ?? []);
@@ -63,7 +59,7 @@ export async function mergeAndEncodeExecutionPayloads(
     .map(r => r.hashedArguments ?? [])
     .flat()
     .concat(extraHashedArgs ?? []);
-  const combinedCapsules = requests
+  const combinedCapsules = encoded
     .map(r => r.capsules ?? [])
     .flat()
     .concat(extraCapsules ?? []);

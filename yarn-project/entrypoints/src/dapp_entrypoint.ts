@@ -11,7 +11,7 @@ import {
   type FeeOptions,
   type TxExecutionOptions,
 } from './interfaces.js';
-import { ExecutionPayload } from './payload.js';
+import { EntrypointExecutionPayload, ExecutionPayload } from './payload.js';
 import { mergeAndEncodeExecutionPayloads } from './utils.js';
 
 /**
@@ -37,7 +37,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
 
-    const payload = await ExecutionPayload.fromFunctionCalls(calls);
+    const payload = await EntrypointExecutionPayload.fromFunctionCalls(calls);
 
     const abi = this.getEntrypointAbi();
     const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));

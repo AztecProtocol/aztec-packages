@@ -1,5 +1,5 @@
 import { type EntrypointInterface, type FeeOptions } from '@aztec/entrypoints/interfaces';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { EntrypointExecutionPayload, ExecutionPayload } from '@aztec/entrypoints/payload';
 import { mergeAndEncodeExecutionPayloads } from '@aztec/entrypoints/utils';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
@@ -18,7 +18,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
 
   async createTxExecutionRequest(exec: ExecutionPayload, fee: FeeOptions): Promise<TxExecutionRequest> {
     const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [] } = exec;
-    const payload = await ExecutionPayload.fromAppExecution(calls);
+    const payload = await EntrypointExecutionPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
     const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload]));
 

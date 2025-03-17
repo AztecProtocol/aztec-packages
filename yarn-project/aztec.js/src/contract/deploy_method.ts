@@ -94,7 +94,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * it returns a promise for an array instead of a function call directly.
    */
   public async request(options: DeployOptions = {}): Promise<ExecutionPayload> {
-    const deployment = await this.getDeploymentFunctionCalls(options);
+    const deployment = await this.getDeploymentExecutionPayload(options);
 
     // NOTE: MEGA HACK. Remove with #10007
     // register the contract after generating deployment function calls in order to publicly register the class and (optioanlly) emit its bytecode
@@ -107,15 +107,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // once this tx has gone through.
     await this.wallet.registerContract({ artifact: this.artifact, instance: await this.getInstance(options) });
 
-    const bootstrap = await this.getInitializeFunctionCalls(options);
-
-    const requests = await Promise.all([...deployment, ...bootstrap].map(c => c.request()));
-    console.log(requests);
-    if (!requests.length) {
+    const bootstrap = await this.getInitializeExecutionPayload(options);
+    const exec = [deployment, bootstrap];
+    const fnCalls = exec.map(exec => exec.calls).flat();
+    if (!fnCalls.length) {
       throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
     }
 
-    return mergeExecutionPayloads(requests);
+    return mergeExecutionPayloads(exec);
   }
 
   /**
@@ -133,8 +132,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns A function call array with potentially requests to the class registerer and instance deployer.
    */
-  protected async getDeploymentFunctionCalls(options: DeployOptions = {}): Promise<ContractFunctionInteraction[]> {
-    const calls: ContractFunctionInteraction[] = [];
+  protected async getDeploymentExecutionPayload(options: DeployOptions = {}): Promise<ExecutionPayload> {
+    const calls: ExecutionPayload[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
     const instance = await this.getInstance(options);
@@ -159,17 +158,17 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
           `Creating request for registering contract class ${contractClass.id.toString()} as part of deployment for ${instance.address.toString()}`,
         );
         const registerContractClassInteraction = await registerContractClass(this.wallet, this.artifact);
-        calls.push(registerContractClassInteraction);
+        calls.push(await registerContractClassInteraction.request());
       }
     }
 
     // Deploy the contract via the instance deployer.
     if (!options.skipPublicDeployment) {
       const deploymentInteraction = await deployInstance(this.wallet, instance);
-      calls.push(deploymentInteraction);
+      calls.push(await deploymentInteraction.request());
     }
 
-    return calls;
+    return mergeExecutionPayloads(calls);
   }
 
   /**
@@ -177,8 +176,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected async getInitializeFunctionCalls(options: DeployOptions): Promise<ContractFunctionInteraction[]> {
-    const calls: ContractFunctionInteraction[] = [];
+  protected async getInitializeExecutionPayload(options: DeployOptions): Promise<ExecutionPayload> {
+    const executionsPayloads: ExecutionPayload[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
       const { address } = await this.getInstance(options);
       const constructorCall = new ContractFunctionInteraction(
@@ -187,9 +186,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         this.constructorArtifact,
         this.args,
       );
-      calls.push(constructorCall);
+      executionsPayloads.push(await constructorCall.request());
     }
-    return calls;
+    return mergeExecutionPayloads(executionsPayloads);
   }
 
   /**

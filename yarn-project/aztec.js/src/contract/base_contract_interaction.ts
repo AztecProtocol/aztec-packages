@@ -38,11 +38,11 @@ export type SendMethodOptions = {
 export abstract class BaseContractInteraction {
   protected log = createLogger('aztecjs:contract_interaction');
 
-  protected authWitnesses: AuthWitness[] = [];
-  protected hashedArguments: HashedValues[] = [];
-  protected capsules: Capsule[] = [];
-
-  constructor(protected wallet: Wallet) {}
+  constructor(
+    protected wallet: Wallet,
+    protected authWitnesses: AuthWitness[] = [],
+    protected capsules: Capsule[] = [],
+  ) {}
 
   /**
    * Create a transaction execution request ready to be simulated.
@@ -181,65 +181,10 @@ export abstract class BaseContractInteraction {
   }
 
   /**
-   * Add authWitness used in this contract interaction.
-   * @param authWitness - authWitness used in the contract interaction.
-   */
-  public addAuthWitness(authWitness: AuthWitness) {
-    this.authWitnesses.push(authWitness);
-  }
-
-  /**
-   * Add authWitness used in this contract interaction.
-   * @param authWitnesses - authWitnesses used in the contract interaction.
-   */
-  public addAuthWitnesses(authWitnesses: AuthWitness[]) {
-    this.authWitnesses.push(...authWitnesses);
-  }
-
-  /**
    * Return all authWitnesses added for this interaction.
    */
   public getAuthWitnesses() {
     return this.authWitnesses;
-  }
-
-  /**
-   * Add hashedArgument used in this contract interaction.
-   * @param hashedArgument - hashedArgument used in the contract interaction.
-   */
-  public addHashedArgument(hashedArgument: HashedValues) {
-    this.hashedArguments.push(hashedArgument);
-  }
-
-  /**
-   * Add hashedArguments used in this contract interaction.
-   * @param hashedArguments - hashedArguments used in the contract interaction.
-   */
-  public addHashedArguments(hashedArguments: HashedValues[]) {
-    this.hashedArguments.push(...hashedArguments);
-  }
-
-  /**
-   * Return all hashedArguments added for this interaction.
-   */
-  public getHashedArguments() {
-    return this.hashedArguments;
-  }
-
-  /**
-   * Add data passed to the oracle calls during this contract interaction.
-   * @param capsule - Data passed to oracle calls.
-   */
-  public addCapsule(capsule: Capsule) {
-    this.capsules.push(capsule);
-  }
-
-  /**
-   * Add data passed to the oracle calls during this contract interaction.
-   * @param capsules - Data passed to oracle calls.
-   */
-  public addCapsules(capsules: Capsule[]) {
-    this.capsules.push(...capsules);
   }
 
   /**

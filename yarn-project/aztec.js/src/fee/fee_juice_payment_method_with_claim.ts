@@ -1,4 +1,4 @@
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
@@ -29,8 +29,8 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
       canonicalFeeJuice.artifact.functions.find(f => f.name === 'claim')!,
     );
 
-    return {
-      calls: [
+    return new ExecutionPayload(
+      [
         {
           to: ProtocolContractAddress.FeeJuice,
           name: 'claim',
@@ -46,8 +46,8 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
           type: FunctionType.PRIVATE,
         },
       ],
-      authWitnesses: [],
-      capsules: [],
-    };
+      [],
+      [],
+    );
   }
 }

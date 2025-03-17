@@ -34,7 +34,7 @@ describe('e2e_authwit_tests', () => {
 
   describe('Private', () => {
     describe('arbitrary data', () => {
-      it.only('happy path', async () => {
+      it('happy path', async () => {
         // What are we doing here:
         // 1. We compute an inner hash which is here just a hash of random data
         // 2. We then compute the message hash, which is binding it to a "consumer" (here the "auth" contract)

@@ -9,7 +9,7 @@ import {
   type FeeOptions,
   type TxExecutionOptions,
 } from './interfaces.js';
-import { ExecutionPayload } from './payload.js';
+import { EntrypointExecutionPayload, ExecutionPayload } from './payload.js';
 import { computeCombinedPayloadHash, mergeAndEncodeExecutionPayloads, mergeExecutionPayloads } from './utils.js';
 
 /**
@@ -31,8 +31,8 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   ): Promise<TxExecutionRequest> {
     const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [] } = exec;
     const { cancellable, nonce } = options;
-    const appPayload = await ExecutionPayload.fromAppExecution(calls, nonce);
-    const feePayload = await ExecutionPayload.fromFeeOptions(this.address, fee);
+    const appPayload = await EntrypointExecutionPayload.fromAppExecution(calls, nonce);
+    const feePayload = await EntrypointExecutionPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
     const entrypointHashedArgs = await HashedValues.fromValues(
