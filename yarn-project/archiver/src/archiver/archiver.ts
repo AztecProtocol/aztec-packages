@@ -547,8 +547,6 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           globalVariables: block.block.header.globalVariables.toInspect(),
         });
       }
-      // Set the synced L1 block number here as that containing the most recently retrieved L2 block
-      await this.store.setBlockSynchedL1BlockNumber(lastProcessedL1BlockNumber);
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
