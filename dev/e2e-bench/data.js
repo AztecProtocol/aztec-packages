@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742234793420,
+  "lastUpdate": 1742239972234,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1278,6 +1278,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 157755,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "spypsy@users.noreply.github.com",
+            "name": "spypsy",
+            "username": "spypsy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "66e80284927bb3d71b80edafeba5181f0ad4bf20",
+          "message": "fix: consensus URL as CLI config (#12796)\n\nFixes #12787 \n\n'promotes' consensus URL options to top-level CLI options, instead of\ne.g. `--sequencer.l1ConsensusHostUrl`",
+          "timestamp": "2025-03-17T21:08:07+02:00",
+          "tree_id": "e3ecdfeda5ccaedb062e43758ee93da6d682273f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/66e80284927bb3d71b80edafeba5181f0ad4bf20"
+        },
+        "date": 1742239964735,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9409,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2296016182322053,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 133823,
             "unit": "us"
           }
         ]
