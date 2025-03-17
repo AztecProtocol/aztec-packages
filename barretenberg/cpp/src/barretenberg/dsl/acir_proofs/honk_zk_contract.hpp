@@ -1766,8 +1766,6 @@ interface IVerifier {
         mem.denominators[3] = mem.denominators[0];
 
         mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
-
-        mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
         for (uint256 i = 0; i < 4; i++) {
             Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
             mem.batchingScalars[i] = scalingFactor.neg();
