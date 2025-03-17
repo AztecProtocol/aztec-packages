@@ -29,7 +29,7 @@ SUB_REPOS=$(echo "$rebuild_patterns" | grep ".git")
 
 # For sanity when iterating on build scripts as bootstrap.sh scripts are in every .rebuild_patterns.
 if [ -n "${AZTEC_CACHE_NO_SCRIPTS:-}" ]; then
-  rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '*\.sh')
+  rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '.sh')
 fi
 
 # use git repo root because that is where our patterns are focused
