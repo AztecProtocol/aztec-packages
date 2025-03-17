@@ -1,4 +1,4 @@
-use std::{embedded_curve_ops::fixed_base_scalar_mul, hash::from_field_unsafe as fr_to_fq_unsafe};
+use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul};
 
 use dep::protocol_types::{point::Point, scalar::Scalar};
 
@@ -13,9 +13,9 @@ pub fn generate_ephemeral_key_pair() -> (Scalar, Point) {
     // sender will cooperate in the random value generation.
     let randomness = unsafe { random() };
 
-    // We use the unsafe version of `fr_to_fq` because fixed_base_scalar_mul (called by derive_public_key) will constrain
-    // the scalars.
-    let eph_sk = fr_to_fq_unsafe(randomness);
+    // TODO(#12757): compute the key pair without constraining eph_sk twice (once in from_field, once in the black box
+    // called by fixed_base_scalar_mul).
+    let eph_sk = EmbeddedCurveScalar::from_field(randomness);
     let eph_pk = fixed_base_scalar_mul(eph_sk);
 
     (eph_sk, eph_pk)

@@ -2,9 +2,11 @@ use crate::{
     context::PrivateContext,
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
-        log_assembly_strategies::default_aes128::note::{
-            get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES,
+        log_assembly_strategies::default_aes128::{
+            arithmetic_generics_utils::{
+                get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
+            },
+            note::encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES,
         },
     },
     event::event_interface::EventInterface,
@@ -12,11 +14,12 @@ use crate::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
-    oracle::{
-        notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::{get_random_bytes, random},
+    oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
+    utils::{
+        conversion::{bytes_to_fields::bytes_to_fields, fields_to_bytes::fields_to_bytes},
+        point::get_sign_of_point,
+        random::get_random_bytes,
     },
-    utils::{conversion::bytes_to_fields::bytes_to_fields, point::get_sign_of_point},
 };
 use dep::protocol_types::{
     address::AztecAddress,
@@ -60,31 +63,26 @@ use std::aes128::aes128_encrypt;
 /// This particular log assembly strategy (AES 128) requires the event (and the
 /// event_type_id) to be converted into bytes, because the aes function
 /// operates on bytes; not fields.
-/// NB: The extra `+ 32` bytes is for the event_type_id:
-fn compute_event_plaintext_for_this_strategy<Event, let N: u32>(event: Event) -> [u8; N * 32 + 32]
+/// NB: The extra `+ 1` is for the event_type_id:
+fn compute_event_plaintext_for_this_strategy<Event, let N: u32>(event: Event) -> [u8; (N + 1) * 32]
 where
     Event: EventInterface<N>,
 {
     let serialized_event = Serialize::<N>::serialize(event);
 
-    let event_type_id_bytes: [u8; 32] = Event::get_event_type_id().to_field().to_be_bytes();
-
-    let mut plaintext_bytes = [0 as u8; N * 32 + 32];
-
-    for i in 0..32 {
-        plaintext_bytes[i] = event_type_id_bytes[i];
-    }
-
+    let mut fields = [0; N + 1];
+    fields[0] = Event::get_event_type_id().to_field();
     for i in 0..serialized_event.len() {
-        let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
-        for j in 0..32 {
-            plaintext_bytes[32 + i * 32 + j] = bytes[j];
-        }
+        fields[i + 1] = serialized_event[i];
     }
 
-    plaintext_bytes
+    fields_to_bytes(fields)
 }
 
+// Note: This function is basically a copy of ./note/encryption.nr::encrypt_log. TODO: Merge the functions once
+// the final note and event log layout is clear. Seems to me that the functions should be the same as encrypt_log
+// is quite general and takes in an arbitrary plaintext. The note specific thing seems to be that in that function
+// we perform some note-specific log length assertions.
 fn compute_log<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
@@ -210,6 +208,9 @@ where
     // Convert the encrypted bytes to fields, because logs are field-based
     // *****************************************************************************
 
+    // TODO(#12749): As Mike pointed out, we need to make logs produced by different encryption schemes
+    // indistinguishable from each other and for this reason the output here and in the last for-loop of this function
+    // should cover a full field.
     let log_bytes_as_fields = bytes_to_fields(log_bytes);
 
     // *****************************************************************************
@@ -236,9 +237,14 @@ where
     offset += log_bytes_as_fields.len();
 
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
+        // We need to get a random value that fits in 31 bytes to not leak information about the size of the log
+        // (all the "real" log fields contain at most 31 bytes because of the way we convert the bytes to fields).
+        // TODO(#12749): Long term, this is not a good solution.
+
         // Safety: we assume that the sender wants for the log to be private - a malicious one could simply reveal its
         // contents publicly. It is therefore fine to trust the sender to provide random padding.
-        final_log[i] = unsafe { random() };
+        let field_bytes = unsafe { get_random_bytes::<31>() };
+        final_log[i] = Field::from_be_bytes::<31>(field_bytes);
     }
 
     final_log
