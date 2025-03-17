@@ -28,3 +28,4 @@
 ^noir/bootstrap.sh
 ^noir/noir-repo-ref
 ^noir/noir-repo.patch
+^noir/noir-repo/.git
