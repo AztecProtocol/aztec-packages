@@ -81,7 +81,6 @@ function show_status_until_pxe_ready {
       break # we are up, stop showing status
     fi
 
-    sleep 20
   done
 }
 
