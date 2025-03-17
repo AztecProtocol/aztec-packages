@@ -189,7 +189,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _header - The header to validate
    * @param _signatures - The signatures to validate
    * @param _digest - The digest to validate
-   * @param _currentTime - The current time
    * @param _blobsHash - The blobs hash for this block
    * @param _flags - The flags to validate
    */
@@ -197,10 +196,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes calldata _header,
     Signature[] memory _signatures,
     bytes32 _digest,
-    Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external view override(IRollup) {
+    Timestamp _currentTime = Timestamp.wrap(block.timestamp);
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
         header: HeaderLib.decode(_header),

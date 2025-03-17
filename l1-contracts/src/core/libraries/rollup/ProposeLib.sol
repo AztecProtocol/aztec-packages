@@ -49,7 +49,6 @@ struct ValidateHeaderArgs {
   Header header;
   Signature[] attestations;
   bytes32 digest;
-  Timestamp currentTime;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
   BlockHeaderValidationFlags flags;
@@ -97,7 +96,6 @@ library ProposeLib {
         header: header,
         attestations: _signatures,
         digest: digest(_args),
-        currentTime: Timestamp.wrap(block.timestamp),
         manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: BlockHeaderValidationFlags({ignoreDA: false, ignoreSignatures: false})
@@ -145,12 +143,11 @@ library ProposeLib {
    *          For more context, consult:
    *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
    *
-   * @param _timestamp - The timestamp of the block
    * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
    *
    * @return The mana base fee components
    */
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+  function getManaBaseFeeComponentsAt(bool _inFeeAsset)
     internal
     view
     returns (ManaBaseFeeComponents memory)
@@ -192,7 +189,9 @@ library ProposeLib {
       )
     );
 
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_args.currentTime);
+    Timestamp _currentTime = Timestamp.wrap(block.timestamp);
+
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_currentTime);
 
     require(
       _args.header.globalVariables.blockNumber == pendingBlockNumber + 1,
@@ -211,7 +210,7 @@ library ProposeLib {
     Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    Slot currentSlot = _args.currentTime.slotFromTimestamp();
+    Slot currentSlot = _currentTime.slotFromTimestamp();
     require(slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot));
 
     Timestamp timestamp = TimeLib.toTimestamp(slot);
@@ -220,9 +219,7 @@ library ProposeLib {
       Errors.Rollup__InvalidTimestamp(timestamp, _args.header.globalVariables.timestamp)
     );
 
-    require(
-      timestamp <= _args.currentTime, Errors.Rollup__TimestampInFuture(_args.currentTime, timestamp)
-    );
+    require(timestamp <= _currentTime, Errors.Rollup__TimestampInFuture(_currentTime, timestamp));
 
     require(
       _args.flags.ignoreDA

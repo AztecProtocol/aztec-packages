@@ -299,6 +299,17 @@ export class SequencerPublisher {
     ] as const;
 
     await this.rollupContract.validateHeader(args, this.getForwarderAddress().toString());
+
+    // Simulate 'validateHeader' call
+    await this.l1TxUtils.simulateGasUsed({
+      to: this.rollupContract.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'validateHeader',
+        args,
+      }),
+    });
+
     return ts;
   }
 
@@ -490,53 +501,7 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    const rollupData = encodeFunctionData({
-      abi: RollupAbi,
-      functionName: 'propose',
-      args,
-    });
-
-    const forwarderData = encodeFunctionData({
-      abi: ForwarderAbi,
-      functionName: 'forward',
-      args: [[this.rollupContract.address], [rollupData]],
-    });
-
-    const simulationResult = await this.l1TxUtils
-      .simulateGasUsed(
-        {
-          to: this.getForwarderAddress().toString(),
-          data: forwarderData,
-          gas: SequencerPublisher.PROPOSE_GAS_GUESS,
-        },
-        {
-          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
-          time: timestamp + 1n,
-          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
-          gasLimit: SequencerPublisher.PROPOSE_GAS_GUESS * 2n,
-        },
-        [
-          {
-            address: this.rollupContract.address,
-            // @note we override checkBlob to false since blobs are not part simulate()
-            stateDiff: [
-              {
-                slot: toHex(RollupContract.checkBlobStorageSlot, true),
-                value: toHex(0n, true),
-              },
-            ],
-          },
-        ],
-        {
-          // @note fallback gas estimate to use if the node doesn't support simulation API
-          fallbackGasEstimate: SequencerPublisher.PROPOSE_GAS_GUESS,
-        },
-      )
-      .catch(err => {
-        const { message, metaMessages } = formatViemError(err);
-        this.log.error(`Failed to simulate gas used`, message, { metaMessages });
-        throw new Error('Failed to simulate gas used');
-      });
+    const { rollupData, simulationResult } = await this.simulateProposeTx(encodedData, blobInput, timestamp);
 
     return { args, blobEvaluationGas, rollupData, simulationResult };
   }
@@ -609,6 +574,77 @@ export class SequencerPublisher {
         }
       },
     });
+  }
+
+  private async simulateProposeTx(encodedData: L1ProcessArgs, blobInput: `0x${string}`, timestamp: bigint) {
+    const attestations = encodedData.attestations
+      ? encodedData.attestations.map(attest => attest.toViemSignature())
+      : [];
+    const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
+    const args = [
+      {
+        header: `0x${encodedData.header.toString('hex')}`,
+        archive: `0x${encodedData.archive.toString('hex')}`,
+        oracleInput: {
+          // We are currently not modifying these. See #9963
+          feeAssetPriceModifier: 0n,
+        },
+        blockHash: `0x${encodedData.blockHash.toString('hex')}`,
+        txHashes,
+      },
+      attestations,
+      blobInput,
+    ] as const;
+
+    const rollupData = encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'propose',
+      args,
+    });
+
+    const forwarderData = encodeFunctionData({
+      abi: ForwarderAbi,
+      functionName: 'forward',
+      args: [[this.rollupContract.address], [rollupData]],
+    });
+
+    const simulationResult = await this.l1TxUtils
+      .simulateGasUsed(
+        {
+          to: this.getForwarderAddress().toString(),
+          data: forwarderData,
+          gas: SequencerPublisher.PROPOSE_GAS_GUESS,
+        },
+        {
+          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+          time: timestamp + 1n,
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          gasLimit: SequencerPublisher.PROPOSE_GAS_GUESS * 2n,
+        },
+        [
+          {
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(RollupContract.checkBlobStorageSlot, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
+        {
+          // @note fallback gas estimate to use if the node doesn't support simulation API
+          fallbackGasEstimate: SequencerPublisher.PROPOSE_GAS_GUESS,
+        },
+      )
+      .catch(err => {
+        const { message, metaMessages } = formatViemError(err);
+        this.log.error(`Failed to simulate gas used`, message, { metaMessages });
+        throw new Error('Failed to simulate gas used');
+      });
+
+    return { rollupData, simulationResult };
   }
 
   /**
