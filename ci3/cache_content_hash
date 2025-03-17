@@ -25,80 +25,54 @@ for arg in "$@"; do
   fi
 done
 
-SUB_REPOS=$(echo "$rebuild_patterns" | grep ".git" | sort | uniq || echo "")
+GREP_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$')
 
 # For sanity when iterating on build scripts as bootstrap.sh scripts are in every .rebuild_patterns.
 if [ -n "${AZTEC_CACHE_NO_SCRIPTS:-}" ]; then
-  rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '.sh')
+  rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '*\.sh')
 fi
+# Concatenate patterns with '|' and double escape backslashes for AWK filter empty lines
+AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
 
 # use git repo root because that is where our patterns are focused
 cd "$(git rev-parse --show-toplevel)"
 
-# Content hash accumulator
-CONTENT_HASH_ACC=""
+diff="$({
+  git diff --name-only
+  git diff --staged --name-only
+  git ls-files --others --exclude-standard
+} | grep -E "$GREP_PATTERN" || true)"
 
-for repo in $(echo .git $SUB_REPOS); do
-  repo_prefix=$(echo $repo | sed 's/.git//g' | sed 's/\^//g')
-  # Find all patterns that start with the prefix and trim it from the pattern.
-  if [ ! -z "$repo_prefix" ]; then
-    d=$'\03' # using some control character to not clash with / in path
-    repo_rebuild_patterns=$(echo "$rebuild_patterns" | grep "$repo_prefix" | sed "s${d}$repo_prefix${d}${d}")
-    git_ctx="-C $repo_prefix"
-    git_commit="HEAD"
-  else
-    repo_rebuild_patterns="$rebuild_patterns"
-    git_ctx=""
-    git_commit=$AZTEC_CACHE_COMMIT
+# Check for uncommitted files/changes
+if [ -n "$diff" ]; then
+  # Fail. We shouldn't be writing files during the build.
+  if [ "${CI:-0}" = 1 ]; then
+    echo_stderr "WARNING: Noticed changes to rebuild patterns: $diff"
   fi
-  repo_rebuild_patterns=$(echo "$repo_rebuild_patterns" | grep -v ".git" | grep -v '^$')
+  # Signal to cache_upload and cache_download to not touch this file.
+  echo "disabled-cache"
+  exit 0
+fi
 
-  GREP_PATTERN=$(echo "$repo_rebuild_patterns")
-  # Concatenate patterns with '|' and double escape backslashes for AWK filter empty lines
-  AWK_PATTERN=$(echo "$repo_rebuild_patterns" | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
+# Calculate a content hash for matched files
+# Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
+# Sort the hashes and compute the content hash
+CONTENT_HASH="$(
+  git ls-tree -r "$AZTEC_CACHE_COMMIT" \
+    | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' \
+    | sort \
+    | git hash-object --stdin \
+    | cut -c1-16
+)"
 
-  diff="$({
-    git $git_ctx diff --name-only
-    git $git_ctx diff --staged --name-only
-    git $git_ctx ls-files --others --exclude-standard
-  } | grep -E "$GREP_PATTERN" || true)"
-
-  # Check for uncommitted files/changes
-  if [ -n "$diff" ]; then
-    # Fail. We shouldn't be writing files during the build.
-    if [ "${CI:-0}" = 1 ]; then
-      echo_stderr "WARNING: Noticed changes to rebuild patterns: $diff"
-    fi
-    # Signal to cache_upload and cache_download to not touch this file.
-    echo "disabled-cache"
-    exit 0
-  fi
-
-  # Calculate a content hash for matched files
-  # Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
-  # Sort the hashes and compute the content hash
-  CONTENT_HASH="$(
-    git $git_ctx ls-tree -r "$git_commit" \
-      | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' \
-      | sort \
-      | git hash-object --stdin \
-      | cut -c1-16
-  )"
-  # Check if file list was empty by comparing against the result of
-  # 'echo '' | git hash-object --stdin | cut -c1-16'
-  EMPTY_HASH="8b137891791fe969"
-  if [[ "$CONTENT_HASH" == "$EMPTY_HASH" ]]; then
-    echo "No files matched the rebuild patterns $repo_rebuild_patterns."
-    echo "Awk pattern expanded: $AWK_PATTERN."
-    exit 1
-  fi
-
-  if [ -z "$CONTENT_HASH_ACC" ]; then
-    CONTENT_HASH_ACC=$CONTENT_HASH;
-  else
-    CONTENT_HASH_ACC=$(hash_str $CONTENT_HASH_ACC-$CONTENT_HASH);
-  fi
-done
+# Check if file list was empty by comparing against the result of
+# 'echo '' | git hash-object --stdin | cut -c1-16'
+EMPTY_HASH="8b137891791fe969"
+if [[ "$CONTENT_HASH" == "$EMPTY_HASH" ]]; then
+  echo "No files matched the rebuild patterns $rebuild_patterns."
+  echo "Awk pattern expanded: $AWK_PATTERN."
+  exit 1
+fi
 
 # important: include architecture in content hash because we target x86_64 and arm64
-echo $(hash_str $CONTENT_HASH_ACC-$PLATFORM_TAG)
+echo $(hash_str $CONTENT_HASH-$PLATFORM_TAG)
