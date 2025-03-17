@@ -1,7 +1,7 @@
 import type { AccountWalletWithSecretKey, AuthWitness, AztecAddress } from '@aztec/aztec.js';
 import type { LogFn } from '@aztec/foundation/log';
 
-export async function addAuthwit(
+export function addAuthwit(
   wallet: AccountWalletWithSecretKey,
   authwit: AuthWitness,
   authorizer: AztecAddress,

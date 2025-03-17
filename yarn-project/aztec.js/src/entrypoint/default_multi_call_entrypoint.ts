@@ -1,4 +1,4 @@
-import { type EntrypointInterface, type FeeOptions } from '@aztec/entrypoints/interfaces';
+import type { EntrypointInterface, FeeOptions } from '@aztec/entrypoints/interfaces';
 import { EncodedExecutionPayloadForEntrypoint, ExecutionPayload } from '@aztec/entrypoints/payload';
 import { mergeAndEncodeExecutionPayloads } from '@aztec/entrypoints/utils';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

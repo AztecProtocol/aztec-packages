@@ -147,6 +147,8 @@ export abstract class BaseContractInteraction {
    * Return fee options based on the user opts, estimating tx gas if needed.
    * @param request - Request to execute for this interaction.
    * @param pad - Percentage to pad the suggested gas limits by, as decimal (e.g., 0.10 for 10%).
+   * @param executionPayload
+   * @param fee
    * @returns Fee options for the actual transaction.
    */
   protected async getFeeOptions(executionPayload: ExecutionPayload, fee?: UserFeeOptions): Promise<FeeOptions> {

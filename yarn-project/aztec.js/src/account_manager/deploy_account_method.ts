@@ -1,4 +1,4 @@
-import { type AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
 import { AccountDeploymentExecutionPayload, ExecutionPayload } from '@aztec/entrypoints/payload';
 import { mergeExecutionPayloads } from '@aztec/entrypoints/utils';
 import { type ContractArtifact, type FunctionArtifact, getFunctionArtifactByName } from '@aztec/stdlib/abi';

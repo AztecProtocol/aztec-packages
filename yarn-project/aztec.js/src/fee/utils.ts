@@ -7,6 +7,9 @@ import { ContractFunctionInteraction } from '../contract/contract_function_inter
 import type { Wallet } from '../wallet/wallet.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
+/**
+ *
+ */
 export async function simulateWithoutSignature(wallet: Wallet, contractAddress: AztecAddress, abi: FunctionAbi) {
   const interaction = new ContractFunctionInteraction(wallet, contractAddress, abi, []);
 

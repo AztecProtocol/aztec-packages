@@ -5,11 +5,11 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
-import {
-  type AuthWitnessProvider,
-  type EntrypointInterface,
-  type FeeOptions,
-  type TxExecutionOptions,
+import type {
+  AuthWitnessProvider,
+  EntrypointInterface,
+  FeeOptions,
+  TxExecutionOptions,
 } from './interfaces.js';
 import { EncodedExecutionPayloadForEntrypoint, ExecutionPayload } from './payload.js';
 import { mergeAndEncodeExecutionPayloads } from './utils.js';

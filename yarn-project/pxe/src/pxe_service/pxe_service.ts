@@ -210,11 +210,11 @@ export class PXEService implements PXE {
     return this.node.getTxEffect(txHash);
   }
 
-  public async getBlockNumber(): Promise<number> {
+  public getBlockNumber(): Promise<number> {
     return this.node.getBlockNumber();
   }
 
-  public async getProvenBlockNumber(): Promise<number> {
+  public getProvenBlockNumber(): Promise<number> {
     return this.node.getProvenBlockNumber();
   }
 
@@ -226,7 +226,7 @@ export class PXEService implements PXE {
     return this.node.getContractClassLogs(filter);
   }
 
-  public async getPublicStorageAt(contract: AztecAddress, slot: Fr) {
+  public getPublicStorageAt(contract: AztecAddress, slot: Fr) {
     return this.node.getPublicStorageAt('latest', contract, slot);
   }
 

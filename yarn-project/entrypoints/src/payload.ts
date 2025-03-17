@@ -15,7 +15,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Capsule, HashedValues } from '@aztec/stdlib/tx';
 
 import type { AuthWitnessProvider, EncodedFunctionCall, FeeOptions } from './interfaces.js';
-import { computeCombinedPayloadHash } from './utils.js';
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr
@@ -38,6 +37,9 @@ export class ExecutionPayload {
     return new ExecutionPayload([], [], []);
   }
 
+  /**
+   * Encodes the payload for execution, following Noir's convention
+   */
   public async encode(): Promise<EncodedExecutionPayload> {
     const hashedArguments: HashedValues[] = [];
     for (const call of this.calls) {
@@ -52,7 +54,6 @@ export class ExecutionPayload {
       is_public: call.type == FunctionType.PUBLIC,
       is_static: call.isStatic,
     }));
-    /* eslint-enable camelcase */
 
     return {
       encodedFunctionCalls,
@@ -61,9 +62,17 @@ export class ExecutionPayload {
       capsules: this.capsules,
       function_calls: encodedFunctionCalls,
     };
+    /* eslint-enable camelcase */
   }
 }
 
+/**
+ * Special handling of the Account deployment payload. Since we deploy accounts via the MultiCallEntrypoint
+ * and there's the option to pay for the deployment of the account itself in the same tx, we need this
+ * to generate the payload correctly. This is mainly due to the fact that we're calling the account contract
+ * entrypoint through another entrypoint (the MultiCall one) and we need to add certain precomputed hash for
+ * the args of the former.
+ */
 export class AccountDeploymentExecutionPayload extends ExecutionPayload {
   constructor(
     calls: FunctionCall[],
@@ -104,6 +113,9 @@ export class AccountDeploymentExecutionPayload extends ExecutionPayload {
     );
   }
 
+  /**
+   * Encode using the parent's implementation, but allow the extra hashed args for the account entrypoint payload
+   */
   public override async encode(): Promise<EncodedExecutionPayload> {
     const encoded = await super.encode();
     encoded.hashedArguments.push(...this.extraHashedArgs);
@@ -111,16 +123,28 @@ export class AccountDeploymentExecutionPayload extends ExecutionPayload {
   }
 }
 
+/**
+ * Representation of the encoded payload for execution
+ */
 export type EncodedExecutionPayload = Omit<ExecutionPayload, 'calls' | 'encode'> & {
+  /** Function calls in the expected format (Noir's convention) */
   encodedFunctionCalls: EncodedFunctionCall[];
+  /** The hashed args for the call, ready to be injected in the execution cache */
   hashedArguments: HashedValues[];
+  /* eslint-disable camelcase */
+  /**
+   * The function calls to execute. This uses snake_case naming so that it is compatible with Noir encoding
+   * */
   get function_calls(): EncodedFunctionCall[];
+  /* eslint-enable camelcase */
 };
 
 /** Represents the ExecutionPayload after encoding for the entrypint to execute */
 export abstract class EncodedExecutionPayloadForEntrypoint implements EncodedExecutionPayload {
   constructor(
+    /** Function calls in the expected format (Noir's convention) */
     public encodedFunctionCalls: EncodedFunctionCall[],
+    /** The hashed args for the call, ready to be injected in the execution cache */
     public hashedArguments: HashedValues[],
     /** Any transient auth witnesses needed for this execution */
     public authWitnesses: AuthWitness[],
@@ -278,4 +302,20 @@ export class EncodedFeeEntrypointPayload extends EncodedExecutionPayloadForEntry
     return this.#isFeePayer;
   }
   /* eslint-enable camelcase */
+}
+
+/**
+ * Computes a hash of a combined payload.
+ * @param appPayload - An app payload.
+ * @param feePayload - A fee payload.
+ * @returns A hash of a combined payload.
+ */
+export async function computeCombinedPayloadHash(
+  appPayload: EncodedAppEntrypointPayload,
+  feePayload: EncodedFeeEntrypointPayload,
+): Promise<Fr> {
+  return poseidon2HashWithSeparator(
+    [await appPayload.hash(), await feePayload.hash()],
+    GeneratorIndex.COMBINED_PAYLOAD,
+  );
 }

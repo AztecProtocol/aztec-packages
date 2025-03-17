@@ -1,5 +1,5 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import type { AccountManager, AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import type { AccountManager } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';

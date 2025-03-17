@@ -1,9 +1,7 @@
 import {
   type AccountWallet,
-  AuthWitness,
   type AztecAddress,
   Fr,
-  type FunctionCall,
   FunctionSelector,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,

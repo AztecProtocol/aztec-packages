@@ -23,8 +23,13 @@ export type EncodedFunctionCall = {
 };
 /* eslint-enable camelcase */
 
+/**
+ * General options for the tx execution.
+ */
 export type TxExecutionOptions = {
+  /** Whether the transaction can be cancelled. */
   cancellable?: boolean;
+  /** The nonce to use for the transaction. */
   nonce?: Fr;
 };
 
@@ -32,7 +37,9 @@ export type TxExecutionOptions = {
 export interface EntrypointInterface {
   /**
    * Generates an execution request out of set of function calls.
-   * @param execution - The execution intents to be run.
+   * @param exec - The execution intents to be run.
+   * @param fee - The fee options for the transaction.
+   * @param options - Nonce and whether the transaction is cancellable.
    * @returns The authenticated transaction execution request.
    */
   createTxExecutionRequest(

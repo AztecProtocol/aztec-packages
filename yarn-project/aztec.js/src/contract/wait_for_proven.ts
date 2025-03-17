@@ -4,8 +4,17 @@ import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxReceipt } from '../index.js';
 import { DefaultWaitOpts } from './sent_tx.js';
 
+/**
+ *
+ */
 export type WaitForProvenOpts = {
+  /**
+   *
+   */
   provenTimeout?: number;
+  /**
+   *
+   */
   interval?: number;
 };
 
@@ -14,6 +23,9 @@ export const DefaultWaitForProvenOpts: WaitForProvenOpts = {
   interval: DefaultWaitOpts.interval,
 };
 
+/**
+ *
+ */
 export async function waitForProven(pxeOrNode: PXE | AztecNode, receipt: TxReceipt, opts?: WaitForProvenOpts) {
   if (!receipt.blockNumber) {
     throw new Error(`Cannot wait for proven: receipt of tx ${receipt.txHash} does not have a block number`);

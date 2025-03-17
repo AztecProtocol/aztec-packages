@@ -132,6 +132,7 @@ export class AccountWallet extends BaseWallet {
    * @param onBehalfOf - The address of the "approver"
    * @param intent - The consumer and inner hash or the caller and action to lookup
    *
+   * @param witness
    * @returns - A struct containing the validity of the authwit in private and public contexts.
    */
   async lookupValidity(

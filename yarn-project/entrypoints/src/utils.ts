@@ -1,17 +1,7 @@
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import type { Fr } from '@aztec/foundation/fields';
-import { type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { type Capsule, HashedValues } from '@aztec/stdlib/tx';
 
-import { GeneratorIndex } from '../../constants/src/constants.gen.js';
-import type { EncodedFunctionCall } from './interfaces.js';
-import {
-  EncodedAppEntrypointPayload,
-  type EncodedExecutionPayload,
-  EncodedFeeEntrypointPayload,
-  ExecutionPayload,
-} from './payload.js';
+import { type EncodedExecutionPayload, ExecutionPayload } from './payload.js';
 
 /**
  * Merges an array ExecutionPayloads combining their calls, authWitnesses and capsules
@@ -34,8 +24,11 @@ export async function mergeAndEncodeExecutionPayloads(
     extraAuthWitnesses,
     extraCapsules,
   }: {
+    /** Extra hashed args to be added to the resulting payload (e.g: app_payload and fee_payload args in entrypoint calls) */
     extraHashedArgs?: HashedValues[];
+    /** Extra authwitnesses to be added to the resulting payload */
     extraAuthWitnesses?: AuthWitness[];
+    /** Extra capsules to be added to the resulting payload */
     extraCapsules?: Capsule[];
   } = { extraAuthWitnesses: [], extraCapsules: [], extraHashedArgs: [] },
 ): Promise<EncodedExecutionPayload> {
@@ -70,22 +63,8 @@ export async function mergeAndEncodeExecutionPayloads(
     authWitnesses: combinedAuthWitnesses,
     hashedArguments,
     capsules: combinedCapsules,
+    /* eslint-disable camelcase */
     function_calls: encodedFunctionCalls,
+    /* eslint-enable camelcase */
   };
-}
-
-/**
- * Computes a hash of a combined payload.
- * @param appPayload - An app payload.
- * @param feePayload - A fee payload.
- * @returns A hash of a combined payload.
- */
-export async function computeCombinedPayloadHash(
-  appPayload: EncodedAppEntrypointPayload,
-  feePayload: EncodedFeeEntrypointPayload,
-): Promise<Fr> {
-  return poseidon2HashWithSeparator(
-    [await appPayload.hash(), await feePayload.hash()],
-    GeneratorIndex.COMBINED_PAYLOAD,
-  );
 }
