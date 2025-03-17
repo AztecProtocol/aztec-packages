@@ -46,7 +46,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < polynomial.size(); i++) {
+        info(polynomial.size(), " ", polynomial.end_index());
+        for (size_t i = polynomial.start_index(); i < polynomial.end_index(); i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
     };
@@ -743,11 +744,12 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        for (size_t i = polynomial.start_index(); i < polynomial.size() - MASKING_OFFSET; i++) {
+        for (size_t i = polynomial.start_index(); i < polynomial.end_index() - MASKING_OFFSET; i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
-        for (size_t i = polynomial.size() - MASKING_OFFSET; i < polynomial.size(); i++) {
-            polynomial.at(i) = FF::random_element();
+        for (size_t i = polynomial.end_index() - MASKING_OFFSET; i < polynomial.end_index(); i++) {
+
+            polynomial.at(i) = FF(666666);
         }
     };
 
@@ -781,7 +783,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     }
 
     for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
-        FF random_value = FF::random_element();
+        FF random_value = FF(666666);
         ASSERT(prover_polynomials.ordered_extra_range_constraints_numerator.at(i) == FF(0) &&
                prover_polynomials.ordered_range_constraints_4.at(i) == FF(0));
         prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = random_value;

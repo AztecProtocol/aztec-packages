@@ -42,7 +42,7 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
 
         // Copy into appropriate position in the interleaved polynomial
         // We offset by start_index() as the first 0 is not physically represented for shiftable values
-        for (size_t k = group[j].start_index(); k < group[j].size(); k++) {
+        for (size_t k = group[j].start_index(); k < group[j].end_index(); k++) {
             current_target.at(k * num_polys_in_group + j) = group[j][k];
         }
     };
@@ -128,7 +128,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
             // Calculate the offset in the target vector
             auto current_offset = j * mini_circuit_dyadic_size;
             // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].size() - mini_masking_offset; k++) {
+            for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_masking_offset; k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
