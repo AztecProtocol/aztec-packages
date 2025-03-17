@@ -10,7 +10,7 @@ export const waitForPXE = async (pxe: PXE, logger?: Logger) => {
       logger?.verbose('Contacted PXE');
       return true;
     } catch (error) {
-      logger?.verbose('Failed to contact PXE');
+      logger?.verbose('Failed to contact PXE because of error: ', error);
     }
     return undefined;
   }, 'RPC Get Node Info');
