@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742239972234,
+  "lastUpdate": 1742242062088,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1317,6 +1317,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 133823,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2fc01a3e84a1d72c91c47f061936974921c3a1fc",
+          "message": "chore: simplify note getter oracle (#12807)\n\nThe `get_notes` oracle is extremely messy, not maintained and not\ndocumented. I intend to simplify it a bit, use generics and structs to\nbetter convey what is going on, etc., so that we are able to actually\nwork with it in the future (e.g. to extract a note's randomness from its\ncontents). This is just an initial pass removing some of the superfluous\narray lengths and unnecessary redundant type bindings that made the\nthing just more difficult to read.",
+          "timestamp": "2025-03-17T16:42:38-03:00",
+          "tree_id": "68521e1773e5a38df1d96e7ce979fc19989e73f5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2fc01a3e84a1d72c91c47f061936974921c3a1fc"
+        },
+        "date": 1742242054602,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9167,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2236924783180473,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 137066,
             "unit": "us"
           }
         ]
