@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742254465046,
+  "lastUpdate": 1742254755665,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1434,6 +1434,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 152262,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "75d545a528c91090066b618b00479ebda7c85fc3",
+          "message": "chore: begin splitting out note discovery (#12819)\n\nThese are the seeds to soon have a shared encoding scheme with\nlog_type_id and metadata where each dispatcher will interpret the data\naccording to their own needs. For now it's just moving some stuff out of\nthe dispatching discovery file and into private note/partial note as\nappropriate.",
+          "timestamp": "2025-03-17T23:13:07Z",
+          "tree_id": "01c47a37daab24621f8bdad4b1aab9f8f1e0a365",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/75d545a528c91090066b618b00479ebda7c85fc3"
+        },
+        "date": 1742254748625,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9292,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2267443099649136,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 141000,
             "unit": "us"
           }
         ]
