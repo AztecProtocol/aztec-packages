@@ -3,6 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
+export bb=$(realpath ../cpp/build/bin/bb)
 
 tests_tar=barretenberg-acir-tests-$(cache_content_hash \
     ../../noir/.rebuild_patterns \
@@ -18,52 +19,63 @@ tests_hash=$(cache_content_hash \
     ../ts/.rebuild_patterns)
 
 # Generate inputs for a given recursively verifying program.
-function run_proof_generation() {
-    local program=$1
-    local outdir=$(mktemp -d)
-    trap "rm -rf $outdir" EXIT
-    local adjustment=16
-    local ipa_accumulation_flag=""
+function run_proof_generation {
+  local program=$1
+  local outdir=$(mktemp -d)
+  trap "rm -rf $outdir" EXIT
+  local adjustment=16
+  local ipa_accumulation_flag=""
 
-    # Adjust settings based on program type
-    if [[ $program == *"rollup"* ]]; then
-        adjustment=26
-        ipa_accumulation_flag="--ipa_accumulation"
-    fi
-    local prove_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
-    echo_stderr "$prove_cmd"
-    dump_fail "$prove_cmd"
+  cd ./acir_tests/assert_statement
 
-    local vk_fields=$(cat "$outdir/vk_fields.json")
-    local proof_fields=$(cat "$outdir/proof_fields.json")
-    local num_inner_public_inputs=$(( 16#$(echo "$vk_fields" | jq -r '.[1] | ltrimstr("0x")') - adjustment ))
+  # Adjust settings based on program type
+  if [[ $program == *"rollup"* ]]; then
+      adjustment=26
+      ipa_accumulation_flag="--ipa_accumulation"
+  fi
+  local prove_cmd="$bb prove --scheme ultra_honk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  echo_stderr "$prove_cmd"
+  dump_fail "$prove_cmd"
 
-    echo "num_inner_public_inputs for $program = $num_inner_public_inputs"
+  local vk_fields=$(cat "$outdir/vk_fields.json")
+  local proof_fields=$(cat "$outdir/proof_fields.json")
+  local num_inner_public_inputs=$(( 16#$(echo "$vk_fields" | jq -r '.[1] | ltrimstr("0x")') - adjustment ))
 
-    generate_toml "$program" "$vk_fields" "$proof_fields" "$num_inner_public_inputs"
+  echo "num_inner_public_inputs for $program = $num_inner_public_inputs"
+
+  generate_toml "$program" "$vk_fields" "$proof_fields" "$num_inner_public_inputs"
 }
 
-function generate_toml() {
-    local program=$1
-    local vk_fields=$2
-    local proof_fields=$3
-    local num_inner_public_inputs=$4
-    local output_file="../$program/Prover.toml"
-    local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
+function generate_toml {
+  local program=$1
+  local vk_fields=$2
+  local proof_fields=$3
+  local num_inner_public_inputs=$4
+  local output_file="../$program/Prover.toml"
+  local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    jq -nr \
-        --arg key_hash "$key_hash" \
-        --argjson vkf "$vk_fields" \
-        --argjson prooff "$proof_fields" \
-        --argjson num_inner_public_inputs "$num_inner_public_inputs" \
-        '[
-          "key_hash = \($key_hash)",
-          "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
-          "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
-          "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
-          '"$( [[ $program == *"double"* ]] && echo ',"proof_b = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]"' )"'
-        ] | join("\n")' > "$output_file"
+  jq -nr \
+      --arg key_hash "$key_hash" \
+      --argjson vkf "$vk_fields" \
+      --argjson prooff "$proof_fields" \
+      --argjson num_inner_public_inputs "$num_inner_public_inputs" \
+      '[
+        "key_hash = \($key_hash)",
+        "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
+        "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
+        "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
+        '"$( [[ $program == *"double"* ]] && echo ',"proof_b = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]"' )"'
+      ] | join("\n")' > "$output_file"
 }
+
+function regenerate_recursive_inputs {
+  local program=$1
+  # Compile the assert_statement test as it's used for the recursive tests.
+  COMPILE=2 ./scripts/run_test.sh assert_statement
+  parallel 'run_proof_generation {}' ::: $(ls internal_test_programs)
+}
+
+export -f regenerate_recursive_inputs run_proof_generation generate_toml
 
 function build {
   echo_header "acir_tests build"
@@ -74,36 +86,31 @@ function build {
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
+    # Merge the internal test programs with the acir tests.
+    cp -R ./internal_test_programs/* acir_tests
+
+    # Generates the Prover.toml files for the recursive tests from the assert_statement test.
+    denoise regenerate_recursive_inputs
 
     # COMPILE=2 only compiles the test.
-    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
-
-    cp -R ./internal_test_programs/* acir_tests
-    echo "Regenerating verify_honk_proof, double_verify_honk_proof, verify_rollup_honk_proof recursive inputs."
-    local bb=$(realpath ../cpp/build/bin/bb)
-    cd ./acir_tests/assert_statement
-    for program in verify_honk_proof double_verify_honk_proof verify_rollup_honk_proof; do
-      echo $program
-      run_proof_generation "$program"
-    done
-    cd ../..
-
-
-    local internal_tests=($(ls -d internal_test_programs/* | xargs -n1 basename))
-    local internal_tests_string=$(echo ${internal_tests[@]} | awk -v OFS="," '{$1=$1;print}')
-    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/{$internal_tests_string}"
+    denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./scripts/run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
     cache_upload $tests_tar acir_tests
   fi
 
+  npm_install_deps
+  # TODO: Check if still needed.
+  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
+
   # TODO: Revisit. Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
-  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
-  denoise "cd headless-test && yarn"
-  denoise "cd sol-test && yarn"
+  # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
+  # denoise "cd headless-test && yarn"
+  # denoise "cd sol-test && yarn"
+
   # TODO: Revist. The md5sum of everything is the same after each yarn call.
   # Yet seemingly yarn's content hash will churn unless we reset timestamps
-  find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
+  # find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 
   denoise "cd browser-test-app && yarn build"
 }
@@ -127,22 +134,22 @@ function test_cmds_internal {
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
 
-  local run_test=$(realpath --relative-to=$root ./run_test.sh)
-  local run_test_browser=$(realpath --relative-to=$root ./run_test_browser.sh)
+  local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
+  local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
   local bbjs_bin="../ts/dest/node/main.js"
 
   # barretenberg-acir-tests-sol:
-  echo FLOW=sol $run_test assert_statement
-  echo FLOW=sol $run_test double_verify_proof
-  echo FLOW=sol $run_test double_verify_nested_proof
-  echo FLOW=sol_honk $run_test assert_statement
-  echo FLOW=sol_honk $run_test 1_mul
-  echo FLOW=sol_honk $run_test slices
-  echo FLOW=sol_honk $run_test verify_honk_proof
-  echo FLOW=sol_honk_zk $run_test assert_statement
-  echo FLOW=sol_honk_zk $run_test 1_mul
-  echo FLOW=sol_honk_zk $run_test slices
-  echo FLOW=sol_honk_zk $run_test verify_honk_proof
+  echo "docker_isolate 'FLOW=sol $run_test assert_statement'"
+  echo "docker_isolate 'FLOW=sol $run_test double_verify_proof'"
+  echo "docker_isolate 'FLOW=sol $run_test double_verify_nested_proof'"
+  echo "docker_isolate 'FLOW=sol_honk $run_test assert_statement'"
+  echo "docker_isolate 'FLOW=sol_honk $run_test 1_mul'"
+  echo "docker_isolate 'FLOW=sol_honk $run_test slices'"
+  echo "docker_isolate 'FLOW=sol_honk $run_test verify_honk_proof'"
+  echo "docker_isolate 'FLOW=sol_honk_zk $run_test assert_statement'"
+  echo "docker_isolate 'FLOW=sol_honk_zk $run_test 1_mul'"
+  echo "docker_isolate 'FLOW=sol_honk_zk $run_test slices'"
+  echo "docker_isolate 'FLOW=sol_honk_zk $run_test verify_honk_proof'"
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
@@ -183,7 +190,8 @@ function test_cmds_internal {
 }
 
 function ultra_honk_wasm_memory {
-  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify ./run_test.sh verify_honk_proof &> ./bench-out/ultra_honk_rec_wasm_memory.txt
+  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify \
+    ./scripts/run_test.sh verify_honk_proof &> ./bench-out/ultra_honk_rec_wasm_memory.txt
 }
 
 function run_benchmark {
