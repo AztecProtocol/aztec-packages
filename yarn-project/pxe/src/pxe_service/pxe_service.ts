@@ -380,9 +380,6 @@ export class PXEService implements PXE {
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
       await this.node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
-
-      // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
-      await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
@@ -421,8 +418,6 @@ export class PXEService implements PXE {
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
       await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
 
-      // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
-      await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
       currentInstance.currentContractClassId = contractClass.id;
       await this.contractDataProvider.addContractInstance(currentInstance);
       this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
