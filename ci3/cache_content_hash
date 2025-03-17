@@ -25,12 +25,12 @@ for arg in "$@"; do
   fi
 done
 
-GREP_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$')
 
 # For sanity when iterating on build scripts as bootstrap.sh scripts are in every .rebuild_patterns.
 if [ -n "${AZTEC_CACHE_NO_SCRIPTS:-}" ]; then
-  rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '*\.sh')
+  rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '.sh')
 fi
+GREP_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$')
 # Concatenate patterns with '|' and double escape backslashes for AWK filter empty lines
 AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
 
