@@ -429,6 +429,7 @@ InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, 
         switch (op_type) {
         case OperandType::TAG: {
             uint8_t tag_u8 = bytecode[pos];
+            // TODO: To handle in a subsequent PR (not decided if handled in specific opcode gadgets)
             // if (tag_u8 > MAX_MEM_TAG) {
             //     info("Instruction tag is invalid at position " + std::to_string(pos) +
             //          " value: " + std::to_string(tag_u8) + " for WireOpCode: " + to_string(WireOpCode));

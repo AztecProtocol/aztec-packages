@@ -43,6 +43,7 @@ last_of_bytecode * (1 - last_of_bytecode) = 0;
 // Standard non-zero inequality involving helper inverse column
 pol BC_ID_DIFF = bytecode_id' - bytecode_id;
 pol commit bc_id_diff_inv;
+#[LAST_OF_BYTECODE_TOGGLE]
 sel * (BC_ID_DIFF * ((1 - last_of_bytecode) * (1 - bc_id_diff_inv) + bc_id_diff_inv) - last_of_bytecode) = 0;
 
 // If last_of_bytecode OR precomputed.first_row then next row has pc == 0
@@ -54,6 +55,7 @@ pol commit bytes_remaining;
 pol commit bytes_to_read;
 
 pol commit bytecode_size;
+#[BYTECODE_SIZE_INIT]
 (last_of_bytecode + precomputed.first_row) * (bytecode_size' - bytes_remaining') = 0;
 
 #[SAME_BYTECODE_SIZE]
@@ -67,6 +69,7 @@ sel * sel' * (1 - last_of_bytecode) * (bytecode_size - bytecode_size') = 0;
 pol commit instr_abs_diff;
 
 // From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
+#[INSTR_OUT_OF_RANGE_TOGGLE]
 instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
 
 #[INSTR_ABS_DIFF_POSITIVE]
@@ -78,6 +81,7 @@ sel {instr_abs_diff} in precomputed.sel_range_8 {precomputed.clk};
 // pc - bytecode_size       if bytecode_size <= pc
 // bytecode_size - pc - 1   if bytecode_size > pc
 pol commit pc_abs_diff;
+#[PC_OUT_OF_RANGE_TOGGLE]
 pc_abs_diff = sel * ((2 * pc_out_of_range - 1) * (pc - bytecode_size) - 1 + pc_out_of_range);
 
 // pc_abs_diff might take 32 bits and we decompose into 2 16-bit limbs

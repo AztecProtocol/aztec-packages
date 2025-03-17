@@ -624,7 +624,100 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
     }
 }
 
-//
+// Negative test on trace continuity. Gap after first row.
+TEST(InstrFetchingConstrainingTest, NegativeGapAfterFirstRow)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_sel = 0,
+        },
+        {
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
+}
+
+// Negative test on trace continuity. Gap in the middle.
+TEST(InstrFetchingConstrainingTest, NegativeGapInTheMiddle)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_sel = 0,
+        },
+        {
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
+}
+
+// Negative test on pc == 0 for first entry pertaining to a bytecode_id
+// Pick a trace with two bytecode_id = 2 and 3.
+// For first entry of bytecode_id == 3, we set pc = 23.
+TEST(InstrFetchingConstrainingTest, NegativePcNotZeroFirstEntryBytecode1)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytecode_id = 2,
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_pc = 0,
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_bytecode_id = 3,
+            .instr_fetching_pc = 23,
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_bytecode_id = 3,
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW),
+        "PC_IS_ZERO_IN_BYTECODE_FIRST_ROW");
+}
+
+// Same as before but pc is wrongly set for the first bytecode
+TEST(InstrFetchingConstrainingTest, NegativePcNotZeroFirstEntryBytecode2)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+        {
+            .instr_fetching_bytecode_id = 2,
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_pc = 12,
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_bytecode_id = 3,
+            .instr_fetching_pc = 0,
+            .instr_fetching_sel = 1,
+        },
+        {
+            .instr_fetching_bytecode_id = 3,
+            .instr_fetching_last_of_bytecode = 1,
+            .instr_fetching_sel = 1,
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW),
+        "PC_IS_ZERO_IN_BYTECODE_FIRST_ROW");
+}
 
 } // namespace
 } // namespace bb::avm2::constraining

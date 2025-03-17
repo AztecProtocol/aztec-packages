@@ -294,10 +294,18 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
         switch (index) {
         case 4:
             return "TRACE_CONTINUITY";
+        case 6:
+            return "LAST_OF_BYTECODE_TOGGLE";
         case 7:
             return "PC_IS_ZERO_IN_BYTECODE_FIRST_ROW";
+        case 8:
+            return "BYTECODE_SIZE_INIT";
         case 9:
             return "SAME_BYTECODE_SIZE";
+        case 10:
+            return "INSTR_OUT_OF_RANGE_TOGGLE";
+        case 11:
+            return "PC_OUT_OF_RANGE_TOGGLE";
         case 12:
             return "PC_ABS_DIFF_LIMBS";
         case 14:
@@ -322,8 +330,12 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 4;
+    static constexpr size_t SR_LAST_OF_BYTECODE_TOGGLE = 6;
     static constexpr size_t SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW = 7;
+    static constexpr size_t SR_BYTECODE_SIZE_INIT = 8;
     static constexpr size_t SR_SAME_BYTECODE_SIZE = 9;
+    static constexpr size_t SR_INSTR_OUT_OF_RANGE_TOGGLE = 10;
+    static constexpr size_t SR_PC_OUT_OF_RANGE_TOGGLE = 11;
     static constexpr size_t SR_PC_ABS_DIFF_LIMBS = 12;
     static constexpr size_t SR_INDIRECT_BYTES_DECOMPOSITION = 14;
     static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 15;
