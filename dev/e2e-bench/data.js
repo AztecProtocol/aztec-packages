@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737038119302,
+  "lastUpdate": 1742228136122,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1044,6 +1044,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 643910,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "181d6e08de039a84f7c4afbab2f63030b3139855",
+          "message": "chore: remove `noir-lang/ec` dependency (#12507)\n\n`noir-lang/ec` is a bad library and we're using it for non ec things.\nLet's take these non ec things out of the ec library and then not use\nthe ec library.\n\nMaybe these non ec things can go into another place at some point... but\ntoday is not that day.",
+          "timestamp": "2025-03-17T15:40:46Z",
+          "tree_id": "e351ddbb9f10fcd913782491d0c409877eff71ea",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/181d6e08de039a84f7c4afbab2f63030b3139855"
+        },
+        "date": 1742228128864,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9559,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23326030730645925,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 139360,
             "unit": "us"
           }
         ]
