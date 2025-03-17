@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742232155220,
+  "lastUpdate": 1742232923905,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1122,6 +1122,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 139294,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "spypsy@users.noreply.github.com",
+            "name": "spypsy",
+            "username": "spypsy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d2f8f18578dfdfc0933c7831bc61582509f04d07",
+          "message": "chore: re-enable nightly tests (#12673)\n\nFixes #12107",
+          "timestamp": "2025-03-17T16:56:14Z",
+          "tree_id": "a96b3a8a6d925bdb63f1207534798d969c02df28",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d2f8f18578dfdfc0933c7831bc61582509f04d07"
+        },
+        "date": 1742232915709,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9528,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2324899605022806,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 132311,
             "unit": "us"
           }
         ]
