@@ -192,7 +192,7 @@ describe('Contract Class', () => {
       from: account.address,
     });
     expect(wallet.simulateUnconstrained).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, account.address);
+    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
     expect(result).toBe(mockUnconstrainedResultValue);
   });
 

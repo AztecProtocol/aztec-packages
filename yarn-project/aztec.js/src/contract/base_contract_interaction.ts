@@ -4,7 +4,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
@@ -42,6 +42,7 @@ export abstract class BaseContractInteraction {
     protected wallet: Wallet,
     protected authWitnesses: AuthWitness[] = [],
     protected capsules: Capsule[] = [],
+    protected extraHashedValues: HashedValues[] = [],
   ) {}
 
   /**
@@ -194,5 +195,12 @@ export abstract class BaseContractInteraction {
    */
   public getCapsules() {
     return this.capsules;
+  }
+
+  /**
+   * Return all extra hashed values added for this contract interaction.
+   */
+  public getExtraHashedValues() {
+    return this.extraHashedValues;
   }
 }

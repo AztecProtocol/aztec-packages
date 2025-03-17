@@ -1,10 +1,16 @@
-import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
-import { AccountDeploymentExecutionPayload, ExecutionPayload } from '@aztec/entrypoints/payload';
+import { type AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import {
+  EncodedAppEntrypointPayload,
+  EncodedFeeEntrypointPayload,
+  ExecutionPayload,
+  computeCombinedPayloadHash,
+} from '@aztec/entrypoints/payload';
 import { mergeExecutionPayloads } from '@aztec/entrypoints/utils';
 import { type ContractArtifact, type FunctionArtifact, getFunctionArtifactByName } from '@aztec/stdlib/abi';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 
 import { Contract } from '../contract/contract.js';
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import type { Wallet } from '../wallet/wallet.js';
 
@@ -41,21 +47,31 @@ export class DeployAccountMethod extends DeployMethod {
   }
 
   protected override async getInitializeExecutionPayload(options: DeployOptions): Promise<ExecutionPayload> {
-    let executionPayload = await super.getInitializeExecutionPayload(options);
+    let exec = await super.getInitializeExecutionPayload(options);
 
     if (options.fee && this.#feePaymentArtifact) {
       const { address } = await this.getInstance();
+      const emptyAppPayload = await EncodedAppEntrypointPayload.fromAppExecution([]);
       const fee = await this.getDefaultFeeOptions(options.fee);
-      const entrypointPayload = await AccountDeploymentExecutionPayload.fromAccountDeployment(
-        [],
+      const feePayload = await EncodedFeeEntrypointPayload.fromFeeOptions(address, fee);
+      const args = [emptyAppPayload, feePayload, false];
+
+      const call = new ContractFunctionInteraction(
+        this.wallet,
         address,
         this.#feePaymentArtifact,
-        fee,
-        this.#authWitnessProvider,
+        args,
+        [
+          await this.#authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(emptyAppPayload, feePayload)),
+          ...feePayload.authWitnesses,
+        ],
+        [],
+        [...emptyAppPayload.hashedArguments, ...feePayload.hashedArguments],
       );
-      executionPayload = mergeExecutionPayloads([executionPayload, entrypointPayload]);
+
+      exec = mergeExecutionPayloads([exec, await call.request()]);
     }
 
-    return executionPayload;
+    return exec;
   }
 }

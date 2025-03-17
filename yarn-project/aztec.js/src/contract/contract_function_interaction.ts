@@ -2,7 +2,7 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { Capsule, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
@@ -50,8 +50,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     protected args: any[],
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
+    extraHashedValues: HashedValues[] = [],
   ) {
-    super(wallet, authWitnesses, capsules);
+    super(wallet, authWitnesses, capsules, extraHashedValues);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error('All function interaction arguments must be defined and not null. Received: ' + args);
     }
@@ -104,6 +105,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       calls,
       this.authWitnesses.concat(authWitnesses ?? []),
       this.capsules.concat(capsules ?? []),
+      this.extraHashedValues,
     );
   }
 

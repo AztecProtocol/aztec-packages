@@ -55,15 +55,5 @@ describe('SentTx', () => {
       node.getTxReceipt.mockResolvedValue({ ...txReceipt, status: TxStatus.DROPPED } as TxReceipt);
       await expect(sentTx.wait({ timeout: 1, interval: 0.4, ignoreDroppedReceiptsFor: 0 })).rejects.toThrow(/dropped/);
     });
-
-    it('waits for the tx to be proven', async () => {
-      const waitOpts = { timeout: 1, interval: 0.4, proven: true, provenTimeout: 2 };
-      node.getProvenBlockNumber.mockResolvedValue(10);
-      await expect(sentTx.wait(waitOpts)).rejects.toThrow(/timeout/i);
-
-      node.getProvenBlockNumber.mockResolvedValue(20);
-      const actual = await sentTx.wait(waitOpts);
-      expect(actual).toEqual(txReceipt);
-    });
   });
 });

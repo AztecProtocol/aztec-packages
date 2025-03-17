@@ -31,6 +31,8 @@ export class ExecutionPayload {
     public authWitnesses: AuthWitness[],
     /** Data passed through an oracle for this execution. */
     public capsules: Capsule[],
+    /* Extra hashed values to be injected in the execution cache */
+    public extraHashedValues: HashedValues[] = [],
   ) {}
 
   static empty() {
@@ -57,7 +59,7 @@ export class ExecutionPayload {
 
     return {
       encodedFunctionCalls,
-      hashedArguments,
+      hashedArguments: [...hashedArguments, ...this.extraHashedValues],
       authWitnesses: this.authWitnesses,
       capsules: this.capsules,
       function_calls: encodedFunctionCalls,
@@ -67,66 +69,9 @@ export class ExecutionPayload {
 }
 
 /**
- * Special handling of the Account deployment payload. Since we deploy accounts via the MultiCallEntrypoint
- * and there's the option to pay for the deployment of the account itself in the same tx, we need this
- * to generate the payload correctly. This is mainly due to the fact that we're calling the account contract
- * entrypoint through another entrypoint (the MultiCall one) and we need to add certain precomputed hash for
- * the args of the former.
- */
-export class AccountDeploymentExecutionPayload extends ExecutionPayload {
-  constructor(
-    calls: FunctionCall[],
-    authWitnesses: AuthWitness[],
-    capsules: Capsule[],
-    private extraHashedArgs: HashedValues[],
-  ) {
-    super(calls, authWitnesses, capsules);
-  }
-
-  static async fromAccountDeployment(
-    functionCalls: FunctionCall[],
-    address: AztecAddress,
-    feePaymentArtifact: FunctionArtifact,
-    fee: FeeOptions,
-    authWitnessProvider: AuthWitnessProvider,
-  ) {
-    const appPayload = await EncodedExecutionPayloadForEntrypoint.fromAppExecution(functionCalls);
-    const feePayload = await EncodedExecutionPayloadForEntrypoint.fromFeeOptions(address, fee);
-    const args = encodeArguments(feePaymentArtifact, [appPayload, feePayload, false]);
-    const entrypointFunctionCall = new FunctionCall(
-      feePaymentArtifact.name,
-      address,
-      await FunctionSelector.fromNameAndParameters(feePaymentArtifact.name, feePaymentArtifact.parameters),
-      feePaymentArtifact.functionType,
-      feePaymentArtifact.isStatic,
-      args,
-      feePaymentArtifact.returnTypes,
-    );
-    return new AccountDeploymentExecutionPayload(
-      [entrypointFunctionCall],
-      [
-        await authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(appPayload, feePayload)),
-        ...feePayload.authWitnesses,
-      ],
-      [],
-      [...appPayload.hashedArguments, ...feePayload.hashedArguments],
-    );
-  }
-
-  /**
-   * Encode using the parent's implementation, but allow the extra hashed args for the account entrypoint payload
-   */
-  public override async encode(): Promise<EncodedExecutionPayload> {
-    const encoded = await super.encode();
-    encoded.hashedArguments.push(...this.extraHashedArgs);
-    return encoded;
-  }
-}
-
-/**
  * Representation of the encoded payload for execution
  */
-export type EncodedExecutionPayload = Omit<ExecutionPayload, 'calls' | 'encode'> & {
+export type EncodedExecutionPayload = Omit<ExecutionPayload, 'calls' | 'encode' | 'extraHashedValues'> & {
   /** Function calls in the expected format (Noir's convention) */
   encodedFunctionCalls: EncodedFunctionCall[];
   /** The hashed args for the call, ready to be injected in the execution cache */
