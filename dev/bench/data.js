@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742232152548,
+  "lastUpdate": 1742234395162,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "753cb336cc6503a21eed1ed4e3220d5656be8b96",
-          "message": "fix(spartan): setup needs kubectl (#12580)\n\n## Overview\n\n\nmess up in speedup, kubectl is not in the aztec image, otel requires it\nto have the correct version",
-          "timestamp": "2025-03-07T17:16:11Z",
-          "tree_id": "a20ef621ba9fef8629f6e4db2c5a4a281e90ec42",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/753cb336cc6503a21eed1ed4e3220d5656be8b96"
-        },
-        "date": 1741369603210,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18196.35012899994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16004.646448 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18702.14399800011,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16231.662127 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3862.365610999859,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3076.413713 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55423.268250999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55423267000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10804.858243000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10804860000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1899925480,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1899925480 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 215505856,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 215505856 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2249.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3606,6 +3534,84 @@ window.BENCHMARK_DATA = {
             "value": 10043.984663,
             "unit": "ms/iter",
             "extra": "iterations: 1\ncpu: 10043992000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2281.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2fd47f674f487c1b8f3c4389abf2124e73d0da6a",
+          "message": "fix: update join split test hash (#12798)\n\nUpdate the circuit hash in a join split test. This changes all the time\nbut the test is currently skipped on CI so whoever pushed the PR that\nchanged it wasn't alerted. May wind up deleting these altogether at some\npoint soon.",
+          "timestamp": "2025-03-17T10:21:52-07:00",
+          "tree_id": "0ad157348b4df3c91eecf9e662f58f43bf95a9c4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2fd47f674f487c1b8f3c4389abf2124e73d0da6a"
+        },
+        "date": 1742234387627,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18165.535497000063,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15997.693997999999 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117765486863.39998,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1625114514,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 226682897,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18809.234265999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16498.861259 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55069.784941000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55069784000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3867.609295999955,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3113.705645 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10674.185683000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10674189000 ms\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
