@@ -17,13 +17,13 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionPayload, fee: FeeOptions): Promise<TxExecutionRequest> {
-    const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [] } = exec;
+    const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [], extraHashedValues = [] } = exec;
     const encodedPayload = await EncodedExecutionPayloadForEntrypoint.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
     const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [encodedPayload]));
 
     const encodedExecutionPayload = await mergeAndEncodeExecutionPayloads([encodedPayload], {
-      extraHashedArgs: [entrypointHashedArgs],
+      extraHashedArgs: [entrypointHashedArgs, ...extraHashedValues],
       extraAuthWitnesses: userAuthWitnesses,
       extraCapsules: userCapsules,
     });

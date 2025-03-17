@@ -10,7 +10,8 @@ export function mergeExecutionPayloads(requests: ExecutionPayload[]): ExecutionP
   const calls = requests.map(r => r.calls).flat();
   const combinedAuthWitnesses = requests.map(r => r.authWitnesses ?? []).flat();
   const combinedCapsules = requests.map(r => r.capsules ?? []).flat();
-  return new ExecutionPayload(calls, combinedAuthWitnesses, combinedCapsules);
+  const combinedExtraHashedValues = requests.map(r => r.extraHashedValues ?? []).flat();
+  return new ExecutionPayload(calls, combinedAuthWitnesses, combinedCapsules, combinedExtraHashedValues);
 }
 
 /**
