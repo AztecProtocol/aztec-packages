@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   ContractDeployer,
+  type DeployOptions,
   Fr,
   type Logger,
   type PXE,
@@ -91,8 +92,12 @@ describe('e2e_deploy_contract legacy', () => {
     const goodDeploy = StatefulTestContract.deploy(wallet, wallet.getAddress(), wallet.getAddress(), 42);
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
-    const firstOpts = { skipPublicSimulation: true, skipClassRegistration: true, skipInstanceDeploy: true };
-    const secondOpts = { skipPublicSimulation: true };
+    const firstOpts: DeployOptions = {
+      skipPublicSimulation: true,
+      skipClassRegistration: true,
+      skipPublicDeployment: true,
+    };
+    const secondOpts: DeployOptions = { skipPublicSimulation: true };
 
     await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
     const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
