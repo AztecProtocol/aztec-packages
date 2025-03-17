@@ -134,12 +134,12 @@ aztec-wallet simulate --from master_yoda --contract-address jedi_order --args "l
 
 ### Profile
 
-Simulates a transaction with profiling enabled. This allows you to get the gate count of each private function in the transaction. Read more about profiling [here](../../guides/smart_contracts/profiling_transactions.md).
+This allows you to get the gate count of each private function in the transaction. Read more about profiling [here](../../guides/smart_contracts/profiling_transactions.md).
 
 #### Example
 
 ```bash
-aztec-wallet simulate --profile --from master_yoda --contract-address jedi_order --args "luke_skywalker" train_jedi
+aztec-wallet profile --from master_yoda --contract-address jedi_order --args "luke_skywalker" train_jedi
 ```
 
 ### Bridge Fee Juice
