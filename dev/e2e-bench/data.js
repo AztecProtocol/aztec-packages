@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742250246290,
+  "lastUpdate": 1742254465046,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1395,6 +1395,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 140727,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "889bc48cf6e241badd9eda39fdcba21549348954",
+          "message": "chore: remove whyle, use native while (#12820)\n\nNow that Noir supports `while` loops in unconstrained functions we no\nlonger need to rely on this. Best reviewed by hiding whitespace changes.",
+          "timestamp": "2025-03-17T23:08:35Z",
+          "tree_id": "4426dadcc32f9cabf5b2f7730ff6b93b941cd62b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/889bc48cf6e241badd9eda39fdcba21549348954"
+        },
+        "date": 1742254457804,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9360,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2283902302881531,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 152262,
             "unit": "us"
           }
         ]
