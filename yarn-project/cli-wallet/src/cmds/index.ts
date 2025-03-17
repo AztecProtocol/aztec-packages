@@ -363,7 +363,7 @@ export function injectCommands(
 
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await getWalletWithScopes(account, db);
+      const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       await profile(wallet, functionName, args, artifactPath, contractAddress, debugExecutionStepsDir, log);
     });

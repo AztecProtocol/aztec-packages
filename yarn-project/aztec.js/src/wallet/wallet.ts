@@ -12,6 +12,7 @@ export type Wallet = AccountInterface &
     PXE,
     | 'simulateTx'
     | 'simulateUnconstrained'
+    | 'profileTx'
     | 'sendTx'
     | 'getContractClassMetadata'
     | 'getContractMetadata'

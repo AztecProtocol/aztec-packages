@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
