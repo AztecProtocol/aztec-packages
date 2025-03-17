@@ -12,15 +12,10 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 
 namespace bb::avm2::simulation {
-namespace {
-
-// Possible types for an instruction's operand in its wire format.
-// Note that the TAG enum value is not supported in TS and is parsed as UINT8.
-// INDIRECT is parsed as UINT8 where the bits represent the operands that have indirect mem access.
-enum class OperandType : uint8_t { INDIRECT8, INDIRECT16, TAG, UINT8, UINT16, UINT32, UINT64, UINT128, FF };
 
 const std::unordered_map<OperandType, uint32_t> OPERAND_TYPE_SIZE_BYTES = {
     { OperandType::INDIRECT8, 1 }, { OperandType::INDIRECT16, 2 }, { OperandType::TAG, 1 },
@@ -100,6 +95,7 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
     // Execution Environment - Calldata
     { WireOpCode::CALLDATACOPY,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
+    { WireOpCode::SUCCESSCOPY, { OperandType::INDIRECT8, OperandType::UINT16 } },
     { WireOpCode::RETURNDATASIZE, { OperandType::INDIRECT8, OperandType::UINT16 } },
     { WireOpCode::RETURNDATACOPY,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
@@ -179,8 +175,6 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
         OperandType::UINT16,     // rhs.y
         OperandType::UINT16,     // rhs.is_infinite
         OperandType::UINT16 } }, // dst_offset
-    { WireOpCode::MSM,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     // Gadget - Conversion
     { WireOpCode::TORADIXBE,
       { OperandType::INDIRECT16,
@@ -191,7 +185,19 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
         OperandType::UINT16 } },
 };
 
-} // namespace
+namespace testonly {
+
+const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_instruction_wire_formats()
+{
+    return WireOpCode_WIRE_FORMAT;
+}
+
+const std::unordered_map<OperandType, uint32_t>& get_operand_type_sizes()
+{
+    return OPERAND_TYPE_SIZE_BYTES;
+}
+
+} // namespace testonly
 
 Operand::Operand(const Operand& other)
 {
@@ -217,6 +223,27 @@ Operand& Operand::operator=(const Operand& other)
         }
     }
     return *this;
+}
+
+bool Operand::operator==(const Operand& other) const
+{
+    if (this == &other) {
+        return true;
+    }
+
+    if (value.index() != other.value.index()) {
+        return false;
+    }
+
+    if (std::holds_alternative<U128InHeap>(value)) {
+        return *std::get<U128InHeap>(value) == *std::get<U128InHeap>(other.value);
+    }
+
+    if (std::holds_alternative<FieldInHeap>(value)) {
+        return *std::get<FieldInHeap>(value) == *std::get<FieldInHeap>(other.value);
+    }
+
+    return value == other.value;
 }
 
 Operand::operator bool() const
@@ -325,10 +352,9 @@ std::string Operand::to_string() const
     __builtin_unreachable();
 }
 
-Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos)
+Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
 {
     const auto bytecode_length = bytecode.size();
-    const auto starting_pos = pos;
 
     assert(pos < bytecode_length);
     (void)bytecode_length; // Avoid GCC unused parameter warning when asserts are disabled.
@@ -446,10 +472,11 @@ Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos)
         pos += operand_size;
     }
 
-    return { .opcode = opcode,
-             .indirect = indirect,
-             .operands = std::move(operands),
-             .size_in_bytes = static_cast<uint8_t>(pos - starting_pos) };
+    return {
+        .opcode = opcode,
+        .indirect = indirect,
+        .operands = std::move(operands),
+    };
 };
 
 std::string Instruction::to_string() const
@@ -459,8 +486,60 @@ std::string Instruction::to_string() const
     for (const auto& operand : operands) {
         oss << operand.to_string() << " ";
     }
-    oss << "], size: " << static_cast<int>(size_in_bytes);
+    oss << "]";
     return oss.str();
+}
+
+std::vector<uint8_t> Instruction::serialize() const
+{
+    std::vector<uint8_t> output;
+    output.reserve(WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes);
+    output.emplace_back(static_cast<uint8_t>(opcode));
+    size_t operand_pos = 0;
+
+    for (const auto& operand_type : WireOpCode_WIRE_FORMAT.at(opcode)) {
+        switch (operand_type) {
+        case OperandType::INDIRECT8:
+            output.emplace_back(static_cast<uint8_t>(indirect));
+            break;
+        case OperandType::INDIRECT16: {
+            const auto indirect_vec = to_buffer(indirect);
+            output.insert(output.end(),
+                          std::make_move_iterator(indirect_vec.begin()),
+                          std::make_move_iterator(indirect_vec.end()));
+        } break;
+        case OperandType::TAG:
+        case OperandType::UINT8:
+            output.emplace_back(static_cast<uint8_t>(operands.at(operand_pos++)));
+            break;
+        case OperandType::UINT16: {
+            const auto operand_vec = to_buffer(static_cast<uint16_t>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        case OperandType::UINT32: {
+            const auto operand_vec = to_buffer(static_cast<uint32_t>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        case OperandType::UINT64: {
+            const auto operand_vec = to_buffer(static_cast<uint64_t>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        case OperandType::UINT128: {
+            const auto operand_vec = to_buffer(static_cast<uint128_t>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        case OperandType::FF: {
+            const auto operand_vec = to_buffer(static_cast<FF>(operands.at(operand_pos++)));
+            output.insert(
+                output.end(), std::make_move_iterator(operand_vec.begin()), std::make_move_iterator(operand_vec.end()));
+        } break;
+        }
+    }
+    return output;
 }
 
 } // namespace bb::avm2::simulation

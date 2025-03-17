@@ -7,7 +7,7 @@ arch=$(arch)
 branch=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
 function check_login {
-  if [ -z "$DOCKERHUB_PASSWORD" ]; then
+  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
     echo "No DOCKERHUB_PASSWORD provided."
     exit 1
   fi
@@ -45,8 +45,8 @@ function build_ec2 {
 
   # Request new instance.
   instance_name=build_image_$(echo -n "$branch" | tr -c 'a-zA-Z0-9-' '_')_$arch
-  ip_sir=$(aws_request_instance $instance_name $cpus $arch)
-  parts=(${ip_sir//:/ })
+  ip_sir=$(NO_SPOT=1 aws_request_instance $instance_name $cpus $arch)
+  IFS=':' read -r -a parts <<< "$ip_sir"
   ip="${parts[0]}"
   sir="${parts[1]}"
   iid="${parts[2]}"
@@ -96,11 +96,6 @@ case "$cmd" in
     docker_login
     update_manifests
     ;;
-  "deploy")
-    docker_login
-    build_all
-    update_manifests
-    ;;
   "ec2-amd64")
     check_login
     build_ec2 128 amd64
@@ -108,6 +103,11 @@ case "$cmd" in
   "ec2-arm64")
     check_login
     build_ec2 64 arm64
+    ;;
+  "deploy")
+    docker_login
+    build_all
+    update_manifests
     ;;
   "amis")
       parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64

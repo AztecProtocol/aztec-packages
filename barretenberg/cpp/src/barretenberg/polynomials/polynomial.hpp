@@ -2,6 +2,7 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
@@ -255,6 +256,21 @@ template <typename Fr> class Polynomial {
      */
     Polynomial& operator*=(Fr scaling_factor);
 
+    /**
+     * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
+     * commitment and evaluation of a polynomial don't leak information about the coefficients in the context of zero
+     * knowledge.
+     */
+    void mask()
+    {
+        // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
+        ASSERT(virtual_size() >= MASKING_OFFSET);
+        ASSERT(virtual_size() == end_index());
+        for (size_t i = virtual_size() - 1; i <= virtual_size() - MASKING_OFFSET; i--) {
+            at(i) = FF::random_element();
+        }
+    }
+
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
     void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); };
@@ -308,6 +324,13 @@ template <typename Fr> class Polynomial {
      * @return a polynomial with a larger size() but same virtual_size()
      */
     Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
+
+    /**
+     * @brief The end_index of the polynomial is decreased without any memory de-allocation.
+     *        This is a very fast way to zeroize the polynomial tail from new_end_index to the
+     *        end. It also means that the new end_index might be smaller than the backed memory.
+     */
+    void shrink_end_index(const size_t new_end_index);
 
     /**
      * @brief Copys the polynomial, but with the whole address space usable.
@@ -400,7 +423,6 @@ template <typename Fr> class Polynomial {
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
-
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {

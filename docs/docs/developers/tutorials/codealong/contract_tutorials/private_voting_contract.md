@@ -146,7 +146,7 @@ Paste this function in your contract:
 
 Here, we are asserting that the `msg_sender()` is equal to the `admin` stored in public state.
 
-## Compiling and deploying
+## Compiling and codegen
 
 The easiest way to compile the contract is with `aztec-nargo`. Run the following command in the directory with your Nargo.toml file:
 
@@ -175,4 +175,4 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 - [Unconstrained functions](../../../../aztec/smart_contracts/functions/attributes.md#unconstrained-functions).
 - [Oracles](../../../../aztec/smart_contracts/oracles/index.md)
 - [Nullifier secrets](../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
-- [How to deploy a contract to the sandbox](../../../guides/smart_contracts/how_to_deploy_contract.md)
+- [How to deploy a contract to the sandbox](../../../guides/js_apps/deploy_contract.md)

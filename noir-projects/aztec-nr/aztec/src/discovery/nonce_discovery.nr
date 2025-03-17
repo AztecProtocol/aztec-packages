@@ -1,4 +1,4 @@
-use crate::{discovery::{MAX_NOTE_PACKED_LEN, NoteHashAndNullifier}, utils::array};
+use crate::{discovery::{ComputeNoteHashAndNullifier, MAX_NOTE_PACKED_LEN}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -26,7 +26,7 @@ pub struct DiscoveredNoteInfo {
 pub unconstrained fn attempt_note_nonce_discovery<Env>(
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
-    compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_PACKED_LEN>, AztecAddress, Field, Field, Field) -> Option<NoteHashAndNullifier>,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
     contract_address: AztecAddress,
     storage_slot: Field,
     note_type_id: Field,
@@ -35,7 +35,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
     let discovered_notes = &mut BoundedVec::new();
 
     debug_log_format(
-        "Attempting note discovery on {0} potential notes on contract {1} for storage slot {2}",
+        "Attempting nonce discovery on {0} potential notes on contract {1} for storage slot {2}",
         [unique_note_hashes_in_tx.len() as Field, contract_address.to_field(), storage_slot],
     );
 
@@ -53,10 +53,10 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
             // TODO(#11157): handle failed note_hash_and_nullifier computation
             let hashes = compute_note_hash_and_nullifier(
                 packed_note_content,
-                contract_address,
-                candidate_nonce,
                 storage_slot,
                 note_type_id,
+                contract_address,
+                candidate_nonce,
             )
                 .expect(f"Failed to compute a note hash for note type {note_type_id}");
 

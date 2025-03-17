@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "libdeflate.h"
+#include <stdexcept>
 
 namespace bb {
 
@@ -124,7 +125,7 @@ void write_standalone_vk(const std::string& output_data_type,
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     ProofAndKey<VerificationKey> to_write{ {}, std::make_shared<VerificationKey>(prover.proving_key->proving_key) };
 
-    write(to_write, output_data_type, "vk", output_path);
+    write(to_write, output_format, "vk", output_path);
 }
 
 size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& bytecode_path)
@@ -260,6 +261,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     // representations of vks that don't feel worth implementing
     const bool output_to_stdout = output_dir == "-";
 
+<<<<<<< HEAD
     const auto write_proof = [&]() {
         const auto buf = to_buffer(proof);
         if (output_to_stdout) {
@@ -338,12 +340,12 @@ bool ClientIVCAPI::prove_and_verify(const Flags& flags,
 void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    throw_or_abort("API function gates not implemented");
+    gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
 }
 
-void ClientIVCAPI::write_contract([[maybe_unused]] const Flags& flags,
-                                  [[maybe_unused]] const std::filesystem::path& output_path,
-                                  [[maybe_unused]] const std::filesystem::path& vk_path)
+void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
+                                           [[maybe_unused]] const std::filesystem::path& output_path,
+                                           [[maybe_unused]] const std::filesystem::path& vk_path)
 {
     throw_or_abort("API function contract not implemented");
 }
@@ -370,7 +372,7 @@ bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
     return false;
 }
 
-void gate_count_for_ivc(const std::string& bytecode_path)
+void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode)
 {
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
@@ -389,7 +391,7 @@ void gate_count_for_ivc(const std::string& bytecode_path)
         acir_format::ProgramMetadata metadata{ .ivc = ivc_constraints.empty() ? nullptr
                                                                               : create_mock_ivc_from_constraints(
                                                                                     ivc_constraints, trace_settings),
-                                               .collect_gates_per_opcode = true };
+                                               .collect_gates_per_opcode = include_gates_per_opcode };
 
         auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
@@ -408,13 +410,13 @@ void gate_count_for_ivc(const std::string& bytecode_path)
             }
         }
 
-        auto result_string = format("{\n        \"acir_opcodes\": ",
-                                    program.constraints.num_acir_opcodes,
-                                    ",\n        \"circuit_size\": ",
-                                    circuit_size,
-                                    ",\n        \"gates_per_opcode\": [",
-                                    gates_per_opcode_str,
-                                    "]\n  }");
+        auto result_string = format(
+            "{\n        \"acir_opcodes\": ",
+            program.constraints.num_acir_opcodes,
+            ",\n        \"circuit_size\": ",
+            circuit_size,
+            (include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+            "\n  }");
 
         // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {

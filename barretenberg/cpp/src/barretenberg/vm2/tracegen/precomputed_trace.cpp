@@ -4,12 +4,13 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 
 namespace bb::avm2::tracegen {
 
-void PrecomputedTraceBuilder::process_misc(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t num_rows)
 {
     using C = Column;
 
@@ -18,8 +19,8 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace)
 
     // Clk.
     // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
-    trace.reserve_column(C::precomputed_clk, CIRCUIT_SUBGROUP_SIZE);
-    for (uint32_t i = 0; i < CIRCUIT_SUBGROUP_SIZE; i++) {
+    trace.reserve_column(C::precomputed_clk, num_rows);
+    for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_clk, i, i);
     }
 }
@@ -156,8 +157,11 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     };
     constexpr auto num_rows = round_constants.size();
     trace.reserve_column(C::precomputed_sha256_compression_round_constant, num_rows);
+    trace.reserve_column(C::precomputed_sel_sha256_compression, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sha256_compression_round_constant, i, round_constants[i]);
+        trace.set(i,
+                  { { { C::precomputed_sel_sha256_compression, 1 },
+                      { C::precomputed_sha256_compression_round_constant, round_constants[i] } } });
     }
 }
 
@@ -174,6 +178,75 @@ void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
         trace.set(static_cast<uint32_t>(tag),
                   { { { C::precomputed_sel_integral_tag, 1 },
                       { C::precomputed_integral_tag_length, integral_tag_length(tag) } } });
+    }
+}
+
+void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trace)
+{
+    using C = Column;
+    const std::array<Column, NUM_OP_DC_SELECTORS> sel_op_dc_columns = {
+        C::precomputed_sel_op_dc_0,  C::precomputed_sel_op_dc_1,  C::precomputed_sel_op_dc_2,
+        C::precomputed_sel_op_dc_3,  C::precomputed_sel_op_dc_4,  C::precomputed_sel_op_dc_5,
+        C::precomputed_sel_op_dc_6,  C::precomputed_sel_op_dc_7,  C::precomputed_sel_op_dc_8,
+        C::precomputed_sel_op_dc_9,  C::precomputed_sel_op_dc_10, C::precomputed_sel_op_dc_11,
+        C::precomputed_sel_op_dc_12, C::precomputed_sel_op_dc_13, C::precomputed_sel_op_dc_14,
+        C::precomputed_sel_op_dc_15, C::precomputed_sel_op_dc_16, C::precomputed_sel_op_dc_17,
+    };
+
+    // First set the selector for this table lookup.
+    for (uint32_t i = 0; i < static_cast<uint32_t>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
+        trace.set(C::precomputed_sel_range_wire_opcode, i, 1);
+    }
+
+    // Fill the lookup tables with the operand decomposition selectors.
+    for (const auto& [wire_opcode, wire_instruction_spec] : WIRE_INSTRUCTION_SPEC) {
+        for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
+            trace.set(
+                sel_op_dc_columns[i], static_cast<uint32_t>(wire_opcode), wire_instruction_spec.op_dc_selectors[i]);
+        }
+        trace.set(C::precomputed_exec_opcode,
+                  static_cast<uint32_t>(wire_opcode),
+                  static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
+        trace.set(C::precomputed_instr_size_in_bytes,
+                  static_cast<uint32_t>(wire_opcode),
+                  wire_instruction_spec.size_in_bytes);
+    }
+}
+
+void PrecomputedTraceBuilder::process_to_radix_safe_limbs(TraceContainer& trace)
+{
+    using C = Column;
+
+    auto p_limbs_per_radix = get_p_limbs_per_radix();
+
+    trace.reserve_column(C::precomputed_sel_to_radix_safe_limbs, p_limbs_per_radix.size());
+    trace.reserve_column(C::precomputed_to_radix_safe_limbs, p_limbs_per_radix.size());
+
+    for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
+        size_t decomposition_len = p_limbs_per_radix[i].size();
+        if (decomposition_len > 0) {
+            trace.set(C::precomputed_sel_to_radix_safe_limbs, static_cast<uint32_t>(i), 1);
+            trace.set(C::precomputed_to_radix_safe_limbs, static_cast<uint32_t>(i), decomposition_len - 1);
+        }
+    }
+}
+
+void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& trace)
+{
+    using C = Column;
+
+    auto p_limbs_per_radix = get_p_limbs_per_radix();
+
+    uint32_t row = 0;
+    for (size_t i = 0; i < p_limbs_per_radix.size(); ++i) {
+        size_t decomposition_len = p_limbs_per_radix[i].size();
+        for (size_t j = 0; j < decomposition_len; ++j) {
+            trace.set(C::precomputed_sel_p_decomposition, row, 1);
+            trace.set(C::precomputed_p_decomposition_radix, row, i);
+            trace.set(C::precomputed_p_decomposition_limb_index, row, j);
+            trace.set(C::precomputed_p_decomposition_limb, row, p_limbs_per_radix[i][j]);
+            row++;
+        }
     }
 }
 

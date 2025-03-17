@@ -1,8 +1,9 @@
-import { type L2Block } from '@aztec/circuit-types';
-import { type BlockHeader, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import { Fr } from '@aztec/foundation/fields';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { L2Block, PublishedL2Block } from '@aztec/stdlib/block';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import { expect } from 'chai';
 
@@ -21,8 +22,11 @@ describe('L2TipsStore', () => {
     await kvStore.delete();
   });
 
-  const makeBlock = (number: number): L2Block =>
-    ({ number, header: { hash: () => Promise.resolve(new Fr(number)) } as BlockHeader } as L2Block);
+  const makeBlock = (number: number): PublishedL2Block => ({
+    block: { number, header: { hash: () => Promise.resolve(new Fr(number)) } as BlockHeader } as L2Block,
+    l1: { blockNumber: BigInt(number), blockHash: `0x${number}`, timestamp: BigInt(number) },
+    signatures: [],
+  });
 
   const makeTip = (number: number) => ({ number, hash: number === 0 ? undefined : new Fr(number).toString() });
 

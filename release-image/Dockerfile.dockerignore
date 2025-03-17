@@ -1,4 +1,5 @@
 *
+!/.release-please-manifest.json
 !/avm-transpiler/target/release/avm-transpiler
 !/aztec-nargo/compile_then_postprocess.sh
 !/barretenberg/cpp/build/bin/bb
@@ -20,10 +21,6 @@
 !/yarn-project/protocol-contracts/artifacts/
 !/yarn-project/noir-contracts.js/artifacts/
 !/yarn-project/native/build/nodejs_module.node
-
-# These are copied in so we can perform a "production dependency install", after which they're deleted.
-!/yarn-project/.yarn/
-!/yarn-project/.yarnrc.yml
 
 # Needed to generate list of env vars to know what to be able to inject into the container.
 !/yarn-project/foundation/src/config/env_var.ts

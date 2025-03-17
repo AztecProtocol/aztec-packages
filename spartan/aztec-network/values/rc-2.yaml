@@ -5,8 +5,6 @@ aztec:
   realProofs: true
   # TODO: Will need to change these as ignition will be using them
   l1DeploymentMnemonic: ""
-  validatorKeyIndexStart: 4
-  proverKeyIndexStart: 52
 
 images:
   aztec:
@@ -20,7 +18,7 @@ ethereum:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
   execution:
-    externalHost:
+    externalHosts:
   beacon:
     externalHost:
     apiKey: ""
@@ -39,8 +37,6 @@ validator:
     disabled: false
 
 bootNode:
-  validator:
-    disabled: true
   storageSize: "100Gi"
 
 proverAgent:

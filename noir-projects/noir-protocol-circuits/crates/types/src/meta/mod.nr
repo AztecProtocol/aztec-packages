@@ -1,5 +1,29 @@
 use super::traits::{Deserialize, Packable, Serialize};
 
+/// Returns the typed expression of a trait method implementation.
+///
+/// This helper function is preferred over directly inlining with `$typ::target_method()` in a quote,
+/// as direct inlining would result in missing import warnings in the generated code (specifically,
+/// warnings that the trait implementation is not in scope).
+///
+/// # Note
+/// A copy of this function exists in `aztec-nr/aztec/src/macros/utils.nr`. We maintain separate copies
+/// because importing it there from here would cause the `target_trait` to be interpreted in the context
+/// of this crate, making it impossible to compile code for traits from that crate (e.g. NoteType).
+comptime fn get_trait_impl_method(
+    typ: Type,
+    target_trait: Quoted,
+    target_method: Quoted,
+) -> TypedExpr {
+    let trait_constraint = target_trait.as_trait_constraint();
+    typ
+        .get_trait_impl(trait_constraint)
+        .expect(f"Could not find impl for {target_trait} for type {typ}")
+        .methods()
+        .filter(|m| m.name() == target_method)[0]
+        .as_typed_expr()
+}
+
 /// Generates code that deserializes a struct, primitive type, array or string from a field array.
 ///
 /// # Parameters
@@ -19,14 +43,9 @@ use super::traits::{Deserialize, Packable, Serialize};
 /// Given the following setup:
 /// ```
 /// struct UintNote {
-///     value: U128,
+///     value: u128,
 ///     owner: AztecAddress,
 ///     randomness: Field,
-/// }
-///
-/// struct U128 {
-///     lo: Field,
-///     hi: Field,
 /// }
 ///
 /// struct AztecAddress {
@@ -37,18 +56,15 @@ use super::traits::{Deserialize, Packable, Serialize};
 /// If `UintNote` is the input type, the function will generate the following deserialization code:
 /// ```
 /// UintNote {
-///     value: U128 {
-///         lo: fields[0],     // First field becomes low part of U128
-///         hi: fields[1],     // Second field becomes high part of U128
-///     },
+///     value: fields[0] as u128,
 ///     owner: AztecAddress {
-///         inner: fields[2],  // Third field becomes inner address
+///         inner: fields[1],
 ///     },
-///     randomness: fields[3], // Fourth field as randomness
+///     randomness: fields[2],
 /// }
 /// ```
 /// # Nested Struct Example with Unpacking
-/// - given the same setup as above and given that U128, AztecAddress and Field implement the `Packable` trait
+/// - given the same setup as above and given that u128, AztecAddress and Field implement the `Packable` trait
 ///   the result we get is:
 /// ```
 /// UintNote {
@@ -91,17 +107,18 @@ pub comptime fn generate_deserialize_from_fields(
         let packed_fields = packed_fields_quotes.join(quote {,});
 
         // Now we call unpack on the type
-        result = quote { Packable::unpack([ $packed_fields ]) };
+        let unpack_method = get_trait_impl_method(typ, quote { Packable<_> }, quote { unpack });
+        result = quote { $unpack_method([ $packed_fields ]) };
 
         consumed_counter = packed_len;
     } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         // The field is a primitive so we just reference it in the field array
         result = quote { $field_array_name[$num_already_consumed] as $typ };
         consumed_counter = 1;
-    } else if typ.as_struct().is_some() {
+    } else if typ.as_data_type().is_some() {
         // The field is a struct so we iterate over each struct field and recursively call
         // `generate_deserialize_from_fields`
-        let (nested_def, generics) = typ.as_struct().unwrap();
+        let (nested_def, generics) = typ.as_data_type().unwrap();
         let nested_name = nested_def.name();
         let mut deserialized_fields_list = &[];
 
@@ -119,7 +136,7 @@ pub comptime fn generate_deserialize_from_fields(
             // We increment the consumed counter by the number of fields consumed in the recursion
             consumed_counter += num_consumed_in_recursion;
             // We add the deserialized field to the list of deserialized fields.
-            // E.g. `value: U128 { lo: fields[0], hi: fields[1] }`
+            // E.g. `value: u128 { lo: fields[0], hi: fields[1] }`
             deserialized_fields_list =
                 deserialized_fields_list.push_back(quote { $field_name: $deserialized_field });
         }
@@ -223,33 +240,33 @@ pub comptime fn generate_deserialize_from_fields(
 /// ## Struct
 /// Given the following struct:
 /// ```rust
-/// struct U128 {
-///     lo: Field,
-///     hi: Field,
+/// struct MockStruct {
+///     a: Field,
+///     b: Field,
 /// }
 /// ```
 ///
 /// Serializing the struct:
 /// ```rust
-/// generate_serialize_to_fields(quote { my_u128 }, U128, &[], false)
+/// generate_serialize_to_fields(quote { my_mock_struct }, MockStruct, &[], false)
 /// // Returns:
-/// // ([`my_u128.lo`, `my_u128.hi`], [])
+/// // ([`my_mock_struct.a`, `my_mock_struct.b`], [])
 /// ```
 ///
 /// ## Nested Struct
 /// For a more complex struct:
 /// ```rust
-/// struct UintNote {
-///     value: U128,
-///     randomness: Field,
+/// struct NestedStruct {
+///     m1: MockStruct,
+///     m2: MockStruct,
 /// }
 /// ```
 ///
 /// Serialization output:
 /// ```rust
-/// generate_serialize_to_fields(quote { self }, UintNote, &[\], false)
+/// generate_serialize_to_fields(quote { self }, NestedStruct, &[], false)
 /// // Returns:
-/// // ([`self.value.lo`, `self.value.hi`, `self.randomness`], [])
+/// // ([`self.m1.a`, `self.m1.b`, `self.m2.a`, `self.m2.b`], [])
 /// ```
 ///
 /// ## Array
@@ -270,12 +287,12 @@ pub comptime fn generate_deserialize_from_fields(
 /// ```
 ///
 /// ## Nested Struct with Omitted Field and packing enabled
-/// - U128 has a `Packable` implementation hence it will be packed.
+/// - u128 has a `Packable` implementation hence it will be packed.
 ///
 /// For a more complex struct:
 /// ```rust
 /// struct MyStruct {
-///     value: U128,
+///     value: u128,
 ///     value2: Field,
 /// }
 /// ```
@@ -303,7 +320,8 @@ pub comptime fn generate_serialize_to_fields(
     if !omit.any(|to_omit| to_omit == name) {
         // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
         let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
-        let packable_constraint = quote { Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+        let packable_constraint =
+            quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
 
         if (should_pack & typ.implements(packable_constraint)) {
             // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
@@ -315,7 +333,12 @@ pub comptime fn generate_serialize_to_fields(
             let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
 
             // We add the individual fields to the fields array
-            let packed_struct = quote { let $packed_struct_name = $name.pack() };
+            let pack_method = get_trait_impl_method(
+                typ,
+                quote { crate::traits::Packable<$packed_len> },
+                quote { pack },
+            );
+            let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
             for i in 0..packed_len {
                 fields = fields.push_back(quote { $packed_struct_name[$i] });
             }
@@ -328,9 +351,9 @@ pub comptime fn generate_serialize_to_fields(
         } else if typ.as_integer().is_some() | typ.is_bool() {
             // For integer and bool we just cast to Field and add the value to fields
             fields = fields.push_back(quote { $name as Field });
-        } else if typ.as_struct().is_some() {
+        } else if typ.as_data_type().is_some() {
             // For struct we pref
-            let nested_struct = typ.as_struct().unwrap();
+            let nested_struct = typ.as_data_type().unwrap();
             let params = nested_struct.0.fields(nested_struct.1);
             let struct_flattened = params.map(|(param_name, param_type): (Quoted, Type)| {
                 let maybe_prefixed_name = if name == quote {} {
@@ -416,7 +439,7 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
     single_token
 }
 
-pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
+pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, &[], false);
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -438,7 +461,7 @@ pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
     }
 }
 
-pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
+pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let (fields, _) = generate_serialize_to_fields(quote { self }, typ, &[], false);
     let serialized_len = fields.len();
@@ -457,9 +480,8 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
 ///
 /// Note: We are having this function separate from `derive_packable` because we use this in the note macros to get
 /// the packed length of a note as well as the `Packable` implementation. We need the length to be able to register
-/// the note in the global `NOTES` map. There the length is used to generate
-/// `compute_note_hash_and_optionally_a_nullifier` function on contracts.
-pub comptime fn derive_packable_and_get_packed_len(s: StructDefinition) -> (Quoted, u32) {
+/// the note in the global `NOTES` map. There the length is used to generate partial note helper functions.
+pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted, u32) {
     let packing_enabled = true;
 
     let typ = s.as_type();
@@ -477,9 +499,10 @@ pub comptime fn derive_packable_and_get_packed_len(s: StructDefinition) -> (Quot
 
     let field_packings = fields.join(quote {,});
     let packed_len = fields.len();
+    let packable_trait: TraitConstraint = quote { Packable<$packed_len> }.as_trait_constraint();
     (
         quote {
-        impl Packable<$packed_len> for $typ {
+        impl $packable_trait for $typ {
             fn pack(self) -> [Field; $packed_len] {
                 $aux_vars_for_packing
                 [ $field_packings ]
@@ -494,7 +517,7 @@ pub comptime fn derive_packable_and_get_packed_len(s: StructDefinition) -> (Quot
     )
 }
 
-pub(crate) comptime fn derive_packable(s: StructDefinition) -> Quoted {
+pub(crate) comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     let (packable_impl, _) = derive_packable_and_get_packed_len(s);
     packable_impl
 }
@@ -517,12 +540,6 @@ pub struct Fancier {
     b: [Field; 2],
     c: [u8; 3],
     d: str<16>,
-}
-
-#[derive(Eq, Packable)]
-pub struct ContainsU128 {
-    a: U128,
-    b: Field,
 }
 
 fn main() {
@@ -566,14 +583,4 @@ fn fancier_test() {
     );
     let deserialized = Fancier::deserialize(serialized);
     assert(deserialized == fancier);
-}
-
-#[test]
-fn contains_u128_test() {
-    let contains_u128 = ContainsU128 { a: U128::from_integer(5), b: 3 };
-    let packed = contains_u128.pack();
-    assert_eq(packed, [5, 3], "Packed does not match the expected");
-
-    let unpacked = ContainsU128::unpack(packed);
-    assert_eq(unpacked, contains_u128, "Unpacked does not match the original");
 }

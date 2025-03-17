@@ -11,6 +11,18 @@ function build_dind_image {
   denoise "docker build -t aztecprotocol/dind ."
 }
 
+function update_manifest {
+  # We update the manifest to point to the latest arch specific images, pushed above.
+  local image=aztecprotocol/dind:latest
+  # Remove any old local manifest if present.
+  docker manifest rm $image || true
+  # Create new manifest and push.
+  docker manifest create $image \
+    --amend aztecprotocol/dind:latest-amd64 \
+    --amend aztecprotocol/dind:latest-arm64
+  docker manifest push $image
+}
+
 function test_cmds {
   echo "$hash aztec-up/scripts/run_test.sh basic_install"
   echo "$hash aztec-up/scripts/run_test.sh counter_contract"
@@ -25,9 +37,6 @@ function release {
   echo_header "aztec-up release"
   local version=${REF_NAME#v}
 
-  # Function to compare versions.
-  version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
-
   # Read the current version from S3.
   local current_version=$(aws s3 cp s3://install.aztec.network/VERSION - 2>/dev/null || echo "0.0.0")
 
@@ -36,22 +45,17 @@ function release {
     return
   fi
 
-  # Validate that version is a valid semver.
-  if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Warning: $version is not a valid semver version. Skipping version comparison."
+  # Check if new version is greater than current version.
+  if [ $(semver sort "$version" "$current_version" | tail -1) == "$version" ]; then
+    echo "Uploading new version: $version"
+
+    # Upload new version to root.
+    do_or_dryrun aws s3 sync ./bin s3://install.aztec.network/
+
+    # Update VERSION file.
+    echo "$version" | do_or_dryrun aws s3 cp - s3://install.aztec.network/VERSION
   else
-    # Check if new version is greater than current version.
-    if version_gt "$version" "$current_version"; then
-      echo "Uploading new version: $version"
-
-      # Upload new version to root.
-      do_or_dryrun aws s3 sync ./bin s3://install.aztec.network/
-
-      # Update VERSION file.
-      echo "$version" | do_or_dryrun aws s3 cp - s3://install.aztec.network/VERSION
-    else
-      echo "New version $version is not greater than current version $current_version. Skipping root upload."
-    fi
+    echo "New version $version is not greater than current version $current_version. Skipping root upload."
   fi
 
   # Always create a version directory and upload files there.
@@ -60,9 +64,8 @@ function release {
 
 case "$cmd" in
   ""|"full"|"fast")
-    build_dind_image
     ;;
-  test_cmds|test|release)
+  test_cmds|test|release|build_dind_image|update_manifest)
     $cmd
     ;;
   *)

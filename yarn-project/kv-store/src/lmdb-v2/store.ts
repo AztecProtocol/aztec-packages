@@ -12,7 +12,9 @@ import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
 import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
+// eslint-disable-next-line import/no-cycle
 import { LMDBArray } from './array.js';
+// eslint-disable-next-line import/no-cycle
 import { LMDBMap, LMDBMultiMap } from './map.js';
 import {
   Database,
@@ -22,6 +24,7 @@ import {
   type LMDBResponseBody,
 } from './message.js';
 import { ReadTransaction } from './read_transaction.js';
+// eslint-disable-next-line import/no-cycle
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
 
@@ -156,7 +159,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   async delete(): Promise<void> {
     await this.close();
-    await rm(this.dataDir, { recursive: true, force: true });
+    await rm(this.dataDir, { recursive: true, force: true, maxRetries: 3 });
     this.log.verbose(`Deleted database files at ${this.dataDir}`);
     await this.cleanup?.();
   }

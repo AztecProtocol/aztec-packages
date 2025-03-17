@@ -5,7 +5,7 @@ import {TestBase} from "@test/base/Base.sol";
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup, Config} from "@aztec/core/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
@@ -57,20 +57,9 @@ contract SlashingScenario is TestBase {
       _fpcJuicePortal: new MockFeeJuicePortal(),
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
-      _vkTreeRoot: bytes32(0),
-      _protocolContractTreeRoot: bytes32(0),
-      _genesisArchiveRoot: bytes32(0),
-      _genesisBlockHash: bytes32(0),
-      _ares: address(this),
-      _config: Config({
-        aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
-        aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
-        targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecProofSubmissionWindow: TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
-      })
+      _governance: address(this),
+      _genesisState: TestConstants.getGenesisState(),
+      _config: TestConstants.getRollupConfigInput()
     });
     slasher = Slasher(rollup.getSlasher());
     slashingProposer = slasher.PROPOSER();

@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_stack.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
@@ -16,18 +17,20 @@
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
-#include "barretenberg/vm2/simulation/events/ecc_event.hpp"
+#include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
+#include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
+#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/sha256.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
+#include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
 
 namespace bb::avm2 {
@@ -66,20 +69,29 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
     typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
     typename S::template DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
+    typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
     typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
 
-    HintedRawDataDB db(inputs.hints);
-    AddressDerivation address_derivation(address_derivation_emitter);
-    ClassIdDerivation class_id_derivation(class_id_derivation_emitter);
+    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
+    ToRadix to_radix(to_radix_emitter);
+    Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
+
+    AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
+    ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
+    HintedRawContractDB raw_contract_db(inputs.hints);
+    HintedRawMerkleDB raw_merkle_db(inputs.hints, inputs.publicInputs.startTreeSnapshots);
+    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
+    MerkleDB merkle_db(raw_merkle_db);
+
+    BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
-    // TODO: I'm not using the siloing gadget yet here.
-    // It should probably not be in bytecode_manager, but in sth related to the contract instance.
-    TxBytecodeManager bytecode_manager(db,
-                                       address_derivation,
-                                       class_id_derivation,
+    TxBytecodeManager bytecode_manager(contract_db,
+                                       merkle_db,
+                                       siloing,
+                                       bytecode_hasher,
                                        bytecode_retrieval_emitter,
-                                       bytecode_hashing_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
     ContextProvider context_provider(bytecode_manager, memory_emitter);
@@ -91,10 +103,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Execution execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
-    Ecc ecc_add(ecc_add_emitter);
-    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
 
-    tx_execution.simulate({ .enqueued_calls = inputs.enqueuedCalls });
+    tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
 
     return { execution_emitter.dump_events(),
              alu_emitter.dump_events(),
@@ -110,8 +120,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              siloing_emitter.dump_events(),
              sha256_compression_emitter.dump_events(),
              ecc_add_emitter.dump_events(),
+             scalar_mul_emitter.dump_events(),
              poseidon2_hash_emitter.dump_events(),
-             poseidon2_perm_emitter.dump_events() };
+             poseidon2_perm_emitter.dump_events(),
+             to_radix_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

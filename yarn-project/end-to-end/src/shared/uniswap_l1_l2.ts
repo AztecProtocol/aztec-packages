@@ -9,24 +9,20 @@ import {
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
-import { type DeployL1Contracts, deployL1Contract, extractEvent } from '@aztec/ethereum';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import {
+  type DeployL1ContractsReturnType,
+  type ViemPublicClient,
+  type ViemWalletClient,
+  deployL1Contract,
+  extractEvent,
+} from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, RollupAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 
 import { jest } from '@jest/globals';
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-  parseEther,
-  toFunctionSelector,
-} from 'viem';
-import type * as chains from 'viem/chains';
+import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
 import { ensureAccountsPubliclyDeployed } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
@@ -50,15 +46,17 @@ export type UniswapSetupContext = {
   /** Logger instance named as the current test. */
   logger: Logger;
   /** Viem Public client instance. */
-  publicClient: PublicClient<HttpTransport, Chain>;
+  publicClient: ViemPublicClient;
   /** Viem Wallet Client instance. */
-  walletClient: WalletClient<HttpTransport, Chain, Account>;
+  walletClient: ViemWalletClient;
   /** The owner wallet. */
   ownerWallet: AccountWallet;
   /** The sponsor wallet. */
   sponsorWallet: AccountWallet;
   /**  */
-  deployL1ContractsValues: DeployL1Contracts;
+  deployL1ContractsValues: DeployL1ContractsReturnType;
+  /** Cheat codes instance. */
+  cheatCodes: CheatCodes;
 };
 // docs:end:uniswap_l1_l2_test_setup_const
 
@@ -78,8 +76,8 @@ export const uniswapL1L2TestSuite = (
     let pxe: PXE;
     let logger: Logger;
 
-    let walletClient: WalletClient<HttpTransport, Chain, Account>;
-    let publicClient: PublicClient<HttpTransport, Chain>;
+    let walletClient: ViemWalletClient;
+    let publicClient: ViemPublicClient;
 
     let ownerWallet: AccountWallet;
     let ownerAddress: AztecAddress;
@@ -91,9 +89,9 @@ export const uniswapL1L2TestSuite = (
     let daiCrossChainHarness: CrossChainTestHarness;
     let wethCrossChainHarness: CrossChainTestHarness;
 
-    let deployL1ContractsValues: DeployL1Contracts;
-    let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
-    let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, WalletClient<HttpTransport, Chain, Account>>;
+    let deployL1ContractsValues: DeployL1ContractsReturnType;
+    let rollup: GetContractReturnType<typeof RollupAbi, ViemWalletClient>;
+    let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, ViemWalletClient>;
     let uniswapPortalAddress: EthAddress;
     let uniswapL2Contract: UniswapContract;
 
@@ -101,9 +99,20 @@ export const uniswapL1L2TestSuite = (
     const uniswapFeeTier = 3000n;
     const minimumOutputAmount = 0n;
 
+    let cheatCodes: CheatCodes;
+
     beforeAll(async () => {
-      ({ aztecNode, pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet, deployL1ContractsValues } =
-        await setup());
+      ({
+        aztecNode,
+        pxe,
+        logger,
+        publicClient,
+        walletClient,
+        ownerWallet,
+        sponsorWallet,
+        deployL1ContractsValues,
+        cheatCodes,
+      } = await setup());
 
       if (Number(await publicClient.getBlockNumber()) < expectedForkBlockNumber) {
         throw new Error('This test must be run on a fork of mainnet with the expected fork block');
@@ -279,7 +288,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPublicBalanceOnL2(uniswapL2Contract.address, 0n);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
+      await cheatCodes.rollup.markAsProven(await rollup.read.getPendingBlockNumber());
 
       // 5. Consume L2 to L1 message by calling uniswapPortal.swap_private()
       logger.info('Execute withdraw and swap on the uniswapPortal!');
@@ -890,7 +899,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
+      await cheatCodes.rollup.markAsProven(await rollup.read.getPendingBlockNumber());
 
       // On L1 call swap_public!
       logger.info('call swap_public on L1');
@@ -1020,7 +1029,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
+      await cheatCodes.rollup.markAsProven(await rollup.read.getPendingBlockNumber());
 
       // Call swap_private on L1
       logger.info('Execute withdraw and swap on the uniswapPortal!');

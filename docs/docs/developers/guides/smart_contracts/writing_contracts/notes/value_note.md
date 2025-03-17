@@ -59,5 +59,5 @@ The `decrement` function works similarly except the `amount` is the number that 
 ## Learn more
 
 - [Keys, including nullifier keys and outgoing viewer](../../../../../aztec/concepts/accounts/keys.md)
-- [How to write a custom note](./custom_note.md)
+- [How to implement a note](./implementing_a_note.md)
 - [ValueNote reference](../../../../reference/smart_contract_reference/aztec-nr/value-note/value_note.md)

@@ -1,4 +1,4 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
@@ -16,6 +16,7 @@ library Constants {
   uint256 internal constant MAX_FIELD_VALUE =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
   uint256 internal constant ARGS_LENGTH = 16;
+  uint256 internal constant MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS = 16000;
   uint256 internal constant MAX_NOTE_HASHES_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIERS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 5;
@@ -172,6 +173,8 @@ library Constants {
   uint256 internal constant TREE_LEAF_READ_REQUEST_LENGTH = 2;
   uint256 internal constant PRIVATE_LOG_DATA_LENGTH = 20;
   uint256 internal constant SCOPED_PRIVATE_LOG_DATA_LENGTH = 21;
+  uint256 internal constant CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS = 3019;
+  uint256 internal constant CONTRACT_CLASS_LOG_SIZE_IN_FIELDS = 3020;
   uint256 internal constant LOG_HASH_LENGTH = 3;
   uint256 internal constant SCOPED_LOG_HASH_LENGTH = 4;
   uint256 internal constant NOTE_HASH_LENGTH = 2;
@@ -202,7 +205,7 @@ library Constants {
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH = 741;
+  uint256 internal constant PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH = 740;
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 37;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 46;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
@@ -211,7 +214,7 @@ library Constants {
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
   uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1847;
-  uint256 internal constant PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 783;
+  uint256 internal constant PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 782;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 52;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 986;
@@ -228,12 +231,12 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-  uint256 internal constant RECURSIVE_PROOF_LENGTH = 459;
-  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 459;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 456;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 456;
   uint256 internal constant IPA_PROOF_LENGTH = 69;
-  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 538;
-  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 538;
-  uint256 internal constant TUBE_PROOF_LENGTH = 538;
+  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 535;
+  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 535;
+  uint256 internal constant TUBE_PROOF_LENGTH = 535;
   uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 139;
   uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
@@ -290,6 +293,7 @@ library Constants {
   uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 1404;
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
   uint256 internal constant L2_GAS_PER_PRIVATE_LOG = 0;
+  uint256 internal constant L2_GAS_PER_CONTRACT_CLASS_LOG = 0;
   uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant TX_START_PREFIX = 8392562855083340404;
   uint256 internal constant REVERT_CODE_PREFIX = 1;
@@ -313,4 +317,7 @@ library Constants {
   uint256 internal constant MINIMUM_UPDATE_DELAY = 25;
   uint256 internal constant UPDATES_VALUE_SIZE = 1;
   uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 3;
+  uint256 internal constant GRUMPKIN_ONE_X = 1;
+  uint256 internal constant GRUMPKIN_ONE_Y =
+    17631683881184975370165255887551781615748388533673675138860;
 }

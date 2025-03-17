@@ -1,46 +1,34 @@
+import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type InBlock, type L2Block, L2BlockHash, wrapInBlock } from '@aztec/stdlib/block';
+import type {
+  ContractClassPublic,
+  ContractClassPublicWithBlockNumber,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/stdlib/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import {
-  type ContractClass2BlockL2Logs,
+  ContractClassLog,
+  ExtendedContractClassLog,
   ExtendedPublicLog,
-  ExtendedUnencryptedL2Log,
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  L2BlockHash,
   type LogFilter,
   LogId,
-  type TxEffect,
-  type TxHash,
-  TxReceipt,
-  TxScopedL2Log,
-  wrapInBlock,
-} from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractClassPublicWithBlockNumber,
-  type ContractInstanceUpdateWithAddress,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  Fr,
   type PrivateLog,
   type PublicLog,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/circuits.js/abi';
-import { type AztecAddress } from '@aztec/circuits.js/aztec-address';
-import {
-  INITIAL_L2_BLOCK_NUM,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-} from '@aztec/constants';
-import { createLogger } from '@aztec/foundation/log';
+  TxScopedL2Log,
+} from '@aztec/stdlib/logs';
+import type { InboxLeaf } from '@aztec/stdlib/messaging';
+import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval } from '../structs/data_retrieval.js';
-import { type L1Published } from '../structs/published.js';
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { PublishedL2Block } from '../structs/published.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 type StoredContractInstanceUpdate = ContractInstanceUpdateWithAddress & { blockNumber: number; logIndex: number };
@@ -52,7 +40,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   /**
    * An array containing all the L2 blocks that have been fetched so far.
    */
-  private l2Blocks: L1Published<L2Block>[] = [];
+  private l2Blocks: PublishedL2Block[] = [];
 
   /**
    * An array containing all the tx effects in the L2 blocks that have been fetched so far.
@@ -67,7 +55,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private publicLogsPerBlock: Map<number, PublicLog[]> = new Map();
 
-  private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
+  private contractClassLogsPerBlock: Map<number, ContractClassLog[]> = new Map();
 
   private blockScopedNullifiers: Map<string, { blockNumber: number; blockHash: string; index: bigint }> = new Map();
 
@@ -119,7 +107,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromHexString(key)));
   }
 
-  public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  public getContractInstance(
+    address: AztecAddress,
+    blockNumber: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
     const instance = this.contractInstances.get(address.toString());
     if (!instance) {
       return Promise.resolve(undefined);
@@ -127,8 +118,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     const updates = this.contractInstanceUpdates.get(address.toString()) || [];
     if (updates.length > 0) {
       const lastUpdate = updates[0];
-      const currentBlockNumber = this.getLastBlockNumber();
-      if (currentBlockNumber >= lastUpdate.blockOfChange) {
+      if (blockNumber >= lastUpdate.blockOfChange) {
         instance.currentContractClassId = lastUpdate.newContractClassId;
       } else if (!lastUpdate.prevContractClassId.isZero()) {
         instance.currentContractClassId = lastUpdate.prevContractClassId;
@@ -242,16 +232,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  public async addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
+  public async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
     if (blocks.length === 0) {
       return Promise.resolve(true);
     }
 
     this.lastL1BlockNewBlocks = blocks[blocks.length - 1].l1.blockNumber;
     this.l2Blocks.push(...blocks);
-    const flatTxEffects = blocks.flatMap(b => b.data.body.txEffects.map(txEffect => ({ block: b, txEffect })));
+    const flatTxEffects = blocks.flatMap(b => b.block.body.txEffects.map(txEffect => ({ block: b, txEffect })));
     const wrappedTxEffects = await Promise.all(
-      flatTxEffects.map(flatTxEffect => wrapInBlock(flatTxEffect.txEffect, flatTxEffect.block.data)),
+      flatTxEffects.map(flatTxEffect => wrapInBlock(flatTxEffect.txEffect, flatTxEffect.block.block)),
     );
     this.txEffects.push(...wrappedTxEffects);
 
@@ -277,68 +267,41 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       if (block == undefined) {
         break;
       }
-      block.data.body.txEffects.forEach(() => this.txEffects.pop());
+      block.block.body.txEffects.forEach(() => this.txEffects.pop());
     }
 
     return Promise.resolve(true);
   }
 
-  #storeTaggedLogsFromPrivate(block: L2Block): void {
+  #storeTaggedLogs(block: L2Block): void {
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
       block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
     block.body.txEffects.forEach((txEffect, txIndex) => {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
+
       txEffect.privateLogs.forEach(log => {
         const tag = log.fields[0];
+        this.#log.verbose(`Storing private log with tag ${tag.toString()} from block ${block.number}`);
+
         const currentLogs = this.taggedLogs.get(tag.toString()) || [];
         this.taggedLogs.set(tag.toString(), [
           ...currentLogs,
-          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ false, log.toBuffer()),
+          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, log),
         ]);
         const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
         this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
       });
-    });
-  }
 
-  #storeTaggedLogsFromPublic(block: L2Block): void {
-    const dataStartIndexForBlock =
-      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
-    block.body.txEffects.forEach((txEffect, txIndex) => {
-      const txHash = txEffect.txHash;
-      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.publicLogs.forEach(log => {
-        // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
-        // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
-        // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
-        const firstFieldBuf = log.log[0].toBuffer();
-        if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
-          // See parseLogFromPublic - the first field of a tagged log is 8 bytes structured:
-          // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
-          this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
-          return;
-        }
-        // Check that the length values line up with the log contents
-        const publicValuesLength = firstFieldBuf.subarray(-5).readUint16BE();
-        const privateValuesLength = firstFieldBuf.subarray(-5).readUint16BE(3);
-        // Add 1 for the first field holding lengths
-        const totalLogLength = 1 + publicValuesLength + privateValuesLength;
-        // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
-        if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
-          this.#log.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
-          return;
-        }
+        const tag = log.log[0];
+        this.#log.verbose(`Storing public log with tag ${tag.toString()} from block ${block.number}`);
 
-        // The first elt stores lengths => tag is in fields[1]
-        const tag = log.log[1];
-        this.#log.verbose(`Storing public tagged log with tag ${tag.toString()} in block ${block.number}`);
         const currentLogs = this.taggedLogs.get(tag.toString()) || [];
         this.taggedLogs.set(tag.toString(), [
           ...currentLogs,
-          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ true, log.toBuffer()),
+          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, log),
         ]);
         const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
         this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
@@ -353,11 +316,13 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean> {
     blocks.forEach(block => {
-      this.#storeTaggedLogsFromPrivate(block);
-      this.#storeTaggedLogsFromPublic(block);
+      this.#storeTaggedLogs(block);
       this.privateLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       this.publicLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.publicLogs).flat());
-      this.contractClassLogsPerBlock.set(block.number, block.body.contractClassLogs);
+      this.contractClassLogsPerBlock.set(
+        block.number,
+        block.body.txEffects.map(txEffect => txEffect.contractClassLogs).flat(),
+      );
     });
     return Promise.resolve(true);
   }
@@ -468,7 +433,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested L2 blocks.
    * @remarks When "from" is smaller than genesis block number, blocks from the beginning are returned.
    */
-  public getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]> {
+  public getBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
     if (limit < 1) {
       return Promise.reject(new Error(`Invalid limit: ${limit}`));
     }
@@ -488,7 +453,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   public async getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     const blocks = await this.getBlocks(from, limit);
-    return blocks.map(block => block.data.header);
+    return blocks.map(block => block.block.header);
   }
 
   /**
@@ -508,15 +473,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     for (const block of this.l2Blocks) {
-      for (const txEffect of block.data.body.txEffects) {
+      for (const txEffect of block.block.body.txEffects) {
         if (txEffect.txHash.equals(txHash)) {
           return new TxReceipt(
             txHash,
             TxReceipt.statusFromRevertCode(txEffect.revertCode),
             '',
             txEffect.transactionFee.toBigInt(),
-            L2BlockHash.fromField(await block.data.hash()),
-            block.data.number,
+            L2BlockHash.fromField(await block.block.hash()),
+            block.block.number,
           );
         }
       }
@@ -570,8 +535,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * that tag.
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    const noteLogs = tags.map(tag => this.taggedLogs.get(tag.toString()) || []);
-    return Promise.resolve(noteLogs);
+    const logs = tags.map(tag => this.taggedLogs.get(tag.toString()) || []);
+    return Promise.resolve(logs);
   }
 
   /**
@@ -630,8 +595,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       if (blockLogs) {
         for (let logIndex = 0; logIndex < blockLogs.length; logIndex++) {
           const log = blockLogs[logIndex];
-          const thisTxEffect = block.data.body.txEffects.filter(effect => effect.publicLogs.includes(log))[0];
-          const thisTxIndexInBlock = block.data.body.txEffects.indexOf(thisTxEffect);
+          const thisTxEffect = block.block.body.txEffects.filter(effect => effect.publicLogs.includes(log))[0];
+          const thisTxIndexInBlock = block.block.body.txEffects.indexOf(thisTxEffect);
           const thisLogIndexInTx = thisTxEffect.publicLogs.indexOf(log);
           if (
             (!txHash || thisTxEffect.txHash.equals(txHash)) &&
@@ -639,7 +604,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
             thisTxIndexInBlock >= txIndexInBlock &&
             thisLogIndexInTx >= logIndexInTx
           ) {
-            logs.push(new ExtendedPublicLog(new LogId(block.data.number, thisTxIndexInBlock, thisLogIndexInTx), log));
+            logs.push(new ExtendedPublicLog(new LogId(block.block.number, thisTxIndexInBlock, thisLogIndexInTx), log));
             if (logs.length === this.maxLogs) {
               return Promise.resolve({
                 logs,
@@ -705,34 +670,36 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     const contractAddress = filter.contractAddress;
 
-    const logs: ExtendedUnencryptedL2Log[] = [];
+    const logs: ExtendedContractClassLog[] = [];
 
     for (; fromBlock < toBlock; fromBlock++) {
       const block = this.l2Blocks[fromBlock - INITIAL_L2_BLOCK_NUM];
       const blockLogs = this.contractClassLogsPerBlock.get(fromBlock);
 
       if (blockLogs) {
-        for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
-          const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
-          for (; logIndexInTx < txLogs.length; logIndexInTx++) {
-            const log = txLogs[logIndexInTx];
-            if (
-              (!txHash || block.data.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
-              (!contractAddress || log.contractAddress.equals(contractAddress))
-            ) {
-              logs.push(new ExtendedUnencryptedL2Log(new LogId(block.data.number, txIndexInBlock, logIndexInTx), log));
-              if (logs.length === this.maxLogs) {
-                return Promise.resolve({
-                  logs,
-                  maxLogsHit: true,
-                });
-              }
+        for (let logIndex = 0; logIndex < blockLogs.length; logIndex++) {
+          const log = blockLogs[logIndex];
+          const thisTxEffect = block.block.body.txEffects.filter(effect => effect.contractClassLogs.includes(log))[0];
+          const thisTxIndexInBlock = block.block.body.txEffects.indexOf(thisTxEffect);
+          const thisLogIndexInTx = thisTxEffect.contractClassLogs.indexOf(log);
+          if (
+            (!txHash || thisTxEffect.txHash.equals(txHash)) &&
+            (!contractAddress || log.contractAddress.equals(contractAddress)) &&
+            thisTxIndexInBlock >= txIndexInBlock &&
+            thisLogIndexInTx >= logIndexInTx
+          ) {
+            logs.push(
+              new ExtendedContractClassLog(new LogId(block.block.number, thisTxIndexInBlock, thisLogIndexInTx), log),
+            );
+            if (logs.length === this.maxLogs) {
+              return Promise.resolve({
+                logs,
+                maxLogsHit: true,
+              });
             }
           }
-          logIndexInTx = 0;
         }
       }
-      txIndexInBlock = 0;
     }
 
     return Promise.resolve({
@@ -745,7 +712,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     if (this.l2Blocks.length === 0) {
       return INITIAL_L2_BLOCK_NUM - 1;
     }
-    return this.l2Blocks[this.l2Blocks.length - 1].data.number;
+    return this.l2Blocks[this.l2Blocks.length - 1].block.number;
   }
 
   /**
@@ -760,17 +727,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.lastProvenL2BlockNumber);
   }
 
-  public getProvenL2EpochNumber(): Promise<number | undefined> {
-    return Promise.resolve(this.lastProvenL2EpochNumber);
-  }
-
   public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
     this.lastProvenL2BlockNumber = l2BlockNumber;
-    return Promise.resolve();
-  }
-
-  public setProvenL2EpochNumber(l2EpochNumber: number): Promise<void> {
-    this.lastProvenL2EpochNumber = l2EpochNumber;
     return Promise.resolve();
   }
 

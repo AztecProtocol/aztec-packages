@@ -1,5 +1,3 @@
-use std::hash::{from_field_unsafe as fr_to_fq_unsafe, sha256};
-
 use dep::protocol_types::{
     constants::{GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2},
     hash::poseidon2_hash_with_separator,
@@ -41,7 +39,7 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha2
     }
     shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
 
-    sha256(shared_secret_bytes_with_separator)
+    sha256::digest(shared_secret_bytes_with_separator)
 }
 
 fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(

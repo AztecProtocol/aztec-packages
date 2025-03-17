@@ -48,7 +48,7 @@ rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 keccak_honk_regex=rollup_root
 verifier_generate_regex=rollup_root
 
-function on_exit() {
+function on_exit {
   rm -f joblog.txt
 }
 trap on_exit EXIT
@@ -118,7 +118,7 @@ function compile {
     SECONDS=0
     outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir --output_data bytes_and_fields"
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir --output_format bytes_and_fields"
     echo_stderr $vk_cmd
     dump_fail "$vk_cmd"
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
@@ -130,7 +130,7 @@ function compile {
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk_bytes" | xxd -r -p | $BB write_contract --scheme ultra_honk -k - -o $verifier_path
+      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk -k - -o $verifier_path
       echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
@@ -157,7 +157,7 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
+    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend $(memsuspend_limit) \
       --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt

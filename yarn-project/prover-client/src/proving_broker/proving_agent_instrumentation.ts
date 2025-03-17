@@ -1,4 +1,4 @@
-import { type Timer } from '@aztec/foundation/timer';
+import type { Timer } from '@aztec/foundation/timer';
 import { type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec/telemetry-client';
 
 export class ProvingAgentInstrumentation {
@@ -9,13 +9,13 @@ export class ProvingAgentInstrumentation {
 
     this.idleTime = meter.createHistogram(Metrics.PROVING_AGENT_IDLE, {
       description: 'Records how long an agent was idle',
-      unit: 'ms',
-      valueType: ValueType.INT,
+      unit: 's',
+      valueType: ValueType.DOUBLE,
     });
   }
 
   recordIdleTime(msOrTimer: Timer | number) {
-    const duration = typeof msOrTimer === 'number' ? msOrTimer : Math.floor(msOrTimer.ms());
-    this.idleTime.record(duration);
+    const duration = typeof msOrTimer === 'number' ? msOrTimer : msOrTimer.ms();
+    this.idleTime.record(duration / 1000);
   }
 }

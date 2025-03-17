@@ -1,23 +1,19 @@
-import {
-  type BatchObservableCallback,
-  type Context,
-  type MetricOptions,
-  type Observable,
-  type ValueType,
-} from '@opentelemetry/api';
+import { createLogger } from '@aztec/foundation/log';
+
+import type { BatchObservableCallback, Context, MetricOptions, Observable, ValueType } from '@opentelemetry/api';
 
 import { NoopTracer } from './noop.js';
-import {
-  type AttributesType,
-  type Gauge,
-  type Histogram,
-  type Meter,
-  type MetricsType,
-  type ObservableGauge,
-  type ObservableUpDownCounter,
-  type TelemetryClient,
-  type Tracer,
-  type UpDownCounter,
+import type {
+  AttributesType,
+  Gauge,
+  Histogram,
+  Meter,
+  MetricsType,
+  ObservableGauge,
+  ObservableUpDownCounter,
+  TelemetryClient,
+  Tracer,
+  UpDownCounter,
 } from './telemetry.js';
 
 export type BenchmarkMetricsType = {
@@ -34,6 +30,11 @@ export type BenchmarkMetricsType = {
 
 export class BenchmarkTelemetryClient implements TelemetryClient {
   private meters: InMemoryPlainMeter[] = [];
+
+  constructor() {
+    const log = createLogger('telemetry:client');
+    log.info(`Using benchmark telemetry client`);
+  }
 
   getMeter(name: string): Meter {
     const meter = new InMemoryPlainMeter(name);

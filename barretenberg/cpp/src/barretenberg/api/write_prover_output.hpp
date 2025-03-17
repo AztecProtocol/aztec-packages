@@ -15,7 +15,7 @@ template <typename VK> struct ProofAndKey {
 
 template <typename ProverOutput>
 void write(const ProverOutput& prover_output,
-           const std::string& output_data_type,
+           const std::string& output_format,
            const std::string& output_content,
            const std::filesystem::path& output_dir)
 {
@@ -34,6 +34,7 @@ void write(const ProverOutput& prover_output,
                 write_bytes_to_stdout(buf);
             } else {
                 write_file(output_dir / "proof", buf);
+                info("Proof saved to ", output_dir / "proof");
             }
             break;
         }
@@ -43,6 +44,7 @@ void write(const ProverOutput& prover_output,
                 write_bytes_to_stdout(buf);
             } else {
                 write_file(output_dir / "vk", buf);
+                info("VK saved to ", output_dir / "vk");
             }
             break;
         }
@@ -57,6 +59,7 @@ void write(const ProverOutput& prover_output,
                 std::cout << proof_json;
             } else {
                 write_file(output_dir / "proof_fields.json", { proof_json.begin(), proof_json.end() });
+                info("Proof fields saved to ", output_dir / "proof_fields.json");
             }
             break;
         }
@@ -66,6 +69,7 @@ void write(const ProverOutput& prover_output,
                 std::cout << vk_json;
             } else {
                 write_file(output_dir / "vk_fields.json", { vk_json.begin(), vk_json.end() });
+                info("VK fields saved to ", output_dir / "vk_fields.json");
             }
             break;
         }
@@ -73,41 +77,41 @@ void write(const ProverOutput& prover_output,
     };
 
     if (output_content == "proof") {
-        if (output_data_type == "bytes") {
+        if (output_format == "bytes") {
             write_bytes(ObjectToWrite::PROOF);
-        } else if (output_data_type == "fields") {
+        } else if (output_format == "fields") {
             write_fields(ObjectToWrite::PROOF);
-        } else if (output_data_type == "bytes_and_fields") {
+        } else if (output_format == "bytes_and_fields") {
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
         } else {
-            throw_or_abort("Invalid output_data_type for output_content proof");
+            throw_or_abort("Invalid output_format for output_content proof");
         }
     } else if (output_content == "vk") {
-        if (output_data_type == "bytes") {
+        if (output_format == "bytes") {
             write_bytes(ObjectToWrite::VK);
-        } else if (output_data_type == "fields") {
+        } else if (output_format == "fields") {
             write_fields(ObjectToWrite::VK);
-        } else if (output_data_type == "bytes_and_fields") {
+        } else if (output_format == "bytes_and_fields") {
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            throw_or_abort("Invalid output_data_type for output_content vk");
+            throw_or_abort("Invalid output_format for output_content vk");
         }
     } else if (output_content == "proof_and_vk") {
-        if (output_data_type == "bytes") {
+        if (output_format == "bytes") {
             write_bytes(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
-        } else if (output_data_type == "fields") {
+        } else if (output_format == "fields") {
             write_fields(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::VK);
-        } else if (output_data_type == "bytes_and_fields") {
+        } else if (output_format == "bytes_and_fields") {
             write_bytes(ObjectToWrite::PROOF);
             write_fields(ObjectToWrite::PROOF);
             write_bytes(ObjectToWrite::VK);
             write_fields(ObjectToWrite::VK);
         } else {
-            throw_or_abort("Invalid output_data_type for output_content proof_and_vk");
+            throw_or_abort("Invalid output_format for output_content proof_and_vk");
         }
     } else {
         throw_or_abort("Invalid std::string");

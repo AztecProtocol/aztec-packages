@@ -104,7 +104,6 @@ enum class OpCode : uint8_t {
     SHA256COMPRESSION,
     KECCAKF1600,
     ECADD,
-    MSM,
     // Conversions
     TORADIXBE,
 

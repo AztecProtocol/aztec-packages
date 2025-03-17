@@ -5,6 +5,7 @@ import {
   type AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethodWithClaim,
+  Fr,
   L1FeeJuicePortalManager,
   type PXE,
   createAztecNodeClient,
@@ -12,7 +13,7 @@ import {
   retryUntil,
 } from '@aztec/aztec.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export interface TestWallets {
@@ -49,7 +50,7 @@ export async function setupTestWalletsWithTokens(
 export async function deployTestWalletWithTokens(
   pxeUrl: string,
   nodeUrl: string,
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   mnemonicOrPrivateKey: string,
   mintAmount: bigint,
   logger: Logger,
@@ -70,7 +71,7 @@ export async function deployTestWalletWithTokens(
 
   const claims = await Promise.all(
     fundedAccounts.map(a =>
-      bridgeL1FeeJuice(l1RpcUrl, mnemonicOrPrivateKey, pxe, a.getAddress(), initialFeeJuice, logger),
+      bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), initialFeeJuice, logger),
     ),
   );
 
@@ -80,10 +81,11 @@ export async function deployTestWalletWithTokens(
 
   const wallets = await Promise.all(
     fundedAccounts.map(async (a, i) => {
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(a.getAddress(), claims[i]);
+      const wallet = await a.getWallet();
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claims[i]);
       await a.deploy({ fee: { paymentMethod } }).wait();
       logger.info(`Account deployed at ${a.getAddress()}`);
-      return a.getWallet();
+      return wallet;
     }),
   );
 
@@ -95,7 +97,7 @@ export async function deployTestWalletWithTokens(
 }
 
 async function bridgeL1FeeJuice(
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   mnemonicOrPrivateKey: string,
   pxe: PXE,
   recipient: AztecAddress,
@@ -103,13 +105,16 @@ async function bridgeL1FeeJuice(
   log: Logger,
 ) {
   const { l1ChainId } = await pxe.getNodeInfo();
-  const chain = createEthereumChain(l1RpcUrl, l1ChainId);
-  const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, mnemonicOrPrivateKey, chain.chainInfo);
+  const chain = createEthereumChain(l1RpcUrls, l1ChainId);
+  const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
   const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
-  log.info('Created a claim for L1 fee juice.');
 
+  const isSynced = async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
+  await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
+
+  log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
   return claim;
 }
 

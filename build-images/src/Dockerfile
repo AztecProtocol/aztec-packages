@@ -79,6 +79,7 @@ ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
+ENV RUSTFLAGS="-C target-cpu=generic"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN curl -L https://foundry.paradigm.xyz | bash \
     && $FOUNDRY_BIN_DIR/foundryup -b nightly-$FOUNDRY_TAG \
@@ -88,7 +89,6 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
         strip /opt/foundry/bin/$t; \
     done \
     && rm -rf $FOUNDRY_BIN_DIR
-ENV PATH="/opt/foundry/bin:$PATH"
 
 
 ########################################################################################################################
@@ -99,7 +99,7 @@ ENV PATH="/opt/foundry/bin:$PATH"
 # You should use the devbox image for development and CI runs.
 # We favour using the devbox in CI as we can drop into a familiar environment on error.
 # It also means we're effectively testing the devbox in CI.
-# We use this image for test isolation
+# We use this image for test isolation.
 FROM base-build AS build
 RUN apt update && \
     apt install -y \
@@ -115,6 +115,7 @@ RUN apt update && \
         xz-utils \
         lsof \
         xxd \
+        zstd \
         # C++ (clang=18, which we will move to. 16 is for current build.)
         build-essential \
         cmake \
@@ -131,7 +132,7 @@ RUN apt update && \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
-        # Unminimize ubuntu installation, recently removed from base images
+        # Unminimize ubuntu installation.
         unminimize \
     && apt-get -y autoremove \
     && apt-get clean \
@@ -144,13 +145,13 @@ COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
 COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
-# Install rust and cross-compilers. Noir specifically uses 1.75.0.
+# Install rust and cross-compilers. Noir specifically uses 1.85.0.
 # We give everyone write ownership so downstream boxes can write.
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0 && \
-    rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 && \
+    rustup target add wasm32-unknown-unknown wasm32-wasip1 aarch64-apple-darwin && \
     chmod -R a+w /opt/rust
 
 # Install corepack and yarn.
@@ -165,7 +166,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "aws
     ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
     rm -rf aws awscliv2.zip
 
-# Install gcloud cli
+# Install gcloud cli.
 RUN apt-get update && apt-get install apt-transport-https gnupg -y \
     && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
@@ -195,7 +196,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
 # It contains a suite of tools that developers might use to develop aztec.
 FROM build AS basebox
-RUN apt install unminimize && yes | unminimize
+RUN yes | unminimize
 
 # Install stuff devs need.
 RUN apt update && \
@@ -216,6 +217,7 @@ RUN apt update && \
         psmisc \
         python3-blessed \
         redis-tools \
+        rsync \
         software-properties-common \
         ssh \
         strace \
@@ -226,10 +228,6 @@ RUN apt update && \
         zsh \
         inotify-tools \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Install earthly.
-RUN wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly && \
-    chmod +x /usr/local/bin/earthly
 
 # Install osxcross. Requires developer to mount SDK from their mac host.
 COPY --from=osxcross /opt/osxcross /opt/osxcross

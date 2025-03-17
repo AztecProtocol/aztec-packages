@@ -1,10 +1,25 @@
 export {
   type ContractArtifact,
   type FunctionArtifact,
+  type FunctionAbi,
   EventSelector,
+  FunctionType,
   FunctionSelector,
+  FunctionCall,
+  NoteSelector,
+  type ABIParameter,
+  decodeFromAbi,
+  encodeArguments,
+  type AbiType,
+  isAddressStruct,
+  isAztecAddressStruct,
+  isEthAddressStruct,
+  isWrappedFieldStruct,
+  isFunctionSelectorStruct,
   loadContractArtifact,
+  loadContractArtifactForPublic,
+  getAllFunctionAbis,
   contractArtifactToBuffer,
   contractArtifactFromBuffer,
-} from '@aztec/circuits.js/abi';
-export { type NoirCompiledContract } from '@aztec/circuits.js/noir';
+} from '@aztec/stdlib/abi';
+export { type NoirCompiledContract } from '@aztec/stdlib/noir';

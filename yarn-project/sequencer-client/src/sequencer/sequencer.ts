@@ -1,29 +1,4 @@
-import {
-  type L1RollupConstants,
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
-  MerkleTreeId,
-  Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
-import {
-  type AllowedElement,
-  SequencerConfigSchema,
-  type WorldStateSynchronizer,
-  type WorldStateSynchronizerStatus,
-} from '@aztec/circuit-types/interfaces/server';
-import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import {
-  BlockHeader,
-  ContentCommitment,
-  type ContractDataSource,
-  Gas,
-  type GlobalVariables,
-  StateReference,
-} from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
-import { AppendOnlyTreeSnapshot } from '@aztec/circuits.js/trees';
+import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -31,20 +6,42 @@ import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { pickFromSchema } from '@aztec/foundation/schemas';
 import { type DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
-import { type P2P } from '@aztec/p2p';
-import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { type PublicProcessorFactory } from '@aztec/simulator/server';
+import type { P2P } from '@aztec/p2p';
+import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
+import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { Gas } from '@aztec/stdlib/gas';
+import {
+  type AllowedElement,
+  SequencerConfigSchema,
+  type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { pickFromSchema } from '@aztec/stdlib/schemas';
+import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
+import { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  ContentCommitment,
+  type GlobalVariables,
+  StateReference,
+  Tx,
+  type TxHash,
+} from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
-import { type ValidatorClient } from '@aztec/validator-client';
+import type { ValidatorClient } from '@aztec/validator-client';
 
-import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
-import { type SlasherClient } from '../slasher/slasher_client.js';
+import type { SlasherClient } from '../slasher/slasher_client.js';
 import { createValidatorsForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
 import { getDefaultAllowedSetupFunctions } from './allowed.js';
-import { type SequencerConfig } from './config.js';
+import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
 import { SequencerState, orderAttestations } from './utils.js';
@@ -112,6 +109,10 @@ export class Sequencer {
 
   get tracer(): Tracer {
     return this.metrics.tracer;
+  }
+
+  public getValidatorAddress() {
+    return this.validatorClient?.getValidatorAddress();
   }
 
   /**
@@ -196,7 +197,7 @@ export class Sequencer {
     this.log.debug(`Stopping sequencer`);
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
-    await this.slasherClient?.stop();
+    this.slasherClient.stop();
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
     this.log.info('Stopped sequencer');
@@ -421,16 +422,16 @@ export class Sequencer {
     this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state
-    const publicProcessorFork = await this.worldState.fork();
-    const orchestratorFork = await this.worldState.fork();
+    const publicProcessorDBFork = await this.worldState.fork();
+    const orchestratorDBFork = await this.worldState.fork();
 
     const previousBlockHeader =
-      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorFork.getInitialHeader();
+      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorDBFork.getInitialHeader();
 
     try {
-      const processor = this.publicProcessorFactory.create(publicProcessorFork, newGlobalVariables, true);
+      const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
       const blockBuildingTimer = new Timer();
-      const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
+      const blockBuilder = this.blockBuilderFactory.create(orchestratorDBFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
 
       // Deadline for processing depends on whether we're proposing a block
@@ -452,7 +453,7 @@ export class Sequencer {
       });
 
       const validators = createValidatorsForBlockBuilding(
-        publicProcessorFork,
+        publicProcessorDBFork,
         this.contractDataSource,
         newGlobalVariables,
         this.allowedInSetup,
@@ -519,8 +520,8 @@ export class Sequencer {
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       setTimeout(async () => {
         try {
-          await publicProcessorFork.close();
-          await orchestratorFork.close();
+          await publicProcessorDBFork.close();
+          await orchestratorDBFork.close();
         } catch (err) {
           // This can happen if the sequencer is stopped before we hit this timeout.
           this.log.warn(`Error closing forks for block processing`, err);
@@ -687,7 +688,12 @@ export class Sequencer {
    */
   protected async getChainTip(): Promise<{ blockNumber: number; archive: Fr } | undefined> {
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then((s: WorldStateSynchronizerStatus) => s.syncedToL2Block),
+      this.worldState.status().then((s: WorldStateSynchronizerStatus) => {
+        return {
+          number: s.syncSummary.latestBlockNumber,
+          hash: s.syncSummary.latestBlockHash,
+        };
+      }),
       this.l2BlockSource.getL2Tips().then(t => t.latest),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getBlockNumber(),

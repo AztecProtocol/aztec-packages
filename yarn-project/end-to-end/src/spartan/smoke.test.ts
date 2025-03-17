@@ -2,6 +2,7 @@ import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
+import type { ChildProcess } from 'child_process';
 import { createPublicClient, getAddress, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
@@ -13,20 +14,25 @@ const debugLogger = createLogger('e2e:spartan-test:smoke');
 
 describe('smoke test', () => {
   let pxe: PXE;
+  const forwardProcesses: ChildProcess[] = [];
   beforeAll(async () => {
-    let PXE_URL;
+    let PXE_URL: string;
     if (isK8sConfig(config)) {
-      await startPortForward({
+      const { process, port } = await startPortForward({
         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
-        hostPort: config.HOST_PXE_PORT,
       });
-      PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
+      forwardProcesses.push(process);
+      PXE_URL = `http://127.0.0.1:${port}`;
     } else {
       PXE_URL = config.PXE_URL;
     }
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
+  });
+
+  afterAll(() => {
+    forwardProcesses.forEach(p => p.kill());
   });
 
   it('should be able to get node enr', async () => {

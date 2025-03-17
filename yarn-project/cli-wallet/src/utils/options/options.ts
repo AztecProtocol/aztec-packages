@@ -1,11 +1,11 @@
-import { AuthWitness } from '@aztec/circuit-types';
-import { type AztecAddress } from '@aztec/circuits.js';
 import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Option } from 'commander';
 import { readdir, stat } from 'fs/promises';
 
-import { type AliasType, type WalletDB } from '../../storage/wallet_db.js';
+import type { AliasType, WalletDB } from '../../storage/wallet_db.js';
 import { AccountTypes } from '../accounts.js';
 
 const TARGET_DIR = 'target';
@@ -103,6 +103,13 @@ export function createContractAddressOption(db?: WalletDB) {
     .makeOptionMandatory(true);
 }
 
+export function createDebugExecutionStepsDirOption() {
+  return new Option(
+    '--debug-execution-steps-dir <address>',
+    'Directory to write execution step artifacts for bb profiling/debugging.',
+  ).makeOptionMandatory(false);
+}
+
 export function artifactPathParser(filePath: string, db?: WalletDB) {
   if (filePath.includes('@')) {
     const [pkg, contractName] = filePath.split('@');
@@ -138,13 +145,6 @@ export function createArtifactOption(db?: WalletDB) {
   return new Option('-c, --contract-artifact <fileLocation>', ARTIFACT_DESCRIPTION)
     .argParser(filePath => artifactPathParser(filePath, db))
     .makeOptionMandatory(false);
-}
-
-export function createProfileOption() {
-  return new Option(
-    '-p, --profile',
-    'Run the real prover and get the gate count for each function in the transaction.',
-  ).default(false);
 }
 
 async function contractArtifactFromWorkspace(pkg?: string, contractName?: string) {

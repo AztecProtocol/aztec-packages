@@ -1,19 +1,25 @@
-import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
-import type { PrivateKernelProverProfileResult } from '@aztec/circuit-types/interfaces/client';
-import {
-  type FunctionAbi,
-  FunctionSelector,
-  FunctionType,
-  decodeFromAbi,
-  encodeArguments,
-} from '@aztec/circuits.js/abi';
-import { AztecAddress } from '@aztec/circuits.js/aztec-address';
+import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
-import { type Wallet } from '../account/wallet.js';
+import type { Wallet } from '../account/wallet.js';
+import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
 export type { SendMethodOptions };
+
+/**
+ * Represents the options for simulating a contract function interaction.
+ * Allows specifying the address from which the view method should be called.
+ * Disregarded for simulation of public functions
+ */
+export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
+  /** Whether to return gates information or the bytecode/witnesses. */
+  profileMode: 'gates' | 'execution-steps' | 'full';
+  /** The sender's Aztec address. */
+  from?: AztecAddress;
+};
 
 /**
  * Represents the options for simulating a contract function interaction.
@@ -27,14 +33,6 @@ export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
-};
-
-/**
- * The result of a profile() call.
- */
-export type ProfileResult = PrivateKernelProverProfileResult & {
-  /** The result of the transaction as returned by the contract function. */
-  returnValues: any;
 };
 
 /**
@@ -58,38 +56,54 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   /**
    * Create a transaction execution request that represents this call, encoded and authenticated by the
    * user's wallet, ready to be simulated.
-   * @param opts - An optional object containing additional configuration for the transaction.
+   * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(opts: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+  public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     // docs:end:create
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
-    const calls = [await this.request()];
-    const capsules = this.getCapsules();
-    const fee = await this.getFeeOptions({ calls, capsules, ...opts });
-    const { nonce, cancellable } = opts;
-    return await this.wallet.createTxExecutionRequest({ calls, fee, nonce, cancellable, capsules });
+    const requestWithoutFee = await this.request(options);
+
+    const { fee: userFee } = options;
+    const fee = await this.getFeeOptions({ ...requestWithoutFee, fee: userFee });
+
+    return await this.wallet.createTxExecutionRequest({ ...requestWithoutFee, fee });
   }
 
   // docs:start:request
   /**
-   * Returns an execution request that represents this operation. Useful as a building
-   * block for constructing batch requests.
+   * Returns an execution request that represents this operation.
+   * Can be used as a building block for constructing batch requests.
+   * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public async request(): Promise<FunctionCall> {
+  public async request(options: SendMethodOptions = {}): Promise<Omit<ExecutionRequestInit, 'fee'>> {
     // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
+    const calls = [
+      {
+        name: this.functionDao.name,
+        args,
+        selector: await FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
+        type: this.functionDao.functionType,
+        to: this.contractAddress,
+        isStatic: this.functionDao.isStatic,
+        returnTypes: this.functionDao.returnTypes,
+      },
+    ];
+    const authWitnesses = this.getAuthWitnesses();
+    const hashedArguments = this.getHashedArguments();
+    const capsules = this.getCapsules();
+    const { nonce, cancellable } = options;
     return {
-      name: this.functionDao.name,
-      args,
-      selector: await FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
-      type: this.functionDao.functionType,
-      to: this.contractAddress,
-      isStatic: this.functionDao.isStatic,
-      returnTypes: this.functionDao.returnTypes,
+      calls,
+      authWitnesses,
+      hashedArguments,
+      capsules,
+      nonce,
+      cancellable,
     };
   }
 
@@ -143,30 +157,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async simulateWithProfile(options: SimulateMethodOptions = {}): Promise<ProfileResult> {
+  public async profile(options: ProfileMethodOptions = { profileMode: 'gates' }): Promise<TxProfileResult> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       throw new Error("Can't profile an unconstrained function.");
     }
 
     const txRequest = await this.create({ fee: options.fee });
-    const simulatedTx = await this.wallet.simulateTx(
-      txRequest,
-      true,
-      options?.from,
-      options?.skipTxValidation,
-      undefined,
-      true,
-    );
-
-    const rawReturnValues =
-      this.functionDao.functionType == FunctionType.PRIVATE
-        ? simulatedTx.getPrivateReturnValues().nested?.[0].values
-        : simulatedTx.getPublicReturnValues()?.[0].values;
-    const rawReturnValuesDecoded = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
-
-    return {
-      returnValues: rawReturnValuesDecoded,
-      gateCounts: simulatedTx.profileResult!.gateCounts,
-    };
+    return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
   }
 }

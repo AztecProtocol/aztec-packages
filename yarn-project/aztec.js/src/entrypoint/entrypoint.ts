@@ -1,11 +1,7 @@
-import {
-  type AuthWitness,
-  type Capsule,
-  type FunctionCall,
-  type HashedValues,
-  type TxExecutionRequest,
-} from '@aztec/circuit-types';
-import { type Fr } from '@aztec/circuits.js';
+import type { Fr } from '@aztec/foundation/fields';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { Capsule, HashedValues, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { EntrypointPayload, type FeeOptions, computeCombinedPayloadHash } from './payload.js';
 
@@ -31,6 +27,27 @@ export type ExecutionRequestInit = {
   /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
   cancellable?: boolean;
 };
+
+/**
+ * Merges an array of ExecutionRequestInits.
+ */
+export function mergeExecutionRequestInits(
+  requests: Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments' | 'capsules'>[],
+  { nonce, cancellable }: Pick<ExecutionRequestInit, 'nonce' | 'cancellable'> = {},
+): Omit<ExecutionRequestInit, 'fee'> {
+  const calls = requests.map(r => r.calls).flat();
+  const authWitnesses = requests.map(r => r.authWitnesses ?? []).flat();
+  const hashedArguments = requests.map(r => r.hashedArguments ?? []).flat();
+  const capsules = requests.map(r => r.capsules ?? []).flat();
+  return {
+    calls,
+    authWitnesses,
+    hashedArguments,
+    capsules,
+    nonce,
+    cancellable,
+  };
+}
 
 /** Creates transaction execution requests out of a set of function calls. */
 export interface EntrypointInterface {
