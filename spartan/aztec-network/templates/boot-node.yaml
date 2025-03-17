@@ -76,7 +76,6 @@ spec:
               source /shared/config/validator-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
-
               /scripts/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
           volumeMounts:
             - name: scripts-output

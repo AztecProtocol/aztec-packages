@@ -57,7 +57,7 @@ aztec:
   proofSubmissionWindow: 64 # in L2 slots, from the start of the epoch to be proven
   realProofs: false
 
-  l1Salt: "42" # leave empty for random salt
+  l1Salt: "" # leave empty for random salt
   testAccounts: true
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
   manaTarget: "" # use default value
