@@ -2,8 +2,8 @@ use crate::{
     capsules::CapsuleArray,
     discovery::{
         ComputeNoteHashAndNullifier,
+        MAX_NOTE_PACKED_LEN,
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
-        private_logs::MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN,
     },
     oracle::message_discovery::{deliver_note, get_log_by_tag},
     utils::array,
@@ -15,6 +15,12 @@ use dep::protocol_types::{
     debug_log::debug_log_format,
     traits::{Deserialize, Serialize, ToField},
 };
+
+pub global PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN: u32 = 1;
+/// Partial notes have a maximum packed length of their private fields bound by extra content in their private log (i.e.
+/// the note completion log tag).
+pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
+    MAX_NOTE_PACKED_LEN - PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN;
 
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
 // TODO(#11630): come up with some sort of slot allocation scheme.
@@ -40,6 +46,35 @@ pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) note_type_id: Field,
     pub(crate) packed_private_note_content: BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>,
     pub(crate) recipient: AztecAddress,
+}
+
+pub unconstrained fn process_partial_note_private_log(
+    contract_address: AztecAddress,
+    storage_slot: Field,
+    note_type_id: Field,
+    log_payload: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    recipient: AztecAddress,
+) {
+    // We store the information of the partial note we found so that we can later search for the public log that will
+    // complete it. The tag is the first value in the payload, with the packed note content taking up the rest of it.
+    std::static_assert(
+        PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN == 1,
+        "unexpected value for PARTIAL_NOTE_COMPLETION_LOG_TAG_LEN",
+    );
+
+    let pending = DeliveredPendingPartialNote {
+        note_completion_log_tag: log_payload.get(0),
+        storage_slot,
+        note_type_id,
+        packed_private_note_content: array::subbvec(log_payload, 1),
+        recipient,
+    };
+
+    CapsuleArray::at(
+        contract_address,
+        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
+    )
+        .push(pending);
 }
 
 /// Searches for public logs that would result in the completion of pending partial notes, ultimately resulting in the
