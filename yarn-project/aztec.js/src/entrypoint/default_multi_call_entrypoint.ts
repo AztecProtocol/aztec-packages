@@ -19,7 +19,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     const { fee, calls, authWitnesses = [], hashedArguments = [], capsules = [] } = executions;
     const payload = await EntrypointPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload]));
+    const entrypointHashedArgs = await HashedValues.fromArgs(encodeArguments(abi, [payload]));
 
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,

@@ -16,7 +16,7 @@ library Constants {
   uint256 internal constant MAX_FIELD_VALUE =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
   uint256 internal constant ARGS_LENGTH = 16;
-  uint256 internal constant MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS = 16000;
+  uint256 internal constant MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS = 16000;
   uint256 internal constant MAX_NOTE_HASHES_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIERS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 5;
@@ -184,8 +184,8 @@ library Constants {
   uint256 internal constant PUBLIC_DATA_WRITE_LENGTH = 2;
   uint256 internal constant PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH = 12;
   uint256 internal constant PRIVATE_CALL_REQUEST_LENGTH = 8;
-  uint256 internal constant PUBLIC_CALL_REQUEST_LENGTH = 5;
-  uint256 internal constant COUNTED_PUBLIC_CALL_REQUEST_LENGTH = 6;
+  uint256 internal constant PUBLIC_CALL_REQUEST_LENGTH = 4;
+  uint256 internal constant COUNTED_PUBLIC_CALL_REQUEST_LENGTH = 5;
   uint256 internal constant PUBLIC_INNER_CALL_REQUEST_LENGTH = 13;
   uint256 internal constant ROLLUP_VALIDATION_REQUESTS_LENGTH = 2;
   uint256 internal constant STATE_REFERENCE_LENGTH = 8;
@@ -196,7 +196,7 @@ library Constants {
   uint256 internal constant TOTAL_MANA_USED_LENGTH = 1;
   uint256 internal constant BLOCK_HEADER_LENGTH = 25;
   uint256 internal constant BLOCK_HEADER_LENGTH_BYTES = 648;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 741;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 724;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 908;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
@@ -208,12 +208,12 @@ library Constants {
   uint256 internal constant PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH = 740;
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 37;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 46;
-  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2230;
-  uint256 internal constant PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH = 900;
+  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1380;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2197;
+  uint256 internal constant PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH = 868;
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
-  uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1847;
+  uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1782;
   uint256 internal constant PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 782;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 52;

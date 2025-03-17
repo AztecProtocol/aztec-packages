@@ -34,7 +34,7 @@ import {
   PublicDataWrite,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractClassWithCommitment, SerializableContractInstance } from '@aztec/stdlib/contract';
+import { type ContractClassPublicWithCommitment, SerializableContractInstance } from '@aztec/stdlib/contract';
 import type { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import {
@@ -376,7 +376,11 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceGetContractClass(contractClassId: Fr, exists: boolean, contractClass?: ContractClassWithCommitment) {
+  public traceGetContractClass(
+    contractClassId: Fr,
+    exists: boolean,
+    contractClass?: ContractClassPublicWithCommitment,
+  ) {
     if (!exists) {
       this.avmCircuitHints.contractClasses.push(
         new AvmContractClassHint(contractClassId, exists, Fr.zero(), Fr.zero(), Fr.zero(), Buffer.alloc(0)),

@@ -1,7 +1,7 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { AvmPublicDataReadTreeHint } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractClassWithCommitment, SerializableContractInstance } from '@aztec/stdlib/contract';
+import type { ContractClassPublicWithCommitment, SerializableContractInstance } from '@aztec/stdlib/contract';
 import type { PublicCallRequest } from '@aztec/stdlib/kernel';
 import type { PublicLog } from '@aztec/stdlib/logs';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -63,7 +63,7 @@ export interface PublicSideEffectTraceInterface {
     updateMembershipHint?: AvmPublicDataReadTreeHint,
     updatePreimage?: Fr[],
   ): void;
-  traceGetContractClass(contractClassId: Fr, exists: boolean, contractClass?: ContractClassWithCommitment): void;
+  traceGetContractClass(contractClassId: Fr, exists: boolean, contractClass?: ContractClassPublicWithCommitment): void;
   traceEnqueuedCall(
     /** The call request from private that enqueued this call. */
     publicCallRequest: PublicCallRequest,

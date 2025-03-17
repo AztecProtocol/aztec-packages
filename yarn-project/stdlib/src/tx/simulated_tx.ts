@@ -14,8 +14,6 @@ import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
-  collectEnqueuedPublicFunctionCalls,
-  collectPublicTeardownFunctionCall,
   collectSortedContractClassLogs,
 } from './private_execution_result.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
@@ -33,15 +31,12 @@ export class PrivateSimulationResult {
 
   toSimulatedTx(): Tx {
     const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
-    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
-    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
     const tx = new Tx(
       this.publicInputs,
       ClientIvcProof.empty(),
       contractClassLogs,
-      enqueuedPublicFunctions,
-      teardownPublicFunction,
+      this.privateExecutionResult.publicFunctionCalldata,
     );
     return tx;
   }
@@ -123,15 +118,12 @@ export class TxProvingResult {
 
   toTx(): Tx {
     const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
-    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
-    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
     const tx = new Tx(
       this.publicInputs,
       this.clientIvcProof,
       contractClassLogs,
-      enqueuedPublicFunctions,
-      teardownPublicFunction,
+      this.privateExecutionResult.publicFunctionCalldata,
     );
     return tx;
   }

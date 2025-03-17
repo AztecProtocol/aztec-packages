@@ -228,7 +228,7 @@ describe('public_tx_simulator', () => {
       expect(simulateInternal).toHaveBeenNthCalledWith(
         i + 1,
         expect.anything(), // AvmPersistableStateManager
-        expect.anything(), // publicExecutionRequest
+        expect.anything(), // PublicCallRequestWithCalldata
         Gas.from(availableGas),
         expect.anything(), // txFee
         expect.anything(), // fnName
@@ -481,9 +481,9 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
+    const revertibleRequests = tx.data.getRevertiblePublicCallRequests();
 
-    const contractAddress = revertibleRequests[0].callContext.contractAddress;
+    const contractAddress = revertibleRequests[0].contractAddress;
     const contractSlotA = fr(0x100);
     const contractSlotB = fr(0x150);
     const contractSlotC = fr(0x200);

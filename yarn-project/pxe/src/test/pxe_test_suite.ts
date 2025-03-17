@@ -81,7 +81,9 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
     it('refuses to register a contract with a class that has not been registered', async () => {
       const instance = await randomContractInstanceWithAddress();
-      await expect(pxe.registerContract({ instance })).rejects.toThrow(/DB has no contract class with id/i);
+      await expect(pxe.registerContract({ instance })).rejects.toThrow(
+        /Artifact not found when registering an instance/i,
+      );
     });
 
     it('refuses to register a contract with an artifact with mismatching class id', async () => {

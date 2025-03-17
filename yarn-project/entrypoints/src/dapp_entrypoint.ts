@@ -29,7 +29,8 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     const payload = await EntrypointPayload.fromFunctionCalls(calls);
 
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
+    const args = encodeArguments(abi, [payload, this.userAddress]);
+    const entrypointHashedArgs = await HashedValues.fromArgs(args);
     const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
     // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     const innerHash = await computeInnerAuthWitHash([

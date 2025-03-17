@@ -21,9 +21,8 @@ export class Oracle {
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async storeInExecutionCache(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const hash = await this.typedOracle.storeInExecutionCache(values.map(fromACVMField));
-    return toACVMField(hash);
+  storeInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]) {
+    return this.typedOracle.storeInExecutionCache(values.map(fromACVMField), fromACVMField(hash));
   }
 
   async loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
@@ -311,38 +310,32 @@ export class Oracle {
     return [endSideEffectCounter, returnsHash].map(toACVMField);
   }
 
-  async enqueuePublicFunctionCall(
+  notifyEnqueuedPublicFunctionCall(
     [contractAddress]: ACVMField[],
-    [functionSelector]: ACVMField[],
-    [argsHash]: ACVMField[],
+    [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField> {
-    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
+  ): void {
+    this.typedOracle.notifyEnqueuedPublicFunctionCall(
       AztecAddress.fromString(contractAddress),
-      FunctionSelector.fromField(fromACVMField(functionSelector)),
-      fromACVMField(argsHash),
+      fromACVMField(calldataHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
     );
-    return toACVMField(newArgsHash);
   }
 
-  async setPublicTeardownFunctionCall(
+  notifySetPublicTeardownFunctionCall(
     [contractAddress]: ACVMField[],
-    [functionSelector]: ACVMField[],
-    [argsHash]: ACVMField[],
+    [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField> {
-    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
+  ): void {
+    this.typedOracle.notifySetPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
-      FunctionSelector.fromField(fromACVMField(functionSelector)),
-      fromACVMField(argsHash),
+      fromACVMField(calldataHash),
       frToNumber(fromACVMField(sideEffectCounter)),
       frToBoolean(fromACVMField(isStaticCall)),
     );
-    return toACVMField(newArgsHash);
   }
 
   notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]) {

@@ -8,7 +8,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
   type PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
@@ -65,6 +64,7 @@ import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdli
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
+  computeCalldataHash,
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computeUniqueNoteHash,
@@ -72,10 +72,15 @@ import {
   siloNullifier,
 } from '@aztec/stdlib/hash';
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/stdlib/kernel';
+import { type KeyValidationRequest, PrivateContextInputs, PublicCallRequest } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
-import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
-import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  IndexedTaggingSecret,
+  LogWithTxData,
+  type PrivateLog,
+  type PublicLog,
+} from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import {
@@ -93,7 +98,14 @@ import {
   type PublicDataTreeLeafPreimage,
   PublicDataWitness,
 } from '@aztec/stdlib/trees';
-import { BlockHeader, CallContext, GlobalVariables, PublicExecutionRequest, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  CallContext,
+  GlobalVariables,
+  PublicCallRequestWithCalldata,
+  TxEffect,
+  TxHash,
+} from '@aztec/stdlib/tx';
 import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXENode } from '../node/txe_node.js';
@@ -401,12 +413,16 @@ export class TXE implements TypedOracle {
     return Fr.random();
   }
 
-  storeInExecutionCache(values: Fr[]) {
-    return this.executionCache.store(values);
+  storeInExecutionCache(values: Fr[], hash: Fr) {
+    return this.executionCache.store(values, hash);
   }
 
   loadFromExecutionCache(returnsHash: Fr) {
-    return Promise.resolve(this.executionCache.getPreimage(returnsHash));
+    const preimage = this.executionCache.getPreimage(returnsHash);
+    if (!preimage) {
+      throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
+    }
+    return Promise.resolve(preimage);
   }
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
@@ -822,6 +838,9 @@ export class TXE implements TypedOracle {
     this.setFunctionSelector(functionSelector);
 
     const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
+    if (!artifact) {
+      throw new Error();
+    }
 
     const acir = artifact.bytecode;
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
@@ -878,7 +897,7 @@ export class TXE implements TypedOracle {
 
     const args = this.executionCache.getPreimage(argsHash);
 
-    if (args.length !== argumentsSize) {
+    if (args?.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
     }
 
@@ -897,30 +916,19 @@ export class TXE implements TypedOracle {
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const instance = await this.contractDataProvider.getContractInstance(address);
-    if (!instance) {
-      return undefined;
-    }
-    const artifact = await this.contractDataProvider.getContractArtifact(instance!.currentContractClassId);
-    if (!artifact) {
-      return undefined;
-    }
-    const functionSelectorsAndNames = await Promise.all(
-      artifact.functions.map(async f => ({
-        name: f.name,
-        selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-      })),
-    );
-    const functionSelectorAndName = functionSelectorsAndNames.find(f => f.selector.equals(selector));
-    if (!functionSelectorAndName) {
-      return undefined;
-    }
-
-    return `${artifact.name}:${functionSelectorAndName.name}`;
+    return await this.contractDataProvider.getDebugFunctionName(address, selector);
   }
 
-  private async executePublicFunction(args: Fr[], callContext: CallContext, isTeardown: boolean = false) {
-    const executionRequest = new PublicExecutionRequest(callContext, args);
+  private async executePublicFunction(
+    calldata: Fr[],
+    msgSender: AztecAddress,
+    contractAddress: AztecAddress,
+    isStaticCall: boolean,
+    isTeardown: boolean = false,
+  ) {
+    const calldataHash = await computeCalldataHash(calldata);
+    const callRequest = new PublicCallRequest(msgSender, contractAddress, isStaticCall, calldataHash);
+    const executionRequest = new PublicCallRequestWithCalldata(callRequest, calldata);
 
     const db = this.baseFork;
 
@@ -950,7 +958,7 @@ export class TXE implements TypedOracle {
       // When setting up a teardown call, we tell it that
       // private execution used Gas(1, 1) so it can compute a tx fee.
       const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
-      const tx = await createTxForPublicCalls(
+      const tx = createTxForPublicCalls(
         firstNullifier,
         /*setupExecutionRequests=*/ [],
         /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
@@ -990,33 +998,33 @@ export class TXE implements TypedOracle {
     return Promise.resolve(result);
   }
 
-  async enqueuePublicFunctionCall(
+  async notifyEnqueuedPublicFunctionCall(
     targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
+    calldataHash: Fr,
     _sideEffectCounter: number,
     isStaticCall: boolean,
     isTeardown = false,
-  ): Promise<Fr> {
+  ): Promise<void> {
     // Store and modify env
     const currentContractAddress = this.contractAddress;
     const currentMessageSender = this.msgSender;
     const currentFunctionSelector = FunctionSelector.fromField(this.functionSelector.toField());
+    const calldata = this.executionCache.getPreimage(calldataHash);
+    if (!calldata) {
+      throw new Error('Calldata for enqueued call not found in cache');
+    }
+    const functionSelector = FunctionSelector.fromField(calldata[0]);
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
     this.setFunctionSelector(functionSelector);
 
-    const callContext = new CallContext(
+    const executionResult = await this.executePublicFunction(
+      calldata,
       /* msgSender */ currentContractAddress,
       targetContractAddress,
-      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
       isStaticCall,
+      isTeardown,
     );
-
-    const args = [this.functionSelector.toField(), ...this.executionCache.getPreimage(argsHash)];
-    const newArgsHash = await this.executionCache.store(args);
-
-    const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
 
     // Poor man's revert handling
     if (!executionResult.revertCode.isOK()) {
@@ -1041,23 +1049,19 @@ export class TXE implements TypedOracle {
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);
     this.setFunctionSelector(currentFunctionSelector);
-
-    return newArgsHash;
   }
 
-  async setPublicTeardownFunctionCall(
+  async notifySetPublicTeardownFunctionCall(
     targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
+    calldataHash: Fr,
     sideEffectCounter: number,
     isStaticCall: boolean,
-  ): Promise<Fr> {
+  ): Promise<void> {
     // Definitely not right, in that the teardown should always be last.
     // But useful for executing flows.
-    return await this.enqueuePublicFunctionCall(
+    await this.notifyEnqueuedPublicFunctionCall(
       targetContractAddress,
-      functionSelector,
-      argsHash,
+      calldataHash,
       sideEffectCounter,
       isStaticCall,
       /*isTeardown=*/ true,
@@ -1115,21 +1119,23 @@ export class TXE implements TypedOracle {
 
   // AVM oracles
 
-  async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean): Promise<PublicTxResult> {
+  async avmOpcodeCall(
+    targetContractAddress: AztecAddress,
+    calldata: Fr[],
+    isStaticCall: boolean,
+  ): Promise<PublicTxResult> {
     // Store and modify env
     const currentContractAddress = this.contractAddress;
     const currentMessageSender = this.msgSender;
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
 
-    const callContext = new CallContext(
+    const executionResult = await this.executePublicFunction(
+      calldata,
       /* msgSender */ currentContractAddress,
       targetContractAddress,
-      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
       isStaticCall,
     );
-
-    const executionResult = await this.executePublicFunction(args, callContext);
     // Save return/revert data for later.
     this.nestedCallReturndata = executionResult.processedPhases[0]!.returnValues[0].values!;
     this.nestedCallSuccess = executionResult.revertCode.isOK();

@@ -10,7 +10,6 @@ import {
   ContractClassPublicSchema,
   type ContractDataSource,
   ContractInstanceWithAddressSchema,
-  PublicFunctionSchema,
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogFilterSchema } from '../logs/log_filter.js';
@@ -62,10 +61,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
-  getPublicFunction: z
-    .function()
-    .args(schemas.AztecAddress, schemas.FunctionSelector)
-    .returns(PublicFunctionSchema.optional()),
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
   getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
@@ -75,9 +70,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   // TODO(#10007): Remove this method
   addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
-  getContractFunctionName: z
-    .function()
-    .args(schemas.AztecAddress, schemas.FunctionSelector)
-    .returns(optional(z.string())),
+  getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
 };

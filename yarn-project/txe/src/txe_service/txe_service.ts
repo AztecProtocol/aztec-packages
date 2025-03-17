@@ -220,9 +220,8 @@ export class TXEService {
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async storeInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray) {
-    const returnsHash = await this.typedOracle.storeInExecutionCache(fromArray(values));
-    return toForeignCallResult([toSingle(returnsHash)]);
+  storeInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray, hash: ForeignCallSingle) {
+    return this.typedOracle.storeInExecutionCache(fromArray(values), fromSingle(hash));
   }
 
   async loadFromExecutionCache(hash: ForeignCallSingle) {
@@ -431,38 +430,32 @@ export class TXEService {
     return toForeignCallResult([toArray(authWitness)]);
   }
 
-  async enqueuePublicFunctionCall(
+  public notifyEnqueuedPublicFunctionCall(
     targetContractAddress: ForeignCallSingle,
-    functionSelector: ForeignCallSingle,
-    argsHash: ForeignCallSingle,
+    calldataHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
-    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
+    this.typedOracle.notifyEnqueuedPublicFunctionCall(
       addressFromSingle(targetContractAddress),
-      FunctionSelector.fromField(fromSingle(functionSelector)),
-      fromSingle(argsHash),
+      fromSingle(calldataHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
     );
-    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
-  public async setPublicTeardownFunctionCall(
+  public notifySetPublicTeardownFunctionCall(
     targetContractAddress: ForeignCallSingle,
-    functionSelector: ForeignCallSingle,
-    argsHash: ForeignCallSingle,
+    calldataHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
-    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
+    this.typedOracle.notifySetPublicTeardownFunctionCall(
       addressFromSingle(targetContractAddress),
-      FunctionSelector.fromField(fromSingle(functionSelector)),
-      fromSingle(argsHash),
+      fromSingle(calldataHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
     );
-    return toForeignCallResult([toSingle(newArgsHash)]);
   }
 
   public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {

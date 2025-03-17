@@ -780,7 +780,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     });
   }
 
-  public getContractFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+  public getDebugFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 

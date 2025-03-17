@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CallContext, PrivateExecutionResult, TxExecutionRequest } from '@aztec/stdlib/tx';
+import { CallContext, HashedValues, PrivateExecutionResult, TxExecutionRequest, collectNested } from '@aztec/stdlib/tx';
 
 import { createSimulationError } from '../common/errors.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
@@ -96,7 +96,19 @@ export class AcirSimulator {
       );
       const { usedTxRequestHashForNonces } = noteCache.finish();
       const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
-      return new PrivateExecutionResult(executionResult, firstNullifierHint);
+
+      const publicCallRequests = collectNested([executionResult], r => [
+        ...r.publicInputs.publicCallRequests.map(r => r.inner),
+        r.publicInputs.publicTeardownCallRequest,
+      ]).filter(r => !r.isEmpty());
+      const publicFunctionsCalldata = await Promise.all(
+        publicCallRequests.map(async r => {
+          const calldata = await context.loadFromExecutionCache(r.calldataHash);
+          return new HashedValues(calldata, r.calldataHash);
+        }),
+      );
+
+      return new PrivateExecutionResult(executionResult, firstNullifierHint, publicFunctionsCalldata);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }

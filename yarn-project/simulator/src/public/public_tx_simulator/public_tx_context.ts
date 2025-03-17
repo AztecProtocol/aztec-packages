@@ -34,7 +34,7 @@ import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
-  type PublicExecutionRequest,
+  PublicCallRequestWithCalldata,
   type StateReference,
   TreeSnapshots,
   type Tx,
@@ -48,7 +48,7 @@ import { inspect } from 'util';
 import { AvmPersistableStateManager } from '../avm/index.js';
 import type { WorldStateDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
-import { getCallRequestsByPhase, getExecutionRequestsByPhase } from '../utils.js';
+import { getCallRequestsWithCalldataByPhase } from '../utils.js';
 
 /**
  * The transaction-level context for public execution.
@@ -78,12 +78,9 @@ export class PublicTxContext {
     private readonly gasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
-    private readonly setupCallRequests: PublicCallRequest[],
-    private readonly appLogicCallRequests: PublicCallRequest[],
-    private readonly teardownCallRequests: PublicCallRequest[],
-    private readonly setupExecutionRequests: PublicExecutionRequest[],
-    private readonly appLogicExecutionRequests: PublicExecutionRequest[],
-    private readonly teardownExecutionRequests: PublicExecutionRequest[],
+    private readonly setupCallRequests: PublicCallRequestWithCalldata[],
+    private readonly appLogicCallRequests: PublicCallRequestWithCalldata[],
+    private readonly teardownCallRequests: PublicCallRequestWithCalldata[],
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
@@ -130,12 +127,9 @@ export class PublicTxContext {
       gasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
-      getCallRequestsByPhase(tx, TxExecutionPhase.SETUP),
-      getCallRequestsByPhase(tx, TxExecutionPhase.APP_LOGIC),
-      getCallRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
-      getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP),
-      getExecutionRequestsByPhase(tx, TxExecutionPhase.APP_LOGIC),
-      getExecutionRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
+      getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP),
+      getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.APP_LOGIC),
+      getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.TEARDOWN),
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
@@ -212,7 +206,7 @@ export class PublicTxContext {
   /**
    * Get the call requests for the specified phase (including args hashes).
    */
-  getCallRequestsForPhase(phase: TxExecutionPhase): PublicCallRequest[] {
+  getCallRequestsForPhase(phase: TxExecutionPhase): PublicCallRequestWithCalldata[] {
     switch (phase) {
       case TxExecutionPhase.SETUP:
         return this.setupCallRequests;
@@ -220,20 +214,6 @@ export class PublicTxContext {
         return this.appLogicCallRequests;
       case TxExecutionPhase.TEARDOWN:
         return this.teardownCallRequests;
-    }
-  }
-
-  /**
-   * Get the call requests for the specified phase (including actual args).
-   */
-  getExecutionRequestsForPhase(phase: TxExecutionPhase): PublicExecutionRequest[] {
-    switch (phase) {
-      case TxExecutionPhase.SETUP:
-        return this.setupExecutionRequests;
-      case TxExecutionPhase.APP_LOGIC:
-        return this.appLogicExecutionRequests;
-      case TxExecutionPhase.TEARDOWN:
-        return this.teardownExecutionRequests;
     }
   }
 
@@ -347,10 +327,10 @@ export class PublicTxContext {
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
       this.feePayer,
-      this.setupCallRequests,
-      this.appLogicCallRequests,
+      this.setupCallRequests.map(r => r.request),
+      this.appLogicCallRequests.map(r => r.request),
       /*teardownCallRequest=*/ this.teardownCallRequests.length
-        ? this.teardownCallRequests[0]
+        ? this.teardownCallRequests[0].request
         : PublicCallRequest.empty(),
       endTreeSnapshots,
       /*endGasUsed=*/ this.getTotalGasUsed(),

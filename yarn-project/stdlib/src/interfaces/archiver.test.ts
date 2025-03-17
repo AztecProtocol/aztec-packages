@@ -14,7 +14,6 @@ import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
-  type PublicFunction,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
@@ -170,12 +169,6 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
   });
 
-  it('getPublicFunction', async () => {
-    const selector = FunctionSelector.random();
-    const result = await context.client.getPublicFunction(await AztecAddress.random(), selector);
-    expect(result).toEqual({ selector, bytecode: Buffer.alloc(10, 10) });
-  });
-
   it('getContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const result = await context.client.getContractClass(Fr.random());
@@ -186,12 +179,12 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
-  it('getContractFunctionName', async () => {
+  it('getDebugFunctionName', async () => {
     const selector = await FunctionSelector.fromNameAndParameters(
       artifact.functions[0].name,
       artifact.functions[0].parameters,
     );
-    const result = await context.client.getContractFunctionName(await AztecAddress.random(), selector);
+    const result = await context.client.getDebugFunctionName(await AztecAddress.random(), selector);
     expect(result).toEqual(artifact.functions[0].name);
   });
 
@@ -331,11 +324,6 @@ class MockArchiver implements ArchiverApi {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined> {
-    expect(address).toBeInstanceOf(AztecAddress);
-    expect(selector).toBeInstanceOf(FunctionSelector);
-    return Promise.resolve({ selector, bytecode: Buffer.alloc(10, 10) });
-  }
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
@@ -346,7 +334,7 @@ class MockArchiver implements ArchiverApi {
     const contractClass = await getContractClassFromArtifact(this.artifact);
     return computePublicBytecodeCommitment(contractClass.packedBytecode);
   }
-  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     expect(selector).toBeInstanceOf(FunctionSelector);
     const functionsAndSelectors = await Promise.all(

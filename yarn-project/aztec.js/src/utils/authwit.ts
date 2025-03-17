@@ -77,7 +77,7 @@ export const computeInnerAuthWitHashFromAction = async (caller: AztecAddress, ac
   computeInnerAuthWitHash([
     caller.toField(),
     action.selector.toField(),
-    (await HashedValues.fromValues(action.args)).hash,
+    (await HashedValues.fromArgs(action.args)).hash,
   ]);
 
 /**

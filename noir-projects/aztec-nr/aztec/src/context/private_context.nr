@@ -2,15 +2,15 @@ use dep::protocol_types::debug_log::debug_log_format;
 
 use crate::{
     context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
-    hash::{ArgsHasher, hash_args_array},
+    hash::{ArgsHasher, hash_args_array, hash_calldata_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
         block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
         enqueue_public_function_call::{
-            enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
-            set_public_teardown_function_call_internal,
+            notify_enqueued_public_function_call, notify_set_min_revertible_side_effect_counter,
+            notify_set_public_teardown_function_call,
         },
         execution_cache,
         key_validation_request::get_key_validation_request,
@@ -43,10 +43,11 @@ use dep::protocol_types::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-        PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_DISPATCH_SELECTOR,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Empty, FromField, Hash, ToField},
+    traits::{Empty, Hash, ToField},
+    utils::arrays::array_concat,
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -184,8 +185,8 @@ impl PrivateContext {
     }
 
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
-        execution_cache::store(returns_hasher.fields);
         self.return_hash = returns_hasher.hash();
+        execution_cache::store(returns_hasher.fields, self.return_hash);
     }
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {
@@ -345,7 +346,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        execution_cache::store(args);
+        execution_cache::store(args, args_hash);
         self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
@@ -361,7 +362,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        execution_cache::store(args);
+        execution_cache::store(args, args_hash);
         self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
@@ -447,14 +448,10 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let args_hash = hash_args_array(args);
-        execution_cache::store(args);
-        self.call_public_function_with_args_hash(
-            contract_address,
-            function_selector,
-            args_hash,
-            false,
-        )
+        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata_hash = hash_calldata_array(calldata);
+        execution_cache::store(calldata, calldata_hash);
+        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
     }
 
     pub fn static_call_public_function<let ARGS_COUNT: u32>(
@@ -463,14 +460,10 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let args_hash = hash_args_array(args);
-        execution_cache::store(args);
-        self.call_public_function_with_args_hash(
-            contract_address,
-            function_selector,
-            args_hash,
-            true,
-        )
+        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata_hash = hash_calldata_array(calldata);
+        execution_cache::store(calldata, calldata_hash);
+        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
     }
 
     pub fn call_public_function_no_args(
@@ -478,7 +471,8 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) {
-        self.call_public_function_with_args_hash(contract_address, function_selector, 0, false)
+        let calldata_hash = hash_calldata_array([function_selector.to_field()]);
+        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
     }
 
     pub fn static_call_public_function_no_args(
@@ -486,44 +480,32 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) {
-        self.call_public_function_with_args_hash(contract_address, function_selector, 0, true)
+        let calldata_hash = hash_calldata_array([function_selector.to_field()]);
+        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
     }
 
-    pub fn call_public_function_with_args_hash(
+    pub fn call_public_function_with_calldata_hash(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args_hash: Field,
+        calldata_hash: Field,
         is_static_call: bool,
     ) {
         let counter = self.next_counter();
 
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        // Safety: TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
-        // WARNING: This is insecure and should be temporary!
-        // The oracle hashes the arguments and returns a new args_hash.
-        // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
-        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
-        // b) this is only temporary.
-        let args_hash = unsafe {
-            enqueue_public_function_call_internal(
-                contract_address,
-                function_selector,
-                args_hash,
-                counter,
-                is_static_call,
-            )
-        };
 
-        // Public calls are rerouted through the dispatch function.
-        let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
+        notify_enqueued_public_function_call(
+            contract_address,
+            calldata_hash,
+            counter,
+            is_static_call,
+        );
 
         let call_request = PublicCallRequest {
             msg_sender: self.this_address(),
             contract_address,
-            function_selector,
             is_static_call,
-            args_hash,
+            calldata_hash,
         };
 
         self.public_call_requests.push(Counted::new(call_request, counter));
@@ -535,50 +517,34 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let args_hash = hash_args_array(args);
-        execution_cache::store(args);
-        self.set_public_teardown_function_with_args_hash(
-            contract_address,
-            function_selector,
-            args_hash,
-            false,
-        )
+        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata_hash = hash_calldata_array(calldata);
+        execution_cache::store(calldata, calldata_hash);
+        self.set_public_teardown_function_with_calldata_hash(contract_address, calldata_hash, false)
     }
 
-    pub fn set_public_teardown_function_with_args_hash(
+    pub fn set_public_teardown_function_with_calldata_hash(
         &mut self,
         contract_address: AztecAddress,
-        function_selector: FunctionSelector,
-        args_hash: Field,
+        calldata_hash: Field,
         is_static_call: bool,
     ) {
         let counter = self.next_counter();
 
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        // Safety: TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
-        // WARNING: This is insecure and should be temporary!
-        // The oracle hashes the arguments and returns a new args_hash.
-        // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
-        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
-        // b) this is only temporary.
-        let args_hash = unsafe {
-            set_public_teardown_function_call_internal(
-                contract_address,
-                function_selector,
-                args_hash,
-                counter,
-                is_static_call,
-            )
-        };
 
-        let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
+        notify_set_public_teardown_function_call(
+            contract_address,
+            calldata_hash,
+            counter,
+            is_static_call,
+        );
 
         self.public_teardown_call_request = PublicCallRequest {
             msg_sender: self.this_address(),
             contract_address,
-            function_selector,
             is_static_call,
-            args_hash,
+            calldata_hash,
         };
     }
 

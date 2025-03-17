@@ -71,7 +71,11 @@ export abstract class EntrypointPayload {
   protected static async create(functionCalls: FunctionCall[]) {
     const hashedArguments: HashedValues[] = [];
     for (const call of functionCalls) {
-      hashedArguments.push(await HashedValues.fromValues(call.args));
+      const hashed =
+        call.type === FunctionType.PUBLIC
+          ? await HashedValues.fromCalldata([call.selector.toField(), ...call.args])
+          : await HashedValues.fromArgs(call.args);
+      hashedArguments.push(hashed);
     }
 
     /* eslint-disable camelcase */

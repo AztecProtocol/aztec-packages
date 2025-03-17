@@ -7,12 +7,11 @@ import type { AvmProvingRequest, RevertCode } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
-import type { PublicCallRequest } from '@aztec/stdlib/kernel';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import {
   type GlobalVariables,
   NestedProcessReturnValues,
-  PublicExecutionRequest,
+  PublicCallRequestWithCalldata,
   Tx,
   TxExecutionPhase,
 } from '@aztec/stdlib/tx';
@@ -76,7 +75,7 @@ export class PublicTxSimulator {
       const startTime = process.hrtime.bigint();
 
       const txHash = await tx.getTxHash();
-      this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
+      this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
       const context = await PublicTxContext.create(
         this.db,
@@ -226,13 +225,11 @@ export class PublicTxSimulator {
    */
   private async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
     const callRequests = context.getCallRequestsForPhase(phase);
-    const executionRequests = context.getExecutionRequestsForPhase(phase);
 
     this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.txHash}`, {
       txHash: context.txHash.toString(),
       phase: TxExecutionPhase[phase],
       callRequests: callRequests.length,
-      executionRequests: executionRequests.length,
     });
 
     const returnValues: NestedProcessReturnValues[] = [];
@@ -245,9 +242,8 @@ export class PublicTxSimulator {
       }
 
       const callRequest = callRequests[i];
-      const executionRequest = executionRequests[i];
 
-      const enqueuedCallResult = await this.simulateEnqueuedCall(phase, context, callRequest, executionRequest);
+      const enqueuedCallResult = await this.simulateEnqueuedCall(phase, context, callRequest);
 
       returnValues.push(new NestedProcessReturnValues(enqueuedCallResult.output));
 
@@ -270,31 +266,29 @@ export class PublicTxSimulator {
    * Simulate an enqueued public call.
    * @param phase - The current phase of public execution
    * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
-   * @param callRequest - The enqueued call to execute
-   * @param executionRequest - The execution request (includes args)
+   * @param callRequest - The public function call request, including the calldata.
    * @returns The result of execution.
    */
-  @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, _callRequest, executionRequest) => ({
+  @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, callRequest) => ({
     [Attributes.TX_HASH]: context.txHash.toString(),
-    [Attributes.TARGET_ADDRESS]: executionRequest.callContext.contractAddress.toString(),
-    [Attributes.SENDER_ADDRESS]: executionRequest.callContext.msgSender.toString(),
+    [Attributes.TARGET_ADDRESS]: callRequest.request.contractAddress.toString(),
+    [Attributes.SENDER_ADDRESS]: callRequest.request.msgSender.toString(),
     [Attributes.SIMULATOR_PHASE]: TxExecutionPhase[phase].toString(),
   }))
   private async simulateEnqueuedCall(
     phase: TxExecutionPhase,
     context: PublicTxContext,
-    callRequest: PublicCallRequest,
-    executionRequest: PublicExecutionRequest,
+    callRequest: PublicCallRequestWithCalldata,
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
-    const address = executionRequest.callContext.contractAddress;
-    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, executionRequest.args);
+    const contractAddress = callRequest.request.contractAddress;
+    const fnName = await getPublicFunctionDebugName(this.worldStateDB, contractAddress, callRequest.calldata);
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
-      executionRequest,
+      callRequest,
       allocatedGas,
       /*transactionFee=*/ context.getTransactionFee(phase),
       fnName,
@@ -306,10 +300,10 @@ export class PublicTxSimulator {
       `Simulated enqueued public call (${fnName}) consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
-    stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
+    stateManager.traceEnqueuedCall(callRequest.request, callRequest.calldata, result.reverted);
 
     if (result.reverted) {
-      const culprit = `${executionRequest.callContext.contractAddress}:${executionRequest.callContext.functionSelector}`;
+      const culprit = `${contractAddress}:${callRequest.functionSelector}`;
       context.revert(phase, result.revertReason, culprit); // throws if in setup (non-revertible) phase
     }
 
@@ -325,26 +319,26 @@ export class PublicTxSimulator {
    *
    * @param stateManager - The state manager for AvmSimulation
    * @param context - The context of the currently executing public transaction portion
-   * @param executionRequest - The execution request (includes args)
+   * @param callRequest - The public function call request, including the calldata.
    * @param allocatedGas - The gas allocated to the enqueued call
    * @param fnName - The name of the function
    * @returns The result of execution.
    */
   @trackSpan(
     'PublicTxSimulator.simulateEnqueuedCallInternal',
-    (_stateManager, _executionRequest, _allocatedGas, _transactionFee, fnName) => ({
+    (_stateManager, _callRequest, _allocatedGas, _transactionFee, fnName) => ({
       [Attributes.APP_CIRCUIT_NAME]: fnName,
     }),
   )
   private async simulateEnqueuedCallInternal(
     stateManager: AvmPersistableStateManager,
-    executionRequest: PublicExecutionRequest,
+    { request, calldata }: PublicCallRequestWithCalldata,
     allocatedGas: Gas,
     transactionFee: Fr,
     fnName: string,
   ): Promise<AvmFinalizedCallResult> {
-    const address = executionRequest.callContext.contractAddress;
-    const sender = executionRequest.callContext.msgSender;
+    const address = request.contractAddress;
+    const sender = request.msgSender;
 
     this.log.debug(
       `Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
@@ -357,8 +351,8 @@ export class PublicTxSimulator {
       sender,
       transactionFee,
       this.globalVariables,
-      executionRequest.callContext.isStaticCall,
-      executionRequest.args,
+      request.isStaticCall,
+      calldata,
       allocatedGas,
     );
     const avmCallResult = await simulator.execute();

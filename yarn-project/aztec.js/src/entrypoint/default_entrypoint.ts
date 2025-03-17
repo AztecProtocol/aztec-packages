@@ -22,7 +22,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
       throw new Error('Public entrypoints are not allowed');
     }
 
-    const entrypointHashedValues = await HashedValues.fromValues(call.args);
+    const entrypointHashedValues = await HashedValues.fromArgs(call.args);
     const txContext = new TxContext(this.chainId, this.protocolVersion, fee.gasSettings);
     return Promise.resolve(
       new TxExecutionRequest(

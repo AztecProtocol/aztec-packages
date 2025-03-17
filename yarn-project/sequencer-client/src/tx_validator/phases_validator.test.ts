@@ -70,7 +70,7 @@ describe('PhasesTxValidator', () => {
 
   it('allows setup functions on the contracts class allow list', async () => {
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
-    const { address } = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
+    const address = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
 
     contractDataSource.getContract.mockImplementationOnce(contractAddress => {
       if (address.equals(contractAddress)) {
@@ -95,7 +95,7 @@ describe('PhasesTxValidator', () => {
   it('rejects setup functions not on the contracts class list', async () => {
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
     // good selector, bad contract class
-    const { address } = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
+    const address = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
     contractDataSource.getContract.mockImplementationOnce(contractAddress => {
       if (address.equals(contractAddress)) {
         return Promise.resolve({

@@ -14,8 +14,8 @@ import type { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AvmPublicDataReadTreeHint, PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassPublicWithCommitment } from '@aztec/stdlib/contract';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
-import type { ContractClassWithCommitment } from '@aztec/stdlib/contract';
 import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
@@ -31,7 +31,6 @@ import { MerkleTreeId, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from 
 import { strict as assert } from 'assert';
 import cloneDeep from 'lodash.clonedeep';
 
-import { getPublicFunctionDebugName } from '../../../common/debug_fn_name.js';
 import type { WorldStateDB } from '../../../public/public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -610,11 +609,11 @@ export class AvmPersistableStateManager {
    * @param classId - class id to retrieve.
    * @returns the contract class or undefined if it does not exist.
    */
-  public async getContractClass(classId: Fr): Promise<ContractClassWithCommitment | undefined> {
+  public async getContractClass(classId: Fr): Promise<ContractClassPublicWithCommitment | undefined> {
     this.log.trace(`Getting contract class for id ${classId}`);
-    const klass = await this.worldStateDB.getContractClass(classId);
-    const exists = klass !== undefined;
-    let extendedClass: ContractClassWithCommitment | undefined = undefined;
+    const contractClass = await this.worldStateDB.getContractClass(classId);
+    const exists = contractClass !== undefined;
+    let extendedClass: ContractClassPublicWithCommitment | undefined = undefined;
 
     // Note: We currently do not generate info to check the nullifier tree, because
     // this is not needed for our use cases.
@@ -627,7 +626,7 @@ export class AvmPersistableStateManager {
         `Bytecode commitment was not found in DB for contract class (${classId}). This should not happen!`,
       );
       extendedClass = {
-        ...klass,
+        ...contractClass,
         publicBytecodeCommitment: bytecodeCommitment,
       };
     } else {
@@ -704,8 +703,9 @@ export class AvmPersistableStateManager {
     this.trace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
   }
 
-  public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {
-    return await getPublicFunctionDebugName(this.worldStateDB, avmEnvironment.address, avmEnvironment.calldata);
+  public getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): string {
+    const functionSelector = avmEnvironment.calldata[0];
+    return `<${functionSelector}> (Contract: ${avmEnvironment.address})`;
   }
 
   public async getLeafOrLowLeafInfo<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(

@@ -63,7 +63,6 @@ class AvmExecutionTests : public ::testing::Test {
         PublicCallRequest dummy_request = {
             /* msg_sender */ FF::one(),
             /* contract_address */ 0xdeadbeef,
-            /* function_selector */ 3,
             /* is_static_call */ true,
             /* args_hash */ FF(12),
         };

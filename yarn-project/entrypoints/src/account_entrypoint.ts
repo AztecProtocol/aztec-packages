@@ -29,7 +29,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(
+    const entrypointHashedArgs = await HashedValues.fromArgs(
       encodeArguments(abi, [appPayload, feePayload, !!cancellable]),
     );
 

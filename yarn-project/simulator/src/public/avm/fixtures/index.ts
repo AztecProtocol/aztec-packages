@@ -1,8 +1,4 @@
-import {
-  DEPLOYER_CONTRACT_ADDRESS,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/constants';
+import { DEPLOYER_CONTRACT_ADDRESS, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmGadgetsTestContract } from '@aztec/noir-contracts.js/AvmGadgetsTest';
@@ -162,13 +158,18 @@ export function getFunctionSelector(
 export function getContractFunctionArtifact(
   functionName: string,
   contractArtifact: ContractArtifact,
-): FunctionArtifact | FunctionAbi | undefined {
-  const artifact = contractArtifact.functions.find(f => f.name === functionName)!;
-  if (!artifact) {
-    const abi = getAllFunctionAbis(contractArtifact).find(f => f.name === functionName);
-    return abi || undefined;
-  }
-  return artifact;
+): FunctionArtifact | undefined {
+  return contractArtifact.functions.find(f => f.name === functionName);
+}
+
+export function getContractFunctionAbi(
+  functionName: string,
+  contractArtifact: ContractArtifact,
+): FunctionAbi | undefined {
+  return (
+    contractArtifact.functions.find(f => f.name === functionName) ??
+    contractArtifact.nonDispatchPublicFunctions.find(f => f.name === functionName)
+  );
 }
 
 export function resolveContractAssertionMessage(
@@ -276,12 +277,9 @@ export async function createContractClassAndInstance(
 }> {
   const bytecode = (getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact) as FunctionArtifact)!
     .bytecode;
-  const contractClass = await makeContractClassPublic(
-    seed,
-    /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
-  );
+  const contractClass = await makeContractClassPublic(seed, bytecode);
 
-  const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
+  const constructorAbi = getContractFunctionAbi('constructor', contractArtifact);
   const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
   const contractInstance =
     originalContractClassId === undefined
