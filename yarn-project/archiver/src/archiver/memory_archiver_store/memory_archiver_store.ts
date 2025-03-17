@@ -288,7 +288,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
         const currentLogs = this.taggedLogs.get(tag.toString()) || [];
         this.taggedLogs.set(tag.toString(), [
           ...currentLogs,
-          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ false, log.toBuffer()),
+          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, log),
         ]);
         const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
         this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
@@ -301,7 +301,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
         const currentLogs = this.taggedLogs.get(tag.toString()) || [];
         this.taggedLogs.set(tag.toString(), [
           ...currentLogs,
-          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ true, log.toBuffer()),
+          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, log),
         ]);
         const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
         this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);

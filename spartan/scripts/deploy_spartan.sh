@@ -30,7 +30,7 @@ if [[ "$current_context" =~ ^kind- ]]; then
   exit 1
 fi
 
-function cleanup() {
+function cleanup {
   set +x
   # kill everything in our process group except our process
   trap - SIGTERM && kill $(pgrep -g $$ | grep -v $$) $(jobs -p) &>/dev/null || true

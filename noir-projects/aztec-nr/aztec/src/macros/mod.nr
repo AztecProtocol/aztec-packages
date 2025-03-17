@@ -116,11 +116,10 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
     let notes = NOTES.entries();
 
-    let mut max_note_packed_len: u32 = 0;
     if notes.len() > 0 {
-        max_note_packed_len = notes.fold(
+        let max_note_packed_len = notes.fold(
             0,
-            |acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]))| {
+            |acc, (_, (_, len, _, _)): (Type, (TypeDefinition, u32, Field, [(Quoted, u32, bool)]))| {
                 if len > acc {
                     len
                 } else {
@@ -223,7 +222,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             ///
             /// The signature of this function notably matches the `aztec::discovery::ComputeNoteHashAndNullifier` type,
             /// and so it can be used to call functions from that module such as `discover_new_notes`, `do_process_log`
-            /// and `process_private_note_log`.
+            /// and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
@@ -274,7 +273,7 @@ comptime fn generate_process_log() -> Quoted {
     if notes.len() > 0 {
         quote {
             unconstrained fn process_log(
-                log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
+                log_ciphertext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
                 tx_hash: Field,
                 unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
                 first_nullifier_in_tx: Field,
@@ -290,7 +289,7 @@ comptime fn generate_process_log() -> Quoted {
 
                 aztec::discovery::private_logs::do_process_log(
                     contract_address,
-                    log_plaintext,
+                    log_ciphertext,
                     tx_hash,
                     unique_note_hashes_in_tx,
                     first_nullifier_in_tx,
@@ -304,7 +303,7 @@ comptime fn generate_process_log() -> Quoted {
         // simply throws immediately.
         quote {
             unconstrained fn process_log(
-                _log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
+                _log_ciphertext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
                 _tx_hash: Field,
                 _unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
                 _first_nullifier_in_tx: Field,
@@ -321,7 +320,7 @@ comptime fn generate_note_exports() -> Quoted {
     // Second value in each tuple is `note_packed_len` and that is ignored here because it's only used when
     // generating partial note helper functions.
     notes
-        .map(|(s, _, note_type_id, fields): (StructDefinition, u32, Field, [(Quoted, u32, bool)])| {
+        .map(|(s, _, note_type_id, fields): (TypeDefinition, u32, Field, [(Quoted, u32, bool)])| {
             generate_note_export(s, note_type_id, fields)
         })
         .join(quote {})

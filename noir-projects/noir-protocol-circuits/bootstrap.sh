@@ -48,7 +48,7 @@ rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 keccak_honk_regex=rollup_root
 verifier_generate_regex=rollup_root
 
-function on_exit() {
+function on_exit {
   rm -f joblog.txt
 }
 trap on_exit EXIT
