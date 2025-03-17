@@ -12,13 +12,10 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
 {
     FF curr_value = leaf_value;
     uint64_t curr_index = leaf_index;
-    std::vector<FF> path_values;
-    path_values.reserve(sibling_path.size());
     for (const auto& i : sibling_path) {
         bool index_is_even = (curr_index % 2 == 0);
 
         curr_value = index_is_even ? poseidon2.hash({ curr_value, i }) : poseidon2.hash({ i, curr_value });
-        path_values.push_back(curr_value);
         // Halve the index (to get the parent index) as we move up the tree
         curr_index >>= 1;
     }
@@ -26,7 +23,8 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     FF computed_root = curr_value;
     assert(computed_root == root && "Merkle membership or non-membership check failed");
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
-    events.emit({ .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_vec, .root = root });
+    events.emit(
+        { .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = std::move(sibling_vec), .root = root });
 }
 
 } // namespace bb::avm2::simulation
