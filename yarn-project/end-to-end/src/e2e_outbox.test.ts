@@ -32,7 +32,7 @@ describe('E2E Outbox Tests', () => {
   let cheatCodes: CheatCodes;
 
   beforeEach(async () => {
-    ({ teardown, aztecNode, wallets, deployL1ContractsValues, cheatCodes } = await setup(1));
+    ({ teardown, aztecNode, wallets, deployL1ContractsValues, cheatCodes, aztecNodeAdmin } = await setup(1));
     outbox = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
