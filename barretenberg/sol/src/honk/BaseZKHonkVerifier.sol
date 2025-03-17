@@ -334,7 +334,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute evaluation A₀(r)
-        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = PCS.computeGeminiBatchedUnivariateEvaluation(
+        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = PCS.computeFoldPosEvaluations(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,

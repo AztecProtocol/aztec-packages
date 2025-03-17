@@ -2,9 +2,6 @@
 // Copyright 2024 Aztec Labs
 pragma solidity >=0.8.21;
 
-import "forge-std/console.sol";
-import "forge-std/console2.sol";
-
 import {IVerifier} from "../interfaces/IVerifier.sol";
 import {
     Honk,
@@ -17,7 +14,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "./HonkTypes.sol";
 
-import {negateInplace, convertProofPoint, pairing, logFr} from "./utils.sol";
+import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
@@ -215,9 +212,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
-        logFr("geminiR ", tp.geminiR);
-        logFr("geminiR ? ", powers_of_evaluation_challenge[0]);
-
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
 
@@ -338,9 +332,8 @@ abstract contract BaseHonkVerifier is IVerifier {
          * and adds them to the 'constant_term_accumulator'.
          */
 
-        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
-        // Compute evaluation A₀(r)
-        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = PCS.computeGeminiBatchedUnivariateEvaluation(
+        // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., logN - 1
+        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = PCS.computeFoldPosEvaluations(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
@@ -348,15 +341,15 @@ abstract contract BaseHonkVerifier is IVerifier {
             logN
         );
 
+        // Compute the Shplonk constant term contributions from A₀(±r)
         mem.constantTermAccumulator = foldPosEvaluations[0] * mem.posInvertedDenominator;
-
         mem.constantTermAccumulator =
             mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.negInvertedDenominator);
 
         mem.batchingChallenge = tp.shplonkNu.sqr();
-        logFr("batched eval ", mem.batchedEvaluation);
-        console2.log("circ size ", logN);
 
+        // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
+        // Compute scalar multipliers for each fold commitment
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
             bool dummy_round = i >= (logN - 1);
 
@@ -372,16 +365,11 @@ abstract contract BaseHonkVerifier is IVerifier {
                 accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
                 mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
                 mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
-                logFr("gemini fold pos ", foldPosEvaluations[i + 1]);
-                logFr("gemini fold neg ", proof.geminiAEvaluations[i + 1]);
             }
 
-            logFr("const term accum ", mem.constantTermAccumulator);
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
-            console.log(i + 1);
         }
 
-        logFr("a_0_pos", foldPosEvaluations[0]);
         // Finalise the batch opening claim
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;

@@ -1414,7 +1414,17 @@ struct ShpleminiIntermediates {
     Fr batchedEvaluation;
     Fr[4] denominators;
     Fr[4] batchingScalars;
-    Fr[CONST_PROOF_SIZE_LOG_N + 1] inverse_vanishing_denominators;
+    // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
+    Fr posInvertedDenominator;
+    // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
+    Fr negInvertedDenominator;
+    // ν^{2i} * 1/(z - r^{2^i})
+    Fr scalingFactorPos;
+    // ν^{2i+1} * 1/(z + r^{2^i})
+    Fr scalingFactorNeg;
+
+    // Fold_i(r^{2^i}) reconstructed by Verifier
+    Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
 
 }
 
@@ -1444,29 +1454,29 @@ library CommitmentSchemeLib {
         }
     }
 
-    function computeGeminiBatchedUnivariateEvaluation(
+    // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
+    function computeFoldPosEvaluations(
         Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckUChallenges,
         Fr batchedEvalAccumulator,
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
-        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers
-    ) internal view returns (Fr a_0_pos) {
+        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers,
+        uint256 logSize
+    ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations) {
         for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = sumcheckUChallenges[i - 1];
 
             Fr batchedEvalRoundAcc = (
                 (challengePower * batchedEvalAccumulator * Fr.wrap(2))
-                    - geminiEvaluations[i - 1] * (challengePower * (ONE - u) - u)
+                    - geminiEvaluations[i - 1] * (challengePower * (Fr.wrap(1) - u) - u)
             );
             // Divide by the denominator
-            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ONE - u) + u).invert();
-
-            if (i <= LOG_N) {
+            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
+            if (i <= logSize) {
                 batchedEvalAccumulator = batchedEvalRoundAcc;
+                foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
             }
-        }
-
-        a_0_pos = batchedEvalAccumulator;
+       }
     }
 }
 
@@ -1638,13 +1648,13 @@ interface IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 3 + 3] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 3 + 3] memory commitments;
 
-        mem.inverse_vanishing_denominators =
-            CommitmentSchemeLib.computeInvertedGeminiDenominators(tp.shplonkZ, powers_of_evaluation_challenge, LOG_N);
+        mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
+        mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
 
-        mem.unshiftedScalar =
-            mem.inverse_vanishing_denominators[0] + (tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
-        mem.shiftedScalar = tp.geminiR.invert()
-            * (mem.inverse_vanishing_denominators[0] - (tp.shplonkNu * mem.inverse_vanishing_denominators[1]));
+
+        mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
+        mem.shiftedScalar =
+            tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = ONE;
         commitments[0] = convertProofPoint(proof.shplonkQ);
@@ -1711,46 +1721,55 @@ interface IVerifier {
         commitments[40] = convertProofPoint(proof.w4);
         commitments[41] = convertProofPoint(proof.zPerm);
 
-        mem.constantTermAccumulator = ZERO;
+
+        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
+        // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., logN - 1
+        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
+            tp.sumCheckUChallenges,
+            mem.batchedEvaluation,
+            proof.geminiAEvaluations,
+            powers_of_evaluation_challenge,
+            logN
+        );
+
+        mem.constantTermAccumulator = foldPosEvaluations[0] * mem.posInvertedDenominator;
+        mem.constantTermAccumulator =
+            mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.negInvertedDenominator);
+
         mem.batchingChallenge = tp.shplonkNu.sqr();
         uint256 boundary = NUMBER_OF_ENTITIES + 2;
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            bool dummy_round = i >= (LOG_N - 1);
+            bool dummy_round = i >= (logN - 1);
 
-            Fr scalingFactor = ZERO;
             if (!dummy_round) {
-                scalingFactor = mem.batchingChallenge * mem.inverse_vanishing_denominators[i + 2];
-                scalars[boundary + i] = scalingFactor.neg();
+                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
+                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+
+                mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
+                mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
+                scalars[boundary + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
+
+                Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
+                accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
+                mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
             }
 
-            mem.constantTermAccumulator =
-                mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
-            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
 
             commitments[boundary + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
 
         boundary += CONST_PROOF_SIZE_LOG_N - 1;
 
-        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
-        // Compute evaluation A₀(r)
-        Fr a_0_pos = CommitmentSchemeLib.computeGeminiBatchedUnivariateEvaluation(
-            tp.sumCheckUChallenges,
-            mem.batchedEvaluation,
-            proof.geminiAEvaluations,
-            powers_of_evaluation_challenge
-        );
-
-        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * mem.inverse_vanishing_denominators[0]);
-        mem.constantTermAccumulator = mem.constantTermAccumulator
-            + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
 
         // Finalise the batch opening claim
         mem.denominators[0] = ONE.div(tp.shplonkZ - tp.geminiR);
         mem.denominators[1] = ONE.div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
         mem.denominators[2] = mem.denominators[0];
         mem.denominators[3] = mem.denominators[0];
+
+        mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
 
         mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
         for (uint256 i = 0; i < 4; i++) {

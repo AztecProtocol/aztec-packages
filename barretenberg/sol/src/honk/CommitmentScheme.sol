@@ -32,10 +32,15 @@ library CommitmentSchemeLib {
         Fr batchedEvaluation;
         Fr[4] denominators;
         Fr[4] batchingScalars;
-        Fr negInvertedDenominator;
+        // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
         Fr posInvertedDenominator;
-        Fr scalingFactorNeg;
+        // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
+        Fr negInvertedDenominator;
+        // ν^{2i} * 1/(z - r^{2^i})
         Fr scalingFactorPos;
+        // ν^{2i+1} * 1/(z + r^{2^i})
+        Fr scalingFactorNeg;
+        // Fold_i(r^{2^i}) reconstructed by Verifier
         Fr[CONST_PROOF_SIZE_LOG_N] foldPosEvaluations;
     }
 
@@ -45,8 +50,9 @@ library CommitmentSchemeLib {
             squares[i] = squares[i - 1].sqr();
         }
     }
+    // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., m-1
 
-    function computeGeminiBatchedUnivariateEvaluation(
+    function computeFoldPosEvaluations(
         Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckUChallenges,
         Fr batchedEvalAccumulator,
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
