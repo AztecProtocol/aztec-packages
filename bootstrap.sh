@@ -132,7 +132,7 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
     existing_pid=$(lsof -ti :$((45730 + i)) || true)
     [ -n "$existing_pid" ] && kill -9 $existing_pid && wait $existing_pid || true
-    dump_fail "cd $root/yarn-project/txe && LOG_LEVEL=info TXE_PORT=$((45730 + i)) node --no-warnings ./dest/bin/index.js" &
+    dump_fail "cd $root/yarn-project/txe && LOG_LEVEL=info TXE_PORT=$((45730 + i)) node --no-warnings ./dest/bin/index.js || { sudo lsof -i && false }" &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
