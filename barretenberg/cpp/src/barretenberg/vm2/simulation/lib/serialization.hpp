@@ -84,6 +84,7 @@ enum class InstrDeserializationError : uint8_t {
     INSTRUCTION_OUT_OF_RANGE,
 };
 
+// Structure to group an instruction and an error
 struct InstructionWithError {
     Instruction instruction;
     InstrDeserializationError error = InstrDeserializationError::NO_ERROR;
@@ -96,8 +97,7 @@ struct InstructionWithError {
  *
  * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
  * @param pos Bytecode position
- * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
- * @return The instruction enahnced with an error
+ * @return The instruction enhanced with an error
  */
 InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
 
