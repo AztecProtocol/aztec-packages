@@ -53,7 +53,7 @@ function noir_content_hash {
     # Ignore the current content of noir-repo, it doesn't support history anyway.
     echo $noir_hash
   elif [ -f .noir-repo.force-cache ]; then
-    echo $(hash_str $noir_hash $(noir_repo_content_hash .noir_repo.rebuild_patterns .noir_repo.rebuild_patterns_tests))
+    echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
   elif scripts/sync.sh has-changes; then
     echo "disabled-cache"
   else
