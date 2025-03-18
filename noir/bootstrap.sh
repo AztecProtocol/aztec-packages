@@ -107,9 +107,6 @@ export -f build_native build_packages
 
 function build {
   echo_header "noir build"
-
-  noir_sync
-
   # TODO: Move to build image?
   denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
   if ! command -v cargo-binstall &>/dev/null; then
@@ -207,19 +204,24 @@ case "$cmd" in
     git clean -ffdx
     ;;
   "ci")
+    noir_sync
     build
     test
     ;;
   ""|"fast"|"full")
+    noir_sync
     build
     ;;
   test_cmds|build_native|build_packages|format|test|release)
+    noir_sync
     $cmd "$@"
     ;;
   "hash")
+    noir_sync
     echo $(noir_content_hash)
     ;;
   "hash-tests")
+    noir_sync
     echo $(noir_content_hash 1)
     ;;
   "make-patch")
