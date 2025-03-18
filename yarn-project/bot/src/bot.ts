@@ -5,13 +5,13 @@ import {
   type SendMethodOptions,
   type Wallet,
   createLogger,
+  waitForProven,
 } from '@aztec/aztec.js';
-import { timesParallel } from '@aztec/foundation/collection';
+import { times } from '@aztec/foundation/collection';
 import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { FunctionCall } from '@aztec/stdlib/abi';
 import { Gas } from '@aztec/stdlib/gas';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
 
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
@@ -26,15 +26,19 @@ export class Bot {
   private successes: number = 0;
 
   protected constructor(
+    public readonly pxe: PXE,
     public readonly wallet: Wallet,
     public readonly token: TokenContract | EasyPrivateTokenContract,
     public readonly recipient: AztecAddress,
     public config: BotConfig,
   ) {}
 
-  static async create(config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}): Promise<Bot> {
-    const { wallet, token, recipient } = await new BotFactory(config, dependencies).setup();
-    return new Bot(wallet, token, recipient, config);
+  static async create(
+    config: BotConfig,
+    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
+  ): Promise<Bot> {
+    const { pxe, wallet, token, recipient } = await new BotFactory(config, dependencies).setup();
+    return new Bot(pxe, wallet, token, recipient, config);
   }
 
   public updateConfig(config: Partial<BotConfig>) {
@@ -55,25 +59,12 @@ export class Bot {
       logCtx,
     );
 
-    const calls: FunctionCall[] = [];
-    if (isStandardTokenContract(token)) {
-      calls.push(
-        ...(await timesParallel(privateTransfersPerTx, () =>
-          token.methods.transfer(recipient, TRANSFER_AMOUNT).request(),
-        )),
-      );
-      calls.push(
-        ...(await timesParallel(publicTransfersPerTx, () =>
-          token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0).request(),
-        )),
-      );
-    } else {
-      calls.push(
-        ...(await timesParallel(privateTransfersPerTx, () =>
-          token.methods.transfer(TRANSFER_AMOUNT, sender, recipient).request(),
-        )),
-      );
-    }
+    const calls = isStandardTokenContract(token)
+      ? [
+          times(privateTransfersPerTx, () => token.methods.transfer(recipient, TRANSFER_AMOUNT)),
+          times(publicTransfersPerTx, () => token.methods.transfer_in_public(sender, recipient, TRANSFER_AMOUNT, 0)),
+        ].flat()
+      : times(privateTransfersPerTx, () => token.methods.transfer(TRANSFER_AMOUNT, sender, recipient));
 
     const opts = this.getSendMethodOpts();
     const batch = new BatchCall(wallet, calls);
@@ -100,9 +91,10 @@ export class Bot {
     );
     const receipt = await tx.wait({
       timeout: txMinedWaitSeconds,
-      provenTimeout: txMinedWaitSeconds,
-      proven: followChain === 'PROVEN',
     });
+    if (followChain === 'PROVEN') {
+      await waitForProven(this.pxe, receipt, { provenTimeout: txMinedWaitSeconds });
+    }
     this.log.info(
       `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
       logCtx,

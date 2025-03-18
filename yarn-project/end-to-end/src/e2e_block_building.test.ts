@@ -3,16 +3,13 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
-  type CheatCodes,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
   type GlobalVariables,
   L1EventPayload,
-  L1NotePayload,
   type Logger,
   type PXE,
   TxStatus,
@@ -20,6 +17,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
@@ -31,12 +29,13 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
+  PublicContractsDB,
   PublicProcessorFactory,
+  type PublicTreesDB,
   type PublicTxResult,
   PublicTxSimulator,
-  type WorldStateDB,
 } from '@aztec/simulator/server';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -54,6 +53,7 @@ describe('e2e_block_building', () => {
   let owner: Wallet;
   let minter: Wallet;
   let aztecNode: AztecNode;
+  let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let dateProvider: TestDateProvider | undefined;
   let cheatCodes: CheatCodes;
@@ -71,11 +71,13 @@ describe('e2e_block_building', () => {
 
     beforeAll(async () => {
       let sequencerClient: SequencerClient | undefined;
+      let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
       ({
         teardown,
         pxe,
         logger,
         aztecNode,
+        aztecNodeAdmin: maybeAztecNodeAdmin,
         wallets: [owner, minter],
         sequencer: sequencerClient,
         dateProvider,
@@ -87,16 +89,17 @@ describe('e2e_block_building', () => {
         blockCheckIntervalMS: 200,
       }));
       sequencer = sequencerClient! as TestSequencerClient;
+      aztecNodeAdmin = maybeAztecNodeAdmin!;
     });
 
-    afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
+    afterEach(() => aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 }));
     afterAll(() => teardown());
 
     it('assembles a block with multiple txs', async () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
-      await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
 
       const ownerAddress = owner.getCompleteAddress().address;
@@ -142,7 +145,7 @@ describe('e2e_block_building', () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 4;
-      await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
       const provenTxs = [];
@@ -170,7 +173,7 @@ describe('e2e_block_building', () => {
       const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
       const another = await TestContract.deploy(owner).send().deployed();
 
-      await aztecNode.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
 
       // Flood nullifiers to grow the size of the nullifier tree.
       // Can probably do this more efficiently by batching multiple emit_nullifier calls
@@ -183,7 +186,7 @@ describe('e2e_block_building', () => {
       await Promise.all(sentNullifierTxs.map(tx => tx.wait({ timeout: 600 })));
       logger.info(`Nullifier txs sent`);
 
-      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
       // Now send public functions
       const TX_COUNT = 128;
@@ -209,7 +212,7 @@ describe('e2e_block_building', () => {
       // We also set enforceTimetable so the deadline makes sense, otherwise we may be starting the
       // block too late into the slot, and start processing when the deadline has already passed.
       logger.info(`Updating aztec node config`);
-      await aztecNode.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
 
       // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
       const archiver = (aztecNode as AztecNodeService).getContractDataSource();
@@ -247,7 +250,7 @@ describe('e2e_block_building', () => {
 
     it.skip('can call public function from different tx in same block as deployed', async () => {
       // Ensure both txs will land on the same block
-      await aztecNode.setConfig({ minTxsPerBlock: 2 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
       // Deploy a contract in the first transaction
       // In the same block, call a public method on the contract
@@ -416,29 +419,6 @@ describe('e2e_block_building', () => {
 
     afterAll(() => teardown());
 
-    it('calls a method with nested note encrypted logs', async () => {
-      const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
-      const address = owner.address;
-
-      // call test contract
-      const action = testContract.methods.emit_encrypted_logs_nested(10, address, address);
-      const tx = await action.prove();
-      const rct = await tx.send().wait();
-
-      // compare logs
-      expect(rct.status).toEqual('success');
-      const noteValues = await Promise.all(
-        tx.data.getNonEmptyPrivateLogs().map(async log => {
-          const notePayload = await L1NotePayload.decryptAsIncoming(log, await thisWallet.getEncryptionSecret());
-          // In this test we care only about the privately delivered values
-          return notePayload?.privateNoteValues[0];
-        }),
-      );
-      expect(noteValues[0]).toEqual(new Fr(10));
-      expect(noteValues[1]).toEqual(new Fr(11));
-      expect(noteValues[2]).toEqual(new Fr(12));
-    }, 30_000);
-
     it('calls a method with nested encrypted logs', async () => {
       const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
       const address = owner.address;
@@ -518,7 +498,7 @@ describe('e2e_block_building', () => {
         .deployed();
 
       logger.info('Updating txs per block to 4');
-      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
       logger.info('Spamming the network with public txs');
       const txs = [];
@@ -528,7 +508,7 @@ describe('e2e_block_building', () => {
       }
 
       logger.info('Waiting for txs to be mined');
-      await Promise.all(txs.map(tx => tx.wait({ proven: false, timeout: 600 })));
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 600 })));
     });
   });
 
@@ -636,16 +616,16 @@ class TestPublicTxSimulator extends PublicTxSimulator {
 }
 class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
-    db: MerkleTreeWriteOperations,
-    worldStateDB: WorldStateDB,
+    treesDB: PublicTreesDB,
+    contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient?: TelemetryClient,
   ): PublicTxSimulator {
     return new TestPublicTxSimulator(
-      db,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,

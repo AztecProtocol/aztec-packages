@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr, Point } from '@aztec/foundation/fields';
 import type { FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -9,7 +9,7 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { CommitmentsDB } from '../common/db_interfaces.js';
+import type { CommitmentsDBInterface } from '../common/db_interfaces.js';
 import type { NoteData } from './acvm/index.js';
 
 /**
@@ -33,7 +33,7 @@ export class ContractClassNotFoundError extends Error {
 /**
  * The interface for the data layer required to perform private and unconstrained execution.
  */
-export interface ExecutionDataProvider extends CommitmentsDB {
+export interface ExecutionDataProvider extends CommitmentsDBInterface {
   /**
    * Returns a contract instance associated with an address, if available.
    * @param address - Address.
@@ -48,13 +48,6 @@ export interface ExecutionDataProvider extends CommitmentsDB {
    * @throws An error if the account is not registered in the database.
    */
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress>;
-
-  /**
-   * Retrieve the auth witness for a given message hash.
-   * @param messageHash - The message hash.
-   * @returns A Promise that resolves to an array of field elements representing the auth witness.
-   */
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
    * Retrieve keys associated with a specific master public key and app address.
@@ -239,10 +232,11 @@ export interface ExecutionDataProvider extends CommitmentsDB {
 
   /**
    * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
+   * @param contractAddress - The address of the contract that emitted the logs.
    * @param logs - The logs to process.
    * @param recipient - The recipient of the logs.
    */
-  processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
+  processTaggedLogs(contractAddress: AztecAddress, logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
 
   /**
    * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
@@ -320,4 +314,12 @@ export interface ExecutionDataProvider extends CommitmentsDB {
    * @param numEntries - The number of entries to copy.
    */
   copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void>;
+
+  /**
+   * Retrieves the shared secret for a given address and ephemeral public key.
+   * @param address - The address to get the secret for.
+   * @param ephPk - The ephemeral public key to get the secret for.
+   * @returns The secret for the given address.
+   */
+  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
 }

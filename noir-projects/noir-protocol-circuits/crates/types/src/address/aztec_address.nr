@@ -10,13 +10,13 @@ use crate::{
     hash::poseidon2_hash_with_separator,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
     traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
+    utils::field::{pow, sqrt},
 };
 
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
-use ec::{pow, sqrt};
 use std::{
     embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
     ops::Add,
@@ -116,7 +116,7 @@ impl AztecAddress {
         // they can recover our full point using the x-coordinate (our address itself). To do this, they recompute the y-coordinate according to the equation y^2 = x^3 - 17.
         // When they do this, they may get a positive y-coordinate (a value that is less than or equal to MAX_FIELD_VALUE / 2) or
         // a negative y-coordinate (a value that is more than MAX_FIELD_VALUE), and we cannot dictate which one they get and hence the recovered point may sometimes be different than the one
-        // our secrect can decrypt. Regardless though, they should and will always encrypt using point with the positive y-coordinate by convention.
+        // our secret can decrypt. Regardless though, they should and will always encrypt using point with the positive y-coordinate by convention.
         // This ensures that everyone encrypts to the same point given an arbitrary x-coordinate (address). This is allowed because even though our original point may not have a positive y-coordinate,
         // with our original secret, we will be able to derive the secret to the point with the flipped (and now positive) y-coordinate that everyone encrypts to.
         AztecAddress::from_field(address_point.x)

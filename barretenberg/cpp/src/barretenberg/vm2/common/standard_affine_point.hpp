@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <ostream>
 
 namespace bb::avm2 {
 
@@ -51,15 +52,27 @@ template <typename AffinePoint> class StandardAffinePoint {
 
     constexpr const BaseField& y() const noexcept { return point.is_point_at_infinity() ? zero : point.y; }
 
-    static StandardAffinePoint& infinity()
+    static const StandardAffinePoint& infinity()
     {
         static auto infinity = StandardAffinePoint(AffinePoint::infinity());
         return infinity;
+    }
+
+    static const StandardAffinePoint& one()
+    {
+        static auto one = StandardAffinePoint(AffinePoint::one());
+        return one;
     }
 
   private:
     AffinePoint point;
     static constexpr const auto zero = BaseField::zero();
 };
+
+template <typename T> std::ostream& operator<<(std::ostream& os, const StandardAffinePoint<T>& point)
+{
+    os << "StandardAffinePoint(" << point.x() << ", " << point.y() << ", " << point.is_infinity() << ")";
+    return os;
+}
 
 } // namespace bb::avm2

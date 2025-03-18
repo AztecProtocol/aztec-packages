@@ -1,10 +1,6 @@
-import {
-  type AccountWallet,
-  type CheatCodes,
-  type DeployL1ContractsReturnType,
-  Fr,
-  type Logger,
-} from '@aztec/aztec.js';
+import { type AccountWallet, Fr, type Logger } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
@@ -136,7 +132,7 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 : 💰 -> 🏦', async () => {
       const depositAmount = 420n;
       const nonce = Fr.random();
-      await wallet.createAuthWit({
+      const transferToPublicAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
         action: collateralAsset.methods.transfer_to_public(
           lendingAccount.address,
@@ -163,14 +159,14 @@ describe('e2e_lending_contract', () => {
           0n,
           collateralAsset.address,
         )
-        .send()
+        .send({ authWitnesses: [transferToPublicAuthwit] })
         .wait();
     });
 
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
       const depositAmount = 421n;
       const nonce = Fr.random();
-      await wallet.createAuthWit({
+      const transferToPublicAuhtwit = await wallet.createAuthWit({
         caller: lendingContract.address,
         action: collateralAsset.methods.transfer_to_public(
           lendingAccount.address,
@@ -197,7 +193,7 @@ describe('e2e_lending_contract', () => {
           lendingAccount.address,
           collateralAsset.address,
         )
-        .send()
+        .send({ authWitnesses: [transferToPublicAuhtwit] })
         .wait();
     });
 
@@ -277,7 +273,7 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸 : 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
       const nonce = Fr.random();
-      await wallet.createAuthWit({
+      const burnPrivateAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
         action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, nonce),
       });
@@ -294,14 +290,14 @@ describe('e2e_lending_contract', () => {
       logger.info('Repay 🥸 : 🍌 -> 🏦');
       await lendingContract.methods
         .repay_private(lendingAccount.address, repayAmount, nonce, lendingAccount.secret, 0n, stableCoin.address)
-        .send()
+        .send({ authWitnesses: [burnPrivateAuthwit] })
         .wait();
     });
 
     it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
       const repayAmount = 21n;
       const nonce = Fr.random();
-      await wallet.createAuthWit({
+      const burnPrivateAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
         action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, nonce),
       });
@@ -318,7 +314,7 @@ describe('e2e_lending_contract', () => {
       logger.info('Repay 🥸  on behalf of public: 🍌 -> 🏦');
       await lendingContract.methods
         .repay_private(lendingAccount.address, repayAmount, nonce, 0n, lendingAccount.address, stableCoin.address)
-        .send()
+        .send({ authWitnesses: [burnPrivateAuthwit] })
         .wait();
     });
 

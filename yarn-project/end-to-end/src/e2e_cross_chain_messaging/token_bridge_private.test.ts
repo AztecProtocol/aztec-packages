@@ -1,4 +1,5 @@
-import { CheatCodes, Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { getContract } from 'viem';
@@ -73,7 +74,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    await user1Wallet.createAuthWit({
+    const burnAuthwit = await user1Wallet.createAuthWit({
       caller: l2Bridge.address,
       action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, nonce),
     });
@@ -81,7 +82,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
 
     // 5. Withdraw owner's funds from L2 to L1
     const l2ToL1Message = crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
-    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce);
+    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce, burnAuthwit);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
     const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(

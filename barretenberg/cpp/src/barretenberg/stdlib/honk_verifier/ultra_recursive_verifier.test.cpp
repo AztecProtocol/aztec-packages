@@ -128,9 +128,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         RecursiveVerifier verifier{ &outer_circuit, honk_vk };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(verifier.key->circuit_size, honk_vk->circuit_size);
-        EXPECT_EQ(verifier.key->log_circuit_size, honk_vk->log_circuit_size);
-        EXPECT_EQ(verifier.key->num_public_inputs, honk_vk->num_public_inputs);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->circuit_size.get_value()), honk_vk->circuit_size);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->log_circuit_size.get_value()), honk_vk->log_circuit_size);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->num_public_inputs.get_value()), honk_vk->num_public_inputs);
         for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), honk_vk->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
@@ -276,7 +276,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto inner_proof = inner_prover.construct_proof();
 
         // Arbitrarily tamper with the proof to be verified
-        inner_prover.transcript->deserialize_full_transcript();
+        inner_prover.transcript->deserialize_full_transcript(proving_key->proving_key.num_public_inputs);
         inner_prover.transcript->z_perm_comm = InnerCommitment::one() * InnerFF::random_element();
         inner_prover.transcript->serialize_full_transcript();
         inner_proof = inner_prover.export_proof();

@@ -1,27 +1,41 @@
+import type { ExecutionPayload } from '@aztec/entrypoints/payload';
+import { mergeExecutionPayloads } from '@aztec/entrypoints/utils';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/index.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 import type { SimulateMethodOptions } from './contract_function_interaction.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
-  constructor(wallet: Wallet, protected calls: FunctionCall[]) {
+  constructor(wallet: Wallet, protected calls: BaseContractInteraction[]) {
     super(wallet);
   }
 
   /**
    * Create a transaction execution request that represents this batch, encoded and authenticated by the
    * user's wallet, ready to be simulated.
-   * @param opts - An optional object containing additional configuration for the transaction.
+   * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(opts?: SendMethodOptions): Promise<TxExecutionRequest> {
-    const calls = this.calls;
-    const capsules = this.getCapsules();
-    const fee = await this.getFeeOptions({ calls, capsules, ...opts });
-    return await this.wallet.createTxExecutionRequest({ calls, capsules, ...opts, fee });
+  public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+    const requestWithoutFee = await this.request(options);
+
+    const { fee: userFee, nonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
+
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+  }
+
+  /**
+   * Returns an execution request that represents this operation.
+   * @param _options - (ignored) An optional object containing additional configuration for the transaction.
+   * @returns An execution request wrapped in promise.
+   */
+  public async request(_options: SendMethodOptions = {}): Promise<ExecutionPayload> {
+    const requests = await this.getRequests();
+    return mergeExecutionPayloads(requests);
   }
 
   /**
@@ -34,39 +48,44 @@ export class BatchCall extends BaseContractInteraction {
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
-    const { indexedCalls, unconstrained } = this.calls.reduce<{
+    const { indexedExecutionPayloads, unconstrained } = (await this.getRequests()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
       /** Keep track of the number of public calls to retrieve the return values */
       publicIndex: 0;
-      /** The public and private function calls in the batch */
-      indexedCalls: [FunctionCall, number, number][];
+      /** The public and private function execution requests in the batch */
+      indexedExecutionPayloads: [ExecutionPayload, number, number][];
       /** The unconstrained function calls in the batch. */
       unconstrained: [FunctionCall, number][];
     }>(
       (acc, current, index) => {
-        if (current.type === FunctionType.UNCONSTRAINED) {
-          acc.unconstrained.push([current, index]);
+        const call = current.calls[0];
+        if (call.type === FunctionType.UNCONSTRAINED) {
+          acc.unconstrained.push([call, index]);
         } else {
-          acc.indexedCalls.push([
+          acc.indexedExecutionPayloads.push([
             current,
             index,
-            current.type === FunctionType.PRIVATE ? acc.privateIndex++ : acc.publicIndex++,
+            call.type === FunctionType.PRIVATE ? acc.privateIndex++ : acc.publicIndex++,
           ]);
         }
         return acc;
       },
-      { indexedCalls: [], unconstrained: [], publicIndex: 0, privateIndex: 0 },
+      { indexedExecutionPayloads: [], unconstrained: [], publicIndex: 0, privateIndex: 0 },
     );
 
-    const calls = indexedCalls.map(([call]) => call);
-    const capsules = this.getCapsules();
-    const fee = await this.getFeeOptions({ calls, capsules, ...options });
-    const txRequest = await this.wallet.createTxExecutionRequest({ calls, capsules, ...options, fee });
+    const payloads = indexedExecutionPayloads.map(([request]) => request);
+    const requestWithoutFee = mergeExecutionPayloads(payloads);
+    const { fee: userFee } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee);
+    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {});
 
     const unconstrainedCalls = unconstrained.map(
       async ([call, index]) =>
-        [await this.wallet.simulateUnconstrained(call.name, call.args, call.to, options?.from), index] as const,
+        [
+          await this.wallet.simulateUnconstrained(call.name, call.args, call.to, options?.authWitnesses, options?.from),
+          index,
+        ] as const,
     );
 
     const [unconstrainedResults, simulatedTx] = await Promise.all([
@@ -79,7 +98,8 @@ export class BatchCall extends BaseContractInteraction {
     unconstrainedResults.forEach(([result, index]) => {
       results[index] = result;
     });
-    indexedCalls.forEach(([call, callIndex, resultIndex]) => {
+    indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
+      const call = request.calls[0];
       // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
       // since we're interested in the first set of values AFTER the account entrypoint
       // For public functions we retrieve the first values directly from the public output.
@@ -91,5 +111,23 @@ export class BatchCall extends BaseContractInteraction {
       results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
     });
     return results;
+  }
+
+  /**
+   * Return all authWitnesses added for this interaction.
+   */
+  public override getAuthWitnesses() {
+    return [this.authWitnesses, ...this.calls.map(c => c.getAuthWitnesses())].flat();
+  }
+
+  /**
+   * Return all capsules added for this interaction.
+   */
+  public override getCapsules() {
+    return [this.capsules, ...this.calls.map(c => c.getCapsules())].flat();
+  }
+
+  private async getRequests() {
+    return await Promise.all(this.calls.map(c => c.request()));
   }
 }

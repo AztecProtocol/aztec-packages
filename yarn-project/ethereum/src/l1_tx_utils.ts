@@ -2,6 +2,7 @@ import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
@@ -107,7 +108,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   maxGwei: {
     description: 'Maximum gas price in gwei',
     env: 'L1_GAS_PRICE_MAX',
-    ...bigintConfigHelper(100n),
+    ...bigintConfigHelper(500n),
   },
   maxBlobGwei: {
     description: 'Maximum blob fee per gas in gwei',
@@ -157,6 +158,10 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
 };
 
 export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtilsConfigMappings);
+
+export function getL1TxUtilsConfigEnvVars(): L1TxUtilsConfig {
+  return getConfigFromMappings(l1TxUtilsConfigMappings);
+}
 
 export interface L1TxRequest {
   to: Address | null;

@@ -4,9 +4,6 @@ namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
- *
- * @todo https://github.com/AztecProtocol/barretenberg/issues/934: Add logic for accumulating the pairing points
- * produced by the translator and merge verifier (and potentially IPA accumulators for ECCVM verifier)
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
@@ -37,7 +34,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     translator_verifier.verify_translation(translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 
     MergeVerifier merge_verifier{ builder };
-    merge_verifier.verify_proof(proof.merge_proof);
+    StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
+    merge_verifier.verify_proof(stdlib_merge_proof);
     return { opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk

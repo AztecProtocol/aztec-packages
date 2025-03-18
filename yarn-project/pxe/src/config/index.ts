@@ -107,6 +107,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEService
     parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,
     description: 'Enable real proofs',
     isBoolean: true,
+    defaultValue: true,
   },
 };
 

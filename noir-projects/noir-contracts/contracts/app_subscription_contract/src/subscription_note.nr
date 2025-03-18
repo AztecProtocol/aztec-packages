@@ -3,6 +3,7 @@ use dep::aztec::{
 };
 
 #[note]
+#[derive(Eq)]
 pub struct SubscriptionNote {
     owner: AztecAddress,
     expiry_block_number: Field,

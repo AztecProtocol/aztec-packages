@@ -2,7 +2,6 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
-  type CheatCodes,
   EthAddress,
   Fr,
   type Logger,
@@ -10,6 +9,7 @@ import {
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 import {
   type DeployL1ContractsReturnType,
   type ViemPublicClient,
@@ -218,7 +218,7 @@ export const uniswapL1L2TestSuite = (
       // 3. Owner gives uniswap approval to transfer the funds to public to self on its behalf
       logger.info('Approving uniswap to transfer funds to public to self on my behalf');
       const nonceForWETHTransferToPublicApproval = new Fr(1n);
-      await ownerWallet.createAuthWit({
+      const transferToPublicAuhtwit = await ownerWallet.createAuthWit({
         caller: uniswapL2Contract.address,
         action: wethCrossChainHarness.l2Token.methods.transfer_to_public(
           ownerAddress,
@@ -244,7 +244,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send()
+        .send({ authWitnesses: [transferToPublicAuhtwit] })
         .wait();
 
       const swapPrivateFunction = 'swap_private(address,uint256,uint24,address,uint256,bytes32,address)';
@@ -655,7 +655,7 @@ export const uniswapL1L2TestSuite = (
       // 2. owner gives uniswap approval to transfer the funds to public:
       logger.info('Approving uniswap to transfer funds to public to self on my behalf');
       const nonceForWETHTransferToPublicApproval = new Fr(3n);
-      await ownerWallet.createAuthWit({
+      const transferToPublicAuthwith = await ownerWallet.createAuthWit({
         caller: uniswapL2Contract.address,
         action: wethCrossChainHarness.l2Token.methods.transfer_to_public(
           ownerAddress,
@@ -680,7 +680,7 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .prove(),
+          .prove({ authWitnesses: [transferToPublicAuthwith] }),
       ).rejects.toThrow('Assertion failed: input_asset address is not the same as seen in the bridge contract');
     });
 
@@ -803,7 +803,7 @@ export const uniswapL1L2TestSuite = (
       // Owner gives uniswap approval to transfer the funds to public to self on its behalf
       logger.info('Approving uniswap to transfer the funds to public to self on my behalf');
       const nonceForWETHTransferToPublicApproval = new Fr(4n);
-      await ownerWallet.createAuthWit({
+      const transferToPublicAuhtwit = await ownerWallet.createAuthWit({
         caller: uniswapL2Contract.address,
         action: wethCrossChainHarness.l2Token.methods.transfer_to_public(
           ownerAddress,
@@ -830,7 +830,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send()
+        .send({ authWitnesses: [transferToPublicAuhtwit] })
         .wait();
 
       const swapPrivateContent = sha256ToField([

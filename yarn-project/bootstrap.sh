@@ -5,10 +5,11 @@ cmd=${1:-}
 [ -n "$cmd" ] && shift
 
 function hash {
-  cache_content_hash \
-    ../noir/.rebuild_patterns \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns
+  hash_str \
+    $(../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+      ../barretenberg/*/.rebuild_patterns)
 }
 
 function compile_project {
@@ -31,12 +32,18 @@ function get_projects {
 }
 
 function format {
+  local arg=${1:-"-w"}
   find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
 }
 
 function lint {
-  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
+  local arg="--fix"
+  if [ "${1-}" == "--check" ]; then
+    arg=""
+    shift 1
+  fi
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
 }
 
 function compile_all {
@@ -65,10 +72,10 @@ function compile_all {
 
   get_projects | compile_project
 
-  cmds=(format)
+  cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
+    cmds+=('yarn tsc -b --emitDeclarationOnly && lint --check')
   else
     # We just need the type declarations required for downstream consumers.
     cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
@@ -88,18 +95,17 @@ function build {
   denoise "./bootstrap.sh clean-lite"
   npm_install_deps
   denoise "compile_all"
-  echo -e "${green}Yarn project successfully built!${reset}"
 }
 
 function test_cmds {
   local hash=$(hash)
   # These need isolation due to network stack usage (p2p, anvil, etc).
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
-    if [[ ! "$test" =~ testbench ]]; then
-      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
-    else
+    if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
       echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     fi
 
   done
@@ -150,7 +156,7 @@ function release_packages {
   do_or_dryrun npm init -y
   # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
   # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
-  for package in "${packages_list[@]}"; do
+  for package in "${package_list[@]}"; do
     do_or_dryrun npm install $package
   done
   rm -rf "$dir"
@@ -158,8 +164,7 @@ function release_packages {
 
 function release {
   echo_header "yarn-project release"
-  # WORKTODO latest is only on master, otherwise use ref name
-  release_packages $(dist-tag) ${REF_NAME#v}
+  release_packages "$(dist_tag)" "${REF_NAME#v}"
 }
 
 case "$cmd" in
@@ -190,8 +195,8 @@ case "$cmd" in
       get_projects | compile_project
     fi
     ;;
-  "lint")
-    lint "$@"
+  lint|format)
+    $cmd "$@"
     ;;
   test|test_cmds|hash|release|format)
     $cmd

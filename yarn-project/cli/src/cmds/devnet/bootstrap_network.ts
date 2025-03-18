@@ -6,10 +6,12 @@ import {
   Fr,
   L1FeeJuicePortalManager,
   type PXE,
+  type WaitForProvenOpts,
   type WaitOpts,
   type Wallet,
   createCompatibleClient,
   retryUntil,
+  waitForProven,
 } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
@@ -32,6 +34,10 @@ type ContractDeploymentInfo = {
 
 const waitOpts: WaitOpts = {
   timeout: 120,
+  interval: 1,
+};
+
+const provenWaitOpts: WaitForProvenOpts = {
   provenTimeout: 4800,
   interval: 1,
 };
@@ -72,7 +78,7 @@ export async function bootstrapNetwork(
 
   const counter = await deployCounter(wallet);
 
-  await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
+  await fundFPC(pxe, counter.address, wallet, l1Clients, fpc.address, debugLog);
 
   if (json) {
     log(
@@ -179,8 +185,8 @@ async function deployToken(
     .deployed(waitOpts);
 
   await new BatchCall(wallet, [
-    await devCoin.methods.set_minter(bridge.address, true).request(),
-    await devCoin.methods.set_admin(bridge.address).request(),
+    devCoin.methods.set_minter(bridge.address, true),
+    devCoin.methods.set_admin(bridge.address),
   ])
     .send()
     .wait(waitOpts);
@@ -259,6 +265,7 @@ async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
 
 // NOTE: Disabling for now in order to get devnet running
 async function fundFPC(
+  pxe: PXE,
   counterAddress: AztecAddress,
   wallet: Wallet,
   l1Clients: L1Clients,
@@ -291,12 +298,7 @@ async function fundFPC(
     true,
   );
 
-  await retryUntil(
-    async () => await wallet.isL1ToL2MessageSynced(Fr.fromHexString(messageHash)),
-    'message sync',
-    600,
-    1,
-  );
+  await retryUntil(async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(messageHash)), 'message sync', 600, 1);
 
   const counter = await CounterContract.at(counterAddress, wallet);
 
@@ -309,10 +311,12 @@ async function fundFPC(
 
   debugLog.info('Claiming FPC');
 
-  await feeJuiceContract.methods
+  const receipt = await feeJuiceContract.methods
     .claim(fpcAddress, claimAmount, claimSecret, messageLeafIndex)
     .send()
-    .wait({ ...waitOpts, proven: true });
+    .wait({ ...waitOpts });
+
+  await waitForProven(pxe, receipt, provenWaitOpts);
 
   debugLog.info('Finished claiming FPC');
 }

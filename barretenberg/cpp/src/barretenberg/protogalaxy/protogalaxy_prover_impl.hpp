@@ -105,8 +105,6 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
 
 /**
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
- * and the computation of Lagrange basis for k decider proving keys.
  */
 template <class DeciderProvingKeys>
 FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(

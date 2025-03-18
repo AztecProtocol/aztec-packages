@@ -2,12 +2,12 @@ import {
   type AccountWallet,
   type AztecAddress,
   Fr,
-  type FunctionCall,
   FunctionSelector,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { FunctionType } from '@aztec/stdlib/abi';
@@ -324,7 +324,7 @@ describe('e2e_fees failures', () => {
 });
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
-  override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+  override async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
     const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
@@ -348,17 +348,21 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       true,
     );
 
-    return [
-      await setPublicAuthWitInteraction.request(),
-      {
-        name: 'fee_entrypoint_public',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [tooMuchFee, nonce],
-        returnTypes: [],
-      },
-    ];
+    return new ExecutionPayload(
+      [
+        ...(await setPublicAuthWitInteraction.request()).calls,
+        {
+          name: 'fee_entrypoint_public',
+          to: this.paymentContract,
+          selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
+          type: FunctionType.PRIVATE,
+          isStatic: false,
+          args: [tooMuchFee, nonce],
+          returnTypes: [],
+        },
+      ],
+      [],
+      [],
+    );
   }
 }

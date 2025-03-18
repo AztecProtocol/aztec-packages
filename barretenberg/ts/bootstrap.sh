@@ -59,7 +59,7 @@ case "$cmd" in
     echo "$hash"
     ;;
   "bench")
-    echo "ts/bootstrap.sh bench is empty"
+    # Empty handling just to make this command valid.
     ;;
   test|test_cmds|release)
     $cmd

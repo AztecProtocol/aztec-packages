@@ -6,6 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -20,7 +21,7 @@ import { type Log, type Transaction, encodeFunctionData, toHex } from 'viem';
 import { Archiver } from './archiver.js';
 import type { ArchiverDataStore } from './archiver_store.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
-import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
+import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 
 interface MockRollupContractRead {
   /** Given an L2 block number, returns the archive. */
@@ -104,7 +105,7 @@ describe('Archiver', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    archiverStore = new MemoryArchiverStore(1000);
+    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000);
     l1Constants = {
       l1GenesisTime: BigInt(now),
       l1StartBlock: 0n,
@@ -347,7 +348,7 @@ describe('Archiver', () => {
 
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
-    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50`);
+    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50, no blocks on chain`);
   }, 10_000);
 
   it('handles L2 reorg', async () => {
@@ -361,7 +362,11 @@ describe('Archiver', () => {
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
-    publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n).mockResolvedValueOnce(150n);
+    let mockedBlockNum = 0n;
+    publicClient.getBlockNumber.mockImplementation(() => {
+      mockedBlockNum += 50n;
+      return Promise.resolve(mockedBlockNum);
+    });
 
     // We will return status at first to have an empty round, then as if we have 2 pending blocks, and finally
     // Just a single pending block returning a "failure" for the expected pending block
@@ -399,10 +404,10 @@ describe('Archiver', () => {
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
 
-    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50`);
+    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50, no blocks on chain`);
 
     // Lets take a look to see if we can find re-org stuff!
-    await sleep(1000);
+    await sleep(2000);
 
     expect(loggerSpy).toHaveBeenCalledWith(`L2 prune has been detected.`);
 
@@ -511,6 +516,40 @@ describe('Archiver', () => {
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
 
     await archiver.start(true);
+    expect(await archiver.isEpochComplete(0n)).toBe(true);
+  });
+
+  // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12631
+  it('reports an epoch as complete due to timestamp only once all its blocks have been synced', async () => {
+    const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
+    const l2Slot = 1;
+    const l1BlockForL2Block = l1StartBlock + BigInt((l2Slot * slotDuration) / ethereumSlotDuration);
+    const lastL1BlockForEpoch = l1StartBlock + BigInt((epochDuration * slotDuration) / ethereumSlotDuration) - 1n;
+
+    logger.info(`Syncing epoch 0 with L2 block on slot ${l2Slot} mined in L1 block ${l1BlockForL2Block}`);
+    const l2Block = blocks[0];
+    l2Block.header.globalVariables.slotNumber = new Fr(l2Slot);
+    blocks = [l2Block];
+    const blobHashes = await makeVersionedBlobHashes(l2Block);
+
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    publicClient.getBlockNumber.mockResolvedValueOnce(lastL1BlockForEpoch);
+    mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
+    makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
+
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
+    blobsFromBlocks.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+    await archiver.start(false);
+
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
+    while (!(await archiver.isEpochComplete(0n))) {
+      // No sleep, we want to know exactly when the epoch completes
+    }
+
+    // Once epoch is flagged as complete, block number must be 1
+    expect(await archiver.getBlockNumber()).toEqual(1);
     expect(await archiver.isEpochComplete(0n)).toBe(true);
   });
 

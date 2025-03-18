@@ -25,7 +25,7 @@ A fee paying contract (FPC) is created and nominates a token that it accepts to 
 
 Functions pertaining to sending a transaction, such as `deploy` and `send`, each include a `fee` variable defined with the following (optional) parameters:
 
-#include_code user_fee_options yarn-project/aztec.js/src/entrypoint/payload.ts javascript
+#include_code user_fee_options yarn-project/entrypoints/src/interfaces.ts javascript
 
 
 ### Fee Payment Method
@@ -79,7 +79,7 @@ After a user has sent fee juice from L1 to be bridged to L2, a transaction can b
 
 The claim object:
 
-#include_code claim_type_amount yarn-project/aztec.js/src/api/ethereum/portal_manager.ts javascript
+#include_code claim_type_amount yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
 
 Calling a function on an object (in this case checking the balance of the fee juice contract)
 

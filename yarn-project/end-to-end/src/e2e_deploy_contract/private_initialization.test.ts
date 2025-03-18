@@ -1,4 +1,4 @@
-import { BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -10,9 +10,10 @@ describe('e2e_deploy_contract private initialization', () => {
 
   let logger: Logger;
   let wallet: Wallet;
+  let aztecNode: AztecNode;
 
   beforeAll(async () => {
-    ({ logger, wallet } = await t.setup());
+    ({ logger, wallet, aztecNode } = await t.setup());
   });
 
   afterAll(() => t.teardown());
@@ -21,9 +22,11 @@ describe('e2e_deploy_contract private initialization', () => {
   // it still requires registering the contract artifact and instance locally in the pxe.
   it('executes a function in an undeployed contract from an account contract', async () => {
     const contract = await t.registerContract(wallet, TestContract);
-    const receipt = await contract.methods.emit_nullifier(10).send().wait({ debug: true });
+    const receipt = await contract.methods.emit_nullifier(10).send().wait();
+    const txEffects = await aztecNode.getTxEffect(receipt.txHash);
+
     const expected = await siloNullifier(contract.address, new Fr(10));
-    expect(receipt.debugInfo?.nullifiers).toContainEqual(expected);
+    expect(txEffects!.data.nullifiers).toContainEqual(expected);
   });
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
@@ -51,7 +54,7 @@ describe('e2e_deploy_contract private initialization', () => {
     const contracts = await Promise.all(
       initArgs.map(initArgs => t.registerContract(wallet, StatefulTestContract, { initArgs })),
     );
-    const calls = await Promise.all(contracts.map((c, i) => c.methods.constructor(...initArgs[i]).request()));
+    const calls = contracts.map((c, i) => c.methods.constructor(...initArgs[i]));
     await new BatchCall(wallet, calls).send().wait();
     expect(await contracts[0].methods.summed_values(owner).simulate()).toEqual(42n);
     expect(await contracts[1].methods.summed_values(owner).simulate()).toEqual(52n);
@@ -63,8 +66,8 @@ describe('e2e_deploy_contract private initialization', () => {
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     const sender = owner;
     const batch = new BatchCall(wallet, [
-      await contract.methods.constructor(...initArgs).request(),
-      await contract.methods.create_note(owner, sender, 10).request(),
+      contract.methods.constructor(...initArgs),
+      contract.methods.create_note(owner, sender, 10),
     ]);
     logger.info(`Executing constructor and private function in batch at ${contract.address}`);
     await batch.send().wait();

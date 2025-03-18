@@ -109,10 +109,8 @@ export async function createTestLibP2PService<T extends P2PClientType>(
 ) {
   peerId = peerId ?? (await createSecp256k1PeerId());
   const config = {
-    tcpAnnounceAddress: `127.0.0.1:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
-    tcpListenAddress: `0.0.0.0:${port}`,
-    udpListenAddress: `0.0.0.0:${port}`,
+    p2pIp: `127.0.0.1`,
+    p2pPort: port,
     bootstrapNodes: boostrapAddrs,
     peerCheckIntervalMS: 1000,
     maxPeerCount: 5,
@@ -235,12 +233,13 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
 export function createBootstrapNodeConfig(privateKey: string, port: number, chainConfig: ChainConfig): BootnodeConfig {
   return {
     l1ChainId: chainConfig.l1ChainId,
-    udpListenAddress: `0.0.0.0:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
+    p2pIp: '127.0.0.1',
+    p2pPort: port,
     peerIdPrivateKey: privateKey,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],
+    listenAddress: '0.0.0.0',
   };
 }
 
@@ -263,7 +262,7 @@ export function createBootstrapNodeFromPrivateKey(
 export async function getBootstrapNodeEnr(privateKey: string, port: number) {
   const peerId = await createLibP2PPeerIdFromPrivateKey(privateKey);
   const enr = SignableENR.createFromPeerId(peerId);
-  const listenAddrUdp = multiaddr(convertToMultiaddr(`127.0.0.1:${port}`, 'udp'));
+  const listenAddrUdp = multiaddr(convertToMultiaddr('127.0.0.1', port, 'udp'));
   enr.setLocationMultiaddr(listenAddrUdp);
 
   return enr;

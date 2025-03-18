@@ -1,5 +1,3 @@
-use std::hash::from_field_unsafe as fr_to_fq_unsafe;
-
 use dep::protocol_types::{
     constants::{GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2},
     hash::poseidon2_hash_with_separator,
