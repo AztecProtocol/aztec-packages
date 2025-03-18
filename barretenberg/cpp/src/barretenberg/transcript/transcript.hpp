@@ -581,34 +581,8 @@ inline bb::fr starknet_hash_uint256(std::vector<bb::fr> const& data)
     return result_fr;
 }
 
-struct StarknetTranscriptParams {
-    using Fr = bb::fr;
-    using Proof = HonkProof;
-
+struct StarknetTranscriptParams : public KeccakTranscriptParams {
     static inline Fr hash(const std::vector<Fr>& data) { return starknet_hash_uint256(data); }
-
-    template <typename T> static inline T convert_challenge(const Fr& challenge)
-    {
-        return bb::field_conversion::convert_challenge<T>(challenge);
-    }
-    template <typename T> static constexpr size_t calc_num_bn254_frs()
-    {
-        return bb::field_conversion::calc_num_bn254_frs<T>();
-    }
-    template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
-    {
-        return bb::field_conversion::convert_from_bn254_frs<T>(frs);
-    }
-    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
-    {
-        // TODO(md): Need to refactor this to be able to NOT just be field elements - Im working about it in the
-        // verifier for keccak resulting in twice as much hashing
-        return bb::field_conversion::convert_to_bn254_frs(element);
-    }
-    static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
-    {
-        return NativeTranscriptParams::split_challenge(challenge);
-    }
 };
 
 using StarknetTranscript = BaseTranscript<StarknetTranscriptParams>;
