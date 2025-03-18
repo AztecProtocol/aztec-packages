@@ -97,7 +97,7 @@ where
 
 impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext>
 where
-    Note: NoteType + NoteHash + Packable<N>,
+    Note: NoteType + NoteHash + Packable<N> + Eq,
 {
     // docs:start:view_notes
     pub unconstrained fn view_notes(

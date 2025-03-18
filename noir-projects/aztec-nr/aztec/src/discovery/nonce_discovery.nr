@@ -1,4 +1,7 @@
-use crate::{discovery::{ComputeNoteHashAndNullifier, MAX_NOTE_PACKED_LEN}, utils::array};
+use crate::{
+    discovery::{ComputeNoteHashAndNullifier, private_notes::MAX_NOTE_PACKED_LEN},
+    utils::array,
+};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -30,7 +33,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
     contract_address: AztecAddress,
     storage_slot: Field,
     note_type_id: Field,
-    packed_note_content: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
 ) -> BoundedVec<DiscoveredNoteInfo, MAX_NOTE_HASHES_PER_TX> {
     let discovered_notes = &mut BoundedVec::new();
 
@@ -52,7 +55,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
             // the note hash at the array index we're currently processing.
             // TODO(#11157): handle failed note_hash_and_nullifier computation
             let hashes = compute_note_hash_and_nullifier(
-                packed_note_content,
+                packed_note,
                 storage_slot,
                 note_type_id,
                 contract_address,

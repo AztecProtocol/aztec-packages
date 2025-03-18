@@ -7,6 +7,7 @@
 # If there is no owner for failed test the build will fail, regardless of if it matches in this file.
 # When a failing test matches one or more of the "regex" properties below,
 # a message is sent to slack channel #aztec3-ci tagging the owners.
+# If an optional error_regex is provided, the output file must match for the test to be considered a flake.
 
 names:
   - adam: &adam "U04BM8H25NJ"
@@ -33,6 +34,8 @@ tests:
   #   Actual: false
   # Expected: true
   - regex: "join_split_example_tests"
+    skip: true
+    error_regex: "field_t::range_constraint"
     owners:
       - *luke
 
@@ -52,6 +55,7 @@ tests:
     skip: true
     owners:
       - *charlie
+
   # Sometimes see this on ARM. But not when run on it's own...
   # FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
   #                                                                                                                                                                                running 1 test
@@ -152,6 +156,7 @@ tests:
     owners:
       - *palla
   - regex: "yarn-project/kv-store"
+    error_regex: "Could not import your test module"
     owners:
       - *alex
 
@@ -189,3 +194,9 @@ tests:
   - regex: "nonsense to match"
     owners:
       - *charlie
+
+  - regex: "nonsense to match"
+    owners:
+      - *charlie
+      - *adam
+    error_regex: "something else"

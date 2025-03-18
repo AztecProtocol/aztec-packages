@@ -431,13 +431,13 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     return leafValue;
   }
 
-  public async getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined> {
+  public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
     const leafValue = await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
-    this.logger.debug(`[DB] Fetched commitment leaf value`, {
+    this.logger.debug(`[DB] Fetched note hash leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
-      operation: 'get-commitment-leaf-value',
+      operation: 'get-note-hash',
     } satisfies PublicDBAccessStats);
     return leafValue;
   }

@@ -194,7 +194,7 @@ export class AvmPersistableStateManager {
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
   public async checkNoteHashExists(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
-    const gotLeafValue = (await this.treesDB.getCommitmentValue(leafIndex.toBigInt())) ?? Fr.ZERO;
+    const gotLeafValue = (await this.treesDB.getNoteHash(leafIndex.toBigInt())) ?? Fr.ZERO;
     const exists = gotLeafValue.equals(noteHash);
     this.log.trace(
       `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,

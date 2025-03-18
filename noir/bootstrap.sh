@@ -24,13 +24,32 @@ export RUSTFLAGS="-Dwarnings"
 
 # Update the noir-repo and compute hashes.
 function noir_sync {
-  denoise "scripts/sync.sh init && scripts/sync.sh update"
+  # The sync.sh script strives not to send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
+  DENOISE=0 denoise "scripts/sync.sh init && scripts/sync.sh update"
+}
+
+# Calculate the content hash for caching, taking into account that `noir-repo`
+# is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
+# by `cache_content_hash` would not take those files into account.
+function noir_content_hash {
+  function noir_repo_content_hash {
+    echo $(REPO_PATH=./noir-repo cache_content_hash $@)
+  }
+  with_tests=${1:-0}
+  noir_hash=$(cache_content_hash .rebuild_patterns)
+  noir_repo_hash=$(noir_repo_content_hash .noir-repo.rebuild_patterns)
+  if [ "$with_tests" == "1" ]; then
+    noir_repo_hash_tests=$(noir_repo_content_hash .noir-repo.rebuild_patterns_tests)
+  else
+    noir_repo_hash_tests=""
+  fi
+  echo $(hash_str $noir_hash $noir_repo_hash $noir_repo_hash_tests)
 }
 
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  local hash=$(cache_content_hash .rebuild_patterns)
+  local hash=$(noir_content_hash)
   if cache_download noir-$hash.tar.gz; then
     return
   fi
@@ -46,21 +65,28 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
-  local hash=$(cache_content_hash .rebuild_patterns)
+  local hash=$(noir_content_hash)
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
     npm_install_deps
+    # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
+    # Tests fail with message "env: ‘mocha’: No such file or directory"
+    yarn install
     return
   fi
 
   cd noir-repo
   npm_install_deps
-  yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
+
+  # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
+  # Tests fail with message "env: ‘mocha’: No such file or directory"
+  yarn install
+  yarn workspaces foreach  -A --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
   # These can be useful for testing, or to portal into other projects.
-  yarn workspaces foreach --parallel $js_include pack
+  yarn workspaces foreach  -A --parallel $js_include pack
 
   cd ..
   rm -rf packages && mkdir -p packages
@@ -84,13 +110,12 @@ function build_packages {
     noir-repo/tooling/noirc_abi_wasm/web
 }
 
-export -f build_native build_packages
+# Export functions that can be called from `parallel` in `build`,
+# and all the functions they can call as well.
+export -f build_native build_packages noir_content_hash
 
 function build {
   echo_header "noir build"
-
-  noir_sync
-
   # TODO: Move to build image?
   denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
   if ! command -v cargo-binstall &>/dev/null; then
@@ -113,7 +138,7 @@ function test {
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
-  local test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
+  local test_hash=$(noir_content_hash 1)
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
@@ -127,7 +152,7 @@ function test_cmds {
       sed "s|$PWD/target/release/deps/||" | \
       awk "{print \"$test_hash \" \$0 }"
   echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo" \
-    "yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+    "yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run test"
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
 }
@@ -188,17 +213,25 @@ case "$cmd" in
     git clean -ffdx
     ;;
   "ci")
+    noir_sync
     build
     test
     ;;
   ""|"fast"|"full")
+    noir_sync
     build
     ;;
   test_cmds|build_native|build_packages|format|test|release)
+    noir_sync
     $cmd "$@"
     ;;
   "hash")
-    echo $(cache_content_hash .rebuild_patterns)
+    noir_sync
+    echo $(noir_content_hash)
+    ;;
+  "hash-tests")
+    noir_sync
+    echo $(noir_content_hash 1)
     ;;
   "make-patch")
     scripts/sync.sh make-patch

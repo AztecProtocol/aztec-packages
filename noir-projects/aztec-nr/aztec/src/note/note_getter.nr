@@ -8,7 +8,7 @@ use crate::note::{
     utils::compute_note_hash_for_read_request,
 };
 use crate::oracle;
-use crate::utils::comparison::compare;
+use crate::utils::{array, comparison::compare};
 use dep::protocol_types::{
     constants::{GET_NOTES_ORACLE_RETURN_LENGTH, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
     traits::{Packable, ToField},
@@ -99,6 +99,14 @@ where
     (retrieved_note, note_hash_for_read_request)
 }
 
+/// Returns a BoundedVec of notes that have been proven to have been created by this contract, either in the current or
+/// past transactions (i.e. pending or settled notes). A second BoundedVec contains the note hashes used for the read
+/// requests, which can save constraints when computing the note's nullifiers.
+///
+/// WARNING: recall that notes are never destroyed! Note existence therefore does not imply that the note is _current_
+/// or _valid_ - this typically requires also emitting the note's nullifier to prove that it had not been emitted
+/// before. Because of this, calling this function directly from end-user applications should be discouraged, and safe
+/// abstractions such as aztec-nr's state variables should be used instead.
 pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
@@ -140,7 +148,7 @@ where
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::array::collapse(filtered_notes);
+    let notes = array::collapse(filtered_notes);
     let mut note_hashes = BoundedVec::new();
 
     // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also
@@ -239,18 +247,22 @@ where
     apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args)
 }
 
+/// Unconstrained variant of `get_notes`, meant to be used in unconstrained execution contexts. Notably only the note
+/// content is returned, and not any of the information used when proving its existence (e.g. nonce, note hash, etc.).
 pub unconstrained fn view_notes<Note, let N: u32>(
     storage_slot: Field,
     options: NoteViewerOptions<Note, N>,
 ) -> BoundedVec<Note, MAX_NOTES_PER_PAGE>
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable<N> + Eq,
 {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
         flatten_options(options.selects, options.sorts);
     let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
 
-    let notes_array: [_; MAX_NOTES_PER_PAGE] = oracle::notes::get_notes(
+    // We fetch the notes from the same oracle we use in the constrained case, except we don't bother inspecting the
+    // metadata in order to prove existence.
+    let opt_notes = oracle::notes::get_notes(
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -268,15 +280,12 @@ where
         placeholder_fields,
     );
 
-    let mut notes = BoundedVec::new();
-    for i in 0..notes_array.len() {
-        if notes_array[i].is_some() {
-            // We're not constraining note existence so we just drop the metadata
-            notes.push(notes_array[i].unwrap_unchecked().note);
-        }
-    }
-
-    notes
+    // Even though we don't expect for the opt_notes array to be sparse, collapse is still useful in this case to
+    // convert it into a BoundedVec.
+    array::collapse(opt_notes).map(
+        // view_notes just returns the actual note, so we drop the metadata
+        |retrieved_note| retrieved_note.note,
+    )
 }
 
 unconstrained fn flatten_options<let N: u32>(
