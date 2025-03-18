@@ -642,15 +642,6 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Adds a contract class bypassing the registerer.
-   * TODO(#10007): Remove this method.
-   * @param contractClass - The class to register.
-   */
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    throw new Error('TXE Node method addContractClass not implemented');
-  }
-
-  /**
    * Method to fetch the current base fees.
    * @returns The current base fees.
    */
