@@ -347,7 +347,7 @@ describe('Archiver', () => {
 
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
-    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50`);
+    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50, no blocks on chain`);
   }, 10_000);
 
   it('handles L2 reorg', async () => {
@@ -399,7 +399,7 @@ describe('Archiver', () => {
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
 
-    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50`);
+    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50, no blocks on chain`);
 
     // Lets take a look to see if we can find re-org stuff!
     await sleep(1000);
