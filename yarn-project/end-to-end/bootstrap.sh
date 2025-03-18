@@ -143,15 +143,15 @@ function test {
 }
 
 # Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
-function generate_private_ivc_inputs {
-  export CAPTURE_IVC_FOLDER=private-flows-ivc-inputs-out
+function generate_example_app_ivc_inputs {
+  export CAPTURE_IVC_FOLDER=example-app-ivc-inputs-out
   rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
   fi
   if [ -n "${DOWNLOAD_ONLY:-}" ]; then
     echo "Could not find ivc inputs cached!"
-    return
+    exit 1
   fi
   # Running these again separately from tests is a bit of a hack,
   # but we need to ensure test caching does not get in the way.
@@ -170,14 +170,18 @@ function bench {
     return
   fi
   BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
-  cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json
+  generate_example_app_ivc_inputs
+  # A bit pattern-breaking, but we need to generate our example app inputs here, then bb folder is the best
+  # place to test them.
+  ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh bench-out
+  cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json ./bench-out/ivc-bench.json
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  test|test_cmds|bench|generate_private_ivc_inputs)
+  test|test_cmds|bench|generate_example_app_ivc_inputs)
     $cmd
     ;;
   *)

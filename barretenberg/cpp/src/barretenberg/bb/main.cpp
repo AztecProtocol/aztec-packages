@@ -158,9 +158,8 @@ int main(int argc, char* argv[])
                 "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
                 "header information for deserialization. If fields, output a string representation of an array of "
                 "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
-                "elements. For ClientIVC, this option is proof or proof_vk.")
-            ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack", "proof", "proof_and_vk" })
-                        .name("is_member"));
+                "elements.")
+            ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {

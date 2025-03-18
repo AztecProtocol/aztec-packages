@@ -279,29 +279,7 @@ void ClientIVCAPI::prove(const Flags& flags,
         }
     };
 
-    const auto write_vk = [&]() {
-        auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
-        auto translator_vk =
-            std::make_shared<TranslatorFlavor::VerificationKey>(ivc->goblin.get_translator_proving_key());
-        const auto buf = to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk });
-        if (output_to_stdout) {
-            vinfo("writing ClientIVC vk to stdout");
-            write_bytes_to_stdout(buf);
-        } else {
-            vinfo("writing ClientIVC verification key in directory ", output_dir);
-            write_file(output_dir / "vk", buf);
-        }
-    };
-
-    if (flags.output_format == "proof") {
-        write_proof();
-    } else if (flags.output_format == "vk") {
-        write_vk();
-    } else {
-        ASSERT(flags.output_format == "proof_and_vk"); // should be caught already by CLI11
-        write_proof();
-        write_vk();
-    }
+    write_proof();
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
