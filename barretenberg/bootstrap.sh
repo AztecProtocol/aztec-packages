@@ -9,6 +9,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 ./cpp/bootstrap.sh $@
 ./ts/bootstrap.sh $@
 ./acir_tests/bootstrap.sh $@
+./docs/bootstrap.sh $@
 
 cmd=${1:-}
 if [ "$cmd" == "bench" ]; then
