@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742320093435,
+  "lastUpdate": 1742324703305,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1902,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 143089,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eff250193b2a0b75f503cbfd308f57aa7efec274",
+          "message": "fix: Remove hack to register contract class directly on node (#12795)\n\nFixes #10007",
+          "timestamp": "2025-03-18T18:43:56Z",
+          "tree_id": "74ef051b88c8f2b1743bcfd50cd74032ce576617",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/eff250193b2a0b75f503cbfd308f57aa7efec274"
+        },
+        "date": 1742324696062,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9338,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.22786299600647314,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 132519,
             "unit": "us"
           }
         ]
