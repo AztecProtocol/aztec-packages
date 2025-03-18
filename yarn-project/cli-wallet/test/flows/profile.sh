@@ -27,7 +27,7 @@ if [ "$size" -lt 1000000 ]; then
 fi
 
 # Profile gate counts for `transfer_in_private`
-gate_count=$(aztec-wallet profile transfer_in_private -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -f operator | grep "Total gates:" | awk '{print $3}')
+gate_count=$(aztec-wallet profile transfer_in_private -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -aw authwits:last -f operator | grep "Total gates:" | awk '{print $3}')
 
 echo "GATE_COUNT: $gate_count"
 
