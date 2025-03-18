@@ -37,35 +37,21 @@ First get the node info and create a public client pointing to the sandbox's anv
 
 #include_code get_node_info_pub_client yarn-project/end-to-end/src/spartan/smoke.test.ts javascript
 
-Now import and create a new fee juice portal manager the L1FeeJuicePortalManager
+After importing:
 
 ```ts
 import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
-
-l1PortalManager = await L1FeeJuicePortalManager.new(
-    pxe,
-    publicClient,
-    walletClient,
-    logger
-);
 ```
 
-Bridge the tokens via minting them from L1, eg if you have an array of unfunded Aztec addresses, `myAddresses`
+Create a new fee juice portal manager and bridge fee juice publicly to Aztec:
 
-```ts
-const claimAmount = 10n ** 22n;
-let claims: L2AmountClaim[] = [];
-// bridge sequentially to avoid l1 txs (nonces) being processed out of order
-for (let i = 0; i < myAddresses.length; i++) {
-    claims.push(await l1PortalManager.bridgeTokensPublic(myAddresses[i], claimAmount, true /*mint*/));
-}
-```
+#include_code bridge_fee_juice yarn-project/end-to-end/src/spartan/setup_test_wallets.ts javascript
 
 Bridging can also be done privately with the corresponding function:
 
 #include_code bridge_tokens_private yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
 
-After any two other transactions are made to progress the bridging steps, an already deployed account should have fee juice ready to use in transactions.
+For the mechanisms to complete bridging between L1 and Aztec, any two other transactions on the sandbox are made. After this, an already deployed account should have its fee juice ready to use in transactions.
 
 Alternatively, the resulting claim object can be used to create a payment method to claim and pay for a transaction in one, where the transaction is the contract's deployment.
 
@@ -117,20 +103,9 @@ import { CLI_Fees } from '/components/snippets';
 
 ### Claim and deploy
 
-Here we will use the account managers and wallets of `myAddresses` to create the payment method, and use it for accounts to claim fee juice and pay for their own deployment.
+Here we will use the `claim` object previously from the bridging section, and the corresponding `wallet`, to create the payment method. The payment method is then used to claim fee juice and pay for account contract deployment. Note the function used to bridge fee juice (private/public) should correspond to how the fee juice is claimed.
 
-Note: This uses the `claim` object shown in the earlier bridging section.
-
-```ts
-// claim and pay to deploy accounts
-let sentTxs = [];
-for (let i = 0; i < myWallets.length; i++) {
-    const paymentMethod = new FeeJuicePaymentMethodWithClaim(myWallets[i], claims[i]);
-    sentTxs.push(myAccountManagers[i].deploy({ fee: { paymentMethod } }));
-}
-await Promise.all(sentTxs.map(stx => stx.wait()));
-```
-
+#include_code claim_and_deploy yarn-project/bot/src/factory.ts javascript
 
 #### Claim and Pay
 
