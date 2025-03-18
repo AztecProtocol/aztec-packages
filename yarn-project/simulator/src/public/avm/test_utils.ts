@@ -28,7 +28,7 @@ export function mockStorageReadWithMap(worldStateDB: PublicTreesDB, mockedStorag
 }
 
 export function mockNoteHashExists(worldStateDB: PublicTreesDB, _leafIndex: Fr, value?: Fr) {
-  (worldStateDB as jest.Mocked<PublicTreesDB>).getCommitmentValue.mockImplementation((index: bigint) => {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).getNoteHash.mockImplementation((index: bigint) => {
     if (index == _leafIndex.toBigInt()) {
       return Promise.resolve(value);
     } else {
