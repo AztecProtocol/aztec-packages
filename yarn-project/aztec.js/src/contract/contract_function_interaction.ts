@@ -1,10 +1,11 @@
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/wallet.js';
-import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
 export type { SendMethodOptions };
@@ -19,6 +20,10 @@ export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   profileMode: 'gates' | 'execution-steps' | 'full';
   /** The sender's Aztec address. */
   from?: AztecAddress;
+  /** Authwits to use in the simulation */
+  authWitnesses?: AuthWitness[];
+  /** Capsules to use in the simulation */
+  capsules?: Capsule[];
 };
 
 /**
@@ -33,6 +38,10 @@ export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
+  /** Authwits to use in the simulation */
+  authWitnesses?: AuthWitness[];
+  /** Capsules to use in the simulation */
+  capsules?: Capsule[];
 };
 
 /**
@@ -45,8 +54,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
+    authWitnesses: AuthWitness[] = [],
+    capsules: Capsule[] = [],
+    extraHashedValues: HashedValues[] = [],
   ) {
-    super(wallet);
+    super(wallet, authWitnesses, capsules, extraHashedValues);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error('All function interaction arguments must be defined and not null. Received: ' + args);
     }
@@ -66,10 +78,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
     const requestWithoutFee = await this.request(options);
 
-    const { fee: userFee } = options;
-    const fee = await this.getFeeOptions({ ...requestWithoutFee, fee: userFee });
+    const { fee: userFee, nonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
 
-    return await this.wallet.createTxExecutionRequest({ ...requestWithoutFee, fee });
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
   }
 
   // docs:start:request
@@ -79,7 +91,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public async request(options: SendMethodOptions = {}): Promise<Omit<ExecutionRequestInit, 'fee'>> {
+  public async request(options: SendMethodOptions = {}): Promise<ExecutionPayload> {
     // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
     const calls = [
@@ -93,18 +105,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         returnTypes: this.functionDao.returnTypes,
       },
     ];
-    const authWitnesses = this.getAuthWitnesses();
-    const hashedArguments = this.getHashedArguments();
-    const capsules = this.getCapsules();
-    const { nonce, cancellable } = options;
-    return {
+    const { authWitnesses, capsules } = options;
+    return new ExecutionPayload(
       calls,
-      authWitnesses,
-      hashedArguments,
-      capsules,
-      nonce,
-      cancellable,
-    };
+      this.authWitnesses.concat(authWitnesses ?? []),
+      this.capsules.concat(capsules ?? []),
+      this.extraHashedValues,
+    );
   }
 
   // docs:start:simulate
@@ -120,11 +127,18 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options?.from);
+      return this.wallet.simulateUnconstrained(
+        this.functionDao.name,
+        this.args,
+        this.contractAddress,
+        options.authWitnesses ?? [],
+        options?.from,
+      );
     }
 
     const fee = options.fee ?? { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) };
-    const txRequest = await this.create({ fee });
+    const { authWitnesses, capsules } = options;
+    const txRequest = await this.create({ fee, authWitnesses, capsules });
     const simulatedTx = await this.wallet.simulateTx(
       txRequest,
       true /* simulatePublic */,
@@ -161,8 +175,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       throw new Error("Can't profile an unconstrained function.");
     }
+    const { authWitnesses, capsules, fee } = options;
 
-    const txRequest = await this.create({ fee: options.fee });
+    const txRequest = await this.create({ fee, authWitnesses, capsules });
     return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
   }
 }

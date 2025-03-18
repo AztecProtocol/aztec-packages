@@ -185,6 +185,7 @@ __metadata:
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
     "@aztec/constants": "workspace:^"
+    "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
@@ -214,6 +215,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec3-packages@workspace:."
   dependencies:
+    "@aztec/entrypoints": "workspace:^"
     "@monorepo-utils/workspaces-to-typescript-project-references": "npm:^2.9.0"
     "@swc-node/register": "npm:^1.10.9"
     "@swc/cli": "npm:^0.6.0"
@@ -462,6 +464,7 @@ __metadata:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/cli": "workspace:^"
+    "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -649,7 +652,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/entrypoints@workspace:entrypoints"
   dependencies:
-    "@aztec/aztec.js": "workspace:^"
+    "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
