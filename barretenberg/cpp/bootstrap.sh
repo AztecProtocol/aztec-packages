@@ -125,12 +125,6 @@ function build_release {
   inject_version build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
-  if [ "$CI_FULL" -eq 1 ]; then
-    cp build-darwin-$arch/bin/bb build-release/bb
-    inject_version build-release/bb
-    tar -czf build-release/barretenberg-$arch-darwin.tar.gz -C build-release --remove-files bb
-  fi
-
   # Only release wasms built on amd64.
   if [ "$arch" == "amd64" ]; then
     tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
@@ -255,13 +249,13 @@ function bench {
     local flow=$1
     local inputs_folder="$capture_ivc_folder/$flow"
     local start=$(date +%s%N)
-    local maybe_allow_fail="false"
-    # TODO(AD) this should verify!
-    if [ "$flow" == "amm-add-liquidity" ]; then
-      maybe_allow_fail="true"
-    fi
     mkdir -p "bench-out/$flow-proof-files"
-    ./build/bin/bb prove -o "bench-out/$flow-proof-files" -b "$inputs_folder/acir.msgpack" -w "$inputs_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack || $maybe_allow_fail
+    # TODO(AD) this should verify but doesn't!
+    if [ "$flow" == "amm-add-liquidity" ]; then
+      set +e
+    fi
+    ./build/bin/bb prove -o "bench-out/$flow-proof-files" -b "$inputs_folder/acir.msgpack" -w "$inputs_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
+    set -e
     echo "$flow has proven."
     local end=$(date +%s%N)
     local elapsed_ns=$(( end - start ))
