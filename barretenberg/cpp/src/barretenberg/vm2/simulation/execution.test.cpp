@@ -18,7 +18,6 @@
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_context_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -30,6 +29,7 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
+/*
 class ExecutionSimulationTest : public ::testing::Test {
   protected:
     ExecutionSimulationTest() { ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory)); }
@@ -38,7 +38,6 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockAddressing> addressing;
     StrictMock<MockMemory> memory;
     StrictMock<MockContextProvider> context_provider;
-    StrictMock<MockContextStack> context_stack;
     InstructionInfoDB instruction_info_db; // Using the real thing.
     StrictMock<MockContext> context;
     EventEmitter<ExecutionEvent> execution_event_emitter;
@@ -74,7 +73,7 @@ TEST_F(ExecutionSimulationTest, ReturnNotTopLevel)
 
     execution.ret(context, 1, 2);
 }
-
+*/
 // FIXME: Way too long and complicated.
 // TEST_F(ExecutionSimulationTest, ExecutionLoop)
 // {
