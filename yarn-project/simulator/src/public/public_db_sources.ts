@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
@@ -14,25 +15,29 @@ import {
 } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
-  MerkleTreeCheckpointOperations,
+  BatchInsertionResult,
+  IndexedTreeId,
+  MerkleTreeLeafType,
   MerkleTreeReadOperations,
   MerkleTreeWriteOperations,
+  SequentialInsertionResult,
+  TreeInfo,
 } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import type { Tx } from '@aztec/stdlib/tx';
+import type { BlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 
-import type { PublicContractsDB, PublicStateDB } from '../common/db_interfaces.js';
+import type { PublicContractsDBInterface, PublicStateDBInterface } from '../common/db_interfaces.js';
 import { TxContractCache } from './tx_contract_cache.js';
 
 /**
- * Implements the PublicContractsDB using a ContractDataSource.
+ * Implements the PublicContractsDBInterface using a ContractDataSource.
  * Progressively records contracts in transaction as they are processed in a block.
  * Separates block-level contract information (from processed/included txs) from the
  * current tx's contract information (which may be cleared on tx revert/death).
  */
-export class ContractsDataSourcePublicDB implements PublicContractsDB {
+export class PublicContractsDB implements PublicContractsDBInterface {
   // Two caching layers for contract classes and instances.
   // Tx-level cache:
   //   - The current tx's new contract information is cached
@@ -210,6 +215,13 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     this.currentTxRevertibleCache.clear();
   }
 
+  // TODO(fcarreiro/alvaro): This method currently needs a blockNumber. Since this class
+  // is only ever used for a given block, it should be possible to construct it with the
+  // block number and then forget about it. However, since this class (and interface) is
+  // currently more externally exposed than we'd want to, Facundo preferred to not add it
+  // to the constructor right now. If we can make this class more private, we should
+  // reconsider this. A litmus test is in how many places we need to initialize with a
+  // dummy block number (tests or not) and pass block numbers to `super`.
   public async getContractInstance(
     address: AztecAddress,
     blockNumber: number,
@@ -264,38 +276,125 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
 }
 
 /**
- * A public state DB that reads and writes to the world state.
+ * Proxy class that forwards all merkle tree operations to the underlying object.
+ *
+ * NOTE: It might be possible to prune this to just the methods used in public.
+ * Then we'd need to define a new interface, instead of MerkleTreeWriteOperations,
+ * to be used by all our classes (that could be PublicStateDBInterface).
  */
-export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicStateDB, MerkleTreeCheckpointOperations {
-  private logger = createLogger('simulator:world-state-db');
+class ForwardMerkleTree implements MerkleTreeWriteOperations {
+  constructor(private readonly operations: MerkleTreeWriteOperations) {}
 
-  constructor(public db: MerkleTreeWriteOperations, dataSource: ContractDataSource) {
-    super(dataSource);
+  getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
+    return this.operations.getTreeInfo(treeId);
   }
 
-  /**
-   * Checkpoints the current fork state
-   */
-  public async createCheckpoint() {
-    await this.db.createCheckpoint();
+  getStateReference(): Promise<StateReference> {
+    return this.operations.getStateReference();
   }
 
-  /**
-   * Commits the current checkpoint
-   */
-  public async commitCheckpoint() {
-    await this.db.commitCheckpoint();
+  getInitialHeader(): BlockHeader {
+    return this.operations.getInitialHeader();
   }
 
-  /**
-   * Reverts the current checkpoint
-   */
-  public async revertCheckpoint() {
-    await this.db.revertCheckpoint();
+  getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
+    return this.operations.getSiblingPath(treeId, index);
   }
 
-  public getMerkleInterface(): MerkleTreeWriteOperations {
-    return this.db;
+  getPreviousValueIndex<ID extends IndexedTreeId>(
+    treeId: ID,
+    value: bigint,
+  ): Promise<
+    | {
+        index: bigint;
+        alreadyPresent: boolean;
+      }
+    | undefined
+  > {
+    return this.operations.getPreviousValueIndex(treeId, value);
+  }
+
+  getLeafPreimage<ID extends IndexedTreeId>(treeId: ID, index: bigint): Promise<IndexedTreeLeafPreimage | undefined> {
+    return this.operations.getLeafPreimage(treeId, index);
+  }
+
+  findLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(bigint | undefined)[]> {
+    return this.operations.findLeafIndices(treeId, values);
+  }
+
+  findLeafIndicesAfter<ID extends MerkleTreeId>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+    startIndex: bigint,
+  ): Promise<(bigint | undefined)[]> {
+    return this.operations.findLeafIndicesAfter(treeId, values, startIndex);
+  }
+
+  getLeafValue<ID extends MerkleTreeId>(
+    treeId: ID,
+    index: bigint,
+  ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
+    return this.operations.getLeafValue(treeId, index);
+  }
+
+  getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    leafIndices: bigint[],
+  ): Promise<(bigint | undefined)[]> {
+    return this.operations.getBlockNumbersForLeafIndices(treeId, leafIndices);
+  }
+
+  createCheckpoint(): Promise<void> {
+    return this.operations.createCheckpoint();
+  }
+
+  commitCheckpoint(): Promise<void> {
+    return this.operations.commitCheckpoint();
+  }
+
+  revertCheckpoint(): Promise<void> {
+    return this.operations.revertCheckpoint();
+  }
+
+  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
+    return this.operations.appendLeaves(treeId, leaves);
+  }
+
+  updateArchive(header: BlockHeader): Promise<void> {
+    return this.operations.updateArchive(header);
+  }
+
+  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number, ID extends IndexedTreeId>(
+    treeId: ID,
+    leaves: Buffer[],
+    subtreeHeight: number,
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+    return this.operations.batchInsert(treeId, leaves, subtreeHeight);
+  }
+
+  sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
+    treeId: ID,
+    leaves: Buffer[],
+  ): Promise<SequentialInsertionResult<TreeHeight>> {
+    return this.operations.sequentialInsert(treeId, leaves);
+  }
+
+  close(): Promise<void> {
+    return this.operations.close();
+  }
+}
+
+/**
+ * A class that provides access to the merkle trees, and other helper methods.
+ */
+export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInterface {
+  private logger = createLogger('simulator:public-trees-db');
+
+  constructor(public db: MerkleTreeWriteOperations) {
+    super(db);
   }
 
   /**
@@ -332,13 +431,13 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
     return leafValue;
   }
 
-  public async getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined> {
+  public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
     const leafValue = await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
-    this.logger.debug(`[DB] Fetched commitment leaf value`, {
+    this.logger.debug(`[DB] Fetched note hash leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
-      operation: 'get-commitment-leaf-value',
+      operation: 'get-note-hash',
     } satisfies PublicDBAccessStats);
     return leafValue;
   }

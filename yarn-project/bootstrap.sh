@@ -31,12 +31,18 @@ function get_projects {
 }
 
 function format {
+  local arg=${1:-"-w"}
   find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
 }
 
 function lint {
-  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
+  local arg="--fix"
+  if [ "${1-}" == "--check" ]; then
+    arg=""
+    shift 1
+  fi
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
 }
 
 function compile_all {
@@ -65,10 +71,10 @@ function compile_all {
 
   get_projects | compile_project
 
-  cmds=(format)
+  cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
+    cmds+=('yarn tsc -b --emitDeclarationOnly && lint --check')
   else
     # We just need the type declarations required for downstream consumers.
     cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
@@ -76,7 +82,7 @@ function compile_all {
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
 
-  if [ "${CI:-0}" -eq 1 ]; then
+  if [ "$CI" -eq 1 ]; then
     cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
   fi
 }
@@ -86,27 +92,19 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  if [ "${CI:-0}" = 1 ]; then
-    # If in CI mode, retry as bcrypto can sometimes fail mysteriously.
-    # We set immutable since we don't expect the yarn.lock to change. Note that we have also added all package.json
-    # files to yarn immutablePatterns, so if they are also changed, this step will fail.
-    denoise "retry yarn install --immutable"
-  else
-    denoise "yarn install --no-immutable"
-  fi
+  npm_install_deps
   denoise "compile_all"
-  echo -e "${green}Yarn project successfully built!${reset}"
 }
 
 function test_cmds {
   local hash=$(hash)
   # These need isolation due to network stack usage (p2p, anvil, etc).
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
-    if [[ ! "$test" =~ testbench ]]; then
-      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
-    else
+    if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
       echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     fi
 
   done
@@ -196,8 +194,8 @@ case "$cmd" in
       get_projects | compile_project
     fi
     ;;
-  "lint")
-    lint "$@"
+  lint|format)
+    $cmd "$@"
     ;;
   test|test_cmds|hash|release|format)
     $cmd

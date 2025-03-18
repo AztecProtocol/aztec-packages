@@ -10,18 +10,11 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
-import {
-  AvmCircuitInputs,
-  type AvmCircuitPublicInputs,
-  type AvmProvingRequest,
-  PublicDataWrite,
-  RevertCode,
-} from '@aztec/stdlib/avm';
+import { type AvmCircuitPublicInputs, AvmExecutionHints, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -30,7 +23,6 @@ import {
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/stdlib/kernel';
-import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
@@ -45,8 +37,10 @@ import {
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
+import type { PublicContractsDBInterface } from '../../server.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
-import type { WorldStateDB } from '../public_db_sources.js';
+import { HintingPublicContractsDB } from '../hinting_db_sources.js';
+import type { PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
 import { getCallRequestsByPhase, getExecutionRequestsByPhase } from '../utils.js';
 
@@ -68,9 +62,7 @@ export class PublicTxContext {
   /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
 
-  public avmProvingRequest: AvmProvingRequest | undefined; // FIXME(dbanks12): remove
-
-  constructor(
+  private constructor(
     public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
@@ -87,14 +79,15 @@ export class PublicTxContext {
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
-    public trace: SideEffectTrace, // FIXME(dbanks12): should be private
+    private readonly trace: SideEffectTrace,
+    public readonly hints: AvmExecutionHints, // This is public due to enqueued call hinting.
   ) {
     this.log = createLogger(`simulator:public_tx_context`);
   }
 
   public static async create(
-    db: MerkleTreeReadOperations,
-    worldStateDB: WorldStateDB,
+    treesDB: PublicTreesDB,
+    contractsDB: PublicContractsDBInterface,
     tx: Tx,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
@@ -114,9 +107,15 @@ export class PublicTxContext {
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
+    // We wrap the DB to collect AVM hints.
+    const hints = new AvmExecutionHints();
+    const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
+    // TODO: Wrap merkle db.
+
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = AvmPersistableStateManager.create(
-      worldStateDB,
+      treesDB,
+      hintingContractsDB,
       trace,
       doMerkleOperations,
       firstNullifier,
@@ -132,7 +131,7 @@ export class PublicTxContext {
       await tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       globalVariables,
-      await db.getStateReference(),
+      await treesDB.getStateReference(),
       gasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
@@ -146,6 +145,7 @@ export class PublicTxContext {
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
       trace,
+      hints,
     );
   }
 
@@ -328,7 +328,7 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  private async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
+  public async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const stateManager = this.state.getActiveStateManager();
 
@@ -412,16 +412,18 @@ export class PublicTxContext {
     );
     const numNoteHashesToPad =
       MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
-    await stateManager.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
+    await stateManager
+      .deprecatedGetTreesForPIGeneration()
+      .appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
     const numNullifiersToPad =
       MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
-    await stateManager.db.batchInsert(
+    await stateManager.deprecatedGetTreesForPIGeneration().batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       padArrayEnd([], Fr.ZERO, numNullifiersToPad).map(nullifier => nullifier.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
 
-    const paddedState = await stateManager.db.getStateReference();
+    const paddedState = await stateManager.deprecatedGetTreesForPIGeneration().getStateReference();
     avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
       paddedState.l1ToL2MessageTree,
       paddedState.partial.noteHashTree,
@@ -430,22 +432,6 @@ export class PublicTxContext {
     );
 
     return avmCircuitPublicInputs;
-  }
-
-  /**
-   * Generate the proving request for the AVM circuit.
-   */
-  async generateProvingRequest(endStateReference: StateReference): Promise<AvmProvingRequest> {
-    const hints = this.trace.getAvmCircuitHints();
-    return {
-      type: ProvingRequestType.PUBLIC_VM,
-      inputs: new AvmCircuitInputs(
-        'public_dispatch',
-        [],
-        hints,
-        await this.generateAvmCircuitPublicInputs(endStateReference),
-      ),
-    };
   }
 }
 

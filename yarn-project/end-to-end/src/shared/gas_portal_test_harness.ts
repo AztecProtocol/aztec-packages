@@ -14,6 +14,7 @@ import {
 import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;
@@ -25,6 +26,7 @@ export interface IGasBridgingTestHarness {
 
 export interface FeeJuicePortalTestingHarnessFactoryConfig {
   aztecNode: AztecNode;
+  aztecNodeAdmin?: AztecNodeAdmin;
   pxeService: PXE;
   publicClient: ViemPublicClient;
   walletClient: ViemWalletClient;
@@ -37,7 +39,7 @@ export class FeeJuicePortalTestingHarnessFactory {
   private constructor(private config: FeeJuicePortalTestingHarnessFactoryConfig) {}
 
   private async createReal() {
-    const { aztecNode, pxeService, publicClient, walletClient, wallet, logger } = this.config;
+    const { aztecNode, aztecNodeAdmin, pxeService, publicClient, walletClient, wallet, logger } = this.config;
 
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
@@ -53,6 +55,7 @@ export class FeeJuicePortalTestingHarnessFactory {
 
     return new GasBridgingTestHarness(
       aztecNode,
+      aztecNodeAdmin,
       pxeService,
       logger,
       gasL2,
@@ -81,6 +84,8 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
   constructor(
     /** Aztec node */
     public aztecNode: AztecNode,
+    /** Aztec node admin interface */
+    public aztecNodeAdmin: AztecNodeAdmin | undefined,
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
     /** Logger. */
@@ -165,7 +170,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
 
   private async advanceL2Block() {
     const initialBlockNumber = await this.aztecNode.getBlockNumber();
-    await this.aztecNode.flushTxs();
+    await this.aztecNodeAdmin?.flushTxs();
     await retryUntil(async () => (await this.aztecNode.getBlockNumber()) >= initialBlockNumber + 1);
   }
 }

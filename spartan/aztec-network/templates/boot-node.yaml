@@ -76,7 +76,6 @@ spec:
               source /shared/config/validator-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
-
               /scripts/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
           volumeMounts:
             - name: scripts-output
@@ -112,6 +111,8 @@ spec:
               value: "{{ .Values.ethereum.l1GasPriceMax }}"
             - name: L1_FIXED_PRIORITY_FEE_PER_GAS
               value: "{{ .Values.ethereum.l1FixedPriorityFeePerGas }}"
+            - name: AZTEC_MANA_TARGET
+              value: "{{ .Values.aztec.manaTarget }}"
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:

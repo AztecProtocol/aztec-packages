@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import { PublicContractsDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
@@ -12,10 +12,10 @@ import {
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
-  private contractDataSource: ContractsDataSourcePublicDB;
+  private contractsDB: PublicContractsDB;
 
   constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
-    this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
+    this.contractsDB = new PublicContractsDB(contracts);
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
@@ -23,7 +23,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       // TODO(@spalladino): We add this just to handle public authwit-check calls during setup
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
-      await this.contractDataSource.addNewContracts(tx);
+      await this.contractsDB.addNewContracts(tx);
 
       if (!tx.data.forPublic) {
         this.#log.debug(
@@ -48,7 +48,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       return { result: 'valid' };
     } finally {
-      this.contractDataSource.clearContractsForTx();
+      this.contractsDB.clearContractsForTx();
     }
   }
 
@@ -73,7 +73,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         }
       }
 
-      const contractClass = await this.contractDataSource.getContractInstance(contractAddress, this.blockNumber);
+      const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.blockNumber);
 
       if (!contractClass) {
         throw new Error(`Contract not found: ${contractAddress}`);
