@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742302603242,
+  "lastUpdate": 1742305169701,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1746,6 +1746,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 140415,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74476ff81ac32814f60560a1832d92d51c09dac5",
+          "message": "chore: Set max txs per block (#12837)\n\nSimply sets the pre-defined max txs per block config to 4 for ignition",
+          "timestamp": "2025-03-18T13:22:35Z",
+          "tree_id": "4f66c4c059dea074659505838fef821bcb464621",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/74476ff81ac32814f60560a1832d92d51c09dac5"
+        },
+        "date": 1742305161861,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9491,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2315998011020908,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 138513,
             "unit": "us"
           }
         ]
