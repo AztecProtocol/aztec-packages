@@ -33,6 +33,9 @@ template <typename Curve> class ProverOpeningClaim {
   public:
     Polynomial polynomial;           // p
     OpeningPair<Curve> opening_pair; // (challenge r, evaluation v = p(r))
+    // Gemini Folds have to be opened at `challenge` and -`challenge`. Instead of copying a polynomial into 2 claims, we
+    // raise the flag that turns on relevant claim processing logic in Shplonk.
+    bool gemini_fold = false;
 };
 
 /**

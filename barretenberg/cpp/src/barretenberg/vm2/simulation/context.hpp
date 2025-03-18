@@ -105,14 +105,11 @@ class ContextProvider : public ContextProviderInterface {
     {
         uint32_t space_id = static_cast<uint32_t>(address); // FIXME: space id.
 
-        // FIXME: doing too much in a "constructor"!
-        BytecodeId bytecode_id = tx_bytecode_manager.get_bytecode(address);
-
         return std::make_unique<Context>(address,
                                          msg_sender,
                                          calldata,
                                          is_static,
-                                         std::make_unique<BytecodeManager>(bytecode_id, tx_bytecode_manager),
+                                         std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
                                          std::make_unique<Memory>(space_id, memory_events));
     }
 
