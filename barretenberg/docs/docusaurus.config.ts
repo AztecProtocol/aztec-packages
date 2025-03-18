@@ -40,6 +40,9 @@ const config: Config = {
     locales: ["en"],
   },
 
+  customFields: {
+    MATOMO_ENV: process.env.ENV,
+  },
   presets: [
     [
       "classic",
@@ -50,7 +53,7 @@ const config: Config = {
           routeBasePath: "/",
           remarkPlugins: [math],
           rehypePlugins: [
-            [
+            [ 
               katex,
               {
                 throwOnError: true,
