@@ -146,6 +146,24 @@ contract RollupBase is DecoderBase {
   }
 
   function _proposeBlock(string memory _name, uint256 _slotNumber, uint256 _manaUsed) public {
+    _proposeBlock(_name, _slotNumber, _manaUsed, "");
+  }
+
+  function _proposeBlockFail(
+    string memory _name,
+    uint256 _slotNumber,
+    uint256 _manaUsed,
+    bytes memory _revertMsg
+  ) public {
+    _proposeBlock(_name, _slotNumber, _manaUsed, _revertMsg);
+  }
+
+  function _proposeBlock(
+    string memory _name,
+    uint256 _slotNumber,
+    uint256 _manaUsed,
+    bytes memory _revertMsg
+  ) private {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
     bytes memory blobInputs = full.block.blobInputs;
@@ -186,7 +204,14 @@ contract RollupBase is DecoderBase {
         blobHash := mload(add(blobInputs, 0x21))
       }
       blobHashes[0] = blobHash;
-      vm.blobhashes(blobHashes);
+      // https://github.com/foundry-rs/foundry/issues/10074
+      // don't add blob hashes if forge gas report is true
+      if (!vm.envOr("FORGE_GAS_REPORT", false)) {
+        vm.blobhashes(blobHashes);
+      } else {
+        // skip blob check if forge gas report is true
+        skipBlobCheck(address(rollup));
+      }
     }
 
     ProposeArgs memory args = ProposeArgs({
@@ -196,7 +221,15 @@ contract RollupBase is DecoderBase {
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
+
+    if (_revertMsg.length > 0) {
+      vm.expectRevert(_revertMsg);
+    }
     rollup.propose(args, signatures, blobInputs);
+
+    if (_revertMsg.length > 0) {
+      return;
+    }
 
     bytes32 l2ToL1MessageTreeRoot;
     uint32 numTxs = full.block.numTxs;

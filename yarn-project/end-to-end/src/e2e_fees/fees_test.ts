@@ -188,10 +188,11 @@ export class FeesTest {
 
         const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-          aztecNode: aztecNode,
+          aztecNode,
+          aztecNodeAdmin: aztecNode,
           pxeService: pxe,
-          publicClient: publicClient,
-          walletClient: walletClient,
+          publicClient,
+          walletClient,
           wallet: this.aliceWallet,
           logger: this.logger,
         });
@@ -221,6 +222,7 @@ export class FeesTest {
         const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
+          aztecNodeAdmin: context.aztecNode,
           pxeService: context.pxe,
           publicClient: publicClient,
           walletClient: walletClient,

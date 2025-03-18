@@ -467,9 +467,11 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-noirc_abi": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
+    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
@@ -583,6 +585,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-noirc_abi": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
@@ -597,6 +600,7 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
+    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@noble/curves": "npm:^1.0.0"
     "@swc/core": "npm:^1.4.11"
     "@swc/jest": "npm:^0.2.36"
@@ -954,12 +958,12 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.3
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=1c440e&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=41a8a4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.3"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.3"
     "@aztec/noir-types": "npm:1.0.0-beta.3"
-  checksum: 10/08fd293b038e8e3700f6a5dede8ad80ed8254ad49f177dc4e4f3b0528661621f36bf02a2335dd7002ae0caf9ca6bdbc7c494e4093a40b1e58acb37352dcf22dd
+  checksum: 10/e21f44dcfb7c707153ae41bcd642015afb538aa4713414a9b67317f67741feade4926f450bce69ce4907581bcb2eff36c262237f0bc4b188f71ae94c50aa63eb
   languageName: node
   linkType: hard
 
