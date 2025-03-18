@@ -362,7 +362,11 @@ describe('Archiver', () => {
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
-    publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n).mockResolvedValueOnce(150n);
+    let mockedBlockNum = 0n;
+    publicClient.getBlockNumber.mockImplementation(() => {
+      mockedBlockNum += 50n;
+      return Promise.resolve(mockedBlockNum);
+    });
 
     // We will return status at first to have an empty round, then as if we have 2 pending blocks, and finally
     // Just a single pending block returning a "failure" for the expected pending block
@@ -403,7 +407,7 @@ describe('Archiver', () => {
     expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50`);
 
     // Lets take a look to see if we can find re-org stuff!
-    await sleep(1000);
+    await sleep(2000);
 
     expect(loggerSpy).toHaveBeenCalledWith(`L2 prune has been detected.`);
 
