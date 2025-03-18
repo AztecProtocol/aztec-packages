@@ -76,7 +76,7 @@ const { txHash, debugInfo } = await contract.methods
 ++      await waitForProven(aztecNode, receipt, { provenTimeout: 3000 });
 ```
 
-Authwit management has changed, and PXE no longet stores them. This is unnecesary because now they can be externally provided to simulations and transactions, making sure no stale authorizations are kept inside PXE's db.
+Authwit management has changed, and PXE no longer stores them. This is unnecessary because now they can be externally provided to simulations and transactions, making sure no stale authorizations are kept inside PXE's db.
 
 ```diff
 const witness = await wallet.createAuthWit({ caller, action });

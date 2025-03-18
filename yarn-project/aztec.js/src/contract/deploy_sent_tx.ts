@@ -29,7 +29,7 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   private log = createLogger('aztecjs:deploy_sent_tx');
 
   constructor(
-    pxeOrWallet: Wallet,
+    wallet: Wallet,
     txHashPromise: Promise<TxHash>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     /** A getter for the deployed contract instance */

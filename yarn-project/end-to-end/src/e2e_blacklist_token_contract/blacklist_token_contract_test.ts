@@ -168,7 +168,7 @@ export class BlacklistTokenContractTest {
 
   async addPendingShieldNoteToPXE(
     contract: TokenBlacklistContract,
-    address: AztecAddress,
+    recipient: AztecAddress,
     amount: bigint,
     secretHash: Fr,
     txHash: TxHash,
@@ -182,7 +182,7 @@ export class BlacklistTokenContractTest {
         txHash.hash,
         this.#toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
         txEffects!.data.nullifiers[0],
-        address,
+        recipient,
       )
       .simulate();
   }

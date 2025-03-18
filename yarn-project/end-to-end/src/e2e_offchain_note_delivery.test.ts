@@ -34,7 +34,6 @@ describe('e2e_offchain_note_delivery', () => {
     expect(noteHashes?.length).toBe(1);
 
     // The note was not broadcast, so we must manually deliver it to the contract via the custom mechanism to do so.
-
     await contract.methods
       .deliver_note(
         contract.address,

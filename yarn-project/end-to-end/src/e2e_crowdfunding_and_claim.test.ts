@@ -188,7 +188,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       .simulate();
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
-    // 4) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
+    // 3) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
     await crowdfundingContract.methods.withdraw(donationAmount).send().wait();
 
     const balanceDNTAfterWithdrawal = await donationToken.methods

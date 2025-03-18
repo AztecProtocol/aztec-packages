@@ -355,7 +355,7 @@ function toBoundedVec(arr: Fr[], maxLen: number) {
 
 async function addPendingShieldNoteToPXE(
   contract: TokenBlacklistContract,
-  address: AztecAddress,
+  recipient: AztecAddress,
   amount: bigint,
   secretHash: Fr,
   txHash: TxHash,
@@ -371,7 +371,7 @@ async function addPendingShieldNoteToPXE(
       txHash.hash,
       toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
       txEffects!.data.nullifiers[0],
-      address,
+      recipient,
     )
     .simulate();
   // docs:end:offchain_delivery

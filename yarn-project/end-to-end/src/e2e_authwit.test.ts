@@ -39,8 +39,8 @@ describe('e2e_authwit_tests', () => {
         // 1. We compute an inner hash which is here just a hash of random data
         // 2. We then compute the message hash, which is binding it to a "consumer" (here the "auth" contract)
         // 3. We then create an authwit for this message hash.
-        // 5. We check that the authwit is valid in private for wallet[0] (check that it is signed by 0)
-        // 6. We check that the authwit is NOT valid in private for wallet[1] (check that it is not signed by 1)
+        // 4. We check that the authwit is valid in private for wallet[0] (check that it is signed by 0)
+        // 5. We check that the authwit is NOT valid in private for wallet[1] (check that it is not signed by 1)
 
         // docs:start:compute_inner_authwit_hash
         const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead')]);
