@@ -418,11 +418,11 @@ template <typename Curve> class ShpleminiVerifier_ {
     };
 
     /**
-     * @brief Populates the 'commitments' and 'scalars' vectors with the commitments to Gemini fold polynomials \f$
-     * A_i \f$.
+     * @brief Place fold polynomial commitments to `commitments` and compute the corresponding scalar multipliers.
      *
-     * @details Once the commitments to Gemini "fold" polynomials \f$ A_i \f$ and their evaluations at \f$ -r^{2^i}
-     * \f$, where \f$ i = 1, \ldots, n-1 \f$, are received by the verifier, it performs the following operations:
+     * @details Once the commitments to Gemini "fold" polynomials \f$ A_i \f$ and their negative evaluations, i.e. \f$
+     * A_i(-r^{2^i}) \f$, for \f$ i = 1, \ldots, n-1 \f$, are obtained, and the verifier has reconstructed the positive
+     * fold evaluation \f$ A_i(r^{2^i}) \f$ for \f$ i=1, \ldots, n - 1 \f$, it performs the following operations:
      *
      * 1. Moves the vector
      * \f[
@@ -430,32 +430,38 @@ template <typename Curve> class ShpleminiVerifier_ {
      * \f]
      * to the 'commitments' vector.
      *
-     * 2. Computes the scalars:
-     * \f[
-     * \frac{\nu^{2}}{z + r^2}, \frac{\nu^3}{z + r^4}, \ldots, \frac{\nu^{n-1}}{z + r^{2^{n-1}}}
-     * \f]
-     * and places them into the 'scalars' vector.
+     * 2. Computes the scalars
+     * \f{align}{
+     * \frac{\nu^2}{z - r^2} + \frac{\nu^3}{z + r^2},
+     * \frac{\nu^4}{z - r^4} + \frac{\nu^5}{z + r^4},
+     * \ldots,
+     * \frac{\nu^{2 \cdot n} } {z - r^{2^{n-1}}} + \frac{\nu^{2 \cdot n + 1}}{z + r^{2^{n-1}}}. \f}
+     * The commitments \f$ [A_1]_1, \ldots, [A_{n-1}]_1 \f$ are multiplied by these scalars in the final `batch_mul`
+     * perfomed by KZG or IPA.
      *
      * 3. Accumulates the summands of the constant term:
-     * \f[
-     * \sum_{i=2}^{n-1} \frac{\nu^{i} \cdot A_i(-r^{2^i})}{z + r^{2^i}}
-     * \f]
-     * and adds them to the 'constant_term_accumulator'.
+     * \f{align}{
+     * \frac{\nu^{2 i} \cdot A_i\left(r^{2^i} \right)}{z - r^{2^i}} + \frac{\nu^{2 \cdot i+1} \cdot
+     * A_i\left(-r^{2^i}\right)}{z+ r^{2^i}} \f} for \f$ i = 1, \ldots, n-1 \f$ and adds them to the
+     * 'constant_term_accumulator'.
      *
      * @param log_circuit_size The logarithm of the circuit size, determining the depth of the Gemini protocol.
      * @param fold_commitments A vector containing the commitments to the Gemini fold polynomials \f$ A_i \f$.
-     * @param gemini_evaluations A vector containing the evaluations of the Gemini fold polynomials \f$ A_i \f$ at
-     * points \f$ -r^{2^i} \f$.
-     * @param inverse_vanishing_evals A vector containing the inverse evaluations of the vanishing polynomial.
-     * @param shplonk_batching_challenge The batching challenge \f$ \nu \f$ used in the SHPLONK protocol.
+     * @param gemini_neg_evaluations The evaluations of Gemini fold polynomials \f$ A_i \f$ at \f$ -r^{2^i} \f$ for \f$
+     * i = 0, \ldots, n - 1 \f$.
+     * @param gemini_pos_evaluations The evaluations of Gemini fold polynomials \f$ A_i \f$ at \f$ r^{2^i} \f$ for \f$
+     * i = 0, \ldots, n - 1 \f$
+     * @param inverse_vanishing_evals \f$ 1/(z − r), 1/(z + r), 1/(z - r^2),  1/(z + r^2), \ldots, 1/(z - r^{2^{n-1}}),
+     * 1/(z + r^{2^{n-1}}) \f$
+     * @param shplonk_batching_challenge_powers A vector of powers of \f$ \nu \f$ used to batch all univariate claims.
      * @param commitments Output vector where the commitments to the Gemini fold polynomials will be stored.
      * @param scalars Output vector where the computed scalars will be stored.
-     * @param constant_term_accumulator The accumulator for the summands of the constant term.
+     * @param constant_term_accumulator The accumulator for the summands of the Shplonk constant term.
      */
     static void batch_gemini_claims_received_from_prover(const size_t log_circuit_size,
                                                          const std::vector<Commitment>& fold_commitments,
-                                                         const std::vector<Fr>& gemini_evaluations,
-                                                         const std::vector<Fr>& gemini_fold_pos_evaluations,
+                                                         const std::vector<Fr>& gemini_neg_evaluations,
+                                                         const std::vector<Fr>& gemini_pos_evaluations,
                                                          const std::vector<Fr>& inverse_vanishing_evals,
                                                          const std::vector<Fr>& shplonk_batching_challenge_powers,
                                                          std::vector<Commitment>& commitments,
@@ -464,29 +470,33 @@ template <typename Curve> class ShpleminiVerifier_ {
     {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
-        for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N - 1; ++j) {
-            // Compute the "positive" scaling factor  (ν^{2j+1}) / (z - r^{2^{j}})
-            size_t pos_location = 2 * j + 2;
-            Fr scaling_factor_pos =
-                shplonk_batching_challenge_powers[pos_location] * inverse_vanishing_evals[pos_location];
-            // Compute the "negative" scaling factor  (ν^{2j+2}) / (z + r^{2^{j}})
-            Fr scaling_factor_neg =
-                shplonk_batching_challenge_powers[pos_location + 1] * inverse_vanishing_evals[pos_location + 1];
+        // Start from 1, because the commitment to A_0 is reconstructed from the commitments to the multilinear
+        // polynomials. The corresponding evaluations are also handled separately.
+        for (size_t j = 1; j < CONST_PROOF_SIZE_LOG_N; ++j) {
+            // The index of 1/ (z - r^{2^{j}}) in the vector of inverted Gemini denominators
+            const size_t pos_index = 2 * j;
+            // The index of 1/ (z + r^{2^{j}}) in the vector of inverted Gemini denominators
+            const size_t neg_index = 2 * j + 1;
+
+            // Compute the "positive" scaling factor  (ν^{2j}) / (z - r^{2^{j}})
+            Fr scaling_factor_pos = shplonk_batching_challenge_powers[pos_index] * inverse_vanishing_evals[pos_index];
+            // Compute the "negative" scaling factor  (ν^{2j+1}) / (z + r^{2^{j}})
+            Fr scaling_factor_neg = shplonk_batching_challenge_powers[neg_index] * inverse_vanishing_evals[neg_index];
 
             // Accumulate the const term contribution given by
-            // v^{2j+1} * A_j(r^{2^j}) /(z-r^{2^j}) + v^{2j+2} * A_j(-r^{2^j}) /(z+ r^{2^j})
-            constant_term_accumulator += scaling_factor_neg * gemini_evaluations[j + 1] +
-                                         scaling_factor_pos * gemini_fold_pos_evaluations[j + 1];
+            // v^{2j} * A_j(r^{2^j}) /(z - r^{2^j}) + v^{2j+1} * A_j(-r^{2^j}) /(z+ r^{2^j})
+            constant_term_accumulator +=
+                scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
 
             if constexpr (Curve::is_stdlib_type) {
-                auto builder = gemini_evaluations[0].get_context();
+                auto builder = gemini_neg_evaluations[0].get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= (log_circuit_size - 1));
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= log_circuit_size);
                 Fr zero = Fr(0);
                 scaling_factor_neg = Fr::conditional_assign(dummy_round, zero, scaling_factor_neg);
                 scaling_factor_pos = Fr::conditional_assign(dummy_round, zero, scaling_factor_pos);
             } else {
-                if (j >= (log_circuit_size - 1)) {
+                if (j >= log_circuit_size) {
                     scaling_factor_neg = 0;
                     scaling_factor_pos = 0;
                 }
@@ -494,7 +504,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             // Place the scaling factor to the 'scalars' vector
             scalars.emplace_back(-scaling_factor_neg - scaling_factor_pos);
             // Move com(Aᵢ) to the 'commitments' vector
-            commitments.emplace_back(std::move(fold_commitments[j]));
+            commitments.emplace_back(std::move(fold_commitments[j - 1]));
         }
     }
 
