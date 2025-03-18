@@ -296,24 +296,6 @@ export class PXEService implements PXE {
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
-  /**
-   * Retrieves the simulation parameters required to run an ACIR simulation.
-   * This includes the contract address, function artifact, and historical tree roots.
-   *
-   * @param execRequest - The transaction request object containing details of the contract call.
-   * @returns An object containing the contract address, function artifact, and historical tree roots.
-   */
-  #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
-    const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionSelector =
-      (execRequest as FunctionCall).selector ?? (execRequest as TxExecutionRequest).functionSelector;
-
-    return {
-      contractAddress,
-      functionSelector,
-    };
-  }
-
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.contractDataProvider.getContract(to);
     if (!contract) {
@@ -424,6 +406,7 @@ export class PXEService implements PXE {
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param proofCreator - The proof creator to use for proving the execution.
    * @param privateExecutionResult - The result of the private execution
+   * @param config - The configuration for the kernel execution prover.
    * @returns An object that contains the output of the kernel execution, including the ClientIvcProof if proving is enabled.
    */
   async #prove(

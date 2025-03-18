@@ -33,9 +33,7 @@ export class ExecutionPayload {
     return new ExecutionPayload([], [], []);
   }
 
-  /**
-   * Encodes the payload for execution, following Noir's convention
-   */
+  /** Encodes the payload for execution, following Noir's convention */
   public async encode(): Promise<EncodedExecutionPayload> {
     const hashedArguments: HashedValues[] = [];
     for (const call of this.calls) {
@@ -62,9 +60,7 @@ export class ExecutionPayload {
   }
 }
 
-/**
- * Representation of the encoded payload for execution
- */
+/** Representation of the encoded payload for execution */
 export type EncodedExecutionPayload = Omit<ExecutionPayload, 'calls' | 'encode' | 'extraHashedValues'> & {
   /** Function calls in the expected format (Noir's convention) */
   encodedFunctionCalls: EncodedFunctionCall[];
@@ -78,7 +74,7 @@ export type EncodedExecutionPayload = Omit<ExecutionPayload, 'calls' | 'encode' 
   /* eslint-enable camelcase */
 };
 
-/** Represents the ExecutionPayload after encoding for the entrypint to execute */
+/** Represents the ExecutionPayload after encoding for the entrypoint to execute */
 export abstract class EncodedExecutionPayloadForEntrypoint implements EncodedExecutionPayload {
   constructor(
     /** Function calls in the expected format (Noir's convention) */

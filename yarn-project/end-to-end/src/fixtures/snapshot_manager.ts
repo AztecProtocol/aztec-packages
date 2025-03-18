@@ -612,6 +612,8 @@ export const deployAccounts =
  * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
+ * @param waitUntilProven - Whether to wait for the tx to be proven.
+ * @param pxeOrNode - PXE or AztecNode to wait for proven.
  */
 export async function publicDeployAccounts(
   sender: Wallet,
