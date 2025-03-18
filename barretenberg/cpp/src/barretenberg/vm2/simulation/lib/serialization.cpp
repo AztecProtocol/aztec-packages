@@ -363,21 +363,21 @@ std::string Operand::to_string() const
     __builtin_unreachable();
 }
 
-InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
+Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos)
 {
     const auto bytecode_length = bytecode.size();
 
     if (pos >= bytecode_length) {
         info("PC is out of range. Position: " + std::to_string(pos) +
              " Bytecode length: " + std::to_string(bytecode_length));
-        return { .error = InstrDeserializationError::PC_OUT_OF_RANGE };
+        throw InstrDeserializationError::PC_OUT_OF_RANGE;
     }
 
     const uint8_t opcode_byte = bytecode[pos];
 
     if (!is_wire_opcode_valid(opcode_byte)) {
         info("Invalid wire opcode byte: 0x" + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
-        return { .error = InstrDeserializationError::OPCODE_OUT_OF_RANGE };
+        throw InstrDeserializationError::OPCODE_OUT_OF_RANGE;
     }
 
     const auto opcode = static_cast<WireOpCode>(opcode_byte);
@@ -398,6 +398,7 @@ InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, 
              instruction_size,
              " bytecode length: ",
              bytecode_length);
+        throw InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
     }
 
     pos++; // move after opcode byte
@@ -406,25 +407,8 @@ InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, 
     std::vector<Operand> operands;
     for (const OperandType op_type : inst_format) {
         const auto operand_size = OPERAND_TYPE_SIZE_BYTES.at(op_type);
-
-        // No remaining byte to process
-        if (pos == bytecode_length) {
-            return { .instruction = { .opcode = opcode, .indirect = indirect, .operands = std::move(operands) },
-                     .error = InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE };
-        }
-
-        uint8_t const* pos_ptr = &bytecode[pos];
-        std::array<uint8_t, 32> operand_padded = { 0 }; // Fill with zeros
-        bool out_of_range = false;
-
-        // Check whether we encounter the parsing error while processing this operand.
-        // In this case, we need to pad the operand to get the partial instruction required
-        // by witness generation.
-        if (pos + operand_size > bytecode_length) {
-            std::copy(bytecode.begin() + static_cast<ptrdiff_t>(pos), bytecode.end(), operand_padded.begin());
-            pos_ptr = operand_padded.data();
-            out_of_range = true;
-        }
+        assert(pos + operand_size <= bytecode_length); // Guaranteed to hold due to
+                                                       //  pos + instruction_size <= bytecode_length
 
         switch (op_type) {
         case OperandType::TAG: {
@@ -451,55 +435,54 @@ InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, 
         }
         case OperandType::INDIRECT16: {
             uint16_t operand_u16 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
             serialize::read(pos_ptr, operand_u16);
             indirect = operand_u16;
             break;
         }
         case OperandType::UINT16: {
             uint16_t operand_u16 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
             serialize::read(pos_ptr, operand_u16);
             operands.emplace_back(operand_u16);
             break;
         }
         case OperandType::UINT32: {
             uint32_t operand_u32 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
             serialize::read(pos_ptr, operand_u32);
             operands.emplace_back(operand_u32);
             break;
         }
         case OperandType::UINT64: {
             uint64_t operand_u64 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
             serialize::read(pos_ptr, operand_u64);
             operands.emplace_back(operand_u64);
             break;
         }
         case OperandType::UINT128: {
             uint128_t operand_u128 = 0;
+            uint8_t const* pos_ptr = &bytecode[pos];
             serialize::read(pos_ptr, operand_u128);
             operands.emplace_back(Operand::u128(operand_u128));
             break;
         }
         case OperandType::FF: {
             FF operand_ff;
+            uint8_t const* pos_ptr = &bytecode[pos];
             read(pos_ptr, operand_ff);
             operands.emplace_back(Operand::ff(operand_ff));
         }
         }
-
-        if (out_of_range) {
-            return { .instruction = { .opcode = opcode, .indirect = indirect, .operands = std::move(operands) },
-                     .error = InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE };
-        }
-
         pos += operand_size;
     }
 
-    return { .instruction = {
-                 .opcode = opcode,
-                 .indirect = indirect,
-                 .operands = std::move(operands),
-             },
-            .error = InstrDeserializationError::NO_ERROR };
+    return {
+        .opcode = opcode,
+        .indirect = indirect,
+        .operands = std::move(operands),
+    };
 };
 
 std::string Instruction::to_string() const

@@ -66,7 +66,7 @@ class Operand {
 };
 
 struct Instruction {
-    WireOpCode opcode = WireOpCode::ADD_8; // Opcode which value 0
+    WireOpCode opcode = WireOpCode::LAST_OPCODE_SENTINEL;
     uint16_t indirect = 0;
     std::vector<Operand> operands;
 
@@ -102,8 +102,9 @@ struct InstructionWithError {
  *
  * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
  * @param pos Bytecode position
- * @return The instruction enhanced with an error
+ * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
+ * @return The instruction
  */
-InstructionWithError deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
+Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
 
 } // namespace bb::avm2::simulation

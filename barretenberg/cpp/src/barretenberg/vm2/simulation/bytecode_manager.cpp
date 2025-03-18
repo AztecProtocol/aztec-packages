@@ -62,20 +62,26 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
 
     auto bytecode_ptr = it->second;
     const auto& bytecode = *bytecode_ptr;
+    InstrDeserializationError instr_fetch_err = InstrDeserializationError::NO_ERROR;
+    Instruction instruction;
 
     // TODO: Propagate instruction fetching error to the upper layer (execution loop)
-    InstructionWithError instruction_with_err = deserialize_instruction(bytecode, pc);
+    try {
+        instruction = deserialize_instruction(bytecode, pc);
+    } catch (const InstrDeserializationError& error) {
+        instr_fetch_err = error;
+    }
 
     // The event will be deduplicated internally.
     fetching_events.emit({
         .bytecode_id = bytecode_id,
         .pc = pc,
-        .instruction = instruction_with_err.instruction,
+        .instruction = instruction,
         .bytecode = bytecode_ptr,
-        .error = instruction_with_err.error,
+        .error = instr_fetch_err,
     });
 
-    return instruction_with_err.instruction;
+    return instruction;
 }
 
 } // namespace bb::avm2::simulation

@@ -363,16 +363,12 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRange)
 
     std::vector<uint8_t> bytecode = add_8_instruction.serialize();
     bytecode.pop_back(); // Remove last byte
-    const auto instr_with_err = simulation::deserialize_instruction(bytecode, 0);
     const auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(std::move(bytecode));
-
-    ASSERT_EQ(instr_with_err.error, InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE);
 
     const std::vector<InstructionFetchingEvent> instr_events = {
         {
             .bytecode_id = 1,
             .pc = 0,
-            .instruction = instr_with_err.instruction,
             .bytecode = bytecode_ptr,
             .error = InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
         },
@@ -404,16 +400,12 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRangeSplitOperand)
 
     std::vector<uint8_t> bytecode = set_ff_instruction.serialize();
     bytecode.resize(bytecode.size() - 2); // Remove last two bytes)
-    const auto instr_with_err = simulation::deserialize_instruction(bytecode, 0);
     const auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(std::move(bytecode));
-
-    ASSERT_EQ(instr_with_err.error, InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE);
 
     const std::vector<InstructionFetchingEvent> instr_events = {
         {
             .bytecode_id = 1,
             .pc = 0,
-            .instruction = instr_with_err.instruction,
             .bytecode = bytecode_ptr,
             .error = InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
         },

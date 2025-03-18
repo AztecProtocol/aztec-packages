@@ -142,119 +142,125 @@ template <typename FF_> class instr_fetchingImpl {
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_indirect -
-                        ((FF(1) - new_term.instr_fetching_parsing_err) * new_term.instr_fetching_sel_op_dc_0 *
-                             (new_term.instr_fetching_bd1 * FF(256) + new_term.instr_fetching_bd2 * FF(1)) +
-                         instr_fetching_SEL_OP_DC_18 * new_term.instr_fetching_bd1 * FF(1)));
+                        (FF(1) - new_term.instr_fetching_parsing_err) *
+                            (new_term.instr_fetching_sel_op_dc_0 *
+                                 (new_term.instr_fetching_bd1 * FF(256) + new_term.instr_fetching_bd2 * FF(1)) +
+                             instr_fetching_SEL_OP_DC_18 * new_term.instr_fetching_bd1 * FF(1)));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op1 -
-                        ((FF(1) - new_term.instr_fetching_parsing_err) * new_term.instr_fetching_sel_op_dc_0 *
-                             (new_term.instr_fetching_bd3 * FF(256) + new_term.instr_fetching_bd4 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_2 *
-                             (new_term.instr_fetching_bd2 * FF(256) + new_term.instr_fetching_bd3 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_6 * new_term.instr_fetching_bd2 * FF(1) +
-                         new_term.instr_fetching_sel_op_dc_15 *
-                             (new_term.instr_fetching_bd1 * FF(16777216) + new_term.instr_fetching_bd2 * FF(65536) +
-                              new_term.instr_fetching_bd3 * FF(256) + new_term.instr_fetching_bd4 * FF(1))));
+                        (FF(1) - new_term.instr_fetching_parsing_err) *
+                            (new_term.instr_fetching_sel_op_dc_0 *
+                                 (new_term.instr_fetching_bd3 * FF(256) + new_term.instr_fetching_bd4 * FF(1)) +
+                             new_term.instr_fetching_sel_op_dc_2 *
+                                 (new_term.instr_fetching_bd2 * FF(256) + new_term.instr_fetching_bd3 * FF(1)) +
+                             new_term.instr_fetching_sel_op_dc_6 * new_term.instr_fetching_bd2 * FF(1) +
+                             new_term.instr_fetching_sel_op_dc_15 *
+                                 (new_term.instr_fetching_bd1 * FF(16777216) + new_term.instr_fetching_bd2 * FF(65536) +
+                                  new_term.instr_fetching_bd3 * FF(256) + new_term.instr_fetching_bd4 * FF(1))));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op2 -
-                        ((FF(1) - new_term.instr_fetching_parsing_err) * new_term.instr_fetching_sel_op_dc_0 *
-                             (new_term.instr_fetching_bd5 * FF(256) + new_term.instr_fetching_bd6 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_3 *
-                             (new_term.instr_fetching_bd4 * FF(256) + new_term.instr_fetching_bd5 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_6 * new_term.instr_fetching_bd3 * FF(1) +
-                         new_term.instr_fetching_sel_op_dc_8 * new_term.instr_fetching_bd4 * FF(1) +
-                         new_term.instr_fetching_sel_op_dc_16 *
-                             (new_term.instr_fetching_bd4 * FF(16777216) + new_term.instr_fetching_bd5 * FF(65536) +
-                              new_term.instr_fetching_bd6 * FF(256) + new_term.instr_fetching_bd7 * FF(1))));
+                        (FF(1) - new_term.instr_fetching_parsing_err) *
+                            (new_term.instr_fetching_sel_op_dc_0 *
+                                 (new_term.instr_fetching_bd5 * FF(256) + new_term.instr_fetching_bd6 * FF(1)) +
+                             new_term.instr_fetching_sel_op_dc_3 *
+                                 (new_term.instr_fetching_bd4 * FF(256) + new_term.instr_fetching_bd5 * FF(1)) +
+                             new_term.instr_fetching_sel_op_dc_6 * new_term.instr_fetching_bd3 * FF(1) +
+                             new_term.instr_fetching_sel_op_dc_8 * new_term.instr_fetching_bd4 * FF(1) +
+                             new_term.instr_fetching_sel_op_dc_16 *
+                                 (new_term.instr_fetching_bd4 * FF(16777216) + new_term.instr_fetching_bd5 * FF(65536) +
+                                  new_term.instr_fetching_bd6 * FF(256) + new_term.instr_fetching_bd7 * FF(1))));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = (new_term.instr_fetching_op3 -
-                        ((FF(1) - new_term.instr_fetching_parsing_err) * new_term.instr_fetching_sel_op_dc_0 *
-                             (new_term.instr_fetching_bd7 * FF(256) + new_term.instr_fetching_bd8 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_4 *
-                             (new_term.instr_fetching_bd6 * FF(256) + new_term.instr_fetching_bd7 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_9 *
-                             (new_term.instr_fetching_bd5 * FF(uint256_t{ 0UL, 0UL, 0UL, 72057594037927936UL }) +
-                              new_term.instr_fetching_bd6 * FF(uint256_t{ 0UL, 0UL, 0UL, 281474976710656UL }) +
-                              new_term.instr_fetching_bd7 * FF(uint256_t{ 0UL, 0UL, 0UL, 1099511627776UL }) +
-                              new_term.instr_fetching_bd8 * FF(uint256_t{ 0UL, 0UL, 0UL, 4294967296UL }) +
-                              new_term.instr_fetching_bd9 * FF(uint256_t{ 0UL, 0UL, 0UL, 16777216UL }) +
-                              new_term.instr_fetching_bd10 * FF(uint256_t{ 0UL, 0UL, 0UL, 65536UL }) +
-                              new_term.instr_fetching_bd11 * FF(uint256_t{ 0UL, 0UL, 0UL, 256UL }) +
-                              new_term.instr_fetching_bd12 * FF(uint256_t{ 0UL, 0UL, 0UL, 1UL }) +
-                              new_term.instr_fetching_bd13 * FF(uint256_t{ 0UL, 0UL, 72057594037927936UL, 0UL }) +
-                              new_term.instr_fetching_bd14 * FF(uint256_t{ 0UL, 0UL, 281474976710656UL, 0UL }) +
-                              new_term.instr_fetching_bd15 * FF(uint256_t{ 0UL, 0UL, 1099511627776UL, 0UL }) +
-                              new_term.instr_fetching_bd16 * FF(uint256_t{ 0UL, 0UL, 4294967296UL, 0UL }) +
-                              new_term.instr_fetching_bd17 * FF(uint256_t{ 0UL, 0UL, 16777216UL, 0UL }) +
-                              new_term.instr_fetching_bd18 * FF(uint256_t{ 0UL, 0UL, 65536UL, 0UL }) +
-                              new_term.instr_fetching_bd19 * FF(uint256_t{ 0UL, 0UL, 256UL, 0UL }) +
-                              new_term.instr_fetching_bd20 * FF(uint256_t{ 0UL, 0UL, 1UL, 0UL }) +
-                              new_term.instr_fetching_bd21 * FF(uint256_t{ 0UL, 72057594037927936UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd22 * FF(uint256_t{ 0UL, 281474976710656UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd23 * FF(uint256_t{ 0UL, 1099511627776UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd24 * FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd25 * FF(uint256_t{ 0UL, 16777216UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd26 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd27 * FF(uint256_t{ 0UL, 256UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd28 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd29 * FF(72057594037927936UL) +
-                              new_term.instr_fetching_bd30 * FF(281474976710656UL) +
-                              new_term.instr_fetching_bd31 * FF(1099511627776UL) +
-                              new_term.instr_fetching_bd32 * FF(4294967296UL) +
-                              new_term.instr_fetching_bd33 * FF(16777216) + new_term.instr_fetching_bd34 * FF(65536) +
-                              new_term.instr_fetching_bd35 * FF(256) + new_term.instr_fetching_bd36 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_10 *
-                             (new_term.instr_fetching_bd5 * FF(uint256_t{ 0UL, 72057594037927936UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd6 * FF(uint256_t{ 0UL, 281474976710656UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd7 * FF(uint256_t{ 0UL, 1099511627776UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd8 * FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd9 * FF(uint256_t{ 0UL, 16777216UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd10 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd11 * FF(uint256_t{ 0UL, 256UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd12 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }) +
-                              new_term.instr_fetching_bd13 * FF(72057594037927936UL) +
-                              new_term.instr_fetching_bd14 * FF(281474976710656UL) +
-                              new_term.instr_fetching_bd15 * FF(1099511627776UL) +
-                              new_term.instr_fetching_bd16 * FF(4294967296UL) +
-                              new_term.instr_fetching_bd17 * FF(16777216) + new_term.instr_fetching_bd18 * FF(65536) +
-                              new_term.instr_fetching_bd19 * FF(256) + new_term.instr_fetching_bd20 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_11 *
-                             (new_term.instr_fetching_bd5 * FF(72057594037927936UL) +
-                              new_term.instr_fetching_bd6 * FF(281474976710656UL) +
-                              new_term.instr_fetching_bd7 * FF(1099511627776UL) +
-                              new_term.instr_fetching_bd8 * FF(4294967296UL) +
-                              new_term.instr_fetching_bd9 * FF(16777216) + new_term.instr_fetching_bd10 * FF(65536) +
-                              new_term.instr_fetching_bd11 * FF(256) + new_term.instr_fetching_bd12 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_12 *
-                             (new_term.instr_fetching_bd5 * FF(16777216) + new_term.instr_fetching_bd6 * FF(65536) +
-                              new_term.instr_fetching_bd7 * FF(256) + new_term.instr_fetching_bd8 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_13 *
-                             (new_term.instr_fetching_bd5 * FF(256) + new_term.instr_fetching_bd6 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_14 * new_term.instr_fetching_bd4 * FF(1) +
-                         new_term.instr_fetching_sel_op_dc_17 * new_term.instr_fetching_bd6 * FF(1)));
+            auto tmp =
+                (new_term.instr_fetching_op3 -
+                 (FF(1) - new_term.instr_fetching_parsing_err) *
+                     (new_term.instr_fetching_sel_op_dc_0 *
+                          (new_term.instr_fetching_bd7 * FF(256) + new_term.instr_fetching_bd8 * FF(1)) +
+                      new_term.instr_fetching_sel_op_dc_4 *
+                          (new_term.instr_fetching_bd6 * FF(256) + new_term.instr_fetching_bd7 * FF(1)) +
+                      new_term.instr_fetching_sel_op_dc_9 *
+                          (new_term.instr_fetching_bd5 * FF(uint256_t{ 0UL, 0UL, 0UL, 72057594037927936UL }) +
+                           new_term.instr_fetching_bd6 * FF(uint256_t{ 0UL, 0UL, 0UL, 281474976710656UL }) +
+                           new_term.instr_fetching_bd7 * FF(uint256_t{ 0UL, 0UL, 0UL, 1099511627776UL }) +
+                           new_term.instr_fetching_bd8 * FF(uint256_t{ 0UL, 0UL, 0UL, 4294967296UL }) +
+                           new_term.instr_fetching_bd9 * FF(uint256_t{ 0UL, 0UL, 0UL, 16777216UL }) +
+                           new_term.instr_fetching_bd10 * FF(uint256_t{ 0UL, 0UL, 0UL, 65536UL }) +
+                           new_term.instr_fetching_bd11 * FF(uint256_t{ 0UL, 0UL, 0UL, 256UL }) +
+                           new_term.instr_fetching_bd12 * FF(uint256_t{ 0UL, 0UL, 0UL, 1UL }) +
+                           new_term.instr_fetching_bd13 * FF(uint256_t{ 0UL, 0UL, 72057594037927936UL, 0UL }) +
+                           new_term.instr_fetching_bd14 * FF(uint256_t{ 0UL, 0UL, 281474976710656UL, 0UL }) +
+                           new_term.instr_fetching_bd15 * FF(uint256_t{ 0UL, 0UL, 1099511627776UL, 0UL }) +
+                           new_term.instr_fetching_bd16 * FF(uint256_t{ 0UL, 0UL, 4294967296UL, 0UL }) +
+                           new_term.instr_fetching_bd17 * FF(uint256_t{ 0UL, 0UL, 16777216UL, 0UL }) +
+                           new_term.instr_fetching_bd18 * FF(uint256_t{ 0UL, 0UL, 65536UL, 0UL }) +
+                           new_term.instr_fetching_bd19 * FF(uint256_t{ 0UL, 0UL, 256UL, 0UL }) +
+                           new_term.instr_fetching_bd20 * FF(uint256_t{ 0UL, 0UL, 1UL, 0UL }) +
+                           new_term.instr_fetching_bd21 * FF(uint256_t{ 0UL, 72057594037927936UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd22 * FF(uint256_t{ 0UL, 281474976710656UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd23 * FF(uint256_t{ 0UL, 1099511627776UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd24 * FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd25 * FF(uint256_t{ 0UL, 16777216UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd26 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd27 * FF(uint256_t{ 0UL, 256UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd28 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd29 * FF(72057594037927936UL) +
+                           new_term.instr_fetching_bd30 * FF(281474976710656UL) +
+                           new_term.instr_fetching_bd31 * FF(1099511627776UL) +
+                           new_term.instr_fetching_bd32 * FF(4294967296UL) +
+                           new_term.instr_fetching_bd33 * FF(16777216) + new_term.instr_fetching_bd34 * FF(65536) +
+                           new_term.instr_fetching_bd35 * FF(256) + new_term.instr_fetching_bd36 * FF(1)) +
+                      new_term.instr_fetching_sel_op_dc_10 *
+                          (new_term.instr_fetching_bd5 * FF(uint256_t{ 0UL, 72057594037927936UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd6 * FF(uint256_t{ 0UL, 281474976710656UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd7 * FF(uint256_t{ 0UL, 1099511627776UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd8 * FF(uint256_t{ 0UL, 4294967296UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd9 * FF(uint256_t{ 0UL, 16777216UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd10 * FF(uint256_t{ 0UL, 65536UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd11 * FF(uint256_t{ 0UL, 256UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd12 * FF(uint256_t{ 0UL, 1UL, 0UL, 0UL }) +
+                           new_term.instr_fetching_bd13 * FF(72057594037927936UL) +
+                           new_term.instr_fetching_bd14 * FF(281474976710656UL) +
+                           new_term.instr_fetching_bd15 * FF(1099511627776UL) +
+                           new_term.instr_fetching_bd16 * FF(4294967296UL) +
+                           new_term.instr_fetching_bd17 * FF(16777216) + new_term.instr_fetching_bd18 * FF(65536) +
+                           new_term.instr_fetching_bd19 * FF(256) + new_term.instr_fetching_bd20 * FF(1)) +
+                      new_term.instr_fetching_sel_op_dc_11 *
+                          (new_term.instr_fetching_bd5 * FF(72057594037927936UL) +
+                           new_term.instr_fetching_bd6 * FF(281474976710656UL) +
+                           new_term.instr_fetching_bd7 * FF(1099511627776UL) +
+                           new_term.instr_fetching_bd8 * FF(4294967296UL) + new_term.instr_fetching_bd9 * FF(16777216) +
+                           new_term.instr_fetching_bd10 * FF(65536) + new_term.instr_fetching_bd11 * FF(256) +
+                           new_term.instr_fetching_bd12 * FF(1)) +
+                      new_term.instr_fetching_sel_op_dc_12 *
+                          (new_term.instr_fetching_bd5 * FF(16777216) + new_term.instr_fetching_bd6 * FF(65536) +
+                           new_term.instr_fetching_bd7 * FF(256) + new_term.instr_fetching_bd8 * FF(1)) +
+                      new_term.instr_fetching_sel_op_dc_13 *
+                          (new_term.instr_fetching_bd5 * FF(256) + new_term.instr_fetching_bd6 * FF(1)) +
+                      new_term.instr_fetching_sel_op_dc_14 * new_term.instr_fetching_bd4 * FF(1) +
+                      new_term.instr_fetching_sel_op_dc_17 * new_term.instr_fetching_bd6 * FF(1)));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op4 -
-                        ((FF(1) - new_term.instr_fetching_parsing_err) * new_term.instr_fetching_sel_op_dc_0 *
-                             (new_term.instr_fetching_bd9 * FF(256) + new_term.instr_fetching_bd10 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_5 *
-                             (new_term.instr_fetching_bd8 * FF(256) + new_term.instr_fetching_bd9 * FF(1)) +
-                         new_term.instr_fetching_sel_op_dc_7 * new_term.instr_fetching_bd8 * FF(1)));
+                        (FF(1) - new_term.instr_fetching_parsing_err) *
+                            (new_term.instr_fetching_sel_op_dc_0 *
+                                 (new_term.instr_fetching_bd9 * FF(256) + new_term.instr_fetching_bd10 * FF(1)) +
+                             new_term.instr_fetching_sel_op_dc_5 *
+                                 (new_term.instr_fetching_bd8 * FF(256) + new_term.instr_fetching_bd9 * FF(1)) +
+                             new_term.instr_fetching_sel_op_dc_7 * new_term.instr_fetching_bd8 * FF(1)));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
