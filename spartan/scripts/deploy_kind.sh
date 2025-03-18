@@ -44,38 +44,30 @@ flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_doc
 
 function show_status_until_pxe_ready {
   set +x   # don't spam with our commands
+  echo "Waiting for PXE to be ready..."
   sleep 15 # let helm upgrade start
   for i in {1..100}; do
     echo "--- Pod status ---"
     kubectl get pods -n "$namespace"
 
-    # Look for problematic pods and show their details
-    echo "--- Problem Pod Details ---"
-    for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")].metadata.name}'); do
-      echo "Details for problematic pod $pod:"
-      kubectl describe pod -n "$namespace" $pod | grep -E 'Events:|Error:|Warning:|^  Warning|^  Normal|Message:|Reason:'
-      echo "-------------------"
-    done
 
     # Show pod events
     echo "--- Recent Pod Events ---"
     kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10
 
-    # Show service status
-    echo "--- Service Status ---"
-    kubectl get services -n "$namespace"
+    # Show pods
+    echo "--- Pod Status ---"
+    kubectl get pods -n "$namespace"
+
 
     # Show logs from validator pods only
-    echo "--- Validator Pod logs ---"
-    for pod in $(kubectl get pods -n "$namespace" -l app=validator -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}'); do
+    echo "--- Pod logs ---"
+    for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}'); do
       echo "Logs from $pod:"
       kubectl logs --tail=10 -n "$namespace" $pod 2>/dev/null || echo "Cannot get logs yet"
       echo "-------------------"
     done
 
-    # Check PXE pod status specifically
-    echo "--- PXE Pod Status ---"
-    kubectl get pods -n "$namespace" -l app=pxe -o wide
 
     if kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
       break # we are up, stop showing status
