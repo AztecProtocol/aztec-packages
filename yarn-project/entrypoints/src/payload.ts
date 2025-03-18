@@ -25,7 +25,7 @@ export class ExecutionPayload {
     public authWitnesses: AuthWitness[],
     /** Data passed through an oracle for this execution. */
     public capsules: Capsule[],
-    /* Extra hashed values to be injected in the execution cache */
+    /** Extra hashed values to be injected in the execution cache */
     public extraHashedValues: HashedValues[] = [],
   ) {}
 

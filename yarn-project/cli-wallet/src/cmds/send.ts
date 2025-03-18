@@ -22,7 +22,7 @@ export async function send(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
 
-  const gasLimits = await call.estimateGas({ ...(await feeOpts.toSendOpts(wallet)) });
+  const gasLimits = await call.estimateGas({ ...(await feeOpts.toSendOpts(wallet)), authWitnesses });
   printGasEstimates(feeOpts, gasLimits, log);
 
   if (feeOpts.estimateOnly) {
