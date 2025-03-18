@@ -32,11 +32,12 @@ import { createArchiverClient } from './rpc/index.js';
  * @returns The local archiver.
  */
 export async function createArchiver(
-  config: ArchiverConfig & DataStoreConfig,
+  _config: ArchiverConfig & DataStoreConfig,
   blobSinkClient: BlobSinkClientInterface,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
+  const config = { ..._config, dataStoreMapSizeKB: _config.archiverStoreMapSizeKb ?? _config.dataStoreMapSizeKB };
   const store = await createStore(
     'archiver',
     KVArchiverDataStore.SCHEMA_VERSION,

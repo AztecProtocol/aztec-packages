@@ -10,17 +10,13 @@ import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config
 export type BlobSinkConfig = {
   port?: number;
   archiveApiUrl?: string;
-  dataStoreConfig?: DataStoreConfig;
-} & Partial<Pick<L1ReaderConfig, 'l1ChainId' | 'l1RpcUrls'> & Pick<L1ContractAddresses, 'rollupAddress'>>;
+} & Partial<Pick<L1ReaderConfig, 'l1ChainId' | 'l1RpcUrls'> & Pick<L1ContractAddresses, 'rollupAddress'>> &
+  Partial<DataStoreConfig>;
 
 export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
   port: {
     env: 'BLOB_SINK_PORT',
     description: 'The port to run the blob sink server on',
-  },
-  dataStoreConfig: {
-    ...dataConfigMappings,
-    description: 'The configuration for the data store',
   },
   archiveApiUrl: {
     env: 'BLOB_SINK_ARCHIVE_API_URL',
@@ -28,6 +24,7 @@ export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
   },
   ...pickConfigMappings(l1ReaderConfigMappings, ['l1ChainId', 'l1RpcUrls']),
   ...pickConfigMappings(l1ContractAddressesMapping, ['rollupAddress']),
+  ...dataConfigMappings,
 };
 
 /**

@@ -62,6 +62,7 @@ export const universalOptions = [
   'l1Contracts',
   'p2pEnabled',
   'dataDirectory',
+  'dataStoreMapSizeKb',
 ];
 
 // Define categories and options
@@ -157,6 +158,22 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADER',
     },
   ],
+  STORAGE: [
+    {
+      flag: '--data-directory <value>',
+      description: 'Where to store data for services. If not set, will store temporarily',
+      defaultValue: undefined,
+      envVar: 'DATA_DIRECTORY',
+    },
+    {
+      flag: '--data-store-map-size-kb <value>',
+      description:
+        'The maximum possible size of the data store DB in KB. Can be overridden by component-specific options.',
+      defaultValue: undefined,
+      envVar: 'DATA_STORE_MAP_SIZE_KB',
+      parseVal: (val: string) => parseInt(val, 10),
+    },
+  ],
   'L1 CONTRACT ADDRESSES': [
     {
       flag: '--rollup-address <value>',
@@ -208,12 +225,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec Node with options',
       defaultValue: undefined,
       envVar: undefined,
-    },
-    {
-      flag: '--data-directory <value>',
-      description: 'Where to store data. If not set, will store temporarily',
-      defaultValue: undefined,
-      envVar: 'DATA_DIRECTORY',
     },
     {
       flag: '--node.archiverUrl <value>',
@@ -301,7 +312,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
   ],
-  BLOB_SINK: [
+  'BLOB SINK': [
     {
       flag: '--blob-sink',
       description: 'Starts Aztec Blob Sink with options',
