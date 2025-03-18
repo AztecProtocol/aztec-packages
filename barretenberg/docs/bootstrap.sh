@@ -90,11 +90,13 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"full"|"fast")
+  ""|"full"|"fast"|"ci")
     build_and_preview
     ;;
   "hash")
     echo "$hash"
+    ;;
+  "test_cmds"|"test")
     ;;
   "release-preview")
     release_preview
