@@ -57,7 +57,7 @@ function release_preview {
   if [ -z "$docs_preview_url" ]; then
     echo "Failed to extract preview URL from Netlify output."
   else
-    echo "Docs preview URL: ${docs_preview_url}"
+    echo "Docs preview URL: ${docs_preview_url}" 
   fi
 
   local pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
