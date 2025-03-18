@@ -131,7 +131,7 @@ where
     // Partial notes modify `get_id` to have it set the 8th bit, resulting in a log type id of 1 (i.e. a partial note
     // private log). Fields 1 to len are the note content, which we here hardcode to be the storage slot in the first
     // field, and the packed note following after.
-    // Ideally we'd know if this a private note or a partial note, and call a function that'd be the opposite of
+    // Ideally we'd know if this is a private note or a partial note, and call a function that'd be the opposite of
     // discovery::private_notes::decode_private_note_log (or partial accordingly).
     fields[0] = Note::get_id();
     fields[1] = storage_slot;
