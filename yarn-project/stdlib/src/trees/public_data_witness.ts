@@ -58,6 +58,21 @@ export class PublicDataWitness {
     ];
   }
 
+  /**
+   * Returns a field array representation of a public data witness.
+   */
+  public toNoirRepresentation(): (string | string[])[] {
+    // TODO(benesjan): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
+    return [
+      new Fr(this.index).toString() as string,
+      new Fr(this.leafPreimage.slot).toString() as string,
+      new Fr(this.leafPreimage.value).toString() as string,
+      new Fr(this.leafPreimage.nextSlot).toString() as string,
+      new Fr(this.leafPreimage.nextIndex).toString() as string,
+      this.siblingPath.toFields().map(fr => fr.toString()) as string[],
+    ];
+  }
+
   toBuffer(): Buffer {
     return serializeToBuffer([this.index, this.leafPreimage, this.siblingPath]);
   }

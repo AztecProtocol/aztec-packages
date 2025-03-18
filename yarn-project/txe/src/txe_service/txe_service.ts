@@ -263,11 +263,11 @@ export class TXEService {
     return toForeignCallResult([toArray(newValues)]);
   }
 
-  async getPublicDataTreeWitness(blockNumber: ForeignCallSingle, leafSlot: ForeignCallSingle) {
+  async getPublicDataWitness(blockNumber: ForeignCallSingle, leafSlot: ForeignCallSingle) {
     const parsedBlockNumber = fromSingle(blockNumber).toNumber();
     const parsedLeafSlot = fromSingle(leafSlot);
 
-    const witness = await this.typedOracle.getPublicDataTreeWitness(parsedBlockNumber, parsedLeafSlot);
+    const witness = await this.typedOracle.getPublicDataWitness(parsedBlockNumber, parsedLeafSlot);
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
     }

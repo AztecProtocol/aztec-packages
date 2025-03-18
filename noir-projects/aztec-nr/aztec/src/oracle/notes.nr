@@ -64,29 +64,25 @@ unconstrained fn notify_created_note_oracle<let N: u32>(
     _packed_note: [Field; N],
     _note_hash: Field,
     _counter: u32,
-) -> Field {}
+) {}
 
 unconstrained fn notify_nullified_note_oracle_wrapper(
     nullifier: Field,
     note_hash: Field,
     counter: u32,
 ) {
-    let _ = notify_nullified_note_oracle(nullifier, note_hash, counter);
+    notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
 #[oracle(notifyNullifiedNote)]
-unconstrained fn notify_nullified_note_oracle(
-    _nullifier: Field,
-    _note_hash: Field,
-    _counter: u32,
-) -> Field {}
+unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
 
 unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
-    let _ = notify_created_nullifier_oracle(nullifier);
+    notify_created_nullifier_oracle(nullifier);
 }
 
 #[oracle(notifyCreatedNullifier)]
-unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) -> Field {}
+unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let ORACLE_RETURN_FIELD_LENGTH: u32>(

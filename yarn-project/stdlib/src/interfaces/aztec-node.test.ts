@@ -152,8 +152,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(NullifierMembershipWitness);
   });
 
-  it('getPublicDataTreeWitness', async () => {
-    const response = await context.client.getPublicDataTreeWitness(1, Fr.random());
+  it('getPublicDataWitness', async () => {
+    const response = await context.client.getPublicDataWitness(1, Fr.random());
     expect(response).toBeInstanceOf(PublicDataWitness);
   });
 
@@ -460,7 +460,7 @@ class MockAztecNode implements AztecNode {
     expect(nullifier).toBeInstanceOf(Fr);
     return Promise.resolve(NullifierMembershipWitness.random());
   }
-  getPublicDataTreeWitness(blockNumber: number | 'latest', leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  getPublicDataWitness(blockNumber: number | 'latest', leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     expect(leafSlot).toBeInstanceOf(Fr);
     return Promise.resolve(PublicDataWitness.random());
   }
