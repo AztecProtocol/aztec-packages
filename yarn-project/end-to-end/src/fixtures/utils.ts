@@ -57,6 +57,7 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -201,7 +202,7 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: Logger,
   numberOfAccounts: number,
-) {
+): Promise<EndToEndContext> {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
   logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
@@ -236,11 +237,11 @@ async function setupWithRemoteEnvironment(
 
   return {
     aztecNode,
+    aztecNodeAdmin: undefined,
     sequencer: undefined,
     proverNode: undefined,
     pxe: pxeClient,
     deployL1ContractsValues,
-    accounts: await pxeClient!.getRegisteredAccounts(),
     config,
     initialFundedAccounts,
     wallet: wallets[0],
@@ -293,6 +294,8 @@ export type SetupOptions = {
 export type EndToEndContext = {
   /** The Aztec Node service or client a connected to it. */
   aztecNode: AztecNode;
+  /** Client to the Aztec Node admin interface (undefined if connected to remote environment) */
+  aztecNodeAdmin?: AztecNodeAdmin;
   /** The prover node service (only set if startProverNode is true) */
   proverNode: ProverNode | undefined;
   /** A client to the sequencer service (undefined if connected to remote environment) */
@@ -583,6 +586,7 @@ export async function setup(
 
   return {
     aztecNode,
+    aztecNodeAdmin: aztecNode,
     blobSink,
     cheatCodes,
     config,

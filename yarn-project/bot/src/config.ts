@@ -25,6 +25,8 @@ export enum SupportedTokenContracts {
 export type BotConfig = {
   /** The URL to the Aztec node to check for tx pool status. */
   nodeUrl: string | undefined;
+  /** The URL to the Aztec node admin API to force-flush txs if configured. */
+  nodeAdminUrl: string | undefined;
   /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
   pxeUrl: string | undefined;
   /** Url of the ethereum host. */
@@ -74,6 +76,7 @@ export type BotConfig = {
 export const BotConfigSchema = z
   .object({
     nodeUrl: z.string().optional(),
+    nodeAdminUrl: z.string().optional(),
     pxeUrl: z.string().optional(),
     l1RpcUrls: z.array(z.string()).optional(),
     l1Mnemonic: z.string().optional(),
@@ -99,6 +102,7 @@ export const BotConfigSchema = z
   })
   .transform(config => ({
     nodeUrl: undefined,
+    nodeAdminUrl: undefined,
     pxeUrl: undefined,
     l1RpcUrls: undefined,
     l1Mnemonic: undefined,
@@ -113,6 +117,10 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   nodeUrl: {
     env: 'AZTEC_NODE_URL',
     description: 'The URL to the Aztec node to check for tx pool status.',
+  },
+  nodeAdminUrl: {
+    env: 'AZTEC_NODE_ADMIN_URL',
+    description: 'The URL to the Aztec node admin API to force-flush txs if configured.',
   },
   pxeUrl: {
     env: 'BOT_PXE_URL',
