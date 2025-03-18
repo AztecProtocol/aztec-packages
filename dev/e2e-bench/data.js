@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742298188274,
+  "lastUpdate": 1742300226323,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1629,6 +1629,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 143602,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "558e3152550959a25b26c8a475fb5be3cc9a0220",
+          "message": "fix: Some basic re-org handling (#12812)\n\nThis attempts to fix an issue with L1 re-orgs in the archiver.\n\nDue to the possibility of L1 re-orgs, we can't trust the absence of an\nL2 block in an L1 block to mean that there definitely isn't one there.\nAs it could appear after a re-org. Therefore, we must ensure that our\nstored latest L1 block number is only set based on actually retrieved\nblocks.",
+          "timestamp": "2025-03-18T11:46:45Z",
+          "tree_id": "670a0a836b3d12d0f5500b6a835168cfb5f6046a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/558e3152550959a25b26c8a475fb5be3cc9a0220"
+        },
+        "date": 1742300218409,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9334,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2277659440716169,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 134846,
             "unit": "us"
           }
         ]
