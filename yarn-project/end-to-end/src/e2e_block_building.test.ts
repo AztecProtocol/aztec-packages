@@ -508,7 +508,7 @@ describe('e2e_block_building', () => {
       }
 
       logger.info('Waiting for txs to be mined');
-      await Promise.all(txs.map(tx => tx.wait({ proven: false, timeout: 600 })));
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 600 })));
     });
   });
 

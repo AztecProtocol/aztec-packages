@@ -19,7 +19,6 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
-import { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
@@ -46,7 +45,6 @@ describe('PXEOracleInterface', () => {
   let aztecNode: MockProxy<AztecNode>;
 
   let addressDataProvider: AddressDataProvider;
-  let authWitnessDataProvider: AuthWitnessDataProvider;
   let contractDataProvider: ContractDataProvider;
   let noteDataProvider: NoteDataProvider;
   let syncDataProvider: SyncDataProvider;
@@ -67,7 +65,6 @@ describe('PXEOracleInterface', () => {
     jest.spyOn(contractDataProvider, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
 
     addressDataProvider = new AddressDataProvider(store);
-    authWitnessDataProvider = new AuthWitnessDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
     syncDataProvider = new SyncDataProvider(store);
     taggingDataProvider = new TaggingDataProvider(store);
@@ -84,7 +81,6 @@ describe('PXEOracleInterface', () => {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
-      authWitnessDataProvider,
     ); // Set up contract address
     contractAddress = await AztecAddress.random();
     // Set up recipient account

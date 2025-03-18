@@ -22,7 +22,7 @@ export const BlobscanBlockResponseSchema = z
             commitment: z.string(),
             proof: z.string(),
             size: z.number().int(),
-            index: z.number().int(), // This is the index within the tx, not within the block!
+            index: z.number().int().optional(), // This is the index within the tx, not within the block!
           }),
         ),
       }),
@@ -59,11 +59,14 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
     this.baseUrl = baseUrl.replace(/^https?:\/\//, '');
   }
 
+  public getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   public async getBlobsFromBlock(blockId: string): Promise<BlobJson[] | undefined> {
-    const response = await this.fetch(
-      `https://${this.baseUrl}/blocks/${blockId}?type=canonical&expand=blob%2Cblob_data`,
-      this.fetchOpts,
-    );
+    const url = `https://${this.baseUrl}/blocks/${blockId}?type=canonical&expand=blob%2Cblob_data`;
+    this.logger.trace(`Fetching blobs for block ${blockId} from ${url}`);
+    const response = await this.fetch(url, this.fetchOpts);
 
     if (response.status === 404) {
       this.logger.debug(`No blobs found for block ${blockId} at ${this.baseUrl}`);
