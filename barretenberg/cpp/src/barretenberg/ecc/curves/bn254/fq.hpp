@@ -66,6 +66,21 @@ class Bn254FqParams {
 
     static constexpr uint64_t r_inv = 0x87d20782e4866389UL;
 
+    static constexpr uint64_t r_inv_0 = 0x327d7c1b18f7bd41UL;
+    static constexpr uint64_t r_inv_1 = 0xdb8ed52f824ed32fUL;
+    static constexpr uint64_t r_inv_2 = 0x29b67b05eb29a6a1UL;
+    static constexpr uint64_t r_inv_3 = 0x19ac99126b459ddaUL;
+
+    static constexpr uint64_t r_inv_wasm_0 = 0x17789a9f;
+    static constexpr uint64_t r_inv_wasm_1 = 0x5ffc3dc;
+    static constexpr uint64_t r_inv_wasm_2 = 0xd6bde42;
+    static constexpr uint64_t r_inv_wasm_3 = 0x1cf152e3;
+    static constexpr uint64_t r_inv_wasm_4 = 0x18eb055f;
+    static constexpr uint64_t r_inv_wasm_5 = 0xed815e2;
+    static constexpr uint64_t r_inv_wasm_6 = 0x16626d2;
+    static constexpr uint64_t r_inv_wasm_7 = 0xb8bab0f;
+    static constexpr uint64_t r_inv_wasm_8 = 0x6d7c4;
+
     static constexpr uint64_t coset_generators_0[8]{
         0x7a17caa950ad28d7ULL, 0x4d750e37163c3674ULL, 0x20d251c4dbcb4411ULL, 0xf42f9552a15a51aeULL,
         0x4f4bc0b2b5ef64bdULL, 0x22a904407b7e725aULL, 0xf60647ce410d7ff7ULL, 0xc9638b5c069c8d94ULL,

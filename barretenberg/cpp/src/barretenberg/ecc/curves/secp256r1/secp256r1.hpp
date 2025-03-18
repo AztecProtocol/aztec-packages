@@ -18,6 +18,21 @@ struct FqParams {
 
     static constexpr uint64_t r_inv = 1;
 
+    static constexpr uint64_t r_inv_0 = 0x100000000UL;
+    static constexpr uint64_t r_inv_1 = 0x0UL;
+    static constexpr uint64_t r_inv_2 = 0xffffffff00000001UL;
+    static constexpr uint64_t r_inv_3 = 0x0UL;
+
+    static constexpr uint64_t r_inv_wasm_0 = 0x0;
+    static constexpr uint64_t r_inv_wasm_1 = 0x0;
+    static constexpr uint64_t r_inv_wasm_2 = 0x200;
+    static constexpr uint64_t r_inv_wasm_3 = 0x0;
+    static constexpr uint64_t r_inv_wasm_4 = 0x0;
+    static constexpr uint64_t r_inv_wasm_5 = 0x40000;
+    static constexpr uint64_t r_inv_wasm_6 = 0x1fe00000;
+    static constexpr uint64_t r_inv_wasm_7 = 0xffffff;
+    static constexpr uint64_t r_inv_wasm_8 = 0x0;
+
     static constexpr uint64_t coset_generators_0[8]{
         0x3ULL, 0x4ULL, 0x5ULL, 0x6ULL, 0x7ULL, 0x8ULL, 0x9ULL, 0xaULL,
     };
@@ -99,6 +114,20 @@ struct FrParams {
     static constexpr uint64_t r_squared_3 = 7413256579398063648ULL;
 
     static constexpr uint64_t r_inv = 14758798090332847183ULL;
+
+    static constexpr uint64_t r_inv_0 = 0x230102a06d6251dcUL;
+    static constexpr uint64_t r_inv_1 = 0xca5113bcafc4ea28UL;
+    static constexpr uint64_t r_inv_2 = 0xded10c5bee00bc4eUL;
+    static constexpr uint64_t r_inv_3 = 0xccd1c8aa212ef3a4UL;
+    static constexpr uint64_t r_inv_wasm_0 = 0x8517c79;
+    static constexpr uint64_t r_inv_wasm_1 = 0x1edc694;
+    static constexpr uint64_t r_inv_wasm_2 = 0x459ee5c;
+    static constexpr uint64_t r_inv_wasm_3 = 0x705a6a8;
+    static constexpr uint64_t r_inv_wasm_4 = 0x1ffffe2a;
+    static constexpr uint64_t r_inv_wasm_5 = 0x113bffff;
+    static constexpr uint64_t r_inv_wasm_6 = 0x1621c017;
+    static constexpr uint64_t r_inv_wasm_7 = 0xef1ff43;
+    static constexpr uint64_t r_inv_wasm_8 = 0x7005e2;
 
     static constexpr uint64_t coset_generators_0[8]{
         0x55eb74ab1949fac9ULL, 0x6231a9e81ce6d578ULL, 0x6e77df252083b027ULL, 0x7abe146224208ad6ULL,

@@ -34,6 +34,20 @@ struct FqParams {
 
     static constexpr uint64_t r_inv = 15580212934572586289ULL;
 
+    static constexpr uint64_t r_inv_0 = 0xffffffff27c7f3a9UL;
+    static constexpr uint64_t r_inv_1 = 0xffffffffffffffffUL;
+    static constexpr uint64_t r_inv_2 = 0xffffffffffffffffUL;
+    static constexpr uint64_t r_inv_3 = 0xd838091dd2253530UL;
+    static constexpr uint64_t r_inv_wasm_0 = 0xed6544e;
+    static constexpr uint64_t r_inv_wasm_1 = 0x1ffffffb;
+    static constexpr uint64_t r_inv_wasm_2 = 0x1fffffff;
+    static constexpr uint64_t r_inv_wasm_3 = 0x1fffffff;
+    static constexpr uint64_t r_inv_wasm_4 = 0x1fffffff;
+    static constexpr uint64_t r_inv_wasm_5 = 0x1fffffff;
+    static constexpr uint64_t r_inv_wasm_6 = 0x1fffffff;
+    static constexpr uint64_t r_inv_wasm_7 = 0x10ffffff;
+    static constexpr uint64_t r_inv_wasm_8 = 0x9129a9;
+
     static constexpr uint64_t cube_root_0 = 0x58a4361c8e81894eULL;
     static constexpr uint64_t cube_root_1 = 0x03fde1631c4b80afULL;
     static constexpr uint64_t cube_root_2 = 0xf8e98978d02e3905ULL;
@@ -100,6 +114,21 @@ struct FrParams {
     static constexpr uint64_t r_squared_3 = 11342065889886772165ULL;
 
     static constexpr uint64_t r_inv = 5408259542528602431ULL;
+
+    static constexpr uint64_t r_inv_0 = 0x9d4ad302583de6dcUL;
+    static constexpr uint64_t r_inv_1 = 0xa09f710af0155525UL;
+    static constexpr uint64_t r_inv_2 = 0xffffffffffffffffUL;
+    static constexpr uint64_t r_inv_3 = 0x4b0dff665588b13eUL;
+
+    static constexpr uint64_t r_inv_wasm_0 = 0x3d864e;
+    static constexpr uint64_t r_inv_wasm_1 = 0x8b9f61c;
+    static constexpr uint64_t r_inv_wasm_2 = 0x3df60c0;
+    static constexpr uint64_t r_inv_wasm_3 = 0xa3c71eb;
+    static constexpr uint64_t r_inv_wasm_4 = 0x1ffff251;
+    static constexpr uint64_t r_inv_wasm_5 = 0x1fffffff;
+    static constexpr uint64_t r_inv_wasm_6 = 0x1fffffff;
+    static constexpr uint64_t r_inv_wasm_7 = 0x1effffff;
+    static constexpr uint64_t r_inv_wasm_8 = 0xac4589;
 
     static constexpr uint64_t coset_generators_0[8]{
         0x40e4273feef0b9bbULL, 0x8111c8b31eba787aULL, 0xc13f6a264e843739ULL, 0x16d0b997e4df5f8ULL,

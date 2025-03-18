@@ -195,6 +195,10 @@ template <class Params_> struct alignas(32) field {
                                                               Params::modulus_wasm_4, Params::modulus_wasm_5,
                                                               Params::modulus_wasm_6, Params::modulus_wasm_7,
                                                               Params::modulus_wasm_8 };
+    static constexpr std::array<uint64_t, 9> wasm_r_inv = {
+        Params::r_inv_wasm_0, Params::r_inv_wasm_1, Params::r_inv_wasm_2, Params::r_inv_wasm_3, Params::r_inv_wasm_4,
+        Params::r_inv_wasm_5, Params::r_inv_wasm_6, Params::r_inv_wasm_7, Params::r_inv_wasm_8
+    };
 
 #endif
     static constexpr field cube_root_of_unity()
@@ -617,6 +621,16 @@ template <class Params_> struct alignas(32) field {
                                                 uint64_t& result_6,
                                                 uint64_t& result_7,
                                                 uint64_t& result_8);
+    BB_INLINE static constexpr void wasm_reduce_yuval(uint64_t& result_0,
+                                                      uint64_t& result_1,
+                                                      uint64_t& result_2,
+                                                      uint64_t& result_3,
+                                                      uint64_t& result_4,
+                                                      uint64_t& result_5,
+                                                      uint64_t& result_6,
+                                                      uint64_t& result_7,
+                                                      uint64_t& result_8,
+                                                      uint64_t& result_9);
     BB_INLINE static constexpr std::array<uint64_t, WASM_NUM_LIMBS> wasm_convert(const uint64_t* data);
 #endif
     BB_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
