@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Helper script for deploying local KIND scenarios.
 # Overrides refers to overriding values in the values yaml file
