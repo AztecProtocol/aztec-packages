@@ -4,7 +4,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 project_name=$(basename "$PWD")
-test_flag=$project_name-tests-$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$project_name")
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -13,15 +12,16 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
-export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
+export NARGO_HASH=$(../../noir/bootstrap.sh hash)
 
+test_flag=$project_name-tests-$(hash_str "$NARGO_HASH" $(cache_content_hash "^noir-projects/$project_name"))
 key_dir=./target/keys
 mkdir -p $key_dir
 
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-circuits_hash=$(cache_content_hash "^noir-projects/$project_name/crates/" ../../noir/.rebuild_patterns)
+circuits_hash=$(hash_str "$NARGO_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 ivc_patterns=(

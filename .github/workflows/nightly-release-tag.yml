@@ -17,6 +17,8 @@ jobs:
     steps:
       # Check out the repository so we can read files and create tags.
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       # Extract the current release version from the manifest.
       # Then, create a nightly tag using the current version and the current UTC date.

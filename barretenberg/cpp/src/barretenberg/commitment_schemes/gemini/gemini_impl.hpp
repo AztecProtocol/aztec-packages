@@ -233,10 +233,14 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construc
     // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, ..., m-1
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r_challenge, log_n);
 
+    // Each fold polynomial Aₗ has to be opened at −r^{2ˡ} and r^{2ˡ}. To avoid storing two copies of Aₗ for l = 1,...,
+    // m-1, we use a flag that is processed by ShplonkProver.
+    const bool gemini_fold = true;
+
     // Compute the remaining m opening pairs {−r^{2ˡ}, Aₗ(−r^{2ˡ})}, l = 1, ..., m-1.
     for (size_t l = 0; l < log_n - 1; ++l) {
         Fr evaluation = fold_polynomials[l].evaluate(-r_squares[l + 1]);
-        claims.emplace_back(Claim{ std::move(fold_polynomials[l]), { -r_squares[l + 1], evaluation } });
+        claims.emplace_back(Claim{ std::move(fold_polynomials[l]), { -r_squares[l + 1], evaluation }, gemini_fold });
     }
 
     return claims;

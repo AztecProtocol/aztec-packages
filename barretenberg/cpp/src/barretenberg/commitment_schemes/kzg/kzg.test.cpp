@@ -199,7 +199,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
 }
 
-TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
+TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
 {
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
