@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742330399623,
+  "lastUpdate": 1742337716836,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c107b6bb84f68d4d9bf8dca604f86fbdc7a8e88c",
-          "message": "chore: Block building benchmark via github-action-benchmark (#11202)\n\nDeletes old benchmarks, along with the benchmark-related scripts and\r\ntypes.\r\n\r\nAdds a single benchmark for block building, with a stubbed\r\n`TelemetryClient` that collects all datapoints in memory, and then\r\nflushes a set of specified metrics into the custom format expected by\r\n[github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark),\r\nwhich we're currently using for bb.\r\n\r\nBenchmarks get published to\r\nhttps://aztecprotocol.github.io/aztec-packages/dev/e2e-bench/\r\n\r\nFixes #11154",
-          "timestamp": "2025-01-14T17:09:23Z",
-          "tree_id": "105c00ceaf27c7fbb6bfcab761bfd28e40a4adae",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c107b6bb84f68d4d9bf8dca604f86fbdc7a8e88c"
-        },
-        "date": 1736875813179,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4526,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 3.401117607245741,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 657931,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 143177,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "aakoshh@gmail.com",
+            "name": "Akosh Farkash",
+            "username": "aakoshh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa5991f80fdfb0fbde5fa8062367b339236abe4d",
+          "message": "feat(noir sync): Calculate noir hash based on just `noir-repo-ref` and `noir-repo.patch` (#12861)\n\nAlternative to\nhttps://github.com/AztecProtocol/aztec-packages/pull/12858\n\nChanges `noir/bootstrap.sh` to use `cache_content_hash\n.rebuild_patterns` if\n* we have specified an `AZTEC_COMMIT_HASH`, looking for historical\nvalues\n* there are no commits in `noir-repo` that could be added to a patch\nfile, indicating changes that aren't captured by the `.rebuild_patterns`\nand the `noir-repo-ref` file, and\n* `noir-repo` isn't on a _branch_ which could evolve all the time; if\nit's on a branch then use the `.noir-repo.rebuild_patterns` in\n`noir-repo` itself to figure out the hash\n\nThe exception for feature branches should not affect normal aztec\nworkflow, which is based on _tags_, it's only there to support temporary\nwork noir developers do across both repos at the same time, and it's not\nsomething that will be merged into the `master` branch of\n`aztec-packages` (it would defeat repeatable builds).\n\nWith this change it should be possible to use `AZTEC_COMMIT_HASH` to\nquery historical queries, as seen in the 2nd example below.\n\n### Example 1\n\nThis shows that if we're on a tag, then adding a new commit to the\nnoir-repo will disable caching. This is the normal case in\n`aztec-packages`. Otherwise the hash is based on just `noir`. But if we\nswitch to a feature branch, caching is back on to support faster builds,\nincorporating the latest commits into the hash.\n\n```console\n# We are on a tag\n% ./noir/scripts/sync.sh info                                                                                                                                                                        \nRepo exists:              yes\nFixup commit:             9dcbd3fbf47f886821ac71a647d4f9712ab1eb1d\nCheckout commit:          45ad637273cef317eba42feaf2be0e59d34065ed\nWanted:                   nightly-2025-03-18\nNeeds switch:             no\nNeeds patch:              no\nDetached:                 yes\nOn branch:                no\nBranch name:              n/a\nHas wanted tag:           yes\nHas tag commit:           yes\nHas patch commit:         yes\nLast commit is patch:     yes\nHas fixup and patch:      yes\nHas uncommitted changes:  no\nLatest nightly:           nightly-2025-03-18\nCache mode:               noir\n% ./noir/scripts/sync.sh cache-mode                                                                                                                                                                  \nnoir\n% ./noir/bootstrap.sh hash                                                                                                                                                                           \neb08d2624603de97\n\n# Make a change in the noir-repo\n% cd noir/noir-repo                                                                                                                                                                                  \n% echo \"Foo\" > compiler/foo.txt && git add compiler/foo.txt && git commit -m \"Foo\"                                                                                                              \n[detached HEAD 23d1d2ac6b] Foo\n 1 file changed, 1 insertion(+)\n create mode 100644 compiler/foo.txt\n% cd ../..        \n\n# The extra commit disables the cache\n% ./noir/scripts/sync.sh cache-mode                                                                                                                                                                  \ndisabled-cache\n% ./noir/bootstrap.sh hash                                                                                                                                                                           \ndisabled-cache\n\n# Now switch to a feature branch\n% echo af/msgpack-codegen > noir/noir-repo-ref                                                                                                                                                       \n% ./noir/bootstrap.sh hash                                                                                                                                                                          \nError: noir-repo is on a detached HEAD and the last commit is not the patch marker commit;\nswitching to af/msgpack-codegen could mean losing those commits.\nPlease use the 'make-patch' command to create a noir-repo.patch file and commit it in aztec-packages, \nso that it is re-applied after each checkout. Make sure to commit the patch on the branch where it should be.\n\n# Get rid of the foo commit, so we can switch away\n% cd noir/noir-repo                                                                                                                                                                                 \n% git reset --hard HEAD~1                                                                                                                                                                       \nHEAD is now at 8b88883d58 Noir local patch commit.\n% cd ../..                   \n\n# Hashing still involves syncing; we need the noir-repo to decide how to hash\n% ./noir/bootstrap.sh hash                                                                                                                                                                          \nremote: Enumerating objects: 187, done.\n...\nSwitched to branch 'af/msgpack-codegen'\nYour branch is up to date with 'upstream/af/msgpack-codegen'.\n...\n[af/msgpack-codegen 98f9a3cc43] Noir local fixup commit.\n 4 files changed, 108 insertions(+), 2 deletions(-)\n create mode 100755 acvm-repo/acvm_js/build.sh.bak\n create mode 100755 tooling/noirc_abi_wasm/build.sh.bak\nApplying: patch: delete honk example programs\nApplying: chore: turn on `skipLibCheck`\nApplying: chore: delete leftover file\nApplying: Ignore package.tgz\n[af/msgpack-codegen 182331696a] Noir local patch commit.\ndisabled-cache\n\n# ^ The cache is disabled becase we have a pending change in `noir/noir-repo-ref`, \n# but `cache-mode` indicates we need to cache based on the `noir-repo` contents.\n% ./noir/scripts/sync.sh cache-mode                                                                                                                                                                 \nnoir-repo\n\n# Commit the noir-repo-ref file, so we have a clean state in aztec-packages                                                                                                                                                                              \n% git add noir/noir-repo-ref && git commit -m \"Switched to a feature branch\"                                                                                                                        \nFormatting barretenberg staged files...\n[af/noir-repo-ref-hash 62fc17a03b] Switched to a feature branch\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\n# Now we hash based on the code in `noir-repo`, *and* the contents of `noir`\n% ./noir/bootstrap.sh hash                                                                                                                                                                          \n798ec85262e6133a\n\n```\n\n### Example 2\n\nThis one shows that even after switching to a different tag, we can use\nthe `AZTEC_CACHE_COMMIT` feature to go back in the commit log to get a\nhistorical hash.\n\n```console\n# We're on a tag\n% git rev-parse HEAD                                                                                                                                                                                \n517f2463281beb3d528662d1fd3d6e5346fdb523\n% cat noir/noir-repo-ref                                                                                                                                                                            \nnightly-2025-03-18\n% ./noir/bootstrap.sh hash                                                                                                                                                                          \nbf9bcc2b4f6046c7\n\n# Want to roll back to a previous nightly tag\n% echo nightly-2025-03-11 > noir/noir-repo-ref                                                                                                                                                      \n% git add noir                                                                                                                                                                                      \n% git commit -m \"Roll back nightly\"                                                                                                                                                                 \nFormatting barretenberg staged files...\n[af/noir-repo-ref-hash 858d98f42b] Roll back nightly\n 1 file changed, 1 insertion(+), 1 deletion(-)\n\n# Recalculating the hash will sync the repo, but the hash will be based on the ref, not the content\n% ./noir/bootstrap.sh hash                                                                                                                                                                          \nremote: Enumerating objects: 66481, done.\nremote: Counting objects: 100% (61479/61479), done.\nremote: Compressing objects: 100% (36681/36681), done.\nremote: Total 57993 (delta 21540), reused 52084 (delta 16927), pack-reused 0 (from 0)\nReceiving objects: 100% (57993/57993), 158.39 MiB | 33.13 MiB/s, done.\nResolving deltas: 100% (21540/21540), completed with 557 local objects.\nremote: Enumerating objects: 23, done.\nremote: Counting objects: 100% (16/16), done.\nremote: Compressing objects: 100% (3/3), done.\nremote: Total 3 (delta 2), reused 1 (delta 0), pack-reused 0 (from 0)\nUnpacking objects: 100% (3/3), 1.66 KiB | 1.66 MiB/s, done.\nFrom https://github.com/noir-lang/noir\n * tag                     nightly-2025-03-11 -> FETCH_HEAD\nWarning: you are leaving 6 commits behind, not connected to\nany of your branches:\n\n  ba0ad9e5f2 Noir local patch commit.\n  41425e3e82 Ignore package.tgz\n  e5942f5295 chore: delete leftover file\n  b98e22d860 chore: turn on `skipLibCheck`\n ... and 2 more.\n\nHEAD is now at 1fa0dd95a9 chore: bump external pinned commits (#7640)\n[detached HEAD 96b25f1022] Noir local fixup commit.\n 4 files changed, 108 insertions(+), 2 deletions(-)\n create mode 100755 acvm-repo/acvm_js/build.sh.bak\n create mode 100755 tooling/noirc_abi_wasm/build.sh.bak\nApplying: patch: delete honk example programs\nApplying: chore: turn on `skipLibCheck`\nApplying: chore: delete leftover file\nApplying: Ignore package.tgz\n[detached HEAD 2e591ecb7c] Noir local patch commit.\ncb3599adbc8ee588\n\n# We can still query the hash as it was before\n% AZTEC_CACHE_COMMIT=HEAD~1 ./noir/bootstrap.sh hash                                                                                                                                            13s \nbf9bcc2b4f6046c7\n\n```",
+          "timestamp": "2025-03-18T18:18:35-04:00",
+          "tree_id": "cc29259eb5b7d0bc778b8487a29c2a4c26582f90",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fa5991f80fdfb0fbde5fa8062367b339236abe4d"
+        },
+        "date": 1742337709248,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9311,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.22721308383821975,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 137700,
             "unit": "us"
           }
         ]
