@@ -31,19 +31,37 @@ function noir_sync {
 # Calculate the content hash for caching, taking into account that `noir-repo`
 # is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
 # by `cache_content_hash` would not take those files into account.
+function noir_repo_content_hash {
+  echo $(REPO_PATH=./noir-repo AZTEC_CACHE_COMMIT=HEAD cache_content_hash $@)
+}
+
+# Get the cache content hash. It should only be based on files committed to `aztec-packages`
+# in order to be able to support using `AZTEC_CACHE_COMMIT` for historical queries.
 function noir_content_hash {
-  function noir_repo_content_hash {
-    echo $(REPO_PATH=./noir-repo cache_content_hash $@)
-  }
-  with_tests=${1:-0}
+  # Currently we don't make a distinction between test and non-test hash
+  tests=${1:-0}
+
+  # If there are changes in the noir-repo which aren't just due to the patch applied to it,
+  # then just disable the cache, unless the noir-repo is in an evolving feature branch.
   noir_hash=$(cache_content_hash .rebuild_patterns)
-  noir_repo_hash=$(noir_repo_content_hash .noir-repo.rebuild_patterns)
-  if [ "$with_tests" == "1" ]; then
-    noir_repo_hash_tests=$(noir_repo_content_hash .noir-repo.rebuild_patterns_tests)
+
+  if [ "${AZTEC_CACHE_COMMIT:-HEAD}" != "HEAD" ]; then
+    # Ignore the current content of noir-repo, it doesn't support history anyway.
+    echo $noir_hash
   else
-    noir_repo_hash_tests=""
+    cache_mode=$(scripts/sync.sh cache-mode)
+    case "$cache_mode" in
+      "noir")
+        echo $noir_hash
+        ;;
+      "noir-repo")
+        echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
+        ;;
+      *)
+        echo $cache_mode
+        ;;
+    esac
   fi
-  echo $(hash_str $noir_hash $noir_repo_hash $noir_repo_hash_tests)
 }
 
 # Builds nargo, acvm and profiler binaries.
