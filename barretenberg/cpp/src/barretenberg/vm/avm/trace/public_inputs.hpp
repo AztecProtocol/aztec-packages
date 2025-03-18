@@ -154,10 +154,10 @@ struct PublicCallRequest {
      * Determines whether the call is modifying state.
      */
     bool is_static_call = false;
-    FF args_hash{};
+    FF calldata_hash{};
     inline bool is_empty() const
     {
-        return msg_sender == 0 && contract_address == 0 && !is_static_call && args_hash == 0;
+        return msg_sender == 0 && contract_address == 0 && !is_static_call && calldata_hash == 0;
     }
 };
 
@@ -167,7 +167,7 @@ inline void read(uint8_t const*& it, PublicCallRequest& public_call_request)
     read(it, public_call_request.msg_sender);
     read(it, public_call_request.contract_address);
     read(it, public_call_request.is_static_call);
-    read(it, public_call_request.args_hash);
+    read(it, public_call_request.calldata_hash);
 }
 
 struct PrivateToAvmAccumulatedDataArrayLengths {

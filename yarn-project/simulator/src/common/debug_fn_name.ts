@@ -10,6 +10,6 @@ export async function getPublicFunctionDebugName(
   calldata: Fr[],
 ): Promise<string> {
   // Public function is dispatched and therefore the target function is passed in the first argument.
-  const selector = FunctionSelector.fromField(calldata[0]);
-  return (await db.getDebugFunctionName(contractAddress, selector)) ?? selector.toString();
+  const selector = calldata[0] && FunctionSelector.fromField(calldata[0]);
+  return (selector && (await db.getDebugFunctionName(contractAddress, selector))) ?? `${selector}`;
 }
