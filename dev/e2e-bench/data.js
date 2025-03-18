@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742302084361,
+  "lastUpdate": 1742302603242,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1707,6 +1707,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 134846,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5405d8cc540cfaa1d5bd63f02bca1ff14d9e124",
+          "message": "chore: nuking MemoryArchiveStore (#12826)",
+          "timestamp": "2025-03-18T12:32:26Z",
+          "tree_id": "425e906e328774ff48197f349f7497492351bd93",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c5405d8cc540cfaa1d5bd63f02bca1ff14d9e124"
+        },
+        "date": 1742302595681,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9508,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.232004834980761,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 140415,
             "unit": "us"
           }
         ]
