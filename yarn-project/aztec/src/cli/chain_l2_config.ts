@@ -29,7 +29,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   p2pBootstrapNodes: [],
   registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 4,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
