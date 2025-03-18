@@ -195,7 +195,10 @@ function latest_nightly {
 
 # Create an empty marker commit to show that patches have been applied or put in a patch file.
 function commit_patch_marker {
-  git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
+  # The output is redirected to stderr, otherwise a message like
+  # `[detached HEAD e4c68760f0] Noir local patch commit.` appears
+  # in the output, becoming part of e.g. `noir/bootstrap.sh hash`
+  git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty >&2
 }
 
 # Apply the fixup script and any local patch file.
@@ -203,11 +206,11 @@ function patch_repo {
   log Applying fixup on noir-repo
   # Redirect the `bb` reference to the local one.
   scripts/sync-in-fixup.sh
-  git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG" --allow-empty
+  git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG" --allow-empty >&2
   # Apply any patch file.
   if [ -f $NOIR_REPO_PATCH ]; then
     log Applying patches from $NOIR_REPO_PATCH
-    git -C noir-repo am ../$NOIR_REPO_PATCH
+    git -C noir-repo am ../$NOIR_REPO_PATCH >&2
   else
     log "No patch file to apply"
   fi
