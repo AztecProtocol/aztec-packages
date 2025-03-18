@@ -3,7 +3,7 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { HashedValues } from '@aztec/stdlib/tx';
+import { computeVarArgsHash } from '@aztec/stdlib/hash';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 
@@ -74,11 +74,7 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
 // docs:end:authwit_computeAuthWitMessageHash
 
 export const computeInnerAuthWitHashFromAction = async (caller: AztecAddress, action: FunctionCall) =>
-  computeInnerAuthWitHash([
-    caller.toField(),
-    action.selector.toField(),
-    (await HashedValues.fromArgs(action.args)).hash,
-  ]);
+  computeInnerAuthWitHash([caller.toField(), action.selector.toField(), await computeVarArgsHash(action.args)]);
 
 /**
  * Compute the inner hash for an authentication witness.

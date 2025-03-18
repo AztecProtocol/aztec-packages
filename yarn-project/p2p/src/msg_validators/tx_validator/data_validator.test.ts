@@ -68,7 +68,7 @@ describe('TxDataValidator', () => {
     await expect(validator.validateTx(txWithLog)).resolves.toEqual({ result: 'valid' });
   });
 
-  it('accept txs with exactly max args', async () => {
+  it('accept txs with exactly max calldata', async () => {
     const goodTx0Settings = {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
@@ -80,7 +80,7 @@ describe('TxDataValidator', () => {
     await expectValid([goodTx0]);
   });
 
-  it('rejects txs with too many args', async () => {
+  it('rejects txs with too much calldata', async () => {
     const badTxSettings = [
       {
         numberOfNonRevertiblePublicCallRequests: 1,
@@ -98,7 +98,7 @@ describe('TxDataValidator', () => {
 
     for (let i = 0; i < badTxSettings.length; i++) {
       const badTx = await mockTx(2, badTxSettings[i]);
-      await expectInvalid(badTx, 'Too many args in total to enqueued public calls');
+      await expectInvalid(badTx, 'Total calldata too large for enqueued public calls');
     }
   });
 

@@ -70,6 +70,8 @@ export class ContractDataProvider implements DataProvider {
   }
 
   async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
+    this.#contractClassIdMap.set(contract.address.toString(), contract.currentContractClassId);
+
     await this.#contractInstances.set(
       contract.address.toString(),
       new SerializableContractInstance(contract).toBuffer(),

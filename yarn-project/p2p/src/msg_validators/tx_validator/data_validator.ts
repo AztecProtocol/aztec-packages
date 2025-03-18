@@ -24,11 +24,11 @@ export class DataTxValidator implements TxValidator<Tx> {
     }
 
     if (tx.getTotalPublicCalldataCount() > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
-      const reason = 'Too many args in total to enqueued public calls';
+      const reason = 'Total calldata too large for enqueued public calls';
       this.#log.warn(
         `Rejecting tx ${await Tx.getHash(
           tx,
-        )}. Reason: ${reason}. Expected no greater than ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS}. Got ${tx.getTotalPublicCalldataCount()}.`,
+        )}. Reason: ${reason}. Expected no greater than ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS} fields. Got ${tx.getTotalPublicCalldataCount()}.`,
       );
       return { result: 'invalid', reason: [reason] };
     }
