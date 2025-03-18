@@ -139,7 +139,7 @@ describe('e2e_deploy_contract deploy method', () => {
   }, 300_000);
 
   it('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
-    await t.aztecNode.setConfig({ minTxsPerBlock: 2 });
+    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
     const owner = wallet.getAddress();
     logger.debug('Initializing deploy method');

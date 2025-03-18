@@ -24,6 +24,7 @@ import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { PXEService } from '@aztec/pxe/server';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
@@ -67,6 +68,7 @@ export class FullProverTest {
   fakeProofsAsset!: TokenContract;
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
+  aztecNodeAdmin!: AztecNodeAdmin;
   pxe!: PXEService;
   cheatCodes!: CheatCodes;
   blobSink!: BlobSinkServer;
@@ -168,6 +170,7 @@ export class FullProverTest {
       cheatCodes: this.cheatCodes,
       blobSink: this.blobSink,
     } = this.context);
+    this.aztecNodeAdmin = this.context.aztecNode;
 
     const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://localhost:${this.blobSink.port}` });
 
@@ -190,14 +193,14 @@ export class FullProverTest {
       this.circuitProofVerifier = await BBCircuitVerifier.new(bbConfig);
 
       this.logger.debug(`Configuring the node for real proofs...`);
-      await this.aztecNode.setConfig({
+      await this.aztecNodeAdmin.setConfig({
         realProofs: true,
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     } else {
       this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
       this.circuitProofVerifier = new TestCircuitVerifier();
-      await this.aztecNode.setConfig({
+      await this.aztecNodeAdmin.setConfig({
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     }
