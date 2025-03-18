@@ -44,7 +44,6 @@ flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_doc
 
 function show_status_until_pxe_ready {
   set +x   # don't spam with our commands
-  echo "Waiting for PXE to be ready..."
   sleep 15 # let helm upgrade start
   for i in {1..100}; do
     echo "--- Pod status ---"
