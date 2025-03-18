@@ -27,10 +27,28 @@ function noir_sync {
   denoise "scripts/sync.sh init && scripts/sync.sh update"
 }
 
+# Calculate the content hash for caching, taking into account that `noir-repo`
+# is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
+# by `cache_content_hash` would not take those files into account.
+function noir_content_hash {
+  function noir_repo_content_hash {
+    echo $(REPO_PATH=./noir-repo cache_content_hash $@)
+  }
+  with_tests=${1:-0}
+  noir_hash=$(cache_content_hash .rebuild_patterns)
+  noir_repo_hash=$(noir_repo_content_hash .noir-repo.rebuild_patterns)
+  if [ "$with_tests" == "1" ]; then
+    noir_repo_hash_tests=$(noir_repo_content_hash .noir-repo.rebuild_patterns_tests)
+  else
+    noir_repo_hash_tests=""
+  fi
+  echo $(hash_str $noir_hash $noir_repo_hash $noir_repo_hash_tests)
+}
+
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  local hash=$(cache_content_hash .rebuild_patterns)
+  local hash=$(noir_content_hash)
   if cache_download noir-$hash.tar.gz; then
     return
   fi
@@ -46,7 +64,7 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
-  local hash=$(cache_content_hash .rebuild_patterns)
+  local hash=$(noir_content_hash)
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
@@ -56,6 +74,7 @@ function build_packages {
 
   cd noir-repo
   npm_install_deps
+
   yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
@@ -113,7 +132,7 @@ function test {
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
-  local test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
+  local test_hash=$(noir_content_hash 1)
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
@@ -198,7 +217,10 @@ case "$cmd" in
     $cmd "$@"
     ;;
   "hash")
-    echo $(cache_content_hash .rebuild_patterns)
+    echo $(noir_content_hash)
+    ;;
+  "hash-tests")
+    echo $(noir_content_hash 1)
     ;;
   "make-patch")
     scripts/sync.sh make-patch
