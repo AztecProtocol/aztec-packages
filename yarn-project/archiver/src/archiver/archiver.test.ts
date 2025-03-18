@@ -6,6 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -20,7 +21,7 @@ import { type Log, type Transaction, encodeFunctionData, toHex } from 'viem';
 import { Archiver } from './archiver.js';
 import type { ArchiverDataStore } from './archiver_store.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
-import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
+import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 
 interface MockRollupContractRead {
   /** Given an L2 block number, returns the archive. */
@@ -104,7 +105,7 @@ describe('Archiver', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    archiverStore = new MemoryArchiverStore(1000);
+    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000);
     l1Constants = {
       l1GenesisTime: BigInt(now),
       l1StartBlock: 0n,
