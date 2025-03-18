@@ -412,4 +412,3 @@ export enum GeneratorIndex {
   PUBLIC_TX_HASH = 56,
   PRIVATE_TX_HASH = 57,
 }
-
