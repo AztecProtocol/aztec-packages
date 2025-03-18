@@ -257,13 +257,13 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [messageHash]: ACVMField[],
     [secret]: ACVMField[],
-  ): Promise<ACVMField[]> {
+  ): Promise<(ACVMField | ACVMField[])[]> {
     const message = await this.typedOracle.getL1ToL2MembershipWitness(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(messageHash),
       Fr.fromString(secret),
     );
-    return message.toFields().map(toACVMField);
+    return message.toNoirRepresentation();
   }
 
   async storageRead(

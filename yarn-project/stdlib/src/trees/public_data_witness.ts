@@ -59,7 +59,7 @@ export class PublicDataWitness {
   }
 
   /**
-   * Returns a field array representation of a public data witness.
+   * Returns a representation of the public data witness as expected by intrinsic Noir deserialization.
    */
   public toNoirRepresentation(): (string | string[])[] {
     // TODO(benesjan): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
