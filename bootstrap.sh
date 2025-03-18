@@ -128,6 +128,8 @@ function test_cmds {
 
 function start_txe {
   cd $root/yarn-project/txe
+  echo "Prelaunch dump of open ports:"
+  sudo lsof -i
   LOG_LEVEL=info TXE_PORT=$1 node --no-warnings ./dest/bin/index.js &
   local pid=$!
   trap "kill -SIGTERM $pid &>/dev/null || true" SIGTERM;
@@ -135,6 +137,7 @@ function start_txe {
   wait $pid
   local code=$?
   if [ "$code" -ne 0 ]; then
+    echo "Post run dump of open ports:"
     sudo lsof -i
   fi
   return $code
