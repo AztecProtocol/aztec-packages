@@ -8,7 +8,6 @@
 namespace bb::avm2::simulation {
 
 struct MerkleCheckEvent {
-    // TODO(dbanks12): double check safety of event member types
     FF leaf_value;
     uint64_t leaf_index;
     std::vector<FF> sibling_path;

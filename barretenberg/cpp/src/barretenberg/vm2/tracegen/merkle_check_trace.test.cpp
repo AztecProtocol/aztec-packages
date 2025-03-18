@@ -19,6 +19,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+using simulation::MerkleCheckEvent;
 
 TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
 {
@@ -37,7 +38,7 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
     std::vector<FF> sibling_path = { sibling_value };
     FF root = output_hash; // Root should match output hash
 
-    simulation::MerkleCheckEvent event = {
+    MerkleCheckEvent event = {
         .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
     };
 
@@ -94,7 +95,7 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
     std::vector<FF> sibling_path = { sibling_value_1, sibling_value_2 };
     FF root = output_hash_2; // Root is the final output hash
 
-    simulation::MerkleCheckEvent event = {
+    MerkleCheckEvent event = {
         .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
     };
 
@@ -151,10 +152,10 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
     FF sibling_value_1 = FF(222);
     FF output_hash_1 = Poseidon2::hash({ leaf_value_1, sibling_value_1 });
 
-    simulation::MerkleCheckEvent event1 = { .leaf_value = leaf_value_1,
-                                            .leaf_index = leaf_index_1,
-                                            .sibling_path = { sibling_value_1 },
-                                            .root = output_hash_1 };
+    MerkleCheckEvent event1 = { .leaf_value = leaf_value_1,
+                                .leaf_index = leaf_index_1,
+                                .sibling_path = { sibling_value_1 },
+                                .root = output_hash_1 };
 
     // Second event
     FF leaf_value_2 = FF(333);
@@ -162,10 +163,10 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
     FF sibling_value_2 = FF(444);
     FF output_hash_2 = Poseidon2::hash({ sibling_value_2, leaf_value_2 });
 
-    simulation::MerkleCheckEvent event2 = { .leaf_value = leaf_value_2,
-                                            .leaf_index = leaf_index_2,
-                                            .sibling_path = { sibling_value_2 },
-                                            .root = output_hash_2 };
+    MerkleCheckEvent event2 = { .leaf_value = leaf_value_2,
+                                .leaf_index = leaf_index_2,
+                                .sibling_path = { sibling_value_2 },
+                                .root = output_hash_2 };
 
     builder.process({ event1, event2 }, trace);
 
