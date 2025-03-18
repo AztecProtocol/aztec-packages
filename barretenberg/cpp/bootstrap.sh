@@ -286,17 +286,17 @@ EOF
   local num_cpus=$(get_num_cpus)
   local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
 
-  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
-    ultra_honk_release \
-    ultra_honk_wasm \
-    client_ivc_17_in_20_release \
-    client_ivc_release \
-    client_ivc_op_count \
-    client_ivc_op_count_time \
-    client_ivc_wasm
+  # parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} {} ::: \
+  #   ultra_honk_release \
+  #   ultra_honk_wasm \
+  #   client_ivc_17_in_20_release \
+  #   client_ivc_release \
+  #   client_ivc_op_count \
+  #   client_ivc_op_count_time \
+  #   client_ivc_wasm
 
   # Split up the flows into chunks to run in parallel - otherwise we run out of CPUs to pin.
-  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow {}"' ::: $(ls "$capture_ivc_folder")
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow {}"' ::: amm-swap-exact-tokens
 }
 
 # Upload assets to release.

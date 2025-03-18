@@ -99,20 +99,16 @@ function build {
   fi
 
   # # WORKTODO: remove this when Adam's component is finished
-  # cp -r token_transfer ./acir_tests
+  cp -r token_transfer ./acir_tests
   npm_install_deps
   # TODO: Check if still needed.
-  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
+  # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
 
   # TODO: Revisit. Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
   # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
   # denoise "cd headless-test && yarn"
   # denoise "cd sol-test && yarn"
-
-  # TODO: Revist. The md5sum of everything is the same after each yarn call.
-  # Yet seemingly yarn's content hash will churn unless we reset timestamps
-  # find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 
   denoise "cd browser-test-app && yarn build"
 }
@@ -209,7 +205,6 @@ function run_benchmark {
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
-  # TODO: Move to scripts dir along with run_test.sh.
   # TODO(https://github.com/AztecProtocol/barretenberg/issues/1265) fix acir benchmarking
   # LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
 
