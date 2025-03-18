@@ -126,12 +126,15 @@ function test_cmds {
   echo "$prefix compose e2e_token_bridge_tutorial_test"
   echo "$prefix compose uniswap_trade_on_l1_from_l2"
 
-  # compose-based tests with custom scripts
-  for flow in ../cli-wallet/test/flows/*.sh; do
-    # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
-    # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
-    echo "$hash LOG_LEVEL=info $run_test_script compose $flow"
-  done
+  # TODO(AD): figure out workaround for mainframe subnet exhaustion
+  if [ "$CI" -eq 1 ]; then
+    # compose-based tests with custom scripts
+    for flow in ../cli-wallet/test/flows/*.sh; do
+      # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
+      # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
+      echo "$hash LOG_LEVEL=info $run_test_script compose $flow"
+    done
+  fi
 }
 
 function test {
