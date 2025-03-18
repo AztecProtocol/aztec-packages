@@ -64,7 +64,7 @@
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen",
-    "@aztec/noir-noir_js": "file:../../noir/packages/noir_js",
+    "@aztec/noir-noir_js": "portal:../../noir/packages/noir_js",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@aztec/noir-types": "portal:../../noir/packages/types",
     "@aztec/stdlib": "workspace:^",
