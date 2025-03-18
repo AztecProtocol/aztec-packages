@@ -161,6 +161,11 @@ function has_fixup_and_patch {
   find_fixup_commit>/dev/null && has_patch_commit
 }
 
+# Indicate that the repo has changes, either uncommitted, or unpatched.
+function has_changes {
+  has_uncommitted_changes || ! is_last_commit_patch
+}
+
 # Indicate that we have to switch to the wanted branch.
 function needs_switch {
   ! repo_exists && return 0 # true
@@ -367,6 +372,7 @@ function info {
   echo_info "Last commit is patch" $(yesno is_last_commit_patch)
   echo_info "Has fixup and patch" $(yesno has_fixup_and_patch)
   echo_info "Has uncommitted changes" $(yesno has_uncommitted_changes)
+  echo_info "Has changes changes" $(yesno has_changes)
   echo_info "Latest nightly" $(latest_nightly)
 }
 
@@ -385,6 +391,9 @@ case "$cmd" in
     ;;
   "needs-patch")
     [ -d noir-repo ] && [ -d noir-repo/.git ] && needs_patch && exit 0 || exit 1
+    ;;
+  "has-changes")
+    has_changes && exit 0 || exit 1
     ;;
   "latest-nightly")
     echo $(latest_nightly)

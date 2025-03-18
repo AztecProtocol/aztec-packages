@@ -51,7 +51,7 @@ function noir_content_hash {
 
   if [ -f .noir-repo.force-cache ]; then
     echo $(hash_str $noir_hash $(noir_repo_content_hash .noir_repo.rebuild_patterns .noir_repo.rebuild_patterns_tests))
-  elif scripts/sync.sh needs-patch; then
+  elif scripts/sync.sh has-changes; then
     echo "disabled-cache"
   else
     echo $noir_hash
