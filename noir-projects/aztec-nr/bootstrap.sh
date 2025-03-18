@@ -6,7 +6,7 @@ cmd=${1:-}
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash  "^noir-projects/aztec-nr"))
+hash=$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/aztec-nr")
 
 function build {
   # Being a library, aztec-nr does not technically need to be built. But we can still run nargo check to find any type
