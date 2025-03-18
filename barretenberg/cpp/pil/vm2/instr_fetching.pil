@@ -60,7 +60,7 @@ pol commit bytecode_size;
 
 #[SAME_BYTECODE_SIZE]
 sel * sel' * (1 - last_of_bytecode) * (bytecode_size - bytecode_size') = 0;
-// Note that last_of_bytecode might not be toggled at the last active row.
+// Note that last_of_bytecode might not be toggled at the last active row (if bytecode_id == 0).
 // For this reason, we need the factor sel' in the above relation.
 
 // Absolute difference variant where we compute:
