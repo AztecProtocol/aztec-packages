@@ -38,7 +38,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    */
   getAsset(): Promise<AztecAddress> {
     if (!this.assetPromise) {
-      // We use signer-less wallet because this function could be triggered before the associated account is deployed.
+      // We use the utility method to avoid a signature because this function could be triggered
+      // before the associated account is deployed.
       this.assetPromise = simulateWithoutSignature(this.wallet, this.paymentContract, {
         name: 'get_accepted_asset',
         functionType: FunctionType.PRIVATE,
@@ -71,9 +72,8 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
   }
 
   /**
-   * Creates a function call to pay the fee in the given asset.
-   * @param gasSettings - The gas settings.
-   * @returns The function call to pay the fee.
+   * Creates an execution payload to pay the fee using a private function through an FPC in the desired asset
+   * @returns An execution payload that contains the required function calls and auth witnesses.
    */
   async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
     // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit

@@ -20,8 +20,8 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
   }
 
   /**
-   * Creates a function call to pay the fee in Fee Juice.
-   * @returns A function call
+   * Creates an execution payload to pay the fee in Fee Juice.
+   * @returns An execution payload that just contains the claim function call.
    */
   override async getExecutionPayload(): Promise<ExecutionPayload> {
     const canonicalFeeJuice = await getFeeJuice(this.senderWallet);

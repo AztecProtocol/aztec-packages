@@ -59,7 +59,7 @@ export async function broadcastPrivateFunction(
   const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
 
   const registerer = await getRegistererContract(wallet);
-  const functionArtifact = registerer.artifact.functions.find(f => f.name === 'broadcast_private_function')!;
+  const broadcastFunctionArtifact = registerer.artifact.functions.find(f => f.name === 'broadcast_private_function')!;
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
@@ -67,7 +67,7 @@ export async function broadcastPrivateFunction(
   const fn = new ContractFunctionInteraction(
     wallet,
     registerer.address,
-    functionArtifact!,
+    broadcastFunctionArtifact!,
     [
       contractClass.id,
       artifactMetadataHash,
@@ -128,7 +128,9 @@ export async function broadcastUnconstrainedFunction(
   } = await createUnconstrainedFunctionMembershipProof(selector, artifact);
 
   const registerer = await getRegistererContract(wallet);
-  const functionArtifact = registerer.artifact.functions.find(f => f.name === 'broadcast_unconstrained_function');
+  const broadcastFunctionArtifact = registerer.artifact.functions.find(
+    f => f.name === 'broadcast_unconstrained_function',
+  );
   const bytecode = bufferAsFields(
     unconstrainedFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
@@ -137,7 +139,7 @@ export async function broadcastUnconstrainedFunction(
   const fn = new ContractFunctionInteraction(
     wallet,
     registerer.address,
-    functionArtifact!,
+    broadcastFunctionArtifact!,
     [
       contractClass.id,
       artifactMetadataHash,

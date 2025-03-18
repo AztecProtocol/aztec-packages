@@ -35,7 +35,7 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
     /** A getter for the deployed contract instance */
     public instanceGetter: () => Promise<ContractInstanceWithAddress>,
   ) {
-    super(pxeOrWallet, txHashPromise);
+    super(wallet, txHashPromise);
   }
 
   /**
