@@ -96,7 +96,7 @@ function check_toolchains {
     exit 1
   fi
   # Check for required npm globals.
-  for util in corepack solhint; do
+  for util in corepack solhint bun; do
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "$util not found."
