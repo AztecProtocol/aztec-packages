@@ -13,6 +13,7 @@ struct Witness {
     std::vector<uint8_t> bincodeSerialize() const;
     static Witness bincodeDeserialize(std::vector<uint8_t>);
 
+    bool operator<(Witness const& rhs) const { return value < rhs.value; }
     void msgpack_pack(auto& packer) const { packer.pack(value); }
     void msgpack_unpack(auto const& o) { o.convert(value); }
 };
