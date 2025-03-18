@@ -26,8 +26,8 @@ jobs:
         run: |
           current_version=$(jq -r '."."' .release-please-manifest.json)
           echo "Current version: $current_version"
-          # Format the tag as: nightly-v<version>-<YYYYMMDD>
-          nightly_tag="nightly-v${current_version}-$(date -u +%Y%m%d)"
+          # Format the tag as: <current_version>-nightly.<YYYYMMDD>
+          nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
           echo "Nightly tag: $nightly_tag"
           # Tag and push.
           git tag "$nightly_tag"
