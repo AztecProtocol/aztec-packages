@@ -5,18 +5,18 @@ cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 export bb=$(realpath ../cpp/build/bin/bb)
 
-tests_tar=barretenberg-acir-tests-$(cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    ../../noir/.rebuild_patterns_tests \
+tests_tar=barretenberg-acir-tests-$(hash_str \
+  $(../../noir/bootstrap.sh hash-tests) \
+  $(cache_content_hash \
     ../cpp/.rebuild_patterns \
-    ).tar.gz
+    )).tar.gz
 
-tests_hash=$(cache_content_hash \
+tests_hash=$(hash_str \
+  $(../../noir/bootstrap.sh hash-tests) \
+  $(cache_content_hash \
     ^barretenberg/acir_tests/ \
-    ../../noir/.rebuild_patterns \
-    ../../noir/.rebuild_patterns_tests \
     ../cpp/.rebuild_patterns \
-    ../ts/.rebuild_patterns)
+    ../ts/.rebuild_patterns))
 
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
