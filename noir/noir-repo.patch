@@ -22,31 +22,6 @@ index 30dd2a7e..a2712fd7 100644
 --
 2.43.0
 
-From 9ab3a9e4f931a17ca8b0dc35ade504769844e3a1 Mon Sep 17 00:00:00 2001
-From: TomAFrench <tom@tomfren.ch>
-Date: Sat, 15 Mar 2025 19:36:38 +0000
-Subject: [PATCH 4/4] chore: delete leftover file
-
----
- .../execution_success/double_verify_honk_proof/Nargo.toml   | 6 ------
- 1 file changed, 6 deletions(-)
- delete mode 100644 test_programs/execution_success/double_verify_honk_proof/Nargo.toml
-
-diff --git a/test_programs/execution_success/double_verify_honk_proof/Nargo.toml b/test_programs/execution_success/double_verify_honk_proof/Nargo.toml
-deleted file mode 100644
-index 5f819990..00000000
---- a/test_programs/execution_success/double_verify_honk_proof/Nargo.toml
-+++ /dev/null
-@@ -1,6 +0,0 @@
--[package]
--name = "double_verify_honk_proof"
--type = "bin"
--authors = [""]
--
--[dependencies]
---
-2.43.0
-
 From fd8f444eba5db51bee2173d7c2f66bebaa693d30 Mon Sep 17 00:00:00 2001
 From: aakoshh <akosh@aztecprotocol.com>
 Date: Mon, 17 Mar 2025 12:10:58 +0000
