@@ -18,6 +18,31 @@ export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
 rm -rf bench-out/ivc && mkdir -p bench-out/ivc
 
+function verify_ivc_flow {
+  local flow="$1"
+  local proof="$2"
+  # Check that this verifies with one of our verification keys and fails with the other.
+  # NOTE: This is effectively a test.
+  # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
+  set +e
+  echo_stderr "Private verify."
+  ./build/bin/bb verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
+  local private_result=$?
+  echo_stderr "Private verify: $private_result."
+  echo_stderr "Public verify."
+  ./build/bin/bb verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
+  local public_result=$?
+  echo_stderr "Public verify: $public_result."
+  if [[ $private_result -eq $public_result ]]; then
+    echo_stderr "Verification failed for $flow. Both keys returned $private_result - only one should."
+    exit 1
+  fi
+  if [[ $private_result -ne 0 ]] && [[ $public_result -ne 0 ]]; then
+    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in yarn-project/bb-prover."
+    exit 1
+  fi
+}
+
 function client_ivc_flow {
   set -eu
   local flow=$1
@@ -27,22 +52,7 @@ function client_ivc_flow {
   ./build/bin/bb prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
   echo "$flow has proven."
   local end=$(date +%s%N)
-  # Check that this verifies with one of our verification keys and fails with the other.
-  # NOTE: This is effectively a test.
-  # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
-  set +e
-  ./build/bin/bb verify --scheme client_ivc -v -p "bench-out/$flow-proof-files/proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk
-  local private_result=$?
-  ./build/bin/bb verify --scheme client_ivc -v -p "bench-out/$flow-proof-files/proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk
-  local public_result=$?
-  if [[ $private_result -eq $public_result ]]; then
-    echo "Verification failed for $flow. Both keys returned $private_result - only one should."
-    exit 1
-  fi
-  if [[ $private_result -ne 0 ]] && [[ $public_result -ne 0 ]]; then
-    echo "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in yarn-project/bb-prover."
-    exit 1
-  fi
+  dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"
   local elapsed_ns=$(( end - start ))
   local elapsed_ms=$(( elapsed_ns / 1000000 ))
   cat > "./bench-out/ivc/$flow-ivc.json" <<EOF
@@ -66,7 +76,7 @@ function run_benchmark {
   taskset -c $start_core-$end_core bash -c "$2"
 }
 
-export -f client_ivc_flow run_benchmark
+export -f verify_ivc_flow client_ivc_flow run_benchmark
 
 num_cpus=$(get_num_cpus)
 jobs=$((num_cpus / HARDWARE_CONCURRENCY))
