@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import type { UltraHonkFlavor } from '../honk.js';
-import { CLIENT_IVC_PROOF_FILE_NAME, CLIENT_IVC_VK_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
+import { CLIENT_IVC_PROOF_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
@@ -295,8 +295,7 @@ export async function generateTubeProof(
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
-  // // Paths for the inputs
-  const vkPath = join(workingDirectory, CLIENT_IVC_VK_FILE_NAME);
+  // Paths for the inputs
   const proofPath = join(workingDirectory, CLIENT_IVC_PROOF_FILE_NAME);
 
   // The proof is written to e.g. /workingDirectory/proof
@@ -313,7 +312,7 @@ export async function generateTubeProof(
   }
 
   try {
-    if (!(await filePresent(vkPath)) || !(await filePresent(proofPath))) {
+    if (!(await filePresent(proofPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];
