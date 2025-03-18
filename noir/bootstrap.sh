@@ -42,22 +42,25 @@ function noir_content_hash {
   tests=${1:-0}
 
   # If there are changes in the noir-repo which aren't just due to the patch applied to it,
-  # then just disable the cache. We could have workarounds, such as committing the content
-  # hash that we can calculate with `noir_repo_content_hash` to files, but it's considered
-  # gross. The tradeoff is that we rebuild based on *any* change captured in the `noir-repo-ref`,
-  # and that if we add new commits to a feature branch in `noir-repo` then we'd need to return
-  # the actual content hash if we wanted the build to use caching.
+  # then just disable the cache, unless the noir-repo is in an evolving feature branch.
   noir_hash=$(cache_content_hash .rebuild_patterns)
 
   if [ "${AZTEC_CACHE_COMMIT:-HEAD}" != "HEAD" ]; then
     # Ignore the current content of noir-repo, it doesn't support history anyway.
     echo $noir_hash
-  elif [ -f .noir-repo.force-cache ]; then
-    echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
-  elif scripts/sync.sh has-changes; then
-    echo "disabled-cache"
   else
-    echo $noir_hash
+    cache_mode=$(scripts/sync.sh cache-mode)
+    case "$cache_mode" in
+      "noir")
+        echo $noir_hash
+        ;;
+      "noir-repo")
+        echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
+        ;;
+      *)
+        echo $cache_mode
+        ;;
+    esac
   fi
 }
 
