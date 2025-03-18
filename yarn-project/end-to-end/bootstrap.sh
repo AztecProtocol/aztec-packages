@@ -169,7 +169,7 @@ function bench {
   if cache_download yarn-project-bench-results-$hash.tar.gz; then
     return
   fi
-  BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
+  # BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
   generate_example_app_ivc_inputs
   # A bit pattern-breaking, but we need to generate our example app inputs here, then bb folder is the best
   # place to test them.
