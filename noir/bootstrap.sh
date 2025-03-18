@@ -51,11 +51,17 @@ function build_packages {
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
     npm_install_deps
+    # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
+    # Tests fail with message "env: ‘mocha’: No such file or directory"
+    yarn install
     return
   fi
 
   cd noir-repo
   npm_install_deps
+  # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
+  # Tests fail with message "env: ‘mocha’: No such file or directory"
+  yarn install
   yarn workspaces foreach  -A --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
