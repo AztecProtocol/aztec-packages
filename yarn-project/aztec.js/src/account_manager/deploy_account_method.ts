@@ -1,4 +1,4 @@
-import { type AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
 import {
   EncodedAppEntrypointPayload,
   EncodedFeeEntrypointPayload,

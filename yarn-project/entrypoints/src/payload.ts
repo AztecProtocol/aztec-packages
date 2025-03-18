@@ -3,18 +3,12 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
-import {
-  type FunctionArtifact,
-  FunctionCall,
-  FunctionSelector,
-  FunctionType,
-  encodeArguments,
-} from '@aztec/stdlib/abi';
+import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Capsule, HashedValues } from '@aztec/stdlib/tx';
 
-import type { AuthWitnessProvider, EncodedFunctionCall, FeeOptions } from './interfaces.js';
+import type { EncodedFunctionCall, FeeOptions } from './interfaces.js';
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr

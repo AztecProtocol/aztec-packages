@@ -26,7 +26,6 @@ import { FeeOpts, FeeOptsWithFeePayer } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
   aliasedAddressParser,
-  aliasedAuthWitParser,
   aliasedSecretKeyParser,
   aliasedTxHashParser,
   artifactPathFromPromiseOrAlias,
