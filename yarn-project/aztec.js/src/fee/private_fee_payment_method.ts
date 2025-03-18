@@ -73,6 +73,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
 
   /**
    * Creates an execution payload to pay the fee using a private function through an FPC in the desired asset
+   * @param gasSettings - The gas settings.
    * @returns An execution payload that contains the required function calls and auth witnesses.
    */
   async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {

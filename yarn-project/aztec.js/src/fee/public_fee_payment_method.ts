@@ -66,6 +66,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
 
   /**
    * Creates an execution payload to pay the fee using a public function through an FPC in the desired asset
+   * @param gasSettings - The gas settings.
    * @returns An execution payload that contains the required function calls.
    */
   async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
