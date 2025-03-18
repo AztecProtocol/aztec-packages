@@ -126,13 +126,28 @@ function test_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
 
+function start_txe {
+  cd $root/yarn-project/txe
+  LOG_LEVEL=info TXE_PORT=$1 node --no-warnings ./dest/bin/index.js &
+  local pid=$!
+  trap "kill -SIGTERM $pid &>/dev/null || true" SIGTERM;
+  wait $pid
+  wait $pid
+  local code=$?
+  if [ "$code" -ne 0 ]; then
+    sudo lsof -i
+  fi
+  return $code
+}
+export -f start_txe
+
 function start_txes {
   # Starting txe servers with incrementing port numbers.
   trap 'kill -SIGTERM $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
     existing_pid=$(lsof -ti :$((45730 + i)) || true)
-    [ -n "$existing_pid" ] && kill -9 $existing_pid
-    dump_fail "cd $root/yarn-project/txe && LOG_LEVEL=info TXE_PORT=$((45730 + i)) node --no-warnings ./dest/bin/index.js" &
+    [ -n "$existing_pid" ] && kill -9 $existing_pid && wait $existing_pid || true
+    dump_fail "start_txe $((45730 + i))" &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
@@ -149,10 +164,10 @@ export -f start_txes
 function test {
   echo_header "test all"
 
+  start_txes
+
   # Make sure KIND starts so it is running by the time we do spartan tests.
   spartan/bootstrap.sh kind &>/dev/null &
-
-  start_txes
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
