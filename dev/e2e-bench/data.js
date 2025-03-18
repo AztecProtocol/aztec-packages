@@ -1,43 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742324703305,
+  "lastUpdate": 1742330399623,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "c9563648fd031d8a5992a8ccd30436ce8956684d",
-          "message": "chore: Block building benchmark via github-action-benchmark",
-          "timestamp": "2025-01-14T14:07:29Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/11202/commits/c9563648fd031d8a5992a8ccd30436ce8956684d"
-        },
-        "date": 1736866749781,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4591,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 3.4021821596371913,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 649730,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 132519,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f37decb654f3ab0a186fafb0a9a3d0b7d9d00ec",
+          "message": "chore: once again skip the uniswap tests (#12859)\n\nSkips the uniswap test in ci again as we deleted that part by mistake in\n#12724",
+          "timestamp": "2025-03-18T20:17:54Z",
+          "tree_id": "4185932695511d55ff1f42b434aa9775c5f6290b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4f37decb654f3ab0a186fafb0a9a3d0b7d9d00ec"
+        },
+        "date": 1742330392158,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9437,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23027186126212468,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 143177,
             "unit": "us"
           }
         ]
