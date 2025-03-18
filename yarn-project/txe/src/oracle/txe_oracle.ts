@@ -418,8 +418,8 @@ export class TXE implements TypedOracle {
     return this.executionCache.store(values, hash);
   }
 
-  loadFromExecutionCache(returnsHash: Fr) {
-    const preimage = this.executionCache.getPreimage(returnsHash);
+  loadFromExecutionCache(hash: Fr) {
+    const preimage = this.executionCache.getPreimage(hash);
     if (!preimage) {
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
     }
