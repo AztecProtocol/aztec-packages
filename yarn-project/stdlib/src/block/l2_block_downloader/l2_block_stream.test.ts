@@ -81,6 +81,7 @@ describe('L2BlockStream', () => {
 
       await blockStream.work();
       expect(blockSource.getPublishedBlocks).toHaveBeenCalledTimes(5);
+      expect(handler.callCount).toEqual(5);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) },
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 11)) },
@@ -97,6 +98,19 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(blockSource.getPublishedBlocks).toHaveBeenCalledTimes(1);
       expect(handler.events).toEqual([{ type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) }]);
+    });
+
+    it('halts on handler error and retries', async () => {
+      setRemoteTips(45);
+
+      handler.throwing = true;
+      await blockStream.work();
+      expect(handler.callCount).toEqual(1);
+
+      handler.throwing = false;
+      await blockStream.work();
+      expect(handler.callCount).toEqual(6);
+      expect(handler.events).toHaveLength(5);
     });
 
     it('handles a reorg and requests blocks from new tip', async () => {
@@ -133,8 +147,14 @@ describe('L2BlockStream', () => {
 
 class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
   public readonly events: L2BlockStreamEvent[] = [];
+  public throwing: boolean = false;
+  public callCount: number = 0;
 
   handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    this.callCount++;
+    if (this.throwing) {
+      throw new Error('Handler error');
+    }
     this.events.push(event);
     return Promise.resolve();
   }
