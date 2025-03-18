@@ -241,6 +241,9 @@ case "$cmd" in
     ;;
   "gh-bench")
     export CI=1
+    # Set up preferred commit attribution (needed by noir checkout).
+    git config --global user.email "tech@aztecprotocol.com"
+    git config --global user.name "AztecBot"
     # Run benchmark logic for github actions.
     bb_hash=$(barretenberg/bootstrap.sh hash)
     yp_hash=$(yarn-project/bootstrap.sh hash)
