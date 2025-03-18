@@ -1,7 +1,7 @@
-From f6c1dfe13a1993ab6b3e0136448bb3796625684a Mon Sep 17 00:00:00 2001
+From b81862448ed79637e1e36cf2e78e70a60a55fdc1 Mon Sep 17 00:00:00 2001
 From: TomAFrench <tom@tomfren.ch>
 Date: Sat, 15 Mar 2025 15:36:12 +0000
-Subject: [PATCH 1/3] chore: turn on `skipLibCheck`
+Subject: [PATCH 1/4] chore: turn on `skipLibCheck`
 
 ---
  tooling/noir_codegen/tsconfig.json | 1 +
@@ -22,10 +22,10 @@ index 30dd2a7..a2712fd 100644
 -- 
 2.43.0
 
-From 65bce6930794adb2834ac5aba3479308159c08ba Mon Sep 17 00:00:00 2001
+From 892ce5f3ec0ef5f1ec24f5cfc394e5e1d511f8b0 Mon Sep 17 00:00:00 2001
 From: TomAFrench <tom@tomfren.ch>
 Date: Sat, 15 Mar 2025 18:32:24 +0000
-Subject: [PATCH 3/3] chore: delete honk test programs
+Subject: [PATCH 2/4] chore: delete honk test programs
 
 ---
  .../double_verify_honk_proof/Nargo.toml       |  6 ----
@@ -204,6 +204,29 @@ index e5f08ef..0000000
 -        ROLLUP_HONK_IDENTIFIER,
 -    );
 -}
+-- 
+2.43.0
+
+From fd8f444eba5db51bee2173d7c2f66bebaa693d30 Mon Sep 17 00:00:00 2001
+From: aakoshh <akosh@aztecprotocol.com>
+Date: Mon, 17 Mar 2025 12:10:58 +0000
+Subject: [PATCH 4/4] Ignore package.tgz
+
+---
+ .gitignore | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index 3349018..c93fe8e 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -59,3 +59,6 @@ codegen
+ 
+ mutants.out
+ mutants.out.old
++
++# Artifacts created by `noir/bootstrap.sh build_packages`
++**/package.tgz
 -- 
 2.43.0
 
