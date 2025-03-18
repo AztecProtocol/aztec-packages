@@ -22,28 +22,38 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
-# Update the noir-repo and compute hashes.
-function noir_sync {
-  # The sync.sh script strives not to send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
-  DENOISE=0 denoise "scripts/sync.sh init && scripts/sync.sh update"
-}
+# A file that contains the latest hash of the noir-repo, so that we can use it
+# with `cache_content_hash` to recover a historical hash, which the build uses.
+NOIR_REPO_HASH=.noir-repo.hash
+NOIR_REPO_HASH_TESTS=.noir-repo.hash_tests
 
 # Calculate the content hash for caching, taking into account that `noir-repo`
 # is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
 # by `cache_content_hash` would not take those files into account.
+function noir_repo_content_hash {
+  echo $(REPO_PATH=./noir-repo AZTEC_CACHE_COMMIT=HEAD cache_content_hash $@)
+}
+
+# Update the noir-repo and compute hashes.
+function noir_sync {
+  # The sync.sh script strives not to send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
+  DENOISE=0 denoise "scripts/sync.sh init && scripts/sync.sh update"
+  # Write the resulting hashes into the files that we can commit into aztec-packages.
+  # If the hashes change, then the cache will be disabled until the files are committed.
+  echo $(noir_repo_content_hash .noir-repo.rebuild_patterns) > .noir-repo.hash
+  echo $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests) > .noir-repo.hash_tests
+}
+
+# Get the cache content hash. It should only be based on files committed to `aztec-packages`
+# in order to be able to support using `AZTEC_CACHE_COMMIT` for historical queries.
 function noir_content_hash {
-  function noir_repo_content_hash {
-    echo $(REPO_PATH=./noir-repo cache_content_hash $@)
-  }
-  with_tests=${1:-0}
-  noir_hash=$(cache_content_hash .rebuild_patterns)
-  noir_repo_hash=$(noir_repo_content_hash .noir-repo.rebuild_patterns)
-  if [ "$with_tests" == "1" ]; then
-    noir_repo_hash_tests=$(noir_repo_content_hash .noir-repo.rebuild_patterns_tests)
+  tests=${1:-0}
+
+  if [ "$tests" == "1" ]; then
+    echo $(cache_content_hash .rebuild_patterns ^noir/.noir-repo.hash)
   else
-    noir_repo_hash_tests=""
+    echo $(cache_content_hash .rebuild_patterns ^noir/.noir-repo.hash_tests)
   fi
-  echo $(hash_str $noir_hash $noir_repo_hash $noir_repo_hash_tests)
 }
 
 # Builds nargo, acvm and profiler binaries.
