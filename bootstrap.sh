@@ -147,13 +147,14 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
     existing_pid=$(lsof -ti :$((45730 + i)) || true)
     [ -n "$existing_pid" ] && kill -9 $existing_pid && wait $existing_pid || true
-    dump_fail "start_txe $((45730 + i))" &
+    dump_fail "retry start_txe $((45730 + i))" &
   done
   echo "Waiting for TXE's to start..."
+  sleep 3
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 15 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
+        [ $j == 15 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
         sleep 1
         j=$((j+1))
       done
