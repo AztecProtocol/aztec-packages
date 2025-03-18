@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742314367178,
+  "lastUpdate": 1742317391196,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1824,6 +1824,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 148168,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0fc552844c65e1ef07ead1638e14c3514c422a01",
+          "message": "chore: enable wtr debug logging (#12848)",
+          "timestamp": "2025-03-18T16:37:53Z",
+          "tree_id": "2f3d48b24893cb8324771a22ad3a3f7df686f792",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0fc552844c65e1ef07ead1638e14c3514c422a01"
+        },
+        "date": 1742317383367,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9344,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.22800301055175132,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 139364,
             "unit": "us"
           }
         ]
