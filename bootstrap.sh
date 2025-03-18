@@ -145,8 +145,10 @@ function start_txe {
 export -f start_txe
 
 function stop_txes {
-  kill -SIGTERM $txe_pids &>/dev/null || true;
-  wait $txe_pids
+  if [ -n "$txe_pids" ]; then
+    kill -SIGTERM $txe_pids &>/dev/null || true;
+    wait $txe_pids || true
+  fi
 }
 
 function start_txes {
@@ -161,7 +163,7 @@ function start_txes {
       while kill -0 $existing_pid; do echo "Waiting on process to die."; sleep 0.1; done
     fi
     while nc -z 127.0.0.1 $port &>/dev/null; do echo "Waiting on port $port to close"; sleep 1; done
-    dump_fail "start_txe $port" &
+    dump_fail "start_txe $port" >/dev/null &
     txe_pids+="$! "
   done
 
