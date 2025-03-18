@@ -49,7 +49,10 @@ function noir_content_hash {
   # the actual content hash if we wanted the build to use caching.
   noir_hash=$(cache_content_hash .rebuild_patterns)
 
-  if [ -f .noir-repo.force-cache ]; then
+  if [ "${AZTEC_CACHE_COMMIT:-HEAD}" != "HEAD" ]; then
+    # Ignore the current content of noir-repo, it doesn't support history anyway.
+    echo $noir_hash
+  elif [ -f .noir-repo.force-cache ]; then
     echo $(hash_str $noir_hash $(noir_repo_content_hash .noir_repo.rebuild_patterns .noir_repo.rebuild_patterns_tests))
   elif scripts/sync.sh has-changes; then
     echo "disabled-cache"
