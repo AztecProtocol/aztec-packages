@@ -6,12 +6,12 @@ include "./poseidon2_hash.pil";
  *
  * Usage:
  *     caller_sel { leaf, leaf_index, tree_height, expected_root }
- *     in merkle_check.end { merkle_check.leaf, merkle_check.leaf_index, merkle_check.path_len, merkle_check.output_hash }
+ *     in merkle_check.end { merkle_check.leaf, merkle_check.leaf_index, merkle_check.tree_height, merkle_check.output_hash }
  *
- * Inputs
- * @column leaf The value of the leaf node being processed.
- * @column leaf_index The index of the leaf node being processed.
- * @column path_len The length of the path to process, not including this one. When 0, `output_hash` is the root.
+ * Inputs (stay constant for all rows in a single merkle check)
+ * @column leaf The value of the leaf being checked.
+ * @column leaf_index The index of the leaf being checked.
+ * @column tree_height The height from leaf not including root.
  *
  * Outputs
  * @column output_hash The hash of the current node and sibling. When `end == 1`, this is the root.
@@ -19,23 +19,23 @@ include "./poseidon2_hash.pil";
  * Internals/hints
  * @column current_node The value of the current node being processed (alongside its `sibling`). When `end == 0`, the next `current_node` is the `output_hash` of the current row.
  * @column current_index_in_layer The index of the current node in the current layer. This is halved each layer until `end == 1`.
- * @column remaining_path_len The remaining path len to process, not including this one. Starts at `path_len - 1`, and decrements per layer until `end == 1`. When this is 0, `output_hash` is the root.
+ * @column remaining_path_len The remaining path len to process, not including this layer. Starts at `tree_height - 1`, and decrements per layer until `end == 1`. When this is 0, `output_hash` is the root.
  * @column sibling The value of the sibling node to be hashed with `current_node`.
  * @column index_is_even Whether the current index is even.
  *
  * Interactions
  * @lookup to `poseidon2_hash` to constrain that `hash(left_node, right_node) == output_hash` for the current layer
  *
- * +------+----------+----------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
- * | leaf | leaf_idx | path_len | current_node | current_index | rem_path_len | sibling | start | end | not_end | index_is_even | left_node | right_node | output_hash |
- * +------+----------+----------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
- * |    0 |        0 |        0 | 0            |             0 |            0 | 0       |     0 |   0 |       0 |             0 | 0         | 0          | 0           |
- * |   27 |       42 |        4 | 27           |            42 |            3 | s0      |     1 |   0 |       1 |             1 | 27        | s0         | h(27,s0)    |
- * |   27 |       42 |        4 | n1           |            21 |            2 | s1      |     0 |   0 |       1 |             0 | s1        | n1         | h(s1,n1)    |
- * |   27 |       42 |        4 | n2           |            10 |            1 | s2      |     0 |   0 |       1 |             1 | n2        | s2         | h(n2,s2)    |
- * |   27 |       42 |        4 | n3           |             5 |            0 | s3      |     0 |   1 |       0 |             0 | s3        | n3         | h(s3,n3)    |
- * |    0 |        0 |        0 | 0            |             0 |            0 | 0       |     0 |   0 |       0 |             0 | 0         | 0          | 0           |
- * +------+----------+----------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
+ * +------+----------+-------------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
+ * | leaf | leaf_idx | tree_height | current_node | current_index | rem_path_len | sibling | start | end | not_end | index_is_even | left_node | right_node | output_hash |
+ * +------+----------+-------------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
+ * |    0 |        0 |           0 | 0            |             0 |            0 | 0       |     0 |   0 |       0 |             0 | 0         | 0          | 0           |
+ * |   27 |       42 |           4 | 27           |            42 |            3 | s0      |     1 |   0 |       1 |             1 | 27        | s0         | h(27,s0)    |
+ * |   27 |       42 |           4 | n1           |            21 |            2 | s1      |     0 |   0 |       1 |             0 | s1        | n1         | h(s1,n1)    |
+ * |   27 |       42 |           4 | n2           |            10 |            1 | s2      |     0 |   0 |       1 |             1 | n2        | s2         | h(n2,s2)    |
+ * |   27 |       42 |           4 | n3           |             5 |            0 | s3      |     0 |   1 |       0 |             0 | s3        | n3         | h(s3,n3)    |
+ * |    0 |        0 |           0 | 0            |             0 |            0 | 0       |     0 |   0 |       0 |             0 | 0         | 0          | 0           |
+ * +------+----------+-------------+--------------+---------------+--------------+---------+-------+-----+---------+---------------+-----------+------------+-------------+
  */
 namespace merkle_check(256);
     pol commit sel;
@@ -47,10 +47,10 @@ namespace merkle_check(256);
     // Inputs
     // These are all propagated to the next row so that they are present
     // alongside the root (output_hash) on the last row of a merkle check.
-    // This way an external caller can lookup { leaf, leaf_index, path_len, root }
+    // This way an external caller can lookup { leaf, leaf_index, tree_height, root }
     pol commit leaf;
     pol commit leaf_index;
-    pol commit path_len;
+    pol commit tree_height;
     // Hints
     pol commit sibling;
 
@@ -85,20 +85,20 @@ namespace merkle_check(256);
     pol commit current_index_in_layer;
     pol commit remaining_path_len;
     // On start, initialize internal vals like current_node, current_index_in_layer, remaining_path_len
-    // from start vals (inputs) like leaf, leaf_index, path_len
+    // from start vals (inputs) like leaf, leaf_index, tree_height
     #[INITIALIZE_CURRENT_NODE]
     start * (current_node - leaf) = 0;
     #[INITIALIZE_CURRENT_INDEX_IN_LAYER]
     start * (current_index_in_layer - leaf_index) = 0;
     #[INITIALIZE_REMAINING_PATH_LEN]
-    start * (path_len - remaining_path_len - 1) = 0; // Remaining path length is initialized to path_len - 1
+    start * (tree_height - remaining_path_len - 1) = 0; // Remaining path length is initialized to tree_height - 1
 
-    #[PROPOGATE_LEAF]
+    #[PROPAGATE_LEAF]
     not_end * (leaf' - leaf) = 0;
-    #[PROPOGATE_LEAF_INDEX]
+    #[PROPAGATE_LEAF_INDEX]
     not_end * (leaf_index' - leaf_index) = 0;
-    #[PROPOGATE_PATH_len]
-    not_end * (path_len' - path_len) = 0;
+    #[PROPAGATE_TREE_HEIGHT]
+    not_end * (tree_height' - tree_height) = 0;
 
     // If we are not done, the remaining_path_len decrements by 1
     #[PATH_LEN_DECREMENTS]

@@ -48,7 +48,7 @@ void MerkleCheckTraceBuilder::process(
                           { C::merkle_check_sel, 1 },
                           { C::merkle_check_leaf, event.leaf_value },
                           { C::merkle_check_leaf_index, event.leaf_index },
-                          { C::merkle_check_path_len, full_path_len },
+                          { C::merkle_check_tree_height, full_path_len },
                           { C::merkle_check_current_node, current_node },
                           { C::merkle_check_current_index_in_layer, current_index_in_layer },
                           { C::merkle_check_remaining_path_len, remaining_path_len },

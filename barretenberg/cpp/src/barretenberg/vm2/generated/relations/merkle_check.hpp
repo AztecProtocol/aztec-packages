@@ -103,7 +103,7 @@ template <typename FF_> class merkle_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_start *
-                       ((new_term.merkle_check_path_len - new_term.merkle_check_remaining_path_len) - FF(1));
+                       ((new_term.merkle_check_tree_height - new_term.merkle_check_remaining_path_len) - FF(1));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
@@ -122,8 +122,8 @@ template <typename FF_> class merkle_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.merkle_check_not_end * (new_term.merkle_check_path_len_shift - new_term.merkle_check_path_len);
+            auto tmp = new_term.merkle_check_not_end *
+                       (new_term.merkle_check_tree_height_shift - new_term.merkle_check_tree_height);
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
@@ -210,11 +210,11 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
         case 11:
             return "INITIALIZE_REMAINING_PATH_LEN";
         case 12:
-            return "PROPOGATE_LEAF";
+            return "PROPAGATE_LEAF";
         case 13:
-            return "PROPOGATE_LEAF_INDEX";
+            return "PROPAGATE_LEAF_INDEX";
         case 14:
-            return "PROPOGATE_PATH_len";
+            return "PROPAGATE_TREE_HEIGHT";
         case 15:
             return "PATH_LEN_DECREMENTS";
         case 16:
@@ -238,9 +238,9 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr size_t SR_INITIALIZE_CURRENT_NODE = 9;
     static constexpr size_t SR_INITIALIZE_CURRENT_INDEX_IN_LAYER = 10;
     static constexpr size_t SR_INITIALIZE_REMAINING_PATH_LEN = 11;
-    static constexpr size_t SR_PROPOGATE_LEAF = 12;
-    static constexpr size_t SR_PROPOGATE_LEAF_INDEX = 13;
-    static constexpr size_t SR_PROPOGATE_PATH_len = 14;
+    static constexpr size_t SR_PROPAGATE_LEAF = 12;
+    static constexpr size_t SR_PROPAGATE_LEAF_INDEX = 13;
+    static constexpr size_t SR_PROPAGATE_TREE_HEIGHT = 14;
     static constexpr size_t SR_PATH_LEN_DECREMENTS = 15;
     static constexpr size_t SR_END_WHEN_PATH_EMPTY = 16;
     static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 18;

@@ -52,7 +52,7 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
             AllOf(Field(&R::merkle_check_sel, 1),
                   Field(&R::merkle_check_leaf, leaf_value),
                   Field(&R::merkle_check_leaf_index, leaf_index),
-                  Field(&R::merkle_check_path_len, 1),
+                  Field(&R::merkle_check_tree_height, 1),
                   Field(&R::merkle_check_current_node, leaf_value),
                   Field(&R::merkle_check_current_index_in_layer, leaf_index),
                   Field(&R::merkle_check_remaining_path_len, 0), // only one layer, so remaining path is 0 immediately
@@ -108,7 +108,7 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                     AllOf(Field(&R::merkle_check_sel, 1),
                           Field(&R::merkle_check_leaf, leaf_value),
                           Field(&R::merkle_check_leaf_index, leaf_index),
-                          Field(&R::merkle_check_path_len, 2),
+                          Field(&R::merkle_check_tree_height, 2),
                           Field(&R::merkle_check_current_node, leaf_value),
                           Field(&R::merkle_check_current_index_in_layer, leaf_index),
                           Field(&R::merkle_check_remaining_path_len, 1), // remaining path length is 1 after one layer
@@ -125,7 +125,7 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                     AllOf(Field(&R::merkle_check_sel, 1),
                           Field(&R::merkle_check_leaf, leaf_value),
                           Field(&R::merkle_check_leaf_index, leaf_index),
-                          Field(&R::merkle_check_path_len, 2),
+                          Field(&R::merkle_check_tree_height, 2),
                           Field(&R::merkle_check_current_node, output_hash_1), // Previous output becomes new leaf
                           Field(&R::merkle_check_current_index_in_layer, 0),   // Index should be 0 at level 2
                           Field(&R::merkle_check_remaining_path_len, 0),       // Remaining path length is 0
@@ -177,7 +177,7 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                     AllOf(Field(&R::merkle_check_sel, 1),
                           Field(&R::merkle_check_leaf, leaf_value_1),
                           Field(&R::merkle_check_leaf_index, leaf_index_1),
-                          Field(&R::merkle_check_path_len, 1),
+                          Field(&R::merkle_check_tree_height, 1),
                           Field(&R::merkle_check_current_node, leaf_value_1),
                           Field(&R::merkle_check_current_index_in_layer, leaf_index_1),
                           Field(&R::merkle_check_remaining_path_len, 0),
@@ -194,7 +194,7 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                     AllOf(Field(&R::merkle_check_sel, 1),
                           Field(&R::merkle_check_leaf, leaf_value_2),
                           Field(&R::merkle_check_leaf_index, leaf_index_2),
-                          Field(&R::merkle_check_path_len, 1),
+                          Field(&R::merkle_check_tree_height, 1),
                           Field(&R::merkle_check_current_node, leaf_value_2),
                           Field(&R::merkle_check_current_index_in_layer, leaf_index_2),
                           Field(&R::merkle_check_remaining_path_len, 0),

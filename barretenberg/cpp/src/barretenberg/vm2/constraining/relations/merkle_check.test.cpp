@@ -112,7 +112,7 @@ TEST(MerkleCheckConstrainingTest, NegativeEndWhenPathEmpty)
             { C::merkle_check_sel, 1 },
             { C::merkle_check_remaining_path_len, 0 },
             { C::merkle_check_remaining_path_len_inv, 0 }, // TODO(dbanks12): can't invert 0?
-            { C::merkle_check_end, 0 }                     // Should be 1 when path_len is 0
+            { C::merkle_check_end, 0 }                     // Should be 1 when remaining_path_len is 0
         },
     });
 
@@ -486,7 +486,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     trace.set(Column::merkle_check_sel, after_last_row_index, 0);
     trace.set(Column::merkle_check_leaf, after_last_row_index, 0);
     trace.set(Column::merkle_check_leaf_index, after_last_row_index, 0);
-    trace.set(Column::merkle_check_path_len, after_last_row_index, 0);
+    trace.set(Column::merkle_check_tree_height, after_last_row_index, 0);
     trace.set(Column::merkle_check_current_node, after_last_row_index, 0);
     trace.set(Column::merkle_check_current_index_in_layer, after_last_row_index, 0);
     trace.set(Column::merkle_check_remaining_path_len, after_last_row_index, 0);
@@ -538,6 +538,291 @@ TEST(MerkleCheckConstrainingTest, MultipleWithHashInteraction)
     check_interaction<lookup_poseidon2_hash>(trace);
 
     check_relation<merkle_check>(trace);
+}
+
+// New tests for missing constraints
+
+TEST(MerkleCheckConstrainingTest, EndCannotBeOneOnFirstRow)
+{
+    // Negative test - end = 1 on first row should fail
+    TestTraceContainer invalid_trace({
+        { { C::precomputed_first_row, 1 },
+          { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 1 } }, // This should fail - end can't be 1 on first row
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(invalid_trace), "Relation merkle_check");
+}
+
+TEST(MerkleCheckConstrainingTest, StartAfterLatch)
+{
+    // Test constraint: sel' * (start' - LATCH_CONDITION) = 0
+    // After a row with end=1, the next row with sel=1 must have start=1
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 0 },
+          { C::merkle_check_end, 1 } },                               // end=1 triggers LATCH_CONDITION
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_start, 1 } }, // start=1 after LATCH is correct
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_START_AFTER_LATCH);
+
+    // First row has precomputed_first_row=1, which also triggers LATCH_CONDITION
+    TestTraceContainer trace2({
+        { { C::precomputed_first_row, 1 }, { C::merkle_check_sel, 0 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_start, 1 } }, // start=1 after precomputed_first_row is correct
+    });
+
+    check_relation<merkle_check>(trace2, merkle_check::SR_START_AFTER_LATCH);
+
+    // Negative test - start=0 after LATCH
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 0 },
+          { C::merkle_check_end, 1 } }, // end=1 triggers LATCH_CONDITION
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 0 } }, // This should fail - start should be 1 after LATCH
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(invalid_trace, merkle_check::SR_START_AFTER_LATCH),
+                              "START_AFTER_LATCH");
+}
+
+TEST(MerkleCheckConstrainingTest, SelectorOnStart)
+{
+    // Test constraint: start * (1 - sel) = 0
+    // If start=1, sel must be 1
+    TestTraceContainer trace({
+        { { C::merkle_check_start, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when start=1 is correct
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START);
+
+    // Negative test
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_start, 1 }, { C::merkle_check_sel, 0 } }, // This should fail - sel cannot be 0 when start=1
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(invalid_trace, merkle_check::SR_SELECTOR_ON_START),
+                              "SELECTOR_ON_START");
+}
+
+TEST(MerkleCheckConstrainingTest, SelectorConsistency)
+{
+    // sel should remain consistent across rows until a LATCH_CONDITION (end=1)
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 } }, // sel remains same, and now end
+        { { C::merkle_check_sel, 0 } },                             // end=1 allows sel to change
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_CONSISTENCY);
+
+    // Negative test
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 } }, // No LATCH here
+        { { C::merkle_check_sel, 0 } },                             // This should fail - selector changed without LATCH
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(invalid_trace, merkle_check::SR_SELECTOR_CONSISTENCY),
+                              "SELECTOR_CONSISTENCY");
+}
+
+TEST(MerkleCheckConstrainingTest, InitializeCurrentNode)
+{
+    // Test constraint: start * (current_node - leaf) = 0
+    // On start rows, current_node should equal leaf
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 1 },
+          { C::merkle_check_leaf, 123 },
+          { C::merkle_check_current_node, 123 } }, // current_node = leaf on start row is correct
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_INITIALIZE_CURRENT_NODE);
+
+    // Negative test
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 1 },
+          { C::merkle_check_leaf, 123 },
+          { C::merkle_check_current_node, 456 } }, // This should fail - current_node should equal leaf on start row
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(invalid_trace, merkle_check::SR_INITIALIZE_CURRENT_NODE),
+                              "INITIALIZE_CURRENT_NODE");
+}
+
+TEST(MerkleCheckConstrainingTest, InitializeCurrentIndexInLayer)
+{
+    // Test constraint: start * (current_index_in_layer - leaf_index) = 0
+    // On start rows, current_index_in_layer should equal leaf_index
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 1 },
+          { C::merkle_check_leaf_index, 42 },
+          { C::merkle_check_current_index_in_layer, 42 } }, // current_index = leaf_index on start row is correct
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_INITIALIZE_CURRENT_INDEX_IN_LAYER);
+
+    // Negative test
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 1 },
+          { C::merkle_check_leaf_index, 42 },
+          { C::merkle_check_current_index_in_layer, 24 } }, // This should fail - indices should match on start row
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<merkle_check>(invalid_trace, merkle_check::SR_INITIALIZE_CURRENT_INDEX_IN_LAYER),
+        "INITIALIZE_CURRENT_INDEX_IN_LAYER");
+}
+
+TEST(MerkleCheckConstrainingTest, InitializeRemainingPathLen)
+{
+    // Test constraint: start * (tree_height - remaining_path_len - 1) = 0
+    // On start rows, remaining_path_len should be tree_height - 1
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 1 },
+          { C::merkle_check_tree_height, 5 },
+          { C::merkle_check_remaining_path_len, 4 } }, // remaining_path_len = tree_height - 1 on start row is correct
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_INITIALIZE_REMAINING_PATH_LEN);
+
+    // Negative test
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_start, 1 },
+          { C::merkle_check_tree_height, 5 },
+          { C::merkle_check_remaining_path_len, 3 } }, // This should fail - should be tree_height - 1
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<merkle_check>(invalid_trace, merkle_check::SR_INITIALIZE_REMAINING_PATH_LEN),
+        "INITIALIZE_REMAINING_PATH_LEN");
+}
+
+TEST(MerkleCheckConstrainingTest, PropagateLeaf)
+{
+    // Test constraint: not_end * (leaf' - leaf) = 0
+    // Leaf value should stay the same in the next row unless it's an end row
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_leaf, 123 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_leaf, 123 } }, // Same leaf value is correct when not_end=1
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_LEAF);
+
+    // When end=1, the next leaf can be different
+    TestTraceContainer trace2({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 1 },
+          { C::merkle_check_not_end, 0 },
+          { C::merkle_check_leaf, 123 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_leaf, 456 } }, // Different leaf value is allowed after end row
+    });
+
+    check_relation<merkle_check>(trace2, merkle_check::SR_PROPAGATE_LEAF);
+
+    // Negative test
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_leaf, 123 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_leaf, 456 } }, // This should fail - leaf should stay the same when not_end=1
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(invalid_trace, merkle_check::SR_PROPAGATE_LEAF),
+                              "PROPAGATE_LEAF");
+}
+
+TEST(MerkleCheckConstrainingTest, PropagateLeafIndex)
+{
+    // Test constraint: not_end * (leaf_index' - leaf_index) = 0
+    // Leaf index should stay the same in the next row unless it's an end row
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_leaf_index, 42 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_leaf_index, 42 } }, // Same leaf index is correct when not_end=1
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_LEAF_INDEX);
+
+    // When end=1, the next leaf_index can be different
+    TestTraceContainer trace2({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 1 },
+          { C::merkle_check_not_end, 0 },
+          { C::merkle_check_leaf_index, 42 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_leaf_index, 24 } }, // Different leaf index is allowed after end row
+    });
+
+    check_relation<merkle_check>(trace2, merkle_check::SR_PROPAGATE_LEAF_INDEX);
+
+    // Negative test
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_leaf_index, 42 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_leaf_index, 24 } }, // This should fail - leaf index should stay the same when not_end=1
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(invalid_trace, merkle_check::SR_PROPAGATE_LEAF_INDEX),
+                              "PROPAGATE_LEAF_INDEX");
+}
+
+TEST(MerkleCheckConstrainingTest, PropagateTreeHeight)
+{
+    // Test constraint: not_end * (tree_height' - tree_height) = 0
+    // Tree height should stay the same in the next row unless it's an end row
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_tree_height, 5 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_tree_height, 5 } }, // Same tree height is correct when not_end=1
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_TREE_HEIGHT);
+
+    // When end=1, the next tree_height can be different
+    TestTraceContainer trace2({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 1 },
+          { C::merkle_check_not_end, 0 },
+          { C::merkle_check_tree_height, 5 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_tree_height, 3 } }, // Different tree height is allowed after end row
+    });
+
+    check_relation<merkle_check>(trace2, merkle_check::SR_PROPAGATE_TREE_HEIGHT);
+
+    // Negative test
+    TestTraceContainer invalid_trace({
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_end, 0 },
+          { C::merkle_check_not_end, 1 },
+          { C::merkle_check_tree_height, 5 } },
+        { { C::merkle_check_sel, 1 },
+          { C::merkle_check_tree_height, 3 } }, // This should fail - tree height should stay the same when not_end=1
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(invalid_trace, merkle_check::SR_PROPAGATE_TREE_HEIGHT),
+                              "PROPAGATE_TREE_HEIGHT");
 }
 
 } // namespace
