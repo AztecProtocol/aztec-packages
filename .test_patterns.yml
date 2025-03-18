@@ -7,11 +7,13 @@
 # If there is no owner for failed test the build will fail, regardless of if it matches in this file.
 # When a failing test matches one or more of the "regex" properties below,
 # a message is sent to slack channel #aztec3-ci tagging the owners.
+# If an optional error_regex is provided, the output file must match for the test to be considered a flake.
 
 names:
   - adam: &adam "U04BM8H25NJ"
   - alex: &alex "U05QWV669JB"
   - charlie: &charlie "UKUMA5J7K"
+  - grego: &grego "U0689QRCE9L"
   - lasse: &lasse "U03E5SYLY3Z"
   - leila: &leila "UBLTU1NJ3"
   - luke: &luke "U03JYU7AQET"
@@ -32,11 +34,13 @@ tests:
   #   Actual: false
   # Expected: true
   - regex: "join_split_example_tests"
+    skip: true
+    error_regex: "field_t::range_constraint"
     owners:
       - *luke
 
   # Sumcheck is failing for some reason
-  - regex: "barretenberg/acir_tests/run_test.sh ram_blowup_regression"
+  - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
     owners:
       - *tom
@@ -51,6 +55,7 @@ tests:
     skip: true
     owners:
       - *charlie
+
   # Sometimes see this on ARM. But not when run on it's own...
   # FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
   #                                                                                                                                                                                running 1 test
@@ -151,17 +156,37 @@ tests:
     owners:
       - *palla
   - regex: "yarn-project/kv-store"
+    error_regex: "Could not import your test module"
     owners:
       - *alex
 
-  # kind tests
+  # boxes
+  - regex: "boxes/scripts/run_test.sh vite"
+    owners:
+      - *grego
 
+  # kind tests
   - regex: "spartan/bootstrap.sh test-kind-4epochs"
     owners:
       - *leila
 
-  - regex: "spartan/bootstrap.sh test-local"
-    skip: true
+  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-kind-transfer"
+    owners:
+      - *adam
+
+  - regex: "spartan/bootstrap.sh test-prod-deployment"
     owners:
       - *adam
 
@@ -169,3 +194,9 @@ tests:
   - regex: "nonsense to match"
     owners:
       - *charlie
+
+  - regex: "nonsense to match"
+    owners:
+      - *charlie
+      - *adam
+    error_regex: "something else"

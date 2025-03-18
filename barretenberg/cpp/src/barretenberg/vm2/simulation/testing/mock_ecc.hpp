@@ -13,6 +13,7 @@ class MockEcc : public EccInterface {
     ~MockEcc() override;
 
     MOCK_METHOD(EmbeddedCurvePoint, add, (const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q), (override));
+    MOCK_METHOD(EmbeddedCurvePoint, scalar_mul, (const EmbeddedCurvePoint& p, const FF& scalar), (override));
 };
 
 } // namespace bb::avm2::simulation

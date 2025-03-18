@@ -74,7 +74,11 @@ export const compilationInput = {
     // we require the optimizer
     optimizer: {
       enabled: true,
-      runs: 200,
+      runs: 1,
+    },
+    metadata: {
+      appendCBOR: false,
+      bytecodeHash: "none",
     },
     outputSelection: {
       "*": {

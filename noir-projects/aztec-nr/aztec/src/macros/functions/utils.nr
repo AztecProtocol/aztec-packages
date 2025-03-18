@@ -3,7 +3,8 @@ use crate::macros::{
     notes::NOTES,
     utils::{
         add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
-        is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+        is_fn_private, is_fn_public, is_fn_view, modify_fn_body, module_has_initializer,
+        module_has_storage,
     },
 };
 use protocol_types::meta::generate_serialize_to_fields;
@@ -97,10 +98,10 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
-    // All private functions perform note discovery, since they may need to access notes. This is slightly inefficient
-    // and could be improved by only doing it once we actually attempt to read any.
-    let note_discovery_call = if NOTES.len() > 0 {
-        create_note_discovery_call()
+    // All private functions perform message discovery, since they may need to access notes. This is slightly
+    // inefficient and could be improved by only doing it once we actually attempt to read any.
+    let message_discovery_call = if NOTES.len() > 0 {
+        create_message_discovery_call()
     } else {
         quote {}
     };
@@ -156,7 +157,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
-        $note_discovery_call
+        $message_discovery_call
     };
 
     let to_append = quote {
@@ -271,7 +272,45 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     fn_abi
 }
 
-pub(crate) comptime fn transform_unconstrained(f: FunctionDefinition) {
+pub(crate) comptime fn find_and_transform_top_level_unconstrained_fns(m: Module) {
+    // Top-level unconstrained fns are contract entrypoints, but they're not explicitly designated in any way. They're
+    // the fallback case for a function that matches no other rules.
+    // TODO(#12743): improve this
+
+    // We first find non-standard contract entrypoints, i.e. functions in the `contract` mod that are not private or
+    // public, but which *are* contract entrypoints (i.e. they're not opting out via the #[test] or
+    // #[contract_library_method] attributes). Ideally entrypoints would be explicitly designated instead.
+    let non_private_public_entrypoint_functions = m.functions().filter(|f: FunctionDefinition| {
+        !is_fn_private(f)
+            & !is_fn_public(f)
+            & !f.has_named_attribute("contract_library_method")
+            & !f.has_named_attribute("test")
+    });
+
+    // TODO: uncomment the code below and emit a warning once support for them is added to Noir (tracked in
+    // https://github.com/noir-lang/noir/issues/7714). We can't simply print a message since that'd otherwise break the
+    // output of utils such as `nargo test --list-tests`.
+    // // We don't expect to see any custom constrained entrypoints (i.e. private functions created outside of aztec-nr's
+    // // #[private] macro, possibly resulting in a non-standard interface).
+    // for f in non_private_public_entrypoint_functions.filter(|f: FunctionDefinition| {
+    //     !f.is_unconstrained()
+    // }) {
+    //     let name = f.name();
+    //     warn(
+    //         f"found private contract function '{name}' which does not have the #[private] attribute - make sure you know what you're doing!",
+    //     );
+    // }
+
+    // An unconstrained contract entrypoints is what we call a top-level unconstrained function, to which we apply the
+    // appropriate transformation. Ideally these would be explicitly designated as such instead.
+    for f in non_private_public_entrypoint_functions.filter(|f: FunctionDefinition| {
+        f.is_unconstrained()
+    }) {
+        transform_top_level_unconstrained(f);
+    }
+}
+
+pub(crate) comptime fn transform_top_level_unconstrained(f: FunctionDefinition) {
     let context_creation = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
     let module_has_storage = module_has_storage(f.module());
 
@@ -286,10 +325,11 @@ pub(crate) comptime fn transform_unconstrained(f: FunctionDefinition) {
         quote {}
     };
 
-    // All unconstrained functions perform note discovery, since they may need to access notes. This is slightly
-    // inefficient and could be improved by only doing it once we actually attempt to read any.
-    let note_discovery_call = if NOTES.len() > 0 {
-        create_note_discovery_call()
+    // All unconstrained functions perform message discovery, since they may need to access private notes that would be
+    // found during this process. This is slightly inefficient and could be improved by only doing it once we actually
+    // attempt to read any.
+    let message_discovery_call = if NOTES.len() > 0 {
+        create_message_discovery_call()
     } else {
         quote {}
     };
@@ -297,7 +337,7 @@ pub(crate) comptime fn transform_unconstrained(f: FunctionDefinition) {
     let to_prepend = quote {
         $context_creation
         $storage_init
-        $note_discovery_call
+        $message_discovery_call
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
@@ -341,14 +381,14 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
         .quoted_contents()
 }
 
-/// Injects a call to `aztec::discovery::discover_new_notes`, causing for new notes to be added to PXE and made
+/// Injects a call to `aztec::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
 /// available for the current execution.
-pub(crate) comptime fn create_note_discovery_call() -> Quoted {
+pub(crate) comptime fn create_message_discovery_call() -> Quoted {
     quote {
-        /// Safety: note discovery returns nothing and is performed solely for its side-effects. It is therefore always
-        /// safe to call.
+        /// Safety: message discovery returns nothing and is performed solely for its side-effects. It is therefore
+        /// always safe to call.
         unsafe {
-            dep::aztec::discovery::discover_new_notes(
+            dep::aztec::discovery::discover_new_messages(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
             );

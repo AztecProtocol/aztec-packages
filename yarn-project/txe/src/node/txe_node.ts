@@ -11,7 +11,14 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type InBlock, L2Block, L2BlockHash, type L2BlockNumber, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type InBlock,
+  L2Block,
+  L2BlockHash,
+  type L2BlockNumber,
+  type L2Tips,
+  type PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractInstanceWithAddress,
@@ -179,13 +186,7 @@ export class TXENode implements AztecNode {
       this.#logger.verbose(`Found private log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber)),
-        this.#noteIndex,
-        blockNumber,
-        false,
-        log.toBuffer(),
-      );
+      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
     });
@@ -204,13 +205,7 @@ export class TXENode implements AztecNode {
       this.#logger.verbose(`Found public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber)),
-        this.#noteIndex,
-        blockNumber,
-        true,
-        log.toBuffer(),
-      );
+      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
 
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
@@ -426,6 +421,10 @@ export class TXENode implements AztecNode {
    */
   getBlocks(_from: number, _limit: number): Promise<L2Block[]> {
     throw new Error('TXE Node method getBlocks not implemented');
+  }
+
+  getPublishedBlocks(_from: number, _limit: number): Promise<PublishedL2Block[]> {
+    throw new Error('TXE Node method getPublishedBlocks not implemented');
   }
 
   /**

@@ -6,8 +6,10 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -19,6 +21,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { type InBlock, randomInBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
+import type { PublishedL2Block } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -198,6 +201,14 @@ describe('AztecNodeApiSchema', () => {
     expect(response[0]).toBeInstanceOf(L2Block);
   });
 
+  it('getPublishedBlocks', async () => {
+    const response = await context.client.getPublishedBlocks(1, 1);
+    expect(response).toHaveLength(1);
+    expect(response[0].block.constructor.name).toEqual('L2Block');
+    expect(response[0].signatures[0]).toBeInstanceOf(Signature);
+    expect(response[0].l1).toBeDefined();
+  });
+
   it('getNodeVersion', async () => {
     const response = await context.client.getNodeVersion();
     expect(response).toBe('1.0.0');
@@ -306,10 +317,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual({ result: 'invalid', reason: ['Invalid'] });
   });
 
-  it('setConfig', async () => {
-    await context.client.setConfig({ coinbase: EthAddress.random() });
-  });
-
   it('getContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const response = await context.client.getContractClass(Fr.random());
@@ -332,10 +339,6 @@ describe('AztecNodeApiSchema', () => {
       salt: expect.any(Fr),
       version: 1,
     });
-  });
-
-  it('flushTxs', async () => {
-    await context.client.flushTxs();
   });
 
   it('getEncodedEnr', async () => {
@@ -503,6 +506,17 @@ class MockAztecNode implements AztecNode {
         .map(i => L2Block.random(from + i)),
     );
   }
+  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
+    return Promise.all(
+      Array(limit)
+        .fill(0)
+        .map(async i => ({
+          block: await L2Block.random(from + i),
+          signatures: [Signature.random()],
+          l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
+        })),
+    );
+  }
   getNodeVersion(): Promise<string> {
     return Promise.resolve('1.0.0');
   }
@@ -539,10 +553,10 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([[TxScopedL2Log.random()]]);
+    return [[await TxScopedL2Log.random()]];
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);

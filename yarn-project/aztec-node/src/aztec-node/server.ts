@@ -33,7 +33,14 @@ import {
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, NullifierWithBlockSource } from '@aztec/stdlib/block';
+import type {
+  InBlock,
+  L2Block,
+  L2BlockNumber,
+  L2BlockSource,
+  NullifierWithBlockSource,
+  PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -43,7 +50,12 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode, GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import type {
+  AztecNode,
+  AztecNodeAdmin,
+  GetContractClassLogsResponse,
+  GetPublicLogsResponse,
+} from '@aztec/stdlib/interfaces/client';
 import {
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
@@ -86,7 +98,7 @@ import { NodeMetrics } from './node_metrics.js';
 /**
  * The aztec node.
  */
-export class AztecNodeService implements AztecNode, Traceable {
+export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private packageVersion: string;
   private metrics: NodeMetrics;
 
@@ -307,6 +319,10 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return (await this.blockSource.getBlocks(from, limit)) ?? [];
+  }
+
+  public async getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
+    return (await this.blockSource.getPublishedBlocks(from, limit)) ?? [];
   }
 
   /**
@@ -865,7 +881,6 @@ export class AztecNodeService implements AztecNode, Traceable {
       new DateProvider(),
       this.telemetry,
     );
-    const fork = await this.worldStateSynchronizer.fork();
 
     this.log.verbose(`Simulating public calls for tx ${txHash}`, {
       globalVariables: newGlobalVariables.toInspect(),
@@ -873,8 +888,9 @@ export class AztecNodeService implements AztecNode, Traceable {
       blockNumber,
     });
 
+    const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
-      const processor = publicProcessorFactory.create(fork, newGlobalVariables, skipFeeEnforcement);
+      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, skipFeeEnforcement);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
@@ -893,7 +909,7 @@ export class AztecNodeService implements AztecNode, Traceable {
         processedTx.gasUsed,
       );
     } finally {
-      await fork.close();
+      await merkleTreeFork.close();
     }
   }
 

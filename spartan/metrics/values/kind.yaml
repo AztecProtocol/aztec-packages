@@ -15,6 +15,17 @@ opentelemetry-collector:
           datapoint:
             - metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20
 
+      metricstransform:
+        transforms:
+          - include: 'system.cpu.utilization'
+            match_type: strict
+            action: combine
+            new_name: 'system.cpu.utilization_combined'
+            operations:
+              - action: aggregate_labels
+                label_set: [ system.cpu.state ]
+                aggregation_type: mean
+
       transform/promote_resource_attributes:
         metric_statements:
           - context: datapoint
@@ -62,6 +73,7 @@ opentelemetry-collector:
           processors:
             - memory_limiter
             - filter/large_histograms
+            - metricstransform
             - transform/promote_resource_attributes
             - batch
           exporters:

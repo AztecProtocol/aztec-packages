@@ -9,7 +9,7 @@ import type { AztecNode, PrivateKernelProver } from '@aztec/stdlib/interfaces/cl
 
 import type { PXEServiceConfig } from '../../config/index.js';
 import { PXEService } from '../../pxe_service/pxe_service.js';
-import { PXE_DATA_SCHEMA_VERSION } from './index.js';
+import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
 
 /**
  * Create and start an PXEService instance with the given AztecNode.

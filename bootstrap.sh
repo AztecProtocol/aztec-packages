@@ -24,7 +24,7 @@ function encourage_dev_container {
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
   # Check for various required utilities.
-  for util in jq parallel awk git curl; do
+  for util in jq parallel awk git curl zstd; do
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "Utility $util not found."
@@ -54,7 +54,7 @@ function check_toolchains {
     exit 1
   fi
   # Check rustup installed.
-  local rust_version=$(yq '.toolchain.channel' ./noir/noir-repo/rust-toolchain.toml)
+  local rust_version=$(yq '.toolchain.channel' ./avm-transpiler/rust-toolchain.toml)
   if ! command -v rustup > /dev/null; then
     encourage_dev_container
     echo "Rustup not installed."
@@ -114,6 +114,8 @@ function install_hooks {
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
   echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
+  echo "(cd noir && ./postcheckout.sh $@)" >$hooks_dir/post-checkout
+  chmod +x $hooks_dir/post-checkout
 }
 
 function test_cmds {
@@ -124,13 +126,28 @@ function test_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
 
+function start_txe {
+  cd $root/yarn-project/txe
+  LOG_LEVEL=info TXE_PORT=$1 node --no-warnings ./dest/bin/index.js &
+  local pid=$!
+  trap "kill -SIGTERM $pid &>/dev/null || true" SIGTERM;
+  wait $pid
+  wait $pid
+  local code=$?
+  if [ "$code" -ne 0 ]; then
+    sudo lsof -i
+  fi
+  return $code
+}
+export -f start_txe
+
 function start_txes {
   # Starting txe servers with incrementing port numbers.
   trap 'kill -SIGTERM $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
     existing_pid=$(lsof -ti :$((45730 + i)) || true)
-    [ -n "$existing_pid" ] && kill -9 $existing_pid
-    dump_fail "cd $root/yarn-project/txe && LOG_LEVEL=info TXE_PORT=$((45730 + i)) node --no-warnings ./dest/bin/index.js" &
+    [ -n "$existing_pid" ] && kill -9 $existing_pid && wait $existing_pid || true
+    dump_fail "start_txe $((45730 + i))" &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
@@ -147,10 +164,10 @@ export -f start_txes
 function test {
   echo_header "test all"
 
+  start_txes
+
   # Make sure KIND starts so it is running by the time we do spartan tests.
   spartan/bootstrap.sh kind &>/dev/null &
-
-  start_txes
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
@@ -234,7 +251,7 @@ function release {
   #     + noir
   #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if dist tag is latest
-  #   docs => publish docs if dist tag is latest. TODO Link build in github release.
+  #   docs, playground => publish if dist tag is latest. TODO Link build in github release.
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
@@ -260,7 +277,7 @@ function release {
     release-image
   )
   if [ $(arch) == arm64 ]; then
-    echo "Only deploying packages with platform-specific binaries on arm64."
+    echo "Only releasing packages with platform-specific binaries on arm64."
     projects=(
       barretenberg/cpp
       release-image

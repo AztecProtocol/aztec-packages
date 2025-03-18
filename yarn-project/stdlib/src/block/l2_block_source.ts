@@ -10,6 +10,7 @@ import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { InBlock } from './in_block.js';
 import type { L2Block } from './l2_block.js';
+import type { PublishedL2Block } from './published_l2_block.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -62,6 +63,9 @@ export interface L2BlockSource {
    */
   getBlocks(from: number, limit: number, proven?: boolean): Promise<L2Block[]>;
 
+  /** Equivalent to getBlocks but includes publish data. */
+  getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
+
   /**
    * Gets a tx effect.
    * @param txHash - The hash of a transaction which resulted in the returned tx effect.
@@ -92,6 +96,13 @@ export interface L2BlockSource {
    * @param epochNumber - The epoch number to return blocks for.
    */
   getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]>;
+
+  /**
+   * Returns all block headers for a given epoch.
+   * @dev Use this method only with recent epochs, since it walks the block list backwards.
+   * @param epochNumber - The epoch number to return headers for.
+   */
+  getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]>;
 
   /**
    * Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
