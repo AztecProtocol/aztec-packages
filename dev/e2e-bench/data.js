@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742254755665,
+  "lastUpdate": 1742256529283,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1473,6 +1473,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 141000,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3a89a2404486f933181be08835654dad451714f8",
+          "message": "chore: note getter internals (#12809)\n\nFollow up of #12807 with some more misc changes.\n\n---------\n\nCo-authored-by: Jan Beneš <janbenes1234@gmail.com>",
+          "timestamp": "2025-03-17T23:45:01Z",
+          "tree_id": "56c879a4958121236674f628a3e2df3dd0e26b9c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3a89a2404486f933181be08835654dad451714f8"
+        },
+        "date": 1742256522334,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9139,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.22300989316488057,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 139735,
             "unit": "us"
           }
         ]
