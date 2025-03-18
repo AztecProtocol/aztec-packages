@@ -27,7 +27,6 @@ for arg in "$@"; do
   fi
 done
 
-
 # For sanity when iterating on build scripts as bootstrap.sh scripts are in every .rebuild_patterns.
 if [ -n "${AZTEC_CACHE_NO_SCRIPTS:-}" ]; then
   rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '.sh')
