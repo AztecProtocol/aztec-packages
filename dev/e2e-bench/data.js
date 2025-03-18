@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742300226323,
+  "lastUpdate": 1742302084361,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1653,6 +1653,45 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/commit/558e3152550959a25b26c8a475fb5be3cc9a0220"
         },
         "date": 1742300218409,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9334,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2277659440716169,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 134846,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "distinct": true,
+          "id": "c89b32221d41aa070fffad3e4df07dbd52671fc7",
+          "message": "Merge branch 'master' of github.com:aztecprotocol/aztec-packages",
+          "timestamp": "2025-03-18T12:29:35Z",
+          "tree_id": "b0a07c7017c8b75356da5207a9b1192e626894ce",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c89b32221d41aa070fffad3e4df07dbd52671fc7"
+        },
+        "date": 1742302076988,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
