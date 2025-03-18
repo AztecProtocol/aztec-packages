@@ -6,7 +6,7 @@ export CRS_PATH=$HOME/.bb-crs
 export bb=$(realpath ../cpp/build/bin/bb)
 
 tests_tar=barretenberg-acir-tests-$(hash_str \
-  $(../../noir/bootstrap.sh hash-tests)
+  $(../../noir/bootstrap.sh hash-tests) \
   $(cache_content_hash \
     ../cpp/.rebuild_patterns \
     )).tar.gz
