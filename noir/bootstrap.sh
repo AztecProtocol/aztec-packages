@@ -51,22 +51,16 @@ function build_packages {
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
     npm_install_deps
-    # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
-    # Tests fail with message "env: ‘mocha’: No such file or directory"
-    yarn install
     return
   fi
 
   cd noir-repo
   npm_install_deps
-  # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
-  # Tests fail with message "env: ‘mocha’: No such file or directory"
-  yarn install
-  yarn workspaces foreach  -A --parallel --topological-dev --verbose $js_include run build
+  yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
   # These can be useful for testing, or to portal into other projects.
-  yarn workspaces foreach  -A --parallel $js_include pack
+  yarn workspaces foreach --parallel $js_include pack
 
   cd ..
   rm -rf packages && mkdir -p packages
@@ -133,7 +127,7 @@ function test_cmds {
       sed "s|$PWD/target/release/deps/||" | \
       awk "{print \"$test_hash \" \$0 }"
   echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo" \
-    "yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run test"
+    "yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
 }
