@@ -141,16 +141,28 @@ function start_txe {
 }
 export -f start_txe
 
+function stop_txes {
+  kill -SIGTERM $txe_pids &>/dev/null || true;
+  wait $txe_pids
+}
+
 function start_txes {
   # Starting txe servers with incrementing port numbers.
-  trap 'kill -SIGTERM $(jobs -p) &>/dev/null || true' EXIT
+  trap 'stop_txes' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
-    existing_pid=$(lsof -ti :$((45730 + i)) || true)
-    [ -n "$existing_pid" ] && kill -9 $existing_pid && wait $existing_pid || true
-    dump_fail "retry start_txe $((45730 + i))" &
+    port=$((45730 + i))
+    existing_pid=$(lsof -ti :$port || true)
+    if [ -n "$existing_pid" ]; then
+      echo "Killing existing process on port: $port"
+      kill -9 $existing_pid
+      while kill -0 $existing_pid; do echo "Waiting on process to die."; sleep 0.1; done
+    fi
+    while nc -z 127.0.0.1 $port &>/dev/null; do echo "Waiting on port $port to close"; sleep 1; done
+    dump_fail "start_txe $port" &
+    txe_pids+="$! "
   done
+
   echo "Waiting for TXE's to start..."
-  sleep 3
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
