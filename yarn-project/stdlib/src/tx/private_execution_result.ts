@@ -96,6 +96,13 @@ export class PrivateExecutionResult {
       HashedValues.random(),
     ]);
   }
+
+  /**
+   * The block number that this execution was simulated with.
+   */
+  getSimulationBlockNumber(): number {
+    return this.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+  }
 }
 
 /**

@@ -18,6 +18,7 @@
 #include "flavor_settings.hpp"
 
 // Relations
+#include "relations/address_derivation.hpp"
 #include "relations/alu.hpp"
 #include "relations/bc_decomposition.hpp"
 #include "relations/bc_hashing.hpp"
@@ -35,6 +36,7 @@
 #include "relations/to_radix.hpp"
 
 // Lookup and permutation relations
+#include "relations/lookups_address_derivation.hpp"
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
@@ -88,17 +90,28 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 806;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 854;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 115;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 965;
+    static constexpr size_t NUM_ALL_ENTITIES = 1013;
+
+    // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
+    // evenly processed by all the threads. This constant defines the maximum number of rows
+    // that a given thread will process per chunk. This constant is assumed to be a power of 2
+    // greater or equal to 2.
+    // The current constant 32 is the result of time measurements using 16 threads and against
+    // bulk test v2. It was performed at a stage where the trace was not large.
+    // We note that all the experiments with constants below 256 did not exhibit any significant differences.
+    // TODO: Fine-tune the following constant when avm is close to completion.
+    static constexpr size_t MAX_CHUNK_THREAD_PORTION_SIZE = 32;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = std::tuple<
         // Relations
+        avm2::address_derivation<FF_>,
         avm2::alu<FF_>,
         avm2::bc_decomposition<FF_>,
         avm2::bc_hashing<FF_>,
@@ -121,6 +134,17 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
+        lookup_address_derivation_address_ecadd_relation<FF_>,
+        lookup_address_derivation_partial_address_poseidon2_relation<FF_>,
+        lookup_address_derivation_preaddress_poseidon2_relation<FF_>,
+        lookup_address_derivation_preaddress_scalar_mul_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_0_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_1_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_2_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_3_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
+        lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
+        lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_decomposition_bytes_to_read_as_unary_relation<FF_>,
@@ -184,7 +208,7 @@ class AvmFlavor {
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
         CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
-    template <typename DataType> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType> class PrecomputedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
         DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_PRECOMPUTED_ENTITIES)
@@ -259,6 +283,8 @@ class AvmFlavor {
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
 
         size_t circuit_size;
+        size_t log_circuit_size;
+        size_t num_public_inputs;
         bb::EvaluationDomain<FF> evaluation_domain;
         std::shared_ptr<CommitmentKey> commitment_key;
 
@@ -275,7 +301,7 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         using FF = VerificationKey_::FF;
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;

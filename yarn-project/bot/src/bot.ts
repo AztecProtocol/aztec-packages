@@ -10,7 +10,7 @@ import { times } from '@aztec/foundation/collection';
 import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { Gas } from '@aztec/stdlib/gas';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
 
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
@@ -31,7 +31,10 @@ export class Bot {
     public config: BotConfig,
   ) {}
 
-  static async create(config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}): Promise<Bot> {
+  static async create(
+    config: BotConfig,
+    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
+  ): Promise<Bot> {
     const { wallet, token, recipient } = await new BotFactory(config, dependencies).setup();
     return new Bot(wallet, token, recipient, config);
   }

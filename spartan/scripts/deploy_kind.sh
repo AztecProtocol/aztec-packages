@@ -29,6 +29,7 @@ chaos_values="${CHAOS_VALUES:-}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 install_timeout=${INSTALL_TIMEOUT:-30m}
 overrides="${OVERRIDES:-}"
+resources_file="${RESOURCES_FILE:-default.yaml}"
 
 if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
   echo "Aztec Docker image not found. It needs to be built."
@@ -45,18 +46,48 @@ function show_status_until_pxe_ready {
   set +x   # don't spam with our commands
   sleep 15 # let helm upgrade start
   for i in {1..100}; do
+    echo "--- Pod status ---"
+    kubectl get pods -n "$namespace"
+
+    # Look for problematic pods and show their details
+    echo "--- Problem Pod Details ---"
+    for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[?(@.status.phase!="Running" && @.status.phase!="Succeeded")].metadata.name}'); do
+      echo "Details for problematic pod $pod:"
+      kubectl describe pod -n "$namespace" $pod | grep -E 'Events:|Error:|Warning:|^  Warning|^  Normal|Message:|Reason:'
+      echo "-------------------"
+    done
+
+    # Show pod events
+    echo "--- Recent Pod Events ---"
+    kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10
+
+    # Show service status
+    echo "--- Service Status ---"
+    kubectl get services -n "$namespace"
+
+    # Show logs from validator pods only
+    echo "--- Validator Pod logs ---"
+    for pod in $(kubectl get pods -n "$namespace" -l app=validator -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}'); do
+      echo "Logs from $pod:"
+      kubectl logs --tail=10 -n "$namespace" $pod 2>/dev/null || echo "Cannot get logs yet"
+      echo "-------------------"
+    done
+
+    # Check PXE pod status specifically
+    echo "--- PXE Pod Status ---"
+    kubectl get pods -n "$namespace" -l app=pxe -o wide
+
     if kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
       break # we are up, stop showing status
     fi
-    # show startup status
-    kubectl get pods -n "$namespace"
+
   done
 }
 
 show_status_until_pxe_ready &
 
 function cleanup {
-  trap - SIGTERM && kill $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill $(jobs -p) &>/dev/null && rm "$mnemonic_file" || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
@@ -77,15 +108,41 @@ function generate_overrides {
   fi
 }
 
+helm_set_args=(
+  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
+)
+
 # Some configuration values are set in the eth-devnet/config/config.yaml file
 # and are used to generate the genesis.json file.
 # We need to read these values and pass them into the eth devnet create.sh script
 # so that it can generate the genesis.json and config.yaml file with the correct values.
 if [ "$sepolia_deployment" = "true" ]; then
   echo "Generating sepolia accounts..."
-  set +x
-  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file" "$mnemonic_file")
-  set -x
+  # Split EXTERNAL_ETHEREUM_HOSTS by comma and take first host
+  # set +x
+  export ETHEREUM_HOST=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | cut -d',' -f1)
+  ./prepare_sepolia_accounts.sh "$values_file" 1 "$mnemonic_file"
+  echo "mnemonic: $mnemonic_file"
+  L1_ACCOUNTS_MNEMONIC="$(cat "$mnemonic_file")"
+
+  # Escape the EXTERNAL_ETHEREUM_HOSTS value for Helm
+  ESCAPED_HOSTS=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | sed 's/,/\\,/g' | sed 's/=/\\=/g')
+
+  helm_set_args+=(
+    --set ethereum.execution.externalHosts="$ESCAPED_HOSTS"
+    --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
+    --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
+    --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
+  )
+
+  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-}" ]; then
+    helm_set_args+=(--set "ethereum.beacon.apiKey=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
+  fi
+
+  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
+    helm_set_args+=(--set "ethereum.beacon.apiKeyHeader=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
+  fi
+  # set -x
 else
   echo "Generating devnet config..."
   ./generate_devnet_config.sh "$values_file"
@@ -97,37 +154,14 @@ helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
 kubectl delete clusterrole "$helm_instance"-aztec-network-node 2>/dev/null || true
 kubectl delete clusterrolebinding "$helm_instance"-aztec-network-node 2>/dev/null || true
 
-helm_set_args=(
-  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
-)
-
-# If this is a sepolia run, we need to write some values
-if [ "$sepolia_deployment" = "true" ]; then
-  set +x
-  helm_set_args+=(
-    --set ethereum.execution.externalHosts="$EXTERNAL_ETHEREUM_HOSTS"
-    --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
-    --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
-    --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
-  )
-
-  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKey="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
-  fi
-
-  if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
-  fi
-  set -x
-fi
-
 helm upgrade --install "$helm_instance" ../aztec-network \
   --namespace "$namespace" \
   --create-namespace \
   "${helm_set_args[@]}" \
   --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag" \
   $(generate_overrides "$overrides") \
-  --values "../aztec-network/values/$values_file" \
+  -f "../aztec-network/values/$values_file" \
+  -f "../aztec-network/resources/$resources_file" \
   --wait \
   --wait-for-jobs=true \
   --timeout="$install_timeout"

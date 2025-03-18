@@ -11,7 +11,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -45,6 +45,7 @@ import {
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
+  PublicContractsDB,
   type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
@@ -111,7 +112,7 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/nati
 import { TXENode } from '../node/txe_node.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
+import { TXEPublicTreesDB } from '../util/txe_public_dbs.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 1;
@@ -769,7 +770,7 @@ export class TXE implements TypedOracle {
 
     await this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
     this.node.setNullifiersIndexesWithBlock(blockNumber, txEffect.nullifiers);
-    this.node.addNoteLogsByTags(this.blockNumber, this.privateLogs);
+    this.node.addPrivateLogsByTags(this.blockNumber, this.privateLogs);
     this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
 
     const stateReference = await fork.getStateReference();
@@ -943,12 +944,9 @@ export class TXE implements TypedOracle {
     // See note at revert below.
     const checkpoint = await ForkCheckpoint.new(db);
     try {
-      const simulator = new PublicTxSimulator(
-        db,
-        new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
-        globalVariables,
-        /*doMerkleOperations=*/ true,
-      );
+      const treesDB = new TXEPublicTreesDB(db, this);
+      const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
+      const simulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, /*doMerkleOperations=*/ true);
 
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
       const firstNullifier = usedTxRequestHashForNonces
@@ -1092,7 +1090,11 @@ export class TXE implements TypedOracle {
     );
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.pxeOracleInterface.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+      await this.pxeOracleInterface.processTaggedLogs(
+        this.contractAddress,
+        taggedLogs,
+        AztecAddress.fromString(recipient),
+      );
     }
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -1100,17 +1102,26 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  deliverNote(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _nonce: Fr,
-    _content: Fr[],
-    _noteHash: Fr,
-    _nullifier: Fr,
-    _txHash: Fr,
-    _recipient: AztecAddress,
+  public async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
   ): Promise<void> {
-    throw new Error('deliverNote');
+    await this.pxeOracleInterface.deliverNote(
+      contractAddress,
+      storageSlot,
+      nonce,
+      content,
+      noteHash,
+      nullifier,
+      txHash,
+      recipient,
+    );
   }
 
   async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
@@ -1245,5 +1256,9 @@ export class TXE implements TypedOracle {
   aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
+  }
+
+  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+    return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 }

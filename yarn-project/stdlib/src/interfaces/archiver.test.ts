@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
@@ -10,6 +11,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { type InBlock, randomInBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
+import type { PublishedL2Block } from '../block/published_l2_block.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
   type ContractClassPublic,
@@ -92,6 +94,14 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(L2Block)]);
   });
 
+  it('getPublishedBlocks', async () => {
+    const response = await context.client.getPublishedBlocks(1, 1);
+    expect(response).toHaveLength(1);
+    expect(response[0].block.constructor.name).toEqual('L2Block');
+    expect(response[0].signatures[0]).toBeInstanceOf(Signature);
+    expect(response[0].l1).toBeDefined();
+  });
+
   it('getTxEffect', async () => {
     const result = await context.client.getTxEffect(TxHash.fromBuffer(Buffer.alloc(32, 1)));
     expect(result!.data).toBeInstanceOf(TxEffect);
@@ -115,6 +125,11 @@ describe('ArchiverApiSchema', () => {
   it('getBlocksForEpoch', async () => {
     const result = await context.client.getBlocksForEpoch(1n);
     expect(result).toEqual([expect.any(L2Block)]);
+  });
+
+  it('getBlockHeadersForEpoch', async () => {
+    const result = await context.client.getBlockHeadersForEpoch(1n);
+    expect(result).toEqual([expect.any(BlockHeader)]);
   });
 
   it('isEpochComplete', async () => {
@@ -215,7 +230,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getContract', async () => {
     const address = await AztecAddress.random();
-    const result = await context.client.getContract(address);
+    const result = await context.client.getContract(address, 27);
     expect(result).toEqual({
       address,
       currentContractClassId: expect.any(Fr),
@@ -267,6 +282,15 @@ class MockArchiver implements ArchiverApi {
   async getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
     return [await L2Block.random(from)];
   }
+  async getPublishedBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<PublishedL2Block[]> {
+    return [
+      {
+        block: await L2Block.random(from),
+        signatures: [Signature.random()],
+        l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
+      },
+    ];
+  }
   async getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
     return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
@@ -284,6 +308,11 @@ class MockArchiver implements ArchiverApi {
   async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
     expect(epochNumber).toEqual(1n);
     return [await L2Block.random(Number(epochNumber))];
+  }
+  async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    expect(epochNumber).toEqual(1n);
+    const { header } = await L2Block.random(Number(epochNumber));
+    return [header];
   }
   isEpochComplete(epochNumber: bigint): Promise<boolean> {
     expect(epochNumber).toEqual(1n);
@@ -310,9 +339,9 @@ class MockArchiver implements ArchiverApi {
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
     return Promise.resolve([PrivateLog.random()]);
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
+    return [await Promise.all(tags.map(() => TxScopedL2Log.random()))];
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
@@ -345,7 +374,8 @@ class MockArchiver implements ArchiverApi {
     );
     return functionsAndSelectors.find(f => f.selector.equals(selector))?.name;
   }
-  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  async getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    expect(blockNumber).toEqual(27);
     return {
       address,
       currentContractClassId: Fr.random(),

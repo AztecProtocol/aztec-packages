@@ -17,6 +17,7 @@ import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from '../block/l2_block_number.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { PublishedL2BlockSchema } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,
@@ -46,14 +47,12 @@ import {
 } from '../tx/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
-import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
   type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
 } from './get_logs_response.js';
-import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import type { ProverCoordination } from './prover-coordination.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
@@ -63,7 +62,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  */
 export interface AztecNode
   extends ProverCoordination,
-    Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'> {
+    Pick<L2BlockSource, 'getBlocks' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
   /**
    * Returns the tips of the L2 chain.
    */
@@ -422,12 +421,6 @@ export interface AztecNode
   isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }): Promise<TxValidationResult>;
 
   /**
-   * Updates the configuration of this node.
-   * @param config - Updated configuration to be merged with the current one.
-   */
-  setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void>;
-
-  /**
    * Returns a registered contract class given its id.
    * @param id - Id of the contract class.
    */
@@ -438,9 +431,6 @@ export interface AztecNode
    * @param address - Address of the deployed contract.
    */
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
-
-  /** Forces the next block to be built bypassing all time and pending checks. Useful for testing. */
-  flushTxs(): Promise<void>;
 
   /**
    * Returns the ENR of this node for peer discovery, if available.
@@ -534,6 +524,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
 
+  getPublishedBlocks: z.function().args(z.number(), z.number()).returns(z.array(PublishedL2BlockSchema)),
+
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 
   getNodeVersion: z.function().returns(z.string()),
@@ -587,13 +579,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     )
     .returns(TxValidationResultSchema),
 
-  setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
-
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
 
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
-
-  flushTxs: z.function().returns(z.void()),
 
   getEncodedEnr: z.function().returns(z.string().optional()),
 

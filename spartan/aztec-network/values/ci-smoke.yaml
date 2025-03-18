@@ -1,7 +1,6 @@
 bootNode:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 fullNode:
@@ -14,26 +13,19 @@ fullNode:
 validator:
   resources:
     requests:
-      memory: "512Mi"
       cpu: "200m"
 
 proverNode:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 pxe:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 bot:
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "200m"
   enabled: false
 
 ethereum:
@@ -41,36 +33,28 @@ ethereum:
   execution:
     resources:
       requests:
-        memory: "2Gi"
         cpu: "200m"
       limits:
-        memory: "2Gi"
         cpu: "200m"
   beacon:
     resources:
       requests:
-        memory: "2Gi"
         cpu: "200m"
       limits:
-        memory: "2Gi"
         cpu: "200m"
   validator:
     resources:
       requests:
-        memory: "2Gi"
         cpu: "200m"
       limits:
-        memory: "2Gi"
         cpu: "200m"
 
 proverAgent:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"
 
 proverBroker:
   resources:
     requests:
-      memory: "2Gi"
       cpu: "200m"

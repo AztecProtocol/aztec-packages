@@ -11,6 +11,7 @@ import { PhasesTxValidator } from './phases_validator.js';
 import { patchNonRevertibleFn } from './test_utils.js';
 
 describe('PhasesTxValidator', () => {
+  const blockNumber = 27;
   let contractDataSource: MockProxy<ContractDataSource>;
   let txValidator: PhasesTxValidator;
   let allowedContractClass: Fr;
@@ -33,7 +34,10 @@ describe('PhasesTxValidator', () => {
     allowedSetupSelector2 = makeSelector(2);
 
     contractDataSource = mock<ContractDataSource>({
-      getContract: mockFn().mockImplementation(() => {
+      getContract: mockFn().mockImplementation((_address, atBlockNumber) => {
+        if (blockNumber !== atBlockNumber) {
+          throw new Error('Unexpected block number');
+        }
         return {
           currentContractClassId: Fr.random(),
           originalContractClassId: Fr.random(),
@@ -41,24 +45,28 @@ describe('PhasesTxValidator', () => {
       }),
     });
 
-    txValidator = new PhasesTxValidator(contractDataSource, [
-      {
-        classId: allowedContractClass,
-        selector: allowedSetupSelector1,
-      },
-      {
-        address: allowedContract,
-        selector: allowedSetupSelector1,
-      },
-      {
-        classId: allowedContractClass,
-        selector: allowedSetupSelector2,
-      },
-      {
-        address: allowedContract,
-        selector: allowedSetupSelector2,
-      },
-    ]);
+    txValidator = new PhasesTxValidator(
+      contractDataSource,
+      [
+        {
+          classId: allowedContractClass,
+          selector: allowedSetupSelector1,
+        },
+        {
+          address: allowedContract,
+          selector: allowedSetupSelector1,
+        },
+        {
+          classId: allowedContractClass,
+          selector: allowedSetupSelector2,
+        },
+        {
+          address: allowedContract,
+          selector: allowedSetupSelector2,
+        },
+      ],
+      blockNumber,
+    );
   });
 
   it('allows setup functions on the contracts allow list', async () => {
@@ -72,7 +80,10 @@ describe('PhasesTxValidator', () => {
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
     const address = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
 
-    contractDataSource.getContract.mockImplementationOnce(contractAddress => {
+    contractDataSource.getContract.mockImplementationOnce((contractAddress, atBlockNumber) => {
+      if (blockNumber !== atBlockNumber) {
+        throw new Error('Unexpected block number');
+      }
       if (address.equals(contractAddress)) {
         return Promise.resolve({
           currentContractClassId: allowedContractClass,
@@ -96,7 +107,10 @@ describe('PhasesTxValidator', () => {
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
     // good selector, bad contract class
     const address = await patchNonRevertibleFn(tx, 0, { selector: allowedSetupSelector1 });
-    contractDataSource.getContract.mockImplementationOnce(contractAddress => {
+    contractDataSource.getContract.mockImplementationOnce((contractAddress, atBlockNumber) => {
+      if (blockNumber !== atBlockNumber) {
+        throw new Error('Unexpected block number');
+      }
       if (address.equals(contractAddress)) {
         return Promise.resolve({
           currentContractClassId: Fr.random(),

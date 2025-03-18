@@ -1,5 +1,5 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -253,5 +253,9 @@ export abstract class TypedOracle {
 
   aes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
     return Promise.reject(new OracleMethodNotAvailableError('aes128Decrypt'));
+  }
+
+  getSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
+    return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
   }
 }

@@ -4,7 +4,6 @@ import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { ContractArtifact } from '../abi/abi.js';
-import { NoteSelector } from '../abi/note_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
@@ -38,37 +37,33 @@ export const randomTxHash = (): TxHash => TxHash.random();
 
 export const randomExtendedNote = async ({
   note = Note.random(),
-  owner = undefined,
+  recipient = undefined,
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(
     note,
-    owner ?? (await AztecAddress.random()),
+    recipient ?? (await AztecAddress.random()),
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
-    noteTypeId,
     txHash,
   );
 };
 
 export const randomUniqueNote = async ({
   note = Note.random(),
-  owner = undefined,
+  recipient = undefined,
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  noteTypeId = NoteSelector.random(),
   nonce = Fr.random(),
 }: Partial<UniqueNote> = {}) => {
   return new UniqueNote(
     note,
-    owner ?? (await AztecAddress.random()),
+    recipient ?? (await AztecAddress.random()),
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
-    noteTypeId,
     txHash,
     nonce,
   );

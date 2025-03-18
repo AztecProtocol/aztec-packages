@@ -3,9 +3,7 @@ telemetry:
 
 aztec:
   realProofs: false
-  validatorKeyIndexStart: 0
-  proverKeyIndexStart: 3
-  botKeyIndexStart: 4
+  numberOfDefaultAccounts: 0
 
 network:
   setupL2Contracts: false

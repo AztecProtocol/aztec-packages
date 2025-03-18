@@ -231,12 +231,12 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-  uint256 internal constant RECURSIVE_PROOF_LENGTH = 459;
-  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 459;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 456;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 456;
   uint256 internal constant IPA_PROOF_LENGTH = 69;
-  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 538;
-  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 538;
-  uint256 internal constant TUBE_PROOF_LENGTH = 538;
+  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 535;
+  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 535;
+  uint256 internal constant TUBE_PROOF_LENGTH = 535;
   uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 139;
   uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
@@ -317,4 +317,7 @@ library Constants {
   uint256 internal constant MINIMUM_UPDATE_DELAY = 25;
   uint256 internal constant UPDATES_VALUE_SIZE = 1;
   uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 3;
+  uint256 internal constant GRUMPKIN_ONE_X = 1;
+  uint256 internal constant GRUMPKIN_ONE_Y =
+    17631683881184975370165255887551781615748388533673675138860;
 }
