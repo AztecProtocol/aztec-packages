@@ -23,6 +23,7 @@ import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
+  L1Metrics,
   type TelemetryClient,
   type Traceable,
   type Tracer,
@@ -57,6 +58,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private jobs: Map<string, EpochProvingJob> = new Map();
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
+  private l1Metrics: L1Metrics;
 
   private txFetcher: RunningPromise;
   private lastBlockNumber: number | undefined;
@@ -75,6 +77,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     options: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
+    this.l1Metrics = new L1Metrics(telemetryClient.getMeter('ProverNodeL1Metrics'), publisher.l1TxUtils.publicClient, [
+      publisher.getSenderAddress(),
+    ]);
+
     this.options = {
       pollingIntervalMs: 1_000,
       maxPendingJobs: 100,
@@ -135,6 +141,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   start() {
     this.txFetcher.start();
     this.epochsMonitor.start(this);
+    this.l1Metrics.start();
     this.log.info('Started ProverNode', this.options);
   }
 
@@ -151,6 +158,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     await tryStop(this.coordination);
+    this.l1Metrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
   }
