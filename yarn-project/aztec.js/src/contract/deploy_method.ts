@@ -77,8 +77,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
-    const { nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, options.fee);
+    const { fee: userFee, nonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
     return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
   }
 

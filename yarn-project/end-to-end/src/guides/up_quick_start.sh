@@ -45,9 +45,8 @@ fi
 TRANSFER_AMOUNT=42
 
 aztec-wallet create-authwit transfer_in_private accounts:test0 -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -f alice
-aztec-wallet add-authwit authwits:last alice -f test0
 
-aztec-wallet send transfer_in_private -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -f test0
+aztec-wallet send transfer_in_private -ca last --args accounts:alice accounts:bob $TRANSFER_AMOUNT 1 -w authwits:last -f test0
 # docs:end:transfer
 
 # Test end result

@@ -11,7 +11,6 @@ source $flows/shared/create_funded_account.sh operator
 # Create an authwit for the operator to transfer tokens from the main account to operator's own account.
 aztec-wallet create-secret -a auth_nonce
 aztec-wallet create-authwit transfer_in_private operator -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -f main
-aztec-wallet add-authwit authwits:last main -f operator
 
 # Write out debug execution steps (used for debugging prover development).
 tmp=$(mktemp -d)
@@ -19,7 +18,7 @@ function cleanup {
     rm -rf $tmp
 }
 trap cleanup EXIT SIGINT
-aztec-wallet profile transfer_in_private --debug-execution-steps-dir $tmp -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -f operator
+aztec-wallet profile transfer_in_private --debug-execution-steps-dir $tmp -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -aw authwits:last -f operator
 # Crude check, check that $tmp is over one megabyte, the validity of these files is checked more directly in the client ivc benches.
 size=$(du -sb $tmp | awk '{print $1}')
 if [ "$size" -lt 1000000 ]; then

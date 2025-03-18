@@ -1,4 +1,4 @@
-import type { FeeOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
+import type { FeeOptions, TxExecutionOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -152,7 +152,11 @@ export abstract class BaseContractInteraction {
    * @param fee - User-provided fee options.
    * @returns Fee options for the actual transaction.
    */
-  protected async getFeeOptions(executionPayload: ExecutionPayload, fee?: UserFeeOptions): Promise<FeeOptions> {
+  protected async getFeeOptions(
+    executionPayload: ExecutionPayload,
+    fee?: UserFeeOptions,
+    options?: TxExecutionOptions,
+  ): Promise<FeeOptions> {
     // docs:end:getFeeOptions
     const defaultFeeOptions = await this.getDefaultFeeOptions(fee);
     const paymentMethod = defaultFeeOptions.paymentMethod;
@@ -162,7 +166,7 @@ export abstract class BaseContractInteraction {
     let gasSettings = defaultFeeOptions.gasSettings;
     if (fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
-      const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, {});
+      const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, options ?? {});
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,

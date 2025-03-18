@@ -23,7 +23,7 @@ export class BatchCall extends BaseContractInteraction {
     const requestWithoutFee = await this.request(options);
 
     const { fee: userFee, nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee);
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
 
     return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
   }

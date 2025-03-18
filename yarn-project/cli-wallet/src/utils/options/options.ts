@@ -80,7 +80,7 @@ export function createAccountOption(description: string, hide: boolean, db?: Wal
 }
 
 export function createAuthwitnessOption(description: string, hide: boolean, db?: WalletDB) {
-  return new Option('-w, --auth-witness <string>', description)
+  return new Option('-aw, --auth-witness <string>', description)
     .hideHelp(hide)
     .argParser(witness => aliasedAuthWitParser(witness, db));
 }
