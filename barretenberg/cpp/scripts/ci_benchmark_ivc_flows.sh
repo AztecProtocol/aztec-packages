@@ -78,4 +78,4 @@ mkdir -p "$output_folder"
 
 ../scripts/combine_benchmarks.py \
   ./bench-out/ivc/*.json \
-  > ./$output_folder/ivc-bench.json
+  > $output_folder/ivc-bench.json

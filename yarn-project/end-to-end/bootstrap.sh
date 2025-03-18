@@ -170,10 +170,11 @@ function bench {
     return
   fi
   # BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
-  generate_example_app_ivc_inputs
+  # generate_example_app_ivc_inputs
   # A bit pattern-breaking, but we need to generate our example app inputs here, then bb folder is the best
   # place to test them.
-  ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/bench-out $(pwd)/example-app-ivc-inputs-out
+  ls $(pwd)/example-app-ivc-inputs-out
+  bash -x ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/bench-out $(pwd)/example-app-ivc-inputs-out
   cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json ./bench-out/ivc-bench.json
 }
 
