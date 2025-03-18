@@ -28,44 +28,15 @@ pol commit parsing_err;
 parsing_err = 1 - (1 - pc_out_of_range) * (1 - instr_out_of_range) * (1 - opcode_out_of_range);
 // parsing_err is a boolean by definition (followed from above formula)
 
-// If the current row is not active, then there are no more active rows after that.
-// (not enforced for the first row)
-// Gives guarantee that the active trace must start just after the first row (clk == 0)
-// and from there it is contiguous.
-#[TRACE_CONTINUITY]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
-
-// Last row of a given bytecode portion (i.e., pertaining to a given bytecode_id)
-pol commit last_of_bytecode;
-last_of_bytecode * (1 - last_of_bytecode) = 0;
-
-// last_of_bytecode is toggled iff BC_ID_DIFF != 0
-// Standard non-zero inequality involving helper inverse column
-pol BC_ID_DIFF = bytecode_id' - bytecode_id;
-pol commit bc_id_diff_inv;
-#[LAST_OF_BYTECODE_TOGGLE]
-sel * (BC_ID_DIFF * ((1 - last_of_bytecode) * (1 - bc_id_diff_inv) + bc_id_diff_inv) - last_of_bytecode) = 0;
-
-// If last_of_bytecode OR precomputed.first_row then next row has pc == 0
-#[PC_IS_ZERO_IN_BYTECODE_FIRST_ROW]
-(last_of_bytecode + precomputed.first_row) * pc' = 0;
-
 // Retrieved from bc_decomposition.pil
-pol commit bytes_remaining;
 pol commit bytes_to_read;
 
+// Retrieved from bc_decomposition.pil based on bytecode_id with pc == 0
 pol commit bytecode_size;
-#[BYTECODE_SIZE_INIT]
-(last_of_bytecode + precomputed.first_row) * (bytecode_size' - bytes_remaining') = 0;
-
-#[SAME_BYTECODE_SIZE]
-sel * sel' * (1 - last_of_bytecode) * (bytecode_size - bytecode_size') = 0;
-// Note that last_of_bytecode might not be toggled at the last active row (if bytecode_id == 0).
-// For this reason, we need the factor sel' in the above relation.
 
 // Absolute difference variant where we compute:
 // bytes_to_read - instr_size      if instr_size <= bytes_to_read
-// instr_size - bytes_to_read - 1  if instr_size > bytes_to_read
+// instr_size - bytes_to_read - 1  if instr_size > bytes_to_read (instr_out_of_range == 1)
 pol commit instr_abs_diff;
 
 // From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
@@ -97,6 +68,10 @@ sel { pc_abs_diff_lo } in precomputed.sel_range_16 { precomputed.clk };
 #[PC_ABS_DIFF_POSITIVE_HI]
 sel { pc_abs_diff_hi } in precomputed.sel_range_16 { precomputed.clk };
 
+#[BYTECODE_SIZE_FROM_BC_DEC]
+sel { bytecode_id, precomputed.zero, bytecode_size } in
+bc_decomposition.sel { bc_decomposition.id, bc_decomposition.pc, bc_decomposition.bytes_remaining };
+
 // bytecode[pc] to bytecode[pc + 36]
 pol commit bd0, bd1, bd2, bd3, bd4,
            bd5, bd6, bd7, bd8, bd9, bd10,
@@ -115,9 +90,8 @@ sel_opcode_defined = sel * (1 - pc_out_of_range);
 // Bring in the bytes from the bytecode columns.
 #[BYTES_FROM_BC_DEC]
 sel_opcode_defined {
-     pc,
      bytecode_id,
-     bytes_remaining,
+     pc,
      bytes_to_read,
      bd0,  bd1,  bd2,  bd3,  bd4,
      bd5,  bd6,  bd7,  bd8,  bd9,
@@ -129,9 +103,8 @@ sel_opcode_defined {
      bd35, bd36
 } in
 bc_decomposition.sel {
-     bc_decomposition.pc,
      bc_decomposition.id,
-     bc_decomposition.bytes_remaining,
+     bc_decomposition.pc,
      bc_decomposition.bytes_to_read,
      bc_decomposition.bytes,            bc_decomposition.bytes_pc_plus_1, bc_decomposition.bytes_pc_plus_2, bc_decomposition.bytes_pc_plus_3, bc_decomposition.bytes_pc_plus_4,
      bc_decomposition.bytes_pc_plus_5,  bc_decomposition.bytes_pc_plus_6, bc_decomposition.bytes_pc_plus_7, bc_decomposition.bytes_pc_plus_8, bc_decomposition.bytes_pc_plus_9,

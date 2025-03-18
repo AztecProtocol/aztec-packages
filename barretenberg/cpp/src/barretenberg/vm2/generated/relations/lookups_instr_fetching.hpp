@@ -268,6 +268,102 @@ class lookup_instr_fetching_pc_abs_diff_positive_hi_relation
     }
 };
 
+/////////////////// lookup_instr_fetching_bytecode_size_from_bc_dec ///////////////////
+
+class lookup_instr_fetching_bytecode_size_from_bc_dec_settings {
+  public:
+    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_BYTECODE_SIZE_FROM_BC_DEC";
+    static constexpr std::string_view RELATION_NAME = "instr_fetching";
+
+    static constexpr size_t READ_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
+    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
+    static constexpr size_t READ_TERM_DEGREE = 0;
+    static constexpr size_t WRITE_TERM_DEGREE = 0;
+
+    // Columns using the Column enum.
+    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
+    static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel;
+    static constexpr Column COUNTS = Column::lookup_instr_fetching_bytecode_size_from_bc_dec_counts;
+    static constexpr Column INVERSES = Column::lookup_instr_fetching_bytecode_size_from_bc_dec_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::instr_fetching_bytecode_id,
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::instr_fetching_bytecode_size
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_id,
+        ColumnAndShifts::bc_decomposition_pc,
+        ColumnAndShifts::bc_decomposition_bytes_remaining
+    };
+
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in._instr_fetching_sel() == 1 || in._bc_decomposition_sel() == 1);
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static inline auto compute_inverse_exists(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+        const auto is_operation = View(in._instr_fetching_sel());
+        const auto is_table_entry = View(in._bc_decomposition_sel());
+        return (is_operation + is_table_entry - is_operation * is_table_entry);
+    }
+
+    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
+    {
+        return std::forward_as_tuple(in._lookup_instr_fetching_bytecode_size_from_bc_dec_inv(),
+                                     in._lookup_instr_fetching_bytecode_size_from_bc_dec_counts(),
+                                     in._instr_fetching_sel(),
+                                     in._bc_decomposition_sel(),
+                                     in._instr_fetching_bytecode_id(),
+                                     in._precomputed_zero(),
+                                     in._instr_fetching_bytecode_size(),
+                                     in._bc_decomposition_id(),
+                                     in._bc_decomposition_pc(),
+                                     in._bc_decomposition_bytes_remaining());
+    }
+};
+
+template <typename FF_>
+class lookup_instr_fetching_bytecode_size_from_bc_dec_relation
+    : public GenericLookupRelation<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, FF_> {
+  public:
+    using Settings = lookup_instr_fetching_bytecode_size_from_bc_dec_settings;
+    static constexpr std::string_view NAME = lookup_instr_fetching_bytecode_size_from_bc_dec_settings::NAME;
+    static constexpr std::string_view RELATION_NAME =
+        lookup_instr_fetching_bytecode_size_from_bc_dec_settings::RELATION_NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lookup_instr_fetching_bytecode_size_from_bc_dec_inv.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
+};
+
 /////////////////// lookup_instr_fetching_bytes_from_bc_dec ///////////////////
 
 class lookup_instr_fetching_bytes_from_bc_dec_settings {
@@ -279,7 +375,7 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
     static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 41;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 40;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
@@ -290,52 +386,30 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
     static constexpr Column COUNTS = Column::lookup_instr_fetching_bytes_from_bc_dec_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_bytes_from_bc_dec_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc,
-        ColumnAndShifts::instr_fetching_bytecode_id,
-        ColumnAndShifts::instr_fetching_bytes_remaining,
-        ColumnAndShifts::instr_fetching_bytes_to_read,
-        ColumnAndShifts::instr_fetching_bd0,
-        ColumnAndShifts::instr_fetching_bd1,
-        ColumnAndShifts::instr_fetching_bd2,
-        ColumnAndShifts::instr_fetching_bd3,
-        ColumnAndShifts::instr_fetching_bd4,
-        ColumnAndShifts::instr_fetching_bd5,
-        ColumnAndShifts::instr_fetching_bd6,
-        ColumnAndShifts::instr_fetching_bd7,
-        ColumnAndShifts::instr_fetching_bd8,
-        ColumnAndShifts::instr_fetching_bd9,
-        ColumnAndShifts::instr_fetching_bd10,
-        ColumnAndShifts::instr_fetching_bd11,
-        ColumnAndShifts::instr_fetching_bd12,
-        ColumnAndShifts::instr_fetching_bd13,
-        ColumnAndShifts::instr_fetching_bd14,
-        ColumnAndShifts::instr_fetching_bd15,
-        ColumnAndShifts::instr_fetching_bd16,
-        ColumnAndShifts::instr_fetching_bd17,
-        ColumnAndShifts::instr_fetching_bd18,
-        ColumnAndShifts::instr_fetching_bd19,
-        ColumnAndShifts::instr_fetching_bd20,
-        ColumnAndShifts::instr_fetching_bd21,
-        ColumnAndShifts::instr_fetching_bd22,
-        ColumnAndShifts::instr_fetching_bd23,
-        ColumnAndShifts::instr_fetching_bd24,
-        ColumnAndShifts::instr_fetching_bd25,
-        ColumnAndShifts::instr_fetching_bd26,
-        ColumnAndShifts::instr_fetching_bd27,
-        ColumnAndShifts::instr_fetching_bd28,
-        ColumnAndShifts::instr_fetching_bd29,
-        ColumnAndShifts::instr_fetching_bd30,
-        ColumnAndShifts::instr_fetching_bd31,
-        ColumnAndShifts::instr_fetching_bd32,
-        ColumnAndShifts::instr_fetching_bd33,
-        ColumnAndShifts::instr_fetching_bd34,
-        ColumnAndShifts::instr_fetching_bd35,
-        ColumnAndShifts::instr_fetching_bd36
+        ColumnAndShifts::instr_fetching_bytecode_id,   ColumnAndShifts::instr_fetching_pc,
+        ColumnAndShifts::instr_fetching_bytes_to_read, ColumnAndShifts::instr_fetching_bd0,
+        ColumnAndShifts::instr_fetching_bd1,           ColumnAndShifts::instr_fetching_bd2,
+        ColumnAndShifts::instr_fetching_bd3,           ColumnAndShifts::instr_fetching_bd4,
+        ColumnAndShifts::instr_fetching_bd5,           ColumnAndShifts::instr_fetching_bd6,
+        ColumnAndShifts::instr_fetching_bd7,           ColumnAndShifts::instr_fetching_bd8,
+        ColumnAndShifts::instr_fetching_bd9,           ColumnAndShifts::instr_fetching_bd10,
+        ColumnAndShifts::instr_fetching_bd11,          ColumnAndShifts::instr_fetching_bd12,
+        ColumnAndShifts::instr_fetching_bd13,          ColumnAndShifts::instr_fetching_bd14,
+        ColumnAndShifts::instr_fetching_bd15,          ColumnAndShifts::instr_fetching_bd16,
+        ColumnAndShifts::instr_fetching_bd17,          ColumnAndShifts::instr_fetching_bd18,
+        ColumnAndShifts::instr_fetching_bd19,          ColumnAndShifts::instr_fetching_bd20,
+        ColumnAndShifts::instr_fetching_bd21,          ColumnAndShifts::instr_fetching_bd22,
+        ColumnAndShifts::instr_fetching_bd23,          ColumnAndShifts::instr_fetching_bd24,
+        ColumnAndShifts::instr_fetching_bd25,          ColumnAndShifts::instr_fetching_bd26,
+        ColumnAndShifts::instr_fetching_bd27,          ColumnAndShifts::instr_fetching_bd28,
+        ColumnAndShifts::instr_fetching_bd29,          ColumnAndShifts::instr_fetching_bd30,
+        ColumnAndShifts::instr_fetching_bd31,          ColumnAndShifts::instr_fetching_bd32,
+        ColumnAndShifts::instr_fetching_bd33,          ColumnAndShifts::instr_fetching_bd34,
+        ColumnAndShifts::instr_fetching_bd35,          ColumnAndShifts::instr_fetching_bd36
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_decomposition_pc,
         ColumnAndShifts::bc_decomposition_id,
-        ColumnAndShifts::bc_decomposition_bytes_remaining,
+        ColumnAndShifts::bc_decomposition_pc,
         ColumnAndShifts::bc_decomposition_bytes_to_read,
         ColumnAndShifts::bc_decomposition_bytes,
         ColumnAndShifts::bc_decomposition_bytes_pc_plus_1,
@@ -406,9 +480,8 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
                                      in._lookup_instr_fetching_bytes_from_bc_dec_counts(),
                                      in._instr_fetching_sel_opcode_defined(),
                                      in._bc_decomposition_sel(),
-                                     in._instr_fetching_pc(),
                                      in._instr_fetching_bytecode_id(),
-                                     in._instr_fetching_bytes_remaining(),
+                                     in._instr_fetching_pc(),
                                      in._instr_fetching_bytes_to_read(),
                                      in._instr_fetching_bd0(),
                                      in._instr_fetching_bd1(),
@@ -447,9 +520,8 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
                                      in._instr_fetching_bd34(),
                                      in._instr_fetching_bd35(),
                                      in._instr_fetching_bd36(),
-                                     in._bc_decomposition_pc(),
                                      in._bc_decomposition_id(),
-                                     in._bc_decomposition_bytes_remaining(),
+                                     in._bc_decomposition_pc(),
                                      in._bc_decomposition_bytes_to_read(),
                                      in._bc_decomposition_bytes(),
                                      in._bc_decomposition_bytes_pc_plus_1(),

@@ -477,13 +477,11 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
 
         EXPECT_THAT(rows.at(i + 1),
                     AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                          ROW_FIELD_EQ(R, instr_fetching_last_of_bytecode, i == num_of_opcodes - 1 ? 1 : 0),
                           ROW_FIELD_EQ(R, instr_fetching_pc, pc),
                           ROW_FIELD_EQ(R, instr_fetching_bd0, static_cast<uint8_t>(opcodes.at(i))),
                           ROW_FIELD_EQ(R, instr_fetching_bytecode_id, bytecode_id),
                           ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, bytes_to_read),
                           ROW_FIELD_EQ(R, instr_fetching_bytecode_size, bytecode_size),
-                          ROW_FIELD_EQ(R, instr_fetching_bytes_remaining, bytes_remaining),
                           ROW_FIELD_EQ(R, instr_fetching_instr_size, instr_size),
                           ROW_FIELD_EQ(R, instr_fetching_instr_abs_diff, instr_abs_diff),
                           ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, pc_abs_diff),
@@ -493,9 +491,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
                           ROW_FIELD_EQ(R, instr_fetching_opcode_out_of_range, 0),
                           ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 0),
                           ROW_FIELD_EQ(R, instr_fetching_parsing_err, 0),
-                          ROW_FIELD_EQ(R,
-                                       instr_fetching_bc_id_diff_inv,
-                                       i == num_of_opcodes - 1 ? FF(FF::modulus - bytecode_id).invert() : 0),
                           ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1)));
     }
 }
@@ -531,9 +526,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingMultipleBytecodes)
     EXPECT_EQ(rows.size(), 6 + 1);
 
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_THAT(rows.at(2 * i + 1),
-                    AllOf(ROW_FIELD_EQ(R, instr_fetching_last_of_bytecode, 0), ROW_FIELD_EQ(R, instr_fetching_pc, 0)));
-        EXPECT_THAT(rows.at(2 * i + 2), AllOf(ROW_FIELD_EQ(R, instr_fetching_last_of_bytecode, 1)));
+        EXPECT_THAT(rows.at(2 * i + 1), ROW_FIELD_EQ(R, instr_fetching_pc, 0));
     }
 }
 
@@ -595,7 +588,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 0),
                       ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 20),
-                      ROW_FIELD_EQ(R, instr_fetching_bytes_remaining, 20),
                       ROW_FIELD_EQ(R, instr_fetching_instr_size, 0),
                       ROW_FIELD_EQ(R,
                                    instr_fetching_instr_abs_diff,
@@ -611,7 +603,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 19), // OR_16 opcode
                       ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_bytes_remaining, 1),
                       ROW_FIELD_EQ(R, instr_fetching_instr_size, 8), // OR_16 is 8 bytes long
                       ROW_FIELD_EQ(R,
                                    instr_fetching_instr_abs_diff,
@@ -627,7 +618,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 0),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 38),
                       ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 0),
-                      ROW_FIELD_EQ(R, instr_fetching_bytes_remaining, 0),
                       ROW_FIELD_EQ(R, instr_fetching_instr_size, 0),
                       ROW_FIELD_EQ(R, instr_fetching_instr_abs_diff, 0),
                       ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),

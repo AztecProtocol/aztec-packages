@@ -45,6 +45,7 @@ using pc_abs_diff_positive_lo_lookup = lookup_instr_fetching_pc_abs_diff_positiv
 using pc_abs_diff_positive_hi_lookup = lookup_instr_fetching_pc_abs_diff_positive_hi_relation<FF>;
 using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
 using bc_decomposition_lookup = lookup_instr_fetching_bytes_from_bc_dec_relation<FF>;
+using bytecode_size_bc_decomposition_lookup = lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF>;
 
 using testing::random_bytes;
 
@@ -272,12 +273,14 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
     LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
 
     // BC Decomposition trace is the longest here.
     EXPECT_EQ(trace.get_num_rows(), instr_fetch_events.at(0).bytecode->size() + 1);
 
     check_relation<instr_fetching>(trace);
     check_interaction<bc_decomposition_lookup>(trace);
+    check_interaction<bytecode_size_bc_decomposition_lookup>(trace);
 }
 
 void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
@@ -299,6 +302,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     LookupIntoIndexedByClk<pc_abs_diff_positive_hi_lookup::Settings>().process(trace);
     LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 << 16); // 2^16 for range checks
 
@@ -308,6 +312,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     check_interaction<pc_abs_diff_positive_hi_lookup>(trace);
     check_interaction<wire_instr_spec_lookup>(trace);
     check_interaction<bc_decomposition_lookup>(trace);
+    check_interaction<bytecode_size_bc_decomposition_lookup>(trace);
 }
 
 // Positive test with 5 five bytecodes and bytecode_id = 0,1,2,3,4
@@ -616,251 +621,62 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
     }
 }
 
-// Negative test on trace continuity. Gap after first row.
-TEST(InstrFetchingConstrainingTest, NegativeGapAfterFirstRow)
+// Negative interaction test for #[BYTECODE_SIZE_FROM_BC_DEC] where bytecode_size has the wrong value.
+// We set pc different from zero.
+TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInteractions)
 {
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_sel = 1, // Will be mutated to zero
-        },
-        {
-            .instr_fetching_sel = 1,
-        },
-    });
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
 
-    check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY);
+    const uint32_t pc = 15;
+    std::vector<uint8_t> bytecode(pc, 0x23);
 
-    trace.set(C::instr_fetching_sel, 1, 0); // Mutate to wrong value
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY),
-                              "TRACE_CONTINUITY");
-}
+    // Some arbitrary chosen opcodes. We limit to one as this unit test is costly.
+    // Test works if the following vector is extended to other opcodes though.
+    std::vector<WireOpCode> opcodes = { WireOpCode::KECCAKF1600 };
 
-// Negative test on trace continuity. Gap in the middle.
-TEST(InstrFetchingConstrainingTest, NegativeGapInTheMiddle)
-{
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_sel = 1, // Will be mutated to 0
-        },
-        {
-            .instr_fetching_sel = 1,
-        },
-    });
+    for (const auto& opcode : opcodes) {
+        TestTraceContainer trace;
 
-    check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY);
+        const auto instr = testing::random_instruction(opcode);
+        const auto instr_bytecode = instr.serialize();
+        bytecode.insert(bytecode.end(),
+                        std::make_move_iterator(instr_bytecode.begin()),
+                        std::make_move_iterator(instr_bytecode.end()));
+        auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
 
-    trace.set(C::instr_fetching_sel, 2, 0); // Mutate to wrong value (row 2)
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_TRACE_CONTINUITY),
-                              "TRACE_CONTINUITY");
-}
+        bytecode_builder.process_instruction_fetching({ {
+                                                          .bytecode_id = 1,
+                                                          .pc = pc,
+                                                          .instruction = instr,
+                                                          .bytecode = bytecode_ptr,
+                                                      } },
+                                                      trace);
+        bytecode_builder.process_decomposition({ {
+                                                   .bytecode_id = 1,
+                                                   .bytecode = bytecode_ptr,
+                                               } },
+                                               trace);
+        precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-// Negative test on pc == 0 for first entry pertaining to a bytecode_id
-// Pick a trace with two bytecode_id = 2 and 3.
-// For first entry of bytecode_id == 3, we set pc = 23.
-TEST(InstrFetchingConstrainingTest, NegativePcNotZeroFirstEntryBytecode1)
-{
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_bytecode_id = 2,
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_pc = 0,
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_bytecode_id = 3,
-            .instr_fetching_pc = 0, // Will be mutated to 23
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_bytecode_id = 3,
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_sel = 1,
-        },
-    });
+        auto valid_trace = trace; // Keep original trace before lookup processing
+        LookupIntoDynamicTableSequential<bytecode_size_bc_decomposition_lookup::Settings>().process(valid_trace);
+        check_interaction<bytecode_size_bc_decomposition_lookup>(valid_trace);
 
-    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW);
+        auto mutated_trace = trace;
+        const FF mutated_value = trace.get(C::instr_fetching_bytecode_size, 1) + 1; // Mutate to value + 1
+        mutated_trace.set(C::instr_fetching_bytecode_size, 1, mutated_value);
 
-    trace.set(C::instr_fetching_pc, 2, 23); // Mutate to wrong value (row 2)
+        // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this
+        // even though we know it will fail.
+        EXPECT_THROW_WITH_MESSAGE(
+            LookupIntoDynamicTableSequential<bytecode_size_bc_decomposition_lookup::Settings>().process(mutated_trace),
+            "Failed.*BYTECODE_SIZE_FROM_BC_DEC. Could not find tuple in destination.");
 
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW),
-        "PC_IS_ZERO_IN_BYTECODE_FIRST_ROW");
-}
-
-// Same as before but pc is wrongly set for the first bytecode
-TEST(InstrFetchingConstrainingTest, NegativePcNotZeroFirstEntryBytecode2)
-{
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_bytecode_id = 2,
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_pc = 0, // Will be mutated to 12
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_bytecode_id = 3,
-            .instr_fetching_pc = 0,
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_bytecode_id = 3,
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_sel = 1,
-        },
-    });
-
-    check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW);
-
-    trace.set(C::instr_fetching_pc, 1, 12); // Mutate to wrong value (row 1)
-
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<instr_fetching>(trace, instr_fetching::SR_PC_IS_ZERO_IN_BYTECODE_FIRST_ROW),
-        "PC_IS_ZERO_IN_BYTECODE_FIRST_ROW");
-}
-
-// Negative test on not toggling last_of_bytecode when bytecode_id changes
-TEST(InstrFetchingConstrainingTest, NegativeNotTogglingLastOfBytecode)
-{
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_bc_id_diff_inv = 1,
-            .instr_fetching_bytecode_id = 2,
-            .instr_fetching_last_of_bytecode = 1, // Will be mutated to 0
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_bc_id_diff_inv = FF(FF::modulus - 3).invert(),
-            .instr_fetching_bytecode_id = 3,
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_sel = 1,
-        },
-    });
-
-    check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE);
-
-    trace.set(C::instr_fetching_bytecode_id, 1, 0); // Mutate to wrong value (row 1)
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE),
-                              "LAST_OF_BYTECODE_TOGGLE");
-
-    // Second attempt by mutating instr_fetching_bc_id_diff_inv to 0
-    trace.set(C::instr_fetching_bc_id_diff_inv, 1, 0);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE),
-                              "LAST_OF_BYTECODE_TOGGLE");
-}
-
-// Negative test on wrongly toggling last_of_bytecod when bytecode_id remains constant (equal to 11)
-TEST(InstrFetchingConstrainingTest, NegativeTogglingLastOfBytecode)
-{
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_bc_id_diff_inv = 0,
-            .instr_fetching_bytecode_id = 11,
-            .instr_fetching_last_of_bytecode = 0, // Will be mutated to 1
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_bc_id_diff_inv = FF(FF::modulus - 11).invert(),
-            .instr_fetching_bytecode_id = 11,
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_sel = 1,
-        },
-    });
-
-    check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE);
-
-    trace.set(C::instr_fetching_last_of_bytecode, 1, 1); // Mutate to wrong value (row 1)
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_LAST_OF_BYTECODE_TOGGLE),
-                              "LAST_OF_BYTECODE_TOGGLE");
-}
-
-// Negative test on not keeping same bytecode_size when bytecode_id is the same
-TEST(InstrFetchingConstrainingTest, NegativeNotSameBytecodeSize)
-{
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_bytecode_id = 2,
-            .instr_fetching_bytecode_size = 12,
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_bytecode_id = 2,
-            .instr_fetching_bytecode_size = 12, // Will be mutated to 13
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_sel = 1,
-        },
-    });
-
-    check_relation<instr_fetching>(trace, instr_fetching::SR_SAME_BYTECODE_SIZE);
-
-    trace.set(C::instr_fetching_bytecode_size, 2, 13); // Mutate to wrong value
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_SAME_BYTECODE_SIZE),
-                              "SAME_BYTECODE_SIZE");
-}
-
-// Negative test on not initializing bytecode_size in the first row of a given bytecode.
-// Case first bytecode
-TEST(InstrFetchingConstrainingTest, NegativeNotInitBytecodeSize1)
-{
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_bytecode_id = 2,
-            .instr_fetching_bytecode_size = 12, // Will be mutated to 17
-            .instr_fetching_bytes_remaining = 12,
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_sel = 1,
-        },
-    });
-
-    check_relation<instr_fetching>(trace, instr_fetching::SR_BYTECODE_SIZE_INIT);
-
-    trace.set(C::instr_fetching_bytecode_size, 1, 17); // Mutate to wrong value
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_BYTECODE_SIZE_INIT),
-                              "BYTECODE_SIZE_INIT");
-}
-
-// Negative test on not initializing bytecode_size in the first row of a given bytecode.
-// Case: a bytecode in the middle
-TEST(InstrFetchingConstrainingTest, NegativeNotInitBytecodeSize2)
-{
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
-        {
-            .instr_fetching_bytecode_id = 2,
-            .instr_fetching_bytecode_size = 12,
-            .instr_fetching_bytes_remaining = 12,
-            .instr_fetching_last_of_bytecode = 1,
-            .instr_fetching_sel = 1,
-        },
-        {
-            .instr_fetching_bytecode_id = 3,
-            .instr_fetching_bytecode_size = 14, // Will be mutated to zero
-            .instr_fetching_bytes_remaining = 14,
-            .instr_fetching_sel = 1,
-        },
-    });
-
-    check_relation<instr_fetching>(trace, instr_fetching::SR_BYTECODE_SIZE_INIT);
-
-    trace.set(C::instr_fetching_bytecode_size, 2, 0); // Mutate to wrong value
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_BYTECODE_SIZE_INIT),
-                              "BYTECODE_SIZE_INIT");
+        EXPECT_THROW_WITH_MESSAGE(check_interaction<bytecode_size_bc_decomposition_lookup>(mutated_trace),
+                                  "Relation.*BYTECODE_SIZE_FROM_BC_DEC.* ACCUMULATION.* is non-zero");
+    }
 }
 
 // Negative test on not toggling instr_out_of_range when instr_size > bytes_to_read
