@@ -4,15 +4,15 @@
   "private": true,
   "scripts": {
     "docs": "docusaurus start --host ${HOST:-localhost}",
-    "dev": "HOST=0.0.0.0 ENV=dev bun run docs",
+    "dev": "HOST=0.0.0.0 ENV=dev yarn run docs",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
     "typecheck": "tsc",
-    "version::stables": "bun ./scripts/setStable.ts",
-    "version": "bun version::stables && ./scripts/cut_version.sh"
+    "version::stables": "yarn tsx ./scripts/setStable.ts",
+    "version": "yarn version::stables && ./scripts/cut_version.sh"
   },
   "dependencies": {
     "@docusaurus/core": "3.7.0",
@@ -25,7 +25,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rehype-katex": "^7.0.1",
-    "remark-math": "^6.0.0"
+    "remark-math": "^6.0.0",
+    "tsx": "^4.19.3"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.7.0",
@@ -47,5 +48,6 @@
   },
   "engines": {
     "node": ">=18.0"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

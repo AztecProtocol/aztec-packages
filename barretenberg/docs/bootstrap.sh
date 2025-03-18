@@ -27,7 +27,7 @@ function build_and_preview {
   if cache_download bb-docs-$hash.tar.gz; then
     return
   fi
-  denoise "bun install && bun run docusaurus clear && bun run docusaurus build"
+  denoise "yarn install && yarn docusaurus clear && yarn docusaurus build"
   cache_upload bb-docs-$hash.tar.gz build
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
@@ -46,7 +46,7 @@ function release_preview {
   echo_header "docs release preview"
 
   # Deploy and capture exit code and output.
-  if ! deploy_output=$(bun run netlify deploy --site barretenberg 2>&1); then
+  if ! deploy_output=$(yarn netlify deploy --site barretenberg 2>&1); then
     echo "Netlify deploy failed with error:"
     echo "$deploy_output"
     exit 1
@@ -75,14 +75,14 @@ function release {
   echo_header "docs release"
 
   # If we download cached docs, we may not have netlify CLI in node_modules. Install in case.
-  bun install
+  yarn install
 
   if [ $(dist_tag) != "latest" ]; then
     # TODO attach to github release
-    do_or_dryrun bun run netlify deploy --site barretenberg
+    do_or_dryrun yarn netlify deploy --site barretenberg
   else
-    bun run version $(dist_tag)
-    do_or_dryrun bun run netlify deploy --site barretenberg --prod
+    yarn version $(dist_tag)
+    do_or_dryrun yarn netlify deploy --site barretenberg --prod
   fi
 }
 

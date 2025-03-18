@@ -10,7 +10,7 @@ VERSION=$1
 jq 'map(select(. != "'"$VERSION"'"))' versions.json > tmp.json && mv tmp.json versions.json
 
 # We need to build the docs in order to perform all necessary preprocessing.
-bun run build
+yarn build
 
 # Finally cut the actual new docs version.
-bun docusaurus docs:version $VERSION
+yarn docs:version $VERSION
