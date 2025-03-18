@@ -12,12 +12,12 @@ use protocol_types::{
 };
 
 /// The number of fields in a private note log content that are not the note's packed representation.
-global PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS: u32 = 1;
+global PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 1;
 
 /// The maximum length of the packed representation of a note's contents. This is limited by private log size,
 /// encryption overhead and extra fields in the log (e.g. log type id, storage slot, etc.).
 pub global MAX_NOTE_PACKED_LEN: u32 =
-    MAX_LOG_CONTENT_LEN - PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS;
+    MAX_LOG_CONTENT_LEN - PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN;
 
 pub unconstrained fn process_private_note_log<Env>(
     contract_address: AztecAddress,
@@ -102,20 +102,20 @@ fn decode_private_note_log(
     let note_type_id = log_metadata as Field; // TODO: make note type id not be a full field
 
     assert(
-        log_content.len() > PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS,
-        f"Invalid private note log: all private note logs must have at least {PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS} fields",
+        log_content.len() > PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN,
+        f"Invalid private note log: all private note logs must have at least {PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN} fields",
     );
 
-    // If PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS is changed, causing the assertion below to fail, then the destructuring of
+    // If PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail, then the destructuring of
     // the private note log encoding below must be updated as well.
     std::static_assert(
-        PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS == 1,
-        "unexpected value for PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS",
+        PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN == 1,
+        "unexpected value for PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN",
     );
 
     // We currently have a single field that is not the note's packed representation, which is the storage slot.
     let storage_slot = log_content.get(0);
-    let packed_note = array::subbvec(log_content, PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS);
+    let packed_note = array::subbvec(log_content, PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN);
 
     (note_type_id, storage_slot, packed_note)
 }

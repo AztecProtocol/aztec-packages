@@ -16,12 +16,12 @@ use dep::protocol_types::{
     traits::{Deserialize, Serialize, ToField},
 };
 
-global PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS: u32 = 2;
+global PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 2;
 
 /// Partial notes have a maximum packed length of their private fields bound by extra content in their private log (e.g.
 /// the storage slot, note completion log tag, etc.).
 pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
-    MAX_LOG_CONTENT_LEN - PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS;
+    MAX_LOG_CONTENT_LEN - PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN;
 
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
 // TODO(#11630): come up with some sort of slot allocation scheme.
@@ -186,15 +186,15 @@ fn decode_partial_note_private_log(
     let note_type_id = log_metadata as Field; // TODO: make note type id not be a full field
 
     assert(
-        log_content.len() > PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS,
-        f"Invalid private note log: all partial note private logs must have at least {PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS} fields",
+        log_content.len() > PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN,
+        f"Invalid private note log: all partial note private logs must have at least {PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN} fields",
     );
 
-    // If PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS is changed, causing the assertion below to fail, then the
+    // If PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail, then the
     // destructuring of the partial note private log encoding below must be updated as well.
     std::static_assert(
-        PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS == 2,
-        "unexpected value for PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS",
+        PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN == 2,
+        "unexpected value for PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN",
     );
 
     // We currently have two fields that are not the partial note's packed representation, which are the storage slot
