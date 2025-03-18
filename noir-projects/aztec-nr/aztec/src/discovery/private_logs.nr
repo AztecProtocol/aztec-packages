@@ -53,7 +53,7 @@ pub unconstrained fn do_process_log<Env>(
     // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and
     // improved upon in the future to also handle events, etc.
 
-    let (log_type_id, log_metadata, log_content) = extract_log_type_id(log_plaintext);
+    let (log_type_id, log_metadata, log_content) = decode_log_plaintext(log_plaintext);
 
     if log_type_id == 0 {
         debug_log("Processing private note log");
@@ -81,7 +81,29 @@ pub unconstrained fn do_process_log<Env>(
     }
 }
 
-unconstrained fn extract_log_type_id(
+/// Decodes a log's plaintext following aztec-nr's standard log encoding.
+///
+/// The standard private log layout is composed of:
+///  - an initial field called the 'expanded metadata'
+///  - an arbitrary number of fields following that called the 'log content'
+///
+/// ```
+/// log_plainext: [ log_expanded_metadata, ...log_content ]
+/// ```
+///
+/// The expanded metadata itself is (currently) interpreted as a u64, of which:
+///  - the upper 57 bits are the log type id
+///  - the remaining 7 bits are called the 'log metadata'
+///
+/// ```
+/// log_expanded_metadata: [  log_type_id   |  log_metadata ]
+///                        <--- 57 bits --->|<--- 7 bits --->
+/// ```
+///
+/// The meaning of the log metadata and log content depend on the value of the log type id. Note that there is
+/// nothing special about the log metadata, it _can_ be considered part of the content. It just has a different name
+/// to make it distinct from the log content given that it is not a full field.
+unconstrained fn decode_log_plaintext(
     log_plaintext: BoundedVec<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>,
 ) -> (u64, u64, BoundedVec<Field, MAX_LOG_CONTENT_LEN>) {
     assert(
@@ -96,23 +118,7 @@ unconstrained fn extract_log_type_id(
         "unexpected value for PRIVATE_LOG_EXPANDED_METADATA_LEN",
     );
 
-    // The standard private log layout is composed of:
-    //  - an initial field called the 'expanded metadata'
-    //  - an arbitrary number of fields following that called the 'log content'
-    //
-    // log_plainext: [ log_expanded_metadata, ...log_content ]
-    //
-    // The expanded metadata itself is (currently) interpreted as a u64, of which:
-    //  - the upper 57 bits are the log type id
-    //  - the remaining 7 bits are called the 'log metadata'
-    //
-    // log_expanded_metadata: [  log_type_id   |  log_metadata ]
-    //                        <--- 57 bits --->|<--- 7 bits --->
-    //
-    // The meaning of the log metadata and log content depend on the value of the log type id. Note that there is
-    // nothing special about the log metadata, it _can_ be considered part of the content. It just has a different name
-    // to make it distinct from the log content given that it is not a full field.
-
+    // See the documentation of this function for a description of the log layout
     let expanded_log_metadata = log_plaintext.get(0);
 
     let log_type_id = ((expanded_log_metadata as u64) / 128);
