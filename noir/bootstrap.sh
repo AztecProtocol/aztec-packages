@@ -110,7 +110,9 @@ function build_packages {
     noir-repo/tooling/noirc_abi_wasm/web
 }
 
-export -f build_native build_packages
+# Export functions that can be called from `parallel` in `build`,
+# and all the functions they can call as well.
+export -f build_native build_packages noir_content_hash
 
 function build {
   echo_header "noir build"
