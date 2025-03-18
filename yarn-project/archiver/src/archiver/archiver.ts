@@ -452,7 +452,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         // this block again (or any blocks before).
         // However, in the re-org scenario, our L1 node is temporarily lying to us and we end up potentially missing blocks
         // We must only set this block number based on actually retrieved logs.
-        // TODO: Tackle this properly when we handle L1 Re-orgs.
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8621): Tackle this properly when we handle L1 Re-orgs.
         //await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
         this.log.debug(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
         return { provenBlockNumber };
