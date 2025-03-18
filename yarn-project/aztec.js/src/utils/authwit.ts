@@ -72,6 +72,13 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
 };
 // docs:end:authwit_computeAuthWitMessageHash
 
+/**
+ * Computes the inner authwitness hash for a function call, for it to later be combined with the metadata
+ * required for the outer hash and eventually the full AuthWitness.
+ * @param caller - Who is going to be calling the function
+ * @param fnCall - The function call to compute the inner hash from
+ * @returns The inner hash for the function call
+ **/
 export const computeInnerAuthWitHashFromFunctionCall = async (caller: AztecAddress, fnCall: FunctionCall) => {
   return computeInnerAuthWitHash([
     caller.toField(),
@@ -80,6 +87,14 @@ export const computeInnerAuthWitHashFromFunctionCall = async (caller: AztecAddre
   ]);
 };
 
+/**
+ * Computes the inner authwitness hash for an action, that can either be a ContractFunctionInteraction
+ * or an isolated FunctionCall. Since the former is just a wrapper around the latter, we can just extract
+ * the first (and only) call from the ContractFunctionInteraction and use it to compute the inner hash.
+ * @param caller - Who is going to be performing the action
+ * @param action - The ContractFunctionInteraction or FunctionCall to compute the inner hash for
+ * @returns The inner hash for the action
+ **/
 export const computeInnerAuthWitHashFromAction = async (
   caller: AztecAddress,
   action: FunctionCall | ContractFunctionInteraction,

@@ -155,6 +155,7 @@ export class AccountWallet extends BaseWallet {
         consumer,
         innerHash,
       ]).simulate({ authWitnesses: [witness] })) as boolean;
+      // TODO: Narrow down the error to make sure simulation failed due to an invalid authwit
       // eslint-disable-next-line no-empty
     } catch {}
 

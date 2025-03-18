@@ -8,7 +8,11 @@ import type { Wallet } from '../wallet/wallet.js';
 import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
 /**
- *
+ * Use a wallet to simulate a function avoiding the wallet's entrypoint, as a SignerlessWallet would do
+ * @param wallet - The wallet to use for the simulation.
+ * @param contractAddress - The address of the contract to call.
+ * @param abi - The ABI of the function to simulate.
+ * @returns The return values of the function call.
  */
 export async function simulateWithoutSignature(wallet: Wallet, contractAddress: AztecAddress, abi: FunctionAbi) {
   const interaction = new ContractFunctionInteraction(wallet, contractAddress, abi, []);
