@@ -44,7 +44,7 @@ case "$cmd" in
     $cmd
     ;;
   "hash")
-    hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
+    cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

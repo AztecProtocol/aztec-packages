@@ -9,12 +9,11 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
-hash=$(hash_str \
-  $(../noir/bootstrap.sh hash) \
-  $(cache_content_hash \
-    .rebuild_patterns \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns))
+hash=$(cache_content_hash \
+  .rebuild_patterns \
+  ../noir/.rebuild_patterns \
+  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+  ../barretenberg/*/.rebuild_patterns)
 
 function build {
   echo_header "boxes build"
