@@ -146,10 +146,9 @@ export abstract class BaseContractInteraction {
   // docs:start:getFeeOptions
   /**
    * Return fee options based on the user opts, estimating tx gas if needed.
-   * @param request - Request to execute for this interaction.
-   * @param pad - Percentage to pad the suggested gas limits by, as decimal (e.g., 0.10 for 10%).
    * @param executionPayload - Execution payload to get the fee for
    * @param fee - User-provided fee options.
+   * @param options - Additional options for the transaction. They must faithfully represent the tx to get accurate fee estimates
    * @returns Fee options for the actual transaction.
    */
   protected async getFeeOptions(
