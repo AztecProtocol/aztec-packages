@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742260601260,
+  "lastUpdate": 1742268250023,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -1551,6 +1551,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 139735,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff8a199e93ae35134ccd6bfdb4b5c8ca46a4b38f",
+          "message": "refactor: minor `CommitmentsDB` cleanup (#12817)\n\nThe naming made me sad + no reason to keep around unused and badly named\ngetCommitmentIndex functionality.",
+          "timestamp": "2025-03-17T22:48:22-04:00",
+          "tree_id": "b11cf4883d7eb78804532ee3f0bf515d9d4a8063",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ff8a199e93ae35134ccd6bfdb4b5c8ca46a4b38f"
+        },
+        "date": 1742268242700,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9124,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2226347396576145,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 139722,
             "unit": "us"
           }
         ]
