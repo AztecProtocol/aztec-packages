@@ -11,6 +11,7 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 
@@ -74,12 +75,14 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
 {
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
     HonkProof concat_pi_and_proof = prover.construct_proof();
+    size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE;
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        num_inner_public_inputs -= IPA_CLAIM_SIZE;
+    }
     PublicInputsAndProof public_inputs_and_proof{
         PublicInputsVector(concat_pi_and_proof.begin(),
-                           concat_pi_and_proof.begin() +
-                               static_cast<std::ptrdiff_t>(prover.proving_key->proving_key.num_public_inputs)),
-        HonkProof(concat_pi_and_proof.begin() +
-                      static_cast<std::ptrdiff_t>(prover.proving_key->proving_key.num_public_inputs),
+                           concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
+        HonkProof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
                   concat_pi_and_proof.end())
     };
     return { public_inputs_and_proof.public_inputs,
