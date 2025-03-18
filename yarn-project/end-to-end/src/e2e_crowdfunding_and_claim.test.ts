@@ -163,7 +163,10 @@ describe('e2e_crowdfunding_and_claim', () => {
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
       await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
-      const notes = await donorWallets[0].getNotes({ contractAddress: crowdfundingContract.address });
+      const notes = await donorWallets[0].getNotes({
+        contractAddress: crowdfundingContract.address,
+        recipient: donorWallets[0].getAddress(),
+      });
       expect(notes.length).toEqual(1);
 
       // Set the UintNote in a format which can be passed to claim function
@@ -231,10 +234,14 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     // Get the latest note emitted by the Crowdfunding contract
     await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_notes().simulate();
-    const notes = await unrelatedWallet.getNotes({ contractAddress: crowdfundingContract.address });
+    const notes = await unrelatedWallet.getNotes({
+      contractAddress: crowdfundingContract.address,
+      recipient: donorWallet.getAddress(),
+    });
+    expect(notes.length).toEqual(1);
 
     // Set the UintNote in a format which can be passed to claim function
-    const anotherDonationNote = processUniqueNote(notes[notes.length - 1]);
+    const anotherDonationNote = processUniqueNote(notes[0]);
 
     // 3) We try to claim the reward token via the Claim contract with the unrelated wallet
     {
