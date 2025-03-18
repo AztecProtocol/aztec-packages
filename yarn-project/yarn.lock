@@ -407,6 +407,8 @@ __metadata:
     typescript: "npm:^5.0.4"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
+  bin:
+    blob-sink-client: ./dest/client/bin/index.js
   languageName: unknown
   linkType: soft
 
