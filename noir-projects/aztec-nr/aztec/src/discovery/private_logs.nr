@@ -1,5 +1,3 @@
-use std::static_assert;
-
 use crate::{oracle::message_discovery::sync_notes, utils::array};
 
 use dep::protocol_types::{
@@ -9,8 +7,9 @@ use dep::protocol_types::{
 };
 
 use crate::discovery::{
-    ComputeNoteHashAndNullifier, MAX_NOTE_PACKED_LEN, NOTE_PRIVATE_LOG_RESERVED_FIELDS,
-    partial_notes::process_partial_note_private_log, private_notes::process_private_note_log,
+    ComputeNoteHashAndNullifier, MAX_LOG_CONTENT_LEN,
+    partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
+    private_notes::process_private_note_log,
 };
 use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::decrypt_log;
 // TODO(#12750): don't make this value assume we're using AES.
@@ -54,8 +53,7 @@ pub unconstrained fn do_process_log<Env>(
     // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and
     // improved upon in the future to also handle events, etc.
 
-    let (storage_slot, note_type_id, log_type_id, log_payload) =
-        destructure_log_plaintext(log_plaintext);
+    let (log_type_id, log_metadata, log_content) = decode_log_plaintext(log_plaintext);
 
     if log_type_id == 0 {
         debug_log("Processing private note log");
@@ -67,53 +65,66 @@ pub unconstrained fn do_process_log<Env>(
             first_nullifier_in_tx,
             recipient,
             compute_note_hash_and_nullifier,
-            storage_slot,
-            note_type_id,
-            log_payload,
+            log_metadata,
+            log_content,
         );
     } else if log_type_id == 1 {
         debug_log("Processing partial note private log");
 
-        process_partial_note_private_log(
-            contract_address,
-            storage_slot,
-            note_type_id,
-            log_payload,
-            recipient,
-        );
+        process_partial_note_private_log(contract_address, recipient, log_metadata, log_content);
     } else {
         // TODO(#11569): handle events
         debug_log_format(
             "Unknown log type id {0} (probably belonging to an event log)",
-            [log_type_id],
+            [log_type_id as Field],
         );
     }
 }
 
-unconstrained fn destructure_log_plaintext(
+/// Decodes a log's plaintext following aztec-nr's standard log encoding.
+///
+/// The standard private log layout is composed of:
+///  - an initial field called the 'expanded metadata'
+///  - an arbitrary number of fields following that called the 'log content'
+///
+/// ```
+/// log_plainext: [ log_expanded_metadata, ...log_content ]
+/// ```
+///
+/// The expanded metadata itself is (currently) interpreted as a u64, of which:
+///  - the upper 57 bits are the log type id
+///  - the remaining 7 bits are called the 'log metadata'
+///
+/// ```
+/// log_expanded_metadata: [  log_type_id   |  log_metadata ]
+///                        <--- 57 bits --->|<--- 7 bits --->
+/// ```
+///
+/// The meaning of the log metadata and log content depend on the value of the log type id. Note that there is
+/// nothing special about the log metadata, it _can_ be considered part of the content. It just has a different name
+/// to make it distinct from the log content given that it is not a full field.
+unconstrained fn decode_log_plaintext(
     log_plaintext: BoundedVec<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>,
-) -> (Field, Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>) {
-    assert(log_plaintext.len() >= NOTE_PRIVATE_LOG_RESERVED_FIELDS);
-
-    // If NOTE_PRIVATE_LOG_RESERVED_FIELDS is changed, causing the assertion below to fail, then the declarations for
-    // `storage_slot` and `note_type_id` must be updated as well.
-    static_assert(
-        NOTE_PRIVATE_LOG_RESERVED_FIELDS == 2,
-        "unexpected value for NOTE_PRIVATE_LOG_RESERVED_FIELDS",
+) -> (u64, u64, BoundedVec<Field, MAX_LOG_CONTENT_LEN>) {
+    assert(
+        log_plaintext.len() >= PRIVATE_LOG_EXPANDED_METADATA_LEN,
+        f"Invalid log plaintext: all logs must be decrypted into at least {PRIVATE_LOG_EXPANDED_METADATA_LEN} fields",
     );
-    let storage_slot = log_plaintext.get(0);
 
-    // We currently identify log types by packing the log type ID and note type ID into a single field, called the
-    // combined type ID. We can do this because the note type ID is only 7 bits long, and so use an 8th bit to
-    // distinguish private note logs and partial note logs.
-    // This abuses the fact that the encoding of both of these logs is extremely similar, and will need improving and
-    // more formalization once we introduce other dissimilar log types, such as events. Ideally we'd be able to
-    // leverage enums and tagged unions to achieve this goal.
-    let combined_type_id = log_plaintext.get(1);
-    let note_type_id = ((combined_type_id as u64) % 128) as Field;
-    let log_type_id = ((combined_type_id as u64) / 128) as Field;
+    // If PRIVATE_LOG_EXPANDED_METADATA_LEN is changed, causing the assertion below to fail, then the destructuring of
+    // the log encoding below must be updated as well.
+    std::static_assert(
+        PRIVATE_LOG_EXPANDED_METADATA_LEN == 1,
+        "unexpected value for PRIVATE_LOG_EXPANDED_METADATA_LEN",
+    );
 
-    let log_payload = array::subbvec(log_plaintext, NOTE_PRIVATE_LOG_RESERVED_FIELDS);
+    // See the documentation of this function for a description of the log layout
+    let expanded_log_metadata = log_plaintext.get(0);
 
-    (storage_slot, note_type_id, log_type_id, log_payload)
+    let log_type_id = ((expanded_log_metadata as u64) / 128);
+    let log_metadata = ((expanded_log_metadata as u64) % 128);
+
+    let log_content = array::subbvec(log_plaintext, PRIVATE_LOG_EXPANDED_METADATA_LEN);
+
+    (log_type_id, log_metadata, log_content)
 }
