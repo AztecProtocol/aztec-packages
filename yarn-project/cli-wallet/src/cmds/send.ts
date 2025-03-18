@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, type AztecAddress, Contract, Fr } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, AuthWitness, type AztecAddress, Contract, Fr } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -14,6 +14,7 @@ export async function send(
   wait: boolean,
   cancellable: boolean,
   feeOpts: IFeeOpts,
+  authWitnesses: AuthWitness[],
   log: LogFn,
 ) {
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
@@ -29,7 +30,7 @@ export async function send(
   }
 
   const nonce = Fr.random();
-  const tx = call.send({ ...(await feeOpts.toSendOpts(wallet)), nonce, cancellable });
+  const tx = call.send({ ...(await feeOpts.toSendOpts(wallet)), nonce, cancellable, authWitnesses });
   const txHash = await tx.getTxHash();
   log(`\nTransaction hash: ${txHash.toString()}`);
   if (wait) {

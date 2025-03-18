@@ -20,6 +20,10 @@ export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   profileMode: 'gates' | 'execution-steps' | 'full';
   /** The sender's Aztec address. */
   from?: AztecAddress;
+  /** Authwits to use in the simulation */
+  authWitnesses?: AuthWitness[];
+  /** Capsules to use in the simulation */
+  capsules?: Capsule[];
 };
 
 /**
@@ -36,6 +40,8 @@ export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee'> & {
   skipFeeEnforcement?: boolean;
   /** Authwits to use in the simulation */
   authWitnesses?: AuthWitness[];
+  /** Capsules to use in the simulation */
+  capsules?: Capsule[];
 };
 
 /**
@@ -132,7 +138,8 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const fee = options.fee ?? { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) };
-    const txRequest = await this.create({ fee, authWitnesses: options.authWitnesses });
+    const { authWitnesses, capsules } = options;
+    const txRequest = await this.create({ fee, authWitnesses, capsules });
     const simulatedTx = await this.wallet.simulateTx(
       txRequest,
       true /* simulatePublic */,
@@ -169,8 +176,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       throw new Error("Can't profile an unconstrained function.");
     }
+    const { authWitnesses, capsules, fee } = options;
 
-    const txRequest = await this.create({ fee: options.fee });
+    const txRequest = await this.create({ fee, authWitnesses, capsules });
     return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
   }
 }

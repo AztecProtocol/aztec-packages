@@ -79,6 +79,12 @@ export function createAccountOption(description: string, hide: boolean, db?: Wal
     .argParser(address => aliasedAddressParser('accounts', address, db));
 }
 
+export function createAuthwitnessOption(description: string, hide: boolean, db?: WalletDB) {
+  return new Option('-w, --auth-witness <string>', description)
+    .hideHelp(hide)
+    .argParser(witness => aliasedAuthWitParser(witness, db));
+}
+
 export function createTypeOption(mandatory: boolean) {
   return new Option('-t, --type <string>', 'Type of account to create')
     .choices(AccountTypes)
@@ -172,4 +178,9 @@ async function contractArtifactFromWorkspace(pkg?: string, contractName?: string
     );
   }
   return `${cwd}/${TARGET_DIR}/${bestMatch[0]}`;
+}
+
+export function cleanupAuthWitnesses(authWitnesses: AuthWitness | AuthWitness[]): AuthWitness[] {
+  const authWitnessArray = Array.isArray(authWitnesses) ? authWitnesses : [authWitnesses];
+  return authWitnessArray.filter(w => w !== undefined);
 }

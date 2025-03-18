@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, type AztecAddress, Contract } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, AuthWitness, type AztecAddress, Contract } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { serializeWitness } from '@aztec/noir-noirc_abi';
@@ -53,6 +53,7 @@ export async function profile(
   contractArtifactPath: string,
   contractAddress: AztecAddress,
   debugOutputPath: string | undefined,
+  authWitnesses: AuthWitness[],
   log: LogFn,
 ) {
   const profileMode = debugOutputPath ? ('full' as const) : ('gates' as const);
@@ -61,7 +62,7 @@ export async function profile(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
 
-  const result = await call.profile({ profileMode });
+  const result = await call.profile({ profileMode, authWitnesses });
   printProfileResult(result, log);
   if (debugOutputPath) {
     log(`Debug output written to ${debugOutputPath} (witnesses.msgpack and acir.msgpack)`);
