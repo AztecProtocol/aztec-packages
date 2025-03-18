@@ -7,7 +7,8 @@
 # These are used when iterating on build infrastructure:
 # - AZTEC_CACHE_NO_SCRIPTS: Don't include any shell files (namely bootstrap.sh) in cache patterns.
 # - AZTEC_CACHE_COMMIT: Compute the content hash for artifacts from an earlier commit.
-NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+root=${root:-$(git rev-parse --show-toplevel)}
+NO_CD=1 source $root/ci3/source
 
 if [[ "$#" = 0 ]]; then
   echo "Error: No arguments provided."
