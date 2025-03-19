@@ -98,8 +98,6 @@ function build {
     cache_upload $tests_tar acir_tests
   fi
 
-  # # WORKTODO: remove this when Adam's component is finished
-  cp -r token_transfer ./acir_tests
   npm_install_deps
   # TODO: Check if still needed.
   # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
