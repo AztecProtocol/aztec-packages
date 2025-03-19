@@ -5,6 +5,7 @@
 namespace bb::avm2 {
 
 constexpr uint32_t CIRCUIT_SUBGROUP_SIZE = 1 << 21;
+constexpr uint32_t MAX_LEAF_INDEX_BITS = 64;
 
 // Also used for op_id in the circuit trace
 enum class BitwiseOperation : uint8_t {

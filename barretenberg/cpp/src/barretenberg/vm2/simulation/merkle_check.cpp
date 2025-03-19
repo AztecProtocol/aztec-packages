@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
 
 namespace bb::avm2::simulation {
@@ -14,6 +15,9 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     uint64_t curr_index = leaf_index;
     for (const auto& i : sibling_path) {
         bool index_is_even = (curr_index % 2 == 0);
+        // Assert that the current index fits in 64 bits so that
+        // it can't overflow when multiplied by 2 in the halving constraint
+        range_check.assert_range(curr_index, MAX_LEAF_INDEX_BITS);
 
         curr_value = index_is_even ? poseidon2.hash({ curr_value, i }) : poseidon2.hash({ i, curr_value });
         // Halve the index (to get the parent index) as we move up the tree

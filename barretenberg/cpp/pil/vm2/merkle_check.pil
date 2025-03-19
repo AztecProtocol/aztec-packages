@@ -1,5 +1,5 @@
 include "./poseidon2_hash.pil";
-
+include "./range_check.pil";
 /**
  * A merkle membership check to compute a root from a leaf and sibling path.
  * One sibling pair is processed per row.
@@ -109,9 +109,8 @@ namespace merkle_check;
     #[END_WHEN_PATH_EMPTY]
     sel * (remaining_path_len * (end * (1 - remaining_path_len_inv) + remaining_path_len_inv) - 1 + end) = 0;
 
-    // TODO(dbanks12): May need a range check on current_index_in_layer to enforce that this is indeed even.
-    // https://aztecprotocol.slack.com/archives/C04DL2L1UP2/p1738189301548169
-    // Note this might be covered by the halving of the current index if the original index is constrained.
+    // index_is_even is constrained to be correct by the NEXT_INDEX_IS_HALVED constraint
+    // in conjunction with the range check on leaf_index
     pol commit index_is_even;
     index_is_even * (1 - index_is_even) = 0;
     pol INDEX_IS_ODD = (1 - index_is_even);
@@ -120,10 +119,19 @@ namespace merkle_check;
     // will be even (over the integers) and as the field is not of characteristic 2, current_index_in_layer' == current_index_in_layer / 2 over the integers
     #[NEXT_INDEX_IS_HALVED]
     not_end * (current_index_in_layer' * 2 + INDEX_IS_ODD - current_index_in_layer) = 0;
-    // TODO(dbanks12): should there be some assertion that if end is 1, current_index_in_layer should be 0 or 1?
 
-    // These are what are sent to poseidon2
-    // These arrange the current_node and sibling in the correct order
+    // Ensure that index fits in 64 bits (via lookup into range_check)
+    // This is necessary to properly constrain index_is_even and to ensure that the
+    // NEXT_INDEX_IS_HALVED constraint cannot overflow the field when doing
+    // `current_index_in_layer' * 2`
+    pol commit MAX_LEAF_INDEX_BITS;
+    sel * (64 - MAX_LEAF_INDEX_BITS) = 0;
+    #[LEAF_INDEX_FITS_IN_64_BITS]
+    sel { current_index_in_layer, MAX_LEAF_INDEX_BITS }
+    in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    // left_node and right_node are sent to poseidon2
+    // The constraints below arrange current_node and sibling into proper left/right order
     pol commit left_node;
     pol commit right_node;
     // This is accomplished by using index_is_even to toggle the (left_node - right_node) term.

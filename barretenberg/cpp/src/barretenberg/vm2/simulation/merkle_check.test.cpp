@@ -4,6 +4,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -16,8 +17,11 @@ TEST(MerkleCheckSimulationTest, AssertMembership)
     EventEmitter<Poseidon2PermutationEvent> perm_emitter;
     Poseidon2 poseidon2(hash_emitter, perm_emitter);
 
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
+
     EventEmitter<MerkleCheckEvent> emitter;
-    MerkleCheck merkle_check(poseidon2, emitter);
+    MerkleCheck merkle_check(poseidon2, range_check, emitter);
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
@@ -44,9 +48,12 @@ TEST(MerkleCheckSimulationTest, AssertMembership)
         .root = root2,
     };
 
+    const size_t expected_merkle_rows = sibling_path.size() + sibling_path2.size();
+
     EXPECT_THAT(emitter.dump_events(), ElementsAre(expect_event, expect_event2));
 
-    EXPECT_EQ(hash_emitter.dump_events().size(), sibling_path.size() + sibling_path2.size());
+    EXPECT_EQ(hash_emitter.dump_events().size(), expected_merkle_rows);
+    EXPECT_EQ(range_check_emitter.dump_events().size(), expected_merkle_rows);
 }
 
 TEST(MerkleCheckSimulationDeathTest, NegativeWrongRoot)
@@ -55,8 +62,11 @@ TEST(MerkleCheckSimulationDeathTest, NegativeWrongRoot)
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
     Poseidon2 poseidon2(hash_emitter, perm_emitter);
 
+    NoopEventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
+
     EventEmitter<MerkleCheckEvent> emitter;
-    MerkleCheck merkle_check(poseidon2, emitter);
+    MerkleCheck merkle_check(poseidon2, range_check, emitter);
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
@@ -73,8 +83,11 @@ TEST(MerkleCheckSimulationDeathTest, NegativeWrongLeafIndex)
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
     Poseidon2 poseidon2(hash_emitter, perm_emitter);
 
+    NoopEventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
+
     EventEmitter<MerkleCheckEvent> emitter;
-    MerkleCheck merkle_check(poseidon2, emitter);
+    MerkleCheck merkle_check(poseidon2, range_check, emitter);
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
@@ -92,8 +105,11 @@ TEST(MerkleCheckSimulationDeathTest, NegativeWrongSiblingPath)
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
     Poseidon2 poseidon2(hash_emitter, perm_emitter);
 
+    NoopEventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
+
     EventEmitter<MerkleCheckEvent> emitter;
-    MerkleCheck merkle_check(poseidon2, emitter);
+    MerkleCheck merkle_check(poseidon2, range_check, emitter);
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
@@ -112,8 +128,11 @@ TEST(MerkleCheckSimulationDeathTest, NegativeWrongLeafValue)
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
     Poseidon2 poseidon2(hash_emitter, perm_emitter);
 
+    NoopEventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
+
     EventEmitter<MerkleCheckEvent> emitter;
-    MerkleCheck merkle_check(poseidon2, emitter);
+    MerkleCheck merkle_check(poseidon2, range_check, emitter);
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;

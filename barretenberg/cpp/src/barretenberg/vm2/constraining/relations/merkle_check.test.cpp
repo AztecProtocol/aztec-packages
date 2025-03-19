@@ -9,16 +9,16 @@
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
+#include "barretenberg/vm2/simulation/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
-// TODO(dbanks12): is this okay? Should this merkle lib be moved to common?
-#include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/merkle_check.hpp"
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
@@ -29,11 +29,14 @@ using simulation::MerkleCheckEvent;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::RangeCheck;
+using simulation::RangeCheckEvent;
 using simulation::root_from_path;
 
 using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::MerkleCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
+using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;
@@ -43,6 +46,7 @@ using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFie
 
 // using permutation_poseidon2_hash = bb::avm2::perm_merkle_check_perm_merkle_poseidon2_relation<FF>;
 using lookup_poseidon2_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_relation<FF>;
+using lookup_range_check = bb::avm2::lookup_merkle_check_leaf_index_fits_in_64_bits_relation<FF>;
 
 TEST(MerkleCheckConstrainingTest, EmptyRow)
 {
@@ -391,21 +395,22 @@ TEST(MerkleCheckConstrainingTest, NegativeWithTracegen)
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");
 }
 
-TEST(MerkleCheckConstrainingTest, WithHashInteraction)
+TEST(MerkleCheckConstrainingTest, WithInteractions)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
-    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
+    MerkleCheck merkle_check_sim(poseidon2, range_check, merkle_event_emitter);
 
-    MerkleCheckTraceBuilder builder;
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    MerkleCheckTraceBuilder merkle_check_builder;
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
@@ -414,10 +419,14 @@ TEST(MerkleCheckConstrainingTest, WithHashInteraction)
     merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    builder.process(merkle_event_emitter.dump_events(), trace);
+    range_check_builder.process(range_check_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
     check_interaction<lookup_poseidon2_hash>(trace);
+
+    LookupIntoDynamicTableSequential<lookup_range_check::Settings>().process(trace);
+    check_interaction<lookup_range_check>(trace);
 
     check_relation<merkle_check>(trace);
 }
@@ -429,14 +438,15 @@ TEST(MerkleCheckConstrainingTest, NegativeWithHashInteraction)
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
-    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
+    MerkleCheck merkle_check_sim(poseidon2, range_check, merkle_event_emitter);
 
-    MerkleCheckTraceBuilder merkle_builder;
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    MerkleCheckTraceBuilder merkle_check_builder;
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
@@ -445,9 +455,14 @@ TEST(MerkleCheckConstrainingTest, NegativeWithHashInteraction)
     merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    merkle_builder.process(merkle_event_emitter.dump_events(), trace);
+    range_check_builder.process(range_check_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
-    // Corrupt the output hash for the last merkle row
+    LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
+    check_interaction<lookup_poseidon2_hash>(trace);
+    LookupIntoDynamicTableSequential<lookup_range_check::Settings>().process(trace);
+    check_interaction<lookup_range_check>(trace);
+
     trace.set(Column::merkle_check_output_hash, static_cast<uint32_t>(sibling_path.size()), 66);
 
     EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace),
@@ -503,21 +518,22 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     check_relation<merkle_check>(trace);
 }
 
-TEST(MerkleCheckConstrainingTest, MultipleWithHashInteraction)
+TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
-    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
+    MerkleCheck merkle_check_sim(poseidon2, range_check, merkle_event_emitter);
 
-    MerkleCheckTraceBuilder builder;
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
+    MerkleCheckTraceBuilder merkle_check_builder;
     Poseidon2TraceBuilder poseidon2_builder;
+    RangeCheckTraceBuilder range_check_builder;
 
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
@@ -532,10 +548,13 @@ TEST(MerkleCheckConstrainingTest, MultipleWithHashInteraction)
     merkle_check_sim.assert_membership(leaf_value2, leaf_index2, sibling_path2, root2);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    builder.process(merkle_event_emitter.dump_events(), trace);
+    range_check_builder.process(range_check_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
     check_interaction<lookup_poseidon2_hash>(trace);
+    LookupIntoDynamicTableSequential<lookup_range_check::Settings>().process(trace);
+    check_interaction<lookup_range_check>(trace);
 
     check_relation<merkle_check>(trace);
 }
