@@ -4,10 +4,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
-# We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
+# We also include all .md files themselves to detect any content changes.
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
+    $(find docs -type f -name "*.md") \
     $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
@@ -57,7 +58,7 @@ function release_preview {
   if [ -z "$docs_preview_url" ]; then
     echo "Failed to extract preview URL from Netlify output."
   else
-    echo "Docs preview URL: ${docs_preview_url}" 
+    echo "Docs preview URL: ${docs_preview_url}"
   fi
 
   local pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
