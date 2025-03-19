@@ -217,12 +217,16 @@ const killAnvil = () => {
 };
 
 try {
+  const publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
+  const publicInputsAsFields = readFileSync(publicInputsAsFieldsPath);
   const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
   const proofAsFields = readFileSync(proofAsFieldsPath);
-  const [numPublicInputs, publicInputs] = readPublicInputs(
+  const [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
     JSON.parse(proofAsFields.toString())
   );
-
+  const innerPublicInputs = JSON.parse(publicInputsAsFields.toString());
+  const numPublicInputs = innerPublicInputs.length + numExtraPublicInputs;
+  const publicInputs = innerPublicInputs.concat(extraPublicInputs);
   const proofPath = getEnvVar("PROOF");
   const proof = readFileSync(proofPath);
 
@@ -232,9 +236,9 @@ try {
     // Cut off the serialised buffer size at start
     proofStr = proofStr.substring(8);
     // Get the part after the public inputs
-    proofStr = proofStr.substring(64 * numPublicInputs);
+    proofStr = proofStr.substring(64 * numExtraPublicInputs);
   } else {
-    proofStr = proofStr.substring(64 * numPublicInputs);
+    proofStr = proofStr.substring(64 * numExtraPublicInputs);
   }
 
   proofStr = "0x" + proofStr;
