@@ -152,8 +152,10 @@ function has_tag_commit {
 }
 
 # Indicate that the `make-patch` command should be used to create a new patch file.
+# If we're not on a detached head but a stable branch, then we can safely come back
+# to these commits and we don't need to make them into a patch file to preserve them.
 function needs_patch {
-  is_detached_head && ! is_last_commit_patch
+  is_detached_head && has_patch_commit && ! is_last_commit_patch
 }
 
 # Indicate that both the fixup and the patch has been applied.
