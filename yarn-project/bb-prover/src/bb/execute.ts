@@ -274,17 +274,13 @@ export async function generateProof(
 /**
  * Used for generating proofs of the tube circuit
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
- * @param pathToBB - The full path to the bb binary
- * @param workingDirectory - A working directory for use by bb
- * @param circuitName - An identifier for the circuit
- * @param bytecode - The compiled circuit bytecode
- * @param inputWitnessFile - The circuit input witness
- * @param log - A logging function
+ *
  * @returns An object containing a result indication, the location of the proof and the duration taken
  */
 export async function generateTubeProof(
   pathToBB: string,
   workingDirectory: string,
+  vkPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -314,7 +310,7 @@ export async function generateTubeProof(
     if (!(await filePresent(proofPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
-    const args = ['-o', outputPath, '-v'];
+    const args = ['-o', outputPath, '-k', vkPath, '-v'];
 
     const timer = new Timer();
     const logFunction = (message: string) => {

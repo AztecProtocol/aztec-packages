@@ -6,8 +6,9 @@ import { join } from 'path';
 export const CLIENT_IVC_PROOF_FILE_NAME = 'proof';
 
 /**
- * Create a ClientIvcProof from the result of client_ivc_prove_output_all or client_ivc_prove_output_all_msgpack
- * @param directory the directory of results
+ * Create a ClientIvcProof proof file.
+ *
+ * @param directory the directory to read the proof from.
  * @returns the encapsulated client ivc proof
  */
 export async function readFromOutputDirectory(directory: string) {
@@ -16,16 +17,10 @@ export async function readFromOutputDirectory(directory: string) {
 }
 
 /**
- * Serialize a ClientIvcProof to the files expected by prove_tube
+ * Serialize a ClientIvcProof to a proof file.
  *
- * Example usage:
- *  await runInDirectory(bbWorkingDirectory, async (dir: string) => {
- *    await privateTx.clientIvcProof!.writeToOutputDirectory(bbWorkingDirectory);
- *    const result = await generateTubeProof(bbPath, dir, logger.info)
- *    expect(result.status).toBe(BB_RESULT.SUCCESS)
- *  });
- * @param proof the ClientIvcProof from readFromOutputDirectory
- * @param directory the directory of results
+ * @param proof the ClientIvcProof from object
+ * @param directory the directory to write in
  */
 export async function writeToOutputDirectory(clientIvcProof: ClientIvcProof, directory: string) {
   const { clientIvcProofBuffer } = clientIvcProof;
