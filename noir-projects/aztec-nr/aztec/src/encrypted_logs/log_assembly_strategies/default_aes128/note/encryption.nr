@@ -302,7 +302,7 @@ mod test {
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
-    use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
+    use protocol_types::{address::AztecAddress, traits::FromField};
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]
