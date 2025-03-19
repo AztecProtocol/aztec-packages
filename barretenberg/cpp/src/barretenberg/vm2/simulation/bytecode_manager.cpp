@@ -56,37 +56,40 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
 Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t pc)
 {
+    // We'll be filling in the event as we progress.
+    InstructionFetchingEvent instr_fetching_event;
+
     auto it = bytecodes.find(bytecode_id);
     if (it == bytecodes.end()) {
         throw std::runtime_error("Bytecode not found");
     }
 
+    instr_fetching_event.bytecode_id = bytecode_id;
+    instr_fetching_event.pc = pc;
+
     auto bytecode_ptr = it->second;
+    instr_fetching_event.bytecode = bytecode_ptr;
+
     const auto& bytecode = *bytecode_ptr;
-    InstrDeserializationError instr_fetch_err = InstrDeserializationError::NO_ERROR;
-    Instruction instruction;
+    instr_fetching_event.error = InstrDeserializationError::NO_ERROR;
 
     // TODO: Propagate instruction fetching error to the upper layer (execution loop)
     try {
-        instruction = deserialize_instruction(bytecode, pc);
+        instr_fetching_event.instruction = deserialize_instruction(bytecode, pc);
     } catch (const InstrDeserializationError& error) {
-        instr_fetch_err = error;
+        instr_fetching_event.error = error;
     }
 
+    // We are showing whether bytecode_size > pc or not. If there is no fetching error,
+    // we always have bytecode_size > pc.
     const auto bytecode_size = bytecode_ptr->size();
     const uint128_t pc_diff = bytecode_size > pc ? bytecode_size - pc - 1 : pc - bytecode_size;
     range_check.assert_range(pc_diff, AVM_PC_SIZE_IN_BITS);
 
     // The event will be deduplicated internally.
-    fetching_events.emit({
-        .bytecode_id = bytecode_id,
-        .pc = pc,
-        .instruction = instruction,
-        .bytecode = bytecode_ptr,
-        .error = instr_fetch_err,
-    });
+    fetching_events.emit(InstructionFetchingEvent(instr_fetching_event));
 
-    return instruction;
+    return instr_fetching_event.instruction;
 }
 
 } // namespace bb::avm2::simulation

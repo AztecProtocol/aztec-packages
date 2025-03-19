@@ -346,7 +346,7 @@ std::vector<InstructionFetchingEvent> create_instruction_fetching_events(
     return events;
 }
 
-} // end of anonymous namespace
+} // namespace
 
 // We build a random InstructionFetchingEvent for each wire opcode.
 // We then verify that the bytes (bd0, bd1, ...) correspond to the serialized instruction.

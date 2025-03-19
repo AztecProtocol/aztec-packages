@@ -89,12 +89,6 @@ enum class InstrDeserializationError : uint8_t {
     INSTRUCTION_OUT_OF_RANGE,
 };
 
-// Structure to group an instruction and an error
-struct InstructionWithError {
-    Instruction instruction;
-    InstrDeserializationError error = InstrDeserializationError::NO_ERROR;
-};
-
 /**
  * @brief Parsing of an instruction in the supplied bytecode at byte position pos. This
  *        checks that the WireOpCode value is in the defined range and extracts the operands

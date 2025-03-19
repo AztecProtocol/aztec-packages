@@ -17,7 +17,6 @@
 #include "barretenberg/vm2/common/stringify.hpp"
 
 namespace bb::avm2::simulation {
-using avm2::to_hex;
 
 const std::unordered_map<OperandType, uint32_t> OPERAND_TYPE_SIZE_BYTES = {
     { OperandType::INDIRECT8, 1 }, { OperandType::INDIRECT16, 2 }, { OperandType::TAG, 1 },
@@ -368,15 +367,15 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
     const auto bytecode_length = bytecode.size();
 
     if (pos >= bytecode_length) {
-        info("PC is out of range. Position: " + std::to_string(pos) +
-             " Bytecode length: " + std::to_string(bytecode_length));
+        vinfo("PC is out of range. Position: " + std::to_string(pos) +
+              " Bytecode length: " + std::to_string(bytecode_length));
         throw InstrDeserializationError::PC_OUT_OF_RANGE;
     }
 
     const uint8_t opcode_byte = bytecode[pos];
 
     if (!is_wire_opcode_valid(opcode_byte)) {
-        info("Invalid wire opcode byte: 0x" + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
+        vinfo("Invalid wire opcode byte: 0x" + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
         throw InstrDeserializationError::OPCODE_OUT_OF_RANGE;
     }
 
@@ -390,14 +389,14 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
     // We know we will encounter a parsing error, but continue processing because
     // we need the partial instruction to be parsed for witness generation.
     if (pos + instruction_size > bytecode_length) {
-        info("Instruction does not fit in remaining bytecode. Wire opcode: ",
-             opcode,
-             " pos: ",
-             pos,
-             " instruction size: ",
-             instruction_size,
-             " bytecode length: ",
-             bytecode_length);
+        vinfo("Instruction does not fit in remaining bytecode. Wire opcode: ",
+              opcode,
+              " pos: ",
+              pos,
+              " instruction size: ",
+              instruction_size,
+              " bytecode length: ",
+              bytecode_length);
         throw InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
     }
 
@@ -415,7 +414,7 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
             uint8_t tag_u8 = bytecode[pos];
             // TODO: To handle in a subsequent PR (not decided if handled in specific opcode gadgets)
             // if (tag_u8 > MAX_MEM_TAG) {
-            //     info("Instruction tag is invalid at position " + std::to_string(pos) +
+            //     vinfo("Instruction tag is invalid at position " + std::to_string(pos) +
             //          " value: " + std::to_string(tag_u8) + " for WireOpCode: " + to_string(WireOpCode));
             //     return InstructionWithError{
             //         .instruction = Instruction(WireOpCode::LAST_WireOpCode_SENTINEL, {}),

@@ -89,8 +89,8 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 45;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 869;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 870;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 115;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -473,7 +473,6 @@ class AvmFlavor {
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =
                 verification_key->precomputed_sha256_compression_round_constant;
-            this->precomputed_thirty_two = verification_key->precomputed_thirty_two;
             this->precomputed_to_radix_safe_limbs = verification_key->precomputed_to_radix_safe_limbs;
             this->precomputed_zero = verification_key->precomputed_zero;
         }
