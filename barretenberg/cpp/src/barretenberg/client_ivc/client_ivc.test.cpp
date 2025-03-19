@@ -131,51 +131,19 @@ TEST_F(ClientIVCTests, RandomProofBytes)
 
     const auto proof = ivc.prove();
 
-    // Serialize the proof to a msgpack buffer
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, proof);
+    const std::string filename = "/mnt/user-data/luke/aztec-packages/barretenberg/cpp/proof.msgpack";
 
-    // Write the buffer to a file
-    const std::string filename = "proof.msgpack";
-    {
-        std::ofstream ofs(filename, std::ios::binary);
-        EXPECT_TRUE(ofs.is_open()) << "Failed to open file for writing.";
-        ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-        ofs.close();
-    }
+    proof.to_file_msgpack(filename);
 
-    // Read buffer from file
-    std::vector<uint8_t> file_buffer;
-    {
-        std::ifstream ifs(filename, std::ios::binary);
-        EXPECT_TRUE(ifs.is_open()) << "Failed to open file for reading.";
+    auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
 
-        // Determine file size
-        ifs.seekg(0, std::ios::end);
-        size_t file_size = static_cast<size_t>(ifs.tellg());
-        ifs.seekg(0, std::ios::beg);
-
-        // Read file into buffer
-        file_buffer.resize(file_size);
-        ifs.read(reinterpret_cast<char*>(file_buffer.data()), static_cast<std::streamsize>(file_size));
-        ifs.close();
-    }
-
-    // Overwrite the buffer with random bytes for testing failure case
-    // {
-    //     std::vector<uint8_t> random_bytes(buffer.size());
-    //     std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
-    //     std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
-    // }
-
-    msgpack::object_handle oh = msgpack::unpack(reinterpret_cast<char*>(file_buffer.data()), file_buffer.size());
-    msgpack::object obj = oh.get();
-
-    // msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-    // msgpack::object obj = oh.get();
-
-    ClientIVC::Proof proof_deserialized;
-    obj.convert(proof_deserialized);
+    // // Overwrite the buffer with random bytes for testing failure case
+    // // {
+    // //     std::vector<uint8_t> random_bytes(buffer.size());
+    // //     std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256);
+    // // });
+    // //     std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+    // // }
 
     auto start = std::chrono::steady_clock::now();
     const bool verified = ivc.verify(proof_deserialized);

@@ -70,6 +70,53 @@ class ClientIVC {
 
         size_t size() const { return mega_proof.size() + goblin_proof.size(); }
 
+        msgpack::sbuffer to_msgpack_buffer() const
+        {
+            msgpack::sbuffer buffer;
+            msgpack::pack(buffer, *this);
+            return buffer;
+        }
+
+        static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer)
+        {
+            msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+            msgpack::object obj = oh.get();
+            Proof proof;
+            obj.convert(proof);
+            return proof;
+        }
+
+        void to_file_msgpack(const std::string& filename) const
+        {
+            msgpack::sbuffer buffer = to_msgpack_buffer();
+            std::ofstream ofs(filename, std::ios::binary);
+            if (!ofs.is_open()) {
+                throw std::runtime_error("Failed to open file for writing.");
+            }
+            ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+            ofs.close();
+        }
+
+        static Proof from_file_msgpack(const std::string& filename)
+        {
+            std::ifstream ifs(filename, std::ios::binary);
+            if (!ifs.is_open()) {
+                throw std::runtime_error("Failed to open file for reading.");
+            }
+
+            ifs.seekg(0, std::ios::end);
+            size_t file_size = static_cast<size_t>(ifs.tellg());
+            ifs.seekg(0, std::ios::beg);
+
+            std::vector<char> buffer(file_size);
+            ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
+            ifs.close();
+            msgpack::sbuffer msgpack_buffer;
+            msgpack_buffer.write(buffer.data(), file_size);
+
+            return Proof::from_msgpack_buffer(msgpack_buffer);
+        }
+
         MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
 
