@@ -15,8 +15,8 @@ export class DefaultEntrypoint implements EntrypointInterface {
     fee: FeeOptions,
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    if (options) {
-      throw new Error('TxExecutionOptions are not supported for DappEntrypoint');
+    if (options.nonce || options.cancellable !== undefined) {
+      throw new Error('TxExecutionOptions are not supported in DefaultEntrypoint');
     }
     // Initial request with calls, authWitnesses and capsules
     const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
