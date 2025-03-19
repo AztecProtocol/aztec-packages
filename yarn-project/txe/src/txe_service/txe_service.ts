@@ -377,15 +377,15 @@ export class TXEService {
 
   async getContractInstance(address: ForeignCallSingle) {
     const instance = await this.typedOracle.getContractInstance(addressFromSingle(address));
-    return toForeignCallResult([
-      toArray([
+    return toForeignCallResult(
+      [
         instance.salt,
         instance.deployer.toField(),
         instance.currentContractClassId,
         instance.initializationHash,
         ...instance.publicKeys.toFields(),
-      ]),
-    ]);
+      ].map(toSingle),
+    );
   }
 
   async getPublicKeysAndPartialAddress(address: ForeignCallSingle) {
@@ -422,7 +422,7 @@ export class TXEService {
     if (!witness) {
       throw new Error(`Nullifier membership witness not found at block ${parsedBlockNumber}.`);
     }
-    return toForeignCallResult([toArray(witness.toFields())]);
+    return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async getAuthWitness(messageHash: ForeignCallSingle) {
@@ -485,7 +485,7 @@ export class TXEService {
     if (!header) {
       throw new Error(`Block header not found for block ${blockNumber}.`);
     }
-    return toForeignCallResult([toArray(header.toFields())]);
+    return toForeignCallResult(header.toFields().map(toSingle));
   }
 
   async getMembershipWitness(blockNumber: ForeignCallSingle, treeId: ForeignCallSingle, leafValue: ForeignCallSingle) {
@@ -498,7 +498,7 @@ export class TXEService {
         `Membership witness in tree ${MerkleTreeId[parsedTreeId]} not found for value ${parsedLeafValue} at block ${parsedBlockNumber}.`,
       );
     }
-    return toForeignCallResult([toArray(witness)]);
+    return toForeignCallResult([toSingle(witness[0]), toArray(witness.slice(1))]);
   }
 
   async getLowNullifierMembershipWitness(blockNumber: ForeignCallSingle, nullifier: ForeignCallSingle) {
@@ -508,7 +508,7 @@ export class TXEService {
     if (!witness) {
       throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${parsedBlockNumber}.`);
     }
-    return toForeignCallResult([toArray(witness.toFields())]);
+    return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async getIndexedTaggingSecretAsSender(sender: ForeignCallSingle, recipient: ForeignCallSingle) {

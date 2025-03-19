@@ -53,25 +53,23 @@ export class Oracle {
     return keyValidationRequest.toFields().map(toACVMField);
   }
 
-  async getContractInstance([address]: ACVMField[]): Promise<ACVMField[][]> {
+  async getContractInstance([address]: ACVMField[]): Promise<ACVMField[]> {
     const instance = await this.typedOracle.getContractInstance(AztecAddress.fromField(Fr.fromString(address)));
 
     return [
-      [
-        instance.salt,
-        instance.deployer,
-        instance.currentContractClassId,
-        instance.initializationHash,
-        ...instance.publicKeys.toFields(),
-      ].map(toACVMField),
-    ];
+      instance.salt,
+      instance.deployer,
+      instance.currentContractClassId,
+      instance.initializationHash,
+      ...instance.publicKeys.toFields(),
+    ].map(toACVMField);
   }
 
   async getMembershipWitness(
     [blockNumber]: ACVMField[],
     [treeId]: ACVMField[],
     [leafValue]: ACVMField[],
-  ): Promise<ACVMField[]> {
+  ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedBlockNumber = frToNumber(Fr.fromString(blockNumber));
     const parsedTreeId = frToNumber(Fr.fromString(treeId));
     const parsedLeafValue = Fr.fromString(leafValue);
@@ -82,7 +80,7 @@ export class Oracle {
         `Leaf ${leafValue} not found in the tree ${MerkleTreeId[parsedTreeId]} at block ${parsedBlockNumber}.`,
       );
     }
-    return witness.map(toACVMField);
+    return [toACVMField(witness[0]), witness.slice(1).map(toACVMField)];
   }
 
   async getNullifierMembershipWitness(
