@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -26,6 +27,8 @@ class ContextInterface {
     virtual uint32_t get_next_pc() const = 0;
     virtual void set_next_pc(uint32_t new_next_pc) = 0;
     virtual void set_nested_returndata(std::vector<FF> return_data) = 0;
+    virtual bool halted() const = 0;
+    virtual void halt() = 0;
 
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
@@ -60,6 +63,8 @@ class Context : public ContextInterface {
     uint32_t get_next_pc() const override { return next_pc; }
     void set_next_pc(uint32_t new_next_pc) override { next_pc = new_next_pc; }
     void set_nested_returndata(std::vector<FF> return_data) override { nested_returndata = std::move(return_data); }
+    bool halted() const override { return has_halted; }
+    void halt() override { has_halted = true; }
 
     // Environment.
     const AztecAddress& get_address() const override { return address; }
@@ -77,45 +82,10 @@ class Context : public ContextInterface {
     // Machine state.
     uint32_t pc = 0;
     uint32_t next_pc = 0;
+    bool has_halted = false;
     std::vector<FF> nested_returndata;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
-};
-
-class ContextProviderInterface {
-  public:
-    virtual ~ContextProviderInterface() = default;
-    virtual std::unique_ptr<ContextInterface> make(AztecAddress address,
-                                                   AztecAddress msg_sender,
-                                                   std::span<const FF> calldata,
-                                                   bool is_static) const = 0;
-};
-
-// This is the real thing. If you need a context made out of other objects, use a mock.
-class ContextProvider : public ContextProviderInterface {
-  public:
-    ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager, EventEmitterInterface<MemoryEvent>& memory_events)
-        : tx_bytecode_manager(tx_bytecode_manager)
-        , memory_events(memory_events)
-    {}
-    std::unique_ptr<ContextInterface> make(AztecAddress address,
-                                           AztecAddress msg_sender,
-                                           std::span<const FF> calldata,
-                                           bool is_static) const override
-    {
-        uint32_t space_id = static_cast<uint32_t>(address); // FIXME: space id.
-
-        return std::make_unique<Context>(address,
-                                         msg_sender,
-                                         calldata,
-                                         is_static,
-                                         std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
-                                         std::make_unique<Memory>(space_id, memory_events));
-    }
-
-  private:
-    TxBytecodeManagerInterface& tx_bytecode_manager;
-    EventEmitterInterface<MemoryEvent>& memory_events;
 };
 
 } // namespace bb::avm2::simulation
