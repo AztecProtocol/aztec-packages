@@ -1,9 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
-import initACVM, { type ExecutionError, executeCircuit } from '@aztec/noir-acvm_js';
+import initACVM, { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
 import initAbi from '@aztec/noir-noirc_abi';
-import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
-import type { WitnessMap } from '@aztec/noir-types';
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import { type ACIRCallback, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
