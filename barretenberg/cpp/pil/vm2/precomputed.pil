@@ -7,6 +7,10 @@ pol constant clk;
 // A column of zeroes
 pol constant zero;
 
+// TODO: Remove this one once we support constant in lookup tuples
+// A column with 32 values
+pol constant thirty_two;
+
 // 1 only at row 0.
 pol constant first_row;
 

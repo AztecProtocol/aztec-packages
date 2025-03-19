@@ -17,11 +17,12 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t
     // First row.
     trace.set(C::precomputed_first_row, 0, 1);
 
-    // Clk.
+    // Clk and constant columns
     // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
     trace.reserve_column(C::precomputed_clk, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_clk, i, i);
+        trace.set(C::precomputed_thirty_two, i, 32);
     }
 }
 

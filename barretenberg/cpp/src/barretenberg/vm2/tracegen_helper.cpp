@@ -288,8 +288,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytecode_size_from_bc_dec_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_instr_abs_diff_positive_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_pc_abs_diff_positive_lo_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_pc_abs_diff_positive_hi_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_pc_abs_diff_positive_settings>>(),
             // Class Id Derivation
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_0_settings>>(),

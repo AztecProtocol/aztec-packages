@@ -472,8 +472,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
         const auto pc_abs_diff = bytecode_size - pc - 1;
 
         ASSERT_LE(bytecode_size, UINT16_MAX);
-        const auto pc_abs_diff_lo = pc_abs_diff;
-        const auto pc_abs_diff_hi = 0;
 
         EXPECT_THAT(rows.at(i + 1),
                     AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
@@ -485,8 +483,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
                           ROW_FIELD_EQ(R, instr_fetching_instr_size, instr_size),
                           ROW_FIELD_EQ(R, instr_fetching_instr_abs_diff, instr_abs_diff),
                           ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, pc_abs_diff),
-                          ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_lo, pc_abs_diff_lo),
-                          ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_hi, pc_abs_diff_hi),
                           ROW_FIELD_EQ(R, instr_fetching_pc_out_of_range, 0),
                           ROW_FIELD_EQ(R, instr_fetching_opcode_out_of_range, 0),
                           ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 0),
@@ -594,8 +590,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                                    20), // instr_size <= bytes_to_read: bytes_to_read - instr_size
                       ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 19),
-                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_lo, 19),
-                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_hi, 0),
                       ROW_FIELD_EQ(R, instr_fetching_opcode_out_of_range, 1)));
 
     EXPECT_THAT(rows.at(2),
@@ -609,8 +603,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                                    6), // instr_size > bytes_to_read: instr_size - bytes_to_read - 1
                       ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 0),
-                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_lo, 0),
-                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_hi, 0),
                       ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 1)));
 
     EXPECT_THAT(rows.at(3),
@@ -622,8 +614,6 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(R, instr_fetching_instr_abs_diff, 0),
                       ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 18),
-                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_lo, 18),
-                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff_hi, 0),
                       ROW_FIELD_EQ(R, instr_fetching_pc_out_of_range, 1)));
 }
 

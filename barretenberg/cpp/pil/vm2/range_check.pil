@@ -1,4 +1,4 @@
-namespace range_check(256);
+namespace range_check;
     // Range check selector
     pol commit sel;
     sel * (1 - sel) = 0;

@@ -5,6 +5,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
@@ -71,6 +72,10 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     } catch (const InstrDeserializationError& error) {
         instr_fetch_err = error;
     }
+
+    const auto bytecode_size = bytecode_ptr->size();
+    const uint128_t pc_diff = bytecode_size > pc ? bytecode_size - pc - 1 : pc - bytecode_size;
+    range_check.assert_range(pc_diff, AVM_PC_SIZE_IN_BITS);
 
     // The event will be deduplicated internally.
     fetching_events.emit({

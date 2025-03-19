@@ -288,8 +288,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         uint32_t bytecode_size_u32 = static_cast<uint32_t>(bytecode_size);
         uint32_t pc_abs_diff =
             bytecode_size_u32 > event.pc ? bytecode_size_u32 - event.pc - 1 : event.pc - bytecode_size_u32;
-        uint32_t pc_abs_diff_lo = pc_abs_diff & 0xFFFF;
-        uint32_t pc_abs_diff_hi = pc_abs_diff >> 16;
 
         trace.set(row,
                   { {
@@ -381,8 +379,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_bytes_to_read, bytes_to_read },
                       { C::instr_fetching_instr_abs_diff, instr_abs_diff },
                       { C::instr_fetching_pc_abs_diff, pc_abs_diff },
-                      { C::instr_fetching_pc_abs_diff_lo, pc_abs_diff_lo },
-                      { C::instr_fetching_pc_abs_diff_hi, pc_abs_diff_hi },
                   } });
         row++;
     }
