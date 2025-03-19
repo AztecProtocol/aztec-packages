@@ -1,4 +1,4 @@
-import type { Fr } from '@aztec/foundation/fields';
+import type { Fr, Point } from '@aztec/foundation/fields';
 import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';

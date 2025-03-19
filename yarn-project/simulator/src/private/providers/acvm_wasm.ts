@@ -1,9 +1,10 @@
 import { createLogger } from '@aztec/foundation/log';
 import initACVM, { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
 import initAbi from '@aztec/noir-noirc_abi';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
-import { type ACIRCallback, acvm } from '../acvm/acvm.js';
+import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, enrichNoirError } from './simulation_provider.js';
 
@@ -44,7 +45,7 @@ export class WASMSimulator implements SimulationProvider {
       // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
       // assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        const parsed = enrichNoirError(artifact.abi, err as ExecutionError);
+        const parsed = enrichNoirError(artifact, err as ExecutionError);
         this.log.debug('execution failed', {
           hash: artifact.hash,
           error: parsed,

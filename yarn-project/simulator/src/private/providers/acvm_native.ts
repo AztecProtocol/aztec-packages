@@ -1,6 +1,7 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import type { WitnessMap } from '@aztec/noir-acvm_js';
 import type { ForeignCallHandler } from '@aztec/noir-protocol-circuits-types/types';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';

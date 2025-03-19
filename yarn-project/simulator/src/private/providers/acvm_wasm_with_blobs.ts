@@ -1,7 +1,7 @@
-import { type ExecutionError, executeCircuit } from '@aztec/noir-acvm_js';
-import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/server';
+import { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
 import type { WitnessMap } from '@aztec/noir-types';
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
@@ -36,7 +36,7 @@ export class WASMSimulatorWithBlobs implements SimulationProvider {
       // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
       // assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        throw enrichNoirError(artifact.abi, err as ExecutionError);
+        throw enrichNoirError(artifact, err as ExecutionError);
       }
       throw new Error(`Circuit execution failed: ${err}`);
     }

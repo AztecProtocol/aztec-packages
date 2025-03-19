@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
+import type { ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 
-import type { ForeignCallHandler, ForeignCallInput, ForeignCallOutput } from '@noir-lang/acvm_js';
 import { createHash } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
