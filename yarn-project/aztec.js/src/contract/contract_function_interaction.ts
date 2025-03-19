@@ -15,7 +15,7 @@ export type { SendMethodOptions };
  * Allows specifying the address from which the view method should be called.
  * Disregarded for simulation of public functions
  */
-export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
+export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee' | 'nonce' | 'cancellable'> & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
   /** The sender's Aztec address. */
@@ -31,7 +31,7 @@ export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
  * Allows specifying the address from which the view method should be called.
  * Disregarded for simulation of public functions
  */
-export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee'> & {
+export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee' | 'nonce' | 'cancellable'> & {
   /** The sender's Aztec address. */
   from?: AztecAddress;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
@@ -56,9 +56,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     protected args: any[],
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
-    extraHashedValues: HashedValues[] = [],
+    private extraHashedArgs: HashedValues[] = [],
   ) {
-    super(wallet, authWitnesses, capsules, extraHashedValues);
+    super(wallet, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error('All function interaction arguments must be defined and not null. Received: ' + args);
     }
@@ -110,7 +110,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       calls,
       this.authWitnesses.concat(authWitnesses ?? []),
       this.capsules.concat(capsules ?? []),
-      this.extraHashedValues,
+      this.extraHashedArgs,
     );
   }
 
@@ -136,9 +136,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       );
     }
 
-    const fee = options.fee ?? { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) };
-    const { authWitnesses, capsules } = options;
-    const txRequest = await this.create({ fee, authWitnesses, capsules });
+    const txRequest = await this.create(options);
     const simulatedTx = await this.wallet.simulateTx(
       txRequest,
       true /* simulatePublic */,
@@ -179,5 +177,31 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     const txRequest = await this.create({ fee, authWitnesses, capsules });
     return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
+  }
+
+  /**
+   * Augments this ContractFunctionInteraction with additional metadata, such as authWitnesses, capsules, and extraHashedArgs.
+   * This is useful when creating a "batteries included" interaction, such as registering a contract class with its associated
+   * capsule instead of having the user provide them externally.
+   *
+   * @param authWitnesses - The authWitnesses to add to the interaction
+   * @param capsules - The capsules to add to the interaction
+   * @param extraHashedArgs - The extraHashedArgs to add to the interaction
+   * @returns A new ContractFunctionInteraction with the added metadata, but calling the same original function in the same manner
+   */
+  public async withMetadata(
+    authWitnesses: AuthWitness[],
+    capsules: Capsule[],
+    extraHashedArgs: HashedValues[],
+  ): Promise<ContractFunctionInteraction> {
+    return new ContractFunctionInteraction(
+      this.wallet,
+      this.contractAddress,
+      this.functionDao,
+      this.args,
+      this.authWitnesses.concat(authWitnesses),
+      this.capsules.concat(capsules),
+      this.extraHashedArgs.concat(extraHashedArgs),
+    );
   }
 }

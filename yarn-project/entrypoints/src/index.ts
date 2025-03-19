@@ -10,4 +10,4 @@ export * from './account_entrypoint.js';
 export * from './dapp_entrypoint.js';
 export * from './interfaces.js';
 export * from './default_entrypoint.js';
-export * from './utils.js';
+export * from './encoding.js';

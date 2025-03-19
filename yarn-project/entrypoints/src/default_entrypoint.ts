@@ -15,7 +15,8 @@ export class DefaultEntrypoint implements EntrypointInterface {
     fee: FeeOptions,
     _options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    const { calls, authWitnesses = [], capsules = [] } = exec;
+    // Initial request with calls, authWitnesses and capsules
+    const { calls, authWitnesses, capsules } = exec;
 
     if (calls.length > 1) {
       throw new Error(`Expected a single call, got ${calls.length}`);
@@ -23,18 +24,19 @@ export class DefaultEntrypoint implements EntrypointInterface {
 
     const call = calls[0];
 
+    // Hash the arguments for the function call
     const hashedArguments = [await HashedValues.fromValues(call.args)];
 
     if (call.type !== FunctionType.PRIVATE) {
       throw new Error('Public entrypoints are not allowed');
     }
 
-    const txContext = new TxContext(this.chainId, this.protocolVersion, fee.gasSettings);
+    // Assemble the tx request
     return new TxExecutionRequest(
       call.to,
       call.selector,
       hashedArguments[0].hash,
-      txContext,
+      new TxContext(this.chainId, this.protocolVersion, fee.gasSettings),
       [...hashedArguments],
       authWitnesses,
       capsules,

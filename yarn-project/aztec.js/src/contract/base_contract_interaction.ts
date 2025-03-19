@@ -25,9 +25,9 @@ export type SendMethodOptions = {
   nonce?: Fr;
   /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
   cancellable?: boolean;
-  /** Authwits to use in the simulation */
+  /** Extra authwits to use during execution */
   authWitnesses?: AuthWitness[];
-  /** Capsules to use in the simulation */
+  /** Extra capsules to use during execution */
   capsules?: Capsule[];
 };
 
@@ -42,7 +42,6 @@ export abstract class BaseContractInteraction {
     protected wallet: Wallet,
     protected authWitnesses: AuthWitness[] = [],
     protected capsules: Capsule[] = [],
-    protected extraHashedValues: HashedValues[] = [],
   ) {}
 
   /**
@@ -153,8 +152,8 @@ export abstract class BaseContractInteraction {
    */
   protected async getFeeOptions(
     executionPayload: ExecutionPayload,
-    fee?: UserFeeOptions,
-    options?: TxExecutionOptions,
+    fee: UserFeeOptions = {},
+    options: TxExecutionOptions,
   ): Promise<FeeOptions> {
     // docs:end:getFeeOptions
     const defaultFeeOptions = await this.getDefaultFeeOptions(fee);
@@ -165,7 +164,7 @@ export abstract class BaseContractInteraction {
     let gasSettings = defaultFeeOptions.gasSettings;
     if (fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
-      const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, options ?? {});
+      const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, options);
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
@@ -184,26 +183,5 @@ export abstract class BaseContractInteraction {
     }
 
     return { gasSettings, paymentMethod };
-  }
-
-  /**
-   * Return all authWitnesses added for this interaction.
-   */
-  public getAuthWitnesses() {
-    return this.authWitnesses;
-  }
-
-  /**
-   * Return all capsules added for this contract interaction.
-   */
-  public getCapsules() {
-    return this.capsules;
-  }
-
-  /**
-   * Return all extra hashed values added for this contract interaction.
-   */
-  public getExtraHashedValues() {
-    return this.extraHashedValues;
   }
 }

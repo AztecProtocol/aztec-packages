@@ -1,5 +1,5 @@
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { mergeExecutionPayloads } from '@aztec/entrypoints/utils';
+import { mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
@@ -76,9 +76,9 @@ export class BatchCall extends BaseContractInteraction {
 
     const payloads = indexedExecutionPayloads.map(([request]) => request);
     const requestWithoutFee = mergeExecutionPayloads(payloads);
-    const { fee: userFee } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee);
-    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {});
+    const { fee: userFee, nonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
+    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
 
     const unconstrainedCalls = unconstrained.map(
       async ([call, index]) =>
@@ -111,20 +111,6 @@ export class BatchCall extends BaseContractInteraction {
       results[callIndex] = rawReturnValues ? decodeFromAbi(call.returnTypes, rawReturnValues) : [];
     });
     return results;
-  }
-
-  /**
-   * Return all authWitnesses added for this interaction.
-   */
-  public override getAuthWitnesses() {
-    return [this.authWitnesses, ...this.calls.map(c => c.getAuthWitnesses())].flat();
-  }
-
-  /**
-   * Return all capsules added for this interaction.
-   */
-  public override getCapsules() {
-    return [this.capsules, ...this.calls.map(c => c.getCapsules())].flat();
   }
 
   private async getRequests() {
