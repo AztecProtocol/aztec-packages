@@ -1,0 +1,39 @@
+From 3c85712df20e6b6a035ba4a7f0c6b63a23ddcca1 Mon Sep 17 00:00:00 2001
+From: TomAFrench <tom@tomfren.ch>
+Date: Sun, 16 Mar 2025 00:46:46 +0000
+Subject: [PATCH 1/4] remove wasm-opt
+
+---
+ acvm-repo/acvm_js/build.sh              | 2 +-
+ tooling/noirc_abi_wasm/build.sh         | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/acvm-repo/acvm_js/build.sh b/acvm-repo/acvm_js/build.sh
+index 16fb26e..c07d2d8 100755
+--- a/acvm-repo/acvm_js/build.sh
++++ b/acvm-repo/acvm_js/build.sh
+@@ -25,7 +25,7 @@ function run_if_available {
+ require_command jq
+ require_command cargo
+ require_command wasm-bindgen
+-require_command wasm-opt
++#require_command wasm-opt
+
+ self_path=$(dirname "$(readlink -f "$0")")
+ pname=$(cargo read-manifest | jq -r '.name')
+diff --git a/tooling/noirc_abi_wasm/build.sh b/tooling/noirc_abi_wasm/build.sh
+index 16fb26e..c07d2d8 100755
+--- a/tooling/noirc_abi_wasm/build.sh
++++ b/tooling/noirc_abi_wasm/build.sh
+@@ -25,7 +25,7 @@ function run_if_available {
+ require_command jq
+ require_command cargo
+ require_command wasm-bindgen
+-require_command wasm-opt
++#require_command wasm-opt
+
+ self_path=$(dirname "$(readlink -f "$0")")
+ pname=$(cargo read-manifest | jq -r '.name')
+--
+2.43.0
+
