@@ -25,7 +25,7 @@ A fee paying contract (FPC) is created and nominates a token that it accepts to 
 
 Functions pertaining to sending a transaction, such as `deploy` and `send`, each include a `fee` variable defined with the following (optional) parameters:
 
-#include_code user_fee_options yarn-project/aztec.js/src/entrypoint/payload.ts javascript
+#include_code user_fee_options yarn-project/entrypoints/src/interfaces.ts javascript
 
 
 ### Fee Payment Method

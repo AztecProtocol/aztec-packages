@@ -5,40 +5,33 @@ import { type ContractArtifact, bufferAsFields } from '@aztec/stdlib/abi';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { Capsule } from '@aztec/stdlib/tx';
 
-import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { getRegistererContract } from '../contract/protocol_contracts.js';
 import type { Wallet } from '../wallet/index.js';
-
-const defaultEmitPublicBytecode =
-  // guard against `process` not being defined (e.g. in the browser)
-  typeof process === 'object' && typeof process.env === 'object'
-    ? ['1', 'true', 'yes', ''].includes(process.env.AZTEC_EMIT_PUBLIC_BYTECODE ?? '')
-    : true;
 
 /** Sets up a call to register a contract class given its artifact. */
 export async function registerContractClass(
   wallet: Wallet,
   artifact: ContractArtifact,
-  emitPublicBytecode = defaultEmitPublicBytecode,
 ): Promise<ContractFunctionInteraction> {
   const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
     await getContractClassFromArtifact(artifact);
   const registerer = await getRegistererContract(wallet);
-  const fn = registerer.methods.register(
-    artifactHash,
-    privateFunctionsRoot,
-    publicBytecodeCommitment,
-    emitPublicBytecode,
-  );
-
+  const functionArtifact = registerer.artifact.functions.find(f => f.name === 'register');
   const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
-  fn.addCapsule(
-    new Capsule(
-      ProtocolContractAddress.ContractClassRegisterer,
-      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-      encodedBytecode,
-    ),
+  const interaction = new ContractFunctionInteraction(
+    wallet,
+    registerer.address,
+    functionArtifact!,
+    [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
+    [],
+    [
+      new Capsule(
+        ProtocolContractAddress.ContractClassRegisterer,
+        new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+        encodedBytecode,
+      ),
+    ],
   );
-
-  return fn;
+  return interaction;
 }
