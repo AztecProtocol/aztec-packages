@@ -98,7 +98,6 @@ export function executeBB(
   }).catch(_ => ({ status: BB_RESULT.FAILURE, exitCode: -1, signal: undefined }));
 }
 
-// TODO(#7369) comment this etc (really just take inspiration from this and rewrite it all O:))
 export async function executeBbClientIvcProof(
   pathToBB: string,
   workingDirectory: string,
@@ -148,7 +147,7 @@ export async function executeBbClientIvcProof(
       log(`bb - ${message}`);
     };
 
-    const result = await executeBB(pathToBB, 'prove', args, console.log);
+    const result = await executeBB(pathToBB, 'prove', args, logFunction);
     const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {

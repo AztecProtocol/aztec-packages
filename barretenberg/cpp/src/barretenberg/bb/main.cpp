@@ -646,6 +646,7 @@ int main(int argc, char* argv[])
     add_verbose_flag(prove_tube_command);
     add_debug_flag(prove_tube_command);
     add_crs_path_option(prove_tube_command);
+    add_vk_path_option(prove_tube_command);
     std::string prove_tube_output_path{ "./target" };
     add_output_path_option(prove_tube_command, prove_tube_output_path);
 
@@ -752,7 +753,7 @@ int main(int argc, char* argv[])
 #endif
         // TUBE
         else if (prove_tube_command->parsed()) {
-            prove_tube(prove_tube_output_path);
+            prove_tube(prove_tube_output_path, vk_path);
         } else if (verify_tube_command->parsed()) {
             auto tube_proof_path = tube_proof_and_vk_path + "/proof";
             auto tube_vk_path = tube_proof_and_vk_path + "/vk";

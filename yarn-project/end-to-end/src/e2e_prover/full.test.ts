@@ -179,90 +179,88 @@ describe('full_prover', () => {
     TIMEOUT,
   );
 
-  it('generates sample Prover.toml files if generate test data is on', async () => {
-    if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
-      return;
-    }
+  if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
+    it('generates sample Prover.toml files if generate test data is on', async () => {
+      // Create the two transactions
+      const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
+      const privateSendAmount = privateBalance / 20n;
+      expect(privateSendAmount).toBeGreaterThan(0n);
+      const firstPrivateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
 
-    // Create the two transactions
-    const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
-    const privateSendAmount = privateBalance / 20n;
-    expect(privateSendAmount).toBeGreaterThan(0n);
-    const firstPrivateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
+      const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
+      const publicSendAmount = publicBalance / 10n;
+      expect(publicSendAmount).toBeGreaterThan(0n);
+      const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
 
-    const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
-    const publicSendAmount = publicBalance / 10n;
-    expect(publicSendAmount).toBeGreaterThan(0n);
-    const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
+      // Prove them
+      logger.info(`Proving txs`);
+      const provingOpts = { skipPublicSimulation: true };
+      const [publicProvenTx, firstPrivateProvenTx] = await Promise.all([
+        publicInteraction.prove(provingOpts),
+        firstPrivateInteraction.prove(provingOpts),
+      ]);
 
-    // Prove them
-    logger.info(`Proving txs`);
-    const provingOpts = { skipPublicSimulation: true };
-    const [publicProvenTx, firstPrivateProvenTx] = await Promise.all([
-      publicInteraction.prove(provingOpts),
-      firstPrivateInteraction.prove(provingOpts),
-    ]);
+      // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
+      // and we have more than one block in the epoch we end up proving
+      logger.info(`Sending private txs`);
+      // First block, one private tx
+      const firstTxPrivate = firstPrivateProvenTx.send();
+      await firstTxPrivate.wait({ timeout: 300, interval: 10, proven: false });
 
-    // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
-    // and we have more than one block in the epoch we end up proving
-    logger.info(`Sending private txs`);
-    // First block, one private tx
-    const firstTxPrivate = firstPrivateProvenTx.send();
-    await firstTxPrivate.wait({ timeout: 300, interval: 10, proven: false });
+      // Create and send a set of 3 txs for the second block,
+      // so we end up with three blocks and have merge and block-merge circuits
+      const secondBlockInteractions = [
+        provenAssets[0].methods.transfer(recipient, privateSendAmount),
+        provenAssets[0].methods.set_admin(sender),
+        provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0),
+      ];
+      const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove(provingOpts)));
+      const secondBlockTxs = await Promise.all(secondBlockProvenTxs.map(p => p.send()));
+      await Promise.all(secondBlockTxs.map(t => t.wait({ timeout: 300, interval: 10, proven: false })));
 
-    // Create and send a set of 3 txs for the second block,
-    // so we end up with three blocks and have merge and block-merge circuits
-    const secondBlockInteractions = [
-      provenAssets[0].methods.transfer(recipient, privateSendAmount),
-      provenAssets[0].methods.set_admin(sender),
-      provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0),
-    ];
-    const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove(provingOpts)));
-    const secondBlockTxs = await Promise.all(secondBlockProvenTxs.map(p => p.send()));
-    await Promise.all(secondBlockTxs.map(t => t.wait({ timeout: 300, interval: 10, proven: false })));
+      logger.info(`Sending public tx`);
+      // Third block, one public tx
+      const txPublic = publicProvenTx.send();
+      await txPublic.wait({ timeout: 300, interval: 10, proven: false });
 
-    logger.info(`Sending public tx`);
-    // Third block, one public tx
-    const txPublic = publicProvenTx.send();
-    await txPublic.wait({ timeout: 300, interval: 10, proven: false });
+      logger.info(`All txs have been mined`);
+      const txs = [firstTxPrivate, ...secondBlockTxs, txPublic];
 
-    logger.info(`All txs have been mined`);
-    const txs = [firstTxPrivate, ...secondBlockTxs, txPublic];
+      // Flag the transfers on the token simulator
+      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
+      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
+      tokenSim.transferPublic(sender, recipient, publicSendAmount);
+      tokenSim.transferPublic(sender, recipient, publicSendAmount);
 
-    // Flag the transfers on the token simulator
-    tokenSim.transferPrivate(sender, recipient, privateSendAmount);
-    tokenSim.transferPrivate(sender, recipient, privateSendAmount);
-    tokenSim.transferPublic(sender, recipient, publicSendAmount);
-    tokenSim.transferPublic(sender, recipient, publicSendAmount);
+      // Warp to the next epoch
+      const epoch = await cheatCodes.rollup.getEpoch();
+      logger.info(`Advancing from epoch ${epoch} to next epoch`);
+      await cheatCodes.rollup.advanceToNextEpoch();
 
-    // Warp to the next epoch
-    const epoch = await cheatCodes.rollup.getEpoch();
-    logger.info(`Advancing from epoch ${epoch} to next epoch`);
-    await cheatCodes.rollup.advanceToNextEpoch();
+      // And wait for the first pair of txs to be proven
+      logger.info(`Awaiting proof for the previous epoch`);
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
 
-    // And wait for the first pair of txs to be proven
-    logger.info(`Awaiting proof for the previous epoch`);
-    await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
-
-    [
-      'private-kernel-init',
-      'private-kernel-inner',
-      'private-kernel-tail',
-      'private-kernel-tail-to-public',
-      'private-kernel-reset',
-      'rollup-base-private',
-      'rollup-base-public',
-      'rollup-merge',
-      'rollup-block-root',
-      'rollup-block-merge',
-      'rollup-root',
-    ].forEach(circuitName => {
-      const data = getTestData(circuitName);
-      if (data) {
-        updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[0] as any));
-      }
+      [
+        'private-kernel-init',
+        'private-kernel-inner',
+        'private-kernel-tail',
+        'private-kernel-tail-to-public',
+        'private-kernel-reset',
+        'rollup-base-private',
+        'rollup-base-public',
+        'rollup-merge',
+        'rollup-block-root',
+        'rollup-block-merge',
+        'rollup-root',
+      ].forEach(circuitName => {
+        const data = getTestData(circuitName);
+        if (data) {
+          updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[0] as any));
+        }
+      });
     });
-  });
+  }
 
   it('rejects txs with invalid proofs', async () => {
     if (!REAL_PROOFS) {
