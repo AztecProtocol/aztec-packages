@@ -53,9 +53,11 @@ Below are all the payment methods available to pay transaction fees on Aztec, st
 ### Sponsored Fee Paying Contract
 
 This is a special type of FPC (explained [below](#fee-paying-contract)) that can be used to pay for account deployment and regular txs.
-Note: the contract alias below is that of a sponsored fee paying contract.
+Eg: to create an account paid for by the sponsoredFPC:
 
-#include_code fpc-sponsored yarn-project/cli-wallet/test/flows/sponsored_create_account_and_mint.sh bash
+```bash
+aztec-wallet create-account -a main --payment method=fpc-sponsored,fpc=<fpc-address>
+```
 
 :::Note
 In the sandbox, the sponsored FPC address is printed at the end of its initial logs.
@@ -84,7 +86,7 @@ For the sandbox you do this by putting through two arbitrary transactions. Eg:
 
 #include_code force-two-blocks yarn-project/cli-wallet/test/flows/create_account_pay_native.sh bash
 
-Now the funded account can deploy itself with the bridged fees:
+Now the funded account can deploy itself with the bridged fees, that is claim the bridged fee juice and make a transaction in one:
 
 #include_code claim-deploy-account yarn-project/cli-wallet/test/flows/create_account_pay_native.sh bash
 
