@@ -886,19 +886,32 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     return witness_map_to_witness_vector(w);
 }
 
+/**
+ * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
+ */
 Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
 {
-    // TODO: We can't rely on exceptions to deserialize one format or the other because they are
-    // not supported in Wasm (turned off in arch.cmake, aborting in throw_or_abort).
-    // For now just try the new format and see what happens.
-    // auto program = Acir::Program::bincodeDeserialize(buf);
-
-    Acir::Program program;
-
-    // Skip the first byte; we know it's going to be msgpack for this experiment.
-    msgpack::unpack(&reinterpret_cast<const char*>(buf.data())[1], buf.size() - 1).get().convert(program);
-
-    return program;
+    // We can't rely on exceptions to try to deserialize binpack, falling back to
+    // msgpack if it fails, because exceptions are (or were) not supported in Wasm
+    // and they are turned off in arch.cmake.
+    // For now our other option is to check if the data is valid msgpack,
+    // which slows things down, but we can't tell if the first byte of
+    // the data accidentally matches one of our format values.
+    if (buf.size() > 0) {
+        // Skip the first byte, which would be our format marker;
+        // we know it's going to be msgpack in this experiment.
+        // Once we remove support for legacy format (ie. without the
+        // format marker), we can get rid of this.
+        auto buffer = reinterpret_cast<const char*>(buf.data())[1];
+        size_t size = buf.size() - 1;
+        msgpack::null_visitor probe;
+        if (msgpack::parse(&buffer, size, probe)) {
+            Acir::Program program;
+            msgpack::unpack(&buffer, size).get().convert(program);
+            return program;
+        }
+    }
+    return Acir::Program::bincodeDeserialize(buf);
 }
 
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
