@@ -13,6 +13,7 @@ import {
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation } from '@aztec/stdlib/testing';
+import type { ValidatorStats, ValidatorStatusHistory } from '@aztec/stdlib/validators';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -134,6 +135,58 @@ describe('sentinel', () => {
       expect(activity[committee[3].toString()]).not.toBeDefined();
     });
   });
+
+  describe('computeStatsForValidator', () => {
+    let validator: `0x${string}`;
+
+    beforeEach(() => {
+      validator = EthAddress.random().toString();
+    });
+
+    it('computes stats correctly', () => {
+      const stats = sentinel.computeStatsForValidator(validator, [
+        { slot: 1n, status: 'block-mined' },
+        { slot: 2n, status: 'block-proposed' },
+        { slot: 3n, status: 'block-missed' },
+        { slot: 4n, status: 'block-missed' },
+        { slot: 5n, status: 'attestation-sent' },
+        { slot: 6n, status: 'attestation-missed' },
+      ]);
+
+      expect(stats.address.toString()).toEqual(validator);
+      expect(stats.totalSlots).toEqual(6);
+      expect(stats.missedProposals.count).toEqual(2);
+      expect(stats.missedProposals.currentStreak).toEqual(2);
+      expect(stats.missedProposals.rate).toEqual(0.5);
+      expect(stats.lastProposal?.slot).toEqual(2n);
+      expect(stats.missedAttestations.count).toEqual(1);
+      expect(stats.missedAttestations.currentStreak).toEqual(1);
+      expect(stats.missedAttestations.rate).toEqual(0.5);
+      expect(stats.lastAttestation?.slot).toEqual(5n);
+    });
+
+    it('resets streaks correctly', () => {
+      const stats = sentinel.computeStatsForValidator(validator, [
+        { slot: 1n, status: 'block-mined' },
+        { slot: 2n, status: 'block-missed' },
+        { slot: 3n, status: 'block-mined' },
+        { slot: 4n, status: 'block-missed' },
+        { slot: 5n, status: 'attestation-sent' },
+        { slot: 6n, status: 'attestation-missed' },
+        { slot: 7n, status: 'attestation-sent' },
+        { slot: 8n, status: 'attestation-missed' },
+      ]);
+
+      expect(stats.address.toString()).toEqual(validator);
+      expect(stats.totalSlots).toEqual(8);
+      expect(stats.missedProposals.count).toEqual(2);
+      expect(stats.missedProposals.currentStreak).toEqual(1);
+      expect(stats.missedProposals.rate).toEqual(0.5);
+      expect(stats.missedAttestations.count).toEqual(2);
+      expect(stats.missedAttestations.currentStreak).toEqual(1);
+      expect(stats.missedAttestations.rate).toEqual(0.5);
+    });
+  });
 });
 
 class TestSentinel extends Sentinel {
@@ -154,5 +207,9 @@ class TestSentinel extends Sentinel {
 
   public override getSlotActivity(slot: bigint, epoch: bigint, proposer: EthAddress, committee: EthAddress[]) {
     return super.getSlotActivity(slot, epoch, proposer, committee);
+  }
+
+  public override computeStatsForValidator(address: `0x${string}`, history: ValidatorStatusHistory): ValidatorStats {
+    return super.computeStatsForValidator(address, history);
   }
 }
