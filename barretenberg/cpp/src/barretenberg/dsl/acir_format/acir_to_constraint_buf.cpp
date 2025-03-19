@@ -3,6 +3,7 @@
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
@@ -828,7 +829,14 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
     // to work with a single ACIR function
-    auto circuit = Acir::Program::bincodeDeserialize(buf).functions[0];
+
+    // TODO: We can't rely on exceptions to deserialize one format or the other because they are
+    // not supported in Wasm (turned off in arch.cmake, aborting in throw_or_abort).
+    // For now just try the new format and see what happens.
+    // auto circuit = Acir::Program::bincodeDeserialize(buf).functions[0];
+
+    auto program = program_buf_to_program(buf);
+    auto circuit = program.functions[0];
 
     return circuit_serde_to_acir_format(circuit, honk_recursion);
 }
@@ -878,9 +886,24 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     return witness_map_to_witness_vector(w);
 }
 
+Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
+{
+    // TODO: We can't rely on exceptions to deserialize one format or the other because they are
+    // not supported in Wasm (turned off in arch.cmake, aborting in throw_or_abort).
+    // For now just try the new format and see what happens.
+    // auto program = Acir::Program::bincodeDeserialize(buf);
+
+    Acir::Program program;
+
+    // Skip the first byte; we know it's going to be msgpack for this experiment.
+    msgpack::unpack(&reinterpret_cast<const char*>(buf.data())[1], buf.size() - 1).get().convert(program);
+
+    return program;
+}
+
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
 {
-    auto program = Acir::Program::bincodeDeserialize(buf);
+    auto program = program_buf_to_program(buf);
 
     std::vector<AcirFormat> constraint_systems;
     constraint_systems.reserve(program.functions.size());

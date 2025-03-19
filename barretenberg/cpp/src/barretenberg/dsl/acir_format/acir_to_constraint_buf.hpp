@@ -4,6 +4,7 @@
 
 namespace acir_format {
 
+Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf);
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
 
 /**
