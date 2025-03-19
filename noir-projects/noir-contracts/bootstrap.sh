@@ -27,6 +27,7 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
+NOIR_HASH= $(../../noir/bootstrap.sh hash)
 
 export tmp_dir=./target/tmp
 
@@ -96,7 +97,7 @@ export -f process_function
 # Compute hash for a given contract.
 function get_contract_hash {
   hash_str \
-    $(../../noir/bootstrap.sh hash) \
+    $NOIR_HASH \
     $(cache_content_hash \
       ../../avm-transpiler/.rebuild_patterns \
       "^noir-projects/noir-contracts/contracts/$1/" \
