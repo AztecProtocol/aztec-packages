@@ -87,12 +87,12 @@ function build_packages {
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
-    REPO_PATH=$PWD npm_install_deps
+    npm_install_deps
     return
   fi
 
   cd noir-repo
-  REPO_PATH=$PWD npm_install_deps
+  npm_install_deps
 
   yarn workspaces foreach  -A --parallel --topological-dev --verbose $js_include run build
 

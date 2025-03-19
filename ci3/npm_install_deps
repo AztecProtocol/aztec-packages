@@ -3,7 +3,7 @@
 # Note this cache pull won't restore .yarn, which means a subsequent "yarn install" may still be slow.
 # This doesn't matter in CI however.
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
-REPO_PATH=${REPO_PATH:-$root}
+REPO_PATH=$(git rev-parse --show-toplevel)
 
 if [ ! -f yarn.lock ]; then
   echo_stderr "yarn.lock not found in $PWD."
