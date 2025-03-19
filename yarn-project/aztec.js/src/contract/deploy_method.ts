@@ -1,5 +1,5 @@
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { mergeExecutionPayloads } from '@aztec/entrypoints/utils';
+import { mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, type FunctionAbi, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -125,9 +125,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Returns calls for registration of the class and deployment of the instance, depending on the provided options.
+   * Returns the execution payload for registration of the class and deployment of the instance, depending on the provided options.
    * @param options - Deployment options.
-   * @returns A function call array with potentially requests to the class registerer and instance deployer.
+   * @returns An execution payload with potentially calls (and bytecode capsule) to the class registerer  and instance deployer.
    */
   protected async getDeploymentExecutionPayload(options: DeployOptions = {}): Promise<ExecutionPayload> {
     const calls: ExecutionPayload[] = [];
