@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
+
+This change was done to have consistent naming across codebase.
+
 ## [aztec.js] Wallet interface and Authwit management
 
 The `Wallet` interface in `aztec.js` is undergoing transformations, trying to be friendlier to wallet builders and reducing the surface of its API. This means `Wallet` no longer extends `PXE`, and instead just implements a subset of the methods of the former. This is NOT going to be its final form, but paves the way towards better interfaces and starts to clarify what the responsibilities of the wallet are:
