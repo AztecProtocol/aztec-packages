@@ -129,9 +129,9 @@ function test_cmds {
 # WORKTODO: revert filtering when Adam's component is finished
 function test_cmds_internal {
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof|fold|token_transfer')
+    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof|fold')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold|token_transfer')
+    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
 
   local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
