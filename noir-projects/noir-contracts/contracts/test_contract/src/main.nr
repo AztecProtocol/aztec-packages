@@ -32,7 +32,7 @@ pub contract Test {
 
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
-        discovery::private_logs::attempt_note_discovery,
+        discovery::private_notes::attempt_note_discovery,
         event::event_interface::EventInterface,
         hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,

@@ -15,6 +15,7 @@ import {
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 export interface TestWallets {
   pxe: PXE;
@@ -118,9 +119,9 @@ async function bridgeL1FeeJuice(
   return claim;
 }
 
-async function advanceL2Block(node: AztecNode) {
+async function advanceL2Block(node: AztecNode, nodeAdmin?: AztecNodeAdmin) {
   const initialBlockNumber = await node.getBlockNumber();
-  await node!.flushTxs();
+  await nodeAdmin?.flushTxs();
   await retryUntil(async () => (await node.getBlockNumber()) >= initialBlockNumber + 1);
 }
 

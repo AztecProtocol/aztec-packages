@@ -47,14 +47,12 @@ import {
 } from '../tx/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
-import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
   type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
 } from './get_logs_response.js';
-import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import type { ProverCoordination } from './prover-coordination.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
@@ -423,12 +421,6 @@ export interface AztecNode
   isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }): Promise<TxValidationResult>;
 
   /**
-   * Updates the configuration of this node.
-   * @param config - Updated configuration to be merged with the current one.
-   */
-  setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void>;
-
-  /**
    * Returns a registered contract class given its id.
    * @param id - Id of the contract class.
    */
@@ -440,20 +432,10 @@ export interface AztecNode
    */
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
 
-  /** Forces the next block to be built bypassing all time and pending checks. Useful for testing. */
-  flushTxs(): Promise<void>;
-
   /**
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
-
-  /**
-   * Adds a contract class bypassing the registerer.
-   * TODO(#10007): Remove this method.
-   * @param contractClass - The class to register.
-   */
-  addContractClass(contractClass: ContractClassPublic): Promise<void>;
 }
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
@@ -590,18 +572,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     )
     .returns(TxValidationResultSchema),
 
-  setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
-
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
 
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
 
-  flushTxs: z.function().returns(z.void()),
-
   getEncodedEnr: z.function().returns(z.string().optional()),
-
-  // TODO(#10007): Remove this method
-  addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
 export function createAztecNodeClient(

@@ -127,6 +127,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([expect.any(L2Block)]);
   });
 
+  it('getBlockHeadersForEpoch', async () => {
+    const result = await context.client.getBlockHeadersForEpoch(1n);
+    expect(result).toEqual([expect.any(BlockHeader)]);
+  });
+
   it('isEpochComplete', async () => {
     const result = await context.client.isEpochComplete(1n);
     expect(result).toBe(true);
@@ -238,15 +243,6 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
-  it('addContractClass', async () => {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await context.client.addContractClass({
-      ...omit(contractClass, 'publicBytecodeCommitment'),
-      unconstrainedFunctions: [],
-      privateFunctions: [],
-    });
-  });
-
   it('getL1Constants', async () => {
     const result = await context.client.getL1Constants();
     expect(result).toEqual(EmptyL1RollupConstants);
@@ -303,6 +299,11 @@ class MockArchiver implements ArchiverApi {
   async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
     expect(epochNumber).toEqual(1n);
     return [await L2Block.random(Number(epochNumber))];
+  }
+  async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    expect(epochNumber).toEqual(1n);
+    const { header } = await L2Block.random(Number(epochNumber));
+    return [header];
   }
   isEpochComplete(epochNumber: bigint): Promise<boolean> {
     expect(epochNumber).toEqual(1n);
@@ -396,9 +397,6 @@ class MockArchiver implements ArchiverApi {
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(1n);
-  }
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    return Promise.resolve();
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);
