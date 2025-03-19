@@ -131,30 +131,51 @@ TEST_F(ClientIVCTests, RandomProofBytes)
 
     const auto proof = ivc.prove();
 
+    // Serialize the proof to a msgpack buffer
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, proof);
 
-    // Overwrite the buffer with random bytes
-    std::vector<uint8_t> random_bytes(buffer.size());
-    std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
-    std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+    // Write the buffer to a file
+    const std::string filename = "proof.msgpack";
+    {
+        std::ofstream ofs(filename, std::ios::binary);
+        EXPECT_TRUE(ofs.is_open()) << "Failed to open file for writing.";
+        ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        ofs.close();
+    }
 
-    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+    // Read buffer from file
+    std::vector<uint8_t> file_buffer;
+    {
+        std::ifstream ifs(filename, std::ios::binary);
+        EXPECT_TRUE(ifs.is_open()) << "Failed to open file for reading.";
+
+        // Determine file size
+        ifs.seekg(0, std::ios::end);
+        size_t file_size = static_cast<size_t>(ifs.tellg());
+        ifs.seekg(0, std::ios::beg);
+
+        // Read file into buffer
+        file_buffer.resize(file_size);
+        ifs.read(reinterpret_cast<char*>(file_buffer.data()), static_cast<std::streamsize>(file_size));
+        ifs.close();
+    }
+
+    // Overwrite the buffer with random bytes for testing failure case
+    // {
+    //     std::vector<uint8_t> random_bytes(buffer.size());
+    //     std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
+    //     std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+    // }
+
+    msgpack::object_handle oh = msgpack::unpack(reinterpret_cast<char*>(file_buffer.data()), file_buffer.size());
     msgpack::object obj = oh.get();
+
+    // msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+    // msgpack::object obj = oh.get();
 
     ClientIVC::Proof proof_deserialized;
     obj.convert(proof_deserialized);
-
-    // // Get proof as vector of bytes
-    // [[maybe_unused]] std::vector<uint8_t> proof_bytes = to_buffer(proof);
-    // const size_t BUFFER_SIZE_BYTES = 4;
-
-    // // Repopulate the proof with random bytes, excluding the first 4 bytes which hold buffer size data
-    // std::vector<uint8_t> random_bytes(proof_bytes.size() - BUFFER_SIZE_BYTES);
-    // std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
-    // std::copy(random_bytes.begin(), random_bytes.end(), proof_bytes.begin() + BUFFER_SIZE_BYTES);
-
-    // const auto proof_deserialized = from_buffer<ClientIVC::Proof>(proof_bytes);
 
     auto start = std::chrono::steady_clock::now();
     const bool verified = ivc.verify(proof_deserialized);
