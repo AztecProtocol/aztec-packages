@@ -93,8 +93,6 @@ export class L2BlockStream {
       }
 
       // Update the proven and finalized tips.
-      // TODO(palla/reorg): Should we emit this before passing the new blocks? This would allow world-state to skip
-      // building the data structures for the pending chain if it's unneeded.
       if (localTips.proven !== undefined && sourceTips.proven.number !== localTips.proven.number) {
         await this.emitEvent({ type: 'chain-proven', blockNumber: sourceTips.proven.number });
       }

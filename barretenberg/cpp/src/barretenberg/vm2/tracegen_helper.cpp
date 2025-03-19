@@ -171,10 +171,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::vector<std::function<void()>>{
                 [&]() {
                     ExecutionTraceBuilder exec_builder;
-                    AVM_TRACK_TIME("tracegen/execution",
-                                   exec_builder.process(events.execution, events.addressing, trace));
+                    AVM_TRACK_TIME("tracegen/execution", exec_builder.process(events.execution, trace));
                     clear_events(events.execution);
-                    clear_events(events.addressing);
                 },
                 [&]() {
                     AddressDerivationTraceBuilder address_derivation_builder;

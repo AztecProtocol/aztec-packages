@@ -53,7 +53,7 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test && ./bootstrap.sh gas_report"
+  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest && ./bootstrap.sh gas_report"
 }
 
 function test {

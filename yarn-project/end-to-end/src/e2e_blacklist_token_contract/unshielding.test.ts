@@ -48,19 +48,15 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     // Both wallets are connected to same node and PXE so we could just insert directly
     // But doing it in two actions to show the flow.
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-    await wallets[1].addAuthWitness(witness);
 
-    // We give wallets[1] access to wallets[0]'s notes to unshield the note.
-    wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
-
-    await action.send().wait();
+    await action.send({ authWitnesses: [witness] }).wait();
     tokenSim.transferToPublic(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
     // Perform the transfer again, should fail
     const txReplay = asset
       .withWallet(wallets[1])
       .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
-      .send();
+      .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     // @todo @LHerskind This error is weird?
   });
@@ -100,9 +96,8 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-      await wallets[1].addAuthWitness(witness);
 
-      await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
     });
 
     it('on behalf of other (invalid designated caller)', async () => {
@@ -123,12 +118,8 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-      await wallets[2].addAuthWitness(witness);
 
-      // We give wallets[2] access to wallets[0]'s notes to test the authwit.
-      wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
-
-      await expect(action.prove()).rejects.toThrow(
+      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
     });

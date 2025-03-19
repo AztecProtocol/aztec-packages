@@ -3,3 +3,5 @@
 ^noir/scripts/bootstrap_packages.sh
 ^noir/scripts/test_js_packages.sh
 ^noir/scripts/test_native.sh
+^noir/noir-repo-ref
+^noir/noir-repo.patch

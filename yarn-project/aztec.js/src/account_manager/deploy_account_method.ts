@@ -1,12 +1,17 @@
+import {
+  EncodedAppEntrypointCalls,
+  EncodedCallsForEntrypoint,
+  computeCombinedPayloadHash,
+} from '@aztec/entrypoints/encoding';
+import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type ContractArtifact, type FunctionArtifact, getFunctionArtifactByName } from '@aztec/stdlib/abi';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 
-import type { AuthWitnessProvider } from '../account/interface.js';
-import type { Wallet } from '../account/wallet.js';
 import { Contract } from '../contract/contract.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
-import { EntrypointPayload, computeCombinedPayloadHash } from '../entrypoint/payload.js';
+import type { Wallet } from '../wallet/wallet.js';
 
 /**
  * Contract interaction for deploying an account contract. Handles fee preparation and contract initialization.
@@ -40,28 +45,43 @@ export class DeployAccountMethod extends DeployMethod {
         : feePaymentNameOrArtifact;
   }
 
-  protected override async getInitializeFunctionCalls(options: DeployOptions): Promise<ContractFunctionInteraction[]> {
-    const calls = await super.getInitializeFunctionCalls(options);
+  protected override async getInitializeExecutionPayload(options: DeployOptions): Promise<ExecutionPayload> {
+    let exec = await super.getInitializeExecutionPayload(options);
 
     if (options.fee && this.#feePaymentArtifact) {
       const { address } = await this.getInstance();
-      const emptyAppPayload = await EntrypointPayload.fromAppExecution([]);
+      const emptyAppCalls = await EncodedAppEntrypointCalls.fromAppExecution([]);
       const fee = await this.getDefaultFeeOptions(options.fee);
-      const feePayload = await EntrypointPayload.fromFeeOptions(address, fee);
-      const args = [emptyAppPayload, feePayload, false];
+      // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
+      const { calls: feeCalls, authWitnesses: feeAuthwitnesses } = await fee.paymentMethod.getExecutionPayload(
+        fee.gasSettings,
+      );
+      // Encode the calls for the fee
+      const feePayer = await fee.paymentMethod.getFeePayer(fee.gasSettings);
+      const isFeePayer = feePayer.equals(address);
+      const feeEncodedCalls = await EncodedCallsForEntrypoint.fromFeeCalls(feeCalls, isFeePayer);
 
-      const call = new ContractFunctionInteraction(this.wallet, address, this.#feePaymentArtifact, args);
+      // Get the entrypoint args
+      const args = [emptyAppCalls, feeEncodedCalls, false];
 
-      call.addAuthWitness(
-        await this.#authWitnessProvider.createAuthWit(await computeCombinedPayloadHash(emptyAppPayload, feePayload)),
+      // Compute the authwitness required to verify the combined payload
+      const combinedPayloadAuthWitness = await this.#authWitnessProvider.createAuthWit(
+        await computeCombinedPayloadHash(emptyAppCalls, feeEncodedCalls),
       );
 
-      call.addHashedArguments(emptyAppPayload.hashedArguments);
-      call.addHashedArguments(feePayload.hashedArguments);
+      const call = new ContractFunctionInteraction(
+        this.wallet,
+        address,
+        this.#feePaymentArtifact,
+        args,
+        [combinedPayloadAuthWitness, ...feeAuthwitnesses],
+        [],
+        [...emptyAppCalls.hashedArguments, ...feeEncodedCalls.hashedArguments],
+      );
 
-      calls.push(call);
+      exec = mergeExecutionPayloads([exec, await call.request()]);
     }
 
-    return calls;
+    return exec;
   }
 }

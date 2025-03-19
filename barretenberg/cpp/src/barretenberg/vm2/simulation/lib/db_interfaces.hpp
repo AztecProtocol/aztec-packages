@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 
@@ -9,8 +11,8 @@ class ContractDBInterface {
   public:
     virtual ~ContractDBInterface() = default;
 
-    virtual ContractInstance get_contract_instance(const AztecAddress& address) const = 0;
-    virtual ContractClass get_contract_class(const ContractClassId& class_id) const = 0;
+    virtual std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const = 0;
+    virtual std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const = 0;
 };
 
 class MerkleDBInterface {
