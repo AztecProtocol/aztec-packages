@@ -23,20 +23,20 @@ import type {
 import { SentinelStore } from './store.js';
 
 export class Sentinel implements L2BlockStreamEventHandler {
-  private runningPromise: RunningPromise;
-  private blockStream!: L2BlockStream;
-  private l2TipsStore: L2TipsStore;
+  protected runningPromise: RunningPromise;
+  protected blockStream!: L2BlockStream;
+  protected l2TipsStore: L2TipsStore;
 
-  private initialSlot: bigint | undefined;
-  private lastProcessedSlot: bigint | undefined;
-  private slotNumberToArchive: Map<bigint, string> = new Map();
+  protected initialSlot: bigint | undefined;
+  protected lastProcessedSlot: bigint | undefined;
+  protected slotNumberToArchive: Map<bigint, string> = new Map();
 
   constructor(
-    private epochCache: EpochCache,
-    private archiver: L2BlockSource,
-    private p2p: P2PClient,
-    private store: SentinelStore,
-    private logger = createLogger('node:sentinel'),
+    protected epochCache: EpochCache,
+    protected archiver: L2BlockSource,
+    protected p2p: P2PClient,
+    protected store: SentinelStore,
+    protected logger = createLogger('node:sentinel'),
   ) {
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
@@ -97,7 +97,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
    * We also don't move past the archiver last synced L2 slot, as we don't want to process data that is not yet available.
    * Last, we check the p2p is synced with the archiver, so it has pulled all attestations from it.
    */
-  private async isReadyToProcess(currentSlot: bigint) {
+  protected async isReadyToProcess(currentSlot: bigint) {
     const targetSlot = currentSlot - 2n;
     if (this.lastProcessedSlot && this.lastProcessedSlot >= targetSlot) {
       this.logger.trace(`Already processed slot ${targetSlot}`, { lastProcessedSlot: this.lastProcessedSlot });
@@ -135,7 +135,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
    * Gathers committee and proposer data for a given slot, computes slot stats,
    * and updates overall stats.
    */
-  private async processSlot(slot: bigint) {
+  protected async processSlot(slot: bigint) {
     const { epoch, seed, committee } = await this.epochCache.getCommittee(slot);
 
     const proposerIndex = this.epochCache.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
@@ -147,7 +147,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
   }
 
   /** Computes activity for a given slot. */
-  private async getSlotActivity(slot: bigint, epoch: bigint, proposer: EthAddress, committee: EthAddress[]) {
+  protected async getSlotActivity(slot: bigint, epoch: bigint, proposer: EthAddress, committee: EthAddress[]) {
     this.logger.debug(`Computing stats for slot ${slot} at epoch ${epoch}`, { slot, epoch, proposer, committee });
 
     // Check if there is an L2 block in L1 for this L2 slot
@@ -165,10 +165,13 @@ export class Sentinel implements L2BlockStreamEventHandler {
     const blockStatus = archive ? 'mined' : attestors.size > 0 ? 'proposed' : 'missed';
     this.logger.debug(`Block for slot ${slot} was ${blockStatus}`, { archive, slot });
 
-    // Get attestors that failed their duties for this block
+    // Get attestors that failed their duties for this block, but only if there was a block proposed
     const missedAttestors = new Set(
-      committee.filter(v => !attestors.has(v.toString()) && !proposer.equals(v)).map(v => v.toString()),
+      blockStatus === 'missed'
+        ? []
+        : committee.filter(v => !attestors.has(v.toString()) && !proposer.equals(v)).map(v => v.toString()),
     );
+
     this.logger.debug(`Retrieved ${attestors.size} attestors out of ${committee.length} for slot ${slot}`, {
       blockStatus,
       proposer: proposer.toString(),
@@ -196,7 +199,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
   }
 
   /** Push the status for each slot for each validator. */
-  private updateValidators(slot: bigint, stats: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
+  protected updateValidators(slot: bigint, stats: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
     return this.store.updateValidators(slot, stats);
   }
 
@@ -216,7 +219,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     };
   }
 
-  private computeStatsForValidator(address: `0x${string}`, history: ValidatorStatusHistory): ValidatorStats {
+  protected computeStatsForValidator(address: `0x${string}`, history: ValidatorStatusHistory): ValidatorStats {
     return {
       address: EthAddress.fromString(address),
       lastProposal: this.computeFromSlot(
@@ -230,7 +233,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     };
   }
 
-  private computeMissed(
+  protected computeMissed(
     history: ValidatorStatusHistory,
     computeOverPrefix: ValidatorStatusType,
     filter: ValidatorStatusInSlot,
@@ -243,7 +246,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     };
   }
 
-  private computeFromSlot(slot: bigint | undefined) {
+  protected computeFromSlot(slot: bigint | undefined) {
     if (slot === undefined) {
       return undefined;
     }
