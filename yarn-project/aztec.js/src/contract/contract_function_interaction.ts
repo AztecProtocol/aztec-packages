@@ -89,7 +89,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   /**
    * Returns an execution request that represents this operation.
    * Can be used as a building block for constructing batch requests.
-   * @param options An optional object containing additional configuration for the request generation.
+   * @param options - An optional object containing additional configuration for the request generation.
    * @returns An execution payload wrapped in promise.
    */
   public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
