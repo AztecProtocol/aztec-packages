@@ -1,74 +1,74 @@
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 
 namespace bb::avm2::tracegen {
-
-namespace {
-
-uint256_t TWO_POW_128 = uint256_t{ 1 } << 128;
-
-std::tuple<uint256_t, uint256_t> decompose(uint256_t x)
-{
-    uint256_t lo = x % TWO_POW_128;
-    uint256_t hi = x >> 128;
-    return { lo, hi };
-}
-} // namespace
 
 void FieldGreaterThanTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::FieldGreaterThanEvent>::Container& events,
     TraceContainer& trace)
 {
     using C = Column;
-    static auto [p_lo, p_hi] = decompose(FF::modulus);
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        uint256_t a_integer = static_cast<uint256_t>(event.a);
-        uint256_t b_integer = static_cast<uint256_t>(event.b);
-        bool result = a_integer > b_integer;
+        // Copy the things that will need range checks since we'll manipulate them in the shifts
+        auto a_limbs = event.a_limbs;
+        auto p_sub_a_witness = event.p_sub_a_witness;
+        auto b_limbs = event.b_limbs;
+        auto p_sub_b_witness = event.p_sub_b_witness;
+        auto res_witness = event.res_witness;
+
         bool sel_gt = true;
+        int8_t cmp_rng_ctr = 4;
 
-        auto [a_lo, a_hi] = decompose(a_integer);
-        uint256_t p_a_borrow = p_lo <= a_lo;
-        uint256_t p_sub_a_lo = p_lo - a_lo + (p_a_borrow * TWO_POW_128);
-        uint256_t p_sub_a_hi = p_hi - a_hi - p_a_borrow;
+        auto write_row = [&]() {
+            FF cmp_rng_ctr_inv = cmp_rng_ctr > 0 ? FF(cmp_rng_ctr).invert() : FF::zero();
+            trace.set(row,
+                      { { { C::ff_gt_sel, 1 },
+                          { C::ff_gt_a, event.a },
+                          { C::ff_gt_b, event.b },
+                          { C::ff_gt_result, event.result },
+                          { C::ff_gt_sel_gt, sel_gt },
+                          { C::ff_gt_constant_128, 128 },
+                          // No conversion available from uint128_t to FF. Yikes.
+                          { C::ff_gt_a_lo, uint256_t::from_uint128(a_limbs.lo) },
+                          { C::ff_gt_a_hi, uint256_t::from_uint128(a_limbs.hi) },
+                          { C::ff_gt_p_a_borrow, p_sub_a_witness.borrow },
+                          { C::ff_gt_p_sub_a_lo, uint256_t::from_uint128(p_sub_a_witness.lo) },
+                          { C::ff_gt_p_sub_a_hi, uint256_t::from_uint128(p_sub_a_witness.hi) },
+                          { C::ff_gt_b_lo, uint256_t::from_uint128(b_limbs.lo) },
+                          { C::ff_gt_b_hi, uint256_t::from_uint128(b_limbs.hi) },
+                          { C::ff_gt_p_b_borrow, p_sub_b_witness.borrow },
+                          { C::ff_gt_p_sub_b_lo, uint256_t::from_uint128(p_sub_b_witness.lo) },
+                          { C::ff_gt_p_sub_b_hi, uint256_t::from_uint128(p_sub_b_witness.hi) },
+                          { C::ff_gt_borrow, res_witness.borrow },
+                          { C::ff_gt_res_lo, uint256_t::from_uint128(res_witness.lo) },
+                          { C::ff_gt_res_hi, uint256_t::from_uint128(res_witness.hi) },
+                          { C::ff_gt_cmp_rng_ctr, cmp_rng_ctr },
+                          { C::ff_gt_sel_shift_rng, cmp_rng_ctr > 0 },
+                          { C::ff_gt_cmp_rng_ctr_inv, cmp_rng_ctr_inv } } });
+        };
 
-        auto [b_lo, b_hi] = decompose(b_integer);
-        uint256_t p_b_borrow = p_lo <= b_lo;
-        uint256_t p_sub_b_lo = p_lo - b_lo + (p_b_borrow * TWO_POW_128);
-        uint256_t p_sub_b_hi = p_hi - b_hi - p_b_borrow;
+        while (cmp_rng_ctr >= 0) {
+            write_row();
+            row++;
 
-        uint256_t borrow = result ? a_lo <= b_lo : b_lo <= a_lo;
+            sel_gt = false;
 
-        uint256_t res_lo = result ? a_lo - b_lo - 1 + borrow * TWO_POW_128 : b_lo - a_lo + borrow * TWO_POW_128;
-        uint256_t res_hi = result ? a_hi - b_hi - borrow : b_hi - a_hi - borrow;
+            // shift the limbs to be range checked
+            a_limbs.lo = p_sub_a_witness.lo;
+            a_limbs.hi = p_sub_a_witness.hi;
+            p_sub_a_witness.lo = b_limbs.lo;
+            p_sub_a_witness.hi = b_limbs.hi;
+            b_limbs.lo = p_sub_b_witness.lo;
+            b_limbs.hi = p_sub_b_witness.hi;
+            p_sub_b_witness.lo = res_witness.lo;
+            p_sub_b_witness.hi = res_witness.hi;
+            res_witness.lo = 0;
+            res_witness.hi = 0;
 
-        int8_t comp_rng_ctr = 4;
-
-        trace.set(row,
-                  { { { C::ff_gt_sel, 1 },
-                      { C::ff_gt_a, event.a },
-                      { C::ff_gt_b, event.b },
-                      { C::ff_gt_result, result },
-                      { C::ff_gt_sel_gt, sel_gt },
-                      { C::ff_gt_constant_128, 128 },
-                      { C::ff_gt_a_lo, a_lo },
-                      { C::ff_gt_a_hi, a_hi },
-                      { C::ff_gt_p_a_borrow, p_a_borrow },
-                      { C::ff_gt_p_sub_a_lo, p_sub_a_lo },
-                      { C::ff_gt_p_sub_a_hi, p_sub_a_hi },
-                      { C::ff_gt_b_lo, b_lo },
-                      { C::ff_gt_b_hi, b_hi },
-                      { C::ff_gt_p_b_borrow, p_b_borrow },
-                      { C::ff_gt_p_sub_b_lo, p_sub_b_lo },
-                      { C::ff_gt_p_sub_b_hi, p_sub_b_hi },
-                      { C::ff_gt_borrow, borrow },
-                      { C::ff_gt_res_lo, res_lo },
-                      { C::ff_gt_res_hi, res_hi },
-                      { C::ff_gt_cmp_rng_ctr, comp_rng_ctr },
-                      { C::ff_gt_sel_shift_rng, 1 },
-                      { C::ff_gt_cmp_rng_ctr_inv, 27 } } });
-        row++;
+            cmp_rng_ctr--;
+        }
     }
 }
 

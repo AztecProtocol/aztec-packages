@@ -31,6 +31,7 @@
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
@@ -249,6 +250,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
                     clear_events(events.to_radix);
                 },
+                [&]() {
+                    FieldGreaterThanTraceBuilder field_gt_builder;
+                    AVM_TRACK_TIME("tracegen/field_gt", field_gt_builder.process(events.field_gt, trace));
+                    clear_events(events.field_gt);
+                },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
@@ -318,7 +324,10 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_poseidon2_settings>>(),
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_scalar_mul_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_address_derivation_address_ecadd_settings>>());
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_address_derivation_address_ecadd_settings>>(),
+            // Field GT
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_lo_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_hi_range_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

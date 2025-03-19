@@ -3,6 +3,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -14,13 +15,15 @@ class FieldGreaterThanInterface {
 
 class FieldGreaterThan : public FieldGreaterThanInterface {
   public:
-    FieldGreaterThan(EventEmitterInterface<FieldGreaterThanEvent>& event_emitter)
-        : events(event_emitter)
+    FieldGreaterThan(RangeCheckInterface& range_check, EventEmitterInterface<FieldGreaterThanEvent>& event_emitter)
+        : range_check(range_check)
+        , events(event_emitter)
     {}
 
     bool ff_gt(const FF& a, const FF& b) override;
 
   private:
+    RangeCheckInterface& range_check;
     EventEmitterInterface<FieldGreaterThanEvent>& events;
 };
 

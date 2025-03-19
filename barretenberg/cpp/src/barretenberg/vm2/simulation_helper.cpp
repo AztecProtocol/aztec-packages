@@ -30,6 +30,7 @@
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/sha256.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
 #include "barretenberg/vm2/simulation/to_radix.hpp"
@@ -76,10 +77,12 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
     typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
     typename S::template DefaultEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    typename S::template DefaultEventEmitter<RangeCheckEvent> range_check_emitter;
 
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
     Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
+    RangeCheck range_check(range_check_emitter);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
@@ -106,7 +109,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Execution execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
-    FieldGreaterThan field_gt(field_gt_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_emitter);
 
     tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
 
@@ -128,7 +131,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              poseidon2_hash_emitter.dump_events(),
              poseidon2_perm_emitter.dump_events(),
              to_radix_emitter.dump_events(),
-             field_gt_emitter.dump_events() };
+             field_gt_emitter.dump_events(),
+             range_check_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

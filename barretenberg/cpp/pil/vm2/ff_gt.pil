@@ -71,7 +71,9 @@ namespace ff_gt;
     pol commit p_sub_a_lo; // p_lo - a_lo
     pol commit p_sub_a_hi; // p_hi - a_hi
 
+    #[P_SUB_A_LO]
     sel_gt * (p_sub_a_lo - (P_LO - a_lo - 1 + p_a_borrow * POW_128)) = 0;
+    #[P_SUB_A_HI]
     sel_gt * (p_sub_a_hi - (P_HI - a_hi - p_a_borrow)) = 0;
 
     // ========= B DECOMPOSITION =========
@@ -91,9 +93,9 @@ namespace ff_gt;
     // Check that decomposition of b into lo and hi limbs do not overflow/underflow p.
     // This is achieved by checking (p_lo > b_lo && p_hi >= b_hi) || (p_lo <= b_lo && b_hi > b_hi)
     // First condition is if borrow = 0, second condition is if borrow = 1;
-    #[SUB_LO_2]
+    #[P_SUB_B_LO]
     sel_gt * (p_sub_b_lo - (P_LO - b_lo - 1 + p_b_borrow * POW_128)) = 0;
-    #[SUB_HI_2]
+    #[P_SUB_B_HI]
     sel_gt * (p_sub_b_hi - (P_HI - b_hi - p_b_borrow)) = 0;
 
     // ========= GT OPERATION =========
@@ -216,4 +218,5 @@ namespace ff_gt;
     // ========= SELECTOR =========
     // Selector should be on on the whole 5 rows that are required for the gt operations + range checks.
     // So if sel_gt is on, sel should be on, but also if the previous one had sel_shift_rng on.
+    #[SEL_CONSISTENCY]
     sel_shift_rng + sel_gt' - sel' = 0;

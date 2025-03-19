@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
+#include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
@@ -38,6 +39,7 @@ struct EventsContainer {
     EventEmitterInterface<Poseidon2PermutationEvent>::Container poseidon2_permutation;
     EventEmitterInterface<ToRadixEvent>::Container to_radix;
     EventEmitterInterface<FieldGreaterThanEvent>::Container field_gt;
+    EventEmitterInterface<RangeCheckEvent>::Container range_check;
 };
 
 } // namespace bb::avm2::simulation

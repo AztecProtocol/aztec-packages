@@ -228,12 +228,16 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
         switch (index) {
         case 4:
             return "A_DECOMPOSITION";
+        case 6:
+            return "P_SUB_A_LO";
+        case 7:
+            return "P_SUB_A_HI";
         case 8:
             return "B_DECOMPOSITION";
         case 10:
-            return "SUB_LO_2";
+            return "P_SUB_B_LO";
         case 11:
-            return "SUB_HI_2";
+            return "P_SUB_B_HI";
         case 12:
             return "RES_LO";
         case 13:
@@ -252,15 +256,19 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
             return "SHIFT_2";
         case 24:
             return "SHIFT_3";
+        case 26:
+            return "SEL_CONSISTENCY";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_A_DECOMPOSITION = 4;
+    static constexpr size_t SR_P_SUB_A_LO = 6;
+    static constexpr size_t SR_P_SUB_A_HI = 7;
     static constexpr size_t SR_B_DECOMPOSITION = 8;
-    static constexpr size_t SR_SUB_LO_2 = 10;
-    static constexpr size_t SR_SUB_HI_2 = 11;
+    static constexpr size_t SR_P_SUB_B_LO = 10;
+    static constexpr size_t SR_P_SUB_B_HI = 11;
     static constexpr size_t SR_RES_LO = 12;
     static constexpr size_t SR_RES_HI = 13;
     static constexpr size_t SR_SET_RNG_CTR = 14;
@@ -270,6 +278,7 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
     static constexpr size_t SR_SHIFT_1 = 20;
     static constexpr size_t SR_SHIFT_2 = 22;
     static constexpr size_t SR_SHIFT_3 = 24;
+    static constexpr size_t SR_SEL_CONSISTENCY = 26;
 };
 
 } // namespace bb::avm2
