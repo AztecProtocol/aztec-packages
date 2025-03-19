@@ -3,8 +3,7 @@
   "packageManager": "yarn@4.5.2",
   "main": "dest/index.js",
   "scripts": {
-    "build": "tsc",
-    "lint": "prettier --config ../../ts/.prettierrc.json --check ."
+    "build": "tsc"
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../ts",
