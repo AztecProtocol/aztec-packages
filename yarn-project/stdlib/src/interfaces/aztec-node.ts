@@ -78,13 +78,13 @@ export interface AztecNode
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
    * @param leafValues - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   * @returns The indices of leaves and the block number and block hash of a block in which the leaf was inserted.
    */
   findLeavesIndexes(
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(bigint | undefined)[]>;
+  ): Promise<(InBlock<bigint> | undefined)[]>;
 
   /**
    * Find the indexes of the given leaves in the given tree.
@@ -446,7 +446,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   findLeavesIndexes: z
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
-    .returns(z.array(optional(schemas.BigInt))),
+    .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
 
   findBlockNumbersForIndexes: z
     .function()

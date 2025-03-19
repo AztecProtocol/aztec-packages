@@ -162,7 +162,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
-    return leafIndex;
+    return leafIndex?.data;
   }
 
   public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
@@ -655,24 +655,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
     // note existence in said tree.
-    const [uniqueNoteHashTreeIndex] = await this.aztecNode.findLeavesIndexes(
+    const [uniqueNoteHashTreeIndexInBlock] = await this.aztecNode.findLeavesIndexes(
       syncedBlockNumber,
       MerkleTreeId.NOTE_HASH_TREE,
       [uniqueNoteHash],
     );
-    if (uniqueNoteHashTreeIndex === undefined) {
+    if (uniqueNoteHashTreeIndexInBlock === undefined) {
       throw new Error(
         `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
       );
-    }
-
-    // TODO (#12550): findLeavesIndexes should probably return an InBlock, same as findNullifiersIndexesWithBlock. This
-    // would save us from having to then query the tx receipt in order to get the block hash and number. Note regardless
-    // that we're not validating that the note was indeed created in this tx (which would require inspecting the tx
-    // effects), so maybe what we really want is an InTx.
-    const txReceipt = await this.aztecNode.getTxReceipt(new TxHash(txHash));
-    if (txReceipt === undefined) {
-      throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
     }
 
     const noteDao = new NoteDao(
@@ -683,9 +674,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       noteHash,
       siloedNullifier,
       new TxHash(txHash),
-      txReceipt.blockNumber!,
-      txReceipt.blockHash!.toString(),
-      uniqueNoteHashTreeIndex,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockHash,
+      uniqueNoteHashTreeIndexInBlock?.data,
       recipient,
     );
 
