@@ -1,7 +1,6 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -56,7 +55,6 @@ void MerkleCheckTraceBuilder::process(
                           { C::merkle_check_start, start },
                           { C::merkle_check_end, end },
                           { C::merkle_check_index_is_even, index_is_even },
-                          { C::merkle_check_MAX_LEAF_INDEX_BITS, MAX_LEAF_INDEX_BITS },
                           { C::merkle_check_left_node, left_node },
                           { C::merkle_check_right_node, right_node },
                           { C::merkle_check_output_hash, output_hash },
