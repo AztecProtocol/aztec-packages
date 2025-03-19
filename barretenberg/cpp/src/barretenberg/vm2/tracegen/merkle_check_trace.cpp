@@ -37,7 +37,6 @@ void MerkleCheckTraceBuilder::process(
             // end == 1 when the remaining_path_len == 0
             const bool end = remaining_path_len == 0;
             const bool start = i == 0; // First row in the chain is a start row
-            const bool not_end = !end;
             const bool index_is_even = current_index_in_layer % 2 == 0;
             const FF left_node = index_is_even ? current_node : sibling;
             const FF right_node = index_is_even ? sibling : current_node;
@@ -56,7 +55,6 @@ void MerkleCheckTraceBuilder::process(
                           { C::merkle_check_sibling, sibling },
                           { C::merkle_check_start, start },
                           { C::merkle_check_end, end },
-                          { C::merkle_check_not_end, not_end },
                           { C::merkle_check_index_is_even, index_is_even },
                           { C::merkle_check_MAX_LEAF_INDEX_BITS, MAX_LEAF_INDEX_BITS },
                           { C::merkle_check_left_node, left_node },

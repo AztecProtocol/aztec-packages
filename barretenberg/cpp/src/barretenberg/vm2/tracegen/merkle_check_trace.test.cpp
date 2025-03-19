@@ -61,7 +61,6 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
                   Field(&R::merkle_check_sibling, sibling_value),
                   Field(&R::merkle_check_start, 1),
                   Field(&R::merkle_check_end, 1), // done after only one layer
-                  Field(&R::merkle_check_not_end, 0),
                   Field(&R::merkle_check_index_is_even, 1),
                   Field(&R::merkle_check_left_node, left_node),
                   Field(&R::merkle_check_right_node, right_node),
@@ -116,8 +115,7 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                           Field(&R::merkle_check_remaining_path_len_inv, FF(1).invert()),
                           Field(&R::merkle_check_sibling, sibling_value_1),
                           Field(&R::merkle_check_start, 1),
-                          Field(&R::merkle_check_end, 0), // Not done yet
-                          Field(&R::merkle_check_not_end, 1),
+                          Field(&R::merkle_check_end, 0),           // Not done yet
                           Field(&R::merkle_check_index_is_even, 0), // Odd index
                           Field(&R::merkle_check_left_node, left_node_1),
                           Field(&R::merkle_check_right_node, right_node_1),
@@ -134,7 +132,6 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                           Field(&R::merkle_check_sibling, sibling_value_2),
                           Field(&R::merkle_check_start, 0),
                           Field(&R::merkle_check_end, 1), // Done after two layers
-                          Field(&R::merkle_check_not_end, 0),
                           Field(&R::merkle_check_index_is_even, 1),
                           Field(&R::merkle_check_left_node, left_node_2),
                           Field(&R::merkle_check_right_node, right_node_2),
@@ -186,7 +183,6 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                           Field(&R::merkle_check_sibling, sibling_value_1),
                           Field(&R::merkle_check_start, 1),
                           Field(&R::merkle_check_end, 1),
-                          Field(&R::merkle_check_not_end, 0),
                           Field(&R::merkle_check_index_is_even, 1),
                           Field(&R::merkle_check_left_node, leaf_value_1),
                           Field(&R::merkle_check_right_node, sibling_value_1),
@@ -203,7 +199,6 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                           Field(&R::merkle_check_sibling, sibling_value_2),
                           Field(&R::merkle_check_start, 1),
                           Field(&R::merkle_check_end, 1),
-                          Field(&R::merkle_check_not_end, 0),
                           Field(&R::merkle_check_index_is_even, 0),
                           Field(&R::merkle_check_left_node, sibling_value_2),
                           Field(&R::merkle_check_right_node, leaf_value_2),

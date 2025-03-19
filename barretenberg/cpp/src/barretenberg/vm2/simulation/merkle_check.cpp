@@ -11,6 +11,9 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
                                     std::span<const FF> sibling_path,
                                     const FF& root)
 {
+    // Gadget breaks if tree_height >= 254
+    assert(sibling_path.size() <= 254 && "Merkle path length must be less than 254");
+
     FF curr_value = leaf_value;
     uint64_t curr_index = leaf_index;
     for (const auto& i : sibling_path) {
