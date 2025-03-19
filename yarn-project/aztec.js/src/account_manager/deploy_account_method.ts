@@ -60,8 +60,11 @@ export class DeployAccountMethod extends DeployMethod {
       const feePayer = await fee.paymentMethod.getFeePayer(fee.gasSettings);
       const isFeePayer = feePayer.equals(address);
       const feeEncodedCalls = await EncodedCallsForEntrypoint.fromFeeCalls(feeCalls, isFeePayer);
+
+      // Get the entrypoint args
       const args = [emptyAppCalls, feeEncodedCalls, false];
 
+      // Compute the authwitness required to verify the combined payload
       const combinedPayloadAuthWitness = await this.#authWitnessProvider.createAuthWit(
         await computeCombinedPayloadHash(emptyAppCalls, feeEncodedCalls),
       );
