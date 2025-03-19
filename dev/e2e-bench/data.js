@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742407299001,
+  "lastUpdate": 1742407907807,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1389a5b797fd89397a2c53c2b42299dda75bc53e",
-          "message": "chore: Save kind smoke test logs as artifact (#11212)\n\nSaves the logs from the kind-smoke test as an artifact so we can debug\r\nfailures. See\r\n[here](https://github.com/AztecProtocol/aztec-packages/actions/runs/12768996955?pr=11212)\r\nfor an example run.",
-          "timestamp": "2025-01-14T19:48:25Z",
-          "tree_id": "04cc3b3f1910aa0ce5c31da044a1ccf5a4d6118c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1389a5b797fd89397a2c53c2b42299dda75bc53e"
-        },
-        "date": 1736885346505,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4790,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 3.5993103721326993,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 701771,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 111672,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "spypsy@users.noreply.github.com",
+            "name": "spypsy",
+            "username": "spypsy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b9e6a1978c2f2c880634b40b16c11ab2e025691a",
+          "message": "chore: allow individual service data map size configuration (#12853)\n\nFixes #12831",
+          "timestamp": "2025-03-19T17:25:36Z",
+          "tree_id": "2b0deb0d162900eaad827c940b5850598993007f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b9e6a1978c2f2c880634b40b16c11ab2e025691a"
+        },
+        "date": 1742407907253,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8518,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.20784761942768326,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 110365,
             "unit": "us"
           }
         ]
