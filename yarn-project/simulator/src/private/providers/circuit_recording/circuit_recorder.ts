@@ -91,7 +91,20 @@ export class CircuitRecorder {
 
     const recordingStringWithoutClosingBracket = JSON.stringify(recording, null, 2).slice(0, -2);
 
-    await fs.mkdir(recordDir, { recursive: true });
+    try {
+      // Check if the recording directory exists and is a directory
+      const stats = await fs.stat(recordDir);
+      if (!stats.isDirectory()) {
+        throw new Error(`Recording path ${recordDir} exists but is not a directory`);
+      }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        // The directory does not exist so we create it
+        await fs.mkdir(recordDir, { recursive: true });
+      } else {
+        throw err;
+      }
+    }
 
     let counter = 0;
     let filePath: string;
