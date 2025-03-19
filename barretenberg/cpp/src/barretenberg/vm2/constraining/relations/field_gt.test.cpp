@@ -228,6 +228,36 @@ TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
     EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SEL_CONSISTENCY), "SEL_CONSISTENCY");
 }
 
+TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)
+{
+    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    FieldGreaterThan field_gt_simulator(range_check, event_emitter);
+
+    field_gt_simulator.ff_gt(42, 27);
+
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        { .precomputed_first_row = 1 },
+    });
+
+    tracegen::FieldGreaterThanTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    trace.set(Column::ff_gt_a_lo, 2, 0);
+    trace.set(Column::ff_gt_a_hi, 2, 0);
+    trace.set(Column::ff_gt_p_sub_a_lo, 2, 0);
+    trace.set(Column::ff_gt_p_sub_a_hi, 2, 0);
+    trace.set(Column::ff_gt_b_lo, 2, 0);
+    trace.set(Column::ff_gt_b_hi, 2, 0);
+    trace.set(Column::ff_gt_p_sub_b_lo, 2, 0);
+    trace.set(Column::ff_gt_p_sub_b_hi, 2, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_0), "SHIFT_0");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_1), "SHIFT_1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_2), "SHIFT_2");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SHIFT_3), "SHIFT_3");
+}
+
 } // namespace
 
 } // namespace bb::avm2::constraining
