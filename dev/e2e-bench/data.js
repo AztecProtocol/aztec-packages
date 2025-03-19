@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742395028966,
+  "lastUpdate": 1742397742958,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "distinct": true,
-          "id": "f2885ec188a6e74afb18e44b8f66c331ab42e108",
-          "message": "fix: Use absolute path for docker bind in e2e-test",
-          "timestamp": "2025-01-14T14:55:31-03:00",
-          "tree_id": "dabe2f4dbe5cb379321400d7b321f72a5dbe67bc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f2885ec188a6e74afb18e44b8f66c331ab42e108"
-        },
-        "date": 1736878717678,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4505,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 3.3853893367006673,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 655408,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 112566,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "545b4e0f98fd494d3e9cfc1a117cc86a43e4f26a",
+          "message": "fix: Don't log config (#12876)\n\nWe shouldn't just log out the complete node configuration. It may\ncontain sensitive data.",
+          "timestamp": "2025-03-19T14:53:58Z",
+          "tree_id": "c99a31fba0a121bc487448c96876dfb7e287ba4a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/545b4e0f98fd494d3e9cfc1a117cc86a43e4f26a"
+        },
+        "date": 1742397735058,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9701,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2367232016907718,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 151126,
             "unit": "us"
           }
         ]
