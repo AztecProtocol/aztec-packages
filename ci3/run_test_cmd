@@ -116,6 +116,10 @@ function fail {
 function flake {
   echo -e "${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
 
+  if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+    return
+  fi
+
   # Send slack message to owners.
   slack_uids=""
   for uid in $owners; do
@@ -127,13 +131,30 @@ function flake {
     "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
-  if [ -n "${SLACK_BOT_TOKEN:-}" ]; then
-    curl -X POST https://slack.com/api/chat.postMessage \
-      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-      -H "Content-type: application/json" \
-      --data "$data" &>/dev/null
-  fi
+  curl -X POST https://slack.com/api/chat.postMessage \
+    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Content-type: application/json" \
+    --data "$data" &>/dev/null
   exit
+}
+
+# Prints a list of test owners based on matching test name pattern, and optional error regex.
+function get_owners {
+  entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
+
+  # Iterate over each matching entry.
+  while IFS= read -r entry; do
+    error_regex=$(echo "$entry" | jq -r '.error_regex // empty')
+
+    # If error_regex is present, check the log content.
+    if [ -n "$error_regex" ]; then
+      if grep -qE "$error_regex" $tmp_file; then
+        echo "$entry" | jq -r '.owners[]'
+      fi
+    else
+      echo "$entry" | jq -r '.owners[]'
+    fi
+  done <<< "$entries" | sort -u
 }
 
 # Test passed.
@@ -142,8 +163,7 @@ EOF
 # We're not in CI, fail.
 [ "$CI" -eq 0 ] && fail
 
-# Get list of owners of this failed test.
-owners=$(yq e -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern)) | .owners[]' .test_patterns.yml | sort -u)
+owners=$(get_owners)
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then

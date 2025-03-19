@@ -33,7 +33,14 @@ import {
   Tx,
   type TxHash,
 } from '@aztec/stdlib/tx';
-import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  L1Metrics,
+  type TelemetryClient,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -73,6 +80,7 @@ export class Sequencer {
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
+  private l1Metrics: L1Metrics;
   private isFlushing: boolean = false;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
@@ -99,6 +107,9 @@ export class Sequencer {
     protected log = createLogger('sequencer'),
   ) {
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
+    this.l1Metrics = new L1Metrics(telemetry.getMeter('SequencerL1Metrics'), publisher.l1TxUtils.publicClient, [
+      publisher.getSenderAddress(),
+    ]);
 
     // Register the block builder with the validator client for re-execution
     this.validatorClient?.registerBlockBuilder(this.buildBlock.bind(this));
@@ -187,6 +198,7 @@ export class Sequencer {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
     this.runningPromise.start();
+    this.l1Metrics.start();
     this.log.info(`Sequencer started with address ${this.publisher.getSenderAddress().toString()}`);
   }
 
@@ -200,6 +212,7 @@ export class Sequencer {
     this.slasherClient.stop();
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
+    this.l1Metrics.stop();
     this.log.info('Stopped sequencer');
   }
 

@@ -53,6 +53,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL2SlotNumber: z.function().args().returns(schemas.BigInt),
   getL2EpochNumber: z.function().args().returns(schemas.BigInt),
   getBlocksForEpoch: z.function().args(schemas.BigInt).returns(z.array(L2Block.schema)),
+  getBlockHeadersForEpoch: z.function().args(schemas.BigInt).returns(z.array(BlockHeader.schema)),
   isEpochComplete: z.function().args(schemas.BigInt).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
@@ -76,8 +77,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
   getL1ToL2Messages: z.function().args(schemas.BigInt).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
-  // TODO(#10007): Remove this method
-  addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
   getContractFunctionName: z
     .function()
     .args(schemas.AztecAddress, schemas.FunctionSelector)

@@ -158,6 +158,7 @@ export class LogStore {
             this.#privateLogsByBlock.delete(block.number),
             this.#publicLogsByBlock.delete(block.number),
             this.#logTagsByBlock.delete(block.number),
+            this.#contractClassLogsByBlock.delete(block.number),
           ]),
         ),
       );

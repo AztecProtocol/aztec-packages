@@ -21,7 +21,6 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { computePartialAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 
 import { getContract } from 'viem';
@@ -180,18 +179,15 @@ export class FeesTest {
 
         const canonicalFeeJuice = await getCanonicalFeeJuice();
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
-        if (this.numberOfAccounts > 1) {
-          const bobInstance = (await this.bobWallet.getContractMetadata(this.bobAddress)).contractInstance;
-          await this.aliceWallet.registerAccount(deployedAccounts[1].secret, await computePartialAddress(bobInstance!));
-        }
         this.coinbase = EthAddress.random();
 
         const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-          aztecNode: aztecNode,
+          aztecNode,
+          aztecNodeAdmin: aztecNode,
           pxeService: pxe,
-          publicClient: publicClient,
-          walletClient: walletClient,
+          publicClient,
+          walletClient,
           wallet: this.aliceWallet,
           logger: this.logger,
         });
@@ -221,6 +217,7 @@ export class FeesTest {
         const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
+          aztecNodeAdmin: context.aztecNode,
           pxeService: context.pxe,
           publicClient: publicClient,
           walletClient: walletClient,

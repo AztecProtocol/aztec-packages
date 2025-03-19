@@ -3,13 +3,16 @@ import { type InitialAccountData, deployFundedSchnorrAccounts, generateSchnorrAc
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AztecAddress,
+  type AztecNode,
   BatchCall,
   type CompleteAddress,
   type ContractFunctionInteraction,
+  DefaultWaitForProvenOpts,
   type Logger,
   type PXE,
   type Wallet,
   getContractClassFromArtifact,
+  waitForProven,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
@@ -594,7 +597,12 @@ export const deployAccounts =
 
     logger.verbose('Deploying accounts funded with fee juice...');
     const deployedAccounts = initialFundedAccounts.slice(0, numberOfAccounts);
-    await deployFundedSchnorrAccounts(pxe, deployedAccounts, { proven: waitUntilProven });
+    await deployFundedSchnorrAccounts(
+      pxe,
+      deployedAccounts,
+      undefined,
+      waitUntilProven ? DefaultWaitForProvenOpts : undefined,
+    );
 
     return { deployedAccounts };
   };
@@ -604,11 +612,14 @@ export const deployAccounts =
  * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
+ * @param waitUntilProven - Whether to wait for the tx to be proven.
+ * @param pxeOrNode - PXE or AztecNode to wait for proven.
  */
 export async function publicDeployAccounts(
   sender: Wallet,
   accountsToDeploy: (CompleteAddress | AztecAddress)[],
   waitUntilProven = false,
+  pxeOrNode?: PXE | AztecNode,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = (
@@ -625,5 +636,12 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(sender, calls);
 
-  await batch.send().wait({ proven: waitUntilProven });
+  const txReceipt = await batch.send().wait();
+  if (waitUntilProven) {
+    if (!pxeOrNode) {
+      throw new Error('Need to provide a PXE or AztecNode to wait for proven.');
+    } else {
+      await waitForProven(pxeOrNode, txReceipt);
+    }
+  }
 }
