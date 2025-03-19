@@ -261,10 +261,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     }
 
     /**
-     * @brief Construct a verifier circuit for a proof whose data has been tampered with. Expect failure
-     * TODO(bberg #656): For now we get a "bad" proof by arbitrarily tampering with bits in a valid proof. It would be
-     * much nicer to explicitly change meaningful components, e.g. such that one of the multilinear evaluations is
-     * wrong. This is difficult now but should be straightforward if the proof is a struct.
+     * @brief Construct verifier circuits for proofs whose data have been tampered with. Expect failure
+     *
      */
     static void test_recursive_verification_fails()
     {
@@ -277,9 +275,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             InnerProver inner_prover(proving_key);
             auto inner_proof = inner_prover.construct_proof();
 
-            // Arbitrarily tamper with the proof to be verified
+            // Tamper with the proof to be verified
             TamperType tamper_type = static_cast<TamperType>(idx);
-            tamper_proof<InnerProver, InnerFlavor>(inner_prover, inner_proof, tamper_type);
+            tamper_with_proof<InnerProver, InnerFlavor>(inner_prover, inner_proof, tamper_type);
 
             // Generate the corresponding inner verification key
             auto inner_verification_key =
@@ -292,11 +290,13 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 inner_proof,
                 init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
 
-            if (tamper_type != TamperType::MODIFY_GEMINI_WITNESS) {
-                // We expect the circuit check to fail due to the bad proof
+            // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
+            // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
+            // failure.
+            if ((tamper_type != TamperType::MODIFY_GEMINI_WITNESS) || (InnerFlavor::HasZK)) {
+                // We expect the circuit check to fail due to the bad proof.
                 EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
-                // Wrong Gemini witnesses lead to the pairing check failure.
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
                 auto pcs_verification_key = std::make_shared<typename InnerFlavor::VerifierCommitmentKey>();
                 AggState pairing_points = output.agg_obj;
