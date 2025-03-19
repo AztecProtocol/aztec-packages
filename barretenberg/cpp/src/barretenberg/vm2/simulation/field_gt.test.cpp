@@ -2,7 +2,7 @@
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 
-#include "gmock/gmock.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace bb::avm2::simulation {

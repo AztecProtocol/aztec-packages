@@ -3,6 +3,7 @@
 #include "barretenberg/vm2/simulation/lib/field_comparison.hpp"
 
 namespace bb::avm2::simulation {
+
 struct FieldGreaterThanEvent {
     FF a;
     FF b;
