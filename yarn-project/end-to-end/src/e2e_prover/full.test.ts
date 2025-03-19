@@ -310,7 +310,7 @@ describe('full_prover', () => {
         return;
       }
 
-      const NUM_INVALID_TXS = 50;
+      const NUM_INVALID_TXS = 250;
 
       // Create and prove a tx
       logger.info(`Creating and proving tx`);
