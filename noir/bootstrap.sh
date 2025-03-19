@@ -64,10 +64,17 @@ function noir_content_hash {
   fi
 }
 
+# Calculate the noir content hash after ensuring the noir-repo is synced
+function sync_noir_content_hash {
+  noir_sync
+  echo $(noir_content_hash $@)
+}
+
+
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  local hash=${NARGO_HASH:- $(noir_content_hash)}
+  local hash=${NARGO_HASH:- $(sync_noir_content_hash)}
   if cache_download noir-$hash.tar.gz; then
     return
   fi
@@ -83,7 +90,7 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
-  local hash=${NARGO_HASH:- $(noir_content_hash)}
+  local hash=${NARGO_HASH:- $(sync_noir_content_hash)}
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
@@ -124,7 +131,7 @@ function build_packages {
 
 # Export functions that can be called from `parallel` in `build`,
 # and all the functions they can call as well.
-export -f build_native build_packages noir_content_hash
+export -f build_native build_packages noir_content_hash sync_noir_content_hash
 
 function build {
   echo_header "noir build"
@@ -137,7 +144,7 @@ function build {
     denoise "cargo-binstall cargo-nextest --version 0.9.67 -y --secure"
   fi
 
-  export NARGO_HASH=$(noir_content_hash)
+  export NARGO_HASH=$(sync_noir_content_hash)
   parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
   # if [ -x ./scripts/fix_incremental_ts.sh ]; then
   #   ./scripts/fix_incremental_ts.sh
@@ -151,7 +158,7 @@ function test {
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
-  local test_hash=$(noir_content_hash 1)
+  local test_hash=$(sync_noir_content_hash 1)
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
@@ -171,6 +178,7 @@ function test_cmds {
 }
 
 function format {
+  noir_sync
   # Check format of noir programs in the noir repo.
   export PATH="$(pwd)/noir-repo/target/release:${PATH}"
   arg=${1:-}
@@ -226,25 +234,20 @@ case "$cmd" in
     git clean -ffdx
     ;;
   "ci")
-    noir_sync
     build
     test
     ;;
   ""|"fast"|"full")
-    noir_sync
     build
     ;;
   test_cmds|build_native|build_packages|format|test|release)
-    noir_sync
     $cmd "$@"
     ;;
   "hash")
-    noir_sync
-    echo $(noir_content_hash)
+    echo $(sync_noir_content_hash)
     ;;
   "hash-tests")
-    noir_sync
-    echo $(noir_content_hash 1)
+    echo $(sync_noir_content_hash 1)
     ;;
   "make-patch")
     scripts/sync.sh make-patch
