@@ -297,7 +297,6 @@ export function ContractComponent() {
 
   const handleAuthwitCreation = async (witness?: AuthWitness, alias?: string) => {
     if (witness && alias) {
-      await wallet.addAuthWitness(witness);
       await walletDB.storeAuthwitness(witness, undefined, alias);
     }
     setAuthwitFnData({ name: '', parameters: [], isPrivate: false });

@@ -21,12 +21,6 @@ export interface ContractDataSource {
   getBytecodeCommitment(id: Fr): Promise<Fr | undefined>;
 
   /**
-   * Adds a contract class to the database.
-   * TODO(#10007): Remove this method
-   */
-  addContractClass(contractClass: ContractClassPublic): Promise<void>;
-
-  /**
    * Returns a publicly deployed contract instance given its address.
    * @param address - Address of the deployed contract.
    * @param blockNumber - Block number at which to retrieve the contract instance. If not provided, the latest block should be used.

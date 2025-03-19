@@ -186,7 +186,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<void> {
-    throw new OracleMethodNotAvailableError('notifyEnqueuedPublicFunctionCall');
+    return Promise.reject(new OracleMethodNotAvailableError('notifyEnqueuedPublicFunctionCall'));
   }
 
   notifySetPublicTeardownFunctionCall(
@@ -195,7 +195,7 @@ export abstract class TypedOracle {
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<void> {
-    throw new OracleMethodNotAvailableError('notifySetPublicTeardownFunctionCall');
+    return Promise.reject(new OracleMethodNotAvailableError('notifySetPublicTeardownFunctionCall'));
   }
 
   notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): void {

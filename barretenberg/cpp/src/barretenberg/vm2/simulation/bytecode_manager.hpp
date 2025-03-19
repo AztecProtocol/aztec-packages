@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <sys/types.h>
 #include <utility>
@@ -74,25 +75,33 @@ class BytecodeManagerInterface {
   public:
     virtual ~BytecodeManagerInterface() = default;
 
-    virtual Instruction read_instruction(uint32_t pc) const = 0;
-    virtual BytecodeId get_bytecode_id() const = 0;
+    virtual Instruction read_instruction(uint32_t pc) = 0;
+    // Returns the id of the current bytecode. Tries to fetch it if not already done.
+    virtual BytecodeId get_bytecode_id() = 0;
 };
 
 class BytecodeManager : public BytecodeManagerInterface {
   public:
-    BytecodeManager(BytecodeId bytecode_id, TxBytecodeManagerInterface& tx_bytecode_manager)
-        : bytecode_id(bytecode_id)
+    BytecodeManager(AztecAddress address, TxBytecodeManagerInterface& tx_bytecode_manager)
+        : address(address)
         , tx_bytecode_manager(tx_bytecode_manager)
     {}
 
-    Instruction read_instruction(uint32_t pc) const override
+    Instruction read_instruction(uint32_t pc) override
     {
-        return tx_bytecode_manager.read_instruction(bytecode_id, pc);
+        return tx_bytecode_manager.read_instruction(get_bytecode_id(), pc);
     }
-    BytecodeId get_bytecode_id() const override { return bytecode_id; }
+    BytecodeId get_bytecode_id() override
+    {
+        if (!bytecode_id.has_value()) {
+            bytecode_id = tx_bytecode_manager.get_bytecode(address);
+        }
+        return bytecode_id.value();
+    }
 
   private:
-    BytecodeId bytecode_id;
+    AztecAddress address;
+    std::optional<BytecodeId> bytecode_id;
     TxBytecodeManagerInterface& tx_bytecode_manager;
 };
 

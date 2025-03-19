@@ -207,23 +207,19 @@ export class ServerWorldStateSynchronizer
 
   /** Handles an event emitted by the block stream. */
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
-    try {
-      switch (event.type) {
-        case 'blocks-added':
-          await this.handleL2Blocks(event.blocks.map(b => b.block));
-          break;
-        case 'chain-pruned':
-          await this.handleChainPruned(event.blockNumber);
-          break;
-        case 'chain-proven':
-          await this.handleChainProven(event.blockNumber);
-          break;
-        case 'chain-finalized':
-          await this.handleChainFinalized(event.blockNumber);
-          break;
-      }
-    } catch (err) {
-      this.log.error('Error processing block stream', err);
+    switch (event.type) {
+      case 'blocks-added':
+        await this.handleL2Blocks(event.blocks.map(b => b.block));
+        break;
+      case 'chain-pruned':
+        await this.handleChainPruned(event.blockNumber);
+        break;
+      case 'chain-proven':
+        await this.handleChainProven(event.blockNumber);
+        break;
+      case 'chain-finalized':
+        await this.handleChainFinalized(event.blockNumber);
+        break;
     }
   }
 

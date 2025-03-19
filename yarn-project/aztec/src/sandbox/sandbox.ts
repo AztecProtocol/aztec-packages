@@ -2,7 +2,6 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { SignerlessWallet } from '@aztec/aztec.js';
 import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
@@ -168,12 +167,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, { prefilledPublicData });
   const pxe = await createAztecPXE(node);
 
-  await setupCanonicalL2FeeJuice(
-    new SignerlessWallet(pxe),
-    aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
-    undefined,
-    logger.info,
-  );
+  await setupCanonicalL2FeeJuice(pxe, aztecNodeConfig.l1Contracts.feeJuicePortalAddress, logger.info);
 
   if (initialAccounts.length) {
     userLog('Setting up funded test accounts...');

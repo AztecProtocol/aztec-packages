@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AbiDecoded, FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CallContext, HashedValues, PrivateExecutionResult, TxExecutionRequest, collectNested } from '@aztec/stdlib/tx';
 
@@ -125,6 +126,7 @@ export class AcirSimulator {
     request: FunctionCall,
     contractAddress: AztecAddress,
     selector: FunctionSelector,
+    authwits: AuthWitness[],
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded> {
     await verifyCurrentClassId(contractAddress, this.executionDataProvider);
@@ -136,7 +138,7 @@ export class AcirSimulator {
 
     const context = new UnconstrainedExecutionOracle(
       contractAddress,
-      [],
+      authwits,
       [],
       this.executionDataProvider,
       undefined,

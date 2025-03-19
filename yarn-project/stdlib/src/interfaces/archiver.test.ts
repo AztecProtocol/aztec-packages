@@ -243,15 +243,6 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
-  it('addContractClass', async () => {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await context.client.addContractClass({
-      ...omit(contractClass, 'publicBytecodeCommitment'),
-      unconstrainedFunctions: [],
-      privateFunctions: [],
-    });
-  });
-
   it('getL1Constants', async () => {
     const result = await context.client.getL1Constants();
     expect(result).toEqual(EmptyL1RollupConstants);
@@ -406,9 +397,6 @@ class MockArchiver implements ArchiverApi {
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(1n);
-  }
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    return Promise.resolve();
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);

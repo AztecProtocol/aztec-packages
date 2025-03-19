@@ -73,10 +73,4 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   registerContractFunctionSignatures(_address: AztecAddress, _signatures: []): Promise<void> {
     return Promise.resolve();
   }
-
-  // TODO(#10007): Remove this method.
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    // We don't really need to do anything for the txe here
-    return Promise.resolve();
-  }
 }

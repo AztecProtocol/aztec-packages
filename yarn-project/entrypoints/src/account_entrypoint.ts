@@ -1,15 +1,11 @@
-import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
-import {
-  type EntrypointInterface,
-  EntrypointPayload,
-  type ExecutionRequestInit,
-  computeCombinedPayloadHash,
-} from '@aztec/aztec.js/entrypoint';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
+import type { AuthWitnessProvider, EntrypointInterface, FeeOptions, TxExecutionOptions } from './interfaces.js';
+import { EncodedExecutionPayloadForEntrypoint, ExecutionPayload, computeCombinedPayloadHash } from './payload.js';
+import { mergeAndEncodeExecutionPayloads } from './utils.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -23,10 +19,15 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee, nonce, cancellable, authWitnesses = [], capsules = [] } = exec;
-    const appPayload = await EntrypointPayload.fromAppExecution(calls, nonce);
-    const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
+  async createTxExecutionRequest(
+    exec: ExecutionPayload,
+    fee: FeeOptions,
+    options: TxExecutionOptions,
+  ): Promise<TxExecutionRequest> {
+    const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [] } = exec;
+    const { cancellable, nonce } = options;
+    const appPayload = await EncodedExecutionPayloadForEntrypoint.fromAppExecution(calls, nonce);
+    const feePayload = await EncodedExecutionPayloadForEntrypoint.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
     const entrypointHashedArgs = await HashedValues.fromArgs(
@@ -37,14 +38,20 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       await computeCombinedPayloadHash(appPayload, feePayload),
     );
 
+    const encodedExecutionPayload = await mergeAndEncodeExecutionPayloads([appPayload, feePayload], {
+      extraHashedArgs: [entrypointHashedArgs],
+      extraAuthWitnesses: [combinedPayloadAuthWitness, ...userAuthWitnesses],
+      extraCapsules: userCapsules,
+    });
+
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...appPayload.hashedArguments, ...feePayload.hashedArguments, entrypointHashedArgs],
-      authWitnesses: [...authWitnesses, combinedPayloadAuthWitness],
-      capsules,
+      argsOfCalls: encodedExecutionPayload.hashedArguments,
+      authWitnesses: encodedExecutionPayload.authWitnesses,
+      capsules: encodedExecutionPayload.capsules,
     });
 
     return txRequest;
