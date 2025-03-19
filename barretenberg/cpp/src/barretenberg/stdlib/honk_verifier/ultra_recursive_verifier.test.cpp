@@ -4,6 +4,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -267,31 +268,43 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      */
     static void test_recursive_verification_fails()
     {
-        // Create an arbitrary inner circuit
-        auto inner_circuit = create_inner_circuit();
+        for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
+            // Create an arbitrary inner circuit
+            auto inner_circuit = create_inner_circuit();
 
-        // Generate a proof over the inner circuit
-        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-        InnerProver inner_prover(proving_key);
-        auto inner_proof = inner_prover.construct_proof();
+            // Generate a proof over the inner circuit
+            auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+            InnerProver inner_prover(proving_key);
+            auto inner_proof = inner_prover.construct_proof();
 
-        // Arbitrarily tamper with the proof to be verified
-        inner_prover.transcript->deserialize_full_transcript(proving_key->proving_key.num_public_inputs);
-        inner_prover.transcript->z_perm_comm = InnerCommitment::one() * InnerFF::random_element();
-        inner_prover.transcript->serialize_full_transcript();
-        inner_proof = inner_prover.export_proof();
+            // Arbitrarily tamper with the proof to be verified
+            TamperType tamper_type = static_cast<TamperType>(idx);
+            tamper_proof<InnerProver, InnerFlavor>(inner_prover, inner_proof, tamper_type);
 
-        // Generate the corresponding inner verification key
-        auto inner_verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
+            // Generate the corresponding inner verification key
+            auto inner_verification_key =
+                std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
 
-        // Create a recursive verification circuit for the proof of the inner circuit
-        OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
-        verifier.verify_proof(
-            inner_proof, init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
+            // Create a recursive verification circuit for the proof of the inner circuit
+            OuterBuilder outer_circuit;
+            RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
+            VerifierOutput output = verifier.verify_proof(
+                inner_proof,
+                init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
 
-        // We expect the circuit check to fail due to the bad proof
-        EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            if (tamper_type != TamperType::MODIFY_GEMINI_WITNESS) {
+                // We expect the circuit check to fail due to the bad proof
+                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            } else {
+                // Wrong Gemini witnesses lead to the pairing check failure.
+                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
+                auto pcs_verification_key = std::make_shared<typename InnerFlavor::VerifierCommitmentKey>();
+                AggState pairing_points = output.agg_obj;
+                bool result =
+                    pcs_verification_key->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+                EXPECT_FALSE(result);
+            }
+        }
     }
 };
 

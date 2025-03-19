@@ -675,7 +675,7 @@ template <typename Flavor> class SumcheckVerifier {
             // multivariate over the hypercube
             libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
             libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
-            round.target_total_sum += libra_total_sum * libra_challenge;
+            round.target_total_sum = libra_total_sum * libra_challenge;
         }
 
         std::vector<FF> multivariate_challenge;
@@ -742,10 +742,17 @@ template <typename Flavor> class SumcheckVerifier {
         }
 
         //! [Final Verification Step]
+        bool final_check(false);
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            verified = verified && (full_honk_purported_value.get_value() == round.target_total_sum.get_value());
+            // These bools are only needed for debugging
+            final_check = (full_honk_purported_value.get_value() == round.target_total_sum.get_value());
+            info(final_check);
+
+            full_honk_purported_value.assert_equal(round.target_total_sum);
+            verified = verified && final_check;
         } else {
-            verified = verified && (full_honk_purported_value == round.target_total_sum);
+            final_check = (full_honk_purported_value == round.target_total_sum);
+            verified = verified && final_check;
         }
 
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
@@ -793,7 +800,7 @@ template <typename Flavor> class SumcheckVerifier {
         multivariate_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
         // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
         // challenge
-        round.target_total_sum += libra_total_sum * libra_challenge;
+        round.target_total_sum = libra_total_sum * libra_challenge;
 
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
             // Obtain the round univariate from the transcript
@@ -882,7 +889,7 @@ template <typename Flavor> class SumcheckVerifier {
             // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
             // target total sum
             first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
-            verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
+            verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum).get_value();
         } else {
             // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
             // where all sumcheck relations are disabled
