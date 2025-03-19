@@ -148,7 +148,7 @@ export async function executeBbClientIvcProof(
       log(`bb - ${message}`);
     };
 
-    const result = await executeBB(pathToBB, 'prove', args, logFunction);
+    const result = await executeBB(pathToBB, 'prove', args, console.log);
     const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {

@@ -519,6 +519,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const hasher = crypto.createHash('sha256');
     hasher.update(input.toBuffer());
 
+    // WORKTODO(adam) this needs to figure out which vk to use.
     await writeToOutputDirectory(input.clientIVCData, bbWorkingDirectory);
     const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
 
