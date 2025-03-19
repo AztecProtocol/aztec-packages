@@ -41,39 +41,33 @@ function noir_content_hash {
   # Currently we don't make a distinction between test and non-test hash
   tests=${1:-0}
 
-  if [[ -v NARGO_HASH ]]; then
-    # When bootstrapping from the monorepo root we precalculate the content hash for noir
-    # to avoid running into file locks
-    echo "$NARGO_HASH"
-  else
-    # If there are changes in the noir-repo which aren't just due to the patch applied to it,
-    # then just disable the cache, unless the noir-repo is in an evolving feature branch.
-    noir_hash=$(cache_content_hash .rebuild_patterns)
+  # If there are changes in the noir-repo which aren't just due to the patch applied to it,
+  # then just disable the cache, unless the noir-repo is in an evolving feature branch.
+  noir_hash=$(cache_content_hash .rebuild_patterns)
 
-    if [ "${AZTEC_CACHE_COMMIT:-HEAD}" != "HEAD" ]; then
-      # Ignore the current content of noir-repo, it doesn't support history anyway.
-      echo $noir_hash
-    else
-      cache_mode=$(scripts/sync.sh cache-mode)
-      case "$cache_mode" in
-        "noir")
-          echo $noir_hash
-          ;;
-        "noir-repo")
-          echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
-          ;;
-        *)
-          echo $cache_mode
-          ;;
-      esac
-    fi
+  if [ "${AZTEC_CACHE_COMMIT:-HEAD}" != "HEAD" ]; then
+    # Ignore the current content of noir-repo, it doesn't support history anyway.
+    echo $noir_hash
+  else
+    cache_mode=$(scripts/sync.sh cache-mode)
+    case "$cache_mode" in
+      "noir")
+        echo $noir_hash
+        ;;
+      "noir-repo")
+        echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
+        ;;
+      *)
+        echo $cache_mode
+        ;;
+    esac
   fi
 }
 
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  local hash=$(noir_content_hash)
+  local hash=${NARGO_HASH:- $(noir_content_hash)}
   if cache_download noir-$hash.tar.gz; then
     return
   fi
@@ -89,7 +83,7 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
-  local hash=$(noir_content_hash)
+  local hash=${NARGO_HASH:- $(noir_content_hash)}
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
@@ -143,6 +137,7 @@ function build {
     denoise "cargo-binstall cargo-nextest --version 0.9.67 -y --secure"
   fi
 
+  export NARGO_HASH=$(noir_content_hash)
   parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
   # if [ -x ./scripts/fix_incremental_ts.sh ]; then
   #   ./scripts/fix_incremental_ts.sh
