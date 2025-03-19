@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
 
+#include <cassert>
+
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -16,12 +18,16 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     }
 
     // TODO: catch errors etc.
-    ContractInstance instance = contract_db.get_contract_instance(address);
+    std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
     auto siloed_address = siloing.silo_nullifier(address, DEPLOYER_CONTRACT_ADDRESS);
-    // TODO: check nullifier in the merkle tree.
-    ContractClass klass = contract_db.get_contract_class(instance.contract_class_id);
+    // TODO: check nullifier in the merkle tree. Prove (non-)membership.
+
+    auto& instance = maybe_instance.value();
+    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(instance.contract_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarrantees
     // that if a contract instance exists, the class has been registered.
+    assert(maybe_klass.has_value());
+    auto& klass = maybe_klass.value();
     auto bytecode_id = next_bytecode_id++;
     info("Bytecode for ", address, " successfully retrieved!");
 

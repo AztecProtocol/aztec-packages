@@ -31,9 +31,6 @@ describe('e2e_fees gas_estimation', () => {
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
     ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
-
-    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
-    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   beforeEach(async () => {
