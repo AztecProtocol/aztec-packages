@@ -4,7 +4,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, HashedValues, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
+import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
@@ -13,10 +13,20 @@ import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
 
 /**
- * Represents options for calling a (constrained) function in a contract.
- * Allows the user to specify the sender address and nonce for a transaction.
+ * Represents the options to configure a request from a contract interaction.
+ * Allows specifying additional auth witnesses and capsules to use during execution
  */
-export type SendMethodOptions = {
+export type RequestMethodOptions = {
+  /** Extra authwits to use during execution */
+  authWitnesses?: AuthWitness[];
+  /** Extra capsules to use during execution */
+  capsules?: Capsule[];
+};
+
+/**
+ * Represents options for calling a (constrained) function in a contract.
+ */
+export type SendMethodOptions = RequestMethodOptions & {
   /** Wether to skip the simulation of the public part of the transaction. */
   skipPublicSimulation?: boolean;
   /** The fee options for the transaction. */
@@ -25,10 +35,6 @@ export type SendMethodOptions = {
   nonce?: Fr;
   /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
   cancellable?: boolean;
-  /** Extra authwits to use during execution */
-  authWitnesses?: AuthWitness[];
-  /** Extra capsules to use during execution */
-  capsules?: Capsule[];
 };
 
 /**
@@ -57,7 +63,7 @@ export abstract class BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public abstract request(options?: SendMethodOptions): Promise<ExecutionPayload>;
+  public abstract request(options?: RequestMethodOptions): Promise<ExecutionPayload>;
 
   /**
    * Creates a transaction execution request, simulates and proves it. Differs from .prove in

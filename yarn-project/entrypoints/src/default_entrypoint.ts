@@ -13,10 +13,13 @@ export class DefaultEntrypoint implements EntrypointInterface {
   async createTxExecutionRequest(
     exec: ExecutionPayload,
     fee: FeeOptions,
-    _options: TxExecutionOptions,
+    options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
+    if (options) {
+      throw new Error('TxExecutionOptions are not supported for DappEntrypoint');
+    }
     // Initial request with calls, authWitnesses and capsules
-    const { calls, authWitnesses, capsules } = exec;
+    const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
 
     if (calls.length > 1) {
       throw new Error(`Expected a single call, got ${calls.length}`);
@@ -37,7 +40,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
       call.selector,
       hashedArguments[0].hash,
       new TxContext(this.chainId, this.protocolVersion, fee.gasSettings),
-      [...hashedArguments],
+      [...hashedArguments, ...extraHashedArgs],
       authWitnesses,
       capsules,
     );

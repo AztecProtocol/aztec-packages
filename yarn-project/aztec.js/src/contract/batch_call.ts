@@ -4,7 +4,11 @@ import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/ab
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
+import {
+  BaseContractInteraction,
+  type RequestMethodOptions,
+  type SendMethodOptions,
+} from './base_contract_interaction.js';
 import type { SimulateMethodOptions } from './contract_function_interaction.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
@@ -30,11 +34,11 @@ export class BatchCall extends BaseContractInteraction {
 
   /**
    * Returns an execution request that represents this operation.
-   * @param _options - (ignored) An optional object containing additional configuration for the transaction.
+   * @param options An optional object containing additional configuration for the request generation.
    * @returns An execution request wrapped in promise.
    */
-  public async request(_options: SendMethodOptions = {}): Promise<ExecutionPayload> {
-    const requests = await this.getRequests();
+  public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
+    const requests = await this.getRequests(options);
     return mergeExecutionPayloads(requests);
   }
 
@@ -113,7 +117,7 @@ export class BatchCall extends BaseContractInteraction {
     return results;
   }
 
-  private async getRequests() {
-    return await Promise.all(this.calls.map(c => c.request()));
+  private async getRequests(options: RequestMethodOptions = {}) {
+    return await Promise.all(this.calls.map(c => c.request(options)));
   }
 }

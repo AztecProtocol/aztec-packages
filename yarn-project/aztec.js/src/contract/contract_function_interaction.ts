@@ -4,9 +4,12 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule, HashedValues, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
-import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
+import {
+  BaseContractInteraction,
+  type RequestMethodOptions,
+  type SendMethodOptions,
+} from './base_contract_interaction.js';
 
 export type { SendMethodOptions };
 
@@ -15,33 +18,31 @@ export type { SendMethodOptions };
  * Allows specifying the address from which the view method should be called.
  * Disregarded for simulation of public functions
  */
-export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee' | 'nonce' | 'cancellable'> & {
+export type ProfileMethodOptions = Pick<
+  SendMethodOptions,
+  'authWitnesses' | 'capsules' | 'fee' | 'nonce' | 'cancellable'
+> & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
   /** The sender's Aztec address. */
   from?: AztecAddress;
-  /** Authwits to use in the simulation */
-  authWitnesses?: AuthWitness[];
-  /** Capsules to use in the simulation */
-  capsules?: Capsule[];
 };
 
 /**
  * Represents the options for simulating a contract function interaction.
- * Allows specifying the address from which the view method should be called.
+ * Allows specifying the address from which the method should be called.
  * Disregarded for simulation of public functions
  */
-export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee' | 'nonce' | 'cancellable'> & {
+export type SimulateMethodOptions = Pick<
+  SendMethodOptions,
+  'authWitnesses' | 'capsules' | 'fee' | 'nonce' | 'cancellable'
+> & {
   /** The sender's Aztec address. */
   from?: AztecAddress;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
-  /** Authwits to use in the simulation */
-  authWitnesses?: AuthWitness[];
-  /** Capsules to use in the simulation */
-  capsules?: Capsule[];
 };
 
 /**
@@ -88,10 +89,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   /**
    * Returns an execution request that represents this operation.
    * Can be used as a building block for constructing batch requests.
-   * @param options - An optional object containing additional configuration for the transaction.
+   * @param options An optional object containing additional configuration for the request generation.
    * @returns An execution request wrapped in promise.
    */
-  public async request(options: SendMethodOptions = {}): Promise<ExecutionPayload> {
+  public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
     // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
     const calls = [
@@ -183,21 +184,21 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * Augments this ContractFunctionInteraction with additional metadata, such as authWitnesses, capsules, and extraHashedArgs.
    * This is useful when creating a "batteries included" interaction, such as registering a contract class with its associated
    * capsule instead of having the user provide them externally.
-   *
-   * @param authWitnesses - The authWitnesses to add to the interaction
-   * @param capsules - The capsules to add to the interaction
-   * @param extraHashedArgs - The extraHashedArgs to add to the interaction
+   * @param options - An object containing the metadata to add to the interaction
    * @returns A new ContractFunctionInteraction with the added metadata, but calling the same original function in the same manner
    */
-  public async with({
+  public with({
     authWitnesses = [],
     capsules = [],
     extraHashedArgs = [],
   }: {
+    /** The authWitnesses to add to the interaction */
     authWitnesses?: AuthWitness[];
+    /** The capsules to add to the interaction */
     capsules?: Capsule[];
+    /** The extra hashed args to add to the interaction */
     extraHashedArgs?: HashedValues[];
-  }): Promise<ContractFunctionInteraction> {
+  }): ContractFunctionInteraction {
     return new ContractFunctionInteraction(
       this.wallet,
       this.contractAddress,

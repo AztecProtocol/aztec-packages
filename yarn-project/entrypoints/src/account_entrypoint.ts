@@ -25,7 +25,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
     // Initial request with calls, authWitnesses and capsules
-    const { calls, authWitnesses, capsules } = exec;
+    const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
     // Global tx options
     const { cancellable, nonce } = options;
     // Encode the calls for the app
@@ -56,7 +56,12 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...appEncodedCalls.hashedArguments, ...feeEncodedCalls.hashedArguments, entrypointHashedArgs],
+      argsOfCalls: [
+        ...appEncodedCalls.hashedArguments,
+        ...feeEncodedCalls.hashedArguments,
+        entrypointHashedArgs,
+        ...extraHashedArgs,
+      ],
       authWitnesses: [...authWitnesses, ...feeAuthwitnesses, combinedPayloadAuthWitness],
       capsules,
     });
