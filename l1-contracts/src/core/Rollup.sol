@@ -23,7 +23,9 @@ import {
   EnumerableSet
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {FeeLib, FeeAssetValue, PriceLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {
+  FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
@@ -339,7 +341,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (FeeHeader memory)
   {
-    return FeeLib.getStorage().feeHeaders[_blockNumber];
+    return FeeHeaderLib.decompress(FeeLib.getStorage().feeHeaders[_blockNumber]);
   }
 
   function getBlobPublicInputsHash(uint256 _blockNumber)
