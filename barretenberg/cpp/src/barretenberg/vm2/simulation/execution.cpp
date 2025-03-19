@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <functional>
 
-#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
@@ -122,8 +121,6 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             info("@", pc, " ", instruction.to_string());
             ExecutionOpCode opcode = wire_spec.exec_opcode;
             ex_event.opcode = opcode;
-            const ExecInstructionSpec& exec_spec = instruction_info_db.get(opcode);
-            ex_event.instruction_spec = &exec_spec;
 
             // Resolve the operands.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);

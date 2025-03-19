@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -23,8 +22,6 @@ struct ExecutionEvent {
     Instruction wire_instruction;
     ExecutionOpCode opcode;
     std::vector<Operand> resolved_operands;
-    // Sadly this is a ptr because we need to modify it after initialization.
-    const ExecInstructionSpec* instruction_spec = nullptr;
 
     // Sub-events.
     AddressingEvent addressing_event;

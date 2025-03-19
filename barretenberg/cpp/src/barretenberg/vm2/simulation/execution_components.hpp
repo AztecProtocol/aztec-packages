@@ -21,7 +21,6 @@ class ExecutionComponentsProviderInterface {
     virtual ~ExecutionComponentsProviderInterface() = default;
 
     // TODO: separate into enqueued and nested context.
-    // WARNING: make_context actually tries to fetch the bytecode! Maybe shouldn't be here.
     virtual std::unique_ptr<ContextInterface> make_context(AztecAddress address,
                                                            AztecAddress msg_sender,
                                                            std::span<const FF> calldata,
@@ -50,6 +49,8 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
     const InstructionInfoDBInterface& instruction_info_db;
 
     // Sadly someone has to own these.
+    // TODO(fcarreiro): We are creating one of these per execution row and only releasing them at
+    // the end of the TX. Ideally we'd improve this.
     std::vector<std::unique_ptr<EventEmitterInterface<AddressingEvent>>> addressing_event_emitters;
 };
 

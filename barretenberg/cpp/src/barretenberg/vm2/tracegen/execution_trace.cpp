@@ -20,12 +20,19 @@ constexpr size_t operand_columns = 4;
 } // namespace
 
 void ExecutionTraceBuilder::process(
-    const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events, TraceContainer& trace)
+    const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& orig_events, TraceContainer& trace)
 {
     using C = Column;
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
 
-    for (const auto& ex_event : ex_events) {
+    // We need to sort the events by their order/sort id.
+    // We allocate a vector of pointers so that the sorting doesn't move the whole events around.
+    std::vector<const simulation::ExecutionEvent*> ex_events(orig_events.size());
+    std::transform(orig_events.begin(), orig_events.end(), ex_events.begin(), [](const auto& event) { return &event; });
+    std::ranges::sort(ex_events, [](const auto& lhs, const auto& rhs) { return lhs->order < rhs->order; });
+
+    for (const auto& ex_event_ptr : ex_events) {
+        const auto& ex_event = *ex_event_ptr;
         const auto& addr_event = ex_event.addressing_event;
 
         auto operands = ex_event.wire_instruction.operands;
