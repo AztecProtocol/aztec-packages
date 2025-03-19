@@ -6,34 +6,14 @@ import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
-import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import type { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
-export class AvmEnqueuedCallHint {
-  constructor(
-    public readonly msgSender: AztecAddress,
-    public readonly contractAddress: AztecAddress,
-    public readonly calldata: Fr[],
-    public isStaticCall: boolean,
-  ) {}
-
-  static get schema() {
-    return z
-      .object({
-        msgSender: AztecAddress.schema,
-        contractAddress: AztecAddress.schema,
-        calldata: schemas.Fr.array(),
-        isStaticCall: z.boolean(),
-      })
-      .transform(
-        ({ msgSender, contractAddress, calldata, isStaticCall }) =>
-          new AvmEnqueuedCallHint(msgSender, contractAddress, calldata, isStaticCall),
-      );
-  }
-}
-
+////////////////////////////////////////////////////////////////////////////
+// Hints (contracts)
+////////////////////////////////////////////////////////////////////////////
 export class AvmContractClassHint {
   constructor(
     public readonly classId: Fr,
@@ -115,97 +95,54 @@ export class AvmContractInstanceHint {
   }
 }
 
-export class AvmAppendTreeHint {
-  constructor(public readonly leafIndex: Fr, public readonly value: Fr, public readonly siblingPath: Fr[]) {}
-
-  static get schema() {
-    return z
-      .object({
-        leafIndex: schemas.Fr,
-        value: schemas.Fr,
-        siblingPath: schemas.Fr.array(),
-      })
-      .transform(({ leafIndex, value, siblingPath }) => new AvmAppendTreeHint(leafIndex, value, siblingPath));
-  }
-}
-
-export class AvmNullifierWriteTreeHint {
-  constructor(public lowLeafRead: AvmNullifierReadTreeHint, public readonly insertionPath: Fr[]) {}
-
-  static get schema() {
-    return z
-      .object({
-        lowLeafRead: AvmNullifierReadTreeHint.schema,
-        insertionPath: schemas.Fr.array(),
-      })
-      .transform(({ lowLeafRead, insertionPath }) => new AvmNullifierWriteTreeHint(lowLeafRead, insertionPath));
-  }
-}
-
-export class AvmNullifierReadTreeHint {
+////////////////////////////////////////////////////////////////////////////
+// Hints (merkle db)
+////////////////////////////////////////////////////////////////////////////
+// Hint for MerkleTreeDB.getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>>;
+export class AvmGetSiblingPathHint {
   constructor(
-    public readonly lowLeafPreimage: NullifierLeafPreimage,
-    public readonly lowLeafIndex: Fr,
-    public readonly lowLeafSiblingPath: Fr[],
+    public readonly hintKey: AppendOnlyTreeSnapshot,
+    // params
+    public readonly treeId: MerkleTreeId,
+    public readonly index: bigint,
+    // return
+    public readonly path: Fr[],
   ) {}
 
   static get schema() {
     return z
       .object({
-        lowLeafPreimage: NullifierLeafPreimage.schema,
-        lowLeafIndex: schemas.Fr,
-        lowLeafSiblingPath: schemas.Fr.array(),
+        hintKey: AppendOnlyTreeSnapshot.schema,
+        treeId: z.number().int().nonnegative(),
+        index: schemas.BigInt,
+        path: schemas.Fr.array(),
       })
-      .transform(
-        ({ lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath }) =>
-          new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath),
-      );
+      .transform(({ hintKey, treeId, index, path }) => new AvmGetSiblingPathHint(hintKey, treeId, index, path));
   }
 }
 
-export class AvmPublicDataReadTreeHint {
+////////////////////////////////////////////////////////////////////////////
+// Hints (other)
+////////////////////////////////////////////////////////////////////////////
+export class AvmEnqueuedCallHint {
   constructor(
-    public readonly leafPreimage: PublicDataTreeLeafPreimage,
-    public readonly leafIndex: Fr,
-    public readonly siblingPath: Fr[],
-  ) {}
-
-  static empty() {
-    return new AvmPublicDataReadTreeHint(PublicDataTreeLeafPreimage.empty(), Fr.ZERO, []);
-  }
-
-  static get schema() {
-    return z
-      .object({
-        leafPreimage: PublicDataTreeLeafPreimage.schema,
-        leafIndex: schemas.Fr,
-        siblingPath: schemas.Fr.array(),
-      })
-      .transform(
-        ({ leafPreimage, leafIndex, siblingPath }) =>
-          new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, siblingPath),
-      );
-  }
-}
-
-export class AvmPublicDataWriteTreeHint {
-  constructor(
-    // To check the current slot has been written to
-    public readonly lowLeafRead: AvmPublicDataReadTreeHint,
-    public readonly newLeafPreimage: PublicDataTreeLeafPreimage,
-    public readonly insertionPath: Fr[],
+    public readonly msgSender: AztecAddress,
+    public readonly contractAddress: AztecAddress,
+    public readonly calldata: Fr[],
+    public isStaticCall: boolean,
   ) {}
 
   static get schema() {
     return z
       .object({
-        lowLeafRead: AvmPublicDataReadTreeHint.schema,
-        newLeafPreimage: PublicDataTreeLeafPreimage.schema,
-        insertionPath: schemas.Fr.array(),
+        msgSender: AztecAddress.schema,
+        contractAddress: AztecAddress.schema,
+        calldata: schemas.Fr.array(),
+        isStaticCall: z.boolean(),
       })
       .transform(
-        ({ lowLeafRead, newLeafPreimage, insertionPath }) =>
-          new AvmPublicDataWriteTreeHint(lowLeafRead, newLeafPreimage, insertionPath),
+        ({ msgSender, contractAddress, calldata, isStaticCall }) =>
+          new AvmEnqueuedCallHint(msgSender, contractAddress, calldata, isStaticCall),
       );
   }
 }
@@ -213,16 +150,12 @@ export class AvmPublicDataWriteTreeHint {
 export class AvmExecutionHints {
   constructor(
     public readonly enqueuedCalls: AvmEnqueuedCallHint[] = [],
+    // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
-    public readonly publicDataReads: AvmPublicDataReadTreeHint[] = [],
-    public readonly publicDataWrites: AvmPublicDataWriteTreeHint[] = [],
-    public readonly nullifierReads: AvmNullifierReadTreeHint[] = [],
-    public readonly nullifierWrites: AvmNullifierWriteTreeHint[] = [],
-    public readonly noteHashReads: AvmAppendTreeHint[] = [],
-    public readonly noteHashWrites: AvmAppendTreeHint[] = [],
-    public readonly l1ToL2MessageReads: AvmAppendTreeHint[] = [],
+    // Merkle DB hints.
+    public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
   ) {}
 
   static empty() {
@@ -236,40 +169,16 @@ export class AvmExecutionHints {
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
-        publicDataReads: AvmPublicDataReadTreeHint.schema.array(),
-        publicDataWrites: AvmPublicDataWriteTreeHint.schema.array(),
-        nullifierReads: AvmNullifierReadTreeHint.schema.array(),
-        nullifierWrites: AvmNullifierWriteTreeHint.schema.array(),
-        noteHashReads: AvmAppendTreeHint.schema.array(),
-        noteHashWrites: AvmAppendTreeHint.schema.array(),
-        l1ToL2MessageReads: AvmAppendTreeHint.schema.array(),
+        getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
       })
       .transform(
-        ({
-          enqueuedCalls,
-          contractInstances,
-          contractClasses,
-          bytecodeCommitments,
-          publicDataReads,
-          publicDataWrites,
-          nullifierReads,
-          nullifierWrites,
-          noteHashReads,
-          noteHashWrites,
-          l1ToL2MessageReads,
-        }) =>
+        ({ enqueuedCalls, contractInstances, contractClasses, bytecodeCommitments, getSiblingPathHints }) =>
           new AvmExecutionHints(
             enqueuedCalls,
             contractInstances,
             contractClasses,
             bytecodeCommitments,
-            publicDataReads,
-            publicDataWrites,
-            nullifierReads,
-            nullifierWrites,
-            noteHashReads,
-            noteHashWrites,
-            l1ToL2MessageReads,
+            getSiblingPathHints,
           ),
       );
   }

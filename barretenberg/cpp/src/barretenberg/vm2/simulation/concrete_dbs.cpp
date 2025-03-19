@@ -2,6 +2,7 @@
 
 namespace bb::avm2::simulation {
 
+// Contracts DB starts.
 std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAddress& address) const
 {
     std::optional<ContractInstance> instance = raw_contract_db.get_contract_instance(address);
@@ -28,10 +29,18 @@ std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassI
     return klass;
 }
 
+// Merkle DB starts.
 const TreeSnapshots& MerkleDB::get_tree_roots() const
 {
     // No event generated.
     return raw_merkle_db.get_tree_roots();
+}
+
+// TODO(fcarreiro): We wouldn't have a low level method here because it can't be constrained.
+crypto::merkle_tree::fr_sibling_path MerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id,
+                                                                crypto::merkle_tree::index_t leaf_index) const
+{
+    return raw_merkle_db.get_sibling_path(tree_id, leaf_index);
 }
 
 } // namespace bb::avm2::simulation

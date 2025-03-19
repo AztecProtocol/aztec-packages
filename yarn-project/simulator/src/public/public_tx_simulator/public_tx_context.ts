@@ -39,7 +39,7 @@ import { inspect } from 'util';
 
 import type { PublicContractsDBInterface } from '../../server.js';
 import { AvmPersistableStateManager } from '../avm/index.js';
-import { HintingPublicContractsDB } from '../hinting_db_sources.js';
+import { HintingPublicContractsDB, HintingPublicTreesDB } from '../hinting_db_sources.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
 import { getCallRequestsWithCalldataByPhase } from '../utils.js';
@@ -107,11 +107,11 @@ export class PublicTxContext {
     // We wrap the DB to collect AVM hints.
     const hints = new AvmExecutionHints();
     const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
-    // TODO: Wrap merkle db.
+    const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
 
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = AvmPersistableStateManager.create(
-      treesDB,
+      hintingTreesDB,
       hintingContractsDB,
       trace,
       doMerkleOperations,
