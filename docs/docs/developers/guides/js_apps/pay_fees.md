@@ -1,5 +1,5 @@
 ---
-title: How to Use Fee Juice
+title: How to Pay Fees
 tags: [fees, transactions, developers]
 sidebar_position: 3
 ---

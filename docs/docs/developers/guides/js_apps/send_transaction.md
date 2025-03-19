@@ -13,7 +13,7 @@ You can learn how to create wallets from [this guide](./create_account.md).
 
 You can learn how to deploy a contract [here](./deploy_contract.md).
 
-You can learn how to use fee juice [here](./use_fee_juice.md).
+You can learn how to use fee juice [here](./pay_fees.md).
 
 ## Relevant imports
 
