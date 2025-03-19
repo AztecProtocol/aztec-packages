@@ -271,7 +271,7 @@ export class TXEService {
     if (!witness) {
       throw new Error(`Public data witness not found for slot ${parsedLeafSlot} at block ${parsedBlockNumber}.`);
     }
-    return toForeignCallResult([toArray(witness.toFields())]);
+    return toForeignCallResult(witness.toNoirRepresentation());
   }
 
   async getNotes(
@@ -349,7 +349,7 @@ export class TXEService {
       fromSingle(noteHash),
       fromSingle(counter).toNumber(),
     );
-    return toForeignCallResult([toSingle(new Fr(0))]);
+    return toForeignCallResult([]);
   }
 
   async notifyNullifiedNote(
@@ -362,12 +362,12 @@ export class TXEService {
       fromSingle(noteHash),
       fromSingle(counter).toNumber(),
     );
-    return toForeignCallResult([toSingle(new Fr(0))]);
+    return toForeignCallResult([]);
   }
 
   async notifyCreatedNullifier(innerNullifier: ForeignCallSingle) {
     await this.typedOracle.notifyCreatedNullifier(fromSingle(innerNullifier));
-    return toForeignCallResult([toSingle(new Fr(0))]);
+    return toForeignCallResult([]);
   }
 
   async checkNullifierExists(innerNullifier: ForeignCallSingle) {
@@ -396,7 +396,7 @@ export class TXEService {
 
   async getKeyValidationRequest(pkMHash: ForeignCallSingle) {
     const keyValidationRequest = await this.typedOracle.getKeyValidationRequest(fromSingle(pkMHash));
-    return toForeignCallResult([toArray(keyValidationRequest.toFields())]);
+    return toForeignCallResult(keyValidationRequest.toFields().map(toSingle));
   }
 
   async callPrivateFunction(
@@ -630,7 +630,7 @@ export class TXEService {
       AztecAddress.fromField(fromSingle(address)),
       Point.fromFields(fromArray(ephPk)),
     );
-    return toForeignCallResult([toArray(secret.toFields())]);
+    return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
   // AVM opcodes

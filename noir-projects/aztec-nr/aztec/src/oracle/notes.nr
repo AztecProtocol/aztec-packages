@@ -54,7 +54,7 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     note_hash: Field,
     counter: u32,
 ) {
-    let _ = notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
+    notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
 }
 
 #[oracle(notifyCreatedNote)]
@@ -209,11 +209,11 @@ where
 /// current transaction is included in a block. While this might seem of little use at first, certain design patterns
 /// benefit from this abstraction (see e.g. `PrivateMutable`).
 pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
-    check_nullifier_exists_oracle(inner_nullifier) == 1
+    check_nullifier_exists_oracle(inner_nullifier)
 }
 
 #[oracle(checkNullifierExists)]
-unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
+unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}
 
 /// Same as `get_indexed_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
 pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
