@@ -5,6 +5,7 @@
   "workspaces": [
     "browser-test-app",
     "headless-test",
-    "sol-test"
+    "sol-test",
+    "bbjs-test"
   ]
 }
