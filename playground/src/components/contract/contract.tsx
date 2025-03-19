@@ -218,7 +218,8 @@ export function ContractComponent() {
     setIsWorking(true);
     let result;
     try {
-      const call = currentContract.methods[fnName](...parameters[fnName]);
+      const fnParameters = parameters[fnName] ?? [];
+      const call = currentContract.methods[fnName](...fnParameters);
 
       result = await call.simulate();
       setSimulationResults({
