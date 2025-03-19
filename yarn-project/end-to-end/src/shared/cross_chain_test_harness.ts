@@ -1,6 +1,7 @@
 // docs:start:cross_chain_test_harness
 import {
   type AccountWallet,
+  AuthWitness,
   type AztecAddress,
   type AztecNode,
   EthAddress,
@@ -266,10 +267,14 @@ export class CrossChainTestHarness {
       .wait();
   }
 
-  async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
+  async withdrawPrivateFromAztecToL1(
+    withdrawAmount: bigint,
+    nonce: Fr = Fr.ZERO,
+    authWitness: AuthWitness,
+  ): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-      .send()
+      .send({ authWitnesses: [authWitness] })
       .wait();
 
     return withdrawReceipt;
