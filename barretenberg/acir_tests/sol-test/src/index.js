@@ -217,16 +217,12 @@ const killAnvil = () => {
 };
 
 try {
-  const publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
-  const publicInputsAsFields = readFileSync(publicInputsAsFieldsPath);
   const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
   const proofAsFields = readFileSync(proofAsFieldsPath);
   const [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
     JSON.parse(proofAsFields.toString())
   );
-  const innerPublicInputs = JSON.parse(publicInputsAsFields.toString());
-  const numPublicInputs = innerPublicInputs.length + numExtraPublicInputs;
-  const publicInputs = innerPublicInputs.concat(extraPublicInputs);
+  var publicInputs;
   const proofPath = getEnvVar("PROOF");
   const proof = readFileSync(proofPath);
 
@@ -237,8 +233,13 @@ try {
     proofStr = proofStr.substring(8);
     // Get the part after the public inputs
     proofStr = proofStr.substring(64 * numExtraPublicInputs);
+    const publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
+    const publicInputsAsFields = readFileSync(publicInputsAsFieldsPath);
+    const innerPublicInputs = JSON.parse(publicInputsAsFields.toString());
+    publicInputs = innerPublicInputs.concat(extraPublicInputs);
   } else {
     proofStr = proofStr.substring(64 * numExtraPublicInputs);
+    publicInputs = extraPublicInputs; // all of the plonk public inputs are with the proof
   }
 
   proofStr = "0x" + proofStr;
