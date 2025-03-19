@@ -5,7 +5,7 @@ import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { ACVMField } from '../acvm_types.js';
-import { frToBoolean, frToNumber, fromBoundedVec, fromUintArray, fromUintBoundedVec } from '../deserialize.js';
+import { fromBoundedVec, fromUintArray, fromUintBoundedVec } from '../deserialize.js';
 import { bufferToBoundedVec, toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
 import type { TypedOracle } from './typed_oracle.js';
 
@@ -70,8 +70,8 @@ export class Oracle {
     [treeId]: ACVMField[],
     [leafValue]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockNumber = frToNumber(Fr.fromString(blockNumber));
-    const parsedTreeId = frToNumber(Fr.fromString(treeId));
+    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
+    const parsedTreeId = Fr.fromString(treeId).toNumber();
     const parsedLeafValue = Fr.fromString(leafValue);
 
     const witness = await this.typedOracle.getMembershipWitness(parsedBlockNumber, parsedTreeId, parsedLeafValue);
@@ -87,7 +87,7 @@ export class Oracle {
     [blockNumber]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockNumber = frToNumber(Fr.fromString(blockNumber));
+    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.typedOracle.getNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
@@ -101,7 +101,7 @@ export class Oracle {
     [blockNumber]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the low nullifier witness for (to prove non-inclusion)
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockNumber = frToNumber(Fr.fromString(blockNumber));
+    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.typedOracle.getLowNullifierMembershipWitness(parsedBlockNumber, parsedNullifier);
@@ -117,7 +117,7 @@ export class Oracle {
     [blockNumber]: ACVMField[],
     [leafSlot]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockNumber = frToNumber(Fr.fromString(blockNumber));
+    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
     const parsedLeafSlot = Fr.fromString(leafSlot);
 
     const witness = await this.typedOracle.getPublicDataWitness(parsedBlockNumber, parsedLeafSlot);
@@ -128,7 +128,7 @@ export class Oracle {
   }
 
   async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
-    const parsedBlockNumber = frToNumber(Fr.fromString(blockNumber));
+    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
 
     const header = await this.typedOracle.getBlockHeader(parsedBlockNumber);
     if (!header) {
@@ -314,8 +314,8 @@ export class Oracle {
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       FunctionSelector.fromField(Fr.fromString(functionSelector)),
       Fr.fromString(argsHash),
-      frToNumber(Fr.fromString(sideEffectCounter)),
-      frToBoolean(Fr.fromString(isStaticCall)),
+      Fr.fromString(sideEffectCounter).toNumber(),
+      Fr.fromString(isStaticCall).toBool(),
     );
     return [[endSideEffectCounter, returnsHash].map(toACVMField)];
   }
@@ -331,8 +331,8 @@ export class Oracle {
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(Fr.fromString(functionSelector)),
       Fr.fromString(argsHash),
-      frToNumber(Fr.fromString(sideEffectCounter)),
-      frToBoolean(Fr.fromString(isStaticCall)),
+      Fr.fromString(sideEffectCounter).toNumber(),
+      Fr.fromString(isStaticCall).toBool(),
     );
     return [toACVMField(newArgsHash)];
   }
@@ -348,14 +348,14 @@ export class Oracle {
       AztecAddress.fromString(contractAddress),
       FunctionSelector.fromField(Fr.fromString(functionSelector)),
       Fr.fromString(argsHash),
-      frToNumber(Fr.fromString(sideEffectCounter)),
-      frToBoolean(Fr.fromString(isStaticCall)),
+      Fr.fromString(sideEffectCounter).toNumber(),
+      Fr.fromString(isStaticCall).toBool(),
     );
     return [toACVMField(newArgsHash)];
   }
 
   notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(Fr.fromString(minRevertibleSideEffectCounter)));
+    this.typedOracle.notifySetMinRevertibleSideEffectCounter(Fr.fromString(minRevertibleSideEffectCounter).toNumber());
     return Promise.resolve([]);
   }
 
@@ -441,7 +441,7 @@ export class Oracle {
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      return [toACVMField(0), Array(frToNumber(Fr.fromString(tSize))).fill(toACVMField(0))];
+      return [toACVMField(0), Array(Fr.fromString(tSize).toNumber()).fill(toACVMField(0))];
     } else {
       // Data was found so we set `some` to 1 and return it along with `value`.
       return [toACVMField(1), values.map(toACVMField)];
@@ -463,7 +463,7 @@ export class Oracle {
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       Fr.fromString(srcSlot),
       Fr.fromString(dstSlot),
-      frToNumber(Fr.fromString(numEntries)),
+      Fr.fromString(numEntries).toNumber(),
     );
     return [];
   }
