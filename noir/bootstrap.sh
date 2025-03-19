@@ -42,7 +42,8 @@ function noir_content_hash {
   tests=${1:-0}
 
   if [[ -v NARGO_HASH ]]; then
-    # We pass in the value of
+    # When bootstrapping from the monorepo root we precalculate the content hash for noir
+    # to avoid running into file locks
     echo "$NARGO_HASH"
   else
     # If there are changes in the noir-repo which aren't just due to the patch applied to it,
