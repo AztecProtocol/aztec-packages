@@ -5,9 +5,9 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
+import { EncodedCallsForEntrypoint } from './encoding.js';
 import type { AuthWitnessProvider, EntrypointInterface, FeeOptions, TxExecutionOptions } from './interfaces.js';
-import { EncodedExecutionPayloadForEntrypoint, ExecutionPayload } from './payload.js';
-import { mergeAndEncodeExecutionPayloads } from './utils.js';
+import { ExecutionPayload } from './payload.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -25,17 +25,26 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
   async createTxExecutionRequest(
     exec: ExecutionPayload,
     fee: FeeOptions,
-    _options: TxExecutionOptions,
+    options: TxExecutionOptions,
   ): Promise<TxExecutionRequest> {
-    const { calls, authWitnesses: userAuthWitnesses = [], capsules: userCapsules = [] } = exec;
+    if (options.nonce || options.cancellable !== undefined) {
+      throw new Error('TxExecutionOptions are not supported in DappEntrypoint');
+    }
+    // Initial request with calls, authWitnesses and capsules
+    const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
     if (calls.length !== 1) {
       throw new Error(`Expected exactly 1 function call, got ${calls.length}`);
     }
 
-    const encodedPayload = await EncodedExecutionPayloadForEntrypoint.fromFunctionCalls(calls);
+    // Encode the function call the dapp is ultimately going to invoke
+    const encodedCalls = await EncodedCallsForEntrypoint.fromFunctionCalls(calls);
 
+    // Obtain the entrypoint hashed args, built from the function call and the user's address
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromArgs(encodeArguments(abi, [encodedPayload, this.userAddress]));
+    const entrypointHashedArgs = await HashedValues.fromArgs(encodeArguments(abi, [encodedCalls, this.userAddress]));
+
+    // Construct an auth witness for the entrypoint, by signing the hash of the action to perform
+    // (the dapp calls a function on the user's behalf)
     const functionSelector = await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
     // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     const innerHash = await computeInnerAuthWitHash([
@@ -50,22 +59,17 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       innerHash,
     );
 
-    const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);
+    const entypointAuthwitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);
 
-    const executionPayload = await mergeAndEncodeExecutionPayloads([encodedPayload], {
-      extraAuthWitnesses: [authWitness, ...userAuthWitnesses],
-      extraHashedArgs: [entrypointHashedArgs],
-      extraCapsules: userCapsules,
-    });
-
+    // Assemble the tx request
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.dappEntrypointAddress,
       functionSelector,
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: executionPayload.hashedArguments,
-      authWitnesses: executionPayload.authWitnesses,
-      capsules: executionPayload.capsules,
+      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
+      authWitnesses: [entypointAuthwitness, ...authWitnesses],
+      capsules,
     });
 
     return txRequest;
