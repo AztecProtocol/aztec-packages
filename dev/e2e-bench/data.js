@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742401032388,
+  "lastUpdate": 1742406988322,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "10c8afed6ea5fd186e4f14820c4eb259cba85460",
-          "message": "docs: enable protocol specs for docs in dev mode (#11219)\n\n`yarn dev` or `yarn dev:local` now show protocol specs, but `yarn build`\nor `yarn docs` does not. You can also enable via\n`SHOW_PROTOCOL_SPECS=1`. Moved protocol specs back to original folder.",
-          "timestamp": "2025-01-14T13:47:36-05:00",
-          "tree_id": "9e5e7a6424bf32b9473f77351b4001dfb2e9a33c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/10c8afed6ea5fd186e4f14820c4eb259cba85460"
-        },
-        "date": 1736881811775,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4711,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 3.5396977098155817,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 670257,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 140670,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "65bd2764bdeafe6f2d259600b809d002c49e74fd",
+          "message": "feat: precomputed ClientIVC VKs (#12126)\n\nAfter this PR, we no longer rely on a user provided vk when verifying\ncivc proofs. This was insecure.\n\n`yarn-project/bb-prover` now has a `yarn generate` step that creates two\nfiles in `yarn-project/bb-prover/artifacts`: `private-civc-vk` and\n`public-civc-vk`. These correspond to clientivc stacks that end in the\nprivate and public tail, respectively.\n\nThis is achieved by pinning historic CIVC inputs and using one public\nand private example, respectively. If the number of public inputs in the\ntail circuits, or the fundamental structure, change we will need to bump\nthis. This pinning will be obsoleted by\nhttps://github.com/AztecProtocol/barretenberg/issues/1296.\n\nThe write_vk command **is to be considered undocumented**. It is subject\nto change. Namely, a future simplification\n(https://github.com/AztecProtocol/barretenberg/issues/1296) will make it\nnot take an ivc stack. Original comments by Cody below:\n```\nAdd a write_vk command to generate a vk for generating ClientIVC proofs. This consists of: a vk for 'the' hiding circuit, a vk for the ECCVM and a vk for the Translator. The later two could and perhaps should go away in the future since they are actually just fixed constants known at C++ compile time. The former sounds like a constant, but in fact the key depends on the number of outputs of the final circuit in a stack to be verified. At the moment the two possibilities in our system are the private kernel tail and tail-to-public circuits, where the latter I'm told has very many PIs, enough that we should have a distinction. I believe this means having two Tubes, or making the Tube receive exeuction time input on which of the two keys it should use.\n\nWe remove the special handling of single circuits in ClientIVC. This was originally added so that there would be _some_ unit tests of the bb binary of ClientIVC, but the new tests in this PR will fill that role better by being more realistic.\nI also shove some little API improvements requested by @saleel in here to make sure they don't get lost in the shuffle.\n```\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1245\n\n---------\n\nCo-authored-by: ludamad <domuradical@gmail.com>\nCo-authored-by: ludamad <adam.domurad@gmail.com>\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
+          "timestamp": "2025-03-19T10:11:38-07:00",
+          "tree_id": "82a7de1b6215d0c66c8dc984e155c2e7a1c0e67a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/65bd2764bdeafe6f2d259600b809d002c49e74fd"
+        },
+        "date": 1742406987734,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9210,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2247386963177913,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 147270,
             "unit": "us"
           }
         ]
