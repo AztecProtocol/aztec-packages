@@ -4,7 +4,7 @@ import { Capsule, HashedValues } from '@aztec/stdlib/tx';
 
 /**
  * Represents data necessary to perform an action in the network successfully.
- * This class can be considered as Aztec's "minimal execution unit".
+ * This class can be considered Aztec's "minimal execution unit".
  * */
 export class ExecutionPayload {
   public constructor(
