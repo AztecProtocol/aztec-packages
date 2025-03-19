@@ -1,4 +1,5 @@
 include "./poseidon2_hash.pil";
+
 /**
  * A merkle membership check to compute a root from a leaf and sibling path.
  * One sibling pair is processed per row.
@@ -19,7 +20,7 @@ include "./poseidon2_hash.pil";
  *
  * Internals/hints
  * @column current_node The value of the current node being processed (alongside its `sibling`). When `end == 0`, the next `current_node` is the `output_hash` of the current row.
- * @column current_index_in_layer The index of the current node in the current layer. This is halved each layer until `end == 1`.
+ * @column current_index_in_layer The index of the current node in the current layer. This is halved each layer until `end == 1`. Constrained to be 0 or 1 on end.
  * @column remaining_path_len The remaining path len to process, not including this layer. Starts at `tree_height - 1`, and decrements per layer until `end == 1`. When this is 0, `output_hash` is the root.
  * @column sibling The value of the sibling node to be hashed with `current_node`.
  * @column index_is_even Whether the current index is even.
@@ -27,6 +28,7 @@ include "./poseidon2_hash.pil";
  * Interactions
  * @lookup to `poseidon2_hash` to constrain that `hash(left_node, right_node) == output_hash` for the current layer
  *
+ *  <--inputs propagated down----->
  * +------+----------+-------------+--------------+---------------+--------------+---------+-------+-----+---------------+-----------+------------+-------------+
  * | leaf | leaf_idx | tree_height | current_node | current_index | rem_path_len | sibling | start | end | index_is_even | left_node | right_node | output_hash |
  * +------+----------+-------------+--------------+---------------+--------------+---------+-------+-----+---------------+-----------+------------+-------------+
@@ -125,11 +127,15 @@ namespace merkle_check;
     NOT_END * (current_index_in_layer' * 2 + INDEX_IS_ODD - current_index_in_layer) = 0;
 
     // Ensure that the final index is 0 or 1.
-    // Via the halving constraint, this ensures that the previous layer cannot overflow the field
+    // This ensures that the previous layer cannot overflow the field in the halving constraint
     // when doing `current_index_in_layer' * 2`. This propagates backwards ensuring that no
-    // layer can overflow on the halving constraint's multiplication by 2.
+    // layer can overflow on the halving constraint's multiplication by 2 as long as
+    // tree_height < 254.
     #[FINAL_INDEX_IS_0_OR_1]
     end * (current_index_in_layer * (1 - current_index_in_layer)) = 0;
+    // NOTE: index_is_even is essentially a vertical bit-decomposition of leaf_index.
+    // WARNING: There is a concern that some information is lost in the halving constraint's
+    // division by 2 leaving an overflow still possible.
 
     // left_node and right_node are sent to poseidon2
     // The constraints below arrange current_node and sibling into proper left/right order
