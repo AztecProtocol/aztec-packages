@@ -1,10 +1,14 @@
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { mergeExecutionPayloads } from '@aztec/entrypoints/utils';
+import { mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
+import {
+  BaseContractInteraction,
+  type RequestMethodOptions,
+  type SendMethodOptions,
+} from './base_contract_interaction.js';
 import type { SimulateMethodOptions } from './contract_function_interaction.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
@@ -30,11 +34,11 @@ export class BatchCall extends BaseContractInteraction {
 
   /**
    * Returns an execution request that represents this operation.
-   * @param _options - (ignored) An optional object containing additional configuration for the transaction.
-   * @returns An execution request wrapped in promise.
+   * @param options - An optional object containing additional configuration for the request generation.
+   * @returns An execution payload wrapped in promise.
    */
-  public async request(_options: SendMethodOptions = {}): Promise<ExecutionPayload> {
-    const requests = await this.getRequests();
+  public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
+    const requests = await this.getRequests(options);
     return mergeExecutionPayloads(requests);
   }
 
@@ -48,7 +52,7 @@ export class BatchCall extends BaseContractInteraction {
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
-    const { indexedExecutionPayloads, unconstrained } = (await this.getRequests()).reduce<{
+    const { indexedExecutionPayloads, unconstrained } = (await this.getRequests(options)).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
       /** Keep track of the number of public calls to retrieve the return values */
@@ -76,9 +80,9 @@ export class BatchCall extends BaseContractInteraction {
 
     const payloads = indexedExecutionPayloads.map(([request]) => request);
     const requestWithoutFee = mergeExecutionPayloads(payloads);
-    const { fee: userFee } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee);
-    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {});
+    const { fee: userFee, nonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
+    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
 
     const unconstrainedCalls = unconstrained.map(
       async ([call, index]) =>
@@ -113,21 +117,7 @@ export class BatchCall extends BaseContractInteraction {
     return results;
   }
 
-  /**
-   * Return all authWitnesses added for this interaction.
-   */
-  public override getAuthWitnesses() {
-    return [this.authWitnesses, ...this.calls.map(c => c.getAuthWitnesses())].flat();
-  }
-
-  /**
-   * Return all capsules added for this interaction.
-   */
-  public override getCapsules() {
-    return [this.capsules, ...this.calls.map(c => c.getCapsules())].flat();
-  }
-
-  private async getRequests() {
-    return await Promise.all(this.calls.map(c => c.request()));
+  private async getRequests(options: RequestMethodOptions = {}) {
+    return await Promise.all(this.calls.map(c => c.request(options)));
   }
 }

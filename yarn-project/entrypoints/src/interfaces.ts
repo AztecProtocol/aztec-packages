@@ -7,22 +7,6 @@ import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { ExecutionPayload } from './payload.js';
 
-/* eslint-disable camelcase */
-/** Encoded function call for an Aztec entrypoint */
-export type EncodedFunctionCall = {
-  /** Arguments hash for the call */
-  args_hash: Fr;
-  /** Selector of the function to call */
-  function_selector: Fr;
-  /** Address of the contract to call */
-  target_address: Fr;
-  /** Whether the function is public or private */
-  is_public: boolean;
-  /** Whether the function can alter state */
-  is_static: boolean;
-};
-/* eslint-enable camelcase */
-
 /**
  * General options for the tx execution.
  */
@@ -33,7 +17,10 @@ export type TxExecutionOptions = {
   nonce?: Fr;
 };
 
-/** Creates transaction execution requests out of a set of function calls. */
+/**
+ * Creates transaction execution requests out of a set of function calls, a fee payment method and
+ * general options for the transaction
+ */
 export interface EntrypointInterface {
   /**
    * Generates an execution request out of set of function calls.

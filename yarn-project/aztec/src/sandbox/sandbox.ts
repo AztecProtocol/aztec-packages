@@ -208,7 +208,6 @@ export async function createAztecNode(
     ...config,
     l1Contracts: { ...l1Contracts, ...config.l1Contracts },
   };
-  logger.info('createAztecNode', aztecNodeConfig);
   const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, options);
   return node;
 }
