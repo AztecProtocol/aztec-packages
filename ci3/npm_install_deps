@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# In CI we leverage fast caching of node_modules folders using zstd.
+# Note this cache pull won't restore .yarn, which means a subsequent "yarn install" may still be slow.
+# This doesn't matter in CI however.
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+
+if [ ! -f yarn.lock ]; then
+  echo_stderr "yarn.lock not found in $PWD."
+  exit 1
+fi
+
+yarn_lock_path=$(realpath yarn.lock --relative-to=$root)
+package_json_path=$(realpath package.json --relative-to=$root)
+
+if [ "$CI" -eq 1 ]; then
+  nm_hash=$(cache_content_hash "^$yarn_lock_path" "^$package_json_path")
+  if ! cache_download node-modules-$nm_hash.zst; then
+    denoise "retry 'yarn install --immutable'"
+    cache_upload node-modules-$nm_hash.zst node_modules
+  fi
+else
+  denoise "yarn install"
+fi

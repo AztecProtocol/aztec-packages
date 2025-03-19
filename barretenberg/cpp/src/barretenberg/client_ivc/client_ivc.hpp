@@ -58,7 +58,7 @@ class ClientIVC {
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
 
     /**
-     * @brief A full  proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
+     * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
      * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
      * proof).
      *
@@ -159,12 +159,13 @@ class ClientIVC {
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
-                    const bool _one_circuit = false,
                     const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
                     const bool mock_vk = false);
 
+    void construct_vk();
     Proof prove();
 
+    std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, MergeProof> construct_hiding_circuit_key();
     std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);

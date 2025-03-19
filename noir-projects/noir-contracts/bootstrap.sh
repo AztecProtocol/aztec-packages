@@ -31,7 +31,7 @@ export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export tmp_dir=./target/tmp
 
 # Create our tmp working directory, ensure it's removed on exit.
-function on_exit() {
+function on_exit {
   rm -rf $tmp_dir
   rm -f joblog.txt
 }
@@ -46,7 +46,7 @@ export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(mem
 # stdout receives the function json with the vk added (if private).
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 # If debugging, a set -x at the start can help.
-function process_function() {
+function process_function {
   set -euo pipefail
   local func name bytecode_b64 hash vk
 
@@ -77,9 +77,11 @@ function process_function() {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
+
       local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc -b - -o $outdir -v
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$hash
+
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash
     fi
 
@@ -95,12 +97,13 @@ export -f process_function
 
 # Compute hash for a given contract.
 function get_contract_hash {
-  cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    ../../avm-transpiler/.rebuild_patterns \
-    "^noir-projects/noir-contracts/contracts/$1/" \
-    "^noir-projects/aztec-nr/" \
-    "^noir-projects/noir-protocol-circuits/crates/types/"
+  hash_str \
+    $(../../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ../../avm-transpiler/.rebuild_patterns \
+      "^noir-projects/noir-contracts/contracts/$1/" \
+      "^noir-projects/aztec-nr/" \
+      "^noir-projects/noir-protocol-circuits/crates/types/")
 }
 export -f get_contract_hash
 

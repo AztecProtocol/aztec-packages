@@ -6,33 +6,15 @@ set -eou pipefail
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-# Update the noir-repo before we hash its content, unless the command is exempt.
-no_update=(clean make-patch bump-noir-repo-ref)
-if [[ -z "$cmd" || ! ${no_update[*]} =~ "$cmd" ]]; then
-  scripts/sync.sh init
-  scripts/sync.sh update
-fi
-
-export hash=$(cache_content_hash .rebuild_patterns)
-export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
-
+# Must be in dependency order for releasing.
 export js_projects="
-  @noir-lang/acvm_js
   @noir-lang/types
-  @noir-lang/noirc_abi
-  @noir-lang/noir_codegen
   @noir-lang/noir_js
+  @noir-lang/noir_codegen
+  @noir-lang/noirc_abi
+  @noir-lang/acvm_js
 "
 export js_include=$(printf " --include %s" $js_projects)
-
-# Must be in dependency order.
-package_dirs=(
-  types
-  noir_js
-  noir_codegen
-  noirc_abi
-  acvm_js
-)
 
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
 export GIT_COMMIT="0000000000000000000000000000000000000000"
@@ -40,37 +22,89 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
+# Update the noir-repo and compute hashes.
+function noir_sync {
+  # Don't send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
+  denoise "scripts/sync.sh init && scripts/sync.sh update" >&2
+}
+
+# Calculate the content hash for caching, taking into account that `noir-repo`
+# is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
+# by `cache_content_hash` would not take those files into account.
+function noir_repo_content_hash {
+  echo $(REPO_PATH=./noir-repo AZTEC_CACHE_COMMIT=HEAD cache_content_hash $@)
+}
+
+# Get the cache content hash. It should only be based on files committed to `aztec-packages`
+# in order to be able to support using `AZTEC_CACHE_COMMIT` for historical queries.
+function noir_content_hash {
+  # Currently we don't make a distinction between test and non-test hash
+  tests=${1:-0}
+
+  # If there are changes in the noir-repo which aren't just due to the patch applied to it,
+  # then just disable the cache, unless the noir-repo is in an evolving feature branch.
+  noir_hash=$(cache_content_hash .rebuild_patterns)
+
+  if [ "${AZTEC_CACHE_COMMIT:-HEAD}" != "HEAD" ]; then
+    # Ignore the current content of noir-repo, it doesn't support history anyway.
+    echo $noir_hash
+  else
+    cache_mode=$(scripts/sync.sh cache-mode)
+    case "$cache_mode" in
+      "noir")
+        echo $noir_hash
+        ;;
+      "noir-repo")
+        echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
+        ;;
+      *)
+        echo $cache_mode
+        ;;
+    esac
+  fi
+}
+
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  cd noir-repo
+  local hash=$(noir_content_hash)
   if cache_download noir-$hash.tar.gz; then
     return
   fi
+  cd noir-repo
   parallel --tag --line-buffer --halt now,fail=1 ::: \
     "cargo fmt --all --check" \
     "cargo build --locked --release --target-dir target" \
     "cargo clippy --target-dir target/clippy --workspace --locked --release"
-  cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm target/release/noir-profiler
+  cd ..
+  cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,acvm,noir-profiler}
 }
 
 # Builds js packages.
 function build_packages {
   set -euo pipefail
+  local hash=$(noir_content_hash)
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
+    npm_install_deps
+    # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
+    # Tests fail with message "env: ‘mocha’: No such file or directory"
     yarn install
     return
   fi
 
   cd noir-repo
+  npm_install_deps
+
+  # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
+  # Tests fail with message "env: ‘mocha’: No such file or directory"
   yarn install
-  yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
+  yarn workspaces foreach  -A --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
-  # These can be useful for testing, or portaling into other projects.
-  yarn workspaces foreach --parallel $js_include pack
+  # These can be useful for testing, or to portal into other projects.
+  yarn workspaces foreach  -A --parallel $js_include pack
 
   cd ..
   rm -rf packages && mkdir -p packages
@@ -94,11 +128,12 @@ function build_packages {
     noir-repo/tooling/noirc_abi_wasm/web
 }
 
-export -f build_native build_packages
+# Export functions that can be called from `parallel` in `build`,
+# and all the functions they can call as well.
+export -f build_native build_packages noir_content_hash
 
 function build {
   echo_header "noir build"
-
   # TODO: Move to build image?
   denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
   if ! command -v cargo-binstall &>/dev/null; then
@@ -119,16 +154,9 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-function test_example {
-  local test="$1"
-  export PATH="$root/noir/noir-repo/target/release:${PATH}"
-  export BACKEND="$root/barretenberg/cpp/build/bin/bb"
-  cd "noir-repo/examples/$test"
-  ./test.sh
-}
-
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
+  local test_hash=$(noir_content_hash 1)
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
@@ -141,14 +169,10 @@ function test_cmds {
         "noir/scripts/run_test.sh \($binary) \(.key)"' | \
       sed "s|$PWD/target/release/deps/||" | \
       awk "{print \"$test_hash \" \$0 }"
-  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo" \
+    "yarn workspaces foreach -A --parallel --topological-dev --verbose $js_include run test"
   # This is a test as it runs over our test programs (format is usually considered a build step).
   echo "$test_hash noir/bootstrap.sh format --check"
-  # We need to include these as they will go out of date otherwise and externals use these examples.
-  local example_test_hash=$(hash_str $test_hash-$(../../barretenberg/cpp/bootstrap.sh hash))
-  echo "$example_test_hash noir/bootstrap.sh test_example codegen_verifier"
-  echo "$example_test_hash noir/bootstrap.sh test_example prove_and_verify"
-  echo "$example_test_hash noir/bootstrap.sh test_example recursion"
 }
 
 function format {
@@ -166,29 +190,22 @@ function format {
   nargo fmt $arg
 }
 
-function release_packages {
-  local dist_tag=$1
-  local version=$2
+function release {
+  local dist_tag=$(dist_tag)
+  local version=${REF_NAME#v}
   cd packages
 
-  for package in ${package_dirs[@]}; do
-    local path="$package"
-    [ ! -d "$path" ] && echo "Project path not found: $path" && exit 1
-    cd $path
+  for package in $js_projects; do
+    local dir=${package#*/}
+    [ ! -d "$dir" ] && echo "Project path not found: $dir" && exit 1
+    cd $dir
 
-    # Rename package name @aztec/noir-<package> and update version.
-    jq ".name |= \"@aztec/noir-$package\"" package.json >tmp.json
-    mv tmp.json package.json
     jq --arg v $version '.version = $v' package.json >tmp.json
     mv tmp.json package.json
 
     deploy_npm $dist_tag $version
     cd ..
   done
-}
-
-function release {
-  release_packages $(dist_tag) ${REF_NAME#v}
 }
 
 # Bump the Noir repo reference on a given branch to a given ref.
@@ -214,20 +231,25 @@ case "$cmd" in
     git clean -ffdx
     ;;
   "ci")
+    noir_sync
     build
     test
     ;;
   ""|"fast"|"full")
+    noir_sync
     build
     ;;
-  test_cmds|build_native|build_packages|format|test|release|test_example)
+  test_cmds|build_native|build_packages|format|test|release)
+    noir_sync
     $cmd "$@"
     ;;
   "hash")
-    echo $hash
+    noir_sync
+    echo $(noir_content_hash)
     ;;
-  "hash-test")
-    echo $test_hash
+  "hash-tests")
+    noir_sync
+    echo $(noir_content_hash 1)
     ;;
   "make-patch")
     scripts/sync.sh make-patch

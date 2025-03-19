@@ -2,18 +2,12 @@ import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractNames, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
-import {
-  type ContractClassPublic,
-  computePublicBytecodeCommitment,
-  getContractClassFromArtifact,
-} from '@aztec/stdlib/contract';
+import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { ArchiverApi, Service } from '@aztec/stdlib/interfaces/server';
 import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -32,11 +26,12 @@ import { createArchiverClient } from './rpc/index.js';
  * @returns The local archiver.
  */
 export async function createArchiver(
-  config: ArchiverConfig & DataStoreConfig,
+  _config: ArchiverConfig & DataStoreConfig,
   blobSinkClient: BlobSinkClientInterface,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
+  const config = { ..._config, dataStoreMapSizeKB: _config.archiverStoreMapSizeKb ?? _config.dataStoreMapSizeKB };
   const store = await createStore(
     'archiver',
     KVArchiverDataStore.SCHEMA_VERSION,
@@ -45,7 +40,6 @@ export async function createArchiver(
   );
   const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
   await registerProtocolContracts(archiverStore);
-  await registerCommonContracts(archiverStore);
   return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
 }
 
@@ -85,23 +79,4 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
     await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);
   }
-}
-
-// TODO(#10007): Remove this method. We are explicitly registering these contracts
-// here to ensure they are available to all nodes and all prover nodes, since the PXE
-// was tweaked to automatically push contract classes to the node it is registered,
-// but other nodes in the network may require the contract classes to be registered as well.
-// TODO(#10007): Remove the dependency on noir-contracts.js from this package once we remove this.
-async function registerCommonContracts(store: KVArchiverDataStore) {
-  const blockNumber = 0;
-  const artifacts = [TokenBridgeContractArtifact, TokenContractArtifact];
-  const classes = await Promise.all(
-    artifacts.map(async artifact => ({
-      ...(await getContractClassFromArtifact(artifact)),
-      privateFunctions: [],
-      unconstrainedFunctions: [],
-    })),
-  );
-  const bytecodeCommitments = await Promise.all(classes.map(x => computePublicBytecodeCommitment(x.packedBytecode)));
-  await store.addContractClasses(classes, bytecodeCommitments, blockNumber);
 }

@@ -103,11 +103,11 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public override async getPublicDataTreeWitness(
+  public override async getPublicDataWitness(
     blockNumber: number,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
-    return await this.executionDataProvider.getPublicDataTreeWitness(blockNumber, leafSlot);
+    return await this.executionDataProvider.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   /**
@@ -149,10 +149,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
    * @returns Authentication witness for the requested message hash.
    */
   public override getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    return Promise.resolve(
-      this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness ??
-        this.executionDataProvider.getAuthWitness(messageHash),
-    );
+    return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
   }
 
   /**

@@ -9,7 +9,6 @@ import { SiblingPath } from '@aztec/foundation/trees';
 import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
 import omit from 'lodash.omit';
-import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import type { AbiDecoded } from '../abi/decoder.js';
@@ -36,7 +35,9 @@ import { UniqueNote } from '../note/index.js';
 import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
-import { PrivateExecutionResult, Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { PrivateExecutionResult, Tx, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -95,19 +96,6 @@ describe('PXESchema', () => {
     await context.client.isL1ToL2MessageSynced(Fr.random());
   });
 
-  it('addAuthWitness', async () => {
-    await context.client.addAuthWitness(AuthWitness.random());
-  });
-
-  it('getAuthWitness', async () => {
-    const result = await context.client.getAuthWitness(Fr.random());
-    expect(result).toEqual([expect.any(Fr)]);
-  });
-
-  it('storeCapsule', async () => {
-    await context.client.storeCapsule(address, Fr.random(), times(3, Fr.random));
-  });
-
   it('registerAccount', async () => {
     const result = await context.client.registerAccount(Fr.random(), Fr.random());
     expect(result).toBeInstanceOf(CompleteAddress);
@@ -149,6 +137,11 @@ describe('PXESchema', () => {
     expect(result).toEqual([address]);
   });
 
+  it('profileTx', async () => {
+    const result = await context.client.profileTx(await TxExecutionRequest.random(), 'gates');
+    expect(result).toBeInstanceOf(TxProfileResult);
+  });
+
   it('proveTx', async () => {
     const result = await context.client.proveTx(
       await TxExecutionRequest.random(),
@@ -158,15 +151,7 @@ describe('PXESchema', () => {
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(
-      await TxExecutionRequest.random(),
-      true,
-      address,
-      false,
-      true,
-      false,
-      [],
-    );
+    const result = await context.client.simulateTx(await TxExecutionRequest.random(), true, address, false, true, []);
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
@@ -179,7 +164,6 @@ describe('PXESchema', () => {
     const result = await context.client.simulateTx(
       await TxExecutionRequest.random(),
       true,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -236,7 +220,7 @@ describe('PXESchema', () => {
   });
 
   it('simulateUnconstrained', async () => {
-    const result = await context.client.simulateUnconstrained('function', [], address, address, [address]);
+    const result = await context.client.simulateUnconstrained('function', [], address, [], address, [address]);
     expect(result).toEqual(10n);
   });
 
@@ -324,21 +308,6 @@ class MockPXE implements PXE {
   isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
     return Promise.resolve(false);
   }
-
-  addAuthWitness(authWitness: AuthWitness): Promise<void> {
-    expect(authWitness).toBeInstanceOf(AuthWitness);
-    return Promise.resolve();
-  }
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    expect(messageHash).toBeInstanceOf(Fr);
-    return Promise.resolve([Fr.random()]);
-  }
-  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
-    expect(contract).toBeInstanceOf(AztecAddress);
-    expect(storageSlot).toBeInstanceOf(Fr);
-    expect(capsule.every(c => c instanceof Fr)).toBeTruthy();
-    return Promise.resolve();
-  }
   registerAccount(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
     expect(secretKey).toBeInstanceOf(Fr);
     expect(partialAddress).toBeInstanceOf(Fr);
@@ -381,6 +350,18 @@ class MockPXE implements PXE {
   getContracts(): Promise<AztecAddress[]> {
     return Promise.resolve([this.address]);
   }
+  profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'gates' | 'full' | 'execution-steps' | 'none',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult> {
+    expect(txRequest).toBeInstanceOf(TxExecutionRequest);
+    expect(profileMode).toMatch(/gates|debug/);
+    if (msgSender) {
+      expect(msgSender).toBeInstanceOf(AztecAddress);
+    }
+    return Promise.resolve(new TxProfileResult([]));
+  }
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
     expect(privateExecutionResult).toBeInstanceOf(PrivateExecutionResult);
@@ -394,7 +375,6 @@ class MockPXE implements PXE {
     msgSender?: AztecAddress | undefined,
     _skipTxValidation?: boolean | undefined,
     _enforceFeePayment?: boolean | undefined,
-    _profile?: boolean | undefined,
     scopes?: AztecAddress[] | undefined,
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
@@ -453,12 +433,14 @@ class MockPXE implements PXE {
     _functionName: string,
     _args: any[],
     to: AztecAddress,
+    authwits?: AuthWitness[],
     from?: AztecAddress | undefined,
     scopes?: AztecAddress[] | undefined,
   ): Promise<AbiDecoded> {
     expect(to).toEqual(this.address);
     expect(from).toEqual(this.address);
     expect(scopes).toEqual([this.address]);
+    expect(authwits).toEqual([]);
     return Promise.resolve(10n);
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {

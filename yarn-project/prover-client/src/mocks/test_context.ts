@@ -26,6 +26,8 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';
 
+// TODO(#12613) This means of sharing test code is not ideal.
+// eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';

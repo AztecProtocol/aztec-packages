@@ -1,6 +1,6 @@
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 
 import { getFeeJuice } from '../contract/protocol_contracts.js';
@@ -20,30 +20,34 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
   }
 
   /**
-   * Creates a function call to pay the fee in Fee Juice.
-   * @returns A function call
+   * Creates an execution payload to pay the fee in Fee Juice.
+   * @returns An execution payload that just contains the claim function call.
    */
-  override async getFunctionCalls(): Promise<FunctionCall[]> {
+  override async getExecutionPayload(): Promise<ExecutionPayload> {
     const canonicalFeeJuice = await getFeeJuice(this.senderWallet);
     const selector = await FunctionSelector.fromNameAndParameters(
       canonicalFeeJuice.artifact.functions.find(f => f.name === 'claim')!,
     );
 
-    return Promise.resolve([
-      {
-        to: ProtocolContractAddress.FeeJuice,
-        name: 'claim',
-        selector,
-        isStatic: false,
-        args: [
-          this.senderWallet.getAddress().toField(),
-          new Fr(this.claim.claimAmount),
-          this.claim.claimSecret,
-          new Fr(this.claim.messageLeafIndex),
-        ],
-        returnTypes: [],
-        type: FunctionType.PRIVATE,
-      },
-    ]);
+    return new ExecutionPayload(
+      [
+        {
+          to: ProtocolContractAddress.FeeJuice,
+          name: 'claim',
+          selector,
+          isStatic: false,
+          args: [
+            this.senderWallet.getAddress().toField(),
+            new Fr(this.claim.claimAmount),
+            this.claim.claimSecret,
+            new Fr(this.claim.messageLeafIndex),
+          ],
+          returnTypes: [],
+          type: FunctionType.PRIVATE,
+        },
+      ],
+      [],
+      [],
+    );
   }
 }

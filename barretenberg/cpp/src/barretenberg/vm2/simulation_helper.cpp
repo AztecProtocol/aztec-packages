@@ -9,7 +9,6 @@
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
-#include "barretenberg/vm2/simulation/context_stack.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -25,6 +24,7 @@
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
+#include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
@@ -59,7 +59,6 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
     typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
     typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
-    typename S::template DefaultEventEmitter<AddressingEvent> addressing_emitter;
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
     typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
     typename S::template DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
@@ -87,6 +86,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
+    InstructionInfoDB instruction_info_db;
     TxBytecodeManager bytecode_manager(contract_db,
                                        merkle_db,
                                        siloing,
@@ -94,13 +94,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ContextProvider context_provider(bytecode_manager, memory_emitter);
+    ExecutionComponentsProvider execution_components(bytecode_manager, memory_emitter, instruction_info_db);
 
     Alu alu(alu_emitter);
-    InstructionInfoDB instruction_info_db;
-    Addressing addressing(instruction_info_db, addressing_emitter);
-    ContextStack context_stack;
-    Execution execution(alu, addressing, context_provider, context_stack, instruction_info_db, execution_emitter);
+    Execution execution(alu, execution_components, instruction_info_db, execution_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
 
@@ -110,7 +107,6 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              alu_emitter.dump_events(),
              bitwise_emitter.dump_events(),
              memory_emitter.dump_events(),
-             addressing_emitter.dump_events(),
              bytecode_retrieval_emitter.dump_events(),
              bytecode_hashing_emitter.dump_events(),
              bytecode_decomposition_emitter.dump_events(),

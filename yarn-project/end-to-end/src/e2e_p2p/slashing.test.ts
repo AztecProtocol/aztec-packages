@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
@@ -66,14 +67,13 @@ describe('e2e_p2p_slashing', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    const rollup = getContract({
-      address: t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues!.walletClient,
-    });
+    const rollup = new RollupContract(
+      t.ctx.deployL1ContractsValues!.publicClient,
+      t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+    );
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.read.getSlasher()),
+      address: getAddress(await rollup.getSlasher()),
       abi: SlasherAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
@@ -92,7 +92,7 @@ describe('e2e_p2p_slashing', () => {
 
     const slashingInfo = async () => {
       const bn = await t.ctx.cheatCodes.eth.blockNumber();
-      const slotNumber = await rollup.read.getCurrentSlot();
+      const slotNumber = await rollup.getSlotNumber();
       const roundNumber = await slashingProposer.read.computeRound([slotNumber]);
       const instanceAddress = t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
       const info = await slashingProposer.read.rounds([instanceAddress, roundNumber]);
@@ -103,9 +103,9 @@ describe('e2e_p2p_slashing', () => {
     const waitUntilNextRound = async () => {
       t.logger.info(`Waiting for next round`);
       const roundSize = await slashingProposer.read.M();
-      const currentRound = (await rollup.read.getCurrentSlot()) / roundSize;
+      const currentRound = (await rollup.getSlotNumber()) / roundSize;
       const nextRoundSlot = currentRound * roundSize + roundSize;
-      while ((await rollup.read.getCurrentSlot()) < nextRoundSlot) {
+      while ((await rollup.getSlotNumber()) < nextRoundSlot) {
         await sleep(1000);
       }
     };
@@ -191,8 +191,8 @@ describe('e2e_p2p_slashing', () => {
     t.logger.info(`Waiting for votes to be cast`);
     for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info(`Waiting for block number to change`);
-      const slotNumber = await rollup.read.getCurrentSlot();
-      while (slotNumber === (await rollup.read.getCurrentSlot())) {
+      const slotNumber = await rollup.getSlotNumber();
+      while (slotNumber === (await rollup.getSlotNumber())) {
         await sleep(1000);
       }
 
@@ -214,10 +214,10 @@ describe('e2e_p2p_slashing', () => {
 
     t.logger.info(`We jump in time to the next round to execute`);
     await waitUntilNextRound();
-    const attestersPre = await rollup.read.getAttesters();
+    const attestersPre = await rollup.getAttesters();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.read.getInfo([attester]);
+      const attesterInfo = await rollup.getInfo(attester);
       // Check that status isValidating
       expect(attesterInfo.status).toEqual(1);
     }
@@ -252,14 +252,14 @@ describe('e2e_p2p_slashing', () => {
     expect(sInfo.info[2]).toEqual(false);
     expect(infoPost[2]).toEqual(true);
 
-    const attestersPost = await rollup.read.getAttesters();
+    const attestersPost = await rollup.getAttesters();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.read.getInfo([attester]);
+      const attesterInfo = await rollup.getInfo(attester);
       // Check that status is Living
       expect(attesterInfo.status).toEqual(2);
     }
-    const committee = await rollup.read.getEpochCommittee([slashEvent.epoch]);
+    const committee = await rollup.getEpochCommittee(slashEvent.epoch);
     expect(attestersPre.length).toBe(committee.length);
     expect(attestersPost.length).toBe(0);
   }, 1_000_000);

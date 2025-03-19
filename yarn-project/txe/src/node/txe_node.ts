@@ -125,7 +125,6 @@ export class TXENode implements AztecNode {
         undefined,
         new L2BlockHash(blockHash.toBuffer()),
         blockNumber,
-        undefined,
       ),
     );
   }
@@ -384,8 +383,8 @@ export class TXENode implements AztecNode {
    * "in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
    * is contained in the leaf preimage.
    */
-  getPublicDataTreeWitness(_blockNumber: L2BlockNumber, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    throw new Error('TXE Node method getPublicDataTreeWitness not implemented');
+  getPublicDataWitness(_blockNumber: L2BlockNumber, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    throw new Error('TXE Node method getPublicDataWitness not implemented');
   }
 
   /**
@@ -640,15 +639,6 @@ export class TXENode implements AztecNode {
    */
   getEncodedEnr(): Promise<string | undefined> {
     throw new Error('TXE Node method getEncodedEnr not implemented');
-  }
-
-  /**
-   * Adds a contract class bypassing the registerer.
-   * TODO(#10007): Remove this method.
-   * @param contractClass - The class to register.
-   */
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    throw new Error('TXE Node method addContractClass not implemented');
   }
 
   /**

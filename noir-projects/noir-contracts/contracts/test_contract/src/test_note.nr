@@ -10,6 +10,7 @@ use dep::aztec::{
 
 /// A note used only for testing purposes.
 #[custom_note]
+#[derive(Eq)]
 pub struct TestNote {
     value: Field,
 }
