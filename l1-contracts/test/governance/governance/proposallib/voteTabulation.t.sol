@@ -93,7 +93,7 @@ contract VoteTabulationTest is GovernanceBase {
     totalPower = type(uint256).max;
     proposal.config.quorum = 1e18 + 1;
     vm.expectRevert(abi.encodeWithSelector(0x4e487b71, Panic.UNDER_OVERFLOW));
-    proposal.voteTabulation(totalPower);
+    this.callVoteTabulation(totalPower);
   }
 
   modifier whenQuorumConfigValid(DataStructures.Configuration memory _config) {
@@ -177,7 +177,7 @@ contract VoteTabulationTest is GovernanceBase {
     proposal.summedBallot.nea = totalPower;
 
     vm.expectRevert(abi.encodeWithSelector(0x4e487b71, Panic.UNDER_OVERFLOW));
-    proposal.voteTabulation(totalPower);
+    this.callVoteTabulation(totalPower);
   }
 
   function test_WhenYeaLimitGtVotesCast(
@@ -303,5 +303,11 @@ contract VoteTabulationTest is GovernanceBase {
     (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
     assertEq(vtr, VoteTabulationReturn.Accepted, "invalid return value");
     assertEq(vti, VoteTabulationInfo.YeaVotesGtYeaLimit, "invalid info value");
+  }
+
+  // @dev helper for testing, to avoid:
+  // "call didn't revert at a lower depth than cheatcode call depth"
+  function callVoteTabulation(uint256 _totalPower) external view {
+    proposal.voteTabulation(_totalPower);
   }
 }
