@@ -147,7 +147,7 @@ export class NativeACVMSimulator implements SimulationProvider {
     // Execute the circuit on those initial witness values
 
     if (callback) {
-      logger.warn('Native ACVM simulator does not support foreign calls. Ignoring callback.');
+      throw new Error('Native ACVM simulator does not support foreign calls. Ignoring callback.');
     }
 
     const operation = async (directory: string) => {
