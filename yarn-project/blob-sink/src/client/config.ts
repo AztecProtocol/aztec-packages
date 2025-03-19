@@ -1,9 +1,11 @@
 import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 
+import { type BlobSinkArchiveApiConfig, blobSinkArchiveApiConfigMappings } from '../archive/config.js';
+
 /**
  * The configuration for the blob sink client
  */
-export interface BlobSinkConfig {
+export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
   /**
    * The URL of the blob sink
    */
@@ -54,6 +56,7 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
     description:
       'The header name for the L1 consensus client API key, if needed. Added as "<api-key-header>: <api-key>"',
   },
+  ...blobSinkArchiveApiConfigMappings,
 };
 
 /**

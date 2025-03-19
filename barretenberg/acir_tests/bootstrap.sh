@@ -5,18 +5,18 @@ cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 export bb=$(realpath ../cpp/build/bin/bb)
 
-tests_tar=barretenberg-acir-tests-$(cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    ../../noir/.rebuild_patterns_tests \
+tests_tar=barretenberg-acir-tests-$(hash_str \
+  $(../../noir/bootstrap.sh hash-tests) \
+  $(cache_content_hash \
     ../cpp/.rebuild_patterns \
-    ).tar.gz
+    )).tar.gz
 
-tests_hash=$(cache_content_hash \
+tests_hash=$(hash_str \
+  $(../../noir/bootstrap.sh hash-tests) \
+  $(cache_content_hash \
     ^barretenberg/acir_tests/ \
-    ../../noir/.rebuild_patterns \
-    ../../noir/.rebuild_patterns_tests \
     ../cpp/.rebuild_patterns \
-    ../ts/.rebuild_patterns)
+    ../ts/.rebuild_patterns))
 
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
@@ -100,17 +100,13 @@ function build {
 
   npm_install_deps
   # TODO: Check if still needed.
-  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
+  # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
 
   # TODO: Revisit. Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
   # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
   # denoise "cd headless-test && yarn"
   # denoise "cd sol-test && yarn"
-
-  # TODO: Revist. The md5sum of everything is the same after each yarn call.
-  # Yet seemingly yarn's content hash will churn unless we reset timestamps
-  # find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 
   denoise "cd browser-test-app && yarn build"
 }
@@ -203,7 +199,6 @@ function run_benchmark {
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
-  # TODO: Move to scripts dir along with run_test.sh.
   # TODO(https://github.com/AztecProtocol/barretenberg/issues/1265) fix acir benchmarking
   # LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
 

@@ -3,6 +3,7 @@
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 #include <cassert>
+#include <optional>
 
 namespace bb::avm2::simulation {
 
@@ -36,12 +37,18 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
     }
 }
 
-ContractInstance HintedRawContractDB::get_contract_instance(const AztecAddress& address) const
+std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const AztecAddress& address) const
 {
-    assert(contract_instances.contains(address));
-    auto contract_instance_hint = contract_instances.at(address);
+    auto it = contract_instances.find(address);
+    // If we don't find the instance hint, this is not a catastrohic failure. It means that on the TS side,
+    // the instance was also not found, and should be handled.
+    if (it == contract_instances.end()) {
+        vinfo("Contract instance not found: ", address);
+        return std::nullopt;
+    }
+    const auto& contract_instance_hint = it->second;
 
-    return {
+    return std::make_optional<ContractInstance>({
         .salt = contract_instance_hint.salt,
         .deployer_addr = contract_instance_hint.deployer,
         .contract_class_id = contract_instance_hint.originalContractClassId,
@@ -53,21 +60,27 @@ ContractInstance HintedRawContractDB::get_contract_instance(const AztecAddress& 
                 .outgoing_viewing_key = contract_instance_hint.publicKeys.masterOutgoingViewingPublicKey,
                 .tagging_key = contract_instance_hint.publicKeys.masterTaggingPublicKey,
             },
-    };
+    });
 }
 
-ContractClass HintedRawContractDB::get_contract_class(const ContractClassId& class_id) const
+std::optional<ContractClass> HintedRawContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    assert(contract_classes.contains(class_id));
-    auto contract_class_hint = contract_classes.at(class_id);
+    auto it = contract_classes.find(class_id);
+    // If we don't find the class hint, this is not a catastrohic failure. It means that on the TS side,
+    // the class was also not found, and should be handled.
+    if (it == contract_classes.end()) {
+        vinfo("Contract class not found: ", class_id);
+        return std::nullopt;
+    }
+    const auto& contract_class_hint = it->second;
 
-    return {
+    return std::make_optional<ContractClass>({
         .artifact_hash = contract_class_hint.artifactHash,
         .private_function_root = contract_class_hint.privateFunctionsRoot,
         // We choose to embed the bytecode commitment in the contract class.
         .public_bytecode_commitment = get_bytecode_commitment(class_id),
         .packed_bytecode = contract_class_hint.packedBytecode,
-    };
+    });
 }
 
 FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const

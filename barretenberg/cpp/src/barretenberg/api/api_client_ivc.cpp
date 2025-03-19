@@ -91,9 +91,9 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
  * @param bytecode_path
  * @param witness_path
  */
-void write_vk_for_ivc(const std::string& output_format,
-                      const std::string& bytecode_path,
-                      const std::string& output_path)
+void write_standalone_vk(const std::string& output_data_type,
+                         const std::string& bytecode_path,
+                         const std::string& output_path)
 {
     using Builder = ClientIVC::ClientCircuit;
     using Prover = ClientIVC::MegaProver;
@@ -125,7 +125,57 @@ void write_vk_for_ivc(const std::string& output_format,
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
     ProofAndKey<VerificationKey> to_write{ {}, std::make_shared<VerificationKey>(prover.proving_key->proving_key) };
 
-    write(to_write, output_format, "vk", output_path);
+    write(to_write, output_data_type, "vk", output_path);
+}
+
+size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& bytecode_path)
+{
+    using namespace acir_format;
+
+    const std::string bincode = unpack_from_file<std::vector<std::string>>(bytecode_path).back();
+    const std::vector<uint8_t> bincode_buf = decompress(bincode.data(), bincode.size());
+    const AcirFormat constraints = circuit_buf_to_acir_format(bincode_buf, /*honk_recursion=*/0);
+    return constraints.public_inputs.size();
+}
+
+void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::path& output_dir)
+{
+    init_bn254_crs(1 << CONST_PG_LOG_N);
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
+    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_final_circuit(bytecode_path);
+    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
+    // MAGIC_NUMBER is bb::PAIRING_POINT_ACCUMULATOR_SIZE or bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE
+    static constexpr size_t MAGIC_NUMBER = 16;
+
+    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    // We segfault if we only call accumulate once
+    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
+    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    MegaCircuitBuilder circuit_1 = circuit_producer.create_next_circuit(
+        ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
+    ivc.accumulate(circuit_1);
+
+    ivc.construct_vk();
+
+    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+
+    const bool output_to_stdout = output_dir == "-";
+    const auto vk = std::make_shared<ClientIVC::VerificationKey>(ivc.honk_vk, eccvm_vk, translator_vk);
+    const auto buf = to_buffer(vk);
+
+    if (output_to_stdout) {
+        write_bytes_to_stdout(buf);
+    } else {
+        write_file(output_dir / "vk", buf);
+    }
 }
 
 std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& input_type,
@@ -137,7 +187,9 @@ std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& in
     std::vector<AcirProgram> folding_stack;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
-    if (input_type == "compiletime_stack") {
+    // really a single circuit IS a compiletime stack but we want the input type distinction since it is meaningful
+    // for vk writing (maybe this is not ideal?)
+    if (input_type == "single_circuit" || input_type == "compiletime_stack") {
         auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/0);
         // Accumulate the entire program stack into the IVC
         while (!program_stack.empty()) {
@@ -184,7 +236,7 @@ std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& fo
 
         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        ivc->accumulate(circuit, /*one_circuit=*/folding_stack.size() == 1);
+        ivc->accumulate(circuit);
     }
 
     return ivc;
@@ -205,21 +257,29 @@ void ClientIVCAPI::prove(const Flags& flags,
     std::shared_ptr<ClientIVC> ivc = _accumulate(folding_stack);
     ClientIVC::Proof proof = ivc->prove();
 
-    // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems
-    // this directory is passed by bb.js)
-    vinfo("writing ClientIVC proof and vk in directory ", output_dir);
-    write_file(output_dir / "proof", to_buffer(proof));
-
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc->goblin.get_translator_proving_key());
-    write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
-
     // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     // The files are still written in case they are needed to investigate this failure.
     if (!ivc->verify(proof)) {
         throw std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
     }
+
+    // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating string
+    // representations of vks that don't feel worth implementing
+    const bool output_to_stdout = output_dir == "-";
+
+    const auto write_proof = [&]() {
+        const auto buf = to_buffer(proof);
+        if (output_to_stdout) {
+            vinfo("writing ClientIVC proof to stdout");
+            write_bytes_to_stdout(buf);
+        } else {
+            vinfo("writing ClientIVC proof in directory ", output_dir);
+            write_file(output_dir / "proof", buf);
+        }
+    };
+
+    write_proof();
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
@@ -278,7 +338,14 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    write_vk_for_ivc(flags.output_format, bytecode_path, output_path);
+    if (flags.verifier_type == "ivc") {
+        write_vk_for_ivc(bytecode_path, output_path);
+    } else if (flags.verifier_type == "standalone") {
+        write_standalone_vk(flags.output_format, bytecode_path, output_path);
+    } else {
+        const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
+        throw_or_abort(msg);
+    }
 }
 
 bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,

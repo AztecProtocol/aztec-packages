@@ -24,13 +24,50 @@ export RUSTFLAGS="-Dwarnings"
 
 # Update the noir-repo and compute hashes.
 function noir_sync {
-  denoise "scripts/sync.sh init && scripts/sync.sh update"
+  # The sync.sh script strives not to send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
+  DENOISE=0 denoise "scripts/sync.sh init && scripts/sync.sh update"
+}
+
+# Calculate the content hash for caching, taking into account that `noir-repo`
+# is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
+# by `cache_content_hash` would not take those files into account.
+function noir_repo_content_hash {
+  echo $(REPO_PATH=./noir-repo AZTEC_CACHE_COMMIT=HEAD cache_content_hash $@)
+}
+
+# Get the cache content hash. It should only be based on files committed to `aztec-packages`
+# in order to be able to support using `AZTEC_CACHE_COMMIT` for historical queries.
+function noir_content_hash {
+  # Currently we don't make a distinction between test and non-test hash
+  tests=${1:-0}
+
+  # If there are changes in the noir-repo which aren't just due to the patch applied to it,
+  # then just disable the cache, unless the noir-repo is in an evolving feature branch.
+  noir_hash=$(cache_content_hash .rebuild_patterns)
+
+  if [ "${AZTEC_CACHE_COMMIT:-HEAD}" != "HEAD" ]; then
+    # Ignore the current content of noir-repo, it doesn't support history anyway.
+    echo $noir_hash
+  else
+    cache_mode=$(scripts/sync.sh cache-mode)
+    case "$cache_mode" in
+      "noir")
+        echo $noir_hash
+        ;;
+      "noir-repo")
+        echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
+        ;;
+      *)
+        echo $cache_mode
+        ;;
+    esac
+  fi
 }
 
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  local hash=$(cache_content_hash .rebuild_patterns)
+  local hash=$(noir_content_hash)
   if cache_download noir-$hash.tar.gz; then
     return
   fi
@@ -46,7 +83,7 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
-  local hash=$(cache_content_hash .rebuild_patterns)
+  local hash=$(noir_content_hash)
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
@@ -59,6 +96,7 @@ function build_packages {
 
   cd noir-repo
   npm_install_deps
+
   # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
   # Tests fail with message "env: ‘mocha’: No such file or directory"
   yarn install
@@ -90,13 +128,12 @@ function build_packages {
     noir-repo/tooling/noirc_abi_wasm/web
 }
 
-export -f build_native build_packages
+# Export functions that can be called from `parallel` in `build`,
+# and all the functions they can call as well.
+export -f build_native build_packages noir_content_hash
 
 function build {
   echo_header "noir build"
-
-  noir_sync
-
   # TODO: Move to build image?
   denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
   if ! command -v cargo-binstall &>/dev/null; then
@@ -119,7 +156,7 @@ function test {
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
-  local test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
+  local test_hash=$(noir_content_hash 1)
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
@@ -194,17 +231,25 @@ case "$cmd" in
     git clean -ffdx
     ;;
   "ci")
+    noir_sync
     build
     test
     ;;
   ""|"fast"|"full")
+    noir_sync
     build
     ;;
   test_cmds|build_native|build_packages|format|test|release)
+    noir_sync
     $cmd "$@"
     ;;
   "hash")
-    echo $(cache_content_hash .rebuild_patterns)
+    noir_sync
+    echo $(noir_content_hash)
+    ;;
+  "hash-tests")
+    noir_sync
+    echo $(noir_content_hash 1)
     ;;
   "make-patch")
     scripts/sync.sh make-patch
