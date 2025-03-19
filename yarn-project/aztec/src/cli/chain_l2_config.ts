@@ -2,7 +2,7 @@ import type { EnvVar } from '@aztec/foundation/config';
 
 import path from 'path';
 
-export type NetworkNames = 'testnet-ignition';
+export type NetworkNames = 'ignition-testnet';
 
 export type L2ChainConfig = {
   l1ChainId: number;
@@ -33,17 +33,26 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
-  const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
+  let url: string;
+  if (networkName === 'ignition-testnet') {
+    // setting this explicitly bc it's been uploaded to testnet-ignition instead of ignition-testnet
+    url = `http://static.aztec.network/testnet-ignition/bootnodes.json`;
+  } else {
+    url = `http://static.aztec.network/${networkName}/bootnodes.json`;
+  }
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch basic contract addresses from ${url}`);
+    throw new Error(
+      `Failed to fetch basic contract addresses from ${url}. Check you are using a correct network name.`,
+    );
   }
   const json = await response.json();
+
   return json['bootnodes'];
 }
 
 export async function getL2ChainConfig(networkName: NetworkNames): Promise<L2ChainConfig | undefined> {
-  if (networkName === 'testnet-ignition') {
+  if (networkName === 'ignition-testnet') {
     const config = { ...testnetIgnitionL2ChainConfig };
     config.p2pBootstrapNodes = await getBootnodes(networkName);
     return config;
