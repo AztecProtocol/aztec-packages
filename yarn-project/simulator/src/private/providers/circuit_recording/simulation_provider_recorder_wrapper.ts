@@ -37,9 +37,16 @@ export class SimulationProviderRecorderWrapper implements SimulationProvider {
 
     // If callback was provided, we wrap it in a circuit recorder callback wrapper
     const wrappedCallback = callback ? recorder.wrapProtocolCircuitCallback(callback) : undefined;
-    const result = await this.simulator.executeProtocolCircuit(input, artifact, wrappedCallback);
+    let result: ACVMWitness;
+    try {
+      result = await this.simulator.executeProtocolCircuit(input, artifact, wrappedCallback);
+    } catch (error) {
+      // If an error occurs, we finalize the recording file with the error
+      await recorder.finishWithError(error);
+      throw error;
+    }
 
-    // Finish recording
+    // Witness generation is complete so we finish the circuit recorder
     await recorder.finish();
 
     return result;
@@ -64,7 +71,15 @@ export class SimulationProviderRecorderWrapper implements SimulationProvider {
     );
     // We wrap the oracle callback in a circuit recorder callback wrapper
     const wrappedCallback = recorder.wrapUserCircuitCallback(callback);
-    const result = await this.simulator.executeUserCircuit(input, artifact, wrappedCallback);
+    let result: ACIRExecutionResult;
+    try {
+      result = await this.simulator.executeUserCircuit(input, artifact, wrappedCallback);
+    } catch (error) {
+      // If an error occurs, we finalize the recording file with the error
+      await recorder.finishWithError(error);
+      throw error;
+    }
+
     // Witness generation is complete so we finish the circuit recorder
     await recorder.finish();
 

@@ -203,6 +203,21 @@ export class CircuitRecorder {
       this.logger.error('Failed to finalize recording file', { error: err });
     }
   }
+
+  /**
+   * Finalizes the recording file by adding the error and closing brackets. Without calling this method or `finish`,
+   * the recording file is incomplete and it fails to parse.
+   * @param error - The error that occurred during circuit execution
+   */
+  async finishWithError(error: unknown): Promise<void> {
+    try {
+      await fs.appendFile(this.filePath, '  ],\n');
+      await fs.appendFile(this.filePath, `  "error": ${JSON.stringify(error)}\n`);
+      await fs.appendFile(this.filePath, '}\n');
+    } catch (err) {
+      this.logger.error('Failed to finalize recording file with error', { error: err });
+    }
+  }
 }
 
 /**
