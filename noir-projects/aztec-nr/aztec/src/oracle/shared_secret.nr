@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::aztec_address::AztecAddress, point::Point};
+use protocol_types::{address::aztec_address::AztecAddress, point::Point};
 
 // TODO(#12656): return an app-siloed secret + document this
 #[oracle(getSharedSecret)]
