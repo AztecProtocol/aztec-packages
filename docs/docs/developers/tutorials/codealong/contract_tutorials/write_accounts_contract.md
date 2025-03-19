@@ -69,7 +69,7 @@ A side-effect of not having nonces at the protocol level is that it is not possi
 
 Now that we have a valid account contract, we need to write the typescript glue code that will take care of formatting and authenticating transactions so they can be processed by our contract, as well as deploying the contract during account setup. This takes the form of implementing the `AccountContract` interface from `@aztec/aztec.js`:
 
-#include_code account-contract-interface yarn-project/aztec.js/src/account/contract.ts typescript
+#include_code account-contract-interface yarn-project/aztec.js/src/account/account_contract.ts typescript
 
 However, if you are using the default `AccountActions` module, then you can leverage the `DefaultAccountContract` class from `@aztec/accounts` and just implement the logic for generating an auth witness that matches the one you wrote in Noir:
 

@@ -1,8 +1,9 @@
-import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
+import { createLogger, sleep } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec.js/testing';
 import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { SequencerConfig } from '@aztec/sequencer-client';
+import { createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
 import path from 'path';
@@ -36,6 +37,7 @@ const k8sLocalConfigSchema = z.object({
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
   CONTAINER_NODE_PORT: z.coerce.number().default(8080),
+  CONTAINER_NODE_ADMIN_PORT: z.coerce.number().default(8880),
   CONTAINER_SEQUENCER_PORT: z.coerce.number().default(8080),
   CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
@@ -59,6 +61,7 @@ const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
 const directConfigSchema = z.object({
   PXE_URL: z.string().url('PXE_URL must be a valid URL'),
   NODE_URL: z.string().url('NODE_URL must be a valid URL'),
+  NODE_ADMIN_URL: z.string().url('NODE_ADMIN_URL must be a valid URL'),
   ETHEREUM_HOSTS: ethereumHostsSchema,
   K8S: z.literal('false'),
 });
@@ -559,7 +562,7 @@ export async function runAlertCheck(config: EnvConfig, alerts: AlertConfig[], lo
 }
 
 export async function updateSequencerConfig(url: string, config: Partial<SequencerConfig>) {
-  const node = createAztecNodeClient(url);
+  const node = createAztecNodeAdminClient(url);
   // Retry incase the port forward is not ready yet
   await retry(() => node.setConfig(config), 'Update sequencer config', makeBackoff([1, 3, 6]), logger);
 }
@@ -570,7 +573,7 @@ export async function getSequencers(namespace: string) {
   return stdout.split(' ');
 }
 
-export async function updateK8sSequencersConfig(args: {
+async function updateK8sSequencersConfig(args: {
   containerPort: number;
   namespace: string;
   config: Partial<SequencerConfig>;
@@ -593,12 +596,12 @@ export async function updateK8sSequencersConfig(args: {
 export async function updateSequencersConfig(env: EnvConfig, config: Partial<SequencerConfig>) {
   if (isK8sConfig(env)) {
     await updateK8sSequencersConfig({
-      containerPort: env.CONTAINER_NODE_PORT,
+      containerPort: env.CONTAINER_NODE_ADMIN_PORT,
       namespace: env.NAMESPACE,
       config,
     });
   } else {
-    await updateSequencerConfig(env.NODE_URL, config);
+    await updateSequencerConfig(env.NODE_ADMIN_URL, config);
   }
 }
 

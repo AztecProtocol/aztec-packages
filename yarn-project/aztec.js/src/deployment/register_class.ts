@@ -9,36 +9,23 @@ import type { ContractFunctionInteraction } from '../contract/contract_function_
 import { getRegistererContract } from '../contract/protocol_contracts.js';
 import type { Wallet } from '../wallet/index.js';
 
-const defaultEmitPublicBytecode =
-  // guard against `process` not being defined (e.g. in the browser)
-  typeof process === 'object' && typeof process.env === 'object'
-    ? ['1', 'true', 'yes', ''].includes(process.env.AZTEC_EMIT_PUBLIC_BYTECODE ?? '')
-    : true;
-
 /** Sets up a call to register a contract class given its artifact. */
 export async function registerContractClass(
   wallet: Wallet,
   artifact: ContractArtifact,
-  emitPublicBytecode = defaultEmitPublicBytecode,
 ): Promise<ContractFunctionInteraction> {
   const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
     await getContractClassFromArtifact(artifact);
   const registerer = await getRegistererContract(wallet);
-  const fn = registerer.methods.register(
-    artifactHash,
-    privateFunctionsRoot,
-    publicBytecodeCommitment,
-    emitPublicBytecode,
-  );
 
   const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
-  fn.addCapsule(
-    new Capsule(
-      ProtocolContractAddress.ContractClassRegisterer,
-      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-      encodedBytecode,
-    ),
-  );
-
-  return fn;
+  return registerer.methods.register(artifactHash, privateFunctionsRoot, publicBytecodeCommitment).with({
+    capsules: [
+      new Capsule(
+        ProtocolContractAddress.ContractClassRegisterer,
+        new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+        encodedBytecode,
+      ),
+    ],
+  });
 }

@@ -3,7 +3,6 @@ import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/a
 import {
   type AccountWallet,
   AztecAddress,
-  type AztecNode,
   BatchCall,
   ContractFunctionInteraction,
   type DeployMethod,
@@ -19,6 +18,7 @@ import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
@@ -31,11 +31,17 @@ const MIN_BALANCE = 1e3;
 export class BotFactory {
   private pxe: PXE;
   private node?: AztecNode;
+  private nodeAdmin?: AztecNodeAdmin;
   private log = createLogger('bot');
 
-  constructor(private readonly config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}) {
-    if (config.flushSetupTransactions && !dependencies.node) {
-      throw new Error(`Either a node client or node url must be provided if transaction flushing is requested`);
+  constructor(
+    private readonly config: BotConfig,
+    dependencies: { pxe?: PXE; nodeAdmin?: AztecNodeAdmin; node?: AztecNode },
+  ) {
+    if (config.flushSetupTransactions && !dependencies.nodeAdmin) {
+      throw new Error(
+        `Either a node admin client or node admin url must be provided if transaction flushing is requested`,
+      );
     }
     if (config.senderPrivateKey && !dependencies.node) {
       throw new Error(
@@ -47,6 +53,7 @@ export class BotFactory {
     }
 
     this.node = dependencies.node;
+    this.nodeAdmin = dependencies.nodeAdmin;
 
     if (dependencies.pxe) {
       this.log.info(`Using local PXE`);
@@ -96,10 +103,12 @@ export class BotFactory {
 
       const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
 
+      // docs:start:claim_and_deploy
       const wallet = await account.getWallet();
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
       const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
+      // docs:end:claim_and_deploy
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
       await this.tryFlushTxs();
       this.log.verbose('Waiting for account deployment to settle');
@@ -250,7 +259,7 @@ export class BotFactory {
     if (this.config.flushSetupTransactions) {
       this.log.verbose('Flushing transactions');
       try {
-        await this.node!.flushTxs();
+        await this.nodeAdmin!.flushTxs();
       } catch (err) {
         this.log.error(`Failed to flush transactions: ${err}`);
       }

@@ -98,10 +98,10 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
-    // All private functions perform note discovery, since they may need to access notes. This is slightly inefficient
-    // and could be improved by only doing it once we actually attempt to read any.
-    let note_discovery_call = if NOTES.len() > 0 {
-        create_note_discovery_call()
+    // All private functions perform message discovery, since they may need to access notes. This is slightly
+    // inefficient and could be improved by only doing it once we actually attempt to read any.
+    let message_discovery_call = if NOTES.len() > 0 {
+        create_message_discovery_call()
     } else {
         quote {}
     };
@@ -157,7 +157,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
-        $note_discovery_call
+        $message_discovery_call
     };
 
     let to_append = quote {
@@ -325,10 +325,11 @@ pub(crate) comptime fn transform_top_level_unconstrained(f: FunctionDefinition) 
         quote {}
     };
 
-    // All unconstrained functions perform note discovery, since they may need to access notes. This is slightly
-    // inefficient and could be improved by only doing it once we actually attempt to read any.
-    let note_discovery_call = if NOTES.len() > 0 {
-        create_note_discovery_call()
+    // All unconstrained functions perform message discovery, since they may need to access private notes that would be
+    // found during this process. This is slightly inefficient and could be improved by only doing it once we actually
+    // attempt to read any.
+    let message_discovery_call = if NOTES.len() > 0 {
+        create_message_discovery_call()
     } else {
         quote {}
     };
@@ -336,7 +337,7 @@ pub(crate) comptime fn transform_top_level_unconstrained(f: FunctionDefinition) 
     let to_prepend = quote {
         $context_creation
         $storage_init
-        $note_discovery_call
+        $message_discovery_call
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
@@ -380,14 +381,14 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
         .quoted_contents()
 }
 
-/// Injects a call to `aztec::discovery::discover_new_notes`, causing for new notes to be added to PXE and made
+/// Injects a call to `aztec::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
 /// available for the current execution.
-pub(crate) comptime fn create_note_discovery_call() -> Quoted {
+pub(crate) comptime fn create_message_discovery_call() -> Quoted {
     quote {
-        /// Safety: note discovery returns nothing and is performed solely for its side-effects. It is therefore always
-        /// safe to call.
+        /// Safety: message discovery returns nothing and is performed solely for its side-effects. It is therefore
+        /// always safe to call.
         unsafe {
-            dep::aztec::discovery::discover_new_notes(
+            dep::aztec::discovery::discover_new_messages(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
             );

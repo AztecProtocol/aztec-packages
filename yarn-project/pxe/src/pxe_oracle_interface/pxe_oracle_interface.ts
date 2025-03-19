@@ -33,7 +33,6 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
-import type { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDao } from '../storage/note_data_provider/note_dao.js';
@@ -56,8 +55,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
-    private authWitnessDataProvider: AuthWitnessDataProvider,
-    private log = createLogger('pxe:pxe_data_manager'),
+    private log = createLogger('pxe:pxe_oracle_interface'),
   ) {}
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
@@ -81,11 +79,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`No contract instance found for address ${address.toString()}`);
     }
     return instance;
-  }
-
-  async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    const witness = await this.authWitnessDataProvider.getAuthWitness(messageHash);
-    return witness;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
@@ -150,21 +143,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   // Only used in public.
-  public getL1ToL2LeafValue(_leafIndex: bigint): Promise<Fr | undefined> {
+  public getL1ToL2MessageHash(_leafIndex: bigint): Promise<Fr | undefined> {
     throw new Error('Unimplemented in private!');
   }
 
-  /**
-   * Gets the index of a commitment in the note hash tree.
-   * @param commitment - The commitment.
-   * @returns - The index of the commitment. Undefined if it does not exist in the tree.
-   */
-  async getCommitmentIndex(commitment: Fr) {
-    return await this.#findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
-  }
-
   // We need this in public as part of the EXISTS calls - but isn't used in private
-  public getCommitmentValue(_leafIndex: bigint): Promise<Fr | undefined> {
+  public getNoteHash(_leafIndex: bigint): Promise<Fr | undefined> {
     throw new Error('Unimplemented in private!');
   }
 
