@@ -189,11 +189,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param extraHashedArgs - The extraHashedArgs to add to the interaction
    * @returns A new ContractFunctionInteraction with the added metadata, but calling the same original function in the same manner
    */
-  public async withMetadata(
-    authWitnesses: AuthWitness[],
-    capsules: Capsule[],
-    extraHashedArgs: HashedValues[],
-  ): Promise<ContractFunctionInteraction> {
+  public async with({
+    authWitnesses = [],
+    capsules = [],
+    extraHashedArgs = [],
+  }: {
+    authWitnesses?: AuthWitness[];
+    capsules?: Capsule[];
+    extraHashedArgs?: HashedValues[];
+  }): Promise<ContractFunctionInteraction> {
     return new ContractFunctionInteraction(
       this.wallet,
       this.contractAddress,

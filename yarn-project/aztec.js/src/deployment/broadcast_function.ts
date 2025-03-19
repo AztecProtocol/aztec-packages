@@ -15,7 +15,7 @@ import {
 } from '@aztec/stdlib/contract';
 import { Capsule } from '@aztec/stdlib/tx';
 
-import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { getRegistererContract } from '../contract/protocol_contracts.js';
 import type { Wallet } from '../wallet/index.js';
 
@@ -59,16 +59,12 @@ export async function broadcastPrivateFunction(
   const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
 
   const registerer = await getRegistererContract(wallet);
-  const broadcastFunctionArtifact = registerer.artifact.functions.find(f => f.name === 'broadcast_private_function')!;
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-  const fn = new ContractFunctionInteraction(
-    wallet,
-    registerer.address,
-    broadcastFunctionArtifact!,
-    [
+  return registerer.methods
+    .broadcast_private_function(
       contractClass.id,
       artifactMetadataHash,
       unconstrainedFunctionsArtifactTreeRoot,
@@ -78,18 +74,16 @@ export async function broadcastPrivateFunction(
       artifactTreeLeafIndex,
       // eslint-disable-next-line camelcase
       { selector, metadata_hash: functionMetadataHash, vk_hash: vkHash },
-    ],
-    [],
-    [
-      new Capsule(
-        ProtocolContractAddress.ContractClassRegisterer,
-        new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-        bytecode,
-      ),
-    ],
-  );
-
-  return fn;
+    )
+    .with({
+      capsules: [
+        new Capsule(
+          ProtocolContractAddress.ContractClassRegisterer,
+          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          bytecode,
+        ),
+      ],
+    });
 }
 
 /**
@@ -128,19 +122,12 @@ export async function broadcastUnconstrainedFunction(
   } = await createUnconstrainedFunctionMembershipProof(selector, artifact);
 
   const registerer = await getRegistererContract(wallet);
-  const broadcastFunctionArtifact = registerer.artifact.functions.find(
-    f => f.name === 'broadcast_unconstrained_function',
-  );
   const bytecode = bufferAsFields(
     unconstrainedFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-
-  const fn = new ContractFunctionInteraction(
-    wallet,
-    registerer.address,
-    broadcastFunctionArtifact!,
-    [
+  return registerer.methods
+    .broadcast_unconstrained_function(
       contractClass.id,
       artifactMetadataHash,
       privateFunctionsArtifactTreeRoot,
@@ -148,16 +135,14 @@ export async function broadcastUnconstrainedFunction(
       artifactTreeLeafIndex,
       // eslint-disable-next-line camelcase
       { selector, metadata_hash: functionMetadataHash },
-    ],
-    [],
-    [
-      new Capsule(
-        ProtocolContractAddress.ContractClassRegisterer,
-        new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-        bytecode,
-      ),
-    ],
-  );
-
-  return fn;
+    )
+    .with({
+      capsules: [
+        new Capsule(
+          ProtocolContractAddress.ContractClassRegisterer,
+          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          bytecode,
+        ),
+      ],
+    });
 }
