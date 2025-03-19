@@ -254,7 +254,9 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
     // Now we can compute lookups and permutations.
     {
         auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+            // Poseidon2
             std::make_unique<LookupIntoDynamicTableSequential<lookup_poseidon2_hash_poseidon2_perm_settings>>(),
+            // Range Check
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_diff_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_rng_chk_pow_2_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r0_is_u16_settings>>(),
@@ -265,8 +267,10 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r5_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r6_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r7_is_u16_settings>>(),
+            // Bitwise
             std::make_unique<LookupIntoBitwise<lookup_bitwise_byte_operations_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length_settings>>(),
+            // SHA-256
             std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_settings>>(),
             // Bytecode Hashing
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_get_packed_field_settings>>(),
