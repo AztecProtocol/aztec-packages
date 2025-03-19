@@ -25,7 +25,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 2
+  replicas: 32
   bb:
     hardwareConcurrency: 31
   gke:
@@ -36,9 +36,12 @@ proverAgent:
       cpu: "31"
 
 bot:
-  followChain: "PENDING"
+  # 2 bots each building txs as fast as possible
+  # It takes about 16 seconds to build a tx so each bot should produce ~2 txs per block
+  replicas: 2
+  followChain: "NONE"
   enabled: true
-  txIntervalSeconds: 900
+  txIntervalSeconds: 1
   resources:
     requests:
       memory: 15Gi

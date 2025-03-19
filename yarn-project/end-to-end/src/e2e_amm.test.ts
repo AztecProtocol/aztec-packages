@@ -127,9 +127,10 @@ describe('AMM', () => {
 
       const addLiquidityInteraction = amm
         .withWallet(liquidityProvider)
-        .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits);
+        .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits)
+        .with({ authWitnesses: [token0Authwit, token1Authwit] });
       await capturePrivateExecutionStepsIfEnvSet('amm-add-liquidity', addLiquidityInteraction);
-      await addLiquidityInteraction.send({ authWitnesses: [token0Authwit, token1Authwit] }).wait();
+      await addLiquidityInteraction.send().wait();
 
       const ammBalancesAfter = await getAmmBalances();
       const lpBalancesAfter = await getWalletBalances(liquidityProvider);
@@ -237,9 +238,10 @@ describe('AMM', () => {
 
       const swapExactTokensInteraction = amm
         .withWallet(swapper)
-        .methods.swap_exact_tokens_for_tokens(token0.address, token1.address, amountIn, amountOutMin, nonceForAuthwits);
+        .methods.swap_exact_tokens_for_tokens(token0.address, token1.address, amountIn, amountOutMin, nonceForAuthwits)
+        .with({ authWitnesses: [swapAuthwit] });
       await capturePrivateExecutionStepsIfEnvSet('amm-swap-exact-tokens', swapExactTokensInteraction);
-      await swapExactTokensInteraction.send({ authWitnesses: [swapAuthwit] }).wait();
+      await swapExactTokensInteraction.send().wait();
 
       // We know exactly how many tokens we're supposed to get because we know nobody else interacted with the AMM
       // before we did.

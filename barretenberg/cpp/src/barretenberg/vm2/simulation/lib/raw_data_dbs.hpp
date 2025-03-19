@@ -15,8 +15,8 @@ class HintedRawContractDB final : public ContractDBInterface {
   public:
     HintedRawContractDB(const ExecutionHints& hints);
 
-    ContractInstance get_contract_instance(const AztecAddress& address) const override;
-    ContractClass get_contract_class(const ContractClassId& class_id) const override;
+    std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
+    std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
 
   private:
     FF get_bytecode_commitment(const ContractClassId& class_id) const;

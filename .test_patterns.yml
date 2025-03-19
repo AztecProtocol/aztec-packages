@@ -166,6 +166,7 @@ tests:
 
   # boxes
   - regex: "boxes/scripts/run_test.sh vite"
+    error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
 
