@@ -50,13 +50,6 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress>;
 
   /**
-   * Retrieve the auth witness for a given message hash.
-   * @param messageHash - The message hash.
-   * @returns A Promise that resolves to an array of field elements representing the auth witness.
-   */
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
-
-  /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
    * @returns A Promise that resolves to nullifier keys.

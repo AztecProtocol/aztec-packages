@@ -125,8 +125,16 @@ where
     let packed_note = note.pack();
 
     let mut fields = [0; N + 2];
-    fields[0] = storage_slot;
-    fields[1] = Note::get_id(); // Note that the note id only uses 7 bits of this field.
+
+    // Note that we're almost accidentally following the standard log encoding here: because the note type id only uses
+    // 7 bits, it just barely fits in the log metadata, and the log type id is implicitly 0 (i.e. a private note log).
+    // Partial notes modify `get_id` to have it set the 8th bit, resulting in a log type id of 1 (i.e. a partial note
+    // private log). Fields 1 to len are the note content, which we here hardcode to be the storage slot in the first
+    // field, and the packed note following after.
+    // Ideally we'd know if this is a private note or a partial note, and call a function that'd be the opposite of
+    // discovery::private_notes::decode_private_note_log (or partial accordingly).
+    fields[0] = Note::get_id();
+    fields[1] = storage_slot;
     for i in 0..packed_note.len() {
         fields[i + 2] = packed_note[i];
     }

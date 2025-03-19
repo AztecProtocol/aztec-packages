@@ -114,7 +114,7 @@ function install_hooks {
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
   echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
-  echo "(cd noir && ./postcheckout.sh $@)" >$hooks_dir/post-checkout
+  echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout
   chmod +x $hooks_dir/post-checkout
 }
 
@@ -126,34 +126,26 @@ function test_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
 
-function start_txe {
-  cd $root/yarn-project/txe
-  LOG_LEVEL=info TXE_PORT=$1 node --no-warnings ./dest/bin/index.js &
-  local pid=$!
-  trap "kill -SIGTERM $pid &>/dev/null || true" SIGTERM;
-  wait $pid
-  wait $pid
-  local code=$?
-  if [ "$code" -ne 0 ]; then
-    sudo lsof -i
-  fi
-  return $code
-}
-export -f start_txe
-
 function start_txes {
   # Starting txe servers with incrementing port numbers.
-  trap 'kill -SIGTERM $(jobs -p) &>/dev/null || true' EXIT
+  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
-    existing_pid=$(lsof -ti :$((45730 + i)) || true)
-    [ -n "$existing_pid" ] && kill -9 $existing_pid && wait $existing_pid || true
-    dump_fail "start_txe $((45730 + i))" &
+    port=$((45730 + i))
+    existing_pid=$(lsof -ti :$port || true)
+    if [ -n "$existing_pid" ]; then
+      echo "Killing existing process $existing_pid on port: $port"
+      kill -9 $existing_pid &>/dev/null || true
+      while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
+    fi
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings $root/yarn-project/txe/dest/bin/index.js'" &
+    txe_pids+="$! "
   done
+
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 15 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
+        [ $j == 15 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
         sleep 1
         j=$((j+1))
       done

@@ -146,6 +146,10 @@ tests:
       - *palla
 
   # yarn-project tests
+  - regex: "p2p/src/services/discv5/discv5_service.test.ts"
+    error_regex: "Timeout: Failed to connect to"
+    owners:
+      - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     owners:
       - *sean

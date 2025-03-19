@@ -35,9 +35,6 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     await capturePrivateExecutionStepsIfEnvSet('token-transfer', tokenTransferInteraction);
     await tokenTransferInteraction.send().wait();
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
-
-    // We give wallets[0] access to wallets[1]'s notes to be able to check balances after the test.
-    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
   it('transfer to self', async () => {
@@ -65,27 +62,21 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     // docs:start:create_authwit
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
     // docs:end:create_authwit
-    // docs:start:add_authwit
-    await wallets[1].addAuthWitness(witness);
-    // docs:end:add_authwit
-    // docs:end:authwit_transfer_example
-
-    // We give wallets[1] access to wallets[0]'s notes to be able to transfer the notes.
-    wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
 
     // Perform the transfer
-    await action.send().wait();
+
+    // docs:start:add_authwit
+    await action.send({ authWitnesses: [witness] }).wait();
+    // docs:end:add_authwit
+    // docs:end:authwit_transfer_example
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
     // Perform the transfer again, should fail
     const txReplay = asset
       .withWallet(wallets[1])
       .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
-      .send();
+      .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
-
-    // We give wallets[0] access to wallets[1]'s notes to be able to check balances after the test.
-    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
   });
 
   describe('failure cases', () => {
@@ -124,10 +115,9 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-      await wallets[1].addAuthWitness(witness);
 
       // Perform the transfer
-      await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
       expect(await asset.methods.balance_of_private(wallets[0].getAddress()).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_private(wallets[1].getAddress()).simulate()).toEqual(balance1);
     });
@@ -173,12 +163,8 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       );
 
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-      await wallets[2].addAuthWitness(witness);
 
-      // We give wallets[2] access to wallets[0]'s notes to test the authwit.
-      wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
-
-      await expect(action.prove()).rejects.toThrow(
+      await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
       expect(await asset.methods.balance_of_private(wallets[0].getAddress()).simulate()).toEqual(balance0);
