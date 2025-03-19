@@ -20,41 +20,29 @@ export class SimulationProviderRecorderWrapper implements SimulationProvider {
     artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler | undefined,
   ): Promise<ACVMWitness> {
-    const recordingEnabled = process.env.CIRCUIT_RECORD_DIR !== undefined;
-    let circuitRecorder: CircuitRecorder | undefined;
-    let wrappedCallback: ForeignCallHandler | undefined = undefined;
-    if (recordingEnabled) {
-      // Recording is enabled so we start a new circuit recorder
-      circuitRecorder = await CircuitRecorder.start(
-        process.env.CIRCUIT_RECORD_DIR!,
-        input,
-        Buffer.from(artifact.bytecode, 'base64'),
-        artifact.name,
-        'main',
-      );
-      if (callback !== undefined) {
-        // Callback was provided so we wrap it in a circuit recorder callback wrapper
-        wrappedCallback = circuitRecorder.wrapProtocolCircuitCallback(callback);
-      }
+    const recordDir = process.env.CIRCUIT_RECORD_DIR;
+    if (!recordDir) {
+      // Recording is not enabled so we just execute the circuit
+      return this.simulator.executeProtocolCircuit(input, artifact, callback);
     }
 
-    try {
-      const result = await this.simulator.executeProtocolCircuit(
-        input,
-        artifact,
-        wrappedCallback ? wrappedCallback : callback,
-      );
+    // Start recording circuit execution
+    const recorder = await CircuitRecorder.start(
+      recordDir,
+      input,
+      Buffer.from(artifact.bytecode, 'base64'),
+      artifact.name,
+      'main',
+    );
 
-      if (recordingEnabled) {
-        // Recording is enabled and witness generation is complete so we finish the circuit recorder
-        await circuitRecorder!.finish();
-      }
+    // If callback was provided, we wrap it in a circuit recorder callback wrapper
+    const wrappedCallback = callback ? recorder.wrapProtocolCircuitCallback(callback) : undefined;
+    const result = await this.simulator.executeProtocolCircuit(input, artifact, wrappedCallback);
 
-      return result;
-    } catch (err) {
-      this.log.error('Circuit execution failed', { error: err });
-      throw err;
-    }
+    // Finish recording
+    await recorder.finish();
+
+    return result;
   }
 
   async executeUserCircuit(
