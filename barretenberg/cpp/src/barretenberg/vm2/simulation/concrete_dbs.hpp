@@ -22,11 +22,11 @@ class ContractDB final : public ContractDBInterface {
     // Gets an instance from the DB and proves address derivation from the result.
     // This does NOT prove that the address is in the nullifier tree.
     // Silo the address and use the MerkleDB to prove that.
-    ContractInstance get_contract_instance(const AztecAddress& address) const override;
+    std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
     // Gets a class from the DB and proves class id derivation from the result.
     // This does NOT prove that the class id is in the nullifier tree.
     // Silo the class id and use the MerkleDB to prove that.
-    ContractClass get_contract_class(const ContractClassId& class_id) const override;
+    std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
 
   private:
     ContractDBInterface& raw_contract_db;
