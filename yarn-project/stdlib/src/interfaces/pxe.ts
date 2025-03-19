@@ -56,38 +56,6 @@ export interface PXE {
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
   /**
-   * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
-   * behalf of a user. For instance, a token transfer initiated by a different address may request
-   * authorization from the user to move their tokens. This authorization is granted by the user
-   * account contract by verifying an auth witness requested to the execution oracle. Witnesses are
-   * usually a signature over a hash of the action to be authorized, but their actual contents depend
-   * on the account contract that consumes them.
-   *
-   * @param authWitness - The auth witness to insert. Composed of an identifier, which is the hash of
-   * the action to be authorized, and the actual witness as an array of fields, which are to be
-   * deserialized and processed by the account contract.
-   */
-  addAuthWitness(authWitness: AuthWitness): Promise<void>;
-
-  /**
-   * Fetches the serialized auth witness for a given message hash or returns undefined if not found.
-   * @param messageHash - The hash of the message for which to get the auth witness.
-   * @returns The serialized auth witness for the given message hash.
-   */
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
-
-  /**
-   * Adds a capsule.
-   * @param contract - The address of the contract to add the capsule to.
-   * @param storageSlot - The storage slot to add the capsule to.
-   * @param capsule - An array of field elements representing the capsule.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
-   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
-   * network state it's backed by local PXE db.
-   */
-  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void>;
-
-  /**
    * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the PXE Service will trial-decrypt all published notes on
    * the chain and store those that correspond to the registered account. Will do nothing if the
@@ -312,6 +280,7 @@ export interface PXE {
     functionName: string,
     args: any[],
     to: AztecAddress,
+    authwits?: AuthWitness[],
     from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded>;
@@ -461,12 +430,6 @@ const PXEInfoSchema = z.object({
 
 export const PXESchema: ApiSchemaFor<PXE> = {
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
-  addAuthWitness: z.function().args(AuthWitness.schema).returns(z.void()),
-  getAuthWitness: z
-    .function()
-    .args(schemas.Fr)
-    .returns(z.union([z.undefined(), z.array(schemas.Fr)])),
-  storeCapsule: z.function().args(schemas.AztecAddress, schemas.Fr, z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
@@ -527,6 +490,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       z.string(),
       z.array(z.any()),
       schemas.AztecAddress,
+      optional(z.array(AuthWitness.schema)),
       optional(schemas.AztecAddress),
       optional(z.array(schemas.AztecAddress)),
     )

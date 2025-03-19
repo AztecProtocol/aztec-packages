@@ -9,12 +9,13 @@ pub mod nonce_discovery;
 
 /// We reserve two fields in the note private log that are not part of the note content: one for the storage slot, and
 /// one for the combined log and note type ID.
-global NOTE_PRIVATE_LOG_RESERVED_FIELDS: u32 = 2;
+global PRIVATE_LOG_EXPANDED_METADATA_LEN: u32 = 1;
 
-/// The maximum length of the packed representation of a note's contents. This is limited by private log size, encryption
-/// overhead and extra fields in the log (e.g. the combined log and note type ID).
-pub global MAX_NOTE_PACKED_LEN: u32 =
-    PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS - NOTE_PRIVATE_LOG_RESERVED_FIELDS;
+/// The maximum length of the log's content, i.e. after log type ID and metadata extraction.
+pub global MAX_LOG_CONTENT_LEN: u32 =
+    PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS - PRIVATE_LOG_EXPANDED_METADATA_LEN;
+
+use private_notes::MAX_NOTE_PACKED_LEN;
 
 pub struct NoteHashAndNullifier {
     /// The result of NoteHash::compute_note_hash
@@ -32,9 +33,9 @@ pub struct NoteHashAndNullifier {
 /// `_compute_note_hash_and_nullifier`, which looks something like this:
 ///
 /// ```
-/// |packed_note_content, contract_address, nonce, storage_slot, note_type_id| {
+/// |packed_note, contract_address, nonce, storage_slot, note_type_id| {
 ///     if note_type_id == MyNoteType::get_id() {
-///         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+///         assert(packed_note.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
 ///
 ///         let note = MyNoteType::unpack(aztec::utils::array::subarray(packed_note.storage(), 0));
 ///
@@ -58,7 +59,7 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note_content */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* nonce */ Field) -> Option<NoteHashAndNullifier>;
+type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// Performs the message discovery process, in which private are downloaded and inspected to find new private notes,
 /// partial notes and events, etc., and pending partial notes are processed to search for their completion logs.

@@ -22,7 +22,6 @@ struct EventsContainer {
     EventEmitterInterface<AluEvent>::Container alu;
     EventEmitterInterface<BitwiseEvent>::Container bitwise;
     EventEmitterInterface<MemoryEvent>::Container memory;
-    EventEmitterInterface<AddressingEvent>::Container addressing;
     EventEmitterInterface<BytecodeRetrievalEvent>::Container bytecode_retrieval;
     EventEmitterInterface<BytecodeHashingEvent>::Container bytecode_hashing;
     EventEmitterInterface<BytecodeDecompositionEvent>::Container bytecode_decomposition;

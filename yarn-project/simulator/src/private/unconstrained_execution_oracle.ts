@@ -149,10 +149,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
    * @returns Authentication witness for the requested message hash.
    */
   public override getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    return Promise.resolve(
-      this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness ??
-        this.executionDataProvider.getAuthWitness(messageHash),
-    );
+    return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
   }
 
   /**
