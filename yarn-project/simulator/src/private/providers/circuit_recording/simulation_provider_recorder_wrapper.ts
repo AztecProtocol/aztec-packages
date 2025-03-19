@@ -1,4 +1,3 @@
-import { createLogger } from '@aztec/foundation/log';
 import type { ForeignCallHandler } from '@aztec/noir-protocol-circuits-types/types';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
@@ -13,67 +12,62 @@ import { CircuitRecorder } from './circuit_recorder.js';
  * recording works.
  */
 export class SimulationProviderRecorderWrapper implements SimulationProvider {
-  constructor(private simulator: SimulationProvider, private log = createLogger('simulator-recorder')) {}
+  constructor(private simulator: SimulationProvider) {}
 
-  async executeProtocolCircuit(
+  executeProtocolCircuit(
     input: ACVMWitness,
     artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler | undefined,
   ): Promise<ACVMWitness> {
-    const recordDir = process.env.CIRCUIT_RECORD_DIR;
-    if (!recordDir) {
-      // Recording is not enabled so we just execute the circuit
-      return this.simulator.executeProtocolCircuit(input, artifact, callback);
-    }
+    const bytecode = Buffer.from(artifact.bytecode, 'base64');
 
-    // Start recording circuit execution
-    const recorder = await CircuitRecorder.start(
-      recordDir,
+    return this.#simulate<ForeignCallHandler | undefined, ACVMWitness>(
+      wrappedCallback => this.simulator.executeProtocolCircuit(input, artifact, wrappedCallback),
       input,
-      Buffer.from(artifact.bytecode, 'base64'),
+      bytecode,
       artifact.name,
       'main',
+      callback,
     );
-
-    // If callback was provided, we wrap it in a circuit recorder callback wrapper
-    const wrappedCallback = callback ? recorder.wrapProtocolCircuitCallback(callback) : undefined;
-    let result: ACVMWitness;
-    try {
-      result = await this.simulator.executeProtocolCircuit(input, artifact, wrappedCallback);
-    } catch (error) {
-      // If an error occurs, we finalize the recording file with the error
-      await recorder.finishWithError(error);
-      throw error;
-    }
-
-    // Witness generation is complete so we finish the circuit recorder
-    await recorder.finish();
-
-    return result;
   }
 
-  async executeUserCircuit(
+  executeUserCircuit(
     input: ACVMWitness,
     artifact: FunctionArtifactWithContractName,
     callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
-    if (!process.env.CIRCUIT_RECORD_DIR) {
-      return this.simulator.executeUserCircuit(input, artifact, callback);
-    }
-
-    // The CIRCUIT_RECORD_DIR environment variable is set, so we start a new circuit recorder
-    const recorder = await CircuitRecorder.start(
-      process.env.CIRCUIT_RECORD_DIR,
+    return this.#simulate<ACIRCallback, ACIRExecutionResult>(
+      wrappedCallback => this.simulator.executeUserCircuit(input, artifact, wrappedCallback),
       input,
       artifact.bytecode,
       artifact.contractName,
       artifact.name,
+      callback,
     );
-    // We wrap the oracle callback in a circuit recorder callback wrapper
-    const wrappedCallback = recorder.wrapUserCircuitCallback(callback);
-    let result: ACIRExecutionResult;
+  }
+
+  async #simulate<C extends ACIRCallback | ForeignCallHandler | undefined, T>(
+    simulateFn: (wrappedCallback: C) => Promise<T>,
+    input: ACVMWitness,
+    bytecode: Buffer,
+    contractName: string,
+    functionName: string,
+    callback: C,
+  ): Promise<T> {
+    const recordDir = process.env.CIRCUIT_RECORD_DIR;
+    if (!recordDir) {
+      // Recording is not enabled so we just execute the circuit
+      return simulateFn(callback);
+    }
+
+    // Start recording circuit execution
+    const recorder = await CircuitRecorder.start(recordDir, input, bytecode, contractName, functionName);
+
+    // If callback was provided, we wrap it in a circuit recorder callback wrapper
+    const wrappedCallback = recorder.wrapCallback(callback);
+    let result: T;
     try {
-      result = await this.simulator.executeUserCircuit(input, artifact, wrappedCallback);
+      result = await simulateFn(wrappedCallback as C);
     } catch (error) {
       // If an error occurs, we finalize the recording file with the error
       await recorder.finishWithError(error);

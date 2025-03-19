@@ -151,11 +151,33 @@ export class CircuitRecorder {
   }
 
   /**
+   * Wraps a callback to record all oracle/foreign calls.
+   * @param callback - The original callback to wrap, either a user circuit callback or protocol circuit callback.
+   * @returns A wrapped callback that records all oracle interactions.
+   */
+  wrapCallback(callback: ACIRCallback | ForeignCallHandler | undefined): ACIRCallback | ForeignCallHandler | undefined {
+    if (!callback) {
+      return undefined;
+    }
+    if (this.#isACIRCallback(callback)) {
+      return this.#wrapUserCircuitCallback(callback);
+    }
+    return this.#wrapProtocolCircuitCallback(callback);
+  }
+
+  /**
+   * Type guard to check if a callback is an ACIRCallback.
+   */
+  #isACIRCallback(callback: ACIRCallback | ForeignCallHandler): callback is ACIRCallback {
+    return typeof callback === 'object' && callback !== null && !('call' in callback);
+  }
+
+  /**
    * Wraps a user circuit callback to record all oracle calls.
    * @param callback - The original circuit callback.
    * @returns A wrapped callback that records all oracle interactions which is to be provided to the ACVM.
    */
-  wrapUserCircuitCallback(callback: ACIRCallback): ACIRCallback {
+  #wrapUserCircuitCallback(callback: ACIRCallback): ACIRCallback {
     const recordingCallback: ACIRCallback = {} as ACIRCallback;
     const oracleMethods = Object.getOwnPropertyNames(Oracle.prototype).filter(name => name !== 'constructor');
 
@@ -186,7 +208,7 @@ export class CircuitRecorder {
    * @param callback - The original oracle circuit callback.
    * @returns A wrapped handler that records all oracle interactions which is to be provided to the ACVM.
    */
-  wrapProtocolCircuitCallback(callback: ForeignCallHandler): ForeignCallHandler {
+  #wrapProtocolCircuitCallback(callback: ForeignCallHandler): ForeignCallHandler {
     return async (name: string, inputs: ForeignCallInput[]): Promise<ForeignCallOutput[]> => {
       const result = await callback(name, inputs);
       await this.#recordCall(name, inputs, result);
