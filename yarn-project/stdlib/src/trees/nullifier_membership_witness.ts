@@ -61,7 +61,7 @@ export class NullifierMembershipWitness {
    * Returns a representation of the nullifier membership witness as expected by intrinsic Noir deserialization.
    */
   public toNoirRepresentation(): (string | string[])[] {
-    // TODO(benesjan): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
+    // TODO(#12874): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
     return [
       new Fr(this.index).toString() as string,
       ...(this.leafPreimage.toFields().map(fr => fr.toString()) as string[]),
