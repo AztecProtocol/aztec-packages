@@ -35,7 +35,7 @@ export class BatchCall extends BaseContractInteraction {
   /**
    * Returns an execution request that represents this operation.
    * @param options An optional object containing additional configuration for the request generation.
-   * @returns An execution request wrapped in promise.
+   * @returns An execution payload wrapped in promise.
    */
   public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
     const requests = await this.getRequests(options);
@@ -52,7 +52,7 @@ export class BatchCall extends BaseContractInteraction {
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
-    const { indexedExecutionPayloads, unconstrained } = (await this.getRequests()).reduce<{
+    const { indexedExecutionPayloads, unconstrained } = (await this.getRequests(options)).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
       /** Keep track of the number of public calls to retrieve the return values */
