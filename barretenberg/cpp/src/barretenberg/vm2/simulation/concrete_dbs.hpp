@@ -44,6 +44,9 @@ class MerkleDB final : public MerkleDBInterface {
 
     const TreeSnapshots& get_tree_roots() const override;
 
+    crypto::merkle_tree::fr_sibling_path get_sibling_path(world_state::MerkleTreeId tree_id,
+                                                          crypto::merkle_tree::index_t leaf_index) const override;
+
   private:
     MerkleDBInterface& raw_merkle_db;
 };

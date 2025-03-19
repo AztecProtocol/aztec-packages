@@ -1,10 +1,13 @@
 #pragma once
 
+#include "barretenberg/common/utils.hpp"
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -33,8 +36,17 @@ class HintedRawMerkleDB final : public MerkleDBInterface {
 
     const TreeSnapshots& get_tree_roots() const override { return tree_roots; }
 
+    crypto::merkle_tree::fr_sibling_path get_sibling_path(world_state::MerkleTreeId tree_id,
+                                                          crypto::merkle_tree::index_t leaf_index) const override;
+
   private:
     TreeSnapshots tree_roots;
+
+    using GetSiblingPathKey =
+        utils::HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
+    unordered_flat_map<GetSiblingPathKey, crypto::merkle_tree::fr_sibling_path> get_sibling_path_hints;
+
+    const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
 };
 
 } // namespace bb::avm2::simulation
