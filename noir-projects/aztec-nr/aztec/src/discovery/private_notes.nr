@@ -1,7 +1,7 @@
 use crate::{
     discovery::{
         ComputeNoteHashAndNullifier,
-        MAX_NOTE_PACKED_LEN,
+        MAX_LOG_CONTENT_LEN,
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
     },
     oracle,
@@ -11,6 +11,14 @@ use protocol_types::{
     address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, debug_log::debug_log_format,
 };
 
+/// The number of fields in a private note log content that are not the note's packed representation.
+global PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 1;
+
+/// The maximum length of the packed representation of a note's contents. This is limited by private log size,
+/// encryption overhead and extra fields in the log (e.g. log type id, storage slot, etc.).
+pub global MAX_NOTE_PACKED_LEN: u32 =
+    MAX_LOG_CONTENT_LEN - PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN;
+
 pub unconstrained fn process_private_note_log<Env>(
     contract_address: AztecAddress,
     tx_hash: Field,
@@ -18,13 +26,11 @@ pub unconstrained fn process_private_note_log<Env>(
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-    storage_slot: Field,
-    note_type_id: Field,
-    packed_note_content: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    log_metadata: u64,
+    log_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,
 ) {
-    // Currently a placeholder, since we want to both have a 'process log kind' fn and keep 'attempt_note_discovery'.
-    // This is where we'll soon extract note type id, storage slot and packed note content from the log metadata and log
-    // content.
+    let (note_type_id, storage_slot, packed_note) =
+        decode_private_note_log(log_metadata, log_content);
 
     attempt_note_discovery(
         contract_address,
@@ -35,7 +41,7 @@ pub unconstrained fn process_private_note_log<Env>(
         compute_note_hash_and_nullifier,
         storage_slot,
         note_type_id,
-        packed_note_content,
+        packed_note,
     );
 }
 
@@ -50,7 +56,7 @@ pub unconstrained fn attempt_note_discovery<Env>(
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
     storage_slot: Field,
     note_type_id: Field,
-    packed_note_content: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
 ) {
     let discovered_notes = attempt_note_nonce_discovery(
         unique_note_hashes_in_tx,
@@ -59,7 +65,7 @@ pub unconstrained fn attempt_note_discovery<Env>(
         contract_address,
         storage_slot,
         note_type_id,
-        packed_note_content,
+        packed_note,
     );
 
     debug_log_format(
@@ -77,7 +83,7 @@ pub unconstrained fn attempt_note_discovery<Env>(
                     contract_address,
                     storage_slot,
                     discovered_note.nonce,
-                    packed_note_content,
+                    packed_note,
                     discovered_note.note_hash,
                     discovered_note.inner_nullifier,
                     tx_hash,
@@ -87,4 +93,29 @@ pub unconstrained fn attempt_note_discovery<Env>(
             );
         },
     );
+}
+
+fn decode_private_note_log(
+    log_metadata: u64,
+    log_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,
+) -> (Field, Field, BoundedVec<Field, MAX_NOTE_PACKED_LEN>) {
+    let note_type_id = log_metadata as Field; // TODO: make note type id not be a full field
+
+    assert(
+        log_content.len() > PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN,
+        f"Invalid private note log: all private note logs must have at least {PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN} fields",
+    );
+
+    // If PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail, then the destructuring of
+    // the private note log encoding below must be updated as well.
+    std::static_assert(
+        PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN == 1,
+        "unexpected value for PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN",
+    );
+
+    // We currently have a single field that is not the note's packed representation, which is the storage slot.
+    let storage_slot = log_content.get(0);
+    let packed_note = array::subbvec(log_content, PRIVATE_NOTE_LOG_CONTENT_NON_NOTE_FIELDS_LEN);
+
+    (note_type_id, storage_slot, packed_note)
 }

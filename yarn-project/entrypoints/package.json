@@ -6,7 +6,11 @@
   "type": "module",
   "exports": {
     "./dapp": "./dest/dapp_entrypoint.js",
-    "./account": "./dest/account_entrypoint.js"
+    "./account": "./dest/account_entrypoint.js",
+    "./default": "./dest/default_entrypoint.js",
+    "./interfaces": "./dest/interfaces.js",
+    "./payload": "./dest/payload.js",
+    "./encoding": "./dest/encoding.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -61,7 +65,7 @@
     ]
   },
   "dependencies": {
-    "@aztec/aztec.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",

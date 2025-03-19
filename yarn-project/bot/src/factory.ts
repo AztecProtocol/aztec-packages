@@ -103,10 +103,12 @@ export class BotFactory {
 
       const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
 
+      // docs:start:claim_and_deploy
       const wallet = await account.getWallet();
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
       const sentTx = account.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
+      // docs:end:claim_and_deploy
       this.log.info(`Sent tx with hash ${txHash.toString()}`);
       await this.tryFlushTxs();
       this.log.verbose('Waiting for account deployment to settle');

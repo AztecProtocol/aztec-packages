@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/blob-lib';
+import { Blob, type BlobJson } from '@aztec/blob-lib';
 import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -60,6 +60,8 @@ describe('HttpBlobSinkClient', () => {
     let consensusHostServer: http.Server | undefined = undefined;
     let consensusHostPort: number | undefined = undefined;
 
+    let blobData: BlobJson[];
+
     const MOCK_SLOT_NUMBER = 1;
 
     beforeEach(async () => {
@@ -70,6 +72,36 @@ describe('HttpBlobSinkClient', () => {
 
       testNonEncodedBlob = await makeUnencodedBlob(3);
       testNonEncodedBlobHash = testNonEncodedBlob.getEthVersionedBlobHash();
+
+      blobData = [
+        // Correctly encoded blob
+        {
+          index: 0,
+          blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testEncodedBlob.proof.toString('hex')}`,
+        },
+        // Correctly encoded blob, but we do not ask for it in the client
+        {
+          index: 1,
+          blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testBlobIgnore.proof.toString('hex')}`,
+        },
+        // Incorrectly encoded blob
+        {
+          index: 2,
+          blob: `0x${Buffer.from(testNonEncodedBlob.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testNonEncodedBlob.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testNonEncodedBlob.proof.toString('hex')}`,
+        },
+      ];
     });
 
     const startExecutionHostServer = (): Promise<void> => {
@@ -98,39 +130,7 @@ describe('HttpBlobSinkClient', () => {
             res.end(JSON.stringify({ error: 'Not Found' }));
           } else {
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(
-              JSON.stringify({
-                data: [
-                  // Correctly encoded blob
-                  {
-                    index: 0,
-                    blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_proof: `0x${testEncodedBlob.proof.toString('hex')}`,
-                  },
-                  // Correctly encoded blob, but we do not ask for it in the client
-                  {
-                    index: 1,
-                    blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_proof: `0x${testBlobIgnore.proof.toString('hex')}`,
-                  },
-                  // Incorrectly encoded blob
-                  {
-                    index: 2,
-                    blob: `0x${Buffer.from(testNonEncodedBlob.data).toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_commitment: `0x${testNonEncodedBlob.commitment.toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_proof: `0x${testNonEncodedBlob.proof.toString('hex')}`,
-                  },
-                ],
-              }),
-            );
+            res.end(JSON.stringify({ data: blobData }));
           }
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -238,5 +238,20 @@ describe('HttpBlobSinkClient', () => {
         expect.any(Object),
       );
     });
+
+    it('should fall back to archive client', async () => {
+      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `http://api.blobscan.com` });
+      const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+      expect(archiveSpy).toHaveBeenCalledWith('0x1234');
+    });
   });
 });
+
+class TestHttpBlobSinkClient extends HttpBlobSinkClient {
+  public getArchiveClient() {
+    return this.archiveClient!;
+  }
+}

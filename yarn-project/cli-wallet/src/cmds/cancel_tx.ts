@@ -1,5 +1,6 @@
 import { type AccountWalletWithSecretKey, type FeePaymentMethod, SentTx, type TxHash, TxStatus } from '@aztec/aztec.js';
-import type { FeeOptions } from '@aztec/aztec.js/entrypoint';
+import type { FeeOptions } from '@aztec/entrypoints/interfaces';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
@@ -37,9 +38,7 @@ export async function cancelTx(
     }),
   };
 
-  const txRequest = await wallet.createTxExecutionRequest({
-    calls: [],
-    fee,
+  const txRequest = await wallet.createTxExecutionRequest(ExecutionPayload.empty(), fee, {
     nonce,
     cancellable: true,
   });

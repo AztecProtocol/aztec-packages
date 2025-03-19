@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   ContractDeployer,
+  type DeployOptions,
   Fr,
   type Logger,
   type PXE,
@@ -84,16 +85,19 @@ describe('e2e_deploy_contract legacy', () => {
     await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(/dropped/);
   });
 
-  // TODO(#10007): Reenable this test.
-  it.skip('should not deploy a contract which failed the public part of the execution', async () => {
+  it('should not deploy a contract which failed the public part of the execution', async () => {
     // This test requires at least another good transaction to go through in the same block as the bad one.
     const artifact = TokenContractArtifact;
     const initArgs = ['TokenName', 'TKN', 18] as const;
     const goodDeploy = StatefulTestContract.deploy(wallet, wallet.getAddress(), wallet.getAddress(), 42);
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
-    const firstOpts = { skipPublicSimulation: true, skipClassRegistration: true, skipInstanceDeploy: true };
-    const secondOpts = { skipPublicSimulation: true };
+    const firstOpts: DeployOptions = {
+      skipPublicSimulation: true,
+      skipClassRegistration: true,
+      skipPublicDeployment: true,
+    };
+    const secondOpts: DeployOptions = { skipPublicSimulation: true };
 
     await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
     const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];

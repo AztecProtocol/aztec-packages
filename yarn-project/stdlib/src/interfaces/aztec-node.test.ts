@@ -346,11 +346,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe('enr:-');
   });
 
-  it('addContractClass', async () => {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
-  });
-
   it('getWorldStateSyncStatus', async () => {
     const response = await context.client.getWorldStateSyncStatus();
     expect(response).toEqual(await handler.getWorldStateSyncStatus());
@@ -628,8 +623,5 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
-  }
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    return Promise.resolve();
   }
 }

@@ -44,7 +44,6 @@ pub contract ContractClassRegisterer {
         artifact_hash: Field,
         private_functions_root: Field,
         public_bytecode_commitment: Field,
-        emit: bool,
     ) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
@@ -103,18 +102,14 @@ pub contract ContractClassRegisterer {
             ],
         );
 
-        // TODO(#10007): Drop this conditional and always emit the bytecode. We allow skipping the broadcast
-        // as a stopgap solution to allow txs to fit in Sepolia when we broadcast public bytecode.
-        if emit {
-            let event = ContractClassRegistered {
-                contract_class_id,
-                version: 1,
-                artifact_hash,
-                private_functions_root,
-                packed_public_bytecode,
-            };
-            emit_contract_class_log(&mut context, event.serialize_non_standard());
-        }
+        let event = ContractClassRegistered {
+            contract_class_id,
+            version: 1,
+            artifact_hash,
+            private_functions_root,
+            packed_public_bytecode,
+        };
+        emit_contract_class_log(&mut context, event.serialize_non_standard());
     }
 
     #[private]
