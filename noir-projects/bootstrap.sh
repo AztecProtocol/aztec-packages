@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+export NARGO_HASH=$(../../noir/bootstrap.sh hash)
+
 function build {
   echo_header "noir-projects build"
 

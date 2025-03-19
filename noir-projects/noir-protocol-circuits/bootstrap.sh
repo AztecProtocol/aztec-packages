@@ -12,7 +12,7 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
-export NARGO_HASH=$(../../noir/bootstrap.sh hash)
+export NARGO_HASH=${NARGO_HASH:- $(../../noir/bootstrap.sh hash)}
 
 test_flag=$project_name-tests-$(hash_str "$NARGO_HASH" $(cache_content_hash "^noir-projects/$project_name"))
 key_dir=./target/keys
