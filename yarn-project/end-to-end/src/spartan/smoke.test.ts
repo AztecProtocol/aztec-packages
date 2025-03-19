@@ -48,11 +48,13 @@ describe('smoke test', () => {
   // also because it assumes foundry.
 
   it.skip('should be able to get rollup info', async () => {
+    // docs:start:get_node_info_pub_client
     const info = await pxe.getNodeInfo();
     const publicClient = createPublicClient({
       chain: foundry,
       transport: http('http://localhost:8545'),
     });
+    // docs:end:get_node_info_pub_client
 
     const rollupContract = getContract({
       address: getAddress(info.l1ContractAddresses.rollupAddress.toString()),
