@@ -448,6 +448,7 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
     _isStaticCall: boolean,
   ) {
     this.#onNewPublicFunctionCall(calldataHash);
+    return Promise.resolve();
   }
 
   /**
@@ -464,6 +465,7 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
     _isStaticCall: boolean,
   ) {
     this.#onNewPublicFunctionCall(calldataHash);
+    return Promise.resolve();
   }
 
   public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {

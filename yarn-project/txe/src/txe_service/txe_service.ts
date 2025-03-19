@@ -224,7 +224,8 @@ export class TXEService {
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
   storeInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray, hash: ForeignCallSingle) {
-    return this.typedOracle.storeInExecutionCache(fromArray(values), fromSingle(hash));
+    this.typedOracle.storeInExecutionCache(fromArray(values), fromSingle(hash));
+    return toForeignCallResult([]);
   }
 
   async loadFromExecutionCache(hash: ForeignCallSingle) {
@@ -433,36 +434,39 @@ export class TXEService {
     return toForeignCallResult([toArray(authWitness)]);
   }
 
-  public notifyEnqueuedPublicFunctionCall(
+  public async notifyEnqueuedPublicFunctionCall(
     targetContractAddress: ForeignCallSingle,
     calldataHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
-    this.typedOracle.notifyEnqueuedPublicFunctionCall(
+    await this.typedOracle.notifyEnqueuedPublicFunctionCall(
       addressFromSingle(targetContractAddress),
       fromSingle(calldataHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
     );
+    return toForeignCallResult([]);
   }
 
-  public notifySetPublicTeardownFunctionCall(
+  public async notifySetPublicTeardownFunctionCall(
     targetContractAddress: ForeignCallSingle,
     calldataHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
   ) {
-    this.typedOracle.notifySetPublicTeardownFunctionCall(
+    await this.typedOracle.notifySetPublicTeardownFunctionCall(
       addressFromSingle(targetContractAddress),
       fromSingle(calldataHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
     );
+    return toForeignCallResult([]);
   }
 
   public notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: ForeignCallSingle) {
     this.typedOracle.notifySetMinRevertibleSideEffectCounter(fromSingle(minRevertibleSideEffectCounter).toNumber());
+    return toForeignCallResult([]);
   }
 
   async getChainId() {

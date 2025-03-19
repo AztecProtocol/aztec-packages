@@ -322,8 +322,8 @@ export class Oracle {
     [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-  ): void {
-    this.typedOracle.notifyEnqueuedPublicFunctionCall(
+  ): Promise<void> {
+    return this.typedOracle.notifyEnqueuedPublicFunctionCall(
       AztecAddress.fromString(contractAddress),
       fromACVMField(calldataHash),
       frToNumber(fromACVMField(sideEffectCounter)),
@@ -336,8 +336,8 @@ export class Oracle {
     [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
-  ): void {
-    this.typedOracle.notifySetPublicTeardownFunctionCall(
+  ): Promise<void> {
+    return this.typedOracle.notifySetPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
       fromACVMField(calldataHash),
       frToNumber(fromACVMField(sideEffectCounter)),
