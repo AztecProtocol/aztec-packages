@@ -15,7 +15,7 @@ import { Oracle } from '../../acvm/oracle/oracle.js';
  *
  * The recording is stored in a JSON file called `circuit_name_circuit_function_name_YYYY-MM-DD_N.json` where N is
  * a counter to ensure unique filenames. The file is stored in the `recordDir` directory provided as a parameter to
- * the constructor.
+ * CircuitRecorder.start().
  *
  * Example recording file:
  * ```json
