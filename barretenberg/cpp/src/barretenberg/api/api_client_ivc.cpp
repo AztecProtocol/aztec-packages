@@ -225,6 +225,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
+                          [[maybe_unused]] const std::filesystem::path& public_inputs_path,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {

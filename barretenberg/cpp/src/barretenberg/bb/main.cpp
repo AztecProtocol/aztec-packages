@@ -84,6 +84,7 @@ int main(int argc, char* argv[])
     std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
+    std::filesystem::path public_inputs_path{ "./target/public_inputs" };
     std::filesystem::path proof_path{ "./target/proof" };
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
@@ -201,6 +202,11 @@ int main(int argc, char* argv[])
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
     };
 
+    const auto add_public_inputs_path_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option(
+            "--public_inputs_path, -i", public_inputs_path, "Path to public inputs.") /* ->check(CLI::ExistingFile) */;
+    };
+
     const auto add_proof_path_option = [&](CLI::App* subcommand) {
         return subcommand->add_option(
             "--proof_path, -p", proof_path, "Path to a proof.") /* ->check(CLI::ExistingFile) */;
@@ -316,6 +322,7 @@ int main(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
 
+    add_public_inputs_path_option(verify);
     add_proof_path_option(verify);
     add_vk_path_option(verify);
 
@@ -679,7 +686,7 @@ int main(int argc, char* argv[])
             return 0;
         }
         if (verify->parsed()) {
-            return api.verify(flags, proof_path, vk_path) ? 0 : 1;
+            return api.verify(flags, public_inputs_path, proof_path, vk_path) ? 0 : 1;
         }
         if (write_solidity_verifier->parsed()) {
             api.write_solidity_verifier(flags, output_path, vk_path);
@@ -737,10 +744,12 @@ int main(int argc, char* argv[])
         else if (prove_tube_command->parsed()) {
             prove_tube(prove_tube_output_path);
         } else if (verify_tube_command->parsed()) {
+            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
             auto tube_proof_path = tube_proof_and_vk_path + "/proof";
             auto tube_vk_path = tube_proof_and_vk_path + "/vk";
             UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path) ? 0 : 1;
+            return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
+                                                                                                                    : 1;
         }
         // CLIENT IVC EXTRA COMMAND
         else if (OLD_API_gates_for_ivc->parsed()) {
