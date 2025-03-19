@@ -2,6 +2,7 @@ import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
@@ -423,22 +424,18 @@ describe('PXEOracleInterface', () => {
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
     });
 
-    // IMPORTANT: This test has a misleading name and behavior. When TxScopedL2Log was updated to work with
-    // PrivateLog and PublicLog types directly, the `isFromPublic` getter was initially left unimplemented.
-    // At that time, this test appeared to pass - not because it was correctly filtering logs by contract address,
-    // but because `isFromPublic` was returning undefined (falsey). As a result, the test is actually filtering
-    // based on the log type (public vs private) rather than the intended contract address check.
-    it('should not sync public tagged logs with incorrect contract address', async () => {
+    it('should not sync public tagged logs', async () => {
       const logs: { [k: string]: TxScopedL2Log[] } = {};
       const tag = await computeSiloedTagForIndex(senders[0], recipient.address, contractAddress, 0);
-      // Create a public log with an address which doesn't match the tag
-      const log = PublicLog.fromFields([
-        AztecAddress.fromNumber(2).toField(),
-        Fr.ONE,
-        tag,
-        ...Array(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 2).fill(Fr.random()),
-      ]);
+
+      // Create a public log with the correct tag
+      const logContent = [Fr.ONE, tag, ...Array(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 2).fill(Fr.random())] as Tuple<
+        Fr,
+        typeof PUBLIC_LOG_DATA_SIZE_IN_FIELDS
+      >;
+      const log = new PublicLog(await AztecAddress.random(), logContent);
       const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, log);
+
       logs[tag.toString()] = [scopedLog];
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));

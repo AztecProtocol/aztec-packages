@@ -188,7 +188,6 @@ describe('full_prover', () => {
     if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
-
     // Create the two transactions
     const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
     const privateSendAmount = privateBalance / 20n;

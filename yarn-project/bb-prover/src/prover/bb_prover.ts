@@ -92,6 +92,7 @@ import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
+import { PRIVATE_TAIL_CIVC_VK, PUBLIC_TAIL_CIVC_VK } from '../verifier/bb_verifier.js';
 import { writeToOutputDirectory } from './client_ivc_proof_utils.js';
 
 const logger = createLogger('bb-prover');
@@ -520,12 +521,18 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     hasher.update(input.toBuffer());
 
     await writeToOutputDirectory(input.clientIVCData, bbWorkingDirectory);
-    const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
+    const provingResult = await generateTubeProof(
+      this.config.bbBinaryPath,
+      bbWorkingDirectory,
+      input.usePublicTailVk ? PUBLIC_TAIL_CIVC_VK : PRIVATE_TAIL_CIVC_VK,
+      logger.verbose,
+    );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for tube circuit: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
+
     return provingResult;
   }
 
