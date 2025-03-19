@@ -106,15 +106,40 @@ export class CircuitRecorder {
       }
     }
 
+    const filePath = await CircuitRecorder.#computeFilePathAndStoreInitialRecording(
+      recordDir,
+      circuitName,
+      functionName,
+      recordingStringWithoutClosingBracket,
+    );
+    return new CircuitRecorder(filePath);
+  }
+
+  /**
+   * Computes a unique file path for the recording by trying different counter values.
+   * This is needed because multiple recordings of the same circuit could be happening simultaneously or an older
+   * recording might be present.
+   * @param recordDir - Directory to store the recording
+   * @param circuitName - Name of the circuit
+   * @param functionName - Name of the circuit function
+   * @param recordingContent - Initial recording content
+   * @returns A unique file path for the recording
+   */
+  static async #computeFilePathAndStoreInitialRecording(
+    recordDir: string,
+    circuitName: string,
+    functionName: string,
+    recordingContent: string,
+  ): Promise<string> {
     let counter = 0;
-    let filePath: string;
     while (true) {
       try {
-        filePath = getFilePath(recordDir, circuitName, functionName, counter);
-        await fs.writeFile(filePath, recordingStringWithoutClosingBracket + ',\n  "oracleCalls": [\n', {
+        const filePath = getFilePath(recordDir, circuitName, functionName, counter);
+        // Write the initial recording content to the file
+        await fs.writeFile(filePath, recordingContent + ',\n  "oracleCalls": [\n', {
           flag: 'wx', // wx flag fails if file exists
         });
-        break;
+        return filePath;
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
           counter++;
@@ -123,8 +148,6 @@ export class CircuitRecorder {
         throw err;
       }
     }
-
-    return new CircuitRecorder(filePath!);
   }
 
   /**
