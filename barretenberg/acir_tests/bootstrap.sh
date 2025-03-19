@@ -137,9 +137,6 @@ function test_cmds_internal {
   local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
   local bbjs_bin="../ts/dest/node/main.js"
 
-  # WORKTODO: remove this when Adam's component is finished
-  echo FLOW=prove_then_verify_client_ivc $run_test token_transfer
-
   # barretenberg-acir-tests-sol:
   echo "docker_isolate 'FLOW=sol $run_test assert_statement'"
   echo "docker_isolate 'FLOW=sol $run_test double_verify_proof'"
