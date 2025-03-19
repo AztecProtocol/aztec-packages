@@ -115,6 +115,62 @@ class ClientIVCTests : public ::testing::Test {
  * verification occurs.
  *
  */
+TEST_F(ClientIVCTests, RandomProofBytes)
+{
+    ClientIVC ivc;
+
+    MockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, proof);
+
+    // Overwrite the buffer with random bytes
+    std::vector<uint8_t> random_bytes(buffer.size());
+    std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
+    std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+
+    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+    msgpack::object obj = oh.get();
+
+    ClientIVC::Proof proof_deserialized;
+    obj.convert(proof_deserialized);
+
+    // // Get proof as vector of bytes
+    // [[maybe_unused]] std::vector<uint8_t> proof_bytes = to_buffer(proof);
+    // const size_t BUFFER_SIZE_BYTES = 4;
+
+    // // Repopulate the proof with random bytes, excluding the first 4 bytes which hold buffer size data
+    // std::vector<uint8_t> random_bytes(proof_bytes.size() - BUFFER_SIZE_BYTES);
+    // std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
+    // std::copy(random_bytes.begin(), random_bytes.end(), proof_bytes.begin() + BUFFER_SIZE_BYTES);
+
+    // const auto proof_deserialized = from_buffer<ClientIVC::Proof>(proof_bytes);
+
+    auto start = std::chrono::steady_clock::now();
+    const bool verified = ivc.verify(proof_deserialized);
+    auto end = std::chrono::steady_clock::now();
+    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Time for ClientIVC::verify: ", diff.count(), " ms.");
+
+    EXPECT_TRUE(verified);
+};
+
+/**
+ * @brief A simple-as-possible test demonstrating IVC for two mock circuits
+ * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
+ * verification occurs.
+ *
+ */
 TEST_F(ClientIVCTests, Basic)
 {
     ClientIVC ivc;
