@@ -3,7 +3,6 @@ on:
   schedule:
     # Run the workflow every night at 2:00 AM UTC.
     - cron: "0 2 * * *"
-  workflow_dispatch:
 
 # Add permissions for the GitHub Actions bot to push tags
 permissions:
@@ -30,13 +29,6 @@ jobs:
           # Format the tag as: <current_version>-nightly.<YYYYMMDD>
           nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
           echo "Nightly tag: $nightly_tag"
-
-          # Check if tag exists and delete it if it does
-          if git ls-remote --tags origin "$nightly_tag" | grep -q "$nightly_tag"; then
-            echo "Tag $nightly_tag already exists. Deleting it..."
-            git push origin :refs/tags/"$nightly_tag"
-          fi
-
           # Tag and push.
           git tag "$nightly_tag"
           git remote set-url origin "https://x-access-token:${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
