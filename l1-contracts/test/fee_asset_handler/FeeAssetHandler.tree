@@ -1,7 +1,0 @@
-FeeAssetHandlerTest
-├── when the owner sets the mint amount
-│   └── it sets the mint amount
-├── when a non owner sets the mint amount
-│   └── it reverts
-└── when anyone calls mint
-    └── it mints the mint amount to the recipient

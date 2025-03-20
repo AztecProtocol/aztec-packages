@@ -23,7 +23,8 @@ contract TestERC20 is ERC20, IMintableERC20, Ownable {
     ERC20(_name, _symbol)
     Ownable(_owner)
   {
-    addMinter(_owner);
+    minters[_owner] = true;
+    emit MinterAdded(_owner);
   }
 
   function mint(address _to, uint256 _amount) external override(IMintableERC20) onlyMinter {
@@ -45,8 +46,8 @@ contract TestERC20 is ERC20, IMintableERC20, Ownable {
       revert OwnableInvalidOwner(address(0));
     }
     removeMinter(owner());
-    _transferOwnership(newOwner);
     addMinter(newOwner);
+    _transferOwnership(newOwner);
   }
 }
 // docs:end:contract
