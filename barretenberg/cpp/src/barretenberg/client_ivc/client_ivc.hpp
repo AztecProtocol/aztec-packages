@@ -90,17 +90,14 @@ class ClientIVC {
 
         static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer)
         {
-            try {
-                msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-                msgpack::object obj = oh.get();
-                Proof proof;
-                obj.convert(proof);
-                return proof;
-            } catch (const std::exception& e) {
-                throw DeserializationError(e.what());
-            }
+            msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+            msgpack::object obj = oh.get();
+            Proof proof;
+            obj.convert(proof);
+            return proof;
         }
 
+#ifndef __wasm__
         void to_file_msgpack(const std::string& filename) const
         {
             msgpack::sbuffer buffer = to_msgpack_buffer();
@@ -114,24 +111,28 @@ class ClientIVC {
 
         static Proof from_file_msgpack(const std::string& filename)
         {
-            std::ifstream ifs(filename, std::ios::binary);
-            if (!ifs.is_open()) {
-                throw std::runtime_error("Failed to open file for reading.");
+            try {
+                std::ifstream ifs(filename, std::ios::binary);
+                if (!ifs.is_open()) {
+                    throw std::runtime_error("Failed to open file for reading.");
+                }
+
+                ifs.seekg(0, std::ios::end);
+                size_t file_size = static_cast<size_t>(ifs.tellg());
+                ifs.seekg(0, std::ios::beg);
+
+                std::vector<char> buffer(file_size);
+                ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
+                ifs.close();
+                msgpack::sbuffer msgpack_buffer;
+                msgpack_buffer.write(buffer.data(), file_size);
+
+                return Proof::from_msgpack_buffer(msgpack_buffer);
+            } catch (const std::exception& e) {
+                throw DeserializationError(e.what());
             }
-
-            ifs.seekg(0, std::ios::end);
-            size_t file_size = static_cast<size_t>(ifs.tellg());
-            ifs.seekg(0, std::ios::beg);
-
-            std::vector<char> buffer(file_size);
-            ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
-            ifs.close();
-            msgpack::sbuffer msgpack_buffer;
-            msgpack_buffer.write(buffer.data(), file_size);
-
-            return Proof::from_msgpack_buffer(msgpack_buffer);
         }
-
+#endif
         MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
 
@@ -216,8 +217,8 @@ class ClientIVC {
      * @brief Perform prover work for accumulation (e.g. PG folding, merge proving)
      *
      * @param circuit The incoming statement
-     * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to be
-     * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
+     * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to
+     * be set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
