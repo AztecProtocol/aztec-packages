@@ -231,11 +231,6 @@ export interface FunctionArtifact extends FunctionAbi {
   debug?: FunctionDebugMetadata;
 }
 
-export interface FunctionArtifactWithContractName extends FunctionArtifact {
-  /** The name of the contract. */
-  contractName: string;
-}
-
 export const FunctionArtifactSchema = FunctionAbiSchema.and(
   z.object({
     bytecode: schemas.Buffer,
@@ -400,7 +395,7 @@ export function getFunctionArtifactByName(artifact: ContractArtifact, functionNa
 export async function getFunctionArtifact(
   artifact: ContractArtifact,
   functionNameOrSelector: string | FunctionSelector,
-): Promise<FunctionArtifactWithContractName> {
+): Promise<FunctionArtifact> {
   let functionArtifact;
   if (typeof functionNameOrSelector === 'string') {
     functionArtifact = artifact.functions.find(f => f.name === functionNameOrSelector);
@@ -421,7 +416,7 @@ export async function getFunctionArtifact(
 
   const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
 
-  return { ...functionArtifact, debug: debugMetadata, contractName: artifact.name };
+  return { ...functionArtifact, debug: debugMetadata };
 }
 
 /** Gets all function abis */
