@@ -1,5 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -385,6 +386,48 @@ describe('GasUtils', () => {
       }
     }
   }, 10_000);
+
+  it('strips ABI from non-revert errors', async () => {
+    // Create a client with an invalid RPC URL to trigger a real error
+    const invalidClient = createPublicClient({
+      transport: http('https://foobar.com'),
+      chain: foundry,
+    });
+
+    // Define a test ABI to have something to look for
+    const testAbi = [
+      {
+        type: 'function',
+        name: 'uniqueTestFunction',
+        inputs: [{ type: 'uint256', name: 'param1' }],
+        outputs: [{ type: 'bool' }],
+        stateMutability: 'view',
+      },
+    ] as const;
+
+    try {
+      // Try to make a request that will fail
+      await invalidClient.readContract({
+        address: '0x1234567890123456789012345678901234567890',
+        abi: testAbi,
+        functionName: 'uniqueTestFunction',
+        args: [123n],
+      });
+
+      fail('Should have thrown an error');
+    } catch (err: any) {
+      // Verify the original error has the ABI
+      const originalError = jsonStringify(err);
+      expect(originalError).toContain('uniqueTestFunction');
+
+      // Check that the formatted error doesn't have the ABI
+      const formatted = formatViemError(err);
+      const serialized = jsonStringify(formatted);
+      expect(serialized).not.toContain('uniqueTestFunction');
+      expect(formatted.message).toContain('failed');
+    }
+  }, 10_000);
+
   it('handles custom errors', async () => {
     // We're deploying this contract:
     // pragma solidity >=0.8.27;
