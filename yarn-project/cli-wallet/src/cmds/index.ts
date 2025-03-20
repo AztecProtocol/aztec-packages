@@ -13,7 +13,6 @@ import {
   parsePublicKey,
   pxeOption,
 } from '@aztec/cli/utils';
-import { MINT_AMOUNT } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { GasFees } from '@aztec/stdlib/gas';
 import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
@@ -424,15 +423,10 @@ export function injectCommands(
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      if (amount !== MINT_AMOUNT && mint) {
-        log(`WARNING: we only ever mint ${MINT_AMOUNT} fee juice on L1`);
-        return;
-      }
-
       log(`Minting ${amount} fee juice on L1 and pushing to L2`);
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
-        mint ? MINT_AMOUNT : amount,
+        amount,
         recipient,
         client,
         l1RpcUrls,
