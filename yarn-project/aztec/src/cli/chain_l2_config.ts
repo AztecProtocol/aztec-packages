@@ -2,7 +2,7 @@ import type { EnvVar } from '@aztec/foundation/config';
 
 import path from 'path';
 
-export type NetworkNames = 'ignition-testnet';
+export type NetworkNames = 'testnet-ignition';
 
 export type L2ChainConfig = {
   l1ChainId: number;
@@ -33,13 +33,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
-  let url: string;
-  if (networkName === 'ignition-testnet') {
-    // setting this explicitly bc it's been uploaded to testnet-ignition instead of ignition-testnet
-    url = `http://static.aztec.network/testnet-ignition/bootnodes.json`;
-  } else {
-    url = `http://static.aztec.network/${networkName}/bootnodes.json`;
-  }
+  const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(
@@ -52,7 +46,7 @@ export async function getBootnodes(networkName: NetworkNames) {
 }
 
 export async function getL2ChainConfig(networkName: NetworkNames): Promise<L2ChainConfig | undefined> {
-  if (networkName === 'ignition-testnet') {
+  if (networkName === 'testnet-ignition') {
     const config = { ...testnetIgnitionL2ChainConfig };
     config.p2pBootstrapNodes = await getBootnodes(networkName);
     return config;
