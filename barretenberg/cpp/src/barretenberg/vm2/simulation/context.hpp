@@ -30,23 +30,31 @@ class ContextInterface {
     virtual bool halted() const = 0;
     virtual void halt() = 0;
 
+    virtual uint32_t get_context_id() = 0;
+
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
     virtual const AztecAddress& get_msg_sender() const = 0;
     virtual std::span<const FF> get_calldata() const = 0;
     virtual bool get_is_static() const = 0;
+
+    // Event emitting
+    virtual void emit_context_snapshot() = 0;
+    virtual void emit_current_context() = 0;
 };
 
 // The context for a single nested call.
-class Context : public ContextInterface {
+class BaseContext : public ContextInterface {
   public:
-    Context(AztecAddress address,
-            AztecAddress msg_sender,
-            std::span<const FF> calldata,
-            bool is_static,
-            std::unique_ptr<BytecodeManagerInterface> bytecode,
-            std::unique_ptr<MemoryInterface> memory)
-        : address(address)
+    BaseContext(uint32_t context_id,
+                AztecAddress address,
+                AztecAddress msg_sender,
+                std::span<const FF> calldata,
+                bool is_static,
+                std::unique_ptr<BytecodeManagerInterface> bytecode,
+                std::unique_ptr<MemoryInterface> memory)
+        : context_id(context_id)
+        , address(address)
         , msg_sender(msg_sender)
         , calldata(calldata.begin(), calldata.end())
         , is_static(is_static)
@@ -66,11 +74,17 @@ class Context : public ContextInterface {
     bool halted() const override { return has_halted; }
     void halt() override { has_halted = true; }
 
+    uitn32_t get_context_id() const override { return context_id; }
+
     // Environment.
     const AztecAddress& get_address() const override { return address; }
     const AztecAddress& get_msg_sender() const override { return msg_sender; }
     std::span<const FF> get_calldata() const override { return calldata; }
     bool get_is_static() const override { return is_static; }
+
+    // Event Emitting
+    void emit_context_snapshot(){};
+    void emit_current_context(){};
 
   private:
     // Environment.
@@ -78,6 +92,8 @@ class Context : public ContextInterface {
     AztecAddress msg_sender;
     std::vector<FF> calldata;
     bool is_static;
+
+    uint32_t context_id;
 
     // Machine state.
     uint32_t pc = 0;
@@ -88,4 +104,30 @@ class Context : public ContextInterface {
     std::unique_ptr<MemoryInterface> memory;
 };
 
+// TODO(ilyas): flesh these out, these are just temporary
+class EnqueuedCallContext : public BaseContext {
+  public:
+    EnqueuedCallContext(uint32_t context_id,
+                        AztecAddress address,
+                        AztecAddress msg_sender,
+                        std::span<const FF> calldata,
+                        bool is_static,
+                        std::unique_ptr<BytecodeManagerInterface> bytecode,
+                        std::unique_ptr<MemoryInterface> memory)
+        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+    {}
+};
+
+class NestedContext : public BaseContext {
+  public:
+    NestedContext(uint32_t context_id,
+                  AztecAddress address,
+                  AztecAddress msg_sender,
+                  std::span<const FF> calldata,
+                  bool is_static,
+                  std::unique_ptr<BytecodeManagerInterface> bytecode,
+                  std::unique_ptr<MemoryInterface> memory)
+        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+    {}
+}
 } // namespace bb::avm2::simulation

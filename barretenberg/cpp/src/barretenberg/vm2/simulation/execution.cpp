@@ -33,18 +33,20 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
 
 void Execution::call(ContextInterface& context, MemoryAddress addr)
 {
+    // Emit Snapshot of current context
+    context.emit_context_snapshot();
+
     auto& memory = context.get_memory();
 
+    // TODO: Read more stuff from call operands (e.g., calldata, gas)
     const auto [contract_address, _] = memory.get(addr);
     std::vector<FF> calldata = {};
 
     // TODO: make_nested
-    auto nested_context = execution_components.make_context(contract_address,
-                                                            /*msg_sender=*/context.get_address(),
-                                                            /*calldata=*/calldata,
-                                                            /*is_static=*/false);
-
-    // TODO: Do we want to snapshot into the context stack here?
+    auto nested_context = context_provider.make_context(contract_address,
+                                                        /*msg_sender=*/context.get_address(),
+                                                        /*calldata=*/calldata,
+                                                        /*is_static=*/false);
 
     // We recurse. When we return, we'll continue with the current loop and emit the execution event.
     // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
@@ -84,14 +86,12 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     }
 }
 
-ExecutionResult Execution::execute(AztecAddress contract_address,
-                                   std::span<const FF> calldata,
-                                   AztecAddress msg_sender,
-                                   bool is_static)
+// This context interface is an top-level enqueued one
+ExecutionResult Execution::execute(ContextInterface& context)
 {
     // WARNING: make_context actually tries to fetch the bytecode! Maybe shouldn't be here because if this fails
     // it will fail the parent and not the child context.
-    auto context = execution_components.make_context(contract_address, msg_sender, calldata, is_static);
+    // auto context = execution_components.make_context(contract_address, msg_sender, calldata, is_static);
     auto result = execute_internal(*context);
     return result;
 }
@@ -127,13 +127,12 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 
-            // BEFORE OPCODE
-            // auto old_context_event = context.get_context_event();
+            // Emit the context event
+            // TODO: think about whether we need to know the success at this point
+            context.emit_context_snapshot();
 
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
-
-            // auto new_context_event = context.get_context_event();
 
             // Move on to the next pc.
             context.set_pc(context.get_next_pc());
