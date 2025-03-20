@@ -6,6 +6,8 @@ import {
   CoinIssuerBytecode,
   ExtRollupLibAbi,
   ExtRollupLibBytecode,
+  FeeAssetHandlerAbi,
+  FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   ForwarderAbi,
@@ -58,6 +60,7 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import type { L1ContractsConfig } from './config.js';
+import { MINT_AMOUNT } from './contracts/fee_asset_handler.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -187,6 +190,10 @@ export const l1Artifacts = {
   registerNewRollupVersionPayload: {
     contractAbi: RegisterNewRollupVersionPayloadAbi,
     contractBytecode: RegisterNewRollupVersionPayloadBytecode as Hex,
+  },
+  feeAssetHandler: {
+    contractAbi: FeeAssetHandlerAbi,
+    contractBytecode: FeeAssetHandlerBytecode as Hex,
   },
 };
 
@@ -459,6 +466,44 @@ export const cheat_initializeValidatorSet = async (
 };
 
 /**
+ * Initialize the fee asset handler and make it a minter on the fee asset.
+ * @note This function will only be used for testing purposes.
+ *
+ * @param clients - The L1 clients.
+ * @param deployer - The L1 deployer.
+ * @param feeAssetAddress - The address of the fee asset.
+ * @param logger - The logger.
+ */
+// eslint-disable-next-line camelcase
+export const cheat_initializeFeeAssetHandler = async (
+  clients: L1Clients,
+  deployer: L1Deployer,
+  feeAssetAddress: EthAddress,
+  logger: Logger,
+): Promise<{
+  feeAssetHandlerAddress: EthAddress;
+  txHash: Hex;
+}> => {
+  const feeAssetHandlerAddress = await deployer.deploy(l1Artifacts.feeAssetHandler, [
+    clients.walletClient.account.address,
+    feeAssetAddress.toString(),
+    MINT_AMOUNT,
+  ]);
+  logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
+
+  const { txHash } = await deployer.sendTransaction({
+    to: feeAssetAddress.toString(),
+    data: encodeFunctionData({
+      abi: l1Artifacts.feeAsset.contractAbi,
+      functionName: 'addMinter',
+      args: [feeAssetHandlerAddress.toString()],
+    }),
+  });
+  logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
+  return { feeAssetHandlerAddress, txHash };
+};
+
+/**
  * Deploys the aztec L1 contracts; Rollup & (optionally) Decoder Helper.
  * @param rpcUrls - List of URLs of the ETH RPC to use for deployment.
  * @param account - Private Key or HD Account that will deploy the contracts.
@@ -577,29 +622,24 @@ export const deployL1Contracts = async (
   // Transaction hashes to await
   const txHashes: Hex[] = [];
 
-  if (args.acceleratedTestDeployments || !(await feeAsset.read.freeForAll())) {
-    const { txHash } = await deployer.sendTransaction({
-      to: feeAssetAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.feeAsset.contractAbi,
-        functionName: 'setFreeForAll',
-        args: [true],
-      }),
-    });
-    logger.verbose(`Fee asset set to free for all in ${txHash}`);
-    txHashes.push(txHash);
-  }
+  const { feeAssetHandlerAddress, txHash: feeAssetHandlerTxHash } = await cheat_initializeFeeAssetHandler(
+    clients,
+    deployer,
+    feeAssetAddress,
+    logger,
+  );
+  txHashes.push(feeAssetHandlerTxHash);
 
-  if (args.acceleratedTestDeployments || (await feeAsset.read.owner()) !== getAddress(coinIssuerAddress.toString())) {
+  if (args.acceleratedTestDeployments || !(await feeAsset.read.minters([coinIssuerAddress.toString()]))) {
     const { txHash } = await deployer.sendTransaction({
       to: feeAssetAddress.toString(),
       data: encodeFunctionData({
         abi: l1Artifacts.feeAsset.contractAbi,
-        functionName: 'transferOwnership',
+        functionName: 'addMinter',
         args: [coinIssuerAddress.toString()],
       }),
     });
-    logger.verbose(`Fee asset transferred ownership to coin issuer in ${txHash}`);
+    logger.verbose(`Added coin issuer ${coinIssuerAddress} as minter on fee asset in ${txHash}`);
     txHashes.push(txHash);
   }
 
@@ -752,6 +792,7 @@ export const deployL1Contracts = async (
     l1ContractAddresses: {
       ...l1Contracts,
       slashFactoryAddress,
+      feeAssetHandlerAddress,
     },
   };
 };

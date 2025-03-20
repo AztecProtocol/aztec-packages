@@ -78,7 +78,13 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const l1TokenContract = await deployTestERC20();
     logger.info('erc20 contract deployed');
 
-    const l1TokenManager = new L1TokenManager(l1TokenContract, publicClient, walletClient, logger);
+    const l1TokenManager = new L1TokenManager(
+      l1TokenContract,
+      l1ContractAddresses.feeAssetHandlerAddress,
+      publicClient,
+      walletClient,
+      logger,
+    );
     // docs:end:deploy-l1-token
 
     // Deploy L1 portal contract
@@ -120,6 +126,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const l1PortalManager = new L1TokenPortalManager(
       l1PortalContractAddress,
       l1TokenContract,
+      l1ContractAddresses.feeAssetHandlerAddress,
       l1ContractAddresses.outboxAddress,
       publicClient,
       walletClient,

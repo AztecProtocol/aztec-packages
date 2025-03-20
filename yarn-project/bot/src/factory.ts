@@ -14,7 +14,7 @@ import {
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { MINT_AMOUNT, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -101,7 +101,7 @@ export class BotFactory {
       const address = account.getAddress();
       this.log.info(`Deploying account at ${address}`);
 
-      const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
+      const claim = await this.bridgeL1FeeJuice(address, MINT_AMOUNT);
 
       // docs:start:claim_and_deploy
       const wallet = await account.getWallet();
