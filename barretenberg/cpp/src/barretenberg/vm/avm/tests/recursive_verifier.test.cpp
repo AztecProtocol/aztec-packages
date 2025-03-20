@@ -181,14 +181,11 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     //  AvmGoblinRecursiveVerifier::test_recursive_avm(proof, verifier);
 }
 
-// WORKTODO: commented out in merge, need to reinstate. Seems like just a problem of OuterBuilder now being set to Mega
-// and that not being properly reflected in this test, not sure this would ahve ever built..
-
 TEST_F(AvmRecursiveTests, recursion)
 {
-    // if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
-    //     GTEST_SKIP();
-    // }
+    if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
+        GTEST_SKIP();
+    }
 
     using RecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
 
