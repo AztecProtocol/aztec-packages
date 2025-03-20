@@ -43,7 +43,7 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
-instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}
+instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 function get_ip_for_instance {
@@ -71,12 +71,11 @@ function tail_live_instance {
 case "$cmd" in
   "ec2")
     # Spin up ec2 instance and ci bootstrap with shell on failure.
-    # You can override the bootstrap command with the first arg e.g: ci ec2 full
-    bootstrap_ec2 "./bootstrap.sh ${1:-ci}"
+    bootstrap_ec2 "./bootstrap.sh ci"
     ;;
   "ec2-no-cache")
     # Same as ec2, but disable the build and test cache.
-    bootstrap_ec2 "NO_CACHE=1 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci}"
+    bootstrap_ec2 "NO_CACHE=1 USE_TEST_CACHE=0 ./bootstrap.sh ci"
     ;;
   "ec2-test")
     # Same as ec2, but don't use the test cache.
