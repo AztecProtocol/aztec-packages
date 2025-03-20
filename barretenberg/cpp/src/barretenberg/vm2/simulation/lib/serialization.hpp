@@ -87,6 +87,7 @@ enum class InstrDeserializationError : uint8_t {
     PC_OUT_OF_RANGE,
     OPCODE_OUT_OF_RANGE,
     INSTRUCTION_OUT_OF_RANGE,
+    TAG_OUT_OF_RANGE,
 };
 
 /**

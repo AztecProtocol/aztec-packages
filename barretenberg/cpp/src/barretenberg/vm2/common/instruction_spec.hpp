@@ -30,6 +30,8 @@ struct WireInstructionSpec {
     ExecutionOpCode exec_opcode;
     uint32_t size_in_bytes;
     std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors;
+    bool has_tag = false;
+    bool tag_is_op2 = false;
 
     bool operator==(const WireInstructionSpec& other) const = default;
 };
