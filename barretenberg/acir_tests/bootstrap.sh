@@ -109,6 +109,8 @@ function build {
   # denoise "cd sol-test && yarn"
 
   denoise "cd browser-test-app && yarn build"
+
+  denoise "cd bbjs-test && yarn build"
 }
 
 function test {
@@ -183,6 +185,22 @@ function test_cmds_internal {
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
+
+  # prove and verify using bb.js classes
+  echo SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul
+  echo SYS=ultra_honk FLOW=bbjs_prove_verify THREAD_MODEL=mt $run_test assert_statement
+
+  # prove with bb.js and verify with solidity verifier
+  echo SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test 1_mul
+  echo SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test assert_statement
+
+  # prove with bb cli and verify with bb.js classes
+  echo SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test 1_mul
+  echo SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test assert_statement
+
+  # prove with bb.js and verify with bb cli
+  echo SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test 1_mul
+  echo SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test assert_statement
 }
 
 function ultra_honk_wasm_memory {

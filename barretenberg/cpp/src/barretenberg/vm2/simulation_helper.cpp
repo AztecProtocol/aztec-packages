@@ -21,6 +21,7 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
+#include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
@@ -76,7 +77,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
     typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
     typename S::template DefaultEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
-    typename S::template DefaultEventEmitter<RangeCheckEvent> range_check_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
 
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
@@ -97,6 +98,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        merkle_db,
                                        siloing,
                                        bytecode_hasher,
+                                       range_check,
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);

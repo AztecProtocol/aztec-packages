@@ -1,12 +1,16 @@
 #pragma once
 
 #include "barretenberg/vm2/simulation/range_check.hpp"
+
+#include <cstddef>
 #include <gmock/gmock.h>
+#include <vector>
 
 namespace bb::avm2::simulation {
 
 class MockRangeCheck : public RangeCheckInterface {
   public:
+    // https://google.github.io/googletest/gmock_cook_book.html#making-the-compilation-faster
     MockRangeCheck();
     ~MockRangeCheck() override;
 
