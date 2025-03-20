@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {
   FeeLib,
+  FeeHeaderLib,
   OracleInput,
   L1_GAS_PER_BLOCK_PROPOSED,
   L1_GAS_PER_EPOCH_VERIFIED,
@@ -14,7 +15,8 @@ import {
   FeeHeader,
   L1FeeData,
   ManaBaseFeeComponents,
-  L1GasOracleValues
+  L1GasOracleValues,
+  CompressedFeeHeader
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
@@ -36,6 +38,7 @@ contract MinimalFeeModel {
   using PriceLib for EthValue;
   using SlotLib for Slot;
   using TimeLib for Timestamp;
+  using FeeHeaderLib for CompressedFeeHeader;
 
   // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
   // with the block.blobbasefee value if using cheatcodes to alter it.
@@ -85,17 +88,12 @@ contract MinimalFeeModel {
   }
 
   function getFeeHeader(uint256 _slotNumber) public view returns (FeeHeaderModel memory) {
-    FeeHeader memory feeHeader = FeeLib.getStorage().feeHeaders[_slotNumber];
+    FeeHeader memory feeHeader = FeeLib.getStorage().feeHeaders[_slotNumber].decompress();
     return FeeHeaderModel({
       fee_asset_price_numerator: feeHeader.feeAssetPriceNumerator,
       excess_mana: feeHeader.excessMana,
       mana_used: feeHeader.manaUsed
     });
-  }
-
-  function calcExcessMana() internal view returns (uint256) {
-    FeeHeader storage parent = FeeLib.getStorage().feeHeaders[populatedThrough];
-    return (parent.excessMana + parent.manaUsed).clampedAdd(-int256(MANA_TARGET));
   }
 
   function addSlot(OracleInput memory _oracleInput) public {
@@ -104,7 +102,6 @@ contract MinimalFeeModel {
 
   // The `_manaUsed` is all the data we needed to know to calculate the excess mana.
   function addSlot(OracleInput memory _oracleInput, uint256 _manaUsed) public {
-    _oracleInput.assertValid();
     FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
   }
 

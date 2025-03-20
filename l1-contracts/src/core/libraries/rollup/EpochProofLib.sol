@@ -12,7 +12,12 @@ import {
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {FeeHeader, FeeLib, FeeStore} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {
+  CompressedFeeHeader,
+  FeeHeaderLib,
+  FeeLib,
+  FeeStore
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib, RollupStore} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
@@ -26,12 +31,14 @@ library EpochProofLib {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
+  using FeeHeaderLib for CompressedFeeHeader;
 
   struct Values {
     address sequencer;
     uint256 proverFee;
     uint256 sequencerFee;
     uint256 sequencerBlockReward;
+    uint256 manaUsed;
   }
 
   struct Totals {
@@ -307,17 +314,19 @@ library EpochProofLib {
         FeeStore storage feeStore = FeeLib.getStorage();
 
         for (uint256 i = $er.longestProvenLength; i < length; i++) {
-          FeeHeader storage feeHeader = feeStore.feeHeaders[_args.start + i];
+          CompressedFeeHeader storage feeHeader = feeStore.feeHeaders[_args.start + i];
+
+          v.manaUsed = feeHeader.getManaUsed();
 
           (uint256 fee, uint256 burn) = isFeeCanonical
-            ? (uint256(_args.fees[1 + i * 2]), feeHeader.congestionCost * feeHeader.manaUsed)
+            ? (uint256(_args.fees[1 + i * 2]), feeHeader.getCongestionCost() * v.manaUsed)
             : (0, 0);
 
           t.feesToClaim += fee;
           t.totalBurn += burn;
 
           // Compute the proving fee in the fee asset
-          v.proverFee = Math.min(feeHeader.manaUsed * feeHeader.provingCost, fee - burn);
+          v.proverFee = Math.min(v.manaUsed * feeHeader.getProvingCost(), fee - burn);
           $er.rewards += v.proverFee;
 
           v.sequencerFee = fee - burn - v.proverFee;
