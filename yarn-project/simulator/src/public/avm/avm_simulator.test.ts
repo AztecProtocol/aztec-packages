@@ -38,7 +38,6 @@ import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
-import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
   getAvmGadgetsTestContractBytecode,
   getAvmTestContractArtifact,
@@ -108,13 +107,9 @@ describe('AVM simulator: injected bytecode', () => {
     ]);
   });
 
-  it('Should not be recognized as AVM bytecode (magic missing)', () => {
-    expect(!isAvmBytecode(bytecode));
-  });
-
   it('Should execute bytecode that performs basic addition', async () => {
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-    const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
@@ -126,7 +121,7 @@ describe('AVM simulator: injected bytecode', () => {
       machineState: initMachineState({ l2GasLeft: 5 }),
     });
 
-    const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
     expect(results.reverted).toBe(true);
     expect(results.output).toEqual([]);
     expect(results.revertReason?.message).toEqual('Not enough L2GAS gas left');
@@ -141,7 +136,7 @@ describe('AVM simulator: injected bytecode', () => {
     const badBytecode = encodeToBytecode([
       new Div(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 0, /*dstOffset=*/ 0).as(Opcode.DIV_8, Div.wireFormat8),
     ]);
-    const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(badBytecode));
+    const results = await new AvmSimulator(context).executeBytecode(badBytecode);
     expect(results.reverted).toBe(true);
     expect(results.output).toEqual([]);
     expect(results.revertReason?.message).toMatch(/Tag mismatch/);
@@ -210,11 +205,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(0)]);
-  });
-
-  it('Should be recognized as AVM bytecode (magic present)', () => {
-    const bytecode = getAvmTestContractBytecode('add_args_return');
-    expect(isAvmBytecode(bytecode));
   });
 
   it('Should handle calldata oracle', async () => {
@@ -1093,7 +1083,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           new Jump(/*jumpOffset*/ 15),
         ]);
         const context = initContext({ persistableState });
-        const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
+        const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(true);
         expect(results.output).toEqual([]);
         expect(results.revertReason?.message).toMatch('Reached the limit');
