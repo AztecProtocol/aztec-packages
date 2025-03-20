@@ -74,7 +74,7 @@ fi
 function build_native {
   set -euo pipefail
   local hash=$NOIR_HASH
-  if cache_download noir-$NOIR_HASH.tar.gz; then
+  if cache_download noir-$hash.tar.gz; then
     return
   fi
   cd noir-repo
@@ -83,7 +83,7 @@ function build_native {
     "cargo build --locked --release --target-dir target" \
     "cargo clippy --target-dir target/clippy --workspace --locked --release"
   cd ..
-  cache_upload noir-$NOIR_HASH.tar.gz noir-repo/target/release/{nargo,acvm,noir-profiler}
+  cache_upload noir-$hash.tar.gz noir-repo/target/release/{nargo,acvm,noir-profiler}
 }
 
 # Builds js packages.
