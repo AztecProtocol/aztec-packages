@@ -216,23 +216,24 @@ export class TXENode implements AztecNode {
     // Now we find the block numbers for the indices
     const blockNumbers = await db.getBlockNumbersForLeafIndices(treeId, indices);
 
-    // If any of the block numbers are undefined, we throw an error with the index and the tree id that caused the error
+    // If any of the block numbers are undefined, we throw an error.
     for (let i = 0; i < indices.length; i++) {
       if (blockNumbers[i] === undefined) {
         throw new Error(`Block number is undefined for leaf index ${indices[i]} in tree ${MerkleTreeId[treeId]}`);
       }
     }
-    // Get unique block numbers
+    // Get unique block numbers in order to optimize num calls to getLeafValue function.
     const uniqueBlockNumbers = [...new Set(blockNumbers.filter(x => x !== undefined))];
 
-    // Now we obtain the block hashes from the archive tree
+    // Now we obtain the block hashes from the archive tree by calling await `committedDb.getLeafValue(treeId, index)`
+    // (note that block number corresponds to the leaf index in the archive tree).
     const blockHashes = await Promise.all(
       uniqueBlockNumbers.map(blockNumber => {
         return db.getLeafValue(MerkleTreeId.ARCHIVE, blockNumber!);
       }),
     );
 
-    // If any of the block hashes are undefined, we throw an error with the block number that caused the error
+    // If any of the block hashes are undefined, we throw an error.
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
       if (blockHashes[i] === undefined) {
         throw new Error(`Block hash is undefined for block number ${uniqueBlockNumbers[i]}`);

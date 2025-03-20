@@ -205,7 +205,7 @@ export class EpochsTestContext {
   }
 
   /** Verifies whether the given block number is found on the aztec node. */
-  public async verifyHistoricBlock(blockNumber: number, expectedSuccess: boolean) {
+  public async verifyHistoricBlock(blockNumber: L2BlockNumber, expectedSuccess: boolean) {
     const result = await this.context.aztecNode
       .findLeavesIndexes(blockNumber, MerkleTreeId.NULLIFIER_TREE, [Fr.ZERO])
       .then(_ => true)
