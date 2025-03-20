@@ -324,6 +324,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
 
+    // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
+    std::vector<uint32_t> used_witnesses;
+
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     bool circuit_finalized = false;
