@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742421199313,
+  "lastUpdate": 1742464275286,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "jose@aztecprotocol.com",
-            "name": "José Pedro Sousa",
-            "username": "signorecello"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2d7b69d1227b9cc6b6aac69db0323c5d8ffd4d82",
-          "message": "chore(testnet): updating script for ignition, change naming (#12566)\n\nThanks @aminsammara for coordinating changes while I was out in Denver\n:)\n\n---------\n\nCo-authored-by: signorecello <outgoing@zkpedro.dev>",
-          "timestamp": "2025-03-10T13:58:01+01:00",
-          "tree_id": "1f5680967adfcf2e2e7b8a7cf5142555817c18b3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2d7b69d1227b9cc6b6aac69db0323c5d8ffd4d82"
-        },
-        "date": 1741613293217,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18284.574928999973,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16121.861261 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18891.734326999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16403.71243 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3890.1294280001366,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3074.790184 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55057.022675,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55057024000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10192.004469999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10192011000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1605618303,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1605618303 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 218473638,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 218473638 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3684,6 +3612,84 @@ window.BENCHMARK_DATA = {
             "value": 15169,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "09a09d5a6e3d6960eb054cbee58415bfc939e55f",
+          "message": "feat(avm): instruction fetching parsing error (#12804)",
+          "timestamp": "2025-03-20T10:03:15+01:00",
+          "tree_id": "4e35db69b6e4ee66b5b27ce38764f9ca81f04f46",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/09a09d5a6e3d6960eb054cbee58415bfc939e55f"
+        },
+        "date": 1742464265461,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18057.82026299994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15966.12633 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117860786294,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1586986013,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 218238390,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18621.712063999894,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16266.191962 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54722.708037,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54722708000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3797.694564000267,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3092.017032 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 10711.385275999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10711390000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
