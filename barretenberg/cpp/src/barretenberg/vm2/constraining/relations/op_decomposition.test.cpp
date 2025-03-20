@@ -177,6 +177,8 @@ std::string render_pil(
                                   : format("#[OP", static_cast<uint32_t>(i), "_BYTES_DECOMPOSITION]\n");
         pil_equations += (i == 0) ? "indirect = " : format(OPERAND_PREFIX, static_cast<uint32_t>(i), " = ");
 
+        pil_equations += "(1 - parsing_err) * ("; // Error gating multiplicative term
+
         std::vector<std::string> additive_terms;
         for (const auto& sel_layout : sel_layout_breakdowns[i]) {
             additive_terms.push_back(
@@ -184,7 +186,7 @@ std::string render_pil(
         }
         pil_equations +=
             std::accumulate(std::next(additive_terms.begin()), additive_terms.end(), additive_terms[0], add_fold);
-        pil_equations += ";\n";
+        pil_equations += ");\n";
     }
     return pil_equations;
 }

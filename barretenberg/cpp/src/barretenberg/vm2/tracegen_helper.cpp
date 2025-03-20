@@ -39,6 +39,7 @@
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -247,6 +248,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
                     clear_events(events.to_radix);
                 },
+                [&]() {
+                    RangeCheckTraceBuilder range_check_builder;
+                    AVM_TRACK_TIME("tracegen/range_check", range_check_builder.process(events.range_check, trace));
+                    clear_events(events.range_check);
+                },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
@@ -254,8 +260,9 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
     // Now we can compute lookups and permutations.
     {
         auto jobs_interactions = make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+            // Poseidon2
             std::make_unique<LookupIntoDynamicTableSequential<lookup_poseidon2_hash_poseidon2_perm_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
+            // Range Check
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_diff_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_rng_chk_pow_2_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r0_is_u16_settings>>(),
@@ -266,12 +273,10 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r5_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r6_is_u16_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r7_is_u16_settings>>(),
+            // Bitwise
             std::make_unique<LookupIntoBitwise<lookup_bitwise_byte_operations_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_to_read_as_unary_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
-            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
+            // SHA-256
             std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_settings>>(),
             // Bytecode Hashing
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_get_packed_field_settings>>(),
@@ -280,6 +285,20 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // Bytecode Retrieval
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
+            // Bytecode Decomposition
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_to_read_as_unary_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
+            // Instruction Fetching
+            // TODO: Define another flavor for LookupIntoDynamicTableGeneric which takes only a prefix of the tuple
+            // as key. This would lower memory and potentially a short speed-up. Here, the two first elements
+            // (pc, bytecode_id) would define a unique key which is much shorter than this tuple which is about
+            // 40 elements long.
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytecode_size_from_bc_dec_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_instr_abs_diff_positive_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_pc_abs_diff_positive_settings>>(),
             // Class Id Derivation
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_0_settings>>(),

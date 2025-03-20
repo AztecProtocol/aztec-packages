@@ -66,7 +66,7 @@ template <typename Event> class NoopEventEmitter : public EventEmitterInterface<
     EventEmitter<Event>::Container dump_events() { return {}; };
 };
 
-// This is an event emmiter which only emits events once (it actually just _sets_ an event).
+// This is an event emitter which only emits events once (it actually just _sets_ an event).
 // This is meant for a special Execution use case.
 template <typename Event> class OneShotEventEmitter : public EventEmitterInterface<Event> {
   public:
