@@ -84,7 +84,7 @@ class ClientIVC {
         class DeserializationError : public std::runtime_error {
           public:
             DeserializationError(const std::string& msg)
-                : std::runtime_error(msg)
+                : std::runtime_error(std::string("Client IVC Proof deserialization error: ") + msg)
             {}
         };
 
