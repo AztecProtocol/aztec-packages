@@ -250,6 +250,10 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints)
     auto c_idx = circuit_constructor.add_variable(c);
     auto d_idx = circuit_constructor.add_variable(d);
     circuit_constructor.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
+    info("a_idx == ", a_idx);
+    info("b_idx == ", b_idx);
+    info("c_idx == ", c_idx);
+    info("d_idx == ", d_idx);
 
     fr e = fr(5);
     fr f = fr(6);
@@ -265,6 +269,13 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components[0].size(), 4);
     EXPECT_EQ(connected_components[1].size(), 4);
+    for (auto idx : connected_components[0]) {
+        info("idx0 == ", idx);
+    }
+    for (auto idx : connected_components[1]) {
+        info("idx1 == ", idx);
+    }
+
     EXPECT_EQ(connected_components.size(), 2);
 }
 
