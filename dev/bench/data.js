@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742474436621,
+  "lastUpdate": 1742483214529,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "abd22cd21ce7201583f897c70591503a77db519a",
-          "message": "feat(bb): consider polynomial end_index when constructing partially evaluated multivariates (#12530)\n\nThis fixes the sumcheck memory peak.\n\nTakes AVM memory usage for a trivial transaction from `33GB` (projected `100GB` on full VM) to `5GB`.\n\nHopefully also useful for other flavors, when the trace is not full.\n\nBTW, this also gives a massive sumcheck performance gain\n* AVM (16 cores, short trace) - Before: 9s\n* AVM (16 cores, short trace) - After: 3s\n\nPartly due to less memory allocation (and Fr zeroing) and partly due to @jeanmon's suggestions.",
-          "timestamp": "2025-03-10T16:03:35Z",
-          "tree_id": "48a56f1a668cfcc4d96609f59137fc6f4faccb33",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/abd22cd21ce7201583f897c70591503a77db519a"
-        },
-        "date": 1741625534919,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18365.208806999817,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16049.461823000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18804.653215000144,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16267.076668000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3958.6665199999516,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3100.775792 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55332.974456,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55332974000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10303.252193,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10303258000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1634785392,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1634785392 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 229850698,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 229850698 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3658,6 +3586,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15086,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd7adb1b39540b98d72b17fff5f2ec6bf81de143",
+          "message": "chore: fix archiver.test.ts (#12907)\n\nSomehow CI passed on #12863 even though this test is failing because of the changes 😅 This pr should fix it by putting in the proper layers.",
+          "timestamp": "2025-03-20T14:33:31Z",
+          "tree_id": "3c80380eb061572b7f5001f0697fc7fd8eeda8a2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fd7adb1b39540b98d72b17fff5f2ec6bf81de143"
+        },
+        "date": 1742483206980,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39246,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 25305,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11443,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14666,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15135,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
