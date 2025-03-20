@@ -688,7 +688,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       nullifier: noteDao.siloedNullifier.toString(),
     });
 
-    const [nullifierIndex] = await this.aztecNode.findNullifiersIndexesWithBlock(syncedBlockNumber, [siloedNullifier]);
+    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
+      siloedNullifier,
+    ]);
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
       await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
@@ -745,7 +747,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
+      const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
+        'latest',
+        MerkleTreeId.NULLIFIER_TREE,
+        nullifiersToCheck,
+      );
 
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {

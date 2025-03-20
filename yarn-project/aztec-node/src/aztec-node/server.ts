@@ -33,14 +33,7 @@ import {
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type {
-  InBlock,
-  L2Block,
-  L2BlockNumber,
-  L2BlockSource,
-  NullifierWithBlockSource,
-  PublishedL2Block,
-} from '@aztec/stdlib/block';
+import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -114,7 +107,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly logsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
-    protected readonly nullifierSource: NullifierWithBlockSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
     protected readonly l1ChainId: number,
@@ -520,11 +512,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Find the indexes of the given leaves in the given tree.
+   * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
+   * the leaf was inserted.
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
    * @param leafValue - The values to search for
-   * @returns The indices of leaves and the block number and block hash of a block in which the leaf was inserted.
+   * @returns The indices of leaves and the block metadata of a block in which the leaf was inserted.
    */
   public async findLeavesIndexes(
     blockNumber: L2BlockNumber,
@@ -602,16 +595,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   ): Promise<(bigint | undefined)[]> {
     const committedDb = await this.#getWorldState(blockNumber);
     return await committedDb.getBlockNumbersForLeafIndices(treeId, leafIndices);
-  }
-
-  public async findNullifiersIndexesWithBlock(
-    blockNumber: L2BlockNumber,
-    nullifiers: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
-    if (blockNumber === 'latest') {
-      blockNumber = await this.getBlockNumber();
-    }
-    return this.nullifierSource.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   /**

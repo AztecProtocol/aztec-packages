@@ -18,7 +18,7 @@ import omit from 'lodash.omit';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, randomInBlock } from '../block/in_block.js';
+import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -97,14 +97,6 @@ describe('AztecNodeApiSchema', () => {
   it('findBlockNumbersForIndexes', async () => {
     const response = await context.client.findBlockNumbersForIndexes(1, MerkleTreeId.ARCHIVE, [5n, 58n]);
     expect(response).toEqual([3n, 9n]);
-  });
-
-  it('findNullifiersIndexesWithBlock', async () => {
-    const response = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
-    expect(response).toEqual([
-      { data: 1n, l2BlockNumber: expect.any(Number), l2BlockHash: expect.any(String) },
-      undefined,
-    ]);
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -390,15 +382,6 @@ class MockAztecNode implements AztecNode {
   ): Promise<(bigint | undefined)[]> {
     expect(leafIndices).toEqual([5n, 58n]);
     return Promise.resolve([3n, 9n]);
-  }
-  findNullifiersIndexesWithBlock(
-    blockNumber: number | 'latest',
-    nullifiers: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
-    expect(nullifiers).toHaveLength(2);
-    expect(nullifiers[0]).toBeInstanceOf(Fr);
-    expect(nullifiers[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([randomInBlock(1n), undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',

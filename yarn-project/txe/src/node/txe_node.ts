@@ -57,7 +57,6 @@ export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
   #txEffectsByTxHash = new Map<string, InBlock<TxEffect>>();
   #txReceiptsByTxHash = new Map<string, TxReceipt>();
-  #blockNumberToNullifiers = new Map<number, Fr[]>();
   #noteIndex = 0;
 
   #logger = createLogger('aztec:txe_node');
@@ -130,51 +129,6 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Returns the indexes of the given nullifiers in the nullifier tree,
-   * scoped to the block they were included in.
-   * @param blockNumber - The block number at which to get the data.
-   * @param nullifiers - The nullifiers to search for.
-   * @returns The block scoped indexes of the given nullifiers in the nullifier tree, or undefined if not found.
-   */
-  async findNullifiersIndexesWithBlock(
-    blockNumber: L2BlockNumber,
-    nullifiers: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
-    const parsedBlockNumber = blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber;
-
-    const nullifiersInBlock: Fr[] = [];
-    for (const [key, val] of this.#blockNumberToNullifiers.entries()) {
-      if (key <= parsedBlockNumber) {
-        nullifiersInBlock.push(...val);
-      }
-    }
-
-    return nullifiers.map(nullifier => {
-      const possibleNullifierIndex = nullifiersInBlock.findIndex(nullifierInBlock =>
-        nullifierInBlock.equals(nullifier),
-      );
-      return possibleNullifierIndex === -1
-        ? undefined
-        : {
-            l2BlockNumber: parsedBlockNumber,
-            l2BlockHash: new Fr(parsedBlockNumber).toString(),
-            data: BigInt(possibleNullifierIndex),
-          };
-    });
-  }
-
-  /**
-   * Returns the indexes of the given nullifiers in the nullifier tree,
-   * scoped to the block they were included in.
-   * @param blockNumber - The block number at which to get the data.
-   * @param nullifiers - The nullifiers to search for.
-   * @returns The block scoped indexes of the given nullifiers in the nullifier tree, or undefined if not found.
-   */
-  setNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]) {
-    this.#blockNumberToNullifiers.set(blockNumber, nullifiers);
-  }
-
-  /**
    * Adds private logs to the txe node, given a block
    * @param blockNumber - The block number at which to add the private logs.
    * @param privateLogs - The privateLogs that contain the private logs to be added.
@@ -234,7 +188,7 @@ export class TXENode implements AztecNode {
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
    * @param leafValue - The values to search for
-   * @returns The indices of leaves and the block number and block hash of a block in which the leaf was inserted.
+   * @returns The indices of leaves and the block metadata of a block in which the leaf was inserted.
    */
   async findLeavesIndexes(
     blockNumber: L2BlockNumber,
