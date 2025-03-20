@@ -32,9 +32,8 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     }
 
     assert(curr_index == 0 || curr_index == 1 && "Merkle check's final node index must be 0 or 1");
+    assert(curr_value == root && "Merkle membership or non-membership check failed");
 
-    FF computed_root = curr_value;
-    assert(computed_root == root && "Merkle membership or non-membership check failed");
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
     events.emit(
         { .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = std::move(sibling_vec), .root = root });
