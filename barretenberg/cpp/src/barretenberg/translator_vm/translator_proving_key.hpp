@@ -15,7 +15,9 @@ class TranslatorProvingKey {
     using CommitmentKey = typename Flavor::CommitmentKey;
 
     size_t mini_circuit_dyadic_size;
+    size_t mini_size_premasking;
     size_t dyadic_circuit_size;
+    size_t size_premasking;
     std::shared_ptr<ProvingKey> proving_key;
 
     BF batching_challenge_v = { 0 };
@@ -30,6 +32,8 @@ class TranslatorProvingKey {
 
     {
         proving_key->polynomials = Flavor::ProverPolynomials(mini_circuit_dyadic_size);
+        mini_size_premasking = mini_circuit_dyadic_size - MASKING_OFFSET;
+        size_premasking = (mini_circuit_dyadic_size - MASKING_OFFSET) * Flavor::INTERLEAVING_GROUP_SIZE;
     }
 
     TranslatorProvingKey(const Circuit& circuit, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
@@ -43,13 +47,10 @@ class TranslatorProvingKey {
         proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, std::move(commitment_key));
         proving_key->polynomials = Flavor::ProverPolynomials(mini_circuit_dyadic_size);
 
-        // Populate the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator
-        // wires
-        // come as is, since they have to reflect the structure of polynomials in the first 4 wires, which we've
-        // commited to
+        // Populate the wire polynomials from the wire vectors in the circuit
         for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
             auto& wire_poly = wire_poly_;
-            auto& wire = wire_;
+            const auto& wire = wire_;
             parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
@@ -59,6 +60,7 @@ class TranslatorProvingKey {
                     }
                 }
             });
+            wire_poly.mask(); // ugh
         }
 
         // First and last lagrange polynomials (in the full circuit size)
@@ -66,21 +68,41 @@ class TranslatorProvingKey {
         proving_key->polynomials.lagrange_real_last.at(dyadic_circuit_size - 1) = 1;
         proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
 
-        // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
+        // Construct polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
         // polynomials at second and second to last indices in the minicircuit
+        // WORKTODO add the required positional lagranges
         compute_lagrange_polynomials();
 
-        // Compute the numerator for the permutation argument with several repetitions of steps bridging 0 and
-        // maximum range constraint compute_extra_range_constraint_numerator();
+        // Construct the extra range constraint numerator which contains all the additional values in the ordered range
+        // constraints not present in the interleaved polynomials
+        // NB this will always have a fixed size unless we change the allowed range
         compute_extra_range_constraint_numerator();
 
-        // Creates the polynomials resulting from interleaving each group of range constraints into one polynomial.
-        // These are not commited to.
-        compute_interleaved_polynomials();
+        // Construct the polynomials resulted from interleaving the small polynomials in each group
+        // This is fine in terms of masking
+        // This ends up with the random values
+        compute_interleaved_polynomials(); // this will be masked
 
-        // We also contruct ordered polynomials, which have the same values as interleaved ones + enough values to
-        // bridge the range from 0 to maximum range defined by the range constraint.
+        // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
+        // bridge the range from 0 to 3 (3 is the maximum allowed range defined by the range constraint).
         compute_translator_range_constraint_ordered_polynomials();
+
+        // finalise masking
+        for (size_t i = 0; i < Flavor::NUM_INTERLEAVED_WIRES; i++) {
+            auto& interleaved = proving_key->polynomials.get_interleaved()[i];
+            auto& ordered = proving_key->polynomials.get_ordered_constraints()[i];
+            for (size_t j = size_premasking; j < dyadic_circuit_size; j++) {
+                ordered.at(j) = interleaved.at(j);
+            }
+        }
+
+        auto& extra_numerator = proving_key->polynomials.ordered_extra_range_constraints_numerator;
+        auto& ordered = proving_key->polynomials.ordered_range_constraints_4;
+        for (size_t j = size_premasking; j < dyadic_circuit_size; j++) {
+            FF masking_element = FF::random_element();
+            ordered.at(j) = masking_element;
+            extra_numerator.at(j) = masking_element;
+        }
     };
 
     inline void compute_dyadic_circuit_size()
@@ -95,9 +117,8 @@ class TranslatorProvingKey {
     {
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
         // to 10 rounds of folding (i.e. 20 circuits)
-        if (circuit.num_gates > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
-            info("The Translator circuit size has exceeded the fixed upper bound");
-            ASSERT(false);
+        if (circuit.num_gates > Flavor::TRANSLATOR_VM_FIXED_SIZE - MASKING_OFFSET) {
+            throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
         mini_circuit_dyadic_size = Flavor::TRANSLATOR_VM_FIXED_SIZE;
     }
