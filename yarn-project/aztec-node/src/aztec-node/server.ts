@@ -581,22 +581,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Find the block numbers of the given leaf indices in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
-   * @param treeId - The tree to search in.
-   * @param leafIndices - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
-   */
-  public async findBlockNumbersForIndexes(
-    blockNumber: L2BlockNumber,
-    treeId: MerkleTreeId,
-    leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
-    const committedDb = await this.#getWorldState(blockNumber);
-    return await committedDb.getBlockNumbersForLeafIndices(treeId, leafIndices);
-  }
-
-  /**
    * Returns a sibling path for the given index in the nullifier tree.
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - The index of the leaf for which the sibling path is required.

@@ -664,21 +664,6 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Find the block numbers of the given leaf indices in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
-   * @param treeId - The tree to search in.
-   * @param leafIndices - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
-   */
-  findBlockNumbersForIndexes(
-    _blockNumber: L2BlockNumber,
-    _treeId: MerkleTreeId,
-    _leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
-    throw new Error('TXE Node method findBlockNumbersForIndexes not implemented');
-  }
-
-  /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
    * L1 chain identifier, protocol version, and L1 address of the rollup contract.
    * @returns - The node information.

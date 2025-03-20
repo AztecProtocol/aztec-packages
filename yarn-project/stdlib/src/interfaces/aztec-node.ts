@@ -87,19 +87,6 @@ export interface AztecNode
   ): Promise<(InBlock<bigint> | undefined)[]>;
 
   /**
-   * Find the indexes of the given leaves in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
-   * @param treeId - The tree to search in.
-   * @param leafIndices - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
-   */
-  findBlockNumbersForIndexes(
-    blockNumber: L2BlockNumber,
-    treeId: MerkleTreeId,
-    leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]>;
-
-  /**
    * Returns a sibling path for the given index in the nullifier tree.
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - The index of the leaf for which the sibling path is required.
@@ -214,7 +201,7 @@ export interface AztecNode
    * @param number - The block number being requested.
    * @returns The requested block.
    */
-  getBlock(number: number): Promise<L2Block | undefined>;
+  getBlock(number: L2BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Fetches the current block number.
@@ -436,11 +423,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
     .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
 
-  findBlockNumbersForIndexes: z
-    .function()
-    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.BigInt))
-    .returns(z.array(optional(schemas.BigInt))),
-
   getNullifierSiblingPath: z
     .function()
     .args(L2BlockNumberSchema, schemas.BigInt)
@@ -485,7 +467,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPublicDataWitness: z.function().args(L2BlockNumberSchema, schemas.Fr).returns(PublicDataWitness.schema.optional()),
 
-  getBlock: z.function().args(z.number()).returns(L2Block.schema.optional()),
+  getBlock: z.function().args(L2BlockNumberSchema).returns(L2Block.schema.optional()),
 
   getBlockNumber: z.function().returns(z.number()),
 
