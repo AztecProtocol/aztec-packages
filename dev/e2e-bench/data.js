@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742490033631,
+  "lastUpdate": 1742491175464,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "44bd79b7e27d9610568f14c109b22cf7e36fe298",
-          "message": "chore: Silence \"Updated proven chain\" log (#11250)\n\nArchiver no longer logs \"Updated proven chain\" on every iteration, but\r\nonly when there is an actual change to it.",
-          "timestamp": "2025-01-15T18:17:45-03:00",
-          "tree_id": "02cd082739584b108a6c19d9a82e9d55e48ba7b0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/44bd79b7e27d9610568f14c109b22cf7e36fe298"
-        },
-        "date": 1736977286216,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4631,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 3.4800644507936287,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 670350,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 138547,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "51711291+natebeauregard@users.noreply.github.com",
+            "name": "Nate Beauregard",
+            "username": "natebeauregard"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a96a908faa8122d026372a66423c94c256aa2dba",
+          "message": "chore(p2p): add tx queue to prevent ddos attacks (#12603)\n\ncloses https://github.com/AztecProtocol/aztec-packages/issues/12416\n\nAdds a `SerialQueue` for sending one tx at a time and adds a timeout of\n1s for invalid tx proofs to be invalidated.\n\nAdditionally, adds a new e2e test to ensure that large influxes of\ninvalid txs are filtered out and do not cause the node to crash or\nprevent valid txs from persisting through the p2p network.\n\n---------\n\nCo-authored-by: PhilWindle <60546371+PhilWindle@users.noreply.github.com>",
+          "timestamp": "2025-03-20T16:49:19Z",
+          "tree_id": "2f64d2d9b3078e294b92768b416f901e10d5b3d5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a96a908faa8122d026372a66423c94c256aa2dba"
+        },
+        "date": 1742491174496,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9805,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23927274484839797,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 142582,
             "unit": "us"
           }
         ]
