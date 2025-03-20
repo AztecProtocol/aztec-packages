@@ -897,20 +897,20 @@ Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
     // For now our other option is to check if the data is valid msgpack,
     // which slows things down, but we can't tell if the first byte of
     // the data accidentally matches one of our format values.
-    if (buf.size() > 0) {
-        // Skip the first byte, which would be our format marker;
-        // we know it's going to be msgpack in this experiment.
-        // Once we remove support for legacy format (ie. without the
-        // format marker), we can get rid of this.
-        auto buffer = reinterpret_cast<const char*>(buf.data())[1];
-        size_t size = buf.size() - 1;
-        msgpack::null_visitor probe;
-        if (msgpack::parse(&buffer, size, probe)) {
-            Acir::Program program;
-            msgpack::unpack(&buffer, size).get().convert(program);
-            return program;
-        }
-    }
+    // if (buf.size() > 0) {
+    //     // Skip the first byte, which would be our format marker;
+    //     // we know it's going to be msgpack in this experiment.
+    //     // Once we remove support for legacy format (ie. without the
+    //     // format marker), we can get rid of this.
+    //     auto buffer = reinterpret_cast<const char*>(buf.data())[1];
+    //     size_t size = buf.size() - 1;
+    //     msgpack::null_visitor probe;
+    //     if (msgpack::parse(&buffer, size, probe)) {
+    //         Acir::Program program;
+    //         msgpack::unpack(&buffer, size).get().convert(program);
+    //         return program;
+    //     }
+    // }
     return Acir::Program::bincodeDeserialize(buf);
 }
 
