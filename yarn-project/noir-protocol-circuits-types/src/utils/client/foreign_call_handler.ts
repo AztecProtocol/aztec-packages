@@ -4,10 +4,6 @@ import type { ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 
 import { strict as assert } from 'assert';
 
-function fromACVMField(field: string): Fr {
-  return Fr.fromBuffer(Buffer.from(field.slice(2), 'hex'));
-}
-
 export function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createLogger('noir-protocol-circuits:oracle');
@@ -15,8 +11,8 @@ export function foreignCallHandler(name: string, args: ForeignCallInput[]): Prom
   if (name === 'debugLog') {
     assert(args.length === 3, 'expected 3 arguments for debugLog: msg, fields_length, fields');
     const [msgRaw, _ignoredFieldsSize, fields] = args;
-    const msg: string = msgRaw.map(acvmField => String.fromCharCode(fromACVMField(acvmField).toNumber())).join('');
-    const fieldsFr: Fr[] = fields.map((field: string) => fromACVMField(field));
+    const msg: string = msgRaw.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
+    const fieldsFr: Fr[] = fields.map((field: string) => Fr.fromString(field));
     log.verbose('debug_log ' + applyStringFormatting(msg, fieldsFr));
   } else if (name === 'noOp') {
     // Workaround for compiler issues where data is deleted because it's "unused"

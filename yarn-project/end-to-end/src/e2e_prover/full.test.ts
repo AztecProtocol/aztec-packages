@@ -1,9 +1,10 @@
 import { type AztecAddress, EthAddress, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import type { FieldsOf } from '@aztec/foundation/types';
-import { FeeJuicePortalAbi, RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { FeeJuicePortalAbi, RewardDistributorAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
@@ -32,7 +33,7 @@ describe('full_prover', () => {
   let sender: AztecAddress;
   let recipient: AztecAddress;
 
-  let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  let rollup: RollupContract;
   let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
   let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
   let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, PublicClient<HttpTransport, Chain>>;
@@ -48,11 +49,7 @@ describe('full_prover', () => {
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
     [sender, recipient] = accounts.map(a => a.address);
 
-    rollup = getContract({
-      abi: RollupAbi,
-      address: t.l1Contracts.l1ContractAddresses.rollupAddress.toString(),
-      client: t.l1Contracts.publicClient,
-    });
+    rollup = new RollupContract(t.l1Contracts.publicClient, t.l1Contracts.l1ContractAddresses.rollupAddress);
 
     rewardDistributor = getContract({
       abi: RewardDistributorAbi,
@@ -143,12 +140,9 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const rewardsBeforeCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
-      const rewardsBeforeProver = await rollup.read.getSpecificProverRewardsForEpoch([
-        epoch,
-        t.proverAddress.toString(),
-      ]);
-      const oldProvenBlockNumber = await rollup.read.getProvenBlockNumber();
+      const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
+      const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
+      const oldProvenBlockNumber = await rollup.getProvenBlockNumber();
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
@@ -159,18 +153,15 @@ describe('full_prover', () => {
         }),
       );
 
-      const newProvenBlockNumber = await rollup.read.getProvenBlockNumber();
+      const newProvenBlockNumber = await rollup.getProvenBlockNumber();
       expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
-      expect(await rollup.read.getPendingBlockNumber()).toBe(newProvenBlockNumber);
+      expect(await rollup.getBlockNumber()).toBe(newProvenBlockNumber);
 
       logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
-      const rewardsAfterCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
+      const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
       expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
 
-      const rewardsAfterProver = await rollup.read.getSpecificProverRewardsForEpoch([
-        epoch,
-        t.proverAddress.toString(),
-      ]);
+      const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
       expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
       const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
@@ -195,7 +186,6 @@ describe('full_prover', () => {
     if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
-
     // Create the two transactions
     const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
     const privateSendAmount = privateBalance / 20n;
