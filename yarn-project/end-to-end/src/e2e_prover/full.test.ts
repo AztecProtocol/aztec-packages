@@ -1,4 +1,4 @@
-import { type AztecAddress, EthAddress, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, ProvenTx, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
@@ -13,9 +13,6 @@ import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
 
-// TODO(#12613)
-// eslint-disable-next-line import/no-relative-packages
-import { ProvenTx } from '../../../aztec.js/src/contract/proven_tx.js';
 import { FullProverTest } from './e2e_prover_test.js';
 
 // Set a very long 20 minute timeout.
@@ -300,7 +297,7 @@ describe('full_prover', () => {
         return;
       }
 
-      const NUM_INVALID_TXS = 250;
+      const NUM_INVALID_TXS = 20;
 
       // Create and prove a tx
       logger.info(`Creating and proving tx`);

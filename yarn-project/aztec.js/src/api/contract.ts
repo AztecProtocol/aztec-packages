@@ -40,6 +40,7 @@ export { ContractFunctionInteraction, type SendMethodOptions } from '../contract
 
 export { TxProfileResult } from '@aztec/stdlib/tx';
 export { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';
+export { ProvenTx } from '../contract/proven_tx.js';
 export {
   ContractBase,
   type ContractMethod,
