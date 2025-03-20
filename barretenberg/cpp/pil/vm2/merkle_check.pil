@@ -50,8 +50,8 @@ namespace merkle_check;
 
     // If the current row is not active, then there are no more active rows after that.
     // (not enforced for the first row)
-    // Gives guarantee that the active trace must start just after the first row (clk == 0)
-    // and from there it is contiguous.
+    // Gives guarantee that once the trace activates, it is contiguous (sel == 1) all the
+    // way until the last ever active row. After that point, sel == 1 for all remaining rows.
     #[TRACE_CONTINUITY]
     (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
 
