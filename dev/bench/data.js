@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742474434194,
+  "lastUpdate": 1742474436621,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bd0b3b69c57e9ed225b3a8b8e5dfba65edb31977",
-          "message": "fix!: aggregate data for batch calls (#12562)\n\n- `BatchCall` now takes an array of `BaseContractInteraction`, which has\nall the information including `functionCall`, `authwit` and `capsules`.\nBefore it took an array of `functionCall` and users would have to set\nother data to it seperately.\n- `BaseContractInteraction` has a method `request` that returns\n`<Omit<ExecutionRequestInit, 'fee'>>`. This is called by `BatchCall` to\ngather all the data, and used for simulation to estimate fee.",
-          "timestamp": "2025-03-10T14:02:59Z",
-          "tree_id": "2cc532c69da3761e332ae1389e0cd600c118b6bd",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/bd0b3b69c57e9ed225b3a8b8e5dfba65edb31977"
-        },
-        "date": 1741617779048,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18293.49905500021,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16220.779099999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18989.844000000176,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16379.084727000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3950.8375239997804,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3091.9362690000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55542.255637,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55542255000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10520.341719999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10520350000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1605785753,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1605785753 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 217209269,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 217209269 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3678,6 +3606,60 @@ window.BENCHMARK_DATA = {
             "value": "2217.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d69901f2953ee6f2aecb4fbdcc1776393d9002f8",
+          "message": "chore(avm): Constrain pc_size_in_bits column and rename (#12899)",
+          "timestamp": "2025-03-20T12:57:38+01:00",
+          "tree_id": "c1e526128a96fb24a11fb5036801ceff543a23ee",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d69901f2953ee6f2aecb4fbdcc1776393d9002f8"
+        },
+        "date": 1742474435592,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 38801,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26354,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11524,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14740,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15086,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
         ]
       }
