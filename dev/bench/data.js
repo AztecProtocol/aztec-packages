@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742488140162,
+  "lastUpdate": 1742490031604,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "68168980+just-mitch@users.noreply.github.com",
-            "name": "just-mitch",
-            "username": "just-mitch"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6e919344d7e48695d07e154ce63cefae8cb7a6aa",
-          "message": "fix: broken kind transfer test (#12611)\n\nFixes the misconfigured volumes on the blob sink, hit in the kind\ntransfer test.\n\nAlso the flake rate on kind tests is close to zero, so graduating them.",
-          "timestamp": "2025-03-10T20:43:24Z",
-          "tree_id": "9b410501d66800339a8d7cf935adc3d0a254b1b2",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6e919344d7e48695d07e154ce63cefae8cb7a6aa"
-        },
-        "date": 1741640235997,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17939.56865100006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15818.87192 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18517.624801000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16115.565557 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3766.241662000084,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3029.0189630000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55029.951515,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55029950000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11729.380698,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11729384000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1585792135,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1585792135 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 212692237,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 212692237 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3568,6 +3496,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 17710,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "13aa4f5fabadcd18daae30bac3955145eb44837e",
+          "message": "chore: Cleanup and re-specify sequencer config in RC1 (#12898)\n\nThis PR just re-specifies sequencer config in RC-1 to ensure it doesn't\ninadvertently get overwritten. Also some cleanup of old env vars.",
+          "timestamp": "2025-03-20T16:33:38Z",
+          "tree_id": "b1c544f4493e8ac3bd80aa0f96d39e507b57d4b9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/13aa4f5fabadcd18daae30bac3955145eb44837e"
+        },
+        "date": 1742490024601,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 42617,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 25109,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11866,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14654,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 17767,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
