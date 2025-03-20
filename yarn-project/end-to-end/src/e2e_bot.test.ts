@@ -86,8 +86,9 @@ describe('e2e_bot', () => {
     it('swaps tokens from the bot', async () => {
       const balancesBefore = await bot.getBalances();
       await expect(bot.run()).resolves.toBeUndefined();
-      // Reading private balances does not work currently
       const balancesAfter = await bot.getBalances();
+      expect(balancesAfter.senderPrivate.token0).toBeLessThan(balancesBefore.senderPrivate.token0);
+      expect(balancesAfter.senderPrivate.token1).toBeGreaterThan(balancesBefore.senderPrivate.token1);
     });
   });
 });

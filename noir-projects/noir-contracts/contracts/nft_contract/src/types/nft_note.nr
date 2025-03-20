@@ -223,7 +223,7 @@ impl PartialNFTNote {
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
         // last field (the value), and note discovery failing.
         // TODO(#11636): remove this
-        assert(value != 0, "Cannot complete a PartialNFTNote with a value of 0");
+        assert(token_id != 0, "Cannot complete a PartialNFTNote with a value of 0");
 
         // We need to do two things:
         //  - emit a public log containing the public fields (the token id). The contract will later find it by
