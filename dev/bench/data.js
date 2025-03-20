@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742496804819,
+  "lastUpdate": 1742497524630,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "662324489ab708a86396c27640a523ad6be721bb",
-          "message": "chore: cleanup eth artifacts + misc aztec.js reorg (#12563)\n\nAttempt to remove as many L1 contract ABIs from `aztec.js` as possible,\nsince they're now the biggest individual contributors to bundle sizes.\n\nSome utilities have been removed from it (`deployL1Contracts` now live\nin `@aztec/ethereum` since doesn't really make sense for externals to\nuse it) and an `@aztec/aztec.js/testing` export has been created for\nthings like cheatcodes, so they're no longer in the main export.\n\nAlso the api folder has been cleaned up, so we can transition to\ngranular exports ASAP. For the time being the big export is kept and\nused in the playground to track overall bundle size (that has gone down\nfrom 1.9MB to 1.53). This cleanup paves the way for more API\nimprovements that are coming soon for wallets.",
-          "timestamp": "2025-03-11T09:48:36Z",
-          "tree_id": "1a50347f08a0afa22df24d74576cab40975d0b0b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/662324489ab708a86396c27640a523ad6be721bb"
-        },
-        "date": 1741688946518,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18405.045939000047,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16257.740239 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18868.697026000063,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16509.997894 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3915.8328079997773,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3049.671138 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55426.512031,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55426510000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9426.589259999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9426593000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1592868545,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1592868545 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 212532962,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 212532962 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3520,6 +3448,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 12893,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d871f8f662f5fa2dc3b278cd35e5f54f58ef220",
+          "message": "fix: Removed logged config object in L1 Tx Utils (#12901)",
+          "timestamp": "2025-03-20T18:35:17Z",
+          "tree_id": "72ffa6fb15d7737636aacda48581e16f8f1c9826",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5d871f8f662f5fa2dc3b278cd35e5f54f58ef220"
+        },
+        "date": 1742497517129,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 42372,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 25160,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11795,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14629,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 17704,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
