@@ -11,9 +11,7 @@ BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
 outdir=$(mktemp -d)
 trap "rm -rf $outdir" EXIT
 
-flags="-c $CRS_PATH ${VERBOSE:+-v} -o $outdir"
-
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1252): deprecate in favor of normal proving flow
-$BIN OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file $flags
-$BIN prove_tube $flags
-$BIN verify_tube $flags
+$BIN OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file -c $CRS_PATH ${VERBOSE:+-v} -o $outdir
+$BIN prove_tube -c $CRS_PATH ${VERBOSE:+-v} -k $outdir/vk -o $outdir
+$BIN verify_tube -c $CRS_PATH ${VERBOSE:+-v} -o $outdir

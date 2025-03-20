@@ -10,6 +10,9 @@
       "path": "../constants"
     },
     {
+      "path": "../entrypoints"
+    },
+    {
       "path": "../ethereum"
     },
     {

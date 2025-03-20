@@ -73,6 +73,10 @@ export class RollupContract {
     return this.rollup.address;
   }
 
+  getContract(): GetContractReturnType<typeof RollupAbi, ViemPublicClient> {
+    return this.rollup;
+  }
+
   @memoize
   public async getSlashingProposer() {
     const slasherAddress = await this.rollup.read.getSlasher();
@@ -127,12 +131,21 @@ export class RollupContract {
   }
 
   @memoize
+  getProvingCostPerManaInFeeAsset() {
+    return this.rollup.read.getProvingCostPerManaInFeeAsset();
+  }
+
+  @memoize
   getManaLimit() {
     return this.rollup.read.getManaLimit();
   }
 
+  getSlasher() {
+    return this.rollup.read.getSlasher();
+  }
+
   public async getSlashingProposerAddress() {
-    const slasherAddress = await this.rollup.read.getSlasher();
+    const slasherAddress = await this.getSlasher();
     const slasher = getContract({
       address: getAddress(slasherAddress.toString()),
       abi: SlasherAbi,
@@ -285,7 +298,82 @@ export class RollupContract {
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
-  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: EthAddress) {
-    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover.toString()]);
+  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: Hex | EthAddress) {
+    if (prover instanceof EthAddress) {
+      prover = prover.toString();
+    }
+    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover]);
+  }
+
+  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
+    return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
+  }
+
+  getVersion() {
+    return this.rollup.read.getVersion();
+  }
+
+  getSlotAt(timestamp: bigint) {
+    return this.rollup.read.getSlotAt([timestamp]);
+  }
+
+  status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+    return this.rollup.read.status([blockNumber], options);
+  }
+
+  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    return this.rollup.read.canPruneAtTime([timestamp], options);
+  }
+
+  archive() {
+    return this.rollup.read.archive();
+  }
+
+  archiveAt(blockNumber: bigint) {
+    return this.rollup.read.archiveAt([blockNumber]);
+  }
+
+  getSequencerRewards(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getSequencerRewards([address]);
+  }
+
+  getSpecificProverRewardsForEpoch(epoch: bigint, prover: Hex | EthAddress) {
+    if (prover instanceof EthAddress) {
+      prover = prover.toString();
+    }
+    return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
+  }
+
+  getAttesters() {
+    return this.rollup.read.getAttesters();
+  }
+
+  getEpochCommittee(epoch: bigint) {
+    return this.rollup.read.getEpochCommittee([epoch]);
+  }
+
+  getInfo(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getInfo([address]);
+  }
+
+  getBlobPublicInputsHash(blockNumber: bigint) {
+    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  }
+
+  getStakingAsset() {
+    return this.rollup.read.getStakingAsset();
+  }
+
+  getProposerForAttester(attester: Hex | EthAddress) {
+    if (attester instanceof EthAddress) {
+      attester = attester.toString();
+    }
+    return this.rollup.read.getProposerForAttester([attester]);
   }
 }

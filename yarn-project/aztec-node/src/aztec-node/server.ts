@@ -8,7 +8,6 @@ import {
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
-  REGISTERER_CONTRACT_ADDRESS,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
@@ -49,7 +48,7 @@ import type {
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
   AztecNode,
   AztecNodeAdmin,
@@ -69,8 +68,8 @@ import {
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
-import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
   PublicSimulationOutput,
@@ -369,25 +368,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return Promise.resolve(this.l1ChainId);
   }
 
-  public async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    const klazz = await this.contractDataSource.getContractClass(id);
-
-    // TODO(#10007): Remove this check. This is needed only because we're manually registering
-    // some contracts in the archiver so they are available to all nodes (see `registerCommonContracts`
-    // in `archiver/src/factory.ts`), but we still want clients to send the registration tx in order
-    // to emit the corresponding nullifier, which is now being checked. Note that this method
-    // is only called by the PXE to check if a contract is publicly registered.
-    if (klazz) {
-      const classNullifier = await siloNullifier(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), id);
-      const worldState = await this.#getWorldState('latest');
-      const [index] = await worldState.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [classNullifier.toBuffer()]);
-      this.log.debug(`Registration nullifier ${classNullifier} for contract class ${id} found at index ${index}`);
-      if (index === undefined) {
-        return undefined;
-      }
-    }
-
-    return klazz;
+  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    return this.contractDataSource.getContractClass(id);
   }
 
   public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
@@ -802,7 +784,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
-  async getPublicDataTreeWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  async getPublicDataWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult) {
@@ -949,12 +931,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
       multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
     });
-  }
-
-  // TODO(#10007): Remove this method
-  public addContractClass(contractClass: ContractClassPublic): Promise<void> {
-    this.log.info(`Adding contract class via API ${contractClass.id}`);
-    return this.contractDataSource.addContractClass(contractClass);
   }
 
   public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
