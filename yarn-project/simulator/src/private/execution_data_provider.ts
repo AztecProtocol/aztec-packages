@@ -150,7 +150,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param blockNumber - The block number at which to get the witness.
    * @param leafSlot - The slot of the public data in the public data tree.
    */
-  getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.

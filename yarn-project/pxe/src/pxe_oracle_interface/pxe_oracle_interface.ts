@@ -209,8 +209,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return await this.aztecNode.getBlock(blockNumber);
   }
 
-  public async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return await this.aztecNode.getPublicDataTreeWitness(blockNumber, leafSlot);
+  public async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {

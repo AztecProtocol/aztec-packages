@@ -7,7 +7,6 @@ cmd=${1:-}
 export preset=clang16-assert
 export pic_preset="clang16-pic"
 export hash=$(cache_content_hash .rebuild_patterns)
-export capture_ivc_folder=../../yarn-project/end-to-end/private-flows-ivc-inputs-out
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -202,7 +201,7 @@ function bench {
 
   # A bit pattern breaking, but the best code to instrument our private IVC flows exists in yarn-project,
   # while the best code for benchmarking these IVC flows exists here.
-  ../../yarn-project/end-to-end/bootstrap.sh generate_private_ivc_inputs
+  ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
 
   # Ultra honk.
   function ultra_honk_release {
@@ -294,9 +293,6 @@ EOF
     client_ivc_op_count \
     client_ivc_op_count_time \
     client_ivc_wasm
-
-  # Split up the flows into chunks to run in parallel - otherwise we run out of CPUs to pin.
-  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow {}"' ::: $(ls "$capture_ivc_folder")
 }
 
 # Upload assets to release.
@@ -331,7 +327,7 @@ case "$cmd" in
 
     # Error if the inputs are not found in cache.
     export DOWNLOAD_ONLY=${DOWNLOAD_ONLY:-1}
-    ../../yarn-project/end-to-end/bootstrap.sh generate_private_ivc_inputs
+    ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
     echo "Downloaded inputs for private flows to $capture_ivc_folder"
     ;;
   "hash")

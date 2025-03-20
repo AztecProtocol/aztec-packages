@@ -9,21 +9,26 @@ import { BlobSinkServer } from './server.js';
 
 // If data store settings are provided, the store is created and returned.
 // Otherwise, undefined is returned and an in memory store will be used.
-async function getDataStoreConfig(config?: BlobSinkConfig): Promise<AztecAsyncKVStore | undefined> {
-  if (!config?.dataStoreConfig) {
+async function getDataStore(config?: BlobSinkConfig): Promise<AztecAsyncKVStore | undefined> {
+  if (!config?.dataDirectory || !config?.dataStoreMapSizeKB) {
     return undefined;
   }
-  return await createStore('blob-sink', 1, config.dataStoreConfig);
+  return await createStore('blob-sink', 1, {
+    ...config,
+    // re-assigning to make TypeScript happy
+    dataDirectory: config.dataDirectory,
+    dataStoreMapSizeKB: config.dataStoreMapSizeKB,
+  });
 }
 
 /**
  * Creates a blob sink service from the provided config.
  */
 export async function createBlobSinkServer(
-  config: BlobSinkConfig = {},
+  config: BlobSinkConfig,
   telemetry?: TelemetryClient,
 ): Promise<BlobSinkServer> {
-  const store = await getDataStoreConfig(config);
+  const store = await getDataStore(config);
   const archiveClient = createBlobArchiveClient(config);
   const { l1ChainId, l1RpcUrls } = config;
   const l1PublicClient = l1ChainId && l1RpcUrls ? getPublicClient({ l1ChainId, l1RpcUrls }) : undefined;

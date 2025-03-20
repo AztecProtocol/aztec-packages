@@ -87,8 +87,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getNullifierMembershipWitness'));
   }
 
-  getPublicDataTreeWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getPublicDataTreeWitness'));
+  getPublicDataWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('getPublicDataWitness'));
   }
 
   getLowNullifierMembershipWitness(

@@ -27,7 +27,6 @@ for arg in "$@"; do
   fi
 done
 
-
 # For sanity when iterating on build scripts as bootstrap.sh scripts are in every .rebuild_patterns.
 if [ -n "${AZTEC_CACHE_NO_SCRIPTS:-}" ]; then
   rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '.sh')
@@ -45,8 +44,10 @@ diff="$({
   git ls-files --others --exclude-standard
 } | grep -E "$GREP_PATTERN" || true)"
 
-# Check for uncommitted files/changes
-if [ -n "$diff" ]; then
+
+# Check for uncommitted files/changes.
+# Only use this check if AZTEC_CACHE_COMMIT is the default, otherwise the user is being explicit about using git history.
+if [ -n "$diff" ] && [ "$AZTEC_CACHE_COMMIT" == "HEAD" ]; then
   # Fail. We shouldn't be writing files during the build.
   if [ "${CI:-0}" = 1 ]; then
     echo_stderr "WARNING: Noticed changes to rebuild patterns: $diff"
