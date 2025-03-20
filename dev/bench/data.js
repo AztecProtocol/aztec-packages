@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742464277509,
+  "lastUpdate": 1742474434194,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9578f1ef2122fa31fa35385d52219736b7809c7b",
-          "message": "chore: Validate blobs posted to sink belong to our L2 (#12587)\n\nAdds an optional L1 execution rpc url to the blob sink. When set, any\nincoming blobs are checked against the rollup contract\n`L2BlockPublished` events for the given block. If not set, the post is\ndiscarded.\n\nFixes #12497",
-          "timestamp": "2025-03-10T13:17:21Z",
-          "tree_id": "a41599dcd310c1e80fe999471e3b4c43adc9ef1b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9578f1ef2122fa31fa35385d52219736b7809c7b"
-        },
-        "date": 1741615084178,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18395.615841000108,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16064.958965999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 19005.25201599976,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16525.467258000004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3924.5833279996987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3094.4380109999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55383.09722299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55383098000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11433.475961,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11433480000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1601980499,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1601980499 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 218007656,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 218007656 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3672,6 +3600,84 @@ window.BENCHMARK_DATA = {
             "value": 14889,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d69901f2953ee6f2aecb4fbdcc1776393d9002f8",
+          "message": "chore(avm): Constrain pc_size_in_bits column and rename (#12899)",
+          "timestamp": "2025-03-20T12:57:38+01:00",
+          "tree_id": "c1e526128a96fb24a11fb5036801ceff543a23ee",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d69901f2953ee6f2aecb4fbdcc1776393d9002f8"
+        },
+        "date": 1742474427025,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18059.321617000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15830.209958 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117831783113.09999,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1587908233,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 215451153,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18706.563968999944,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16094.867317000002 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55033.74086900001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55033741000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3873.794870000438,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3080.6088839999998 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11067.141902000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11067148000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
