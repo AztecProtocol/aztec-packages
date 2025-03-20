@@ -73,7 +73,7 @@ namespace merkle_check;
     end * (1 - end) = 0; // bool
 
     // only one of end or first_row can be 1
-    // end can't be high for first row
+    // end can't be 1 for first row
     end * precomputed.first_row = 0;
     // LATCH_CONDITION is true if either end is 1 or first_row is 1
     pol LATCH_CONDITION = end + precomputed.first_row;
@@ -81,12 +81,9 @@ namespace merkle_check;
     #[START_AFTER_LATCH]
     sel' * (start' - LATCH_CONDITION) = 0;
 
-    // Selector must be 1 in a start or end row
-    #[SELECTOR_ON_START_OR_END]
-    (start + end) * (1 - sel) = 0;
-    // Next selector must be current selector unless LATCH_CONDITION
-    #[SELECTOR_CONSISTENCY]
-    (sel' - sel) * (1 - LATCH_CONDITION) = 0;
+    // Selector must be 1 in end row
+    #[SELECTOR_ON_END]
+    end * (1 - sel) = 0;
 
     // Internals
     pol commit current_node;
@@ -135,8 +132,6 @@ namespace merkle_check;
     #[FINAL_INDEX_IS_0_OR_1]
     end * (current_index_in_layer * (1 - current_index_in_layer)) = 0;
     // NOTE: index_is_even is essentially a vertical bit-decomposition of leaf_index.
-    // WARNING: There is a concern that some information is lost in the halving constraint's
-    // division by 2 leaving an overflow still possible.
 
     // left_node and right_node are sent to poseidon2
     // The constraints below arrange current_node and sibling into proper left/right order
