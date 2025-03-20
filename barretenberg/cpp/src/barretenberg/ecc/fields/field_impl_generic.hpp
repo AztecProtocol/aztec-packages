@@ -657,6 +657,9 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     wasm_reduce_yuval(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_reduce_yuval(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
+    // In case there is some unforseen edge case encountered in wasm multiplications, we can quickly restore previous
+    // functionality. Comment all "wasm_reduce_yuval" and uncomment the following:
+
     // wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     // wasm_reduce(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     // wasm_reduce(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
@@ -665,6 +668,11 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     // wasm_reduce(temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
     // wasm_reduce(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
     // wasm_reduce(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
+
+    // The first 8 limbs are reduced using Yuval's method, the last one is reduced using the regular method
+    // The reason for this is that Yuval's method produces a 10-limb representation of the reduced limb, which is then
+    // added to the higher limbs. If we do this for the last limb we reduce, we'll get a 10-limb representation instead
+    // of a 9-limb one, so we'll have to reduce it again in some other way.
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
     // Convert result to unrelaxed form (all limbs are 29 bits)
@@ -854,6 +862,9 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     wasm_reduce_yuval(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_reduce_yuval(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
+    // In case there is some unforseen edge case encountered in wasm multiplications, we can quickly restore previous
+    // functionality. Comment all "wasm_reduce_yuval" and uncomment the following:
+
     // wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     // wasm_reduce(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     // wasm_reduce(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
@@ -862,6 +873,11 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     // wasm_reduce(temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
     // wasm_reduce(temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
     // wasm_reduce(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
+
+    // The first 8 limbs are reduced using Yuval's method, the last one is reduced using the regular method
+    // The reason for this is that Yuval's method produces a 10-limb representation of the reduced limb, which is then
+    // added to the higher limbs. If we do this for the last limb we reduce, we'll get a 10-limb representation instead
+    // of a 9-limb one, so we'll have to reduce it again in some other way.
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
     // Convert to unrelaxed 29-bit form

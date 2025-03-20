@@ -16,7 +16,9 @@ def get_file_location():
     """
     return os.path.abspath(__file__)
 full_paths=[os.path.join(os.path.join(os.path.dirname(get_file_location()),'../../../../'), file) for file in parameter_files]
+
 print(full_paths)
+
 import re
 def parse_field_params(s):
     def parse_number(line):
@@ -87,9 +89,13 @@ def parse_field_params(s):
         return result
 
     parameter_dictionary=dict()
+    # Recover the modulus
     parameter_dictionary['modulus']=recover_element_from_parts('modulus',64)
+    # Recover r_squared
     parameter_dictionary['r_squared']=recover_element_from_parts('r_squared',64)
+    # Recover cube_root in montgomery form (2^256   )
     parameter_dictionary['cube_root']=recover_element_from_parts('cube_root',64)
+    # Recover primitive_root in montgomery form (2^256)
     parameter_dictionary['primitive_root']=recover_element_from_parts('primitive_root',64)
 
     parameter_dictionary['r_inv_x64']=recover_element_from_parts('r_inv',64)
