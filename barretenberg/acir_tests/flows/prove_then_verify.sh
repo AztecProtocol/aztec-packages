@@ -45,9 +45,14 @@ case ${SYS:-} in
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
     [ "${RECURSIVE}" = "true" ] && FLAGS+=" --init_kzg_accumulator"
+
+    OUTDIR=$(mktemp -d)
+    trap "rm -rf $OUTDIR" EXIT
+    $BIN prove $FLAGS $BFLAG -o $OUTDIR
     $BIN verify $FLAGS \
         -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
-        -p <($BIN prove $FLAGS $BFLAG -o - )
+        -p $OUTDIR/proof \
+        -i $OUTDIR/public_inputs
   ;;
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api
