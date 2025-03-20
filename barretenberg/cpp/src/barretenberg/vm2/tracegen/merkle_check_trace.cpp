@@ -57,6 +57,7 @@ void MerkleCheckTraceBuilder::process(
                           { C::merkle_check_index_is_even, index_is_even },
                           { C::merkle_check_left_node, left_node },
                           { C::merkle_check_right_node, right_node },
+                          { C::merkle_check_constant_2, 2 },
                           { C::merkle_check_output_hash, output_hash },
                       } });
 

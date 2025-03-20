@@ -64,6 +64,7 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
                   Field(&R::merkle_check_index_is_even, 1),
                   Field(&R::merkle_check_left_node, left_node),
                   Field(&R::merkle_check_right_node, right_node),
+                  Field(&R::merkle_check_constant_2, 2),
                   Field(&R::merkle_check_output_hash, output_hash))));
 }
 
@@ -119,6 +120,7 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                           Field(&R::merkle_check_index_is_even, 0), // Odd index
                           Field(&R::merkle_check_left_node, left_node_1),
                           Field(&R::merkle_check_right_node, right_node_1),
+                          Field(&R::merkle_check_constant_2, 2),
                           Field(&R::merkle_check_output_hash, output_hash_1)),
                     // Second real row
                     AllOf(Field(&R::merkle_check_sel, 1),
@@ -135,6 +137,7 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                           Field(&R::merkle_check_index_is_even, 1),
                           Field(&R::merkle_check_left_node, left_node_2),
                           Field(&R::merkle_check_right_node, right_node_2),
+                          Field(&R::merkle_check_constant_2, 2),
                           Field(&R::merkle_check_output_hash, output_hash_2))));
 }
 
@@ -186,6 +189,7 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                           Field(&R::merkle_check_index_is_even, 1),
                           Field(&R::merkle_check_left_node, leaf_value_1),
                           Field(&R::merkle_check_right_node, sibling_value_1),
+                          Field(&R::merkle_check_constant_2, 2),
                           Field(&R::merkle_check_output_hash, output_hash_1)),
                     // Second real row
                     AllOf(Field(&R::merkle_check_sel, 1),
@@ -202,6 +206,7 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                           Field(&R::merkle_check_index_is_even, 0),
                           Field(&R::merkle_check_left_node, sibling_value_2),
                           Field(&R::merkle_check_right_node, leaf_value_2),
+                          Field(&R::merkle_check_constant_2, 2),
                           Field(&R::merkle_check_output_hash, output_hash_2))));
 }
 

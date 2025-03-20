@@ -21,7 +21,7 @@ class lookup_merkle_check_merkle_poseidon2_settings {
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
     static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
@@ -34,11 +34,15 @@ class lookup_merkle_check_merkle_poseidon2_settings {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::merkle_check_left_node,
         ColumnAndShifts::merkle_check_right_node,
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::merkle_check_constant_2,
         ColumnAndShifts::merkle_check_output_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_input_len,
         ColumnAndShifts::poseidon2_hash_output
     };
 
@@ -74,9 +78,13 @@ class lookup_merkle_check_merkle_poseidon2_settings {
                                      in._poseidon2_hash_end(),
                                      in._merkle_check_left_node(),
                                      in._merkle_check_right_node(),
+                                     in._precomputed_zero(),
+                                     in._merkle_check_constant_2(),
                                      in._merkle_check_output_hash(),
                                      in._poseidon2_hash_input_0(),
                                      in._poseidon2_hash_input_1(),
+                                     in._poseidon2_hash_input_2(),
+                                     in._poseidon2_hash_input_len(),
                                      in._poseidon2_hash_output());
     }
 };

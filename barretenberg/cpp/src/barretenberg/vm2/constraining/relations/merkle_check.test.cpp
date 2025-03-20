@@ -608,6 +608,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     trace.set(Column::merkle_check_index_is_even, after_last_row_index, 0);
     trace.set(Column::merkle_check_left_node, after_last_row_index, 0);
     trace.set(Column::merkle_check_right_node, after_last_row_index, 0);
+    trace.set(Column::merkle_check_constant_2, after_last_row_index, 0);
     trace.set(Column::merkle_check_output_hash, after_last_row_index, 0);
 
     check_relation<merkle_check>(trace);

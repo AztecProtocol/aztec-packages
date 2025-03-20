@@ -12,8 +12,8 @@ template <typename FF_> class merkle_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 22> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            4, 4, 4, 4, 5, 3, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4,
+                                                                            4, 4, 4, 5, 3, 4, 4, 4, 4, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -184,10 +184,16 @@ template <typename FF_> class merkle_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
+            auto tmp = new_term.merkle_check_sel * (new_term.merkle_check_constant_2 - FF(2));
+            tmp *= scaling_factor;
+            std::get<21>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
             auto tmp =
                 merkle_check_NOT_END * (new_term.merkle_check_current_node_shift - new_term.merkle_check_output_hash);
             tmp *= scaling_factor;
-            std::get<21>(evals) += typename Accumulator::View(tmp);
+            std::get<22>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -231,7 +237,7 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
             return "ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT";
         case 20:
             return "ASSIGN_SIBLING_LEFT_OR_RIGHT";
-        case 21:
+        case 22:
             return "OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE";
         }
         return std::to_string(index);
@@ -254,7 +260,7 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr size_t SR_FINAL_INDEX_IS_0_OR_1 = 18;
     static constexpr size_t SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT = 19;
     static constexpr size_t SR_ASSIGN_SIBLING_LEFT_OR_RIGHT = 20;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE = 21;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE = 22;
 };
 
 } // namespace bb::avm2
