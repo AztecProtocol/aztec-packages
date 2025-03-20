@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742491172318,
+  "lastUpdate": 1742496801937,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "spypsy@users.noreply.github.com",
-            "name": "spypsy",
-            "username": "spypsy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d930c0152bf1eb401b996006d247897b004c5b8d",
-          "message": "fix: get L1 tx utils config from env (#12620)\n\nensure l1 tx utils config is taken from env when deploying any L1\ncontracts",
-          "timestamp": "2025-03-10T23:28:20Z",
-          "tree_id": "f494b977442e31dddd3bdde236b00c0d1d9cd17d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d930c0152bf1eb401b996006d247897b004c5b8d"
-        },
-        "date": 1741651487159,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18271.240782000175,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16161.214246 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18736.709867000172,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16347.725641 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3911.3935240000046,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3040.5240590000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55427.921905,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55427922000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9319.499147,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9319503000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1704721410,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1704721410 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 234740635,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 234740635 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3534,6 +3462,84 @@ window.BENCHMARK_DATA = {
             "value": 18889,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fa2bf95359545956c6dd9f394026b138fd93e600",
+          "message": "feat: generate subrelation-label comment in generated relation hpp (#12914)",
+          "timestamp": "2025-03-20T18:23:52Z",
+          "tree_id": "0bdd046350c1d1dc63bdcd33b7dca150e45497ca",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fa2bf95359545956c6dd9f394026b138fd93e600"
+        },
+        "date": 1742496794044,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 16872.67831300005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15133.441566999998 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117827914727.09999,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1435964139,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 205421551,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 17754.209930000114,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15340.662517 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50551.960607,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50551960000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3113.115606000065,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 2946.4745170000006 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 8957.69604,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 8957697000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
