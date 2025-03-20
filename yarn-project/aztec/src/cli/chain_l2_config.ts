@@ -36,9 +36,12 @@ export async function getBootnodes(networkName: NetworkNames) {
   const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch basic contract addresses from ${url}`);
+    throw new Error(
+      `Failed to fetch basic contract addresses from ${url}. Check you are using a correct network name.`,
+    );
   }
   const json = await response.json();
+
   return json['bootnodes'];
 }
 
