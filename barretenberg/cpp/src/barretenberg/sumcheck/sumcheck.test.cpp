@@ -21,8 +21,10 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using RelationSeparator = Flavor::RelationSeparator;
+    using ZKData = ZKSumcheckData<Flavor>;
+
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     Polynomial<FF> random_poly(size_t size)
     {
@@ -118,6 +120,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
     void test_prover()
     {
+
         const size_t multivariate_d(2);
         const size_t multivariate_n(1 << multivariate_d);
 
@@ -146,7 +149,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
 
         if constexpr (Flavor::HasZK) {
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, transcript);
+            ZKData zk_sumcheck_data = ZKData(multivariate_d, transcript);
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges, zk_sumcheck_data);
         } else {
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
@@ -208,17 +211,22 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             auto r = FF::random_element();
 
             std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, 0, 0, z_1, z_2 };
-            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, 0, r * r, r };
-
+            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, r, r * r, r * r * r };
+            // To avoid triggering the skipping mechanism in LogDerivativeRelation, we have to ensure
+            // that the condition (in.q_lookup.is_zero() && in.lookup_read_counts.is_zero()) is not satisfied in the
+            // blinded rows
+            std::array<FF, multivariate_n> skipping_disabler = { 0, 0, 0, 0, 0, 1, 1, 1 };
             full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
             full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
-
+            full_polynomials.lookup_read_counts = bb::Polynomial<FF>(skipping_disabler);
             if constexpr (std::is_same<Flavor, MegaZKFlavor>::value) {
-                std::array<FF, multivariate_n> ecc_op_wire = { 0, 0, 0, 0, 0, 0, r * r * r, w_4[6] };
-                std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, FF(7) * r * r, -r };
-
-                full_polynomials.ecc_op_wire_1 = bb::Polynomial<FF>(ecc_op_wire);
+                std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, r * r, -r };
                 full_polynomials.return_data_inverses = bb::Polynomial<FF>(return_data_inverses);
+
+                // To avoid triggering the skipping mechanism in DatabusLookupRelation, we have to ensure that the
+                // condition (in.calldata_read_counts.is_zero() && in.secondary_calldata_read_counts.is_zero() &&
+                //  in.return_data_read_counts.is_zero()) is not satisfied in the blinded rows
+                full_polynomials.calldata_read_counts = bb::Polynomial<FF>(skipping_disabler);
             }
         }
         full_polynomials.w_l = bb::Polynomial<FF>(w_l);
@@ -252,7 +260,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {
@@ -274,7 +282,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
 
-        auto verified = verifier_output.verified.value();
+        auto verified = verifier_output.verified;
 
         EXPECT_EQ(verified, true);
     };
@@ -342,7 +350,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
             // construct libra masking polynomials and compute auxiliary data
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {
@@ -364,26 +372,25 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_alpha, verifier_gate_challenges);
 
-        auto verified = verifier_output.verified.value();
+        auto verified = verifier_output.verified;
 
         EXPECT_EQ(verified, false);
     };
 };
 
 // Define the FlavorTypes
-using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK, MegaZKFlavor>;
+using FlavorTypes =
+    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 
-#define SKIP_IF_ZK()                                                                                                   \
-    if (std::is_same<TypeParam, UltraFlavorWithZK>::value || std::is_same<TypeParam, MegaZKFlavor>::value) {           \
-        GTEST_SKIP() << "Skipping test for ZK-enabled flavors";                                                        \
-    }
-
 TYPED_TEST(SumcheckTests, PolynomialNormalization)
 {
-    SKIP_IF_ZK();
-    this->test_polynomial_normalization();
+    if constexpr (std::is_same_v<TypeParam, UltraFlavor>) {
+        this->test_polynomial_normalization();
+    } else {
+        GTEST_SKIP() << "Skipping test for ZK-enabled flavors";
+    }
 }
 // Test the prover
 TYPED_TEST(SumcheckTests, Prover)

@@ -1,7 +1,7 @@
-import { type Database, type RangeOptions } from 'lmdb';
+import type { Database, RangeOptions } from 'lmdb';
 
-import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncMultiMap, type AztecMapWithSize, type AztecMultiMap } from '../interfaces/map.js';
+import type { Key, Range } from '../interfaces/common.js';
+import type { AztecAsyncMultiMap, AztecMapWithSize, AztecMultiMap } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
 type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
@@ -40,9 +40,16 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
   }
 
   *getValues(key: K): IterableIterator<V> {
-    const values = this.db.getValues(this.slot(key));
-    for (const value of values) {
-      yield value?.[1];
+    const transaction = this.db.useReadTransaction();
+    try {
+      const values = this.db.getValues(this.slot(key), {
+        transaction,
+      });
+      for (const value of values) {
+        yield value?.[1];
+      }
+    } finally {
+      transaction.done();
     }
   }
 
@@ -88,38 +95,45 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMultiMap<K, V>, Azte
   }
 
   *entries(range: Range<K> = {}): IterableIterator<[K, V]> {
-    const { reverse = false, limit } = range;
-    // LMDB has a quirk where it expects start > end when reverse=true
-    // in that case, we need to swap the start and end sentinels
-    const start = reverse
-      ? range.end
-        ? this.slot(range.end)
-        : this.endSentinel
-      : range.start
-      ? this.slot(range.start)
-      : this.startSentinel;
+    const transaction = this.db.useReadTransaction();
 
-    const end = reverse
-      ? range.start
+    try {
+      const { reverse = false, limit } = range;
+      // LMDB has a quirk where it expects start > end when reverse=true
+      // in that case, we need to swap the start and end sentinels
+      const start = reverse
+        ? range.end
+          ? this.slot(range.end)
+          : this.endSentinel
+        : range.start
         ? this.slot(range.start)
-        : this.startSentinel
-      : range.end
-      ? this.slot(range.end)
-      : this.endSentinel;
+        : this.startSentinel;
 
-    const lmdbRange: RangeOptions = {
-      start,
-      end,
-      reverse,
-      limit,
-    };
+      const end = reverse
+        ? range.start
+          ? this.slot(range.start)
+          : this.startSentinel
+        : range.end
+        ? this.slot(range.end)
+        : this.endSentinel;
 
-    const iterator = this.db.getRange(lmdbRange);
+      const lmdbRange: RangeOptions = {
+        start,
+        end,
+        reverse,
+        limit,
+        transaction,
+      };
 
-    for (const {
-      value: [key, value],
-    } of iterator) {
-      yield [key, value];
+      const iterator = this.db.getRange(lmdbRange);
+
+      for (const {
+        value: [key, value],
+      } of iterator) {
+        yield [key, value];
+      }
+    } finally {
+      transaction.done();
     }
   }
 

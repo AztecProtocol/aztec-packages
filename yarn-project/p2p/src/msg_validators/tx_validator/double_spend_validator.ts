@@ -1,69 +1,38 @@
-import { type AnyTx, Tx, type TxValidator } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
+import { type AnyTx, Tx, type TxValidationResult, type TxValidator, hasPublicCalls } from '@aztec/stdlib/tx';
 
 export interface NullifierSource {
-  getNullifierIndices: (nullifiers: Buffer[]) => Promise<(bigint | undefined)[]>;
+  nullifiersExist: (nullifiers: Buffer[]) => Promise<boolean[]>;
 }
 
 export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createLogger('p2p:tx_validator:tx_double_spend');
   #nullifierSource: NullifierSource;
 
-  constructor(nullifierSource: NullifierSource, private readonly isValidatingBlock: boolean = true) {
+  constructor(nullifierSource: NullifierSource) {
     this.#nullifierSource = nullifierSource;
   }
 
-  async validateTxs(txs: T[]): Promise<[validTxs: T[], invalidTxs: T[]]> {
-    const validTxs: T[] = [];
-    const invalidTxs: T[] = [];
-    const thisBlockNullifiers = new Set<bigint>();
+  async validateTx(tx: T): Promise<TxValidationResult> {
+    // Don't need to check for duplicate nullifiers if the tx has public calls
+    // because the AVM will perform merkle insertions as it goes and will fail on
+    // duplicate nullifier. In fact we CANNOT check here because the nullifiers
+    // have already been inserted, and so they will exist in nullifierSource.
+    if (!hasPublicCalls(tx)) {
+      const nullifiers = tx instanceof Tx ? tx.data.getNonEmptyNullifiers() : tx.txEffect.nullifiers;
 
-    for (const tx of txs) {
-      if (!(await this.#uniqueNullifiers(tx, thisBlockNullifiers))) {
-        invalidTxs.push(tx);
-        continue;
+      // Ditch this tx if it has repeated nullifiers
+      const uniqueNullifiers = new Set(nullifiers);
+      if (uniqueNullifiers.size !== nullifiers.length) {
+        this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)} for emitting duplicate nullifiers`);
+        return { result: 'invalid', reason: ['Duplicate nullifier in tx'] };
       }
 
-      validTxs.push(tx);
-    }
-
-    return [validTxs, invalidTxs];
-  }
-
-  validateTx(tx: T): Promise<boolean> {
-    return this.#uniqueNullifiers(tx, new Set<bigint>());
-  }
-
-  async #uniqueNullifiers(tx: AnyTx, thisBlockNullifiers: Set<bigint>): Promise<boolean> {
-    const nullifiers = tx instanceof Tx ? tx.data.getNonEmptyNullifiers() : tx.txEffect.nullifiers;
-
-    // Ditch this tx if it has repeated nullifiers
-    const uniqueNullifiers = new Set(nullifiers);
-    if (uniqueNullifiers.size !== nullifiers.length) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for emitting duplicate nullifiers`);
-      return false;
-    }
-
-    if (this.isValidatingBlock) {
-      for (const nullifier of nullifiers) {
-        const nullifierBigInt = nullifier.toBigInt();
-        if (thisBlockNullifiers.has(nullifierBigInt)) {
-          this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for repeating a nullifier in the same block`);
-          return false;
-        }
-
-        thisBlockNullifiers.add(nullifierBigInt);
+      if ((await this.#nullifierSource.nullifiersExist(nullifiers.map(n => n.toBuffer()))).some(Boolean)) {
+        this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)} for repeating a nullifier`);
+        return { result: 'invalid', reason: ['Existing nullifier'] };
       }
     }
-
-    const nullifierIndexes = await this.#nullifierSource.getNullifierIndices(nullifiers.map(n => n.toBuffer()));
-
-    const hasDuplicates = nullifierIndexes.some(index => index !== undefined);
-    if (hasDuplicates) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for repeating nullifiers present in state trees`);
-      return false;
-    }
-
-    return true;
+    return { result: 'valid' };
   }
 }

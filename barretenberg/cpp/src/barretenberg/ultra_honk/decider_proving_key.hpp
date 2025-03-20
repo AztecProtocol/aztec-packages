@@ -7,6 +7,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
@@ -24,7 +25,6 @@ namespace bb {
 template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -76,14 +76,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             }
         }
 
-        info("Finalized circuit size: ",
-             circuit.num_gates,
-             "\nLog dyadic circuit size: ",
-             numeric::get_msb(dyadic_circuit_size));
-
-        // Complete the public inputs execution trace block from circuit.public_inputs
-        Trace::populate_public_inputs_block(circuit);
-        circuit.blocks.compute_offsets(is_structured);
+        info("Finalized circuit size: ", circuit.num_gates);
+        circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
@@ -226,7 +220,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     void construct_databus_polynomials(Circuit&)
         requires HasDataBus<Flavor>;
 
-    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit);
+    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
+        requires IsMegaFlavor<Flavor>;
 };
 
 } // namespace bb

@@ -18,7 +18,7 @@ use crate::{
         MAX_ENQUEUED_CALLS_PER_TX,
     },
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::reader::Reader,
 };
 
@@ -235,4 +235,3 @@ fn serialization_of_empty_avm_circuit_public_inputs() {
     let deserialized = AvmCircuitPublicInputs::deserialize(serialized);
     assert(item.eq(deserialized));
 }
-

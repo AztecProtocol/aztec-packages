@@ -6,6 +6,9 @@ pub struct RootRollupPublicInputs {
     // Snapshot of archive tree before/after this rollup has been processed
     pub previous_archive: AppendOnlyTreeSnapshot,
     pub end_archive: AppendOnlyTreeSnapshot,
+    // Hash of the last block in the previous epoch. Although it's a leaf of the previous archive. It still needs to be
+    // submitted and checked on L1. Otherwise, we would need to verify that it's in the last archive by performing a
+    // membership check in the circuit.
     pub previous_block_hash: Field,
     pub end_block_hash: Field,
     pub end_timestamp: u64,

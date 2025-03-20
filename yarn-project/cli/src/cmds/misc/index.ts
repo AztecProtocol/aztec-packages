@@ -1,8 +1,9 @@
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
+import { printENR } from '@aztec/p2p/enr';
 
-import { type Command } from 'commander';
+import type { Command } from 'commander';
 
-import { prettyPrintJSON } from '../../utils/commands.js';
+import { l1ChainIdOption, prettyPrintJSON } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn) {
   program
@@ -30,6 +31,28 @@ export function injectCommands(program: Command, log: LogFn) {
     });
 
   program
+    .command('generate-bootnode-enr')
+    .summary('Generates the encoded ENR record for a bootnode.')
+    .description('Generates the encoded ENR record for a bootnode.')
+    .argument('<privateKey>', 'The peer id private key of the bootnode')
+    .argument('<p2pIp>', 'The bootnode P2P IP address')
+    .argument('<p2pPort>', 'The bootnode P2P port')
+    .addOption(l1ChainIdOption)
+    .action(async (privateKey: string, p2pIp: string, p2pPort: number, options) => {
+      const { generateEncodedBootnodeENR } = await import('./generate_bootnode_enr.js');
+      await generateEncodedBootnodeENR(privateKey, p2pIp, p2pPort, options.l1ChainId, log);
+    });
+
+  program
+    .command('decode-enr')
+    .summary('Decodes an ENR record')
+    .description('Decodes and ENR record')
+    .argument('<enr>', 'The encoded ENR string')
+    .action(async (enr: string) => {
+      await printENR(enr, log);
+    });
+
+  program
     .command('example-contracts')
     .description('Lists the example contracts available to deploy from @aztec/noir-contracts.js')
     .action(async () => {
@@ -43,7 +66,7 @@ export function injectCommands(program: Command, log: LogFn) {
     .argument('<functionSignature>', 'Function signature to compute selector for e.g. foo(Field)')
     .action(async (functionSignature: string) => {
       const { computeSelector } = await import('./compute_selector.js');
-      computeSelector(functionSignature, log);
+      await computeSelector(functionSignature, log);
     });
 
   program

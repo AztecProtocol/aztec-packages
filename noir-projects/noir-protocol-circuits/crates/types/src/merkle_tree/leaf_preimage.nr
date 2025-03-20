@@ -5,12 +5,8 @@ pub trait LeafPreimage {
     fn as_leaf(self) -> Field;
 }
 
-pub trait IndexedTreeLeafPreimage<Value>: Eq + Empty {
-    fn get_key(self) -> Field;
-
+pub trait IndexedTreeLeafPreimage<Value>: Eq + Empty + LeafPreimage {
     fn get_next_key(self) -> Field;
-
-    fn as_leaf(self) -> Field;
 
     fn points_to_infinity(self) -> bool;
 

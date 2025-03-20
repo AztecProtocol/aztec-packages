@@ -1,4 +1,4 @@
-import { type Tuple } from './types.js';
+import type { Tuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -302,6 +302,20 @@ export class BufferReader {
    * @returns A Buffer containing the read bytes.
    */
   public readBuffer(): Buffer {
+    const size = this.readNumber();
+    this.#rangeCheck(size);
+    return this.readBytes(size);
+  }
+
+  /**
+   * Reads a buffer from the current position of the reader and advances the index.
+   * The method first reads the size (number) of bytes to be read, and then returns
+   * a Buffer with that size containing the bytes. Useful for reading variable-length
+   * binary data encoded as (size, data) format.
+   *
+   * @returns A Buffer containing the read bytes.
+   */
+  public readUint8Array(): Uint8Array {
     const size = this.readNumber();
     this.#rangeCheck(size);
     return this.readBytes(size);

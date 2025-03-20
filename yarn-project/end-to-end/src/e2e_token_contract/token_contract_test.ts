@@ -1,5 +1,5 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
+import { type AccountWallet, type AztecNode, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -8,8 +8,8 @@ import { jest } from '@jest/globals';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
@@ -28,6 +28,7 @@ export class TokenContractTest {
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
   badAccount!: DocsExampleContract;
+  node!: AztecNode;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
@@ -45,11 +46,15 @@ export class TokenContractTest {
     // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
     jest.setTimeout(120_000);
 
-    await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
-    });
+    await this.snapshotManager.snapshot(
+      '3_accounts',
+      deployAccounts(3, this.logger),
+      async ({ deployedAccounts }, { pxe, aztecNode }) => {
+        this.node = aztecNode;
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        this.accounts = this.wallets.map(w => w.getCompleteAddress());
+      },
+    );
 
     await this.snapshotManager.snapshot(
       'e2e_token_contract',

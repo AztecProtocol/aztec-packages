@@ -6,19 +6,18 @@
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
-#include "barretenberg/world_state_napi/message.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <exception>
@@ -49,6 +48,8 @@ template <typename LeafValueType> struct SequentialInsertionResult {
     MSGPACK_FIELDS(low_leaf_witness_data, insertion_witness_data);
 };
 
+const uint64_t DEFAULT_MIN_NUMBER_OF_READERS = 128;
+
 /**
  * @brief Holds the Merkle trees responsible for storing the state of the Aztec protocol.
  *
@@ -69,6 +70,22 @@ class WorldState {
                const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+               uint32_t initial_header_generator_point);
+
+    WorldState(uint64_t thread_pool_size,
+               const std::string& data_dir,
+               uint64_t map_size,
+               const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+               const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+               const std::vector<PublicDataLeafValue>& prefilled_public_data,
+               uint32_t initial_header_generator_point);
+
+    WorldState(uint64_t thread_pool_size,
+               const std::string& data_dir,
+               const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
+               const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+               const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+               const std::vector<PublicDataLeafValue>& prefilled_public_data,
                uint32_t initial_header_generator_point);
 
     /**
@@ -248,6 +265,10 @@ class WorldState {
                                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                                     const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
 
+    void checkpoint(const uint64_t& forkId);
+    void commit_checkpoint(const uint64_t& forkId);
+    void revert_checkpoint(const uint64_t& forkId);
+
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
     WorldStateStores::Ptr _persistentStores;
@@ -262,6 +283,7 @@ class WorldState {
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
     void create_canonical_fork(const std::string& dataDir,
                                const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
+                               const std::vector<PublicDataLeafValue>& prefilled_public_data,
                                uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
@@ -282,7 +304,7 @@ class WorldState {
     bool is_archive_tip(const WorldStateRevision& revision, const bb::fr& block_header_hash) const;
 
     bool is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const;
-    static bb::fr compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point);
+    static bb::fr compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point);
 
     static StateReference get_state_reference(const WorldStateRevision& revision,
                                               Fork::SharedPtr fork,

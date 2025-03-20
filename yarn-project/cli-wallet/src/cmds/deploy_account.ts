@@ -1,6 +1,6 @@
-import { type AccountManager, type DeployAccountOptions } from '@aztec/aztec.js';
+import type { AccountManager, DeployAccountOptions } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 
@@ -13,7 +13,7 @@ export async function deployAccount(
   log: LogFn,
 ) {
   const out: Record<string, any> = {};
-  const { address, partialAddress, publicKeys } = account.getCompleteAddress();
+  const { address, partialAddress, publicKeys } = await account.getCompleteAddress();
   const { initializationHash, deployer, salt } = account.getInstance();
   const wallet = await account.getWallet();
   const secretKey = wallet.getSecretKey();
@@ -27,7 +27,7 @@ export async function deployAccount(
   } else {
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
-    log(`Public key:      0x${publicKeys.toString()}`);
+    log(`Public key:      ${publicKeys.toString()}`);
     if (secretKey) {
       log(`Secret key:     ${secretKey.toString()}`);
     }
@@ -40,12 +40,12 @@ export async function deployAccount(
   let tx;
   let txReceipt;
 
-  const sendOpts: DeployAccountOptions = {
-    ...feeOpts.toSendOpts(wallet),
+  const deployOpts: DeployAccountOptions = {
+    ...(await feeOpts.toDeployAccountOpts(wallet)),
     skipInitialization: false,
   };
   if (feeOpts.estimateOnly) {
-    const gas = await (await account.getDeployMethod()).estimateGas({ ...sendOpts });
+    const gas = await (await account.getDeployMethod(deployOpts.deployWallet)).estimateGas(deployOpts);
     if (json) {
       out.fee = {
         gasLimits: {
@@ -61,7 +61,7 @@ export async function deployAccount(
       printGasEstimates(feeOpts, gas, log);
     }
   } else {
-    tx = account.deploy({ ...sendOpts });
+    tx = account.deploy(deployOpts);
     const txHash = await tx.getTxHash();
     debugLogger.debug(`Account contract tx sent with hash ${txHash}`);
     out.txHash = txHash;

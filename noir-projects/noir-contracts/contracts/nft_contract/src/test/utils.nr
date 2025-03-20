@@ -5,7 +5,7 @@ use dep::aztec::{
         random::random,
         storage::storage_read,
     },
-    prelude::{AztecAddress, NoteHeader},
+    prelude::AztecAddress,
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
@@ -21,8 +21,8 @@ pub unconstrained fn setup(
         let recipient = env.create_account_contract(2);
         (owner, recipient)
     } else {
-        let owner = env.create_account();
-        let recipient = env.create_account();
+        let owner = env.create_account(1);
+        let recipient = env.create_account(2);
         (owner, recipient)
     };
 
@@ -50,6 +50,7 @@ pub unconstrained fn setup_and_mint(
     let minted_token_id = 615;
 
     NFT::at(nft_contract_address).mint(owner, minted_token_id).call(&mut env.public());
+    env.advance_block_by(1);
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
@@ -70,21 +71,7 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
         &mut env.private(),
     );
 
-    // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
-    // is not called and we don't have a `NoteProcessor` in TXE.
-    let private_nfts_owner_slot =
-        derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, owner);
-
-    env.add_note(
-        &mut NFTNote {
-            token_id: minted_token_id,
-            owner,
-            randomness: note_randomness,
-            header: NoteHeader::empty(),
-        },
-        private_nfts_owner_slot,
-        nft_contract_address,
-    );
+    env.advance_block_by(1);
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }

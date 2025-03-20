@@ -1,20 +1,13 @@
-import {
-  type BlockBuilder,
-  L2Block,
-  MerkleTreeId,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  makeEmptyProcessedTx,
-  toNumBlobFields,
-} from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import { SpongeBlob } from '@aztec/blob-lib';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { L2Block } from '@aztec/stdlib/block';
+import type { BlockBuilder, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { type GlobalVariables, type ProcessedTx, toNumBlobFields } from '@aztec/stdlib/tx';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import {
   buildBaseRollupHints,
@@ -26,7 +19,6 @@ import {
  * Builds a block and its header from a set of processed tx without running any circuits.
  */
 export class LightweightBlockBuilder implements BlockBuilder {
-  private numTxs?: number;
   private spongeBlobState?: SpongeBlob;
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
@@ -35,14 +27,13 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private readonly logger = createLogger('prover-client:block_builder');
 
-  constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
+  constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient = getTelemetryClient()) {}
 
   async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     this.logger.debug('Starting new block', { globalVariables: globalVariables.toInspect(), l1ToL2Messages });
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     this.txs = [];
-    this.numTxs = 0;
     this.spongeBlobState = undefined;
 
     // Update L1 to L2 tree
@@ -50,31 +41,15 @@ export class LightweightBlockBuilder implements BlockBuilder {
   }
 
   async addTxs(txs: ProcessedTx[]): Promise<void> {
-    this.numTxs = Math.max(2, txs.length);
     this.spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      this.logger.debug(tx.hash.isZero() ? 'Adding padding tx to block' : 'Adding new tx to block', {
-        txHash: tx.hash.toString(),
-      });
+      this.logger.debug('Adding new tx to block', { txHash: tx.hash.toString() });
       this.txs.push(tx);
       await buildBaseRollupHints(tx, this.globalVariables!, this.db, this.spongeBlobState!);
     }
   }
 
-  async setBlockCompleted(): Promise<L2Block> {
-    const paddingTxCount = this.numTxs! - this.txs.length;
-    for (let i = 0; i < paddingTxCount; i++) {
-      await this.addTxs([
-        makeEmptyProcessedTx(
-          this.db.getInitialHeader(),
-          this.globalVariables!.chainId,
-          this.globalVariables!.version,
-          getVKTreeRoot(),
-          protocolContractTreeRoot,
-        ),
-      ]);
-    }
-
+  setBlockCompleted(): Promise<L2Block> {
     return this.buildBlock();
   }
 
@@ -101,16 +76,15 @@ export class LightweightBlockBuilder implements BlockBuilder {
 }
 
 export class LightweightBlockBuilderFactory {
-  constructor(private telemetry?: TelemetryClient) {}
+  constructor(private telemetry: TelemetryClient = getTelemetryClient()) {}
 
   create(db: MerkleTreeWriteOperations): BlockBuilder {
-    return new LightweightBlockBuilder(db, this.telemetry ?? new NoopTelemetryClient());
+    return new LightweightBlockBuilder(db, this.telemetry);
   }
 }
 
 /**
  * Creates a block builder under the hood with the given txs and messages and creates a block.
- * Automatically adds padding txs to get to a minimum of 2 txs in the block.
  * @param db - A db fork to use for block building.
  */
 export async function buildBlock(
@@ -118,7 +92,7 @@ export async function buildBlock(
   globalVariables: GlobalVariables,
   l1ToL2Messages: Fr[],
   db: MerkleTreeWriteOperations,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ) {
   const builder = new LightweightBlockBuilder(db, telemetry);
   await builder.startNewBlock(globalVariables, l1ToL2Messages);

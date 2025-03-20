@@ -4,7 +4,7 @@ mod game;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract CardGame {
+pub contract CardGame {
     use dep::aztec::{hash::pedersen_hash, state_vars::{Map, PublicMutable}};
     use dep::aztec::protocol_types::address::AztecAddress;
 
@@ -13,6 +13,8 @@ contract CardGame {
     use crate::cards::{Card, compute_deck_strength, Deck, get_pack_cards};
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
     use dep::aztec::macros::{functions::{internal, private, public}, storage::storage};
+
+    use dep::aztec::protocol_types::traits::{FromField, ToField};
 
     #[storage]
     struct Storage<Context> {

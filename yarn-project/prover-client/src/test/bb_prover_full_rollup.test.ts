@@ -1,30 +1,34 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { mockTx } from '@aztec/circuit-types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { times } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
+import { parseBooleanEnv } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { mockTx } from '@aztec/stdlib/testing';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlock } from '../block_builder/light.js';
 import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 describe('prover/bb_prover/full-rollup', () => {
+  const FAKE_PROOFS = parseBooleanEnv(process.env.FAKE_PROOFS);
+
   let context: TestContext;
-  let prover: BBNativeRollupProver;
+  let prover: BBNativeRollupProver | undefined;
   let log: Logger;
 
   beforeEach(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
-      prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
+      prover = await BBNativeRollupProver.new(bbConfig, getTelemetryClient());
       return prover;
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');
-    context = await TestContext.new(log, 1, buildProver);
+    context = await TestContext.new(log, 1, FAKE_PROOFS ? undefined : buildProver);
   });
 
   afterEach(async () => {
@@ -46,9 +50,9 @@ describe('prover/bb_prover/full-rollup', () => {
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
         const globals = makeGlobals(blockNum);
         const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
-        const txs = times(nonEmptyTxs, (i: number) => {
+        const txs = await timesParallel(nonEmptyTxs, async (i: number) => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
-          const tx = mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
+          const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
           tx.data.constants.historicalHeader = initialHeader;
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           return tx;
@@ -56,7 +60,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Starting new block #${blockNum}`);
 
-        await context.orchestrator.startNewBlock(globals, l1ToL2Messages);
+        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, context.getPreviousBlockHeader(blockNum));
         log.info(`Processing public functions`);
         const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
         expect(processed.length).toBe(nonEmptyTxs);
@@ -74,7 +78,9 @@ describe('prover/bb_prover/full-rollup', () => {
       log.info(`Awaiting proofs`);
       const epochResult = await context.orchestrator.finaliseEpoch();
 
-      await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
+      if (prover) {
+        await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
+      }
 
       // Generate test data for the 2/2 blocks epoch scenario
       if (blockCount === 2 && totalBlocks === 2 && isGenerateTestDataEnabled()) {
@@ -85,12 +91,13 @@ describe('prover/bb_prover/full-rollup', () => {
         );
       }
     },
+    FAKE_PROOFS ? undefined : 900_000,
   );
 
   // TODO(@PhilWindle): Remove public functions and re-enable once we can handle empty tx slots
   it.skip('proves all circuits', async () => {
     const numTransactions = 4;
-    const txs = times(numTransactions, (i: number) =>
+    const txs = await timesParallel(numTransactions, (i: number) =>
       mockTx(1000 * (i + 1), {
         numberOfNonRevertiblePublicCallRequests: 2,
         numberOfRevertiblePublicCallRequests: 1,
@@ -107,7 +114,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
     context.orchestrator.startNewEpoch(1, 1, 1);
 
-    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
+    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
 
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
 
@@ -119,6 +126,8 @@ describe('prover/bb_prover/full-rollup', () => {
     await context.orchestrator.setBlockCompleted(context.blockNumber);
 
     const result = await context.orchestrator.finaliseEpoch();
-    await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();
+    if (prover) {
+      await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();
+    }
   });
 });

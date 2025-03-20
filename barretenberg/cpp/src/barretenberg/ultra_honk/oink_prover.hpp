@@ -43,7 +43,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
     std::string domain_separator;
     ExecutionTraceUsageTracker trace_usage_tracker;
 
-    typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
@@ -57,13 +56,16 @@ template <IsUltraFlavor Flavor> class OinkProver {
         , trace_usage_tracker(trace_usage_tracker)
     {}
 
-    void prove();
+    HonkProof prove();
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
     RelationSeparator generate_alphas_round();
+    void commit_to_witness_polynomial(Polynomial<FF>& polynomial,
+                                      const std::string& label,
+                                      const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;

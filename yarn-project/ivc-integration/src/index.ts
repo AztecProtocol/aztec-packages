@@ -1,6 +1,6 @@
-import { type CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/circuits.js';
+import type { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
 
-import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
 import createDebug from 'debug';
 import { ungzip } from 'pako';
 
@@ -49,7 +49,6 @@ export {
   MockPrivateKernelTailVk,
 };
 
-createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
 
 /* eslint-disable camelcase */
@@ -251,9 +250,11 @@ export async function proveThenVerifyAztecClient(
     bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
     { threads },
   );
-
-  const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-  const verified = await backend.verify(proof, vk);
-  await backend.destroy();
-  return verified;
+  try {
+    const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
+    const verified = await backend.verify(proof, vk);
+    return verified;
+  } finally {
+    await backend.destroy();
+  }
 }

@@ -1,10 +1,10 @@
-import { type AztecAddress, type AztecNode, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
 import {
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
 
 import { setup } from './fixtures/utils.js';
@@ -12,13 +12,14 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
   let wallet: Wallet;
+  let pxe: PXE;
   let logger: Logger;
   let owner: AztecAddress;
   let teardown: () => Promise<void>;
   let contract: PendingNoteHashesContract;
 
   beforeEach(async () => {
-    ({ teardown, aztecNode, wallet, logger } = await setup(2));
+    ({ teardown, aztecNode, wallet, logger, pxe } = await setup(2));
     owner = wallet.getAddress();
   });
 
@@ -93,8 +94,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -118,8 +119,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note_extra_emit.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note_extra_emit.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -142,8 +143,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -167,8 +168,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -192,8 +193,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note_static_randomness.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note_static_randomness.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -227,8 +228,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.insert_note.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.insert_note.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -264,8 +265,8 @@ describe('e2e_pending_note_hashes_contract', () => {
         mintAmount,
         owner,
         sender,
-        deployedContract.methods.dummy.selector,
-        deployedContract.methods.get_then_nullify_note.selector,
+        await deployedContract.methods.dummy.selector(),
+        await deployedContract.methods.get_then_nullify_note.selector(),
       )
       .send()
       .wait();
@@ -294,8 +295,8 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     await deployedContract.methods.sync_notes().simulate();
 
-    const incomingNotes = await wallet.getIncomingNotes({ txHash: txReceipt.txHash });
+    const notes = await pxe.getNotes({ txHash: txReceipt.txHash });
 
-    expect(incomingNotes.length).toBe(1);
+    expect(notes.length).toBe(1);
   });
 });

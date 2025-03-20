@@ -42,7 +42,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
     using OuterVerificationKey = UltraFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     // mutate the input kernel_public_inputs_vec to add end gas values
     static InnerBuilder create_inner_circuit([[maybe_unused]] std::vector<FF>& kernel_public_inputs_vec)
@@ -122,7 +122,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
         mock_opcode_indices(constraint_system);
         auto outer_circuit =
-            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/true);
+            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/1);
         return outer_circuit;
     }
 };

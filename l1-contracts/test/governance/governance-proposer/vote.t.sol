@@ -4,18 +4,19 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
-import {Leonidas} from "../../harnesses/Leonidas.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Fakerollup} from "./mocks/Fakerollup.sol";
 
 contract VoteTest is GovernanceProposerBase {
   using SlotLib for Slot;
 
   IPayload internal proposal = IPayload(address(0xdeadbeef));
   address internal proposer = address(0);
-  Leonidas internal leonidas;
+  Fakerollup internal validatorSelection;
 
-  function test_WhenProposalHoldNoCode() external {
+  // Skipping this test since the it matches the for now skipped check in `EmpireBase::vote`
+  function skip__test_WhenProposalHoldNoCode() external {
     // it revert
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__ProposalHaveNoCode.selector, proposal)
@@ -39,12 +40,12 @@ contract VoteTest is GovernanceProposerBase {
   }
 
   modifier givenCanonicalRollupHoldCode() {
-    leonidas = new Leonidas(address(this));
+    validatorSelection = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(leonidas));
+    registry.upgrade(address(validatorSelection));
 
     // We jump into the future since slot 0, will behave as if already voted in
-    vm.warp(Timestamp.unwrap(leonidas.getTimestampForSlot(Slot.wrap(1))));
+    vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
     _;
   }
 
@@ -55,7 +56,7 @@ contract VoteTest is GovernanceProposerBase {
   {
     // it revert
 
-    Slot currentSlot = leonidas.getCurrentSlot();
+    Slot currentSlot = validatorSelection.getCurrentSlot();
     assertEq(currentSlot.unwrap(), 1);
     vm.prank(proposer);
     governanceProposer.vote(proposal);
@@ -95,18 +96,20 @@ contract VoteTest is GovernanceProposerBase {
 
     for (uint256 i = 0; i < votesOnProposal; i++) {
       vm.warp(
-        Timestamp.unwrap(leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(1)))
+        Timestamp.unwrap(
+          validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
+        )
       );
       vm.prank(proposer);
       governanceProposer.vote(proposal);
     }
 
-    Slot currentSlot = leonidas.getCurrentSlot();
+    Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
     (Slot lastVote, IPayload leader, bool executed) =
-      governanceProposer.rounds(address(leonidas), round);
+      governanceProposer.rounds(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(leonidas), round, leader),
+      governanceProposer.yeaCount(address(validatorSelection), round, leader),
       votesOnProposal,
       "invalid number of votes"
     );
@@ -115,7 +118,9 @@ contract VoteTest is GovernanceProposerBase {
     assertEq(currentSlot.unwrap(), lastVote.unwrap());
 
     vm.warp(
-      Timestamp.unwrap(leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(1)))
+      Timestamp.unwrap(
+        validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
+      )
     );
 
     _;
@@ -134,11 +139,12 @@ contract VoteTest is GovernanceProposerBase {
     // it emits {VoteCast} event
     // it returns true
 
-    Slot leonidasSlot = leonidas.getCurrentSlot();
-    uint256 leonidasRound = governanceProposer.computeRound(leonidasSlot);
-    uint256 yeaBefore = governanceProposer.yeaCount(address(leonidas), leonidasRound, proposal);
+    Slot validatorSelectionSlot = validatorSelection.getCurrentSlot();
+    uint256 validatorSelectionRound = governanceProposer.computeRound(validatorSelectionSlot);
+    uint256 yeaBefore =
+      governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal);
 
-    Leonidas freshInstance = new Leonidas(address(this));
+    Fakerollup freshInstance = new Fakerollup();
     vm.prank(registry.getGovernance());
     registry.upgrade(address(freshInstance));
 
@@ -169,15 +175,17 @@ contract VoteTest is GovernanceProposerBase {
     // The old instance
     {
       (Slot lastVote, IPayload leader, bool executed) =
-        governanceProposer.rounds(address(leonidas), leonidasRound);
+        governanceProposer.rounds(address(validatorSelection), validatorSelectionRound);
       assertEq(
-        governanceProposer.yeaCount(address(leonidas), leonidasRound, proposal),
+        governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal),
         yeaBefore,
         "invalid number of votes"
       );
       assertFalse(executed);
       assertEq(address(leader), address(proposal));
-      assertEq(leonidasSlot.unwrap(), lastVote.unwrap() + 1, "invalid slot [LEONIDAS]");
+      assertEq(
+        validatorSelectionSlot.unwrap(), lastVote.unwrap() + 1, "invalid slot [ValidatorSelection]"
+      );
     }
   }
 
@@ -211,10 +219,10 @@ contract VoteTest is GovernanceProposerBase {
     // it emits {VoteCast} event
     // it returns true
 
-    Slot currentSlot = leonidas.getCurrentSlot();
+    Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
 
-    uint256 yeaBefore = governanceProposer.yeaCount(address(leonidas), round, proposal);
+    uint256 yeaBefore = governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
@@ -222,9 +230,9 @@ contract VoteTest is GovernanceProposerBase {
     assertTrue(governanceProposer.vote(proposal));
 
     (Slot lastVote, IPayload leader, bool executed) =
-      governanceProposer.rounds(address(leonidas), round);
+      governanceProposer.rounds(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(leonidas), round, leader),
+      governanceProposer.yeaCount(address(validatorSelection), round, leader),
       yeaBefore + 1,
       "invalid number of votes"
     );
@@ -245,25 +253,28 @@ contract VoteTest is GovernanceProposerBase {
     // it emits {VoteCast} event
     // it returns true
 
-    Slot currentSlot = leonidas.getCurrentSlot();
+    Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
 
-    uint256 leaderYeaBefore = governanceProposer.yeaCount(address(leonidas), round, proposal);
+    uint256 leaderYeaBefore =
+      governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
     vm.prank(proposer);
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IGovernanceProposer.VoteCast(IPayload(address(leonidas)), round, proposer);
-    assertTrue(governanceProposer.vote(IPayload(address(leonidas))));
+    emit IGovernanceProposer.VoteCast(IPayload(address(validatorSelection)), round, proposer);
+    assertTrue(governanceProposer.vote(IPayload(address(validatorSelection))));
 
     (Slot lastVote, IPayload leader, bool executed) =
-      governanceProposer.rounds(address(leonidas), round);
+      governanceProposer.rounds(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(leonidas), round, leader),
+      governanceProposer.yeaCount(address(validatorSelection), round, leader),
       leaderYeaBefore,
       "invalid number of votes"
     );
     assertEq(
-      governanceProposer.yeaCount(address(leonidas), round, IPayload(address(leonidas))),
+      governanceProposer.yeaCount(
+        address(validatorSelection), round, IPayload(address(validatorSelection))
+      ),
       1,
       "invalid number of votes"
     );
@@ -285,34 +296,39 @@ contract VoteTest is GovernanceProposerBase {
     // it emits {VoteCast} event
     // it returns true
 
-    Slot currentSlot = leonidas.getCurrentSlot();
+    Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
 
-    uint256 leaderYeaBefore = governanceProposer.yeaCount(address(leonidas), round, proposal);
+    uint256 leaderYeaBefore =
+      governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
     for (uint256 i = 0; i < leaderYeaBefore + 1; i++) {
       vm.prank(proposer);
       vm.expectEmit(true, true, true, true, address(governanceProposer));
-      emit IGovernanceProposer.VoteCast(IPayload(address(leonidas)), round, proposer);
-      assertTrue(governanceProposer.vote(IPayload(address(leonidas))));
+      emit IGovernanceProposer.VoteCast(IPayload(address(validatorSelection)), round, proposer);
+      assertTrue(governanceProposer.vote(IPayload(address(validatorSelection))));
 
       vm.warp(
-        Timestamp.unwrap(leonidas.getTimestampForSlot(leonidas.getCurrentSlot() + Slot.wrap(1)))
+        Timestamp.unwrap(
+          validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
+        )
       );
     }
 
     {
       (Slot lastVote, IPayload leader, bool executed) =
-        governanceProposer.rounds(address(leonidas), round);
+        governanceProposer.rounds(address(validatorSelection), round);
       assertEq(
-        governanceProposer.yeaCount(address(leonidas), round, IPayload(address(leonidas))),
+        governanceProposer.yeaCount(
+          address(validatorSelection), round, IPayload(address(validatorSelection))
+        ),
         leaderYeaBefore + 1,
         "invalid number of votes"
       );
       assertFalse(executed);
-      assertEq(address(leader), address(leonidas));
+      assertEq(address(leader), address(validatorSelection));
       assertEq(
-        governanceProposer.yeaCount(address(leonidas), round, proposal),
+        governanceProposer.yeaCount(address(validatorSelection), round, proposal),
         leaderYeaBefore,
         "invalid number of votes"
       );

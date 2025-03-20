@@ -12,7 +12,7 @@ import Disclaimer from '../../src/components/Disclaimers/\_wip_disclaimer.mdx';
 
 <Disclaimer/>
 
-You can track the development of these components in the [aztec3-packages repo](https://github.com/AztecProtocol/aztec3-packages/tree/master).
+You can track the development of these components in the [aztec-packages repo](https://github.com/AztecProtocol/aztec-packages/tree/master).
 
 ### KeyStore
 

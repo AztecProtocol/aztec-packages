@@ -37,6 +37,7 @@ if [ "$NUM_VALIDATORS" -eq 1 ]; then
   eval "${CMD[0]}"
 else
   echo "Running $NUM_VALIDATORS validators interleaved"
+
   # Execute the run_interleaved.sh script with the commands
   "$(git rev-parse --show-toplevel)/scripts/run_interleaved.sh" "${CMD[@]}"
 fi

@@ -1,5 +1,6 @@
 use crate::{test::utils, Token};
 use dep::aztec::oracle::random::random;
+use dep::uint_note::uint_note::PartialUintNote;
 use std::test::OracleMock;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
@@ -32,44 +33,37 @@ unconstrained fn transfer_to_private_external_orchestration() {
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We prepare the transfer
-    let hiding_point_slot: Field = Token::at(token_contract_address)
+    let partial_uint_note = Token::at(token_contract_address)
         .prepare_private_balance_increase(recipient, owner)
         .call(&mut env.private());
 
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
-    Token::at(token_contract_address).finalize_transfer_to_private(amount, hiding_point_slot).call(
+    Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
         &mut env.public(),
     );
 
-    // We need to manually add the note because #8771 has not yet been implemented
-    utils::add_token_note(
-        env,
-        token_contract_address,
-        recipient,
-        amount,
-        note_randomness,
-    );
+    env.advance_block_by(1);
 
     // Recipient's private balance should be equal to the amount
     utils::check_private_balance(token_contract_address, recipient, amount);
 }
 
-#[test(should_fail_with = "transfer not prepared")]
+#[test(should_fail_with = "Invalid partial note")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, _, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
-    // Transfer was not prepared so we can use random value for the hiding point slot
-    let hiding_point_slot = random();
+    // Transfer was not prepared so we can use random value for the partial note
+    let partial_uint_note = PartialUintNote { commitment: random() };
 
     // Try finalizing the transfer without preparing it
-    Token::at(token_contract_address).finalize_transfer_to_private(amount, hiding_point_slot).call(
+    Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
         &mut env.public(),
     );
 }
 
-#[test(should_fail_with = "Assertion failed: attempt to subtract with underflow 'hi == high'")]
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow 'self - other'")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, not_owner, amount) =
@@ -78,13 +72,13 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the token balance check is before we use the value but that would made the test less robust against changes
     // in the contract.)
-    let hiding_point_slot: Field = Token::at(token_contract_address)
+    let partial_uint_note = Token::at(token_contract_address)
         .prepare_private_balance_increase(not_owner, owner)
         .call(&mut env.private());
 
     // Try transferring someone else's token balance
     env.impersonate(not_owner);
-    Token::at(token_contract_address).finalize_transfer_to_private(amount, hiding_point_slot).call(
+    Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
         &mut env.public(),
     );
 }

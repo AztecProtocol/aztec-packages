@@ -1,6 +1,6 @@
 import { type DispatchMsg, TransportClient, WorkerConnector, createDispatchProxy } from '../../transport/index.js';
 import { WasmModule } from '../../wasm/index.js';
-import { type WasmWorker } from '../wasm_worker.js';
+import type { WasmWorker } from '../wasm_worker.js';
 
 /**
  * Instantiate a web worker.
@@ -15,6 +15,7 @@ export async function createWebWorker(url: string, initialMem?: number, maxMem?:
   const transportClient = new TransportClient<DispatchMsg>(transportConnect);
   await transportClient.open();
   const remoteModule = createDispatchProxy(WasmModule, transportClient) as WasmWorker;
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   remoteModule.destroyWorker = async () => {
     await transportClient.request({ fn: '__destroyWorker__', args: [] });
     transportClient.close();

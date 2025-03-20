@@ -13,6 +13,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../aztec"
+    },
+    {
       "path": "../aztec-node"
     },
     {
@@ -22,16 +25,22 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../bot"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../entrypoints"
+    },
+    {
+      "path": "../epoch-cache"
     },
     {
       "path": "../ethereum"
@@ -76,10 +85,13 @@
       "path": "../simulator"
     },
     {
+      "path": "../stdlib"
+    },
+    {
       "path": "../telemetry-client"
     },
     {
-      "path": "../types"
+      "path": "../validator-client"
     },
     {
       "path": "../world-state"

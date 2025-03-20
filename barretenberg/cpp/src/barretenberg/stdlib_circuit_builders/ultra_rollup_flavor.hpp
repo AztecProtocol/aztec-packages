@@ -1,10 +1,25 @@
 #pragma once
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
 
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
+    // Proof length formula:
+    // 1. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 2. IPA_CLAIM_SIZE public inputs for IPA claim
+    // 3. NUM_WITNESS_ENTITIES commitments
+    // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 5. NUM_ALL_ENTITIES sumcheck evaluations
+    // 6. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 7. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 8. KZG W commitment
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IPA_PROOF_LENGTH;
+
     using UltraFlavor::UltraFlavor;
     class ProvingKey : public UltraFlavor::ProvingKey {
       public:
@@ -22,8 +37,9 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        virtual ~VerificationKey() = default;
         bool contains_ipa_claim;
         IPAClaimPubInputIndices ipa_claim_public_input_indices;
 
@@ -84,6 +100,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
         // up.
         VerificationKey(const uint64_t circuit_size,

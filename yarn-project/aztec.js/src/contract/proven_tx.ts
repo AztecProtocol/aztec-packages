@@ -1,17 +1,16 @@
-import { type PXE, Tx } from '@aztec/circuit-types';
+import { Tx } from '@aztec/stdlib/tx';
 
-import { type Wallet } from '../account/index.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { SentTx } from './sent_tx.js';
 
 /**
  * A proven transaction that can be sent to the network. Returned by the `prove` method of a contract interaction.
  */
 export class ProvenTx extends Tx {
-  constructor(protected wallet: PXE | Wallet, tx: Tx) {
+  constructor(protected wallet: Wallet, tx: Tx) {
     super(
       tx.data,
       tx.clientIvcProof,
-      tx.unencryptedLogs,
       tx.contractClassLogs,
       tx.enqueuedPublicFunctionCalls,
       tx.publicTeardownFunctionCall,
@@ -23,7 +22,6 @@ export class ProvenTx extends Tx {
     return new Tx(
       this.data,
       this.clientIvcProof,
-      this.unencryptedLogs,
       this.contractClassLogs,
       this.enqueuedPublicFunctionCalls,
       this.publicTeardownFunctionCall,

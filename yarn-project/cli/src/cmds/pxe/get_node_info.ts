@@ -1,5 +1,5 @@
 import { type AztecNode, type PXE, createAztecNodeClient, createCompatibleClient } from '@aztec/aztec.js';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 export async function getNodeInfo(
   rpcUrl: string,
@@ -34,6 +34,7 @@ export async function getNodeInfo(
         rewardDistributor: info.l1ContractAddresses.rewardDistributorAddress.toString(),
         governanceProposer: info.l1ContractAddresses.governanceProposerAddress.toString(),
         governance: info.l1ContractAddresses.governanceAddress.toString(),
+        slashFactory: info.l1ContractAddresses.slashFactoryAddress?.toString(),
       },
       protocolContractAddresses: {
         classRegisterer: info.protocolContractAddresses.classRegisterer.toString(),
@@ -59,6 +60,7 @@ export async function getNodeInfo(
     log(` RewardDistributor Address: ${info.l1ContractAddresses.rewardDistributorAddress.toString()}`);
     log(` GovernanceProposer Address: ${info.l1ContractAddresses.governanceProposerAddress.toString()}`);
     log(` Governance Address: ${info.l1ContractAddresses.governanceAddress.toString()}`);
+    log(` SlashFactory Address: ${info.l1ContractAddresses.slashFactoryAddress?.toString()}`);
 
     log(`L2 Contract Addresses:`);
     log(` Class Registerer: ${info.protocolContractAddresses.classRegisterer.toString()}`);

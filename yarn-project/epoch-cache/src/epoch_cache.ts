@@ -1,16 +1,16 @@
+import { RollupContract, createEthereumChain } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import {
   EmptyL1RollupConstants,
   type L1RollupConstants,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
-} from '@aztec/circuit-types';
-import { RollupContract, createEthereumChain } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { DateProvider } from '@aztec/foundation/timer';
+} from '@aztec/stdlib/epoch-helpers';
 
 import { EventEmitter } from 'node:events';
-import { createPublicClient, encodeAbiParameters, http, keccak256 } from 'viem';
+import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
@@ -19,6 +19,20 @@ type EpochAndSlot = {
   slot: bigint;
   ts: bigint;
 };
+
+export interface EpochCacheInterface {
+  getCommittee(nextSlot: boolean): Promise<EthAddress[]>;
+  getEpochAndSlotNow(): EpochAndSlot;
+  getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
+  computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
+  getProposerInCurrentOrNextSlot(): Promise<{
+    currentProposer: EthAddress;
+    nextProposer: EthAddress;
+    currentSlot: bigint;
+    nextSlot: bigint;
+  }>;
+  isInCommittee(validator: EthAddress): Promise<boolean>;
+}
 
 /**
  * Epoch cache
@@ -30,7 +44,10 @@ type EpochAndSlot = {
  *
  * Note: This class is very dependent on the system clock being in sync.
  */
-export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], bigint] }> {
+export class EpochCache
+  extends EventEmitter<{ committeeChanged: [EthAddress[], bigint] }>
+  implements EpochCacheInterface
+{
   private committee: EthAddress[];
   private cachedEpoch: bigint;
   private cachedSampleSeed: bigint;
@@ -59,10 +76,10 @@ export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], 
   ) {
     config = config ?? getEpochCacheConfigEnvVars();
 
-    const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
+    const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
+      transport: fallback(config.l1RpcUrls.map(url => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -99,12 +116,12 @@ export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], 
     return this.getEpochAndSlotAtTimestamp(this.nowInSeconds());
   }
 
-  getEpochAndSlotInNextSlot(): EpochAndSlot {
+  private getEpochAndSlotInNextSlot(): EpochAndSlot {
     const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.slotDuration);
     return this.getEpochAndSlotAtTimestamp(nextSlotTs);
   }
 
-  getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
+  private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
     return {
       epoch: getEpochNumberAtTimestamp(ts, this.l1constants),
       slot: getSlotAtTimestamp(ts, this.l1constants),
@@ -142,7 +159,7 @@ export class EpochCache extends EventEmitter<{ committeeChanged: [EthAddress[], 
   }
 
   /**
-   * Get the ABI encoding of the proposer index - see Leonidas.sol _computeProposerIndex
+   * Get the ABI encoding of the proposer index - see ValidatorSelectionLib.sol computeProposerIndex
    */
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}` {
     return encodeAbiParameters(

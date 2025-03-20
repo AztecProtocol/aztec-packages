@@ -14,12 +14,11 @@ pub trait RangeOrdered {
     fn counter_end(self) -> u32;
 }
 
-pub trait OrderedValue<T>
+pub trait OrderedValue<T>: Ordered
 where
     T: Eq,
 {
     fn value(self) -> T;
-    fn counter(self) -> u32;
 }
 
 pub trait Scoped<T>

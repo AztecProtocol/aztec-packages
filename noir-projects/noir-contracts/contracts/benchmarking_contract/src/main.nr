@@ -6,7 +6,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Benchmarking {
+pub contract Benchmarking {
     use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
     use dep::value_note::{utils::increment, value_note::ValueNote};
 
@@ -50,6 +50,12 @@ contract Benchmarking {
     // Emits a public log.
     #[public]
     fn broadcast(owner: AztecAddress) {
-        context.emit_unencrypted_log(storage.balances.at(owner).read());
+        context.emit_public_log(storage.balances.at(owner).read());
+    }
+
+    // Does a bunch of heavy compute
+    #[public]
+    fn sha256_hash_2048(data: [u8; 2048]) -> [u8; 32] {
+        sha256::sha256_var(data, data.len() as u64)
     }
 }

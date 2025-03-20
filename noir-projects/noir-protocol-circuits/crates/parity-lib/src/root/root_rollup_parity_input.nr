@@ -1,13 +1,13 @@
 use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{
-    constants::{ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
+    constants::{PROOF_TYPE_HONK, ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
     proof::{
         recursive_proof::NestedRecursiveProof,
         traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
     },
-    traits::Empty,
+    traits::{Empty, Serialize},
 };
 
 pub struct RootRollupParityInput {
@@ -31,11 +31,12 @@ impl Empty for RootRollupParityInput {
 impl Verifiable for RootRollupParityInput {
     fn verify(self) {
         let inputs = ParityPublicInputs::serialize(self.public_inputs);
-        std::verify_proof(
+        std::verify_proof_with_type(
             self.verification_key.key,
             self.proof.fields,
             inputs,
             self.verification_key.hash,
+            PROOF_TYPE_HONK,
         );
     }
 }

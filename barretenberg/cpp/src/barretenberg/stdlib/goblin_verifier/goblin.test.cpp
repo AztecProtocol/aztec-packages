@@ -11,8 +11,8 @@ class GoblinTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
-        srs::init_crs_factory("../srs_db/ignition");
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 
     using Builder = MegaCircuitBuilder;
@@ -41,7 +41,7 @@ TEST_F(GoblinTests, MultipleCircuits)
     size_t NUM_CIRCUITS = 3;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = construct_mock_circuit(goblin.op_queue);
-        goblin.merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+        goblin.prove_merge(circuit); // appends a recursive merge verifier if a merge proof exists
     }
 
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs

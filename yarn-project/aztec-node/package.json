@@ -23,7 +23,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -54,14 +54,9 @@
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
+      "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
@@ -69,8 +64,8 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/blob-sink": "workspace:^",
+    "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
@@ -81,8 +76,8 @@
     "@aztec/prover-client": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "@aztec/types": "workspace:^",
     "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "koa": "^2.14.2",

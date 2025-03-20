@@ -1,10 +1,10 @@
-import { type ContractArtifact } from '@aztec/aztec.js';
-import { type ExtendedNote, NoteStatus, type PXE, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
-import { type LogFn } from '@aztec/foundation/log';
-import { toHumanReadable } from '@aztec/foundation/serialize';
+import type { AztecAddress, ContractArtifact, Fr } from '@aztec/aztec.js';
+import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { siloNullifier } from '@aztec/stdlib/hash';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
+import { type ExtendedNote, NoteStatus } from '@aztec/stdlib/note';
+import type { TxHash } from '@aztec/stdlib/tx';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
   const block = await pxe.getBlock(blockNumber);
@@ -13,7 +13,8 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
     return;
   }
 
-  log(`Block ${blockNumber} (${block.hash().toString()})`);
+  const blockHash = await block.hash();
+  log(`Block ${blockNumber} (${blockHash.toString()})`);
   log(` Total fees: ${block.header.totalFees.toBigInt()}`);
   log(` Total mana used: ${block.header.totalManaUsed.toBigInt()}`);
   log(
@@ -39,10 +40,10 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effectsInBlock, incomingNotes] = await Promise.all([
+  const [receipt, effectsInBlock, getNotes] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
-    pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
@@ -65,13 +66,12 @@ export async function inspectTx(
     log(` Fee: ${receipt.transactionFee.toString()}`);
   }
 
-  // Unencrypted logs
-  const unencryptedLogs = effects.unencryptedLogs.unrollLogs();
-  if (unencryptedLogs.length > 0) {
+  // Public logs
+  const publicLogs = effects.publicLogs;
+  if (publicLogs.length > 0) {
     log(' Logs:');
-    for (const unencryptedLog of unencryptedLogs) {
-      const data = toHumanReadable(unencryptedLog.data, 1000);
-      log(`  ${toFriendlyAddress(unencryptedLog.contractAddress, artifactMap)}: ${data}`);
+    for (const publicLog of publicLogs) {
+      log(`  ${publicLog.toHumanReadable()}`);
     }
   }
 
@@ -88,10 +88,10 @@ export async function inspectTx(
   const notes = effects.noteHashes;
   if (notes.length > 0) {
     log(' Created notes:');
-    log(`  Total: ${notes.length}. Incoming: ${incomingNotes.length}.`);
-    if (incomingNotes.length) {
-      log('  Incoming notes:');
-      for (const note of incomingNotes) {
+    log(`  Total: ${notes.length}. Found: ${getNotes.length}.`);
+    if (getNotes.length) {
+      log('  Found notes:');
+      for (const note of getNotes) {
         inspectNote(note, artifactMap, log);
       }
     }
@@ -103,7 +103,7 @@ export async function inspectTx(
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
-      const [note] = await pxe.getIncomingNotes({ siloedNullifier: nullifier });
+      const [note] = await pxe.getNotes({ siloedNullifier: nullifier });
       const deployed = deployNullifiers[nullifier.toString()];
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
@@ -142,9 +142,8 @@ export async function inspectTx(
 function inspectNote(note: ExtendedNote, artifactMap: ArtifactMap, log: LogFn, text = 'Note') {
   const artifact = artifactMap[note.contractAddress.toString()];
   const contract = artifact?.name ?? note.contractAddress.toString();
-  const type = artifact?.notes[note.noteTypeId.toString()]?.typ ?? note.noteTypeId.toField().toShortString();
-  log(`  ${text} type ${type} at ${contract}`);
-  log(`    Owner: ${toFriendlyAddress(note.owner, artifactMap)}`);
+  log(`  ${text} at ${contract}`);
+  log(`    Recipient: ${toFriendlyAddress(note.recipient, artifactMap)}`);
   for (const field of note.note.items) {
     log(`    ${field.toString()}`);
   }
@@ -182,17 +181,23 @@ type ArtifactMap = Record<string, ContractArtifactWithClassId>;
 type ContractArtifactWithClassId = ContractArtifact & { classId: Fr };
 async function getKnownArtifacts(pxe: PXE): Promise<ArtifactMap> {
   const knownContractAddresses = await pxe.getContracts();
-  const knownContracts = await Promise.all(knownContractAddresses.map(contract => pxe.getContractInstance(contract)));
-  const classIds = [...new Set(knownContracts.map(contract => contract?.contractClassId))];
-  const knownArtifacts = await Promise.all(
-    classIds.map(classId =>
-      classId ? pxe.getContractArtifact(classId).then(a => (a ? { ...a, classId } : undefined)) : undefined,
-    ),
+  const knownContracts = (
+    await Promise.all(knownContractAddresses.map(contractAddress => pxe.getContractMetadata(contractAddress)))
+  ).map(contractMetadata => contractMetadata.contractInstance);
+  const classIds = [...new Set(knownContracts.map(contract => contract?.currentContractClassId))];
+  const knownArtifacts = (
+    await Promise.all(classIds.map(classId => (classId ? pxe.getContractClassMetadata(classId) : undefined)))
+  ).map(contractClassMetadata =>
+    contractClassMetadata
+      ? { ...contractClassMetadata.artifact, classId: contractClassMetadata.contractClass?.id }
+      : undefined,
   );
   const map: Record<string, ContractArtifactWithClassId> = {};
   for (const instance of knownContracts) {
     if (instance) {
-      const artifact = knownArtifacts.find(a => a?.classId.equals(instance.contractClassId));
+      const artifact = knownArtifacts.find(a =>
+        a?.classId?.equals(instance.currentContractClassId),
+      ) as ContractArtifactWithClassId;
       if (artifact) {
         map[instance.address.toString()] = artifact;
       }

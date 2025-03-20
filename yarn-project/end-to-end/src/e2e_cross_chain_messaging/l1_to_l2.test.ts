@@ -33,7 +33,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         ? testContract.methods.consume_message_from_arbitrary_sender_private
         : testContract.methods.consume_message_from_arbitrary_sender_public;
 
-      const [secret, secretHash] = generateClaimSecret();
+      const [secret, secretHash] = await generateClaimSecret();
 
       const message = { recipient: testContract.address, content: Fr.random(), secretHash };
       const [message1Hash, actualMessage1Index] = await sendL2Message(message);

@@ -3,10 +3,6 @@
 
 namespace bb::{{snakeCase name}} {
 
-AvmFlavor::AllConstRefValues::AllConstRefValues(const RefArray<AvmFlavor::AllConstRefValues::BaseDataType, AvmFlavor::NUM_ALL_ENTITIES>& il) :
-    {{#each (join fixed witness_without_inverses inverses shifted) as |item|}}{{item}}(il[{{@index}}]){{#unless @last}},{{/unless}}{{/each}}
-  {}
-
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
 {
     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
@@ -18,33 +14,6 @@ AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
         prover_poly = key_poly.shifted();
     }
 }
-
-AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_idx) const
-{
-    {{!--
-    // TODO: try to make something like this work.
-    // Right now it's too risky because it relies on the order of the columns in `get_all()`.
-    RefArray all_cols = get_all();
-    std::array<const FF*, {{len all_cols_and_shifts}}> refs;
-    for (size_t i = 0; i < refs.size(); ++i) {
-        refs[i] = &all_cols[i][row_idx];
-    }
-    // Note: the order of the constructor must match the order of the columns in `get_all()`!
-    return AllConstRefValues(refs);
-      --}}
-    return RefArray{
-      {{#each (join fixed witness_without_inverses inverses shifted) as |item|}}
-      {{item}}[row_idx]{{#unless @last}},{{/unless}}
-      {{/each}}
-    };
-}
-
-AvmFlavor::CommitmentLabels::CommitmentLabels()
-{
-    {{#each all_cols as |item|}}
-    Base::{{item}} = "{{shoutySnakeCase item}}";
-    {{/each}}
-};
 
 void AvmFlavor::Transcript::deserialize_full_transcript() {
     size_t num_frs_read = 0;
@@ -115,15 +84,23 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
     }
 }
 
+AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials,
+                                                                            size_t circuit_size)
+{
+    for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+        // After the initial sumcheck round, the new size is CEIL(size/2).
+        size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
+        poly = Polynomial(desired_size, circuit_size / 2);
+    }
+}
+
 AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
     : circuit_size(circuit_size)
+    , log_circuit_size(numeric::get_msb(circuit_size))
+    , num_public_inputs(num_public_inputs)
     , evaluation_domain(bb::EvaluationDomain<FF>(circuit_size, circuit_size))
     , commitment_key(std::make_shared<CommitmentKey>(circuit_size + 1))
 {
-    // TODO: These come from PrecomputedEntitiesBase, ideal we'd just call that class's constructor.
-    this->log_circuit_size = numeric::get_msb(circuit_size);
-    this->num_public_inputs = num_public_inputs;
-
     // The proving key's polynomials are not allocated here because they are later overwritten
     // AvmComposer::compute_witness(). We should probably refactor this flow.
 };

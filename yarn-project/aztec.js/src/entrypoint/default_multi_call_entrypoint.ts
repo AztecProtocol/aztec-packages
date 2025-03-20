@@ -1,8 +1,10 @@
-import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
-import { type AztecAddress, TxContext } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { EncodedCallsForEntrypoint } from '@aztec/entrypoints/encoding';
+import type { EntrypointInterface, FeeOptions } from '@aztec/entrypoints/interfaces';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 /**
  * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction
@@ -14,19 +16,26 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint,
   ) {}
 
-  createTxExecutionRequest(executions: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { fee, calls, authWitnesses = [], packedArguments = [] } = executions;
-    const payload = EntrypointPayload.fromAppExecution(calls);
-    const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [payload]));
+  async createTxExecutionRequest(exec: ExecutionPayload, fee: FeeOptions): Promise<TxExecutionRequest> {
+    // Initial request with calls, authWitnesses and capsules
+    const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
 
+    // Encode the calls
+    const encodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls);
+
+    // Obtain the entrypoint hashed args, built from the encoded calls
+    const abi = this.getEntrypointAbi();
+    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [encodedCalls]));
+
+    // Assemble the tx request
     const txRequest = TxExecutionRequest.from({
-      firstCallArgsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
-      functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
+      functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...payload.packedArguments, ...packedArguments, entrypointPackedArgs],
+      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
       authWitnesses,
+      capsules,
     });
 
     return Promise.resolve(txRequest);

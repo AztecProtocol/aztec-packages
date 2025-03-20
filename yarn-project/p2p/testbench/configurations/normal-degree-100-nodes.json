@@ -1,0 +1,14 @@
+{
+  "numberOfClients": 100,
+  "maxPeerCount": 110,
+  "gossipsubFloodPublish": false,
+  "debugDisableColocationPenalty": true,
+  "gossipsubInterval": 700,
+  "gossipsubD": 6,
+  "gossipsubDlo": 4,
+  "gossipsubDhi": 12,
+  "gossipsubDLazy": 8,
+  "peerCheckIntervalMS": 5000,
+  "gossipsubMcacheGossip": 12,
+  "gossipsubMcacheLength": 12
+}

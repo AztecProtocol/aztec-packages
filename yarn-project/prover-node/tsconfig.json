@@ -13,10 +13,10 @@
       "path": "../bb-prover"
     },
     {
-      "path": "../circuit-types"
+      "path": "../blob-sink"
     },
     {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../epoch-cache"
@@ -34,7 +34,13 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
     },
     {
       "path": "../prover-client"
@@ -46,10 +52,10 @@
       "path": "../simulator"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     },
     {
       "path": "../world-state"

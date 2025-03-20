@@ -172,7 +172,9 @@ class AvmGoblinRecursiveVerifier {
             recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, mega_agg_object);
 
         // Step 3: run the goblin merge protocol
-        goblin.merge(inner_builder);
+        // WORKTODO: this used to use goblin.merge() which I think added a merge rec verifier. Dont think this is needed
+        // but need to take a look and confirm
+        goblin.prove_merge(inner_builder);
         inner_builder.add_pairing_point_accumulator(
             stdlib::recursion::init_default_agg_obj_indices<MegaCircuitBuilder>(inner_builder));
 

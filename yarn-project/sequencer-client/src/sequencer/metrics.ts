@@ -16,6 +16,7 @@ export class SequencerMetrics {
 
   private blockCounter: UpDownCounter;
   private blockBuildDuration: Histogram;
+  private blockBuildManaPerSecond: Gauge;
   private stateTransitionBufferDuration: Histogram;
   private currentBlockNumber: Gauge;
   private currentBlockSize: Gauge;
@@ -28,11 +29,19 @@ export class SequencerMetrics {
     this.tracer = client.getTracer(name);
 
     this.blockCounter = meter.createUpDownCounter(Metrics.SEQUENCER_BLOCK_COUNT);
+
     this.blockBuildDuration = meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_DURATION, {
       unit: 'ms',
       description: 'Duration to build a block',
       valueType: ValueType.INT,
     });
+
+    this.blockBuildManaPerSecond = meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND, {
+      unit: 'mana/s',
+      description: 'Mana per second when building a block',
+      valueType: ValueType.INT,
+    });
+
     this.stateTransitionBufferDuration = meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION, {
       unit: 'ms',
       description:
@@ -69,7 +78,17 @@ export class SequencerMetrics {
       valueType: ValueType.INT,
     });
 
+    // Init gauges and counters
     this.setCurrentBlock(0, 0);
+    this.blockCounter.add(0, {
+      [Attributes.STATUS]: 'cancelled',
+    });
+    this.blockCounter.add(0, {
+      [Attributes.STATUS]: 'failed',
+    });
+    this.blockCounter.add(0, {
+      [Attributes.STATUS]: 'built',
+    });
   }
 
   startCollectingAttestationsTimer(): () => void {
@@ -96,12 +115,12 @@ export class SequencerMetrics {
     this.setCurrentBlock(0, 0);
   }
 
-  recordPublishedBlock(buildDurationMs: number) {
+  recordBuiltBlock(buildDurationMs: number, totalMana: number) {
     this.blockCounter.add(1, {
-      [Attributes.STATUS]: 'published',
+      [Attributes.STATUS]: 'built',
     });
     this.blockBuildDuration.record(Math.ceil(buildDurationMs));
-    this.setCurrentBlock(0, 0);
+    this.blockBuildManaPerSecond.record(Math.ceil((totalMana * 1000) / buildDurationMs));
   }
 
   recordFailedBlock() {

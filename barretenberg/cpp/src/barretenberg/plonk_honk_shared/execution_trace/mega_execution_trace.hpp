@@ -220,6 +220,16 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         info("");
     }
 
+    // Get cumulative size of all blocks
+    size_t get_total_content_size()
+    {
+        size_t total_size(0);
+        for (const auto& block : this->get()) {
+            total_size += block.size();
+        }
+        return total_size;
+    }
+
     size_t get_structured_dyadic_size() const
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
@@ -284,7 +294,7 @@ static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
                                                             .elliptic = 9000,
                                                             .aux = 136000,
                                                             .poseidon2_external = 2500,
-                                                            .poseidon2_internal = 14000,
+                                                            .poseidon2_internal = 14500,
                                                             .overflow = 0 };
 
 /**

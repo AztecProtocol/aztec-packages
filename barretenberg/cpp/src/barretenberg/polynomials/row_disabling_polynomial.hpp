@@ -174,6 +174,28 @@ template <typename FF> struct RowDisablingPolynomial {
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;
     }
+    /**
+     * @brief stdlib version of the above that ensures that the verifier's work does not depend on `log_circuit_size`.
+     *
+     */
+    template <typename Builder>
+    static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge,
+                                    const size_t log_circuit_size,
+                                    Builder* builder)
+    {
+        FF evaluation_at_multivariate_challenge{ 1 };
+        const FF one = FF{ 1 };
+
+        for (size_t idx = 2; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+            stdlib::bool_t dummy_round = stdlib::witness_t(builder, idx >= log_circuit_size);
+            evaluation_at_multivariate_challenge =
+                FF::conditional_assign(dummy_round,
+                                       evaluation_at_multivariate_challenge * one,
+                                       evaluation_at_multivariate_challenge * multivariate_challenge[idx]);
+        }
+
+        return one - evaluation_at_multivariate_challenge;
+    }
 };
 
 } // namespace bb

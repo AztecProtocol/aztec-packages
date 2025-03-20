@@ -1,24 +1,25 @@
 mod events;
-mod capsule;
 
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ContractClassRegisterer {
+pub contract ContractClassRegisterer {
     use dep::aztec::protocol_types::{
         abis::log_hash::LogHash,
         constants::{
-            ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
-            MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+            ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
+            FUNCTION_TREE_HEIGHT, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
-            MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+            MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
         },
         contract_class_id::ContractClassId,
+        hash::poseidon2_hash,
+        utils::arrays::{array_concat, unsafe_padded_array_length},
     };
 
     use dep::aztec::{
         context::PrivateContext, macros::functions::private,
-        oracle::logs::emit_contract_class_unencrypted_log_private,
+        oracle::logs::notify_created_contract_class_log,
     };
 
     use crate::events::{
@@ -32,31 +33,37 @@ contract ContractClassRegisterer {
         },
     };
 
-    // docs:start:import_pop_capsule
-    use crate::capsule::pop_capsule;
+    use dep::aztec::protocol_types::traits::ToField;
 
-    // docs:end:import_pop_capsule
+    // docs:start:import_capsules
+    use dep::aztec::oracle::capsules;
+    // docs:end:import_capsules
 
     #[private]
     fn register(
         artifact_hash: Field,
         private_functions_root: Field,
         public_bytecode_commitment: Field,
-        emit: bool,
     ) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
-        // docs:start:pop_capsule
-        let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] =
-            pop_capsule();
-        // docs:end:pop_capsule
+        // docs:start:load_capsule
+        let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
+            capsules::load(
+                context.this_address(),
+                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+            )
+                .unwrap()
+        };
+        // docs:end:load_capsule
         // First field element contains the length of the bytecode
         let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
         let bytecode_length_in_fields: u32 =
             (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
         assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
 
-        let mut computed_public_bytecode_commitment = 0;
+        // The first value in the running hash is the bytecode length in bytes
+        let mut computed_public_bytecode_commitment = packed_public_bytecode[0];
         // We can hash up to MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS - 1, since the first element is the length
         for i in 0..(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS - 1) {
             // While we are forced to run the hash MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS times in the circuit,
@@ -95,18 +102,14 @@ contract ContractClassRegisterer {
             ],
         );
 
-        // TODO(#10007): Drop this conditional and always emit the bytecode. We allow skipping the broadcast
-        // as a stopgap solution to allow txs to fit in Sepolia when we broadcast public bytecode.
-        if emit {
-            let event = ContractClassRegistered {
-                contract_class_id,
-                version: 1,
-                artifact_hash,
-                private_functions_root,
-                packed_public_bytecode,
-            };
-            emit_contract_class_log(&mut context, event.serialize());
-        }
+        let event = ContractClassRegistered {
+            contract_class_id,
+            version: 1,
+            artifact_hash,
+            private_functions_root,
+            packed_public_bytecode,
+        };
+        emit_contract_class_log(&mut context, event.serialize_non_standard());
     }
 
     #[private]
@@ -120,8 +123,13 @@ contract ContractClassRegisterer {
         artifact_function_tree_leaf_index: Field,
         function_data: InnerPrivateFunction,
     ) {
-        let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] =
-            pop_capsule();
+        let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
+            capsules::load(
+                context.this_address(),
+                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+            )
+                .unwrap()
+        };
 
         let event = ClassPrivateFunctionBroadcasted {
             contract_class_id,
@@ -149,7 +157,7 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize_non_standard());
     }
 
     #[private]
@@ -161,8 +169,13 @@ contract ContractClassRegisterer {
         artifact_function_tree_leaf_index: Field,
         function_data: InnerUnconstrainedFunction,
     ) {
-        let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] =
-            pop_capsule();
+        let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] = unsafe {
+            capsules::load(
+                context.this_address(),
+                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+            )
+                .unwrap()
+        };
         let event = ClassUnconstrainedFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
@@ -185,7 +198,7 @@ contract ContractClassRegisterer {
                 function_data.metadata_hash,
             ],
         );
-        emit_contract_class_log(&mut context, event.serialize());
+        emit_contract_class_log(&mut context, event.serialize_non_standard());
     }
 
     #[contract_library_method]
@@ -193,21 +206,23 @@ contract ContractClassRegisterer {
         let contract_address = context.this_address();
         let counter = context.next_counter();
 
-        // The log preimage is too large for the hash to compile (16,200 fields, 518,400 bytes), so we do this via a
-        // specialized oracle.
-        // A malicious oracle cannot force us to use an incorrect bytecode:
-        // - Contract class -> we will commit to the packed bytecode (currently a TODO)
-        // - Private function -> we provide a membership proof
-        // - Unconstrained function -> we provide a membership proof
-        // However, the sequencer will be required to know a contract's preimage if it is called and the sequencer
-        // cannot prove non-registration. Therefore, it is possible that a malicious oracle might prevent sequencers
-        // from including transactions with calls to certain badly-broadcasted contracts.
-        // TODO(#8978): review correctness
-        let log_hash = emit_contract_class_unencrypted_log_private(contract_address, log, counter);
+        let log_to_emit: [Field; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS] =
+            array_concat(log, [0; CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS - N]);
+        // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
+        // Safety: The below length is constrained in the base rollup.
+        let length = unsafe { unsafe_padded_array_length(log_to_emit) };
+        // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
+        let log_hash = poseidon2_hash(log_to_emit);
+        // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
+        unsafe {
+            notify_created_contract_class_log(contract_address, log_to_emit, counter);
+        }
 
-        // 40 = addr (32) + raw log len (4) + processed log len (4)
-        context.contract_class_logs_hashes.push(
-            LogHash { value: log_hash, counter, length: 40 + (N as Field) * 32 },
-        );
+        context.contract_class_logs_hashes.push(LogHash { value: log_hash, counter, length });
+    }
+
+    #[private]
+    fn assert_class_id_is_registered(contract_class_id: ContractClassId) {
+        context.push_nullifier_read_request(contract_class_id.to_field());
     }
 }

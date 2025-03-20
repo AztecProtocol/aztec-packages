@@ -4,9 +4,6 @@ namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Performs recursive verification of the Client IVC proof.
- *
- * @todo (https://github.com/AztecProtocol/barretenberg/issues/934):  Add logic for accumulating the pairing points
- * produced by the verifiers (and potentially IPA accumulators for ECCVM verifier)
  */
 ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {

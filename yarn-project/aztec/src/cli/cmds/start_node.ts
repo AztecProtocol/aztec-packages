@@ -1,36 +1,54 @@
-import { aztecNodeConfigMappings } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, P2PApiSchema, type PXE } from '@aztec/circuit-types';
+import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { LogFn } from '@aztec/foundation/log';
+import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
-  createAndStartTelemetryClient,
+  initTelemetryClient,
   telemetryClientConfigMappings,
-} from '@aztec/telemetry-client/start';
+} from '@aztec/telemetry-client';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { createAztecNode, deployContractsToL1 } from '../../sandbox.js';
+import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
+import { getL1Config } from '../get_l1_config.js';
 import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
 
 export async function startNode(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
+  adminServices: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<{ config: AztecNodeConfig }> {
   // options specifically namespaced with --node.<option>
   const nodeSpecificOptions = extractNamespacedOptions(options, 'node');
+
+  // All options set from environment variables
+  const configFromEnvVars = getConfigEnvVars();
+
+  // Extract relevant options from command line arguments
+  const relevantOptions = extractRelevantOptions(options, aztecNodeConfigMappings, 'node');
+
   // All options that are relevant to the Aztec Node
-  const nodeConfig = {
-    ...extractRelevantOptions(options, aztecNodeConfigMappings, 'node'),
+  let nodeConfig: AztecNodeConfig = {
+    ...configFromEnvVars,
+    ...relevantOptions,
   };
 
   if (options.proverNode) {
     userLog(`Running a Prover Node within a Node is not yet supported`);
     process.exit(1);
   }
+
+  const initialFundedAccounts = nodeConfig.testAccounts ? await getInitialTestAccounts() : [];
+  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
+    initialFundedAccounts.map(a => a.address),
+  );
 
   // Deploy contracts if needed
   if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {
@@ -42,10 +60,34 @@ export async function startNode(
     } else {
       throw new Error('--node.publisherPrivateKey or --l1-mnemonic is required to deploy L1 contracts');
     }
+    // REFACTOR: We should not be calling a method from sandbox on the prod start flow
     await deployContractsToL1(nodeConfig, account!, undefined, {
       assumeProvenThroughBlockNumber: nodeSpecificOptions.assumeProvenThroughBlockNumber,
       salt: nodeSpecificOptions.deployAztecContractsSalt,
+      genesisBlockHash,
+      genesisArchiveRoot,
     });
+  }
+  // If not deploying, validate that any addresses and config provided are correct.
+  else {
+    if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
+      throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
+    }
+    const { addresses, config } = await getL1Config(
+      nodeConfig.l1Contracts.registryAddress,
+      nodeConfig.l1RpcUrls,
+      nodeConfig.l1ChainId,
+    );
+
+    // TODO(#12272): will clean this up.
+    nodeConfig = {
+      ...nodeConfig,
+      l1Contracts: {
+        ...addresses,
+        slashFactoryAddress: nodeConfig.l1Contracts.slashFactoryAddress,
+      },
+      ...config,
+    };
   }
 
   // if no publisher private key, then use l1Mnemonic
@@ -62,10 +104,15 @@ export async function startNode(
   if (!options.sequencer) {
     nodeConfig.disableValidator = true;
   } else {
-    const sequencerConfig = extractNamespacedOptions(options, 'sequencer');
+    const sequencerConfig = {
+      ...configFromEnvVars,
+      ...extractNamespacedOptions(options, 'sequencer'),
+    };
     let account;
     if (!sequencerConfig.publisherPrivateKey || sequencerConfig.publisherPrivateKey === NULL_KEY) {
-      if (!options.l1Mnemonic) {
+      if (sequencerConfig.validatorPrivateKey) {
+        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKey as `0x${string}`;
+      } else if (!options.l1Mnemonic) {
         userLog(
           '--sequencer.publisherPrivateKey or --l1-mnemonic is required to start Aztec Node with --sequencer option',
         );
@@ -73,11 +120,10 @@ export async function startNode(
       } else {
         account = mnemonicToAccount(options.l1Mnemonic);
         const privKey = account.getHdKey().privateKey;
-        nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+        sequencerConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
       }
-    } else {
-      nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
     }
+    nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
   }
 
   if (nodeConfig.p2pEnabled) {
@@ -88,14 +134,15 @@ export async function startNode(
   }
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetry = await createAndStartTelemetryClient(telemetryConfig);
+  const telemetry = initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, telemetry);
+  const node = await createAztecNode(nodeConfig, { telemetry }, { prefilledPublicData });
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];
   services.p2p = [node.getP2P(), P2PApiSchema];
+  adminServices.nodeAdmin = [node, AztecNodeAdminApiSchema];
 
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop.bind(node));
@@ -104,7 +151,7 @@ export async function startNode(
   let pxe: PXE | undefined;
   if (options.pxe) {
     const { addPXE } = await import('./start_pxe.js');
-    pxe = await addPXE(options, signalHandlers, services, userLog, { node });
+    ({ pxe } = await addPXE(options, signalHandlers, services, userLog, { node }));
   }
 
   // Add a txs bot if requested
@@ -112,4 +159,6 @@ export async function startNode(
     const { addBot } = await import('./start_bot.js');
     await addBot(options, signalHandlers, services, { pxe, node, telemetry });
   }
+
+  return { config: nodeConfig };
 }

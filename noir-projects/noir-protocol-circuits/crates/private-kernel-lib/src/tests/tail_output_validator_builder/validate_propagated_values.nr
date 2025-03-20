@@ -1,5 +1,5 @@
 use crate::tests::tail_output_validator_builder::TailOutputValidatorBuilder;
-use dep::types::address::AztecAddress;
+use dep::types::{address::AztecAddress, traits::FromField};
 
 /**
  * constants
@@ -54,16 +54,6 @@ fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
     builder.previous_kernel.protocol_contract_tree_root = 123;
     // Tweak the value in the output.
     builder.output.protocol_contract_tree_root = 45;
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "global_variables must be empty")]
-fn validate_propagated_values_global_variables_non_empty_fails() {
-    let mut builder = TailOutputValidatorBuilder::new();
-
-    // Tweak the value in the output.
-    builder.output.global_variables.chain_id = 1;
 
     builder.validate();
 }

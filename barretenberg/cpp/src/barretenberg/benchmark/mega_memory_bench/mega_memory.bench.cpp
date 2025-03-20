@@ -1,3 +1,4 @@
+#include "barretenberg/benchmark/mega_memory_bench/memory_estimator.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -294,14 +295,7 @@ void fill_trace(State& state, TraceSettings settings)
     fill_lookup_block(builder);
 
     {
-        // finalize doesn't populate public inputs block, so copy to verify that the block is being filled well.
-        // otherwise the pk construction will overflow the block
-        // alternative: add to finalize or add a flag to check whether PIs have already been populated
-        auto builder_copy = builder;
-        builder_copy.finalize_circuit(/* ensure_nonzero */ false);
-        DeciderProvingKey::Trace::populate_public_inputs_block(builder_copy);
-
-        for (const auto [label, block] : zip_view(builder_copy.blocks.get_labels(), builder_copy.blocks.get())) {
+        for (const auto [label, block] : zip_view(builder.blocks.get_labels(), builder.blocks.get())) {
             bool overfilled = block.size() >= block.get_fixed_size();
             if (overfilled) {
                 vinfo(label, " overfilled");
@@ -312,10 +306,10 @@ void fill_trace(State& state, TraceSettings settings)
     }
 
     builder.finalize_circuit(/* ensure_nonzero */ true);
-    uint64_t builder_estimate = builder.estimate_memory();
+    uint64_t builder_estimate = MegaMemoryEstimator::estimate_builder_memory(builder);
     for (auto _ : state) {
         DeciderProvingKey proving_key(builder, settings);
-        uint64_t memory_estimate = proving_key.proving_key.estimate_memory();
+        uint64_t memory_estimate = MegaMemoryEstimator::estimate_proving_key_memory(proving_key.proving_key);
         state.counters["poly_mem_est"] = static_cast<double>(memory_estimate);
         state.counters["builder_mem_est"] = static_cast<double>(builder_estimate);
         benchmark::DoNotOptimize(proving_key);

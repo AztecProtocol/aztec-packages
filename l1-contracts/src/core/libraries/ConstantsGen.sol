@@ -1,4 +1,4 @@
-// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
+// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
@@ -16,12 +16,13 @@ library Constants {
   uint256 internal constant MAX_FIELD_VALUE =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
   uint256 internal constant ARGS_LENGTH = 16;
+  uint256 internal constant MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS = 16000;
   uint256 internal constant MAX_NOTE_HASHES_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIERS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 5;
   uint256 internal constant MAX_ENQUEUED_CALLS_PER_CALL = 16;
   uint256 internal constant MAX_L2_TO_L1_MSGS_PER_CALL = 2;
-  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 64;
+  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 63;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 64;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 16;
@@ -29,7 +30,7 @@ library Constants {
   uint256 internal constant MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_KEY_VALIDATION_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_LOGS_PER_CALL = 16;
-  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
+  uint256 internal constant MAX_PUBLIC_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_CONTRACT_CLASS_LOGS_PER_CALL = 1;
   uint256 internal constant ARCHIVE_HEIGHT = 29;
   uint256 internal constant VK_TREE_HEIGHT = 6;
@@ -67,36 +68,39 @@ library Constants {
   uint256 internal constant MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_KEY_VALIDATION_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_LOGS_PER_TX = 32;
-  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_TX = 8;
+  uint256 internal constant MAX_PUBLIC_LOGS_PER_TX = 8;
   uint256 internal constant MAX_CONTRACT_CLASS_LOGS_PER_TX = 1;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
-  uint256 internal constant EMPTY_NESTED_INDEX = 0;
-  uint256 internal constant PRIVATE_KERNEL_EMPTY_INDEX = 1;
-  uint256 internal constant PRIVATE_KERNEL_INIT_INDEX = 2;
-  uint256 internal constant PRIVATE_KERNEL_INNER_INDEX = 3;
-  uint256 internal constant PRIVATE_KERNEL_TAIL_INDEX = 4;
-  uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 5;
-  uint256 internal constant TUBE_VK_INDEX = 6;
-  uint256 internal constant PRIVATE_BASE_ROLLUP_VK_INDEX = 8;
-  uint256 internal constant PUBLIC_BASE_ROLLUP_VK_INDEX = 9;
-  uint256 internal constant BASE_PARITY_INDEX = 10;
-  uint256 internal constant ROOT_PARITY_INDEX = 11;
-  uint256 internal constant MERGE_ROLLUP_INDEX = 12;
-  uint256 internal constant BLOCK_ROOT_ROLLUP_INDEX = 13;
-  uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 14;
-  uint256 internal constant ROOT_ROLLUP_INDEX = 15;
-  uint256 internal constant BLOCK_ROOT_ROLLUP_EMPTY_INDEX = 16;
+  uint256 internal constant PRIVATE_KERNEL_INIT_INDEX = 0;
+  uint256 internal constant PRIVATE_KERNEL_INNER_INDEX = 1;
+  uint256 internal constant PRIVATE_KERNEL_TAIL_INDEX = 2;
+  uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 3;
+  uint256 internal constant TUBE_VK_INDEX = 4;
+  uint256 internal constant PRIVATE_BASE_ROLLUP_VK_INDEX = 6;
+  uint256 internal constant PUBLIC_BASE_ROLLUP_VK_INDEX = 7;
+  uint256 internal constant MERGE_ROLLUP_INDEX = 8;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_INDEX = 9;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX = 10;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_EMPTY_INDEX = 11;
+  uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 12;
+  uint256 internal constant ROOT_ROLLUP_INDEX = 13;
+  uint256 internal constant BASE_PARITY_INDEX = 14;
+  uint256 internal constant ROOT_PARITY_INDEX = 15;
   uint256 internal constant PRIVATE_KERNEL_RESET_INDEX = 20;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant FIELDS_PER_BLOB = 4096;
   uint256 internal constant BLOBS_PER_BLOCK = 3;
+  uint256 internal constant PUBLIC_LOG_DATA_SIZE_IN_FIELDS = 13;
+  uint256 internal constant PUBLIC_LOG_SIZE_IN_FIELDS = 14;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_FIELDS = 18;
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 48;
+  uint256 internal constant GENESIS_BLOCK_HASH =
+    20646204262468251631976884937192820660867507115079672078981654411421834866549;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     1002640778211850180189505934749257244705296832326768971348723156503780793518;
-  uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000000000;
+  uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000000000000;
   uint256 internal constant PUBLIC_DISPATCH_SELECTOR = 3578010381;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
@@ -111,6 +115,8 @@ library Constants {
     24399338136397901754495080759185489776044879232766421623673792970137;
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     14061769416655647708490531650437236735160113654556896985372298487345;
+  uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE =
+    1534834688047131268740281708431107902615560100979874281215533519862;
   uint256 internal constant MAX_PROTOCOL_CONTRACTS = 7;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS = 1;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS = 2;
@@ -118,7 +124,9 @@ library Constants {
   uint256 internal constant MULTI_CALL_ENTRYPOINT_ADDRESS = 4;
   uint256 internal constant FEE_JUICE_ADDRESS = 5;
   uint256 internal constant ROUTER_ADDRESS = 6;
+  uint256 internal constant REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT = 79025834455612;
   uint256 internal constant FEE_JUICE_BALANCES_SLOT = 1;
+  uint256 internal constant UPDATED_CLASS_IDS_SLOT = 1;
   uint256 internal constant DEFAULT_NPK_M_X =
     582240093077765400562621227108555700500271598878376310175765873770292988861;
   uint256 internal constant DEFAULT_NPK_M_Y =
@@ -165,6 +173,8 @@ library Constants {
   uint256 internal constant TREE_LEAF_READ_REQUEST_LENGTH = 2;
   uint256 internal constant PRIVATE_LOG_DATA_LENGTH = 20;
   uint256 internal constant SCOPED_PRIVATE_LOG_DATA_LENGTH = 21;
+  uint256 internal constant CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS = 3019;
+  uint256 internal constant CONTRACT_CLASS_LOG_SIZE_IN_FIELDS = 3020;
   uint256 internal constant LOG_HASH_LENGTH = 3;
   uint256 internal constant SCOPED_LOG_HASH_LENGTH = 4;
   uint256 internal constant NOTE_HASH_LENGTH = 2;
@@ -187,23 +197,24 @@ library Constants {
   uint256 internal constant BLOCK_HEADER_LENGTH = 25;
   uint256 internal constant BLOCK_HEADER_LENGTH_BYTES = 648;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 741;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 867;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 908;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
+  uint256 internal constant IPA_CLAIM_LENGTH = 10;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 902;
+  uint256 internal constant PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH = 740;
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 37;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 46;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2229;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2230;
   uint256 internal constant PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH = 900;
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
   uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1847;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 960;
+  uint256 internal constant PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 782;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 52;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 986;
@@ -220,11 +231,17 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
-  uint256 internal constant RECURSIVE_PROOF_LENGTH = 459;
-  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 459;
-  uint256 internal constant TUBE_PROOF_LENGTH = 459;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 456;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 456;
+  uint256 internal constant IPA_PROOF_LENGTH = 69;
+  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 535;
+  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 535;
+  uint256 internal constant TUBE_PROOF_LENGTH = 535;
   uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+  uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 139;
   uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
+  uint256 internal constant MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES = 96000;
+  uint256 internal constant MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS = 21;
   uint256 internal constant MEM_TAG_FF = 0;
   uint256 internal constant MEM_TAG_U1 = 1;
   uint256 internal constant MEM_TAG_U8 = 2;
@@ -251,11 +268,11 @@ library Constants {
   uint256 internal constant START_NULLIFIER_NON_EXISTS_OFFSET = 32;
   uint256 internal constant START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 48;
   uint256 internal constant START_SSTORE_WRITE_OFFSET = 64;
-  uint256 internal constant START_SLOAD_WRITE_OFFSET = 128;
-  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 192;
-  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 208;
-  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 224;
-  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 226;
+  uint256 internal constant START_SLOAD_WRITE_OFFSET = 127;
+  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 191;
+  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 207;
+  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 223;
+  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 225;
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
   uint256 internal constant MAX_L2_GAS_PER_TX_PUBLIC_PORTION = 6000000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 6000000;
@@ -276,6 +293,7 @@ library Constants {
   uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 1404;
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
   uint256 internal constant L2_GAS_PER_PRIVATE_LOG = 0;
+  uint256 internal constant L2_GAS_PER_CONTRACT_CLASS_LOG = 0;
   uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant TX_START_PREFIX = 8392562855083340404;
   uint256 internal constant REVERT_CODE_PREFIX = 1;
@@ -285,11 +303,21 @@ library Constants {
   uint256 internal constant L2_L1_MSGS_PREFIX = 5;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUESTS_PREFIX = 6;
   uint256 internal constant PRIVATE_LOGS_PREFIX = 7;
-  uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 8;
+  uint256 internal constant PUBLIC_LOGS_PREFIX = 8;
   uint256 internal constant CONTRACT_CLASS_LOGS_PREFIX = 9;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
   uint256 internal constant PROOF_TYPE_OINK = 2;
   uint256 internal constant PROOF_TYPE_PG = 3;
   uint256 internal constant PROOF_TYPE_AVM = 4;
+  uint256 internal constant PROOF_TYPE_ROLLUP_HONK = 5;
+  uint256 internal constant PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
+  uint256 internal constant TWO_POW_64 = 18446744073709551616;
+  uint256 internal constant DEFAULT_UPDATE_DELAY = 3600;
+  uint256 internal constant MINIMUM_UPDATE_DELAY = 25;
+  uint256 internal constant UPDATES_VALUE_SIZE = 1;
+  uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 3;
+  uint256 internal constant GRUMPKIN_ONE_X = 1;
+  uint256 internal constant GRUMPKIN_ONE_Y =
+    17631683881184975370165255887551781615748388533673675138860;
 }

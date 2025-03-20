@@ -1,10 +1,11 @@
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
-    note::note_emission::OuterNoteEmission,
+    note::{note_emission::OuterNoteEmission, retrieved_note::RetrievedNote},
     protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
 use dep::uint_note::uint_note::UintNote;
+use std::ops::Add;
 
 pub struct BalanceSet<Context> {
     pub set: PrivateSet<UintNote, Context>,
@@ -18,12 +19,12 @@ impl<Context> BalanceSet<Context> {
 }
 
 impl BalanceSet<UnconstrainedContext> {
-    pub unconstrained fn balance_of(self: Self) -> U128 {
+    pub unconstrained fn balance_of(self: Self) -> u128 {
         self.balance_of_with_offset(0)
     }
 
-    pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> U128 {
-        let mut balance = U128::from_integer(0);
+    pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
+        let mut balance = 0 as u128;
         // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));
@@ -42,20 +43,20 @@ impl BalanceSet<UnconstrainedContext> {
 }
 
 impl BalanceSet<&mut PrivateContext> {
-    pub fn add(self: Self, owner: AztecAddress, addend: U128) -> OuterNoteEmission<UintNote> {
-        if addend == U128::from_integer(0) {
+    pub fn add(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<UintNote> {
+        if addend == 0 as u128 {
             OuterNoteEmission::new(Option::none())
         } else {
             // We fetch the nullifier public key hash from the registry / from our PXE
             let mut addend_note = UintNote::new(addend, owner);
 
             // docs:start:insert
-            OuterNoteEmission::new(Option::some(self.set.insert(&mut addend_note)))
+            OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
             // docs:end:insert
         }
     }
 
-    pub fn sub(self: Self, owner: AztecAddress, amount: U128) -> OuterNoteEmission<UintNote> {
+    pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<UintNote> {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
         // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
@@ -73,7 +74,7 @@ impl BalanceSet<&mut PrivateContext> {
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
     // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
-    pub fn try_sub(self: Self, target_amount: U128, max_notes: u32) -> U128 {
+    pub fn try_sub(self: Self, target_amount: u128, max_notes: u32) -> u128 {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.
         // Because the `min_sum` notes is not constrained, users could choose to e.g. not call it. However, all this
@@ -83,7 +84,7 @@ impl BalanceSet<&mut PrivateContext> {
             .set_limit(max_notes);
         let notes = self.set.pop_notes(options);
 
-        let mut subtracted = U128::from_integer(0);
+        let mut subtracted = 0 as u128;
         for i in 0..options.limit {
             if i < notes.len() {
                 let note = notes.get_unchecked(i);
@@ -101,20 +102,20 @@ impl BalanceSet<&mut PrivateContext> {
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
 pub fn preprocess_notes_min_sum(
-    notes: [Option<UintNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    min_sum: U128,
-) -> [Option<UintNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+    notes: [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    min_sum: u128,
+) -> [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    let mut sum = U128::from_integer(0);
+    let mut sum = 0 as u128;
     for i in 0..notes.len() {
         // Because we process notes in retrieved order, notes need to be sorted in descending amount order for this
         // filter to be useful. Consider a 'min_sum' of 4, and a set of notes with amounts [3, 2, 1, 1, 1, 1, 1]. If
         // sorted in descending order, the filter will only choose the notes with values 3 and 2, but if sorted in
         // ascending order it will choose 4 notes of value 1.
         if notes[i].is_some() & sum < min_sum {
-            let note = notes[i].unwrap_unchecked();
-            selected[i] = Option::some(note);
-            sum = sum.add(note.get_value());
+            let retrieved_note = notes[i].unwrap_unchecked();
+            selected[i] = Option::some(retrieved_note);
+            sum = sum.add(retrieved_note.note.get_value());
         }
     }
     selected

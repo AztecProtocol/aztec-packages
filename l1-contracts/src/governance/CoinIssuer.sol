@@ -33,7 +33,7 @@ contract CoinIssuer is ICoinIssuer, Ownable {
    */
   function mint(address _to, uint256 _amount) external override(ICoinIssuer) onlyOwner {
     uint256 maxMint = mintAvailable();
-    require(_amount <= maxMint, Errors.CoinIssuer__InssuficientMintAvailable(maxMint, _amount));
+    require(_amount <= maxMint, Errors.CoinIssuer__InsufficientMintAvailable(maxMint, _amount));
     timeOfLastMint = block.timestamp;
     ASSET.mint(_to, _amount);
   }

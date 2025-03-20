@@ -52,7 +52,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
     using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerDeciderVerificationKeys>;
     using InnerFoldingProver = ProtogalaxyProver_<InnerDeciderProvingKeys>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
@@ -238,6 +238,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
+        ASSERT(recursive_folding_manifest.size() > 0);
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
@@ -266,8 +267,6 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
      * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
      * verifiers are identical by checking the manifests
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in
-    // tests once we can fold keys of different sizes.
     static void test_full_protogalaxy_recursive()
     {
         // Create two arbitrary circuits for the first round of folding
@@ -316,6 +315,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
+        ASSERT(recursive_folding_manifest.size() > 0);
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
@@ -386,6 +386,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verification_key = std::make_shared<InnerVerificationKey>(prover_inst->proving_key);
         auto verifier_inst = std::make_shared<InnerDeciderVerificationKey>(verification_key);
 
+        // Corrupt a wire value in the accumulator
         prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element(&engine);
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong

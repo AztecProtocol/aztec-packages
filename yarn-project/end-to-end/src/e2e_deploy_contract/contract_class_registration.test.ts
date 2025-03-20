@@ -20,12 +20,12 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { type ContractClassIdPreimage, PublicKeys, computeContractClassId } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { ContractClassIdPreimage } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
@@ -50,41 +50,25 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   beforeAll(async () => {
     artifact = StatefulTestContract.artifact;
-    registrationTxReceipt = await registerContractClass(wallet, artifact, false).then(c => c.send().wait());
-    contractClass = getContractClassFromArtifact(artifact);
-
-    // TODO(#10007) Remove this call. Node should get the bytecode from the event broadcast.
-    expect(await aztecNode.getContractClass(contractClass.id)).toBeUndefined();
-    await aztecNode.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
+    registrationTxReceipt = await registerContractClass(wallet, artifact).then(c => c.send().wait());
+    contractClass = await getContractClassFromArtifact(artifact);
+    expect(await aztecNode.getContractClass(contractClass.id)).toBeDefined();
   });
 
   describe('registering a contract class', () => {
-    it('optionally emits public bytecode', async () => {
-      const registrationTxReceipt = await registerContractClass(wallet, TestContract.artifact, true).then(c =>
+    it('emits public bytecode', async () => {
+      const registrationTxReceipt = await registerContractClass(wallet, TestContract.artifact).then(c =>
         c.send().wait(),
       );
       const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
       expect(logs.logs.length).toEqual(1);
     });
 
-    // TODO(#10007) Remove this test. We should always broadcast public bytecode.
-    it('bypasses broadcast if exceeds bytecode limit for event size', async () => {
-      const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
-      expect(logs.logs.length).toEqual(0);
-    });
-
-    // TODO(#10007) Remove this test as well.
-    it('starts archiver with pre-registered common contracts', async () => {
-      const classId = computeContractClassId(getContractClassFromArtifact(TokenContractArtifact));
-      expect(await aztecNode.getContractClass(classId)).not.toBeUndefined();
-    });
-
     it('registers the contract class on the node', async () => {
-      // TODO(#10007) Enable this.
-      // const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
-      // expect(logs.logs.length).toEqual(1);
-      // const logData = logs.logs[0].log.data;
-      // writeTestData('yarn-project/protocol-contracts/fixtures/ContractClassRegisteredEventData.hex', logData);
+      const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
+      expect(logs.logs.length).toEqual(1);
+      const logData = logs.logs[0].log.toBuffer();
+      writeTestData('yarn-project/protocol-contracts/fixtures/ContractClassRegisteredEventData.hex', logData);
 
       const registeredClass = await aztecNode.getContractClass(contractClass.id);
       expect(registeredClass).toBeDefined();
@@ -102,11 +86,14 @@ describe('e2e_deploy_contract contract class registration', () => {
         // If that's the case you should update this test to use a private function which fits into the bytecode size limit.
         throw new Error('No constructor found in the StatefulTestContract artifact. Does it still exist?');
       }
-      const selector = FunctionSelector.fromNameAndParameters(constructorArtifact.name, constructorArtifact.parameters);
+      const selector = await FunctionSelector.fromNameAndParameters(
+        constructorArtifact.name,
+        constructorArtifact.parameters,
+      );
 
       const tx = await (await broadcastPrivateFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
-      const logData = logs.logs[0].log.data;
+      const logData = logs.logs[0].log.toBuffer();
       writeTestData('yarn-project/protocol-contracts/fixtures/PrivateFunctionBroadcastedEventData.hex', logData);
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);
@@ -117,10 +104,10 @@ describe('e2e_deploy_contract contract class registration', () => {
 
     it('broadcasts an unconstrained function', async () => {
       const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
-      const selector = FunctionSelector.fromNameAndParameters(functionArtifact);
+      const selector = await FunctionSelector.fromNameAndParameters(functionArtifact);
       const tx = await (await broadcastUnconstrainedFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
-      const logData = logs.logs[0].log.data;
+      const logData = logs.logs[0].log.toBuffer();
       writeTestData('yarn-project/protocol-contracts/fixtures/UnconstrainedFunctionBroadcastedEventData.hex', logData);
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);
@@ -139,15 +126,15 @@ describe('e2e_deploy_contract contract class registration', () => {
       const deployInstance = async (opts: { constructorName?: string; deployer?: AztecAddress } = {}) => {
         const initArgs = [wallet.getAddress(), wallet.getAddress(), 42] as StatefulContractCtorArgs;
         const salt = Fr.random();
-        const publicKeys = PublicKeys.random();
-        const instance = getContractInstanceFromDeployParams(artifact, {
+        const publicKeys = await PublicKeys.random();
+        const instance = await getContractInstanceFromDeployParams(artifact, {
           constructorArgs: initArgs,
           salt,
           publicKeys,
           constructorArtifact: opts.constructorName,
           deployer: opts.deployer,
         });
-        const { address, contractClassId } = instance;
+        const { address, currentContractClassId: contractClassId } = instance;
         logger.info(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
         await deployFn(instance);
 
@@ -190,7 +177,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           const deployed = await aztecNode.getContract(instance.address);
           expect(deployed).toBeDefined();
           expect(deployed!.address).toEqual(instance.address);
-          expect(deployed!.contractClassId).toEqual(contractClass.id);
+          expect(deployed!.currentContractClassId).toEqual(contractClass.id);
           expect(deployed!.initializationHash).toEqual(instance.initializationHash);
           expect(deployed!.publicKeys).toEqual(instance.publicKeys);
           expect(deployed!.salt).toEqual(instance.salt);
@@ -198,7 +185,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         });
 
         it('calls a public function with no init check on the deployed instance', async () => {
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           await contract.methods
             .increment_public_value_no_init_check(whom, 10)
             .send({ skipPublicSimulation: true })
@@ -208,7 +195,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         });
 
         it('refuses to call a public function with init check if the instance is not initialized', async () => {
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           const receipt = await contract.methods
             .increment_public_value(whom, 10)
             .send({ skipPublicSimulation: true })
@@ -221,7 +208,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('refuses to initialize the instance with wrong args via a private function', async () => {
           await expect(
-            contract.methods.constructor(AztecAddress.random(), AztecAddress.random(), 43).prove(),
+            contract.methods.constructor(await AztecAddress.random(), await AztecAddress.random(), 43).prove(),
           ).rejects.toThrow(/initialization hash does not match/i);
         });
 
@@ -230,7 +217,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .constructor(...initArgs)
             .send()
             .wait();
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
@@ -248,15 +235,17 @@ describe('e2e_deploy_contract contract class registration', () => {
       });
 
       describe('using a public constructor', () => {
-        const ignoredArg = AztecAddress.random();
+        let ignoredArg: AztecAddress;
         beforeAll(async () => {
+          ignoredArg = await AztecAddress.random();
+
           ({ instance, initArgs, contract } = await deployInstance({
             constructorName: 'public_constructor',
           }));
         });
 
         it('refuses to initialize the instance with wrong args via a public function', async () => {
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           const receipt = await contract.methods
             .public_constructor(whom, ignoredArg, 43)
             .send({ skipPublicSimulation: true })
@@ -270,7 +259,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .public_constructor(...initArgs)
             .send()
             .wait();
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
@@ -289,7 +278,8 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   testDeployingAnInstance('from a wallet', async instance => {
     // Calls the deployer contract directly from a wallet
-    await deployInstance(wallet, instance).send().wait();
+    const deployMethod = await deployInstance(wallet, instance);
+    await deployMethod.send().wait();
   });
 
   testDeployingAnInstance('from a contract', async instance => {
@@ -318,12 +308,12 @@ describe('e2e_deploy_contract contract class registration', () => {
       expect(tx.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
     });
 
-    it('refuses to deploy an instance from a different deployer', () => {
-      const instance = getContractInstanceFromDeployParams(artifact, {
-        constructorArgs: [AztecAddress.random(), AztecAddress.random(), 42],
-        deployer: AztecAddress.random(),
+    it('refuses to deploy an instance from a different deployer', async () => {
+      const instance = await getContractInstanceFromDeployParams(artifact, {
+        constructorArgs: [await AztecAddress.random(), await AztecAddress.random(), 42],
+        deployer: await AztecAddress.random(),
       });
-      expect(() => deployInstance(wallet, instance)).toThrow(/does not match/i);
+      await expect(deployInstance(wallet, instance)).rejects.toThrow(/does not match/i);
     });
   });
 });

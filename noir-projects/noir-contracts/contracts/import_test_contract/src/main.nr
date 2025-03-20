@@ -3,7 +3,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ImportTest {
+pub contract ImportTest {
     use dep::aztec::prelude::AztecAddress;
 
     use dep::test::Test::{self, DeepStruct, DummyNote};

@@ -3,13 +3,24 @@ set -eu
 # propagate errors inside while loop pipe
 set -o pipefail
 
-# Usage: run_interleaved.sh <main command> <background commands>...
+# Usage: run_interleaved.sh [-w "condition command"] <main command> <background commands>...
 # Runs commands in parallel, with interleaved output. See ci3/tmux_split for another approach.
 # Finishes when the main command exits.
+# -w: Optional wait condition command that must succeed before starting next command
+
+# Parse options
+WAIT_CMD=""
+while getopts "w:" opt; do
+  case $opt in
+    w) WAIT_CMD="$OPTARG";;
+    \?) echo "Invalid option -$OPTARG" >&2; exit 1;;
+  esac
+done
+shift $((OPTIND-1))
 
 # Check if at least two commands are provided (otherwise what is the point)
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <main-command> <background commands>..."
+  echo "Usage: $0 [-w 'condition command'] <main-command> <background commands>..."
   exit 1
 fi
 
@@ -51,6 +62,13 @@ function run_command() {
 # Run background commands without logging output
 i=0
 for cmd in "$@"; do
+  if [ $i -gt 0 ] && [ -n "$WAIT_CMD" ]; then
+    echo "Waiting for condition before starting next command..."
+    until eval "$WAIT_CMD"; do
+      sleep 1
+    done
+  fi
+
   (run_command "$cmd" "${colors[$((i % ${#colors[@]}))]}" || [ $FINISHED = true ] || (echo "$cmd causing terminate" && kill 0) ) &
   ((i++)) || true # annoyingly considered a failure based on result
 done

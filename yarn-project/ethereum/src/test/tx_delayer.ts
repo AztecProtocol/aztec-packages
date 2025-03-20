@@ -7,12 +7,13 @@ import {
   type Client,
   type Hex,
   type PublicClient,
-  type WalletClient,
   keccak256,
   parseTransaction,
   publicActions,
   walletActions,
 } from 'viem';
+
+import type { ViemWalletClient } from '../types.js';
 
 export function waitUntilBlock<T extends Client>(client: T, blockNumber: number | bigint, logger?: Logger) {
   const publicClient =
@@ -27,7 +28,7 @@ export function waitUntilBlock<T extends Client>(client: T, blockNumber: number 
       return currentBlockNumber >= BigInt(blockNumber);
     },
     `Wait until L1 block ${blockNumber}`,
-    60,
+    120,
     0.1,
   );
 }
@@ -52,7 +53,7 @@ export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: num
       return currentTs >= BigInt(timestamp);
     },
     `Wait until L1 timestamp ${timestamp}`,
-    60,
+    120,
     0.1,
   );
 }
@@ -93,7 +94,7 @@ class DelayerImpl implements Delayer {
  * The delayer can be used to hold off the next tx to be sent until a given block number.
  * TODO(#10824): This doesn't play along well with blob txs for some reason.
  */
-export function withDelayer<T extends WalletClient>(
+export function withDelayer<T extends ViemWalletClient>(
   client: T,
   opts: { ethereumSlotDuration: bigint | number },
 ): { client: T; delayer: Delayer } {
@@ -144,7 +145,7 @@ export function withDelayer<T extends WalletClient>(
           return Promise.resolve(txHash);
         } else {
           const txHash = await client.sendRawTransaction(...args);
-          logger.debug(`Sent tx immediately ${txHash}`);
+          logger.verbose(`Sent tx immediately ${txHash}`);
           delayer.txs.push(txHash);
           return txHash;
         }

@@ -455,52 +455,17 @@ graph LR
 To ensure that state is made available, we could broadcast all of a block's input data as public inputs of the final root rollup proof, but a proof with so many public inputs would be very expensive to verify onchain.
 
 Instead, we can reduce the number of public inputs by committing to the block's body and iteratively "build" up the commitment at each rollup circuit iteration.
-At the very end, we will have a commitment to the transactions that were included in the block (`TxsHash`), the messages that were sent from L2 to L1 (`OutHash`) and the messages that were sent from L1 to L2 (`InHash`).
+At the very end, we will have a commitment to the transactions that were included in the block (`txs_effects_hash`, calculated by squeezing a Poseidon2 sponge which iteratively absorbed each tx's effects), the messages that were sent from L2 to L1 (`OutHash`) and the messages that were sent from L1 to L2 (`InHash`).
 
-To check that the body is published an Aztec node can simply reconstruct the hashes from available data.
-Since we define finality as the point where the block is validated and included in the state of the [validating light node](../l1-smart-contracts/index.md), we can define a block as being "available" if the validating light node can reconstruct the commitment hashes.
+The block body is published on L1 in a `blob`. We link this `blob` (an array of fields of our data, committed to by the EVM) to the `txs_effects_hash` above by proving our effects, which make the preimage of the `txs_effects_hash`, make the same commitment as the one calculated in the EVM.
 
-Since the `InHash` is directly computed by the `Inbox` contract on L1, the data is obviously available to the contract without doing any more work.
-Furthermore, the `OutHash` is a computed from a subset of the data in `TxsHash` so if it is possible to reconstruct `TxsHash` it is also possible to reconstruct `OutHash`.
+Since we define finality as the point where the block is validated and included in the state of the [validating light node](../l1-smart-contracts/index.md), we can define a block as being "available" if the validating light node can reconstruct the commitment hashes and validate the blob.
+
+Since the `InHash` is directly computed by the `Inbox` contract on L1, the data is obviously available to the contract without doing any more work. The `OutHash` is published and used to verify the final epoch proof as a public input.
 
 Since we strive to minimize the compute requirements to prove blocks, we amortize the commitment cost across the full tree.
 We can do so by building merkle trees of partial "commitments", whose roots are ultimately computed in the final root rollup circuit.
-Below, we outline the `TxsHash` merkle tree that is based on the `TxEffect`s and a `OutHash` which is based on the `l2_to_l1_msgs` (cross-chain messages) for each transaction, with four transactions in this rollup.
-While the `TxsHash` implicitly includes the `OutHash` we need it separately such that it can be passed to the `Outbox` for consumption by the portals with minimal work.
-
-```mermaid
-graph BT
-    R[TxsHash]
-    M0[Hash 0-1]
-    M1[Hash 2-3]
-    B0[Hash 0.0-0.1]
-    B1[Hash 1.0-1.1]
-    B2[Hash 2.0-2.1]
-    B3[Hash 3.0-3.1]
-    K0[TxEffect 0.0]
-    K1[TxEffect 0.1]
-    K2[TxEffect 1.0]
-    K3[TxEffect 1.1]
-    K4[TxEffect 2.0]
-    K5[TxEffect 2.1]
-    K6[TxEffect 3.0]
-    K7[TxEffect 3.1]
-
-    M0 --> R
-    M1 --> R
-    B0 --> M0
-    B1 --> M0
-    B2 --> M1
-    B3 --> M1
-    K0 --> B0
-    K1 --> B0
-    K2 --> B1
-    K3 --> B1
-    K4 --> B2
-    K5 --> B2
-    K6 --> B3
-    K7 --> B3
-```
+Below, we outline the `OutHash` and `InHash` merkle trees that are based on the `l2_to_l1_msgs` (cross-chain messages) and `l1_to_l2_msgs` for each transaction respectively, with four transactions in this rollup.
 
 ```mermaid
 graph BT
@@ -586,8 +551,7 @@ graph BT
     K7 --> B3
 ```
 
-While the `TxsHash` merely require the data to be published and known to L1, the `InHash` and `OutHash` needs to be computable on L1 as well.
-This reason require them to be efficiently computable on L1 while still being non-horrible inside a snark - leading us to rely on SHA256.
+The `InHash` and `OutHash` need to be efficiently computable on L1 while still being non-horrible inside a snark - leading us to rely on SHA256.
 
 
 The L2 to L1 messages from each transaction form a variable height tree. In the diagram above, transactions 0 and 3 have four messages, so require a tree with two layers, whereas the others only have two messages and so require a single layer tree. The base rollup calculates the root of this tree and passes it as the to the next layer. Merge rollups simply hash both of these roots together and pass it up as the `OutHash`.

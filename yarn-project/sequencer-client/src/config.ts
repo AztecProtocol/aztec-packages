@@ -1,5 +1,3 @@
-import { type AllowedElement, type SequencerConfig } from '@aztec/circuit-types/config';
-import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import {
   type L1ContractsConfig,
   type L1ReaderConfig,
@@ -11,9 +9,14 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
-import { pickConfigMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type AllowedElement, type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
 
 import {
   type PublisherConfig,
@@ -23,31 +26,24 @@ import {
 } from './publisher/config.js';
 
 export * from './publisher/config.js';
-export { SequencerConfig };
-
-/** Chain configuration. */
-type ChainConfig = {
-  /** The chain id of the ethereum host. */
-  l1ChainId: number;
-  /** The version of the rollup. */
-  version: number;
-};
+export type { SequencerConfig };
 
 /**
  * Configuration settings for the SequencerClient.
  */
 export type SequencerClientConfig = PublisherConfig &
+  ValidatorClientConfig &
   TxSenderConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
+  Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
     env: 'SEQ_TX_POLLING_INTERVAL_MS',
     description: 'The number of ms to wait between polling for pending txs.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(500),
   },
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',
@@ -59,9 +55,19 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The minimum number of txs to include in a block.',
     ...numberConfigHelper(1),
   },
+  maxL2BlockGas: {
+    env: 'SEQ_MAX_L2_BLOCK_GAS',
+    description: 'The maximum L2 block gas.',
+    ...numberConfigHelper(10e9),
+  },
+  maxDABlockGas: {
+    env: 'SEQ_MAX_DA_BLOCK_GAS',
+    description: 'The maximum DA block gas.',
+    ...numberConfigHelper(10e9),
+  },
   coinbase: {
     env: 'COINBASE',
-    parseEnv: (val: string) => EthAddress.fromString(val),
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
     description: 'Recipient of block reward.',
   },
   feeRecipient: {
@@ -89,11 +95,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Max block size',
     ...numberConfigHelper(1024 * 1024),
   },
-  enforceFees: {
-    env: 'ENFORCE_FEES',
-    description: 'Whether to require every tx to have a fee payer',
-    ...booleanConfigHelper(),
-  },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',
     description: 'Whether to enforce the time table when building blocks',
@@ -106,24 +107,21 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: EthAddress.ZERO,
   },
-};
-
-export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
-  l1ChainId: l1ReaderConfigMappings.l1ChainId,
-  version: {
-    env: 'VERSION',
-    description: 'The version of the rollup.',
-    ...numberConfigHelper(1),
+  maxL1TxInclusionTimeIntoSlot: {
+    env: 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT',
+    description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
+  ...validatorClientConfigMappings,
   ...sequencerConfigMappings,
   ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
-  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration']),
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 
 /**

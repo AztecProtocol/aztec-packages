@@ -6,6 +6,7 @@ import { FifoMemoryQueue } from './fifo_memory_queue.js';
 export class SerialQueue {
   private readonly queue = new FifoMemoryQueue<() => Promise<void>>();
   private runningPromise!: Promise<void>;
+  private started = false;
 
   /**
    * Initializes the execution of enqueued functions in the serial queue.
@@ -14,7 +15,11 @@ export class SerialQueue {
    * This method should be called once to start processing the queue.
    */
   public start() {
+    if (this.started) {
+      return;
+    }
     this.runningPromise = this.queue.process(fn => fn());
+    this.started = true;
   }
 
   /**
@@ -56,7 +61,7 @@ export class SerialQueue {
    * @param fn - The function to enqueue.
    * @returns A resolution promise. Rejects if the function does, or if the function could not be enqueued.
    */
-  public put<T>(fn: () => Promise<T>): Promise<T> {
+  public put<T>(fn: () => T | Promise<T>): Promise<Awaited<T>> {
     return new Promise((resolve, reject) => {
       const accepted = this.queue.put(async () => {
         try {

@@ -1,0 +1,18 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "resolveJsonModule": true
+  },
+  "references": [
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../bb-prover"
+    }
+  ],
+  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts", "circuits/**/*.d.json.ts"]
+}

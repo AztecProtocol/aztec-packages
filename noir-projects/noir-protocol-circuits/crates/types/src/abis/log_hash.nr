@@ -2,14 +2,14 @@ use crate::{
     abis::side_effect::{Ordered, OrderedValue, Scoped},
     address::AztecAddress,
     constants::{LOG_HASH_LENGTH, SCOPED_LOG_HASH_LENGTH},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct LogHash {
     pub value: Field,
     pub counter: u32,
-    pub length: Field,
+    pub length: u32,
 }
 
 impl Ordered for LogHash {
@@ -21,9 +21,6 @@ impl Ordered for LogHash {
 impl OrderedValue<Field> for LogHash {
     fn value(self) -> Field {
         self.value
-    }
-    fn counter(self) -> u32 {
-        self.counter
     }
 }
 
@@ -43,13 +40,13 @@ impl Empty for LogHash {
 
 impl Serialize<LOG_HASH_LENGTH> for LogHash {
     fn serialize(self) -> [Field; LOG_HASH_LENGTH] {
-        [self.value, self.counter as Field, self.length]
+        [self.value, self.counter as Field, self.length as Field]
     }
 }
 
 impl Deserialize<LOG_HASH_LENGTH> for LogHash {
     fn deserialize(values: [Field; LOG_HASH_LENGTH]) -> Self {
-        Self { value: values[0], counter: values[1] as u32, length: values[2] }
+        Self { value: values[0], counter: values[1] as u32, length: values[2] as u32 }
     }
 }
 
@@ -82,9 +79,6 @@ impl Ordered for ScopedLogHash {
 impl OrderedValue<Field> for ScopedLogHash {
     fn value(self) -> Field {
         self.log_hash.value
-    }
-    fn counter(self) -> u32 {
-        self.log_hash.counter
     }
 }
 

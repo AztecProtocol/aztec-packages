@@ -163,10 +163,13 @@ struct ContractInstanceHint {
     bool exists; // Useful for membership checks
     FF salt{};
     FF deployer_addr{};
-    FF contract_class_id{};
+    FF current_contract_class_id{};
+    FF original_contract_class_id{};
     FF initialisation_hash{};
     PublicKeysHint public_keys;
-    NullifierReadTreeHint membership_hint;
+    NullifierReadTreeHint initialization_membership_hint;
+    PublicDataReadTreeHint update_membership_hint;
+    std::vector<FF> update_preimage;
 };
 
 inline void read(uint8_t const*& it, PublicKeysHint& hint)
@@ -187,10 +190,13 @@ inline void read(uint8_t const*& it, ContractInstanceHint& hint)
     read(it, hint.exists);
     read(it, hint.salt);
     read(it, hint.deployer_addr);
-    read(it, hint.contract_class_id);
+    read(it, hint.current_contract_class_id);
+    read(it, hint.original_contract_class_id);
     read(it, hint.initialisation_hash);
     read(it, hint.public_keys);
-    read(it, hint.membership_hint);
+    read(it, hint.initialization_membership_hint);
+    read(it, hint.update_membership_hint);
+    read(it, hint.update_preimage);
 }
 
 struct AvmContractBytecode {
@@ -257,6 +263,24 @@ struct ExecutionHints {
         return *this;
     }
 
+    void print_sizes() const
+    {
+        vinfo("hints.enqueued_call_hints size: ", enqueued_call_hints.size());
+        vinfo("hints.contract_instance_hints size: ", contract_instance_hints.size());
+        vinfo("hints.contract_bytecode_hints size: ", all_contract_bytecode.size());
+        if (all_contract_bytecode.size() > 0) {
+            // Using [0] is fine now for the top-level call, but we might need to index by address in future
+            vinfo("0th bytecode size: ", all_contract_bytecode[0].bytecode.size());
+        }
+        vinfo("hints.storage_read_hints size: ", storage_read_hints.size());
+        vinfo("hints.storage_write_hints size: ", storage_write_hints.size());
+        vinfo("hints.nullifier_read_hints size: ", nullifier_read_hints.size());
+        vinfo("hints.nullifier_write_hints size: ", nullifier_write_hints.size());
+        vinfo("hints.note_hash_read_hints size: ", note_hash_read_hints.size());
+        vinfo("hints.note_hash_write_hints size: ", note_hash_write_hints.size());
+        vinfo("hints.l1_to_l2_message_read_hints size: ", l1_to_l2_message_read_hints.size());
+    }
+
     static void push_vec_into_map(std::unordered_map<uint32_t, FF>& into_map,
                                   const std::vector<std::pair<FF, FF>>& from_pair_vec)
     {
@@ -275,7 +299,7 @@ struct ExecutionHints {
         std::vector<ContractInstanceHint> contract_instance_hints_vec;
         read(it, contract_instance_hints_vec);
         std::map<FF, ContractInstanceHint> contract_instance_hints;
-        for (const auto& instance : contract_instance_hints_vec) {
+        for (const auto& instance : std::views::reverse(contract_instance_hints_vec)) {
             contract_instance_hints[instance.address] = instance;
         }
 

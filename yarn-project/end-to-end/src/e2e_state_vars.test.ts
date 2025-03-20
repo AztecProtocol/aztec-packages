@@ -53,9 +53,9 @@ describe('e2e_state_vars', () => {
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
       const [a, b, c] = await new BatchCall(wallet, [
-        contract.methods.get_public_immutable_constrained_private().request(),
-        contract.methods.get_public_immutable_constrained_private_indirect().request(),
-        contract.methods.get_public_immutable().request(),
+        contract.methods.get_public_immutable_constrained_private(),
+        contract.methods.get_public_immutable_constrained_private_indirect(),
+        contract.methods.get_public_immutable(),
       ]).simulate();
 
       expect(a).toEqual(c);
@@ -70,9 +70,9 @@ describe('e2e_state_vars', () => {
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
       const [a, b, c] = await new BatchCall(wallet, [
-        contract.methods.get_public_immutable_constrained_public().request(),
-        contract.methods.get_public_immutable_constrained_public_indirect().request(),
-        contract.methods.get_public_immutable().request(),
+        contract.methods.get_public_immutable_constrained_public(),
+        contract.methods.get_public_immutable_constrained_public_indirect(),
+        contract.methods.get_public_immutable(),
       ]).simulate();
 
       expect(a).toEqual(c);
@@ -109,10 +109,12 @@ describe('e2e_state_vars', () => {
     it('initialize PrivateMutable', async () => {
       expect(await contract.methods.is_legendary_initialized().simulate()).toEqual(false);
       // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
-      const { debugInfo } = await contract.methods.initialize_private(RANDOMNESS, POINTS).send().wait({ debug: true });
+      const receipt = await contract.methods.initialize_private(RANDOMNESS, POINTS).send().wait();
+
+      const txEffects = await pxe.getTxEffect(receipt.txHash);
 
       // 1 for the tx, another for the initializer
-      expect(debugInfo!.nullifiers.length).toEqual(2);
+      expect(txEffects?.data.nullifiers.length).toEqual(2);
       expect(await contract.methods.is_legendary_initialized().simulate()).toEqual(true);
     });
 
@@ -132,37 +134,33 @@ describe('e2e_state_vars', () => {
     it('replace with same value', async () => {
       expect(await contract.methods.is_legendary_initialized().simulate()).toEqual(true);
       const noteBefore = await contract.methods.get_legendary_card().simulate();
-      const { debugInfo } = await contract.methods
-        .update_legendary_card(RANDOMNESS, POINTS)
-        .send()
-        .wait({ debug: true });
+      const receipt = await contract.methods.update_legendary_card(RANDOMNESS, POINTS).send().wait();
 
-      expect(debugInfo!.noteHashes.length).toEqual(1);
+      const txEffects = await pxe.getTxEffect(receipt.txHash);
+
+      expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
-      expect(debugInfo!.nullifiers.length).toEqual(2);
+      expect(txEffects?.data.nullifiers.length).toEqual(2);
 
       const noteAfter = await contract.methods.get_legendary_card().simulate();
 
       expect(noteBefore.owner).toEqual(noteAfter.owner);
       expect(noteBefore.points).toEqual(noteAfter.points);
       expect(noteBefore.randomness).toEqual(noteAfter.randomness);
-      expect(noteBefore.header.contract_address).toEqual(noteAfter.header.contract_address);
-      expect(noteBefore.header.storage_slot).toEqual(noteAfter.header.storage_slot);
-      expect(noteBefore.header.note_hash_counter).toEqual(noteAfter.header.note_hash_counter);
-      // !!! Nonce must be different
-      expect(noteBefore.header.nonce).not.toEqual(noteAfter.header.nonce);
     });
 
     it('replace PrivateMutable with other values', async () => {
       expect(await contract.methods.is_legendary_initialized().simulate()).toEqual(true);
-      const { debugInfo } = await contract.methods
+      const receipt = await contract.methods
         .update_legendary_card(RANDOMNESS + 2n, POINTS + 1n)
         .send()
-        .wait({ debug: true });
+        .wait();
 
-      expect(debugInfo!.noteHashes.length).toEqual(1);
+      const txEffects = await pxe.getTxEffect(receipt.txHash);
+
+      expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
-      expect(debugInfo!.nullifiers.length).toEqual(2);
+      expect(txEffects?.data.nullifiers.length).toEqual(2);
 
       const { points, randomness } = await contract.methods.get_legendary_card().simulate();
       expect(points).toEqual(POINTS + 1n);
@@ -172,11 +170,13 @@ describe('e2e_state_vars', () => {
     it('replace PrivateMutable dependent on prior value', async () => {
       expect(await contract.methods.is_legendary_initialized().simulate()).toEqual(true);
       const noteBefore = await contract.methods.get_legendary_card().simulate();
-      const { debugInfo } = await contract.methods.increase_legendary_points().send().wait({ debug: true });
+      const receipt = await contract.methods.increase_legendary_points().send().wait();
 
-      expect(debugInfo!.noteHashes.length).toEqual(1);
+      const txEffects = await pxe.getTxEffect(receipt.txHash);
+
+      expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
-      expect(debugInfo!.nullifiers.length).toEqual(2);
+      expect(txEffects?.data.nullifiers.length).toEqual(2);
 
       const { points, randomness } = await contract.methods.get_legendary_card().simulate();
       expect(points).toEqual(noteBefore.points + 1n);
@@ -192,14 +192,13 @@ describe('e2e_state_vars', () => {
 
     it('initialize PrivateImmutable', async () => {
       expect(await contract.methods.is_priv_imm_initialized().simulate()).toEqual(false);
-      const { debugInfo } = await contract.methods
-        .initialize_private_immutable(RANDOMNESS, POINTS)
-        .send()
-        .wait({ debug: true });
+      const receipt = await contract.methods.initialize_private_immutable(RANDOMNESS, POINTS).send().wait();
 
-      expect(debugInfo!.noteHashes.length).toEqual(1);
+      const txEffects = await pxe.getTxEffect(receipt.txHash);
+
+      expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the initializer
-      expect(debugInfo!.nullifiers.length).toEqual(2);
+      expect(txEffects?.data.nullifiers.length).toEqual(2);
       expect(await contract.methods.is_priv_imm_initialized().simulate()).toEqual(true);
     });
 

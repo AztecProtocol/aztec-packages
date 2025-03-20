@@ -131,10 +131,19 @@ class IvcRecursionConstraintTest : public ::testing::Test {
   protected:
     void SetUp() override
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 };
+
+/**
+ * @brief Check that the size of a mock merge proof matches expectation
+ */
+TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
+{
+    ClientIVC::MergeProof merge_proof = create_dummy_merge_proof();
+    EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
+}
 
 /**
  * @brief Test IVC accumulation of a one app and one kernel; The kernel includes a recursive oink verification for the

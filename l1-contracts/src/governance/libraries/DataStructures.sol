@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 /**
@@ -44,6 +44,7 @@ library DataStructures {
     uint256 nea;
   }
 
+  // @notice if this changes, please update the enum in governance.ts
   enum ProposalState {
     Pending,
     Active,

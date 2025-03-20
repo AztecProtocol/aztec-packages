@@ -1,12 +1,14 @@
-import { type Tx } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr, type FunctionSelector } from '@aztec/circuits.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import type { Fr } from '@aztec/foundation/fields';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeVarArgsHash } from '@aztec/stdlib/hash';
+import type { Tx } from '@aztec/stdlib/tx';
 
 export function patchNonRevertibleFn(
   tx: Tx,
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
-): { address: AztecAddress; selector: FunctionSelector } {
+): Promise<{ address: AztecAddress; selector: FunctionSelector }> {
   return patchFn('nonRevertibleAccumulatedData', tx, index, overrides);
 }
 
@@ -14,16 +16,16 @@ export function patchRevertibleFn(
   tx: Tx,
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
-): { address: AztecAddress; selector: FunctionSelector } {
+): Promise<{ address: AztecAddress; selector: FunctionSelector }> {
   return patchFn('revertibleAccumulatedData', tx, index, overrides);
 }
 
-function patchFn(
+async function patchFn(
   where: 'revertibleAccumulatedData' | 'nonRevertibleAccumulatedData',
   tx: Tx,
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
-): { address: AztecAddress; selector: FunctionSelector } {
+): Promise<{ address: AztecAddress; selector: FunctionSelector }> {
   const fn = tx.enqueuedPublicFunctionCalls.at(-1 * index - 1)!;
   fn.callContext.contractAddress = overrides.address ?? fn.callContext.contractAddress;
   fn.callContext.functionSelector = overrides.selector;
@@ -36,7 +38,7 @@ function patchFn(
   request.msgSender = fn.callContext.msgSender;
   request.functionSelector = fn.callContext.functionSelector;
   request.isStaticCall = fn.callContext.isStaticCall;
-  request.argsHash = computeVarArgsHash(fn.args);
+  request.argsHash = await computeVarArgsHash(fn.args);
   tx.data.forPublic![where].publicCallRequests[index] = request;
 
   return {

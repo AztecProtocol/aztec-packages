@@ -1,250 +1,206 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-TEST_FLAKES=${TEST_FLAKES:-0}
 cmd=${1:-}
+[ -n "$cmd" ] && shift
 
-hash=$(cache_content_hash ../noir/.rebuild_patterns \
-  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-  ../barretenberg/*/.rebuild_patterns)
+function hash {
+  hash_str \
+    $(../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+      ../barretenberg/*/.rebuild_patterns)
+}
+
+function compile_project {
+  # TODO: 16 jobs is magic. Was seeing weird errors otherwise.
+  parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
+}
+
+# Returns a list of projects to compile/lint/publish.
+# Ensure exclusions are matching in both cases.
+function get_projects {
+  if [ "${1:-}" == 'topological' ]; then
+    yarn workspaces foreach --topological-dev -A \
+      --exclude @aztec/aztec3-packages \
+      --exclude @aztec/noir-bb-bench \
+      --exclude @aztec/scripts \
+      exec 'basename $(pwd)' | cat | grep -v "Done"
+  else
+    dirname */src l1-artifacts/generated | grep -vE 'noir-bb-bench'
+  fi
+}
+
+function format {
+  local arg=${1:-"-w"}
+  find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
+}
+
+function lint {
+  local arg="--fix"
+  if [ "${1-}" == "--check" ]; then
+    arg=""
+    shift 1
+  fi
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
+}
+
+function compile_all {
+  set -euo pipefail
+  local hash=$(hash)
+  if cache_download yarn-project-$hash.tar.gz; then
+    return
+  fi
+  # hack, after running prettier foundation may fail to resolve hash.js dependency.
+  # it is only currently foundation, presumably because hash.js looks like a js file.
+  rm -rf foundation/node_modules
+  compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
+
+  # Call all projects that have a generation stage.
+  parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
+    accounts \
+    bb-prover \
+    stdlib \
+    ivc-integration \
+    l1-artifacts \
+    native \
+    noir-contracts.js \
+    noir-protocol-circuits-types \
+    protocol-contracts \
+    pxe
+  cat joblog.txt
+
+  get_projects | compile_project
+
+  cmds=('format --check')
+  if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
+    # Fully type check and lint.
+    cmds+=('yarn tsc -b --emitDeclarationOnly && lint --check')
+  else
+    # We just need the type declarations required for downstream consumers.
+    cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
+  fi
+  parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
+  cat joblog.txt
+
+  if [ "$CI" -eq 1 ]; then
+    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+  fi
+}
+
+export -f compile_project format lint get_projects compile_all hash
 
 function build {
-  github_group "yarn-project build"
+  echo_header "yarn-project build"
+  denoise "./bootstrap.sh clean-lite"
+  npm_install_deps
+  denoise "compile_all"
+}
 
-  # Generate l1-artifacts before creating lock file
-  (cd l1-artifacts && ./scripts/generate-artifacts.sh)
+function test_cmds {
+  local hash=$(hash)
+  # These need isolation due to network stack usage (p2p, anvil, etc).
+  for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
+    if [[ "$test" =~ testbench ]]; then
+      # Testbench runs require more memory and CPU.
+      echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+    fi
 
-  # Fast build does not delete everything first.
-  # It regenerates all generated code, then performs an incremental tsc build.
-  echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
-  denoise yarn install
+  done
 
-  # We append a cache busting number we can bump if need be.
-  tar_file=yarn-project-$hash.tar.gz
+  # Enable real proofs in prover-client integration tests only on CI full
+  for test in prover-client/src/test/*.test.ts; do
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$hash ISOLATE=1 LOG_LEVEL=verbose CPUS=16 MEM=96g yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash FAKE_PROOFS=1 yarn-project/scripts/run_test.sh $test"
+    fi
+  done
 
-  if ! cache_download $tar_file; then
-    case "${1:-}" in
-      "fast")
-        yarn build:fast
-        ;;
-      "full")
-        yarn build
-        ;;
-      *)
-        if ! yarn build:fast; then
-          echo -e "${yellow}${bold}Incremental build failed for some reason, attempting full build...${reset}\n"
-          yarn build
-        fi
-    esac
+  # Exclusions:
+  # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
+  # kv-store: Uses mocha so will need different treatment.
+  # noir-bb-bench: A slow pain. Figure out later.
+  # prover-client/src/test: Enable real proofs only on CI full.
+  # prover-node|p2p|ethereum|aztec: Isolated using docker above.
+  for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
+    [[ "$test" == prover-client/src/test/* ]] && continue
+    echo $hash yarn-project/scripts/run_test.sh $test
+  done
 
-    denoise 'cd end-to-end && yarn build:web'
-
-    # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
-    # Then one-off cases. If you've written into src, you need to update this.
-    cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
-      circuit-types/src/test/artifacts \
-      end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
-      ivc-integration/src/types/ \
-      noir-contracts.js/{codegenCache.json,src/} \
-      noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,types/} \
-      pxe/src/config/package_info.ts \
-      protocol-contracts/src/protocol_contract_data.ts
-    echo
-    echo -e "${green}Yarn project successfully built!${reset}"
-  fi
-  github_endgroup
+  # Uses mocha for browser tests, so we have to treat it differently.
+  echo "$hash cd yarn-project/kv-store && yarn test"
+  echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 }
 
 function test {
-  if test_should_run yarn-project-unit-tests-$hash; then
-    github_group "yarn-project test"
-    denoise yarn formatting
-    denoise yarn test
-    cache_upload_flag yarn-project-unit-tests-$hash
-    github_endgroup
-  fi
-
-  test_e2e
+  echo_header "yarn-project test"
+  local num_cpus=$(get_num_cpus)
+  test_cmds | filter_test_cmds | parallelise $((num_cpus / 2))
 }
 
-function test_e2e {
-  test_should_run yarn-project-e2e-tests-$hash || return
-
-  github_group "yarn-project e2e tests"
-  cd end-to-end
-
-  # This is pre-pulled in our build instance ami, so should be a time noop in CI.
-  denoise docker pull aztecprotocol/build:2.0
-
-  # List every test individually. Do not put folders. Ensures fair balancing of load and simplifies resource management.
-  # All tests are run within a docker container to keep them isolated.
-  # The first element describes how the test should be run, the second is a path to a unique test file.
-  # Any further elements are environment variables passed to the launching script.
-  # "simple" tests are single jest tests launched by ./scripts/test_simple.sh in docker.
-  # "compose" tests are the same, but are launched via docker compose and ./scripts/docker-compose.yml.
-  # If a test flakes out, mark it as flake in your PR so it no longer runs, and post a message in slack about it.
-  # To mark it a flake it becomes e.g. "simple-flake" or "compose-flake".
-  # If you can, try to find whoever is responsible for the test, and have them acknowledge they'll resolve it later.
-  # DO NOT just re-run your PR and leave flakey tests running to impact on other engineers.
-  # If you've been tasked with resolving a flakey test, grind on it using e.g.:
-  #    while ./scripts/test.sh simple e2e_2_pxes; do true; done
-  TESTS=(
-    "simple e2e_2_pxes"
-    "simple e2e_account_contracts"
-    "simple e2e_authwit"
-    "simple e2e_avm_simulator"
-    "simple e2e_blacklist_token_contract/access_control"
-    "simple e2e_blacklist_token_contract/burn"
-    "simple e2e_blacklist_token_contract/minting"
-    "simple e2e_blacklist_token_contract/shielding"
-    "simple e2e_blacklist_token_contract/transfer_private"
-    "simple e2e_blacklist_token_contract/transfer_public"
-    "simple e2e_blacklist_token_contract/unshielding"
-    "simple-flake e2e_block_building"
-    "simple e2e_bot"
-    "simple e2e_card_game"
-    "simple e2e_cheat_codes"
-    "simple e2e_cross_chain_messaging/l1_to_l2"
-    "simple e2e_cross_chain_messaging/l2_to_l1"
-    "simple e2e_cross_chain_messaging/token_bridge_failure_cases"
-    "simple e2e_cross_chain_messaging/token_bridge_private"
-    "simple e2e_cross_chain_messaging/token_bridge_public"
-    "simple e2e_crowdfunding_and_claim"
-    "simple e2e_deploy_contract/contract_class_registration"
-    "simple e2e_deploy_contract/deploy_method"
-    "simple e2e_deploy_contract/legacy"
-    "simple e2e_deploy_contract/private_initialization"
-    "simple e2e_escrow_contract"
-    "simple e2e_event_logs"
-    "simple e2e_fees/account_init"
-    "simple e2e_fees/failures"
-    "simple e2e_fees/fee_juice_payments"
-    "simple e2e_fees/gas_estimation"
-    "simple e2e_fees/private_payments"
-    "simple e2e_keys"
-    "simple e2e_l1_with_wall_time"
-    "simple e2e_lending_contract"
-    "simple e2e_max_block_number"
-    "simple e2e_multiple_accounts_1_enc_key"
-    "simple e2e_nested_contract/importer"
-    "simple e2e_nested_contract/manual_private_call"
-    "simple e2e_nested_contract/manual_private_enqueue"
-    "simple e2e_nested_contract/manual_public"
-    "simple e2e_nft"
-    "simple e2e_non_contract_account"
-    "simple e2e_note_getter"
-    "simple e2e_ordering"
-    "simple e2e_outbox"
-    "simple e2e_p2p/gossip_network"
-    "simple e2e_p2p/rediscovery"
-    "simple-flake e2e_p2p/reqresp"
-    "simple-flake e2e_p2p/upgrade_governance_proposer"
-    "simple e2e_private_voting_contract"
-    "simple-flake e2e_prover/full FAKE_PROOFS=1"
-    "simple e2e_prover_coordination"
-    "simple e2e_public_testnet_transfer"
-    "simple e2e_state_vars"
-    "simple e2e_static_calls"
-    "simple e2e_synching"
-    "simple e2e_token_contract/access_control"
-    "simple e2e_token_contract/burn"
-    "simple e2e_token_contract/minting"
-    "simple e2e_token_contract/private_transfer_recursion"
-    "simple e2e_token_contract/reading_constants"
-    "simple e2e_token_contract/transfer_in_private"
-    "simple e2e_token_contract/transfer_in_public"
-    "simple e2e_token_contract/transfer_to_private"
-    "simple e2e_token_contract/transfer_to_public"
-    "simple e2e_token_contract/transfer.test"
-    "simple-flake flakey_e2e_inclusion_proofs_contract"
-
-    "compose composed/docs_examples"
-    "compose composed/e2e_aztec_js_browser"
-    "compose composed/e2e_pxe"
-    "compose composed/e2e_sandbox_example"
-    "compose composed/integration_l1_publisher"
-    "compose sample-dapp/index"
-    "compose sample-dapp/ci/index"
-    "compose guides/dapp_testing"
-    "compose guides/up_quick_start"
-    "compose guides/writing_an_account_contract"
-  )
-
-  commands=()
-  tests=()
-  env_vars=()
-  for entry in "${TESTS[@]}"; do
-    cmd=$(echo "$entry" | awk '{print $1}')
-    test=$(echo "$entry" | awk '{print $2}')
-    env=$(echo "$entry" | cut -d' ' -f3-)
-    if [[ ("$TEST_FLAKES" -eq 1 && "$cmd" =~ .*"-flake") ||
-          ("$TEST_FLAKES" -eq 0 && ! "$cmd" =~ .*"-flake") ]]; then
-      commands+=("$cmd")
-      tests+=("$test")
-      env_vars+=("$env")
-    fi
+function release_packages {
+  echo "Computing packages to publish..."
+  local packages=$(get_projects topological)
+  local package_list=()
+  for package in $packages; do
+    (cd $package && deploy_npm $1 $2)
+    local package_name=$(jq -r .name "$package/package.json")
+    package_list+=("$package_name@$2")
   done
-
-  # We will halt immediately on failure, unless testing flakes, in which case let it run to the end.
-  [ "$TEST_FLAKES" -eq 0 ] && local args="--halt now,fail=1"
-
-  rm -rf results
-  set +e
-  parallel --timeout 15m --verbose --joblog joblog.txt --results results/{2}-{#}/ ${args:-} \
-      '{3} ./scripts/test.sh {1} {2} 2>&1' ::: ${commands[@]} :::+ ${tests[@]} :::+ "${env_vars[@]}"
-  code=$?
-  set -e
-
-  # Note this is highly dependent on the command structure above.
-  # Skip first line (header).
-  # 7th field (1-indexed) is exit value.
-  # (NF-1) is the second to last field, so skips the last field "2>&1" to give the test name.
-  # We can't index from the front because {3} above is a variable length set of env vars.
-  # We concat the test name with its job number in $1, to allow running the same test with different env vars.
-  awk 'NR > 1 && $7 != 0 {print $(NF-1) "-" $1}' joblog.txt | while read -r job; do
-    stdout_file="results/${job}/stdout"
-    if [ -f "$stdout_file" ]; then
-      echo "=== Failed Job Output ==="
-      cat "$stdout_file"
-    fi
+  # Smoke test the deployed packages.
+  local dir=$(mktemp -d)
+  cd "$dir"
+  do_or_dryrun npm init -y
+  # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
+  # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
+  for package in "${package_list[@]}"; do
+    do_or_dryrun npm install $package
   done
+  rm -rf "$dir"
+}
 
-  echo "=== Job Log ==="
-  cat joblog.txt
-
-  github_endgroup
-  cache_upload_flag yarn-project-e2e-tests-$hash
-  return $code
+function release {
+  echo_header "yarn-project release"
+  release_packages "$(dist_tag)" "${REF_NAME#v}"
 }
 
 case "$cmd" in
   "clean")
+    [ -n "${2:-}" ] && cd $2
     git clean -fdx
     ;;
-  "full")
-    build full
+  "clean-lite")
+    files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/)' || true)
+    if [ -n "$files" ]; then
+      echo "$files" | xargs rm -rf
+    fi
     ;;
-  "fast-only")
-    build fast
+  "ci")
+    build
+    test
     ;;
   ""|"fast")
     build
     ;;
-  "test")
-    test
+  "full")
+    TYPECHECK=1 build
     ;;
-  "test-e2e")
-    TEST=1 test_e2e
+  "compile")
+    if [ -n "${1:-}" ]; then
+      compile_project ::: "$@"
+    else
+      get_projects | compile_project
+    fi
     ;;
-  "test-e2e-flakes")
-    TEST=1 TEST_FLAKES=1 test_e2e
+  lint|format)
+    $cmd "$@"
     ;;
-  "ci")
-    build full
-    test
-    ;;
-  "hash")
-    echo $hash
+  test|test_cmds|hash|release|format)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

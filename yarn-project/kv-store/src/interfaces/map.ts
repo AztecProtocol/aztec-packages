@@ -1,4 +1,4 @@
-import { type Key, type Range } from './common.js';
+import type { Key, Range } from './common.js';
 
 /**
  * A map backed by a persistent store.
@@ -10,13 +10,6 @@ interface AztecBaseMap<K extends Key, V> {
    * @param val - The value to set
    */
   set(key: K, val: V): Promise<void>;
-
-  /**
-   * Atomically swap the value at the given key
-   * @param key - The key to swap the value at
-   * @param fn - The function to swap the value with
-   */
-  swap(key: K, fn: (val: V | undefined) => V): Promise<void>;
 
   /**
    * Sets the value at the given key if it does not already exist.

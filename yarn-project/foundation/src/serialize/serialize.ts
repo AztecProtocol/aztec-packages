@@ -109,6 +109,7 @@ export function deserializeField(buf: Buffer, offset = 0) {
 export type Bufferable =
   | boolean
   | Buffer
+  | Uint8Array
   | number
   | bigint
   | string

@@ -6,20 +6,20 @@ import { type Database, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
-import { type Key } from '../interfaces/common.js';
-import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
-import {
-  type AztecAsyncMap,
-  type AztecAsyncMultiMap,
-  type AztecMap,
-  type AztecMapWithSize,
-  type AztecMultiMap,
-  type AztecMultiMapWithSize,
+import type { AztecArray, AztecAsyncArray } from '../interfaces/array.js';
+import type { Key, StoreSize } from '../interfaces/common.js';
+import type { AztecAsyncCounter, AztecCounter } from '../interfaces/counter.js';
+import type {
+  AztecAsyncMap,
+  AztecAsyncMultiMap,
+  AztecMap,
+  AztecMapWithSize,
+  AztecMultiMap,
+  AztecMultiMapWithSize,
 } from '../interfaces/map.js';
-import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
-import { type AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
-import { type AztecAsyncKVStore, type AztecKVStore } from '../interfaces/store.js';
+import type { AztecAsyncSet, AztecSet } from '../interfaces/set.js';
+import type { AztecAsyncSingleton, AztecSingleton } from '../interfaces/singleton.js';
+import type { AztecAsyncKVStore, AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
 import { LmdbAztecCounter } from './counter.js';
 import { LmdbAztecMap, LmdbAztecMapWithSize } from './map.js';
@@ -211,12 +211,12 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     await this.drop();
     await this.close();
     if (this.path) {
-      await fs.rm(this.path, { recursive: true, force: true });
+      await fs.rm(this.path, { recursive: true, force: true, maxRetries: 3 });
       this.#log.verbose(`Deleted database files at ${this.path}`);
     }
   }
 
-  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+  estimateSize(): Promise<StoreSize> {
     const stats = this.#rootDb.getStats();
     // The 'mapSize' is the total amount of virtual address space allocated to the DB (effectively the maximum possible size)
     // http://www.lmdb.tech/doc/group__mdb.html#a4bde3c8b676457342cba2fe27aed5fbd
@@ -226,11 +226,11 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     }
     const dataResult = this.estimateSubDBSize(this.#data);
     const multiResult = this.estimateSubDBSize(this.#multiMapData);
-    return {
+    return Promise.resolve({
       mappingSize: mapSize,
       actualSize: dataResult.actualSize + multiResult.actualSize,
       numItems: dataResult.numItems + multiResult.numItems,
-    };
+    });
   }
 
   private estimateSubDBSize(db: Database<unknown, Key>): { actualSize: number; numItems: number } {
