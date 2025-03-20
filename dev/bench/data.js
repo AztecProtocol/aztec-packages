@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742485198178,
+  "lastUpdate": 1742486113867,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "955f1b0176057af46479e8146f22c052651c16c8",
-          "message": "chore(sandbox): expose anvil port (#12599)\n\n## Overview\n\nExpose anvil port in sandbox, currently the eth node is unaccesible",
-          "timestamp": "2025-03-10T16:36:08Z",
-          "tree_id": "e8fe7f6f10b4dc23c21dc0f5e889b948415e9415",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/955f1b0176057af46479e8146f22c052651c16c8"
-        },
-        "date": 1741626631617,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17970.152333999977,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15887.910096 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18747.722703000138,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16136.70488 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3842.1370139999453,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3086.442171 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55133.67860399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55133679000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10744.509751,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10744513000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1606273463,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1606273463 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 222356462,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 222356462 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3622,6 +3550,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15348,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "16232c8df518dc7915c39066178124cdfefd962a",
+          "message": "chore: add support for caching `node_modules` within a nested repository (#12862)\n\nThis PR removes a hack added in #12760\n\nThis fixes an issue where we were querying the root git repository for\nhashes for files which are only tracked in the `noir/noir-repo`\nrepository. We now set the `REPO_PATH` env variable so that we run `git\nls-tree` on the correct repository.",
+          "timestamp": "2025-03-20T15:20:05Z",
+          "tree_id": "5d6efc63255d5687cc0b3b99b5c976de1e4b2f4f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/16232c8df518dc7915c39066178124cdfefd962a"
+        },
+        "date": 1742486106644,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39333,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 25852,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11715,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14606,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15584,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
