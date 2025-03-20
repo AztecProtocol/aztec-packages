@@ -275,7 +275,7 @@ void ClientIVCAPI::prove(const Flags& flags,
             write_bytes_to_stdout(buf);
         } else {
             vinfo("writing ClientIVC proof in directory ", output_dir);
-            write_file(output_dir / "proof", buf);
+            proof.to_file_msgpack(output_dir / "proof");
         }
     };
 

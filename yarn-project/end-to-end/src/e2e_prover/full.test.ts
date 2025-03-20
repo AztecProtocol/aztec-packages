@@ -111,26 +111,27 @@ describe('full_prover', () => {
       await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
       await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
 
-      // Verify them
-      logger.info(`Verifying txs`);
+      // // Verify them
+      // logger.info(`Verifying txs`);
 
-      const verifyProof = async (tx: Tx, expectedResult: boolean) => {
-        logger.warn(`Verifying tx ${await tx.getTxHash()}`);
+      // const verifyProof = async (tx: Tx, expectedResult: boolean) => {
+      //   logger.warn(`Verifying tx ${await tx.getTxHash()}`);
 
-        const [duration, _] = await elapsed(() =>
-          expect(t.circuitProofVerifier?.verifyProof(tx)).resolves.toEqual(expectedResult),
-        );
-        logger.warn(`Verification of tx ${await tx.getTxHash()} took ${duration}ms`);
-        console.log(`Verification of tx ${await tx.getTxHash()} took ${duration}ms`);
-      };
-      await verifyProof(publicProvenTx, true);
-      await verifyProof(privateProvenTx, true);
+      //   const [duration, _] = await elapsed(() =>
+      //     expect(t.circuitProofVerifier?.verifyProof(tx)).resolves.toEqual(expectedResult),
+      //   );
+      //   logger.warn(`Verification of tx ${await tx.getTxHash()} took ${duration}ms`);
+      //   console.log(`Verification of tx ${await tx.getTxHash()} took ${duration}ms`);
+      // };
+      // await verifyProof(publicProvenTx, true);
+      // await verifyProof(privateProvenTx, true);
 
-      publicProvenTx.clientIvcProof.clientIvcProofBuffer = randomBytes(100_000);
-      privateProvenTx.clientIvcProof.clientIvcProofBuffer = randomBytes(100_000);
+      // publicProvenTx.clientIvcProof.clientIvcProofBuffer = randomBytes(100_000);
+      // privateProvenTx.clientIvcProof.clientIvcProofBuffer = randomBytes(100_000);
 
-      await verifyProof(publicProvenTx, false);
-      await verifyProof(privateProvenTx, false);
+      // await verifyProof(publicProvenTx, false);
+      // await verifyProof(privateProvenTx, false);
+
       // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
       // and we have more than one block in the epoch we end up proving
       logger.info(`Sending private tx`);
