@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
+#include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
@@ -35,6 +36,7 @@ struct EventsContainer {
     EventEmitterInterface<Poseidon2HashEvent>::Container poseidon2_hash;
     EventEmitterInterface<Poseidon2PermutationEvent>::Container poseidon2_permutation;
     EventEmitterInterface<ToRadixEvent>::Container to_radix;
+    EventEmitterInterface<RangeCheckEvent>::Container range_check;
 };
 
 } // namespace bb::avm2::simulation

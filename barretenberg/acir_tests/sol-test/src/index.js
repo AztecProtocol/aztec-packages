@@ -217,31 +217,30 @@ const killAnvil = () => {
 };
 
 try {
+  const proofPath = getEnvVar("PROOF");
+  let publicInputsPath = getEnvVar("PUBLIC_INPUTS");
+
   const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
   const proofAsFields = readFileSync(proofAsFieldsPath);
+
+  let proofStr = "";
+
+  const proof = readFileSync(proofPath);
+  proofStr = proof.toString("hex");
+  const innerPublicInputs = JSON.parse(
+    readFileSync(publicInputsPath).toString()
+  ); // assumes JSON array of PI hex strings
   const [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
     JSON.parse(proofAsFields.toString())
   );
-  var publicInputs;
-  const proofPath = getEnvVar("PROOF");
-  const proof = readFileSync(proofPath);
+  const publicInputs = innerPublicInputs.concat(extraPublicInputs);
 
-  // Cut the number of public inputs out of the proof string
-  let proofStr = proof.toString("hex");
+  // Honk proof have field length as the first 4 bytes
+  // This should go away in the future
   if (testingHonk) {
-    // Cut off the serialised buffer size at start
     proofStr = proofStr.substring(8);
-    // Get the part after the public inputs
-    proofStr = proofStr.substring(64 * numExtraPublicInputs);
-    const publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
-    const publicInputsAsFields = readFileSync(publicInputsAsFieldsPath);
-    const innerPublicInputs = JSON.parse(publicInputsAsFields.toString());
-    publicInputs = innerPublicInputs.concat(extraPublicInputs);
-  } else {
-    proofStr = proofStr.substring(64 * numExtraPublicInputs);
-    publicInputs = extraPublicInputs; // all of the plonk public inputs are with the proof
   }
-
+  proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 
   const key =

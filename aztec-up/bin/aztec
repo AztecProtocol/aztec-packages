@@ -87,18 +87,10 @@ case ${1:-} in
       "
     else
       # Export p2p port forwarding only if set in env vars
-      if [ -n "${P2P_TCP_LISTEN_ADDR:-}" ]; then
-        P2P_TCP_PORT=${P2P_TCP_LISTEN_ADDR##*:}
-        P2P_TCP_LISTEN_MAPPING="$P2P_TCP_PORT:$P2P_TCP_PORT"
+      if [ -n "${P2P_PORT:-}" ]; then
+        P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
 
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING"
-      fi
-
-      if [ -n "${P2P_UDP_LISTEN_ADDR:-}" ]; then
-        P2P_UDP_PORT=${P2P_UDP_LISTEN_ADDR##*:}
-        P2P_UDP_LISTEN_MAPPING="$P2P_UDP_PORT:$P2P_UDP_PORT/udp"
-
-        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_UDP_LISTEN_MAPPING"
       fi
 
       exec $(dirname $0)/.aztec-run aztec-start \

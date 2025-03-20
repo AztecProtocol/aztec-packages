@@ -22,9 +22,13 @@ Processing this transaction first claims bridged fee juice then is paid for from
 
 A fee paying contract (FPC) is created and nominates a token that it accepts to then pay for txs in fee juice. So a user doesn't need to hold fee juice, they only need the token that the FPC accepts.
 
+### Sponsored Fee Paying Contract (SponsoredFPC)
+
+The most straightforward way to pay for a transaction is via the sponsored fee payment method, bootstrapping some transactions by skipping the need to bridge fee juice to the account. This method uses a type of fee paying contract configured to pay for a number of transactions without requiring payment.
+
 ## Bridging fee-juice
 
-To first get fee juice into an account it needs to be bridged from L1.
+To first get fee juice into an account it needs to be bridged from L1. You can skip this section if you want to first make a transaction via the SponsoredFPC.
 
 :::note
 See here to [Bridge Fee Juice](../../../developers/reference/environment_reference/cli_wallet_reference#bridge-fee-juice) via the CLI wallet.
@@ -87,6 +91,21 @@ Fee and gas padding params can be left to their default values, and the estimate
 With the fee options explained, lets do a paid transaction.
 
 ## Examples
+
+### Sponsored Fee Paying Contract
+
+Creating the SponsoredFPC is as simple as passing it the PXE:
+```ts
+const paymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+```
+
+Then a transaction can specify this as the `paymentMethod` in the fee object.
+For example, a contract can be deployed with an fpc as follows:
+
+```ts
+const paymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+myAccountManager.deploy({ fee: { paymentMethod } });
+```
 
 ### Pay with FeeJuice
 

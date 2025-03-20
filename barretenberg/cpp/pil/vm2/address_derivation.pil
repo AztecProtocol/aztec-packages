@@ -44,7 +44,7 @@ namespace address_derivation;
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[SALTED_INITIALIZATION_HASH_POSEIDON2_1]
-    sel { deployer_addr, precomputed.zero, precomputed.zero, salted_init_hash}
+    sel { deployer_addr, precomputed.zero, precomputed.zero, salted_init_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
 
