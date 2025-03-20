@@ -7,7 +7,7 @@ import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
 
-const TRANSFER_AMOUNT = 1;
+const TRANSFER_AMOUNT = 1_000;
 
 type Balances = { token0: bigint; token1: bigint };
 
@@ -59,11 +59,10 @@ export class AmmBot extends BaseBot {
     );
 
     const opts = this.getSendMethodOpts(swapAuthwit);
-    this.log.verbose(`Simulating swap transaction`, logCtx);
-    await swapExactTokensInteraction.simulate(opts);
 
     this.log.verbose(`Proving transaction`, logCtx);
     const tx = await swapExactTokensInteraction.prove(opts);
+
     return tx.send();
   }
 

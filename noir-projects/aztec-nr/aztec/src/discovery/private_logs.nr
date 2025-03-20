@@ -47,6 +47,8 @@ pub unconstrained fn do_process_log<Env>(
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
+    debug_log_format("Processing log with tag {0}", [log.get(0)]);
+
     let log_plaintext = decrypt_log(log, recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
