@@ -1,5 +1,6 @@
 include "bc_decomposition.pil";
 include "range_check.pil";
+include "constants_gen.pil";
 
 namespace instr_fetching;
 
@@ -58,12 +59,13 @@ pc_abs_diff = sel * ((2 * pc_out_of_range - 1) * (pc - bytecode_size) - 1 + pc_o
 
 // TODO: Remove this one once we support constant in lookup tuples
 // A column with the value 32 at each row.
-pol commit thirty_two;
+pol commit pc_size_in_bits;
+sel * (pc_size_in_bits - constants.AVM_PC_SIZE_IN_BITS) = 0;
 
 // pc_abs_diff is 32-bit long (pc is uint32_t)
 // Use constant AVM_PC_SIZE_IN_BITS once we support constants in lookup tuples.
 #[PC_ABS_DIFF_POSITIVE]
-sel { pc_abs_diff, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel { pc_abs_diff, pc_size_in_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
 // The size of the bytecode is bytes_remaining at pc == 0.
 #[BYTECODE_SIZE_FROM_BC_DEC]
