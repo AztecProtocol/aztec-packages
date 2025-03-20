@@ -221,6 +221,7 @@ impl PartialUintNote {
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
         // last field (the value), and note discovery failing.
+        // TODO(#11636): remove this
         assert(value != 0, "Cannot complete a PartialUintNote with a value of 0");
 
         // We need to do two things:
