@@ -59,15 +59,15 @@ std::vector<TestParams> comparison_tests = {
     // GT
     TestParams{ 27, 0, true },
     TestParams{ TWO_POW_128, 0, true },
-    TestParams{ FF::neg_one(), FF::zero(), true },
+    TestParams{ -1, 0, true },
     // EQ
     TestParams{ 27, 27, false },
     TestParams{ TWO_POW_128, TWO_POW_128, false },
-    TestParams{ FF::neg_one(), FF::neg_one(), false },
+    TestParams{ -1, -1, false },
     // LT
     TestParams{ 0, 1, false },
     TestParams{ 0, TWO_POW_128, false },
-    TestParams{ FF::zero(), FF::neg_one(), false }
+    TestParams{ 0, -1, false }
 };
 
 class BasicTest : public TestWithParam<TestParams> {};

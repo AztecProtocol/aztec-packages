@@ -52,18 +52,12 @@ namespace ff_gt;
     // We'll shift the other 8 range checks necessary in 4 rows after the sel_gt one.
 
     #[A_LO_RANGE]
-    sel {
-        a_lo, constant_128
-    } in range_check.sel {
-        range_check.value, range_check.rng_chk_bits
-    };
+    sel { a_lo, constant_128 }
+    in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     #[A_HI_RANGE]
-    sel {
-        a_hi, constant_128
-    } in range_check.sel {
-        range_check.value, range_check.rng_chk_bits
-    };
+    sel { a_hi, constant_128 }
+    in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     pol commit p_a_borrow;
     p_a_borrow * (1 - p_a_borrow) = 0;

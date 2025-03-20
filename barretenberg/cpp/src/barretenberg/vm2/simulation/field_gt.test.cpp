@@ -26,8 +26,8 @@ TEST(AvmSimulationFieldGreaterThanTest, Basic)
     ON_CALL(range_check, assert_range(_, 128)).WillByDefault([&range_checks](uint128_t x, uint64_t) {
         range_checks.push_back(x);
     });
-    FF a = FF::one();
-    FF b = FF::zero();
+    FF a = 1;
+    FF b = 0;
     EXPECT_TRUE(field_gt.ff_gt(a, b));
 
     uint128_t a_lo = 1;
@@ -77,13 +77,13 @@ TEST(AvmSimulationFieldGreaterThanTest, Results)
     EventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
-    assert(field_gt.ff_gt(FF::one(), FF::zero()));
-    assert(field_gt.ff_gt(FF::neg_one(), FF::zero()));
+    assert(field_gt.ff_gt(1, 0));
+    assert(field_gt.ff_gt(-1, 0));
 
-    assert(!field_gt.ff_gt(FF::zero(), FF::zero()));
-    assert(!field_gt.ff_gt(FF::neg_one(), FF::neg_one()));
-    assert(!field_gt.ff_gt(FF::zero(), FF::one()));
-    assert(!field_gt.ff_gt(FF::zero(), FF::neg_one()));
+    assert(!field_gt.ff_gt(0, 0));
+    assert(!field_gt.ff_gt(-1, -1));
+    assert(!field_gt.ff_gt(0, 1));
+    assert(!field_gt.ff_gt(0, -1));
 
     EXPECT_THAT(event_emitter.dump_events(), SizeIs(6));
 }
