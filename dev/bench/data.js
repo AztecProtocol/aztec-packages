@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742499860927,
+  "lastUpdate": 1742499864134,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5a1dc4ce95be41ad400e7012536b45eb4cfb5f81",
-          "message": "fix: update dead partial notes link (#12629)\n\nCo-authored-by: Bohdan Ohorodnii <35969035+varex83@users.noreply.github.com>",
-          "timestamp": "2025-03-11T20:24:38+08:00",
-          "tree_id": "90497c1331017155d4725ebe2994e0b1ca0ad426",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5a1dc4ce95be41ad400e7012536b45eb4cfb5f81"
-        },
-        "date": 1741696645858,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17946.565658000054,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15796.929267 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18606.562831999894,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16483.402588 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3776.6491290000204,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3017.4084780000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54713.888162,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54713888000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11621.606274,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11621613000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1598882563,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1598882563 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 220826232,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 220826232 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3510,6 +3438,60 @@ window.BENCHMARK_DATA = {
             "value": "2217.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "saleel@aztecprotocol.com",
+            "name": "saleel",
+            "username": "saleel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5b064bcc6eb347dd53ad3870fe0486792d2f79bb",
+          "message": "fix(bb.js): remove size metadata from UH proof (#12775)\n\nFixes #11829 \n\n- Remove first 4 bytes from proof (metadata - length of \"proof + PI\" in\nfields) returned from `UltraHonkBackend.generateProof()`\n- `proof` returned is now 14080 bytes (440 fields) and can be directly\nverified in solidity\n\n\nNote: `proof` output from bb CLI also includes the size metadata in the\nfirst 4 bytes. This should go away with #11024\n\n---------\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2025-03-20T22:26:33+04:00",
+          "tree_id": "1575143bb9da65fe27f3bf7c4f6f57b753f29724",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5b064bcc6eb347dd53ad3870fe0486792d2f79bb"
+        },
+        "date": 1742499862700,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 34146,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 21979,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 10671,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 12885,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 13365,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
         ]
       }
