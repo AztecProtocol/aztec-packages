@@ -158,6 +158,17 @@ interface IRollupCore {
 }
 
 interface IRollup is IRollupCore {
+  function validateHeader(
+    bytes calldata _header,
+    Signature[] memory _signatures,
+    bytes32 _digest,
+    Timestamp _currentTime,
+    bytes32 _blobsHash,
+    BlockHeaderValidationFlags memory _flags
+  ) external;
+
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
+
   function getTips() external view returns (ChainTips memory);
 
   function status(uint256 _myHeaderBlockNumber)
@@ -180,17 +191,6 @@ interface IRollup is IRollupCore {
     bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
-
-  function validateHeader(
-    bytes calldata _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    bytes32 _blobsHash,
-    BlockHeaderValidationFlags memory _flags
-  ) external view;
-
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
 
   function validateBlobs(bytes calldata _blobsInputs)
     external
