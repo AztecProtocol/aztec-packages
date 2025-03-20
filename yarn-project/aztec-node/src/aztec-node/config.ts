@@ -31,13 +31,13 @@ export type AztecNodeConfig = ArchiverConfig &
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
+  ...dataConfigMappings,
   ...archiverConfigMappings,
   ...sequencerClientConfigMappings,
   ...validatorClientConfigMappings,
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
-  ...dataConfigMappings,
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',

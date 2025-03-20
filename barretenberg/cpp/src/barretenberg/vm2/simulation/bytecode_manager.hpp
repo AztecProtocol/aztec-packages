@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
 
 namespace bb::avm2::simulation {
@@ -40,7 +41,8 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     TxBytecodeManager(ContractDBInterface& contract_db,
                       MerkleDBInterface& merkle_db,
                       SiloingInterface& siloing,
-                      BytecodeHasher& bytecode_hasher,
+                      BytecodeHashingInterface& bytecode_hasher,
+                      RangeCheckInterface& range_check,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
@@ -48,6 +50,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , merkle_db(merkle_db)
         , siloing(siloing)
         , bytecode_hasher(bytecode_hasher)
+        , range_check(range_check)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
@@ -60,7 +63,8 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     ContractDBInterface& contract_db;
     MerkleDBInterface& merkle_db;
     SiloingInterface& siloing;
-    BytecodeHasher& bytecode_hasher;
+    BytecodeHashingInterface& bytecode_hasher;
+    RangeCheckInterface& range_check;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;

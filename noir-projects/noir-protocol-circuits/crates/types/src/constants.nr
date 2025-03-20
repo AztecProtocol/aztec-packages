@@ -776,6 +776,8 @@ pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
+// AVM - misc constants
+pub global AVM_PC_SIZE_IN_BITS: u8 = 32;
 pub global TWO_POW_64: Field = 18446744073709551616;
 
 // 24 hours with a slot duration of 24 seconds
