@@ -195,6 +195,12 @@ tests:
     owners:
       - *adam
 
+  # aztec-up
+  - regex: "aztec-up/scripts/run_test.sh"
+    error_regex: "Is the docker daemon running"
+    owners:
+      - *charlie
+
   # Slack testing.
   - regex: "nonsense to match"
     owners:
