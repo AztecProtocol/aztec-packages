@@ -8,7 +8,9 @@ void TxExecution::simulate(const Tx& tx)
     // TODO: other inter-enqueued-call stuff will be done here.
     for (const auto& call : tx.enqueued_calls) {
         info("Executing enqueued call to ", call.contractAddress);
-        auto result = call_execution.execute(call.contractAddress, call.calldata, call.msgSender, call.isStaticCall);
+        auto context = context_provider.make_enqueued_context(
+            call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
+        auto result = call_execution.execute(*context);
         info("Enqueued call to ",
              call.contractAddress,
              " was a ",

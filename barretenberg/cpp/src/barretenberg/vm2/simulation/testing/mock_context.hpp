@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gmock/gmock.h"
 #include <cstdint>
 #include <memory>
 
@@ -27,11 +28,29 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(bool, halted, (), (const, override));
     MOCK_METHOD(void, halt, (), (override));
 
+    MOCK_METHOD(uint32_t, get_context_id, (), (const, override));
+
     // Environment.
     MOCK_METHOD(const AztecAddress&, get_address, (), (const, override));
     MOCK_METHOD(const AztecAddress&, get_msg_sender, (), (const, override));
     MOCK_METHOD(std::span<const FF>, get_calldata, (), (const, override));
     MOCK_METHOD(bool, get_is_static, (), (const, override));
+
+    // Event Emitting
+    MOCK_METHOD(void, emit_context_snapshot, (), (override));
+    MOCK_METHOD(void, emit_current_context, (), (override));
+};
+
+class MockContextProvider : public ContextProviderInterface {
+  public:
+    MOCK_METHOD(std::unique_ptr<EnqueuedCallContext>,
+                make_enqueued_context,
+                (AztecAddress address, AztecAddress msg_sender, std::span<const FF> calldata, bool is_static),
+                (override));
+    MOCK_METHOD(std::unique_ptr<NestedContext>,
+                make_nested_context,
+                (AztecAddress address, AztecAddress msg_sender, std::span<const FF> calldata, bool is_static),
+                (override));
 };
 
 } // namespace bb::avm2::simulation

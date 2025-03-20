@@ -107,10 +107,11 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
     ExecutionComponentsProvider execution_components(bytecode_manager, memory_emitter, instruction_info_db);
+    ContextProvider context_provider(bytecode_manager, memory_emitter);
 
     Alu alu(alu_emitter);
-    Execution execution(alu, execution_components, instruction_info_db, execution_emitter);
-    TxExecution tx_execution(execution);
+    Execution execution(alu, context_provider, execution_components, instruction_info_db, execution_emitter);
+    TxExecution tx_execution(execution, context_provider);
     Sha256 sha256(sha256_compression_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
 

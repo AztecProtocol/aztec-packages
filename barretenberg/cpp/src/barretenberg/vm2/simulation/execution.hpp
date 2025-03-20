@@ -30,30 +30,26 @@ struct ExecutionResult {
 class ExecutionInterface {
   public:
     virtual ~ExecutionInterface() = default;
-    // Returns the top-level execution result.
-    virtual ExecutionResult execute(AztecAddress contract_address,
-                                    std::span<const FF> calldata,
-                                    AztecAddress msg_sender,
-                                    bool is_static) = 0;
+    // Returns the top-level execution result. TODO: This should only be top level enqueud calls
+    virtual ExecutionResult execute(ContextInterface& context) = 0;
 };
 
 // In charge of executing a single enqueued call.
 class Execution : public ExecutionInterface {
   public:
     Execution(AluInterface& alu,
+              ContextProviderInterface& context_provider,
               ExecutionComponentsProviderInterface& execution_components,
               const InstructionInfoDBInterface& instruction_info_db,
               EventEmitterInterface<ExecutionEvent>& event_emitter)
         : execution_components(execution_components)
+        , context_provider(context_provider)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , events(event_emitter)
     {}
 
-    ExecutionResult execute(AztecAddress contract_address,
-                            std::span<const FF> calldata,
-                            AztecAddress msg_sender,
-                            bool is_static) override;
+    ExecutionResult execute(ContextInterface& enqueued_call_context) override;
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -76,6 +72,7 @@ class Execution : public ExecutionInterface {
     std::vector<Operand> resolve_operands(const Instruction& instruction, const ExecInstructionSpec& spec);
 
     ExecutionComponentsProviderInterface& execution_components;
+    ContextProviderInterface& context_provider;
     const InstructionInfoDBInterface& instruction_info_db;
 
     AluInterface& alu;

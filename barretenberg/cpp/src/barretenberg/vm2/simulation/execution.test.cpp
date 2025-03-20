@@ -34,10 +34,12 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockAlu> alu;
     StrictMock<MockMemory> memory;
     StrictMock<MockExecutionComponentsProvider> execution_components;
+    StrictMock<MockContextProvider> context_provider;
     StrictMock<MockContext> context;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
-    Execution execution = Execution(alu, execution_components, instruction_info_db, execution_event_emitter);
+    Execution execution =
+        Execution(alu, context_provider, execution_components, instruction_info_db, execution_event_emitter);
 };
 
 TEST_F(ExecutionSimulationTest, Add)

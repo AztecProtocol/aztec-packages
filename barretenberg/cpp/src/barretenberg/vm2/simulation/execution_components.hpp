@@ -20,7 +20,7 @@ class ExecutionComponentsProviderInterface {
   public:
     virtual ~ExecutionComponentsProviderInterface() = default;
 
-    // TODO: separate into enqueued and nested context.
+    // TODO: Remove, This isnt needed anymore since the context provider is at the tx level
     virtual std::unique_ptr<ContextInterface> make_context(AztecAddress address,
                                                            AztecAddress msg_sender,
                                                            std::span<const FF> calldata,
