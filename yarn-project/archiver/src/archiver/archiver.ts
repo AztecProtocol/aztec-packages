@@ -867,8 +867,6 @@ class ArchiverStoreHelper
       ArchiverDataStore,
       | 'addLogs'
       | 'deleteLogs'
-      | 'addNullifiers'
-      | 'deleteNullifiers'
       | 'addContractClasses'
       | 'deleteContractClasses'
       | 'addContractInstances'
@@ -1034,7 +1032,6 @@ class ArchiverStoreHelper
           ])
         ).every(Boolean);
       }),
-      this.store.addNullifiers(blocks.map(block => block.block)),
       this.store.addBlocks(blocks),
     ]);
 

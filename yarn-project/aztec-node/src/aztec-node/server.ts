@@ -223,7 +223,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver,
       archiver,
       archiver,
-      archiver,
       worldStateSynchronizer,
       sequencer,
       ethereumChain.chainInfo.id,
