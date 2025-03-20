@@ -138,7 +138,7 @@ function start_txes {
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings $root/yarn-project/txe/dest/bin/index.js'" &
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'sudo lsof -i >&2; node --no-warnings $root/yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
