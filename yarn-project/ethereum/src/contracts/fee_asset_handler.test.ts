@@ -15,11 +15,11 @@ import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { L1Clients } from '../types.js';
-import { FeeAssetHandlerContract, MINT_AMOUNT } from './fee_asset_handler.js';
+import { FeeAssetHandlerContract } from './fee_asset_handler.js';
 
 const originalVersionSalt = 42;
 
-describe('Registry', () => {
+describe('FeeAssetHandler', () => {
   let anvil: Anvil;
   let rpcUrl: string;
   let privateKey: PrivateKeyAccount;
@@ -35,7 +35,7 @@ describe('Registry', () => {
   let feeAsset: GetContractReturnType<typeof FeeAssetAbi, L1Clients['publicClient']>;
 
   beforeAll(async () => {
-    logger = createLogger('ethereum:test:registry');
+    logger = createLogger('ethereum:test:fee_asset_handler');
     // this is the 6th address that gets funded by the junk mnemonic
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
@@ -77,7 +77,7 @@ describe('Registry', () => {
       expect(txHash.receipt.status).toBe('success');
       logger.verbose(`Minted fee asset in ${txHash}`);
       const balance = await feeAsset.read.balanceOf([address.toString()]);
-      expect(balance).toBe(MINT_AMOUNT * BigInt(i));
+      expect(balance).toBe((await feeAssetHandler.getMintAmount()) * BigInt(i));
     }
   });
 });

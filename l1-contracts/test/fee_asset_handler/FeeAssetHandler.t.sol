@@ -13,6 +13,12 @@ contract FeeAssetHandlerTest is Test {
   TestERC20 internal testERC20;
   FeeAssetHandler internal feeAssetHandler;
 
+  function setUp() external {
+    testERC20 = new TestERC20("test", "TEST", address(this));
+    feeAssetHandler = new FeeAssetHandler(address(this), address(testERC20), 100);
+    testERC20.addMinter(address(feeAssetHandler));
+  }
+
   function test_WhenTheOwnerSetsTheMintAmount(uint256 _mintAmount) external {
     // it sets the mint amount
     vm.expectEmit();
@@ -35,11 +41,5 @@ contract FeeAssetHandlerTest is Test {
     vm.assume(_recipient != address(0));
     feeAssetHandler.mint(_recipient);
     assertEq(testERC20.balanceOf(_recipient), feeAssetHandler.mintAmount());
-  }
-
-  function setUp() public {
-    testERC20 = new TestERC20("test", "TEST", address(this));
-    feeAssetHandler = new FeeAssetHandler(address(this), address(testERC20), 100);
-    testERC20.addMinter(address(feeAssetHandler));
   }
 }
