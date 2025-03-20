@@ -744,12 +744,11 @@ template <typename Flavor> class SumcheckVerifier {
         //! [Final Verification Step]
         bool final_check(false);
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            // These bools are only needed for debugging
+            // These booleans are only needed for debugging
             final_check = (full_honk_purported_value.get_value() == round.target_total_sum.get_value());
-            info(final_check);
+            verified = verified && final_check;
 
             full_honk_purported_value.assert_equal(round.target_total_sum);
-            verified = verified && final_check;
         } else {
             final_check = (full_honk_purported_value == round.target_total_sum);
             verified = verified && final_check;
@@ -886,10 +885,12 @@ template <typename Flavor> class SumcheckVerifier {
             first_sumcheck_round_evaluations_sum.self_reduce();
             round.target_total_sum.self_reduce();
 
+            // This bool is only needed for debugging
+            verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum).get_value();
             // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
             // target total sum
             first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
-            verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum).get_value();
+
         } else {
             // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
             // where all sumcheck relations are disabled
