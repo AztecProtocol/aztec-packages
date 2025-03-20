@@ -886,7 +886,7 @@ template <typename Flavor> class SumcheckVerifier {
             round.target_total_sum.self_reduce();
 
             // This bool is only needed for debugging
-            verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum).get_value();
+            verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
             // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
             // target total sum
             first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
