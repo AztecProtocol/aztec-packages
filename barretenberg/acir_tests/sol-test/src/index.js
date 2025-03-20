@@ -218,8 +218,6 @@ const killAnvil = () => {
 
 try {
   const proofPath = getEnvVar("PROOF");
-  let publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
-
   const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
   const proofAsFields = readFileSync(proofAsFieldsPath);
 
@@ -227,13 +225,27 @@ try {
 
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
-  const innerPublicInputs = JSON.parse(
-    readFileSync(publicInputsAsFieldsPath).toString()
-  ); // assumes JSON array of PI hex strings
+
+  let publicInputsAsFieldsPath;
+  try {
+    publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
+  } catch (e) {
+    // noop
+  }
+  var publicInputs;
   const [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
     JSON.parse(proofAsFields.toString())
   );
-  const publicInputs = innerPublicInputs.concat(extraPublicInputs);
+  // We need to do this because plonk doesn't define this path
+  if (publicInputsAsFieldsPath) {
+    const innerPublicInputs = JSON.parse(
+      readFileSync(publicInputsAsFieldsPath).toString()
+    ); // assumes JSON array of PI hex strings
+
+    publicInputs = innerPublicInputs.concat(extraPublicInputs);
+  } else {
+    publicInputs = extraPublicInputs;
+  }
 
   // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
   if (testingHonk) {
