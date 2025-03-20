@@ -123,7 +123,7 @@ function test_cmds {
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
+  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds
 }
 
 function start_txes {
@@ -205,7 +205,7 @@ function build {
 
 function bench {
   # TODO bench for arm64.
-  if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
+  if [ $(arch) == arm64 ]; then
     return
   fi
   denoise "barretenberg/bootstrap.sh bench"
