@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742483214529,
+  "lastUpdate": 1742485198178,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f2c06c2ccab8b980defe72d82db1b631c6994f91",
-          "message": "fix: deploy method test (#12609)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
-          "timestamp": "2025-03-10T16:27:33Z",
-          "tree_id": "9f47e5f5635e57cd9364d171829e7d5ecf56d85d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f2c06c2ccab8b980defe72d82db1b631c6994f91"
-        },
-        "date": 1741626297925,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18484.70505099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16078.108377999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18888.524552000035,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16473.604826 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3890.968423000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3126.774097 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55842.75302800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55842756000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9255.599645,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9255602000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1615053909,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1615053909 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 212926105,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 212926105 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3640,6 +3568,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15135,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "spypsy@users.noreply.github.com",
+            "name": "spypsy",
+            "username": "spypsy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6efc8cee715537bb69ae46994ce5f4bdf6d10485",
+          "message": "chore: vars for --network ignition-testnet (#12886)",
+          "timestamp": "2025-03-20T15:03:58Z",
+          "tree_id": "2a52d437f6c8e26065230d062d503214091bb1da",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6efc8cee715537bb69ae46994ce5f4bdf6d10485"
+        },
+        "date": 1742485189749,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39804,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26600,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11793,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14531,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15348,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
