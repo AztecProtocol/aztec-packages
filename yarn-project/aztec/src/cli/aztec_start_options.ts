@@ -94,6 +94,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'NO_PXE',
       ...booleanConfigHelper(),
     },
+    {
+      flag: '--sandbox.anvilPort <value>',
+      description: 'Port for anvil to listen on. If not specified, a random port will be used.',
+      envVar: 'ANVIL_PORT',
+      defaultValue: undefined,
+      parseVal: val => parseInt(val, 10),
+    },
   ],
   API: [
     {
