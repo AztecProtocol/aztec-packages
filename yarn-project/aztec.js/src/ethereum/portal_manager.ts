@@ -167,7 +167,7 @@ export class L1FeeJuicePortalManager {
     if (mint) {
       const mintAmount = await this.tokenManager.getMintAmount();
       if (amount !== mintAmount) {
-        throw new Error('Minting amount must be MINT_AMOUNT');
+        throw new Error(`Minting amount must be ${mintAmount}`);
       }
       await this.tokenManager.mint(this.walletClient.account.address);
     }
