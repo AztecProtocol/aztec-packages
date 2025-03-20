@@ -1,43 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742485202674,
+  "lastUpdate": 1742486116071,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "0446fce7b7b9edb58f3f169933163594ffd66b91",
-          "message": "chore(master): Release 0.70.0",
-          "timestamp": "2025-01-15T18:00:20Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/11107/commits/0446fce7b7b9edb58f3f169933163594ffd66b91"
-        },
-        "date": 1736964597128,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4530,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 3.4038149958473456,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 638417,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 156410,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "16232c8df518dc7915c39066178124cdfefd962a",
+          "message": "chore: add support for caching `node_modules` within a nested repository (#12862)\n\nThis PR removes a hack added in #12760\n\nThis fixes an issue where we were querying the root git repository for\nhashes for files which are only tracked in the `noir/noir-repo`\nrepository. We now set the `REPO_PATH` env variable so that we run `git\nls-tree` on the correct repository.",
+          "timestamp": "2025-03-20T15:20:05Z",
+          "tree_id": "5d6efc63255d5687cc0b3b99b5c976de1e4b2f4f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/16232c8df518dc7915c39066178124cdfefd962a"
+        },
+        "date": 1742486115420,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 10094,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24630487272318854,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 152817,
             "unit": "us"
           }
         ]
