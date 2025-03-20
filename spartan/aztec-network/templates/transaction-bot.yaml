@@ -3,7 +3,8 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
-  labels: app: {{- include "aztec-network.labels" . | nindent 4 }}
+  labels:
+    app: {{- include "aztec-network.labels" . | nindent 4 }}
   {{- if .Values.network.setupL2Contracts }}
   annotations:
     "helm.sh/hook": post-install
