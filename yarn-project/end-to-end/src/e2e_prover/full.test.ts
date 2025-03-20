@@ -1,9 +1,23 @@
-import { type AztecAddress, EthAddress, Tx, elapsed, waitForProven } from '@aztec/aztec.js';
+import {
+  type AztecAddress,
+  EthAddress,
+  ProvenTx,
+  Tx,
+  TxReceipt,
+  TxStatus,
+  elapsed,
+  waitForProven,
+} from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { FeeJuicePortalAbi, RewardDistributorAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { Gas } from '@aztec/stdlib/gas';
+import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
@@ -305,4 +319,82 @@ describe('full_prover', () => {
     expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
     expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
   });
+
+  it(
+    'should prevent large influxes of txs with invalid proofs from causing ddos attacks',
+    async () => {
+      if (!REAL_PROOFS) {
+        t.logger.warn(`Skipping test with fake proofs`);
+        return;
+      }
+
+      const NUM_INVALID_TXS = 20;
+
+      // Create and prove a tx
+      logger.info(`Creating and proving tx`);
+      const sendAmount = 1n;
+      const interaction = provenAssets[0].methods.transfer(recipient, sendAmount);
+      const provenTx = await interaction.prove({ skipPublicSimulation: true });
+      const wallet = (provenTx as any).wallet;
+
+      // Verify the tx proof
+      logger.info(`Verifying the valid tx proof`);
+      await expect(t.circuitProofVerifier?.verifyProof(provenTx)).resolves.toBeTrue();
+
+      // Spam node with invalid txs
+      logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
+      const invalidTxPromises = [];
+      const data = provenTx.data;
+      for (let i = 0; i < NUM_INVALID_TXS; i++) {
+        // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
+        const invalidProvenTx = new ProvenTx(
+          wallet,
+          new Tx(
+            new PrivateKernelTailCircuitPublicInputs(
+              data.constants,
+              data.rollupValidationRequests,
+              data.gasUsed.add(new Gas(i + 1, 0)),
+              data.feePayer,
+              data.forPublic,
+              data.forRollup,
+            ),
+            ClientIvcProof.random(),
+            provenTx.contractClassLogs,
+            provenTx.enqueuedPublicFunctionCalls,
+            provenTx.publicTeardownFunctionCall,
+          ),
+        );
+
+        const sentTx = invalidProvenTx.send();
+        invalidTxPromises.push(sentTx.wait({ timeout: 10, interval: 0.1, dontThrowOnRevert: true }));
+      }
+
+      logger.info(`Sending proven tx`);
+      const validTx = provenTx.send();
+
+      // Flag the valid transfer on the token simulator
+      tokenSim.transferPrivate(sender, recipient, sendAmount);
+
+      // Warp to the next epoch
+      const epoch = await cheatCodes.rollup.getEpoch();
+      logger.info(`Advancing from epoch ${epoch} to next epoch`);
+      await cheatCodes.rollup.advanceToNextEpoch();
+
+      const results = await Promise.allSettled([...invalidTxPromises, validTx.wait({ timeout: 300, interval: 10 })]);
+
+      // Assert that the large influx of invalid txs are rejected and do not ddos the node
+      for (let i = 0; i < NUM_INVALID_TXS; i++) {
+        const invalidTxReceipt = (results[i] as PromiseFulfilledResult<FieldsOf<TxReceipt>>).value;
+        expect(invalidTxReceipt.status).toBe(TxStatus.DROPPED);
+        expect(invalidTxReceipt.error).toMatch(/Tx dropped by P2P node/);
+      }
+
+      // Assert that the valid tx is successfully sent and mined
+      const validTxReceipt = (results[NUM_INVALID_TXS] as PromiseFulfilledResult<FieldsOf<TxReceipt>>).value;
+      expect(validTxReceipt.status).toBe(TxStatus.SUCCESS);
+
+      logger.info(`Valid tx was mined and invalid txs were dropped by P2P node`);
+    },
+    TIMEOUT,
+  );
 });
