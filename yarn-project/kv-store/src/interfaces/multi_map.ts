@@ -1,4 +1,4 @@
-import type { Key, Range } from './common.js';
+import type { Key } from './common.js';
 import type { AztecAsyncMap, AztecMap } from './map.js';
 
 /**

@@ -1,9 +1,6 @@
-import type { IDBPDatabase, IDBPObjectStore } from 'idb';
-
-import type { Key, Range } from '../interfaces/common.js';
+import type { Key } from '../interfaces/common.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import { IndexedDBAztecMap } from './map.js';
-import type { AztecIDBSchema } from './store.js';
 
 /**
  * A multi map backed by IndexedDB.

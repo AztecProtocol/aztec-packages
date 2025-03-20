@@ -1,5 +1,3 @@
-import { toArray } from '@aztec/foundation/iterable';
-
 import type { IDBPDatabase, IDBPObjectStore } from 'idb';
 
 import type { Key, Range } from '../interfaces/common.js';
