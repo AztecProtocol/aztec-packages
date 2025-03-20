@@ -25,7 +25,7 @@ node ../../bbjs-test prove \
 # this will not be needed after #11024
 
 proof_bytes=$(cat $output_dir/proof | xxd -p)
-public_inputs=$(cat $output_dir/public-inputs | jq -r '.[]')
+public_inputs=$(cat $output_dir/public_inputs | jq -r '.[]')
 proof_start=${proof_bytes:0:8}
 proof_end=${proof_bytes:8}
 
