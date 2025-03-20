@@ -72,7 +72,7 @@ describe('e2e_bot', () => {
     });
   });
 
-  describe('amm-bot', () => {
+  describe.only('amm-bot', () => {
     let bot: AmmBot;
     beforeAll(async () => {
       config = {
@@ -83,7 +83,7 @@ describe('e2e_bot', () => {
       bot = await AmmBot.create(config, { pxe });
     });
 
-    it('sends token transfers from the bot', async () => {
+    it('swaps tokens from the bot', async () => {
       // const balancesBefore = await bot.getBalances();
       await expect(bot.run()).resolves.toBeUndefined();
       // Reading private balances does not work currently
