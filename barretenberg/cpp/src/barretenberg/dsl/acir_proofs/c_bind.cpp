@@ -350,6 +350,26 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
     *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
 }
 
+WASM_EXPORT void acir_prove_ultra_starknet_honk(uint8_t const* acir_vec,
+                                              bool const* recursive,
+                                              uint8_t const* witness_vec,
+                                              uint8_t** out)
+{
+    // Lambda function to ensure things get freed before proving.
+    UltraStarknetProver prover = [&] {
+        const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
+                                              from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
+                                          acir_format::witness_buf_to_witness_data(
+                                              from_buffer<std::vector<uint8_t>>(witness_vec)) };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+
+        return UltraStarknetProver(builder);
+    }();
+    auto proof = prover.construct_proof();
+    *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
+}
+
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraFlavor::VerificationKey;
@@ -370,6 +390,21 @@ WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t
     using VerificationKey = UltraKeccakFlavor::VerificationKey;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
     using Verifier = UltraVerifier_<UltraKeccakFlavor>;
+
+    auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+
+    Verifier verifier{ verification_key };
+
+    *result = verifier.verify_proof(proof);
+}
+
+WASM_EXPORT void acir_verify_ultra_starknet_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
+{
+    using VerificationKey = UltraStarknetFlavor::VerificationKey;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+    using Verifier = UltraVerifier_<UltraStarknetFlavor>;
 
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
@@ -412,6 +447,24 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, bool c
     }();
     VerificationKey vk(proving_key.proving_key);
     vinfo("Constructed UltraKeccakHonk verification key");
+    *out = to_heap_buffer(to_buffer(vk));
+}
+
+WASM_EXPORT void acir_write_vk_ultra_starknet_honk(uint8_t const* acir_vec, bool const* recursive, uint8_t** out)
+{
+    using DeciderProvingKey = DeciderProvingKey_<UltraStarknetFlavor>;
+    using VerificationKey = UltraStarknetFlavor::VerificationKey;
+
+    // lambda to free the builder
+    DeciderProvingKey proving_key = [&] {
+        const acir_format::ProgramMetadata metadata{ .recursive = *recursive, .honk_recursion = 1 };
+        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
+            from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion) };
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        return DeciderProvingKey(builder);
+    }();
+    VerificationKey vk(proving_key.proving_key);
+    vinfo("Constructed UltraStarknetHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 }
 

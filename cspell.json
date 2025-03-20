@@ -269,6 +269,7 @@
     "socat",
     "solhint",
     "SSTORE",
+    "starknet",
     "staticcall",
     "stdlib",
     "struct",
