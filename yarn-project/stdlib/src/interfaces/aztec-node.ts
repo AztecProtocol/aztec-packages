@@ -74,11 +74,12 @@ export interface AztecNode
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus>;
 
   /**
-   * Find the indexes of the given leaves in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
+   * the leaves were inserted.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data.
    * @param treeId - The tree to search in.
-   * @param leafValues - The values to search for
-   * @returns The indices of leaves and the block metadata of a block in which the leaf was inserted.
+   * @param leafValues - The values to search for.
+   * @returns The indices of leaves and the block metadata of a block in which the leaves were inserted.
    */
   findLeavesIndexes(
     blockNumber: L2BlockNumber,

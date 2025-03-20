@@ -512,11 +512,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   /**
    * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
-   * the leaf was inserted.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * the leaves were inserted.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data.
    * @param treeId - The tree to search in.
-   * @param leafValue - The values to search for
-   * @returns The indices of leaves and the block metadata of a block in which the leaf was inserted.
+   * @param leafValues - The values to search for.
+   * @returns The indices of leaves and the block metadata of a block in which the leaves were inserted.
    */
   public async findLeavesIndexes(
     blockNumber: L2BlockNumber,
@@ -534,31 +534,32 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Now we find the block numbers for the indices
     const blockNumbers = await committedDb.getBlockNumbersForLeafIndices(treeId, indices);
 
-    // If any of the block numbers are undefined, we throw an error with the index and the tree id that caused the error
+    // If any of the block numbers are undefined, we throw an error.
     for (let i = 0; i < indices.length; i++) {
       if (blockNumbers[i] === undefined) {
         throw new Error(`Block number is undefined for leaf index ${indices[i]} in tree ${MerkleTreeId[treeId]}`);
       }
     }
 
-    // Get unique block numbers
+    // Get unique block numbers in order to optimize num calls to getLeafValue function.
     const uniqueBlockNumbers = [...new Set(blockNumbers.filter(x => x !== undefined))];
 
-    // Now we obtain the block hashes from the archive tree by calling await committedDb.getLeafValue(treeId, index)
+    // Now we obtain the block hashes from the archive tree by calling await `committedDb.getLeafValue(treeId, index)`
+    // (note that block number corresponds to the leaf index in the archive tree).
     const blockHashes = await Promise.all(
       uniqueBlockNumbers.map(blockNumber => {
         return committedDb.getLeafValue(MerkleTreeId.ARCHIVE, blockNumber!);
       }),
     );
 
-    // If any of the block hashes are undefined, we throw an error with the block number that caused the error
+    // If any of the block hashes are undefined, we throw an error.
     for (let i = 0; i < uniqueBlockNumbers.length; i++) {
       if (blockHashes[i] === undefined) {
         throw new Error(`Block hash is undefined for block number ${uniqueBlockNumbers[i]}`);
       }
     }
 
-    // Create InBlock objects by combining indices, blockNumbers and blockHashes
+    // Create InBlock objects by combining indices, blockNumbers and blockHashes and return them.
     return maybeIndices.map((index, i) => {
       if (index === undefined) {
         return undefined;
