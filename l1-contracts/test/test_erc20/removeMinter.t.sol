@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {TestERC20TestBase} from "./base.t.sol";
 
@@ -22,7 +22,7 @@ contract RemoveMinterTest is TestERC20TestBase {
     // it removes the minter
     // it emits a MinterRemoved event
     vm.expectEmit(true, true, true, true, address(testERC20));
-    emit TestERC20.MinterRemoved(_minter);
+    emit IMintableERC20.MinterRemoved(_minter);
     testERC20.removeMinter(_minter);
     assertEq(testERC20.minters(_minter), false);
   }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {TestERC20TestBase} from "./base.t.sol";
 
@@ -13,7 +13,7 @@ contract MintTest is TestERC20TestBase {
     vm.assume(_caller != testERC20.owner());
     vm.startPrank(_caller);
     // it reverts
-    vm.expectRevert(abi.encodeWithSelector(TestERC20.NotMinter.selector, _caller));
+    vm.expectRevert(abi.encodeWithSelector(IMintableERC20.NotMinter.selector, _caller));
     testERC20.mint(_to, _amount);
     vm.stopPrank();
   }

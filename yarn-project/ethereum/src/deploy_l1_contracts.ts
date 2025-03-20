@@ -60,7 +60,6 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import type { L1ContractsConfig } from './config.js';
-import { MINT_AMOUNT } from './contracts/fee_asset_handler.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -487,7 +486,7 @@ export const cheat_initializeFeeAssetHandler = async (
   const feeAssetHandlerAddress = await deployer.deploy(l1Artifacts.feeAssetHandler, [
     clients.walletClient.account.address,
     feeAssetAddress.toString(),
-    MINT_AMOUNT,
+    BigInt(1e18),
   ]);
   logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
