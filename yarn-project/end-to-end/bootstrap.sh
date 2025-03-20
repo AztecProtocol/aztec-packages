@@ -113,9 +113,6 @@ function test_cmds {
   echo "$prefix simple e2e_token_contract/transfer_to_public"
   echo "$prefix simple e2e_token_contract/transfer.test"
 
-  # circuit_recorder sub-tests
-  echo "$prefix simple e2e_circuit_recorder"
-
   # compose-based tests (use running sandbox)
   echo "$prefix compose composed/docs_examples"
   echo "$prefix compose composed/e2e_pxe"

@@ -827,11 +827,12 @@ export class TXE implements TypedOracle {
 
     const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
 
+    const acir = artifact.bytecode;
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
     const acirExecutionResult = await this.simulationProvider
-      .executeUserCircuit(initialWitness, artifact, acvmCallback)
+      .executeUserCircuit(acir, initialWitness, acvmCallback)
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, artifact);
 
