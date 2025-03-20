@@ -49,6 +49,7 @@ using pc_abs_diff_positive_lookup = lookup_instr_fetching_pc_abs_diff_positive_r
 using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
 using bc_decomposition_lookup = lookup_instr_fetching_bytes_from_bc_dec_relation<FF>;
 using bytecode_size_bc_decomposition_lookup = lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF>;
+using tag_validation_lookup = lookup_instr_fetching_tag_value_validation_relation<FF>;
 
 using testing::random_bytes;
 
@@ -317,6 +318,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     precomputed_builder.process_wire_instruction_spec(trace);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_sel_range_16(trace);
+    precomputed_builder.process_memory_tag_range(trace);
     bytecode_builder.process_instruction_fetching(instr_events, trace);
     bytecode_builder.process_decomposition(decomposition_events, trace);
     range_check_builder.process(range_check_events, trace);
@@ -325,6 +327,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     LookupIntoIndexedByClk<instr_abs_diff_positive_lookup::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<pc_abs_diff_positive_lookup::Settings>().process(trace);
     LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+    LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
 
@@ -336,6 +339,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     check_interaction<wire_instr_spec_lookup>(trace);
     check_interaction<bc_decomposition_lookup>(trace);
     check_interaction<bytecode_size_bc_decomposition_lookup>(trace);
+    check_interaction<tag_validation_lookup>(trace);
 }
 
 // Positive test with 5 five bytecodes and bytecode_id = 0,1,2,3,4

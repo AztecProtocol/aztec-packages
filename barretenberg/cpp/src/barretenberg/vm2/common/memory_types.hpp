@@ -6,7 +6,6 @@
 
 namespace bb::avm2 {
 
-// Adapt NUM_MEMORY_TAGS in fixtures.cpp if this enum is modified.
 enum class MemoryTag {
     FF,
     U1,
@@ -15,6 +14,7 @@ enum class MemoryTag {
     U32,
     U64,
     U128,
+    MAX = U128,
 };
 
 using MemoryAddress = uint32_t;
