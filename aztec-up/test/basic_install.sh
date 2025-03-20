@@ -7,9 +7,14 @@ if [ ! -f /aztec_release_test_container ]; then
   exit 1
 fi
 
+if [ "$(whoami)" != "ubuntu" ]; then
+  echo "Not running as ubuntu. Exiting."
+  exit 1
+fi
+
 export SKIP_PULL=1
 export NO_NEW_SHELL=1
-export INSTALL_URI=file:///root/aztec-packages/aztec-up/bin
+export INSTALL_URI=file:///home/ubuntu/aztec-packages/aztec-up/bin
 
 if [ -t 0 ]; then
   bash_args="-i"
@@ -21,7 +26,7 @@ bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
 
 # We can't create a new shell for this test, so just re-source our modified .bashrc to get updated PATH.
 set +eu
-PS1=" " source ~/.bashrc
+PS1=" " source ~/.bash_profile
 set -eu
 
 # aztec-nargo -V

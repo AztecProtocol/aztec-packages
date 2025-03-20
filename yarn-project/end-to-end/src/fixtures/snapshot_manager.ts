@@ -403,10 +403,8 @@ async function setupFromFresh(
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
       rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
       port: blobSinkPort,
-      dataStoreConfig: {
-        dataDirectory: aztecNodeConfig.dataDirectory,
-        dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-      },
+      dataDirectory: aztecNodeConfig.dataDirectory,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
     },
     telemetry,
   );
@@ -525,10 +523,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
       rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
       port: blobSinkPort,
-      dataStoreConfig: {
-        dataDirectory: statePath,
-        dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-      },
+      dataDirectory: statePath,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
     },
     telemetry,
   );
