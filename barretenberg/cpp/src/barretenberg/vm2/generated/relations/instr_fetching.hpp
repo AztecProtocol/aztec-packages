@@ -59,7 +59,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INSTR_OUT_OF_RANGE_TOGGLE
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_instr_abs_diff -
                         ((FF(2) * new_term.instr_fetching_instr_out_of_range - FF(1)) *
@@ -68,7 +68,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PC_OUT_OF_RANGE_TOGGLE
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_pc_abs_diff -
                         new_term.instr_fetching_sel *
@@ -93,7 +93,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INDIRECT_BYTES_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_indirect -
                         (FF(1) - new_term.instr_fetching_parsing_err) *
@@ -103,7 +103,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OP1_BYTES_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op1 -
                         (FF(1) - new_term.instr_fetching_parsing_err) *
@@ -118,7 +118,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OP2_BYTES_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op2 -
                         (FF(1) - new_term.instr_fetching_parsing_err) *
@@ -134,7 +134,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OP3_BYTES_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp =
                 (new_term.instr_fetching_op3 -
@@ -206,7 +206,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OP4_BYTES_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op4 -
                         (FF(1) - new_term.instr_fetching_parsing_err) *
@@ -218,7 +218,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OP5_BYTES_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op5 -
                         (FF(1) - new_term.instr_fetching_parsing_err) * new_term.instr_fetching_sel_op_dc_0 *
@@ -226,7 +226,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OP6_BYTES_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op6 -
                         (FF(1) - new_term.instr_fetching_parsing_err) * new_term.instr_fetching_sel_op_dc_1 *
@@ -234,7 +234,7 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OP7_BYTES_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_op7 -
                         (FF(1) - new_term.instr_fetching_parsing_err) * new_term.instr_fetching_sel_op_dc_1 *

@@ -166,8 +166,15 @@ export class RollupContract {
     return this.rollup.read.getCurrentSlot();
   }
 
-  getCommitteeAt(timestamp: bigint) {
-    return this.rollup.read.getCommitteeAt([timestamp]);
+  async getCommitteeAt(timestamp: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCommitteeAt',
+      args: [timestamp],
+    });
+
+    return result;
   }
 
   getSampleSeedAt(timestamp: bigint) {
@@ -178,16 +185,37 @@ export class RollupContract {
     return this.rollup.read.getCurrentSampleSeed();
   }
 
-  getCurrentEpochCommittee() {
-    return this.rollup.read.getCurrentEpochCommittee();
+  async getCurrentEpochCommittee() {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCurrentEpochCommittee',
+      args: [],
+    });
+
+    return result;
   }
 
-  getCurrentProposer() {
-    return this.rollup.read.getCurrentProposer();
+  async getCurrentProposer() {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCurrentProposer',
+      args: [],
+    });
+
+    return result;
   }
 
-  getProposerAt(timestamp: bigint) {
-    return this.rollup.read.getProposerAt([timestamp]);
+  async getProposerAt(timestamp: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getProposerAt',
+      args: [timestamp],
+    });
+
+    return result;
   }
 
   getBlock(blockNumber: bigint) {
@@ -262,7 +290,13 @@ export class RollupContract {
     account: `0x${string}` | Account,
   ): Promise<void> {
     try {
-      await this.rollup.read.validateHeader(args, { account });
+      await this.client.simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'validateHeader',
+        args,
+        account,
+      });
     } catch (error: unknown) {
       throw formatViemError(error);
     }
@@ -287,10 +321,16 @@ export class RollupContract {
     }
     const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
     try {
-      const [slot, blockNumber] = await this.rollup.read.canProposeAtTime(
-        [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
-        { account },
-      );
+      const {
+        result: [slot, blockNumber],
+      } = await this.client.simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'canProposeAtTime',
+        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        account,
+      });
+
       return [slot, blockNumber];
     } catch (err: unknown) {
       throw formatViemError(err);

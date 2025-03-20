@@ -95,8 +95,6 @@ The Sequencer Client is a criticial component that coordinates tx validation, L2
 | SEQ_ENFORCE_TIME_TABLE                     | Whether to enforce strict timeliness requirement when building blocks. Refer [here](#sequencer-timeliness-requirements) for more on the timetable                   |
 | SEQ_MAX_TX_PER_BLOCK                       | Increase this to make larger blocks                                                                                                                                 |
 | SEQ_MIN_TX_PER_BLOCK                       | Increase this to require making larger blocks                                                                                                                       |
-| SEQ_MIN_SECONDS_BETWEEN_BLOCKS             | If greater than zero, the sequencer will not propose a block until this much time has passed since the last L2 block was published to L1                            |
-| SEQ_MAX_SECONDS_BETWEEN_BLOCKS             | Sequencer will ignore the minTxPerBlock if this many seconds have passed since the last L2 block.                                                                   |
 | COINBASE                                   | This is the Ethereum address that will receive the validator's share of block rewards. It defaults to your validator address.                                       |
 | FEE_RECIPIENT                              | This is the Aztec address that will receive the validator's share of transaction fees. Also defaults to your validator's address (but on Aztec L2).                 |
 

@@ -235,8 +235,7 @@ try {
   );
   const publicInputs = innerPublicInputs.concat(extraPublicInputs);
 
-  // Honk proof have field length as the first 4 bytes
-  // This should go away in the future
+  // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
   if (testingHonk) {
     proofStr = proofStr.substring(8);
   }
