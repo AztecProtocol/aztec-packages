@@ -364,7 +364,7 @@ export async function startHttpRpcServer(
 
   const { promise, resolve } = promiseWithResolvers<void>();
   const listenPort = options.port ? (typeof options.port === 'string' ? parseInt(options.port) : options.port) : 0;
-  httpServer.listen(listenPort, options.host, () => resolve());
+  httpServer.listen({ host: options.host, port: listenPort, reuseAddress: true }, () => resolve());
 
   // Wait until listen callback is called
   if (!options.noWait) {

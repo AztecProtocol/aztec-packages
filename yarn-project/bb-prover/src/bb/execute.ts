@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import type { UltraHonkFlavor } from '../honk.js';
-import { CLIENT_IVC_PROOF_FILE_NAME, CLIENT_IVC_VK_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
+import { CLIENT_IVC_PROOF_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
@@ -98,7 +98,6 @@ export function executeBB(
   }).catch(_ => ({ status: BB_RESULT.FAILURE, exitCode: -1, signal: undefined }));
 }
 
-// TODO(#7369) comment this etc (really just take inspiration from this and rewrite it all O:))
 export async function executeBbClientIvcProof(
   pathToBB: string,
   workingDirectory: string,
@@ -275,17 +274,13 @@ export async function generateProof(
 /**
  * Used for generating proofs of the tube circuit
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
- * @param pathToBB - The full path to the bb binary
- * @param workingDirectory - A working directory for use by bb
- * @param circuitName - An identifier for the circuit
- * @param bytecode - The compiled circuit bytecode
- * @param inputWitnessFile - The circuit input witness
- * @param log - A logging function
+ *
  * @returns An object containing a result indication, the location of the proof and the duration taken
  */
 export async function generateTubeProof(
   pathToBB: string,
   workingDirectory: string,
+  vkPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -295,8 +290,7 @@ export async function generateTubeProof(
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
-  // // Paths for the inputs
-  const vkPath = join(workingDirectory, CLIENT_IVC_VK_FILE_NAME);
+  // Paths for the inputs
   const proofPath = join(workingDirectory, CLIENT_IVC_PROOF_FILE_NAME);
 
   // The proof is written to e.g. /workingDirectory/proof
@@ -313,10 +307,10 @@ export async function generateTubeProof(
   }
 
   try {
-    if (!(await filePresent(vkPath)) || !(await filePresent(proofPath))) {
+    if (!(await filePresent(proofPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
-    const args = ['-o', outputPath, '-v'];
+    const args = ['-o', outputPath, '-k', vkPath, '-v'];
 
     const timer = new Timer();
     const logFunction = (message: string) => {

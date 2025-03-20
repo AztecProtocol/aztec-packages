@@ -152,8 +152,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(NullifierMembershipWitness);
   });
 
-  it('getPublicDataTreeWitness', async () => {
-    const response = await context.client.getPublicDataTreeWitness(1, Fr.random());
+  it('getPublicDataWitness', async () => {
+    const response = await context.client.getPublicDataWitness(1, Fr.random());
     expect(response).toBeInstanceOf(PublicDataWitness);
   });
 
@@ -317,10 +317,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual({ result: 'invalid', reason: ['Invalid'] });
   });
 
-  it('setConfig', async () => {
-    await context.client.setConfig({ coinbase: EthAddress.random() });
-  });
-
   it('getContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const response = await context.client.getContractClass(Fr.random());
@@ -345,18 +341,9 @@ describe('AztecNodeApiSchema', () => {
     });
   });
 
-  it('flushTxs', async () => {
-    await context.client.flushTxs();
-  });
-
   it('getEncodedEnr', async () => {
     const response = await context.client.getEncodedEnr();
     expect(response).toBe('enr:-');
-  });
-
-  it('addContractClass', async () => {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   });
 
   it('getWorldStateSyncStatus', async () => {
@@ -473,7 +460,7 @@ class MockAztecNode implements AztecNode {
     expect(nullifier).toBeInstanceOf(Fr);
     return Promise.resolve(NullifierMembershipWitness.random());
   }
-  getPublicDataTreeWitness(blockNumber: number | 'latest', leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  getPublicDataWitness(blockNumber: number | 'latest', leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     expect(leafSlot).toBeInstanceOf(Fr);
     return Promise.resolve(PublicDataWitness.random());
   }
@@ -636,8 +623,5 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
-  }
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    return Promise.resolve();
   }
 }

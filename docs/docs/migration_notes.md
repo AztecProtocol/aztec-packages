@@ -8,6 +8,97 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
+
+This change was done to have consistent naming across codebase.
+
+## [aztec.js] Wallet interface and Authwit management
+
+The `Wallet` interface in `aztec.js` is undergoing transformations, trying to be friendlier to wallet builders and reducing the surface of its API. This means `Wallet` no longer extends `PXE`, and instead just implements a subset of the methods of the former. This is NOT going to be its final form, but paves the way towards better interfaces and starts to clarify what the responsibilities of the wallet are:
+
+``` typescript
+/**
+ * The wallet interface.
+ */
+export type Wallet = AccountInterface &
+  Pick<
+    PXE,
+    // Simulation
+    | 'simulateTx'
+    | 'simulateUnconstrained'
+    | 'profileTx'
+    // Sending
+    | 'sendTx'
+    // Contract management (will probably be collapsed in the future to avoid instance and class versions)
+    | 'getContractClassMetadata'
+    | 'getContractMetadata'
+    | 'registerContract'
+    | 'registerContractClass'
+    // Likely to be removed
+    | 'proveTx'
+    // Will probably be collapsed
+    | 'getNodeInfo'
+    | 'getPXEInfo'
+    // Fee info
+    | 'getCurrentBaseFees'
+    // Still undecided, kept for the time being
+    | 'updateContract'
+    // Sender management
+    | 'registerSender'
+    | 'getSenders'
+    | 'removeSender'
+    // Tx status
+    | 'getTxReceipt'
+    // Events. Kept since events are going to be reworked and changes will come when that's done
+    | 'getPrivateEvents'
+    | 'getPublicEvents'
+  > & {
+    createAuthWit(intent: IntentInnerHash | IntentAction): Promise<AuthWitness>;
+  };
+```
+
+As a side effect, a few debug only features have been removed
+
+```diff
+// Obtain tx effects
+const { txHash, debugInfo } = await contract.methods
+      .set_constant(value)
+      .send()
+--      .wait({ interval: 0.1, debug: true });
+++      .wait({ interval: 0.1 })
+
+--    // check that 1 note hash was created
+--    expect(debugInfo!.noteHashes.length).toBe(1);
+++    const txEffect = await aztecNode.getTxEffect(txHash);
+++    const noteHashes = txEffect?.data.noteHashes;
+++    // check that 1 note hash was created
+++    expect(noteHashes?.length).toBe(1);
+
+// Wait for a tx to be proven
+--      tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 3000 })));
+++      const receipt = await tx.wait({ timeout: 300, interval: 10 });
+++      await waitForProven(aztecNode, receipt, { provenTimeout: 3000 });
+```
+
+Authwit management has changed, and PXE no longer stores them. This is unnecessary because now they can be externally provided to simulations and transactions, making sure no stale authorizations are kept inside PXE's db.
+
+```diff
+const witness = await wallet.createAuthWit({ caller, action });
+--await callerWallet.addAuthWitness(witness);
+--await action.send().wait();
+++await action.send({ authWitnesses: [witness] }).wait();
+```
+
+Another side effect of this is that the interface of the `lookupValidity` method has changed, and now the authwitness has to be provided:
+
+```diff
+const witness = await wallet.createAuthWit({ caller, action });
+--await callerWallet.addAuthWitness(witness);
+--await wallet.lookupValidity(wallet.getAddress(), { caller, action });
+++await wallet.lookupValidity(wallet.getAddress(), { caller, action }, witness);
+```
+
+
 ### [PXE] Concurrent contract function simulation disabled
 
 PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
@@ -24,7 +115,7 @@ class BatchCall extends BaseContractInteraction {
     }
 ```
 
-The `request` method of `BaseContractInteraction` now returns `ExecutionRequestInit` without the fee (`Omit<ExecutionRequestInit, 'fee'>`). This object includes all the necessary data to execute one or more functions. `BatchCall` invokes this method on all interactions to aggregate the required information. It is also used internally in simulations for fee estimation.
+The `request` method of `BaseContractInteraction` now returns `ExecutionPayload`. This object includes all the necessary data to execute one or more functions. `BatchCall` invokes this method on all interactions to aggregate the required information. It is also used internally in simulations for fee estimation.
 
 Declaring a `BatchCall`:
 

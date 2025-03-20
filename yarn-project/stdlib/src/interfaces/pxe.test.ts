@@ -9,7 +9,6 @@ import { SiblingPath } from '@aztec/foundation/trees';
 import { jest } from '@jest/globals';
 import { deepStrictEqual } from 'assert';
 import omit from 'lodash.omit';
-import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import type { AbiDecoded } from '../abi/decoder.js';
@@ -95,19 +94,6 @@ describe('PXESchema', () => {
 
   it('isL1ToL2MessageSynced', async () => {
     await context.client.isL1ToL2MessageSynced(Fr.random());
-  });
-
-  it('addAuthWitness', async () => {
-    await context.client.addAuthWitness(AuthWitness.random());
-  });
-
-  it('getAuthWitness', async () => {
-    const result = await context.client.getAuthWitness(Fr.random());
-    expect(result).toEqual([expect.any(Fr)]);
-  });
-
-  it('storeCapsule', async () => {
-    await context.client.storeCapsule(address, Fr.random(), times(3, Fr.random));
   });
 
   it('registerAccount', async () => {
@@ -234,7 +220,7 @@ describe('PXESchema', () => {
   });
 
   it('simulateUnconstrained', async () => {
-    const result = await context.client.simulateUnconstrained('function', [], address, address, [address]);
+    const result = await context.client.simulateUnconstrained('function', [], address, [], address, [address]);
     expect(result).toEqual(10n);
   });
 
@@ -321,21 +307,6 @@ class MockPXE implements PXE {
 
   isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
     return Promise.resolve(false);
-  }
-
-  addAuthWitness(authWitness: AuthWitness): Promise<void> {
-    expect(authWitness).toBeInstanceOf(AuthWitness);
-    return Promise.resolve();
-  }
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    expect(messageHash).toBeInstanceOf(Fr);
-    return Promise.resolve([Fr.random()]);
-  }
-  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void> {
-    expect(contract).toBeInstanceOf(AztecAddress);
-    expect(storageSlot).toBeInstanceOf(Fr);
-    expect(capsule.every(c => c instanceof Fr)).toBeTruthy();
-    return Promise.resolve();
   }
   registerAccount(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
     expect(secretKey).toBeInstanceOf(Fr);
@@ -462,12 +433,14 @@ class MockPXE implements PXE {
     _functionName: string,
     _args: any[],
     to: AztecAddress,
+    authwits?: AuthWitness[],
     from?: AztecAddress | undefined,
     scopes?: AztecAddress[] | undefined,
   ): Promise<AbiDecoded> {
     expect(to).toEqual(this.address);
     expect(from).toEqual(this.address);
     expect(scopes).toEqual([this.address]);
+    expect(authwits).toEqual([]);
     return Promise.resolve(10n);
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {

@@ -1,12 +1,12 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
-import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { InboxAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassRegisteredEvent,
   PrivateFunctionBroadcastedEvent,
@@ -84,7 +84,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
    */
   private runningPromise?: RunningPromise;
 
-  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private rollup: RollupContract;
   private inbox: GetContractReturnType<typeof InboxAbi, ViemPublicClient>;
 
   private store: ArchiverStoreHelper;
@@ -119,11 +119,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     this.tracer = instrumentation.tracer;
     this.store = new ArchiverStoreHelper(dataStore);
 
-    this.rollup = getContract({
-      address: l1Addresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: publicClient,
-    });
+    this.rollup = new RollupContract(publicClient, l1Addresses.rollupAddress);
 
     this.inbox = getContract({
       address: l1Addresses.inboxAddress.toString(),
@@ -152,15 +148,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       pollingInterval: config.viemPollingIntervalMS,
     });
 
-    const rollup = getContract({
-      address: config.l1Contracts.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: publicClient,
-    });
+    const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
 
     const [l1StartBlock, l1GenesisTime] = await Promise.all([
-      rollup.read.L1_BLOCK_AT_GENESIS(),
-      rollup.read.getGenesisTime(),
+      rollup.getL1StartBlock(),
+      rollup.getL1GenesisTime(),
     ] as const);
 
     const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
@@ -306,7 +298,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   /** Queries the rollup contract on whether a prune can be executed on the immediatenext L1 block. */
   private async canPrune(currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
     const time = (currentL1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
-    return await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber });
+    return await this.rollup.canPruneAtTime(time, { blockNumber: currentL1BlockNumber });
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
@@ -394,7 +386,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   ): Promise<{ provenBlockNumber: bigint }> {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
     const [provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber] =
-      await this.rollup.read.status([localPendingBlockNumber], { blockNumber: currentL1BlockNumber });
+      await this.rollup.status(localPendingBlockNumber, { blockNumber: currentL1BlockNumber });
 
     const updateProvenBlock = async () => {
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
@@ -428,7 +420,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     const noBlocks = localPendingBlockNumber === 0n && pendingBlockNumber === 0n;
     if (noBlocks) {
       await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
-      this.log.debug(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+      this.log.debug(
+        `No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}, no blocks on chain`,
+      );
       return { provenBlockNumber };
     }
 
@@ -444,7 +438,14 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
       const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingBlock.archive.root.toString();
       if (noBlockSinceLast) {
-        await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
+        // We believe the following line causes a problem when we encounter L1 re-orgs.
+        // Basically, by setting the synched L1 block number here, we are saying that we have
+        // processed all blocks up to the current L1 block number and we will not attempt to retrieve logs from
+        // this block again (or any blocks before).
+        // However, in the re-org scenario, our L1 node is temporarily lying to us and we end up potentially missing blocks
+        // We must only set this block number based on actually retrieved logs.
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8621): Tackle this properly when we handle L1 Re-orgs.
+        //await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
         this.log.debug(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
         return { provenBlockNumber };
       }
@@ -464,7 +465,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
             break;
           }
 
-          const archiveAtContract = await this.rollup.read.archiveAt([BigInt(candidateBlock.number)]);
+          const archiveAtContract = await this.rollup.archiveAt(BigInt(candidateBlock.number));
 
           if (archiveAtContract === candidateBlock.archive.root.toString()) {
             break;
@@ -483,7 +484,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       }
     }
 
-    // Retrieve L2 blocks in batches. Each batch is estimated to acommodate up to L2 'blockBatchSize' blocks,
+    // Retrieve L2 blocks in batches. Each batch is estimated to accommodate up to L2 'blockBatchSize' blocks,
     // computed using the L2 block time vs the L1 block time.
     let searchStartBlock: bigint = blocksSynchedTo;
     let searchEndBlock: bigint = blocksSynchedTo;
@@ -493,9 +494,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
       this.log.trace(`Retrieving L2 blocks from L1 block ${searchStartBlock} to ${searchEndBlock}`);
 
-      // TODO(md): Retreive from blob sink then from consensus client, then from peers
+      // TODO(md): Retrieve from blob sink then from consensus client, then from peers
       const retrievedBlocks = await retrieveBlocksFromRollup(
-        this.rollup,
+        this.rollup.getContract(),
         this.publicClient,
         this.blobSinkClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
@@ -816,16 +817,6 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return this.store.getContractClassIds();
   }
 
-  // TODO(#10007): Remove this method
-  async addContractClass(contractClass: ContractClassPublic): Promise<void> {
-    await this.store.addContractClasses(
-      [contractClass],
-      [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
-      0,
-    );
-    return;
-  }
-
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
@@ -906,15 +897,6 @@ class ArchiverStoreHelper
   #log = createLogger('archiver:block-helper');
 
   constructor(private readonly store: ArchiverDataStore) {}
-
-  // TODO(#10007): Remove this method
-  addContractClasses(
-    contractClasses: ContractClassPublic[],
-    bytecodeCommitments: Fr[],
-    blockNum: number,
-  ): Promise<boolean> {
-    return this.store.addContractClasses(contractClasses, bytecodeCommitments, blockNum);
-  }
 
   /**
    * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.

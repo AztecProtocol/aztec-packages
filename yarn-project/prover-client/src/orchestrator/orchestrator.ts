@@ -237,7 +237,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
     for (const tx of txs) {
       const txHash = (await tx.getTxHash()).toString();
-      const tubeInputs = new TubeInputs(tx.clientIvcProof);
+      const tubeInputs = new TubeInputs(!!tx.data.forPublic, tx.clientIvcProof);
       const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
       this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));

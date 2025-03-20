@@ -1,9 +1,10 @@
+import { EncodedCallsForEntrypoint } from '@aztec/entrypoints/encoding';
+import type { EntrypointInterface, FeeOptions } from '@aztec/entrypoints/interfaces';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
-
-import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from './entrypoint.js';
 
 /**
  * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction
@@ -15,18 +16,24 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     private address: AztecAddress = ProtocolContractAddress.MultiCallEntrypoint,
   ) {}
 
-  async createTxExecutionRequest(executions: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { fee, calls, authWitnesses = [], hashedArguments = [], capsules = [] } = executions;
-    const payload = await EntrypointPayload.fromAppExecution(calls);
-    const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [payload]));
+  async createTxExecutionRequest(exec: ExecutionPayload, fee: FeeOptions): Promise<TxExecutionRequest> {
+    // Initial request with calls, authWitnesses and capsules
+    const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
 
+    // Encode the calls
+    const encodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls);
+
+    // Obtain the entrypoint hashed args, built from the encoded calls
+    const abi = this.getEntrypointAbi();
+    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [encodedCalls]));
+
+    // Assemble the tx request
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...payload.hashedArguments, ...hashedArguments, entrypointHashedArgs],
+      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
       authWitnesses,
       capsules,
     });

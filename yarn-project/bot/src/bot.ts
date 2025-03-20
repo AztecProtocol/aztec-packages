@@ -5,12 +5,13 @@ import {
   type SendMethodOptions,
   type Wallet,
   createLogger,
+  waitForProven,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { Gas } from '@aztec/stdlib/gas';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
 
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
@@ -25,15 +26,19 @@ export class Bot {
   private successes: number = 0;
 
   protected constructor(
+    public readonly pxe: PXE,
     public readonly wallet: Wallet,
     public readonly token: TokenContract | EasyPrivateTokenContract,
     public readonly recipient: AztecAddress,
     public config: BotConfig,
   ) {}
 
-  static async create(config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}): Promise<Bot> {
-    const { wallet, token, recipient } = await new BotFactory(config, dependencies).setup();
-    return new Bot(wallet, token, recipient, config);
+  static async create(
+    config: BotConfig,
+    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
+  ): Promise<Bot> {
+    const { pxe, wallet, token, recipient } = await new BotFactory(config, dependencies).setup();
+    return new Bot(pxe, wallet, token, recipient, config);
   }
 
   public updateConfig(config: Partial<BotConfig>) {
@@ -86,9 +91,10 @@ export class Bot {
     );
     const receipt = await tx.wait({
       timeout: txMinedWaitSeconds,
-      provenTimeout: txMinedWaitSeconds,
-      proven: followChain === 'PROVEN',
     });
+    if (followChain === 'PROVEN') {
+      await waitForProven(this.pxe, receipt, { provenTimeout: txMinedWaitSeconds });
+    }
     this.log.info(
       `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
       logCtx,
