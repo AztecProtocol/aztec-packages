@@ -82,6 +82,5 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     } else {
         inner_proof.pre_ipa_proof = inner_prover.transcript->proof_data;
     }
-    info(inner_proof.pre_ipa_proof.size());
 }
 } // namespace bb
