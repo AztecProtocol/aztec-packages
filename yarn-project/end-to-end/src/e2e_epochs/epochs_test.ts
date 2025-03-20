@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
+import { Fr, type Logger, MerkleTreeId, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -205,8 +205,11 @@ export class EpochsTestContext {
   }
 
   /** Verifies whether the given block number is found on the aztec node. */
-  public async verifyHistoricBlock(blockNumber: L2BlockNumber, expectedSuccess: boolean) {
-    const block = await this.context.aztecNode.getBlock(blockNumber);
-    expect(block !== undefined).toBe(expectedSuccess);
+  public async verifyHistoricBlock(blockNumber: number, expectedSuccess: boolean) {
+    const result = await this.context.aztecNode
+      .findLeavesIndexes(blockNumber, MerkleTreeId.NULLIFIER_TREE, [Fr.ZERO])
+      .then(_ => true)
+      .catch(_ => false);
+    expect(result).toBe(expectedSuccess);
   }
 }
