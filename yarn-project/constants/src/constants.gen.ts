@@ -352,6 +352,7 @@ export const PROOF_TYPE_PG = 3;
 export const PROOF_TYPE_AVM = 4;
 export const PROOF_TYPE_ROLLUP_HONK = 5;
 export const PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
+export const AVM_PC_SIZE_IN_BITS = 32;
 export const TWO_POW_64 = 18446744073709551616n;
 export const DEFAULT_UPDATE_DELAY = 3600;
 export const MINIMUM_UPDATE_DELAY = 25;

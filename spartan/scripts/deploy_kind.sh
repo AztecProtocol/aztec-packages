@@ -46,11 +46,32 @@ function show_status_until_pxe_ready {
   set +x   # don't spam with our commands
   sleep 15 # let helm upgrade start
   for i in {1..100}; do
+    echo "--- Pod status ---"
+    kubectl get pods -n "$namespace"
+
+
+    # Show pod events
+    echo "--- Recent Pod Events ---"
+    kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10
+
+    # Show pods
+    echo "--- Pod Status ---"
+    kubectl get pods -n "$namespace"
+
+
+    # Show logs from validator pods only
+    echo "--- Pod logs ---"
+    for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}'); do
+      echo "Logs from $pod:"
+      kubectl logs --tail=10 -n "$namespace" $pod 2>/dev/null || echo "Cannot get logs yet"
+      echo "-------------------"
+    done
+
+
     if kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
       break # we are up, stop showing status
     fi
-    # show startup status
-    kubectl get pods -n "$namespace"
+
   done
 }
 

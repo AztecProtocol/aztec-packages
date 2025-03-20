@@ -1,6 +1,12 @@
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import { type AccountWallet, type ContractInstanceWithAddress, type TxHash, computeSecretHash } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  type ContractInstanceWithAddress,
+  type PXE,
+  type TxHash,
+  computeSecretHash,
+} from '@aztec/aztec.js';
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
@@ -33,6 +39,8 @@ describe('Aztec persistence', () => {
    * All five scenarios use the same L1 state, which is deployed in the `beforeAll` hook.
    */
 
+  let pxe: PXE;
+
   // the test contract and account deploying it
   let contractInstance: ContractInstanceWithAddress;
   let contractAddress: AztecAddress;
@@ -55,6 +63,7 @@ describe('Aztec persistence', () => {
     dataDirectory = await mkdtemp(join(tmpdir(), 'aztec-node-'));
 
     const initialContext = await setup(0, { dataDirectory, numberOfInitialFundedAccounts: 3 }, { dataDirectory });
+    pxe = initialContext.pxe;
     deployL1ContractsValues = initialContext.deployL1ContractsValues;
 
     initialFundedAccounts = initialContext.initialFundedAccounts;
@@ -82,10 +91,11 @@ describe('Aztec persistence', () => {
 
     await addPendingShieldNoteToPXE(
       contract,
-      ownerWallet,
+      ownerWallet.getAddress(),
       1000n,
       await computeSecretHash(secret),
       mintTxReceipt.txHash,
+      pxe,
     );
 
     await contract.methods.redeem_shield(owner.address, 1000n, secret).send().wait();
@@ -149,10 +159,11 @@ describe('Aztec persistence', () => {
         .wait();
       await addPendingShieldNoteToPXE(
         contract,
-        ownerWallet,
+        ownerWallet.getAddress(),
         1000n,
         await computeSecretHash(secret),
         mintTxReceipt.txHash,
+        pxe,
       );
 
       await contract.methods.redeem_shield(ownerWallet.getAddress(), 1000n, secret).send().wait();
@@ -319,7 +330,14 @@ describe('Aztec persistence', () => {
 
     it('allows consuming transparent note created on another PXE', async () => {
       // this was created in the temporary PXE in `beforeAll`
-      await addPendingShieldNoteToPXE(contract, ownerWallet, mintAmount, await computeSecretHash(secret), mintTxHash);
+      await addPendingShieldNoteToPXE(
+        contract,
+        ownerWallet.getAddress(),
+        mintAmount,
+        await computeSecretHash(secret),
+        mintTxHash,
+        pxe,
+      );
 
       const balanceBeforeRedeem = await contract.methods.balance_of_private(ownerWallet.getAddress()).simulate();
 
@@ -337,13 +355,14 @@ function toBoundedVec(arr: Fr[], maxLen: number) {
 
 async function addPendingShieldNoteToPXE(
   contract: TokenBlacklistContract,
-  wallet: AccountWallet,
+  recipient: AztecAddress,
   amount: bigint,
   secretHash: Fr,
   txHash: TxHash,
+  pxe: PXE,
 ) {
   // docs:start:offchain_delivery
-  const txEffects = await wallet.getTxEffect(txHash);
+  const txEffects = await pxe.getTxEffect(txHash);
   await contract.methods
     .deliver_transparent_note(
       contract.address,
@@ -352,7 +371,7 @@ async function addPendingShieldNoteToPXE(
       txHash.hash,
       toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
       txEffects!.data.nullifiers[0],
-      wallet.getAddress(),
+      recipient,
     )
     .simulate();
   // docs:end:offchain_delivery

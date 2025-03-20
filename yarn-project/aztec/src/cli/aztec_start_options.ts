@@ -62,6 +62,7 @@ export const universalOptions = [
   'l1Contracts',
   'p2pEnabled',
   'dataDirectory',
+  'dataStoreMapSizeKb',
 ];
 
 // Define categories and options
@@ -97,9 +98,16 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   API: [
     {
       flag: '--port <value>',
-      description: 'Port to run the Aztec Services on on',
+      description: 'Port to run the Aztec Services on',
       defaultValue: 8080,
       envVar: 'AZTEC_PORT',
+      parseVal: val => parseInt(val, 10),
+    },
+    {
+      flag: '--admin-port <value>',
+      description: 'Port to run admin APIs of Aztec Services on on',
+      defaultValue: 8880,
+      envVar: 'AZTEC_ADMIN_PORT',
       parseVal: val => parseInt(val, 10),
     },
     {
@@ -148,6 +156,22 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
         'API key header for the Ethereum consensus node. If not set, the api key will be appended to the URL as ?key=<api-key>',
       defaultValue: undefined,
       envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADER',
+    },
+  ],
+  STORAGE: [
+    {
+      flag: '--data-directory <value>',
+      description: 'Where to store data for services. If not set, will store temporarily',
+      defaultValue: undefined,
+      envVar: 'DATA_DIRECTORY',
+    },
+    {
+      flag: '--data-store-map-size-kb <value>',
+      description:
+        'The maximum possible size of the data store DB in KB. Can be overridden by component-specific options.',
+      defaultValue: undefined,
+      envVar: 'DATA_STORE_MAP_SIZE_KB',
+      parseVal: (val: string) => parseInt(val, 10),
     },
   ],
   'L1 CONTRACT ADDRESSES': [
@@ -201,12 +225,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec Node with options',
       defaultValue: undefined,
       envVar: undefined,
-    },
-    {
-      flag: '--data-directory <value>',
-      description: 'Where to store data. If not set, will store temporarily',
-      defaultValue: undefined,
-      envVar: 'DATA_DIRECTORY',
     },
     {
       flag: '--node.archiverUrl <value>',
@@ -294,7 +312,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
   ],
-  BLOB_SINK: [
+  'BLOB SINK': [
     {
       flag: '--blob-sink',
       description: 'Starts Aztec Blob Sink with options',

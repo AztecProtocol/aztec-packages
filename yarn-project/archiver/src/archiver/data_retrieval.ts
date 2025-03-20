@@ -203,7 +203,7 @@ async function getBlockFromRollupTx(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
-  blobHashes: Buffer[], // WORKTODO(md): buffer32?
+  blobHashes: Buffer[], // TODO(md): buffer32?
   l2BlockNum: bigint,
   rollupAddress: Hex,
   logger: Logger,

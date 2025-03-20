@@ -15,6 +15,8 @@ import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { type GetContractReturnType, type Hex, getContract, toFunctionSelector } from 'viem';
 
+import type { Wallet } from '../index.js';
+
 // docs:start:claim_type
 // docs:start:claim_type_amount
 /** L1 to L2 message info to claim it on L2. */
@@ -178,20 +180,20 @@ export class L1FeeJuicePortalManager {
 
   /**
    * Creates a new instance
-   * @param pxe - PXE client used for retrieving the L1 contract addresses.
+   * @param walletOrPxe - Wallet or PXE client used for retrieving the L1 contract addresses.
    * @param publicClient - L1 public client.
    * @param walletClient - L1 wallet client.
    * @param logger - Logger.
    */
   public static async new(
-    pxe: PXE,
+    walletOrPxe: Wallet | PXE,
     publicClient: ViemPublicClient,
     walletClient: ViemWalletClient,
     logger: Logger,
   ): Promise<L1FeeJuicePortalManager> {
     const {
       l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress },
-    } = await pxe.getNodeInfo();
+    } = await walletOrPxe.getNodeInfo();
 
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');
@@ -267,6 +269,7 @@ export class L1ToL2TokenPortalManager {
     };
   }
 
+  // docs:start:bridge_tokens_private
   /**
    * Bridges tokens from L1 to L2 privately. Handles token approvals. Returns once the tx has been mined.
    * @param to - Address to send the tokens to on L2.
@@ -278,6 +281,7 @@ export class L1ToL2TokenPortalManager {
     amount: bigint,
     mint = false,
   ): Promise<L2AmountClaimWithRecipient> {
+    // docs:end:bridge_tokens_private
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');

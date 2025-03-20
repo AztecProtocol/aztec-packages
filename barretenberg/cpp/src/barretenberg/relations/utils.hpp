@@ -64,7 +64,7 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Scale Univaraites, each representing a subrelation, by different challenges
+     * @brief Scale Univariates, each representing a subrelation, by different challenges
      *
      * @param tuple Tuple of tuples of Univariates
      * @param challenge Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation doesn't need to be
@@ -85,7 +85,7 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Scale Univaraites by consecutive powers of the provided challenge
+     * @brief Scale Univariates by consecutive powers of the provided challenge
      *
      * @param tuple Tuple of tuples of Univariates
      * @param challenge

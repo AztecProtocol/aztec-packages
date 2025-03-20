@@ -1,8 +1,9 @@
-import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, waitForProven } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
-import { FeeJuicePortalAbi, RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { FeeJuicePortalAbi, RewardDistributorAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
@@ -25,7 +26,7 @@ describe('full_prover', () => {
   let sender: AztecAddress;
   let recipient: AztecAddress;
 
-  let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  let rollup: RollupContract;
   let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
   let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
   let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, PublicClient<HttpTransport, Chain>>;
@@ -41,11 +42,7 @@ describe('full_prover', () => {
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
     [sender, recipient] = accounts.map(a => a.address);
 
-    rollup = getContract({
-      abi: RollupAbi,
-      address: t.l1Contracts.l1ContractAddresses.rollupAddress.toString(),
-      client: t.l1Contracts.publicClient,
-    });
+    rollup = new RollupContract(t.l1Contracts.publicClient, t.l1Contracts.l1ContractAddresses.rollupAddress);
 
     rewardDistributor = getContract({
       abi: RewardDistributorAbi,
@@ -118,11 +115,11 @@ describe('full_prover', () => {
       // and we have more than one block in the epoch we end up proving
       logger.info(`Sending private tx`);
       const txPrivate = privateProvenTx.send();
-      await txPrivate.wait({ timeout: 300, interval: 10, proven: false });
+      await txPrivate.wait({ timeout: 300, interval: 10 });
 
       logger.info(`Sending public tx`);
       const txPublic = publicProvenTx.send();
-      await txPublic.wait({ timeout: 300, interval: 10, proven: false });
+      await txPublic.wait({ timeout: 300, interval: 10 });
 
       logger.info(`Both txs have been mined`);
       const txs = [txPrivate, txPublic];
@@ -136,29 +133,28 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const rewardsBeforeCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
-      const rewardsBeforeProver = await rollup.read.getSpecificProverRewardsForEpoch([
-        epoch,
-        t.proverAddress.toString(),
-      ]);
-      const oldProvenBlockNumber = await rollup.read.getProvenBlockNumber();
+      const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
+      const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
+      const oldProvenBlockNumber = await rollup.getProvenBlockNumber();
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
-      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 3000 })));
+      await Promise.all(
+        txs.map(async tx => {
+          const receipt = await tx.wait({ timeout: 300, interval: 10 });
+          await waitForProven(t.aztecNode, receipt, { provenTimeout: 3000 });
+        }),
+      );
 
-      const newProvenBlockNumber = await rollup.read.getProvenBlockNumber();
+      const newProvenBlockNumber = await rollup.getProvenBlockNumber();
       expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
-      expect(await rollup.read.getPendingBlockNumber()).toBe(newProvenBlockNumber);
+      expect(await rollup.getBlockNumber()).toBe(newProvenBlockNumber);
 
       logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
-      const rewardsAfterCoinbase = await rollup.read.getSequencerRewards([COINBASE_ADDRESS.toString()]);
+      const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
       expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
 
-      const rewardsAfterProver = await rollup.read.getSpecificProverRewardsForEpoch([
-        epoch,
-        t.proverAddress.toString(),
-      ]);
+      const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
       expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
       const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
@@ -183,7 +179,6 @@ describe('full_prover', () => {
     if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
-
     // Create the two transactions
     const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
     const privateSendAmount = privateBalance / 20n;
@@ -208,7 +203,7 @@ describe('full_prover', () => {
     logger.info(`Sending private txs`);
     // First block, one private tx
     const firstTxPrivate = firstPrivateProvenTx.send();
-    await firstTxPrivate.wait({ timeout: 300, interval: 10, proven: false });
+    await firstTxPrivate.wait({ timeout: 300, interval: 10 });
 
     // Create and send a set of 3 txs for the second block,
     // so we end up with three blocks and have merge and block-merge circuits
@@ -219,12 +214,12 @@ describe('full_prover', () => {
     ];
     const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove(provingOpts)));
     const secondBlockTxs = await Promise.all(secondBlockProvenTxs.map(p => p.send()));
-    await Promise.all(secondBlockTxs.map(t => t.wait({ timeout: 300, interval: 10, proven: false })));
+    await Promise.all(secondBlockTxs.map(t => t.wait({ timeout: 300, interval: 10 })));
 
     logger.info(`Sending public tx`);
     // Third block, one public tx
     const txPublic = publicProvenTx.send();
-    await txPublic.wait({ timeout: 300, interval: 10, proven: false });
+    await txPublic.wait({ timeout: 300, interval: 10 });
 
     logger.info(`All txs have been mined`);
     const txs = [firstTxPrivate, ...secondBlockTxs, txPublic];
@@ -242,7 +237,12 @@ describe('full_prover', () => {
 
     // And wait for the first pair of txs to be proven
     logger.info(`Awaiting proof for the previous epoch`);
-    await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
+    await Promise.all(
+      txs.map(async tx => {
+        const receipt = await tx.wait({ timeout: 300, interval: 10 });
+        await waitForProven(t.aztecNode, receipt, { provenTimeout: 1500 });
+      }),
+    );
 
     [
       'private-kernel-init',

@@ -11,14 +11,13 @@ namespace bb {
  * @param output_path the working directory from which the proof and verification data are read
  * @param num_unused_public_inputs
  */
-void prove_tube(const std::string& output_path)
+void prove_tube(const std::string& output_path, const std::string& vk_path)
 {
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = output_path + "/vk";
     std::string proof_path = output_path + "/proof";
 
     // Note: this could be decreased once we optimise the size of the ClientIVC recursive verifier
@@ -27,7 +26,7 @@ void prove_tube(const std::string& output_path)
 
     // Read the proof  and verification data from given files
     auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vkPath));
+    auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
     // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
     // verify IPA. The + 1 is to satisfy IPA verification key requirements.

@@ -50,13 +50,6 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress>;
 
   /**
-   * Retrieve the auth witness for a given message hash.
-   * @param messageHash - The message hash.
-   * @returns A Promise that resolves to an array of field elements representing the auth witness.
-   */
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
-
-  /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
    * @returns A Promise that resolves to nullifier keys.
@@ -157,7 +150,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param blockNumber - The block number at which to get the witness.
    * @param leafSlot - The slot of the public data in the public data tree.
    */
-  getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.

@@ -196,6 +196,10 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr rho = Fr::random_element();
     Fr gemini_eval_challenge = Fr::random_element();
     Fr shplonk_batching_challenge = Fr::random_element();
+
+    std::vector<Fr> shplonk_batching_challenge_powers =
+        compute_shplonk_batching_challenge_powers(shplonk_batching_challenge);
+
     Fr shplonk_eval_challenge = Fr::random_element();
 
     std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
@@ -239,32 +243,44 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(gemini_eval_challenge, this->log_n);
 
     GroupElement expected_result = GroupElement::zero();
-    std::vector<Fr> expected_inverse_vanishing_evals(this->log_n + 1);
+    std::vector<Fr> expected_inverse_vanishing_evals;
+    expected_inverse_vanishing_evals.reserve(2 * this->log_n);
     // Compute expected inverses
-    expected_inverse_vanishing_evals[0] = (shplonk_eval_challenge - r_squares[0]).invert();
-    for (size_t idx = 1; idx < this->log_n + 1; idx++) {
-        expected_inverse_vanishing_evals[idx] = (shplonk_eval_challenge + r_squares[idx - 1]).invert();
+    for (size_t idx = 0; idx < this->log_n; idx++) {
+        expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge - r_squares[idx]).invert());
+        expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge + r_squares[idx]).invert());
     }
 
     Fr current_challenge{ shplonk_batching_challenge * shplonk_batching_challenge };
     for (size_t idx = 0; idx < prover_commitments.size(); ++idx) {
-        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[idx + 2];
+        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[2 * idx + 2];
+        current_challenge *= shplonk_batching_challenge;
+        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[2 * idx + 3];
         current_challenge *= shplonk_batching_challenge;
     }
 
     // Run the ShepliminiVerifier batching method
     std::vector<Fr> inverse_vanishing_evals =
-        ShplonkVerifier::compute_inverted_gemini_denominators(this->log_n + 1, shplonk_eval_challenge, r_squares);
+        ShplonkVerifier::compute_inverted_gemini_denominators(shplonk_eval_challenge, r_squares);
 
+    Fr expected_constant_term_accumulator{ 0 };
+
+    std::vector<Fr> gemini_fold_pos_evaluations =
+        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(this->log_n,
+                                                             expected_constant_term_accumulator,
+                                                             mle_opening_point,
+                                                             r_squares,
+                                                             prover_evaluations,
+                                                             expected_constant_term_accumulator);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
-    Fr expected_constant_term_accumulator{ 0 };
 
     ShpleminiVerifier::batch_gemini_claims_received_from_prover(this->log_n,
                                                                 prover_commitments,
                                                                 prover_evaluations,
+                                                                gemini_fold_pos_evaluations,
                                                                 inverse_vanishing_evals,
-                                                                shplonk_batching_challenge,
+                                                                shplonk_batching_challenge_powers,
                                                                 commitments,
                                                                 scalars,
                                                                 expected_constant_term_accumulator);
