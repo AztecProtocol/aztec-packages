@@ -24,6 +24,9 @@ void write(const ProverOutput& prover_output,
     const bool output_to_stdout = output_dir == "-";
 
     const auto to_json = [](const std::vector<bb::fr>& data) {
+        if (data.empty()) {
+            return std::string("[]");
+        }
         return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
 
