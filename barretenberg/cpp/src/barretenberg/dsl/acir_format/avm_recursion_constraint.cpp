@@ -6,8 +6,10 @@
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/vm/avm/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm/avm/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm/avm/recursion/recursive_verifier.hpp"
+
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
@@ -207,6 +209,96 @@ PairingPointAccumulatorIndices create_avm_recursion_constraints(
     // inputs is important, like what the plonk recursion constraint does.
 
     return output_agg_object.get_witness_indices();
+}
+
+// NEW VERSION THAT USES GOBLIN PLONK IN VERIFICATION ALGO
+HonkRecursionConstraintOutput create_honk_recursion_constraints(
+    Builder& builder,
+    const RecursionConstraint& input,
+    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    bool has_valid_witness_assignments)
+{
+    // using Flavor = AvmRecursiveFlavor_<Builder>;
+    // using RecursiveVerificationKey = Flavor::VerificationKey;
+    using RecursiveVerifier = bb::avm::AvmGoblinRecursiveVerifier;
+
+    ASSERT(input.proof_type == AVM);
+
+    // Construct an in-circuit representation of the verification key.
+    std::vector<field_ct> key_fields;
+    key_fields.reserve(input.key.size());
+    for (const auto& idx : input.key) {
+        auto field = field_ct::from_witness_index(&builder, idx);
+        key_fields.emplace_back(field);
+    }
+
+    auto fields_from_witnesses = [&](std::vector<uint32_t> const& input) {
+        std::vector<field_ct> result;
+        result.reserve(input.size());
+        for (const auto& idx : input) {
+            auto field = field_ct::from_witness_index(&builder, idx);
+            result.emplace_back(field);
+        }
+        return result;
+    };
+
+    const auto proof_fields = fields_from_witnesses(input.proof);
+    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
+
+    auto it = public_inputs_flattened.begin();
+    VmPublicInputs vm_public_inputs =
+        avm_trace::convert_public_inputs(std::vector(it, it + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH));
+    it += PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
+    std::vector<field_ct> calldata(it, it + AVM_PUBLIC_COLUMN_MAX_SIZE);
+    it += AVM_PUBLIC_COLUMN_MAX_SIZE;
+    std::vector<field_ct> return_data(it, it + AVM_PUBLIC_COLUMN_MAX_SIZE);
+
+    auto public_inputs_vectors = avm_trace::copy_public_inputs_columns(vm_public_inputs, calldata, return_data);
+
+    // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
+    if (!has_valid_witness_assignments) {
+        create_dummy_vkey_and_proof(builder, input.proof.size(), input.public_inputs.size(), key_fields, proof_fields);
+    }
+
+    // Recursively verify the proof
+    // auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
+    RecursiveVerifier verifier(&builder, key_fields);
+    aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
+        builder, input_aggregation_object_indices);
+    auto output_agg_object = verifier.verify_proof(proof_fields, public_inputs_vectors, input_agg_obj);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public
+    // inputs is important, like what the plonk recursion constraint does.
+
+    /*
+        HonkRecursionConstraintOutput output;
+    if (is_rollup_honk_recursion_constraint) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
+        const size_t HONK_PROOF_LENGTH = 469;
+        // The extra calculation is for the IPA proof length.
+        ASSERT(input.proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2);
+        ASSERT(proof_fields.size() == HONK_PROOF_LENGTH + 65 + input.public_inputs.size());
+        // split out the ipa proof
+        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
+            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + input.public_inputs.size());
+        output.ipa_proof =
+            StdlibProof<Builder>(honk_proof.begin() + honk_proof_with_pub_inputs_length, honk_proof.end());
+        honk_proof = StdlibProof<Builder>(honk_proof.begin(), honk_proof.end() + honk_proof_with_pub_inputs_length);
+    }
+    UltraRecursiveVerifierOutput<Flavor> verifier_output = verifier.verify_proof(honk_proof, input_agg_obj);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
+    // is important, like what the plonk recursion constraint does.
+
+    output.agg_obj_indices = verifier_output.agg_obj.get_witness_indices();
+    if (is_rollup_honk_recursion_constraint) {
+        ASSERT(HasIPAAccumulator<Flavor>);
+        output.ipa_claim = verifier_output.ipa_opening_claim;
+    }
+
+    */
+    HonkRecursionConstraintOutput result{ .agg_obj_indices = output_agg_object.aggregation_object.get_witness_indices(),
+                                          .ipa_claim = output_agg_object.ipa_claim,
+                                          .ipa_proof = output_agg_object.ipa_proof };
+    return result;
 }
 
 } // namespace acir_format

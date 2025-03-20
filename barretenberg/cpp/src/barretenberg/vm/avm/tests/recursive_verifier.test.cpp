@@ -105,32 +105,38 @@ class AvmRecursiveTests : public ::testing::Test {
     }
 };
 
-TEST_F(AvmRecursiveTests, RecursionLatest)
+TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
 
     InnerBuilder circuit_builder = generate_avm_circuit();
     InnerComposer composer = InnerComposer();
     InnerProver prover = composer.create_prover(circuit_builder);
-    InnerVerifier verifier = composer.create_verifier(circuit_builder);
+    InnerVerifier inner_verifier = composer.create_verifier(circuit_builder);
 
     HonkProof proof = prover.construct_proof();
 
-    RecursiveAvm::test_recursive_avm(proof, verifier);
-}
-TEST_F(AvmRecursiveTests, recursion)
-{
-    // if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
-    //     GTEST_SKIP();
-    // }
+    UltraCircuitBuilder outer_builder;
+    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
+    using UltraFF = UltraRollupRecursiveFlavor::FF;
 
-    InnerBuilder circuit_builder = generate_avm_circuit();
-    InnerComposer composer = InnerComposer();
-    InnerProver prover = composer.create_prover(circuit_builder);
-    InnerVerifier verifier = composer.create_verifier(circuit_builder);
+    std::shared_ptr<AvmRecursiveFlavor_<UltraRollupRecursiveFlavor::CircuitBuilder>::VerificationKey> avm_key =
+        std::make_shared<AvmRecursiveFlavor_<UltraRollupRecursiveFlavor::CircuitBuilder>::VerificationKey>(
+            &outer_builder, inner_verifier.key);
 
-    HonkProof proof = prover.construct_proof();
+    auto key_fields_native = inner_verifier.key->to_field_elements();
+    std::vector<UltraFF> outer_key_fields;
+    for (const auto& f : key_fields_native) {
+        UltraFF val = UltraFF::from_witness(&outer_builder, f);
+        outer_key_fields.push_back(val);
+    }
+    avm::AvmGoblinRecursiveVerifier verifier(&outer_builder, outer_key_fields);
+    using MegaRecursiveFlavorForUltraCircuit = MegaRecursiveFlavor_<UltraCircuitBuilder>;
 
-    // We just pad all the public inputs with the right number of zeroes
+    stdlib::recursion::aggregation_state<typename MegaRecursiveFlavorForUltraCircuit::Curve> agg_obj =
+        stdlib::recursion::init_default_aggregation_state<UltraCircuitBuilder,
+                                                          typename MegaRecursiveFlavorForUltraCircuit::Curve>(
+            outer_builder);
+
     std::vector<FF> kernel_inputs(KERNEL_INPUTS_LENGTH);
     std::vector<FF> kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
     std::vector<FF> kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
@@ -138,206 +144,40 @@ TEST_F(AvmRecursiveTests, recursion)
     std::vector<FF> calldata{ {} };
     std::vector<FF> returndata{ {} };
 
-    std::vector<std::vector<InnerFF>> public_inputs{
-        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs
-    };
     std::vector<std::vector<InnerFF>> public_inputs_vec{
         kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs, calldata, returndata
     };
 
-    bool verified = verifier.verify_proof(proof, public_inputs_vec);
-    ASSERT_TRUE(verified) << "native proof verification failed";
+    StdlibProof<UltraCircuitBuilder> stdlib_proof = bb::convert_native_proof_to_stdlib(&outer_builder, proof);
 
-    // Create the outer verifier, to verify the proof
-    const std::shared_ptr<InnerFlavor::VerificationKey> verification_key = verifier.key;
+    std::vector<std::vector<UltraFF>> public_inputs_ct;
+    public_inputs_ct.reserve(public_inputs_vec.size());
 
-    // WTF is happening here?
-
-    // 1. we make a goblin prover
-    // 2. we construct the "outer" circuit as a MegaCircuit
-    //    previously the outer circuit was bb::avm::AvmRecursiveVerifier_<RecursiveFlavor>::CircuitBuilder
-    //    NOTE: why different?
-    //    RecursiveFlavor = AvmRecursiveFlavor_<MegaCircuitBuilder> so...RecursiveFlavor::CircuitBuilder is Mega?
-    // 3. We create a bb::avm::AvmRecursiveVerifier_<RecursiveFlavor> to verify the outer circuit
-    // 4. `agg_output` is the result of `recurisve_verifier.verify_proof`
-    // 5. We apply `goblin.merge` on the outer_circuit
-    // 6. We generate a goblin proof of the merge circuit
-    // 7. We construct a GoblinRecursiveVerifier out of an UltraCircuitBuilder and a GoblinVerifier::VerifierInput
-    //    GoblinVerifier::VerifierInput is generated from the eccvm proving key and the translator proving key
-    // OK so something weird going on is that when we recursively verify the goblin proof, we don't use the output?
-    //  output needs to be spat up to next recursive layer (tube?)
-    // 8. The UltraCircuitBuilder that we run the goblin verifier on...we generate a proving/verification key for it
-    //    and generate + verify a proof. Note: this is a native verifier
-    // 9. We create a MegaDeciderProvingKey out of the `outer_circuit` (the original circuit that verifies the AVM)
-    // 10. We generate a proof of outer_circuit
-
-    // OK What are we expecting out of this?
-
-    // Tier 1: Original AVM proof
-    // Tier 2: A Goblin-ified Mega circuit that verifies the AVM Proof - we get a proof of this (PI0)
-    // Tier 3: An ECCVM + Translator proof of the transcript in PI0 (PI1, PI2)
-    // Tier 4: An Ultra circuit that verifies PI0, PI1, PI2
-
-    // What do we currently do?
-
-    // `outer_circuit` runs folding verifier on AVM proof `recursive_verifier.verify_proof`
-    // This spits out a transcript
-    // We then call `goblin.merge` on `outer_circuit`. Can we do this? If merge is no longer represented as commitments
-    // thne we can
-
-    // OuterCircuit: [verifies AVM Pi0], [produces transcript via goblin.merge]
-    // Builder verifies goblin plonk proofs generated from OuterCircuit
-    // Builder needs to also verify OuterCircuit
-    // `outer_circuit` runs
-    GoblinProver goblin;
-    MegaCircuitBuilder outer_circuit(goblin.op_queue);
-    RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
-
-    auto agg_object =
-        stdlib::recursion::init_default_aggregation_state<MegaCircuitBuilder, typename RecursiveFlavor::Curve>(
-            outer_circuit);
-
-    auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_vec, agg_object);
-
-    bool agg_output_valid =
-        verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
-
-    ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
-    ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
-
-    bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
-    ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
-
-    std::cout << "A" << std::endl;
-    auto manifest = verifier.transcript->get_manifest();
-    auto recursive_manifest = recursive_verifier.transcript->get_manifest();
-    std::cout << "B" << std::endl;
-
-    EXPECT_EQ(manifest.size(), recursive_manifest.size());
-    for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-        EXPECT_EQ(recursive_manifest[i], manifest[i]);
+    for (const auto& vec : public_inputs_vec) {
+        std::vector<UltraFF> vec_ct;
+        vec_ct.reserve(vec.size());
+        for (const auto& el : vec) {
+            vec_ct.push_back(bb::stdlib::witness_t<UltraCircuitBuilder>(&outer_builder, el));
+        }
+        public_inputs_ct.push_back(vec_ct);
     }
 
-    for (auto const [key_el, rec_key_el] : zip_view(verifier.key->get_all(), recursive_verifier.key->get_all())) {
-        EXPECT_EQ(key_el, rec_key_el.get_value());
-    }
+    auto proof_outputs = verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
 
-    EXPECT_EQ(verifier.key->circuit_size, recursive_verifier.key->circuit_size);
-    EXPECT_EQ(verifier.key->num_public_inputs, recursive_verifier.key->num_public_inputs);
+    auto outer_proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(outer_builder);
+    using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
 
-    // in goblin test...
-    // there are several mega circuits being generated
-    // goblin proof is then constructed from the mega circuits
+    UltraRollupProver outer_prover(outer_proving_key);
 
-    // what is a goblin proof?
-    // eccvm proof, translator proof and a "merge" proof
-    // what is the merge proof?
+    auto outer_proof = outer_prover.construct_proof();
+    auto outer_verification_key =
+        std::make_shared<typename UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 
-    // `goblin.verify_merge` is called using a client builder input
-    // input is a mega circuit
-    // eww
-    // The next step is...
-    // An UltraBuilder is created
-    // The UltraBuilder is used to create a circuit that verifies the goblin proof
-    std::cout << "C" << std::endl;
-    goblin.merge(outer_circuit);
+    EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));
 
-    GoblinProof g_proof = goblin.prove();
-    std::cout << "D" << std::endl;
-
-    // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
-    // respective proving keys)
-    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
-    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
-    std::cout << "E" << std::endl;
-
-    UltraCircuitBuilder builder;
-    GoblinVerifier::VerifierInput goblin_vinput{ std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                                                 std::make_shared<TranslatorVK>(goblin.get_translator_proving_key()) };
-    bb::stdlib::recursion::honk::GoblinRecursiveVerifier gverifier{ &builder, goblin_vinput };
-    std::cout << "F" << std::endl;
-
-    // next step fails likely because of a lack of a merge proof
-
-    auto goblin_verifier_output = gverifier.verify(g_proof);
-
-    // Validate natively that `goblin_verifier_output` produces valid IPA claim
-    {
-        auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>("../srs_db/grumpkin",
-                                                                                             1 << CONST_ECCVM_LOG_N);
-        auto grumpkin_verifier_commitment_key =
-            std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);
-        OpeningClaim<curve::Grumpkin> native_claim = goblin_verifier_output.opening_claim.get_native_opening_claim();
-        auto native_ipa_transcript = std::make_shared<NativeTranscript>(
-            convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data));
-
-        EXPECT_TRUE(
-            IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));
-    }
-    std::cout << "G" << std::endl;
-
-    EXPECT_EQ(builder.failed(), false) << builder.err();
-    EXPECT_TRUE(CircuitChecker::check(builder));
-    // Construct and verify a proof for the Goblin Recursive Verifier circuit
-    {
-        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        std::cout << "H" << std::endl;
-        OuterProver prover(proving_key);
-        std::cout << "I" << std::endl;
-        auto verification_key = std::make_shared<typename UltraFlavor::VerificationKey>(proving_key->proving_key);
-        std::cout << "J" << std::endl;
-        OuterVerifier verifier(verification_key);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
-
-        ASSERT(verified);
-    }
-
-    // const size_t srs_size = 1 << 23;
-    auto ultra_instance = std::make_shared<MegaDeciderProvingKey>(outer_circuit);
-    MegaProver ultra_prover(ultra_instance);
-    auto ultra_verification_key = std::make_shared<MegaFlavor::VerificationKey>(ultra_instance->proving_key);
-    MegaVerifier ultra_verifier(ultra_verification_key);
-
-    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
-
-    auto recursion_proof = ultra_prover.construct_proof();
-    bool recursion_verified = ultra_verifier.verify_proof(recursion_proof);
-    EXPECT_TRUE(recursion_verified) << "recursion proof verification failed";
-
-    // Make a proof of the verification of an AVM proof
-    // const size_t srs_size = 1 << 23;
-    // auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
-    //     outer_circuit, TraceSettings{}, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
-    // auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-
-    // OuterProver ultra_prover(ultra_instance);
-    // auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
-    // OuterVerifier ultra_verifier(ultra_verification_key);
-
-    // // //  auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-
-    // // OuterProver outer_prover(ultra_instance);
-
-    // // goblin.merge(outer_circit);
-    // // auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
-    // // GoblinVerifier ultra_verifier(ultra_verification_key);
-
-    // vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
-
-    // auto recursion_proof = ultra_prover.construct_proof();
-    // bool recursion_verified = ultra_verifier.verify_proof(recursion_proof);
-    // EXPECT_TRUE(recursion_verified) << "recursion proof verification failed";
-
-    // GoblinProof g_proof = goblin.prove();
-
-    // // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
-    // // respective proving keys)
-    // auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
-    // auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
-    // GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
-    // bool g_verified = goblin_verifier.verify(g_proof);
-    // EXPECT_TRUE(g_verified);
+    //  AvmGoblinRecursiveVerifier::test_recursive_avm(proof, verifier);
 }
 
 } // namespace tests_avm
