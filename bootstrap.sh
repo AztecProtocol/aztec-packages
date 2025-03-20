@@ -178,7 +178,7 @@ function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
   echo_header "sync noir repo"
-  export NARGO_HASH=$(./noir/bootstrap.sh hash)
+  export NOIR_HASH=$(./noir/bootstrap.sh hash)
 
   check_toolchains
 

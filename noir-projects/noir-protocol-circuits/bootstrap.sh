@@ -12,16 +12,16 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
-export NARGO_HASH=${NARGO_HASH:- $(../../noir/bootstrap.sh hash)}
+export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
-test_flag=$project_name-tests-$(hash_str "$NARGO_HASH" $(cache_content_hash "^noir-projects/$project_name"))
+test_flag=$project_name-tests-$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name"))
 key_dir=./target/keys
 mkdir -p $key_dir
 
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-circuits_hash=$(hash_str "$NARGO_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
+circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 ivc_patterns=(
@@ -68,8 +68,8 @@ function compile {
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
-  echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
-  hash=$(hash_str "$NARGO_HASH-$program_hash")
+  echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
+  hash=$(hash_str "$NOIR_HASH-$program_hash")
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0

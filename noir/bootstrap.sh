@@ -74,7 +74,7 @@ function sync_noir_content_hash {
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  local hash=${NARGO_HASH:- $(sync_noir_content_hash)}
+  local hash=${NOIR_HASH:- $(sync_noir_content_hash)}
   if cache_download noir-$hash.tar.gz; then
     return
   fi
@@ -90,7 +90,7 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
-  local hash=${NARGO_HASH:- $(sync_noir_content_hash)}
+  local hash=${NOIR_HASH:- $(sync_noir_content_hash)}
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
@@ -144,7 +144,7 @@ function build {
     denoise "cargo-binstall cargo-nextest --version 0.9.67 -y --secure"
   fi
 
-  export NARGO_HASH=$(sync_noir_content_hash)
+  export NOIR_HASH=$(sync_noir_content_hash)
   parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
   # if [ -x ./scripts/fix_incremental_ts.sh ]; then
   #   ./scripts/fix_incremental_ts.sh
