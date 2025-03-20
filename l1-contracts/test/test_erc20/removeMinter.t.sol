@@ -9,6 +9,19 @@ import {TestERC20TestBase} from "./base.t.sol";
 // solhint-disable func-name-mixedcase
 
 contract RemoveMinterTest is TestERC20TestBase {
+  modifier whenTheCallerIsTheOwner() {
+    vm.startPrank(testERC20.owner());
+    _;
+    vm.stopPrank();
+  }
+
+  modifier whenTheCallerIsNotTheOwner(address _caller) {
+    vm.assume(_caller != testERC20.owner());
+    vm.startPrank(_caller);
+    _;
+    vm.stopPrank();
+  }
+
   function test_WhenTheCallerIsNotTheOwner(address _caller, address _minter)
     external
     whenTheCallerIsNotTheOwner(_caller)

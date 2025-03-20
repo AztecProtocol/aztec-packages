@@ -24,6 +24,8 @@ contract MintTest is TestERC20TestBase {
     vm.prank(testERC20.owner());
     testERC20.addMinter(_caller);
 
+    vm.assume(_to != address(0));
+
     vm.prank(_caller);
     vm.expectEmit(true, true, true, true, address(testERC20));
     emit IERC20.Transfer(address(0), _to, _amount);

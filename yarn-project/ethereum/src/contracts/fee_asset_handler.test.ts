@@ -11,7 +11,6 @@ import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
 import { createL1Clients, deployL1Contracts } from '../deploy_l1_contracts.js';
-import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { L1Clients } from '../types.js';
@@ -25,12 +24,6 @@ describe('FeeAssetHandler', () => {
   let privateKey: PrivateKeyAccount;
   let logger: Logger;
 
-  let vkTreeRoot: Fr;
-  let protocolContractTreeRoot: Fr;
-  let l2FeeJuiceAddress: Fr;
-  let publicClient: L1Clients['publicClient'];
-  let walletClient: L1Clients['walletClient'];
-  let deployedAddresses: L1ContractAddresses;
   let feeAssetHandler: FeeAssetHandlerContract;
   let feeAsset: GetContractReturnType<typeof FeeAssetAbi, L1Clients['publicClient']>;
 
@@ -38,13 +31,13 @@ describe('FeeAssetHandler', () => {
     logger = createLogger('ethereum:test:fee_asset_handler');
     // this is the 6th address that gets funded by the junk mnemonic
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
-    vkTreeRoot = Fr.random();
-    protocolContractTreeRoot = Fr.random();
-    l2FeeJuiceAddress = Fr.random();
+    const vkTreeRoot = Fr.random();
+    const protocolContractTreeRoot = Fr.random();
+    const l2FeeJuiceAddress = Fr.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    ({ publicClient, walletClient } = createL1Clients([rpcUrl], privateKey));
+    const { publicClient, walletClient } = createL1Clients([rpcUrl], privateKey);
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
@@ -56,7 +49,7 @@ describe('FeeAssetHandler', () => {
       genesisBlockHash: Fr.random(),
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
-    deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
+    const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
     const txUtils = new L1TxUtils(publicClient, walletClient, logger);
     feeAssetHandler = new FeeAssetHandlerContract(deployedAddresses.feeAssetHandlerAddress!.toString(), txUtils);
     feeAsset = getContract({

@@ -9,6 +9,13 @@ import {TestERC20TestBase} from "./base.t.sol";
 // solhint-disable func-name-mixedcase
 
 contract TransferOwnershipTest is TestERC20TestBase {
+  modifier whenTheCallerIsNotTheOwner(address _caller) {
+    vm.assume(_caller != testERC20.owner());
+    vm.startPrank(_caller);
+    _;
+    vm.stopPrank();
+  }
+
   function test_WhenTheCallerIsNotTheOwner(address _caller, address _newOwner)
     external
     whenTheCallerIsNotTheOwner(_caller)
@@ -16,6 +23,13 @@ contract TransferOwnershipTest is TestERC20TestBase {
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, _caller));
     testERC20.transferOwnership(_newOwner);
+  }
+
+  // solhint-disable-next-line ordering
+  modifier whenTheCallerIsTheOwner() {
+    vm.startPrank(testERC20.owner());
+    _;
+    vm.stopPrank();
   }
 
   function test_WhenTheNewOwnerIsTheZeroAddress() external whenTheCallerIsTheOwner {
