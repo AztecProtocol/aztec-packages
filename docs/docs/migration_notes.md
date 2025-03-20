@@ -8,6 +8,13 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
+It's common that we need block metadata of a block in which leaves where inserted when querying indexes of these tree leaves.
+For this reason we now return that information along with the indexes.
+This allows us to reduce the number of individual AztecNode queries.
+
+Along this change `findNullifiersIndexesWithBlock` function was removed as its used can now be replaced with the newly modified `findLeavesIndexes` function.
+
 ## [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
 
 This change was done to have consistent naming across codebase.
