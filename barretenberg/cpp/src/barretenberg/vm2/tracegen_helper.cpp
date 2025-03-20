@@ -251,15 +251,14 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.to_radix);
                 },
                 [&]() {
-<<<<<<< HEAD
                     MerkleCheckTraceBuilder merkle_check_builder;
                     AVM_TRACK_TIME("tracegen/merkle_check", merkle_check_builder.process(events.merkle_check, trace));
                     clear_events(events.merkle_check);
-=======
+                },
+                [&]() {
                     RangeCheckTraceBuilder range_check_builder;
                     AVM_TRACK_TIME("tracegen/range_check", range_check_builder.process(events.range_check, trace));
                     clear_events(events.range_check);
->>>>>>> master
                 },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
