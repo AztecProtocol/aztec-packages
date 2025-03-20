@@ -9,7 +9,6 @@
 #include "barretenberg/vm/avm/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm/avm/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm/avm/recursion/recursive_verifier.hpp"
-
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"

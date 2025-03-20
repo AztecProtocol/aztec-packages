@@ -144,6 +144,7 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
         std::swap(result.accumulator->proving_key.log_circuit_size, keys[1]->proving_key.log_circuit_size);
     }
 
+    // NOTE: this is an optimization that is not needed for the goblin plonk work. cuts out a lot of field muls though!
     ASSERT(DeciderProvingKeys::NUM == 2); // this mechanism is not supported for the folding of multiple keys
     auto accumulator_polys = result.accumulator->proving_key.polynomials.get_unshifted();
     auto key_polys = keys[1]->proving_key.polynomials.get_unshifted();
