@@ -218,7 +218,7 @@ const killAnvil = () => {
 
 try {
   const proofPath = getEnvVar("PROOF");
-  let publicInputsPath = getEnvVar("PUBLIC_INPUTS");
+  let publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
 
   const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
   const proofAsFields = readFileSync(proofAsFieldsPath);
@@ -228,7 +228,7 @@ try {
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
   const innerPublicInputs = JSON.parse(
-    readFileSync(publicInputsPath).toString()
+    readFileSync(publicInputsAsFieldsPath).toString()
   ); // assumes JSON array of PI hex strings
   const [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
     JSON.parse(proofAsFields.toString())

@@ -8,7 +8,8 @@ createDebug.enable("*");
 const debug = createDebug("bbjs-test");
 
 const proofPath = (dir: string) => path.join(dir, "proof");
-const publicInputsPath = (dir: string) => path.join(dir, "public_inputs");
+const publicInputsAsFieldsPath = (dir: string) =>
+  path.join(dir, "public_inputs_as_fields.json");
 const vkeyPath = (dir: string) => path.join(dir, "vk");
 
 async function generateProof({
@@ -42,10 +43,12 @@ async function generateProof({
   debug("Proof written to " + proofPath(outputDirectory));
 
   await fs.writeFile(
-    publicInputsPath(outputDirectory),
+    publicInputsAsFieldsPath(outputDirectory),
     JSON.stringify(proof.publicInputs)
   );
-  debug("Public inputs written to " + publicInputsPath(outputDirectory));
+  debug(
+    "Public inputs written to " + publicInputsAsFieldsPath(outputDirectory)
+  );
 
   const verificationKey = await backend.getVerificationKey({
     keccak: oracleHash === "keccak",
@@ -63,7 +66,7 @@ async function verifyProof({ directory }: { directory: string }) {
 
   const proof = await fs.readFile(proofPath(directory));
   const publicInputs = JSON.parse(
-    await fs.readFile(publicInputsPath(directory), "utf8")
+    await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
   );
   const vkey = await fs.readFile(vkeyPath(directory));
 
