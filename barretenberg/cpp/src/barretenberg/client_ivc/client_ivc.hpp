@@ -81,13 +81,24 @@ class ClientIVC {
             return buffer;
         }
 
+        class DeserializationError : public std::runtime_error {
+          public:
+            DeserializationError(const std::string& msg)
+                : std::runtime_error(msg)
+            {}
+        };
+
         static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer)
         {
-            msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-            msgpack::object obj = oh.get();
-            Proof proof;
-            obj.convert(proof);
-            return proof;
+            try {
+                msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+                msgpack::object obj = oh.get();
+                Proof proof;
+                obj.convert(proof);
+                return proof;
+            } catch (const std::exception& e) {
+                throw DeserializationError(e.what());
+            }
         }
 
         void to_file_msgpack(const std::string& filename) const

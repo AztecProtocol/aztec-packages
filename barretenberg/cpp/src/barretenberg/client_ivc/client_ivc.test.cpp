@@ -119,11 +119,7 @@ TEST_F(ClientIVCTests, RandomProofBytes)
     }
 
     // Attempting to deserialize the proof from the buffer gives a cast/type error
-    auto random_proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
-
-    // const bool verified = ivc.verify(proof_deserialized);
-
-    // EXPECT_TRUE(verified);
+    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), typename ClientIVC::Proof::DeserializationError);
 };
 
 /**
