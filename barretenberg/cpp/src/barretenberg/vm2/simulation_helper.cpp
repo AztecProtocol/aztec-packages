@@ -124,7 +124,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              scalar_mul_emitter.dump_events(),
              poseidon2_hash_emitter.dump_events(),
              poseidon2_perm_emitter.dump_events(),
-             to_radix_emitter.dump_events() };
+             to_radix_emitter.dump_events(),
+             range_check_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

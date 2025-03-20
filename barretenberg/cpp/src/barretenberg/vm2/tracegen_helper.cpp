@@ -39,6 +39,7 @@
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -246,6 +247,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     ToRadixTraceBuilder to_radix_builder;
                     AVM_TRACK_TIME("tracegen/to_radix", to_radix_builder.process(events.to_radix, trace));
                     clear_events(events.to_radix);
+                },
+                [&]() {
+                    RangeCheckTraceBuilder range_check_builder;
+                    AVM_TRACK_TIME("tracegen/range_check", range_check_builder.process(events.range_check, trace));
+                    clear_events(events.range_check);
                 },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
