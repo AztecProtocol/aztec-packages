@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742499864134,
+  "lastUpdate": 1742513648154,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cc6cdbb8d74c6fb136513c56b4fa098fe92fb447",
-          "message": "feat: Sync from noir (#12624)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore: bump external pinned commits\n(https://github.com/noir-lang/noir/pull/7640)\nchore: remove unnecessary trait bounds\n(https://github.com/noir-lang/noir/pull/7635)\nfeat: add optional oracle resolver url in `acvm_cli`\n(https://github.com/noir-lang/noir/pull/7630)\nchore: Rename `StructDefinition` to `TypeDefinition`\n(https://github.com/noir-lang/noir/pull/7614)\nfix: Error on infinitely recursive types\n(https://github.com/noir-lang/noir/pull/7579)\nfix: update error message to display 128 bits as valid bit size\n(https://github.com/noir-lang/noir/pull/7626)\nchore: update docs to reflect u128 type\n(https://github.com/noir-lang/noir/pull/7623)\nfeat: array concat method (https://github.com/noir-lang/noir/pull/7199)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: TomAFrench <tom@tomfren.ch>",
-          "timestamp": "2025-03-11T13:59:25Z",
-          "tree_id": "38d1014c7876ede832743bd7b21977e4a942cf9c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc6cdbb8d74c6fb136513c56b4fa098fe92fb447"
-        },
-        "date": 1741703346737,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18078.50741099992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15980.113184 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 19004.453043000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16439.543268 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3899.074222999843,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3073.604873 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55085.769491,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55085770000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10260.969568,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10260974000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1600887482,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1600887482 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 220626373,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 220626373 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3490,6 +3418,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 13365,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "distinct": true,
+          "id": "61068dae2f702ce5dba74b36a50b68112ae05d38",
+          "message": "Revert \"feat: recording circuit inputs + oracles (#12148)\"\n\nThis reverts commit 5436627816d1b675f7bf68ec43fbd4807bd0d142.",
+          "timestamp": "2025-03-20T23:00:01Z",
+          "tree_id": "6d09443715c094fdad5e0bc916c5f3e2159b9d3b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/61068dae2f702ce5dba74b36a50b68112ae05d38"
+        },
+        "date": 1742513640600,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 33818,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 21807,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 10670,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 13026,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 13247,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
