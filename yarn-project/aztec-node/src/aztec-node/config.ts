@@ -1,4 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import { type L1ContractAddresses, l1ContractAddressesMapping } from '@aztec/ethereum';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
@@ -28,6 +29,8 @@ export type AztecNodeConfig = ArchiverConfig &
     disableValidator: boolean;
     /** Whether to populate the genesis state with initial fee juice for the test accounts */
     testAccounts: boolean;
+  } & {
+    l1Contracts: L1ContractAddresses;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -38,6 +41,10 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
+  l1Contracts: {
+    description: 'The deployed L1 contract addresses',
+    nested: l1ContractAddressesMapping,
+  },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
