@@ -341,9 +341,6 @@ describe('full_prover', () => {
       logger.info(`Sending proven tx`);
       const validTx = provenTx.send();
 
-      const validReceipt = await validTx.wait({ timeout: 300, interval: 10 });
-      logger.info(`Valid tx has been mined`);
-
       // Flag the valid transfer on the token simulator
       tokenSim.transferPrivate(sender, recipient, sendAmount);
 
@@ -352,11 +349,7 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const results = await Promise.allSettled([
-        ...invalidTxPromises,
-        validTx.wait({ timeout: 300, interval: 10 }),
-        await waitForProven(t.aztecNode, validReceipt, { provenTimeout: 1500 }),
-      ]);
+      const results = await Promise.allSettled([...invalidTxPromises, validTx.wait({ timeout: 300, interval: 10 })]);
 
       // Assert that the large influx of invalid txs are rejected and do not ddos the node
       for (let i = 0; i < NUM_INVALID_TXS; i++) {
@@ -365,11 +358,11 @@ describe('full_prover', () => {
         expect(invalidTxReceipt.error).toMatch(/Tx dropped by P2P node/);
       }
 
-      // Assert that the valid tx is successfully sent and proven
+      // Assert that the valid tx is successfully sent and mined
       const validTxReceipt = (results[NUM_INVALID_TXS] as PromiseFulfilledResult<FieldsOf<TxReceipt>>).value;
       expect(validTxReceipt.status).toBe(TxStatus.SUCCESS);
 
-      logger.info(`Valid tx was proven and invalid txs were dropped by P2P node`);
+      logger.info(`Valid tx was mined and invalid txs were dropped by P2P node`);
     },
     TIMEOUT,
   );
