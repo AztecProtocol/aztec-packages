@@ -70,6 +70,10 @@ class ClientIVC {
 
         size_t size() const { return mega_proof.size() + goblin_proof.size(); }
 
+        // WORKTODO: All of these msgpack methods are generic and should be moved to some kind of msgpack utility. So
+        // far we dont use msgpack for too much so I dont think something like this exists. There is a somewhat
+        // established pattern that uses a msgpack::packer but that's really not needed for simple use cases like proof
+        // serialization. Maybe Adam has some opinions about how this should look but seems not critical.
         msgpack::sbuffer to_msgpack_buffer() const
         {
             msgpack::sbuffer buffer;

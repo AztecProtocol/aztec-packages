@@ -48,16 +48,15 @@ class ClientIVCTests : public ::testing::Test {
 };
 
 /**
- * @brief A simple-as-possible test demonstrating IVC for two mock circuits
- * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
- * verification occurs.
+ * WORKTODO: test ser/deser of msgpack buffer file; this will replace logic in CIVC api methods that uses the old
+ * serialization lib
  *
  */
-TEST_F(ClientIVCTests, RandomProofBytes)
+TEST_F(ClientIVCTests, MsgpackProofFromFile)
 {
     ClientIVC ivc;
 
-    MockCircuitProducer circuit_producer;
+    ClientIVCMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
@@ -69,27 +68,62 @@ TEST_F(ClientIVCTests, RandomProofBytes)
 
     const auto proof = ivc.prove();
 
-    const std::string filename = "/mnt/user-data/luke/aztec-packages/barretenberg/cpp/proof.msgpack";
+    const std::string filename = "proof.msgpack";
 
+    // Serialize/deserialize the proof to/from a file as proof-of-concept
     proof.to_file_msgpack(filename);
-
     auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
 
-    // // Overwrite the buffer with random bytes for testing failure case
-    // // {
-    // //     std::vector<uint8_t> random_bytes(buffer.size());
-    // //     std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256);
-    // // });
-    // //     std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
-    // // }
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+};
 
-    auto start = std::chrono::steady_clock::now();
-    const bool verified = ivc.verify(proof_deserialized);
-    auto end = std::chrono::steady_clock::now();
-    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    info("Time for ClientIVC::verify: ", diff.count(), " ms.");
+/**
+ * WORKTODO:
+ *
+ */
+TEST_F(ClientIVCTests, RandomProofBytes)
+{
+    ClientIVC ivc;
 
-    EXPECT_TRUE(verified);
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize proof to msgpack buffer, check that it verifies
+    msgpack::sbuffer buffer = proof.to_msgpack_buffer();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+
+    // WORKTODO: Phil and co want to be able to gracefully handle the receipt of a CIVC proof consisting of purely
+    // random bytes (i.e. it should fail verification gracefully in some small amount of time). This currently causes
+    // chaos because our serialization library introduces/expects 4-byte chunks embedded at various intervals indicating
+    // the size of sub-buffers within the larger proof buffer. If those bytes contain random 32-bit inegers, we end up
+    // reading way beyond well defined memory. The hope is that msgpack will error more gracefully, leading to
+    // consistent verification times and safer behavior. This test shows that we get type errors in msgpack indicating
+    // bad size data in the msgpackbuffer which is much better than trying to read uninitialized memory and segfaulting
+    // etc.
+
+    // Overwrite the buffer with random bytes for testing failure case
+    {
+        std::vector<uint8_t> random_bytes(buffer.size());
+        std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
+        std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+    }
+
+    // Attempting to deserialize the proof from the buffer gives a cast/type error
+    auto random_proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
+
+    // const bool verified = ivc.verify(proof_deserialized);
+
+    // EXPECT_TRUE(verified);
 };
 
 /**
