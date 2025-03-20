@@ -11,8 +11,6 @@ contract MintTest is FeeAssetHandlerTestBase {
   function test_WhenAnyoneCallsMint(address _caller, address _recipient) external {
     // it mints the mint amount to the recipient
     // it emits {Minted} event
-    vm.assume(_caller != address(this));
-    vm.assume(_recipient != address(this));
     vm.assume(_recipient != address(0));
     vm.expectEmit(true, true, true, true, address(testERC20));
     emit IERC20.Transfer(address(0), _recipient, feeAssetHandler.mintAmount());
