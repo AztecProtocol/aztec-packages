@@ -24,21 +24,22 @@ node ../../bbjs-test prove \
 # Join the proof and public inputs to a single file
 # this will not be needed after #11024
 
+NUM_PUBLIC_INPUTS=$(cat $output_dir/public-inputs | jq 'length')
+UH_PROOF_FIELDS_LENGTH=440
+PROOF_AND_PI_LENGTH_IN_FIELDS=$((NUM_PUBLIC_INPUTS + UH_PROOF_FIELDS_LENGTH))
+# First 4 bytes is PROOF_AND_PI_LENGTH_IN_FIELDS
+proof_header=$(printf "%08x" $PROOF_AND_PI_LENGTH_IN_FIELDS)
+
 proof_bytes=$(cat $output_dir/proof | xxd -p)
 public_inputs=$(cat $output_dir/public-inputs | jq -r '.[]')
-proof_start=${proof_bytes:0:8}
-proof_end=${proof_bytes:8}
 
 public_inputs_bytes=""
 for input in $public_inputs; do
   public_inputs_bytes+=$input
 done
 
-# Combine proof start, public inputs, and rest of proof
-echo -n $proof_start$public_inputs_bytes$proof_end | xxd -r -p > $output_dir/proof
-
-# Print the length of the proof file in bytes
-ls -l $output_dir/proof | awk '{print $5}'
+# Combine proof header, public inputs, and the proof to a single file
+echo -n $proof_header$public_inputs_bytes$proof_bytes | xxd -r -p > $output_dir/proof
 
 # Verify the proof with bb cli
 $BIN verify \
