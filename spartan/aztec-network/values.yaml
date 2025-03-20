@@ -149,7 +149,6 @@ validator:
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
-    maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 0
     maxTxsPerBlock: 4
     enforceTimeTable: true

@@ -71,8 +71,8 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: "The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.",
   },
-  ...l1ReaderConfigMappings,
   ...dataConfigMappings,
+  ...l1ReaderConfigMappings,
 };
 
 export const defaultProverBrokerConfig: ProverBrokerConfig = getDefaultConfig(proverBrokerConfigMappings);

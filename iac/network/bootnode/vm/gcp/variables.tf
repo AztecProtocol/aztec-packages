@@ -28,8 +28,8 @@ variable "project_id" {
   type        = string
 }
 
-variable "p2p_udp_port" {
-  description = "The P2P UDP port"
+variable "p2p_port" {
+  description = "The P2P port"
   type        = number
 }
 
