@@ -34,13 +34,13 @@ export type AztecNodeConfig = ArchiverConfig &
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
+  ...dataConfigMappings,
   ...archiverConfigMappings,
   ...sequencerClientConfigMappings,
   ...validatorClientConfigMappings,
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
-  ...dataConfigMappings,
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,

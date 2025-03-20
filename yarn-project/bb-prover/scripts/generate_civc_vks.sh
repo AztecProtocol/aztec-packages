@@ -16,7 +16,7 @@ pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/pr
 hash=$(hash_str $(../bootstrap.sh hash) "$pinned_civc_inputs_url")
 
 if cache_download bb-prover-vks-$hash.tar.gz; then
-  return
+  exit
 fi
 
 inputs_tmp_dir=$(mktemp -d)

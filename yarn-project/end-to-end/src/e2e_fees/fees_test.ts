@@ -10,10 +10,10 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import { type DeployL1ContractsArgs, RollupContract, createL1Clients } from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, RollupContract, createL1Clients, getPublicClient } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -290,25 +290,22 @@ export class FeesTest {
         };
 
         this.getCoinbaseSequencerRewards = async () => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
-          const rollup = getContract({
-            address: data.rollupAddress.toString(),
-            abi: RollupAbi,
-            client: walletClient,
+          const publicClient = getPublicClient({
+            l1RpcUrls: context.aztecNodeConfig.l1RpcUrls,
+            l1ChainId: context.aztecNodeConfig.l1ChainId,
           });
-
-          return await rollup.read.getSequencerRewards([this.coinbase.toString()]);
+          const rollup = new RollupContract(publicClient, data.rollupAddress);
+          return await rollup.getSequencerRewards(this.coinbase);
         };
 
         this.getProverFee = async (blockNumber: number) => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
-          const rollup = getContract({
-            address: data.rollupAddress.toString(),
-            abi: RollupAbi,
-            client: walletClient,
+          const publicClient = getPublicClient({
+            l1RpcUrls: context.aztecNodeConfig.l1RpcUrls,
+            l1ChainId: context.aztecNodeConfig.l1ChainId,
           });
+          const rollup = new RollupContract(publicClient, data.rollupAddress);
 
-          const provingCostPerMana = await rollup.read.getProvingCostPerManaInFeeAsset();
+          const provingCostPerMana = await rollup.getProvingCostPerManaInFeeAsset();
 
           const block = await this.pxe.getBlock(blockNumber);
           const mana = block!.header.totalManaUsed.toBigInt();

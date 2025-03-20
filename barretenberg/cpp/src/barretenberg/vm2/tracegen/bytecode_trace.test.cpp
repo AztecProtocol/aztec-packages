@@ -23,6 +23,11 @@ using ::testing::Field;
 
 using R = TestTraceContainer::Row;
 using FF = R::FF;
+using C = Column;
+
+using simulation::BytecodeId;
+using simulation::Instruction;
+using simulation::InstructionFetchingEvent;
 
 TEST(BytecodeTraceGenTest, BasicShortLength)
 {
@@ -285,14 +290,68 @@ TEST(BytecodeTraceGenTest, BasicHashing)
                       ROW_FIELD_EQ(R, bc_hashing_packed_field, 20)));
 }
 
+namespace {
+
+std::vector<Instruction> gen_random_instructions(std::span<const WireOpCode> opcodes)
+{
+    std::vector<Instruction> instructions;
+    instructions.reserve(opcodes.size());
+    for (const auto& opcode : opcodes) {
+        instructions.emplace_back(testing::random_instruction(opcode));
+    }
+    return instructions;
+}
+
+std::vector<uint8_t> create_bytecode(std::span<const Instruction> instructions)
+{
+    std::vector<uint8_t> bytecode;
+    for (const auto& instruction : instructions) {
+        auto serialized_instruction = instruction.serialize();
+        bytecode.insert(bytecode.end(),
+                        std::make_move_iterator(serialized_instruction.begin()),
+                        std::make_move_iterator(serialized_instruction.end()));
+    }
+    return bytecode;
+}
+
+std::vector<size_t> gen_pcs(std::span<const WireOpCode> opcodes)
+{
+    std::vector<size_t> pcs;
+    pcs.reserve(opcodes.size());
+    size_t pc = 0;
+    for (const auto& opcode : opcodes) {
+        pcs.emplace_back(pc);
+        pc += WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
+    }
+    return pcs;
+}
+
+std::vector<InstructionFetchingEvent> create_instruction_fetching_events(
+    const std::vector<Instruction>& instructions,
+    const std::vector<size_t>& pcs,
+    const std::shared_ptr<std::vector<uint8_t>>& bytecode_ptr,
+    const BytecodeId bytecode_id)
+{
+    std::vector<InstructionFetchingEvent> events;
+    events.reserve(instructions.size());
+
+    for (size_t i = 0; i < instructions.size(); i++) {
+        events.emplace_back(InstructionFetchingEvent{
+            .bytecode_id = bytecode_id,
+            .pc = static_cast<uint32_t>(pcs.at(i)),
+            .instruction = instructions.at(i),
+            .bytecode = bytecode_ptr,
+        });
+    }
+    return events;
+}
+
+} // namespace
+
 // We build a random InstructionFetchingEvent for each wire opcode.
 // We then verify that the bytes (bd0, bd1, ...) correspond to the serialized instruction.
 TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
 {
-    using simulation::Instruction;
-    using simulation::InstructionFetchingEvent;
-    using C = Column;
-
     TestTraceContainer trace;
     BytecodeTraceBuilder builder;
 
@@ -314,39 +373,22 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         C::instr_fetching_op5, C::instr_fetching_op6, C::instr_fetching_op7,
     };
 
+    constexpr BytecodeId bytecode_id = 1;
     constexpr auto num_opcodes = static_cast<size_t>(WireOpCode::LAST_OPCODE_SENTINEL);
 
-    std::vector<InstructionFetchingEvent> events;
-    events.reserve(num_opcodes);
-    std::vector<Instruction> instructions;
-    instructions.reserve(num_opcodes);
-    std::vector<uint32_t> pcs;
-    pcs.reserve(num_opcodes);
-    std::vector<uint8_t> bytecode;
-    bytecode.reserve(1024); // Rough estimate
-
-    uint32_t pc = 0;
+    std::vector<WireOpCode> opcodes;
+    opcodes.reserve(num_opcodes);
     for (size_t i = 0; i < num_opcodes; i++) {
-        const auto w_opcode = static_cast<WireOpCode>(i);
-        const auto instr = testing::random_instruction(w_opcode);
-        const auto instr_encoded = instr.serialize();
-        instructions.emplace_back(instr);
-        pcs.emplace_back(pc);
-        pc += instr_encoded.size();
-        bytecode.insert(bytecode.end(),
-                        std::make_move_iterator(instr_encoded.begin()),
-                        std::make_move_iterator(instr_encoded.end()));
+        opcodes.emplace_back(static_cast<WireOpCode>(i));
     }
+
+    std::vector<Instruction> instructions = gen_random_instructions(opcodes);
+    std::vector<size_t> pcs = gen_pcs(opcodes);
+    std::vector<uint8_t> bytecode = create_bytecode(instructions);
 
     auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
-    for (size_t i = 0; i < num_opcodes; i++) {
-        events.emplace_back(InstructionFetchingEvent{
-            .bytecode_id = 1,
-            .pc = pcs.at(i),
-            .instruction = instructions.at(i),
-            .bytecode = bytecode_ptr,
-        });
-    }
+    std::vector<InstructionFetchingEvent> events =
+        create_instruction_fetching_events(instructions, pcs, bytecode_ptr, bytecode_id);
 
     builder.process_instruction_fetching(events, trace);
 
@@ -358,29 +400,221 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         // Check size_in_bytes column
         const auto expected_size_in_bytes = WIRE_INSTRUCTION_SPEC.at(w_opcode).size_in_bytes;
         ASSERT_EQ(instr_encoded.size(), expected_size_in_bytes);
-        EXPECT_EQ(FF(expected_size_in_bytes), trace.get(C::instr_fetching_instr_size_in_bytes, i));
+        EXPECT_EQ(FF(expected_size_in_bytes), trace.get(C::instr_fetching_instr_size, i + 1));
 
         // Inspect each byte
         for (size_t j = 0; j < static_cast<size_t>(expected_size_in_bytes); j++) {
-            EXPECT_EQ(FF(instr_encoded.at(j)), trace.get(bd_columns.at(j), i));
+            EXPECT_EQ(FF(instr_encoded.at(j)), trace.get(bd_columns.at(j), i + 1));
         }
 
         // Check exection opcode
         EXPECT_EQ(FF(static_cast<uint8_t>(WIRE_INSTRUCTION_SPEC.at(w_opcode).exec_opcode)),
-                  trace.get(C::instr_fetching_exec_opcode, i));
+                  trace.get(C::instr_fetching_exec_opcode, i + 1));
 
         // Check indirect
-        EXPECT_EQ(FF(instr.indirect), trace.get(C::instr_fetching_indirect, i));
+        EXPECT_EQ(FF(instr.indirect), trace.get(C::instr_fetching_indirect, i + 1));
 
         // Check PCs
-        EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i));
+        EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i + 1));
 
         // Check operands
         size_t operand_idx = 0;
         for (const auto& operand : instr.operands) {
-            EXPECT_EQ(FF(operand), trace.get(operand_columns.at(operand_idx++), i));
+            EXPECT_EQ(FF(operand), trace.get(operand_columns.at(operand_idx++), i + 1));
         }
     }
+}
+
+TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    constexpr BytecodeId bytecode_id = 1;
+    constexpr size_t num_of_opcodes = 10;
+    constexpr std::array<WireOpCode, num_of_opcodes> opcodes = {
+        WireOpCode::DIV_16,
+        WireOpCode::RETURNDATASIZE,
+        WireOpCode::AND_8,
+        WireOpCode::EMITUNENCRYPTEDLOG,
+        WireOpCode::CAST_16,
+        WireOpCode::CALL,
+        WireOpCode::SUCCESSCOPY,
+        WireOpCode::MOV_8,
+        WireOpCode::SHA256COMPRESSION,
+        WireOpCode::INTERNALCALL,
+    };
+
+    std::vector<Instruction> instructions = gen_random_instructions(opcodes);
+    std::vector<size_t> pcs = gen_pcs(opcodes);
+    std::vector<uint8_t> bytecode = create_bytecode(instructions);
+
+    std::vector<InstructionFetchingEvent> events = create_instruction_fetching_events(
+        instructions, pcs, std::make_shared<std::vector<uint8_t>>(bytecode), bytecode_id);
+
+    builder.process_instruction_fetching(events, trace);
+
+    // One extra empty row is prepended.
+    const auto rows = trace.as_rows();
+    const auto bytecode_size = bytecode.size();
+    EXPECT_EQ(rows.size(), num_of_opcodes + 1);
+
+    for (size_t i = 0; i < num_of_opcodes; i++) {
+        const auto pc = pcs.at(i);
+        const auto instr_size = WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).size_in_bytes;
+        const auto bytes_remaining = bytecode_size - pc;
+        const auto bytes_to_read = std::min<size_t>(DECOMPOSE_WINDOW_SIZE, bytes_remaining);
+
+        EXPECT_LE(instr_size, bytes_to_read);
+        const auto instr_abs_diff = bytes_to_read - instr_size;
+
+        EXPECT_LT(pc, bytecode_size);
+        const auto pc_abs_diff = bytecode_size - pc - 1;
+
+        ASSERT_LE(bytecode_size, UINT16_MAX);
+
+        EXPECT_THAT(rows.at(i + 1),
+                    AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
+                          ROW_FIELD_EQ(R, instr_fetching_pc, pc),
+                          ROW_FIELD_EQ(R, instr_fetching_bd0, static_cast<uint8_t>(opcodes.at(i))),
+                          ROW_FIELD_EQ(R, instr_fetching_bytecode_id, bytecode_id),
+                          ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, bytes_to_read),
+                          ROW_FIELD_EQ(R, instr_fetching_bytecode_size, bytecode_size),
+                          ROW_FIELD_EQ(R, instr_fetching_instr_size, instr_size),
+                          ROW_FIELD_EQ(R, instr_fetching_instr_abs_diff, instr_abs_diff),
+                          ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, pc_abs_diff),
+                          ROW_FIELD_EQ(R, instr_fetching_pc_out_of_range, 0),
+                          ROW_FIELD_EQ(R, instr_fetching_opcode_out_of_range, 0),
+                          ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 0),
+                          ROW_FIELD_EQ(R, instr_fetching_parsing_err, 0),
+                          ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1)));
+    }
+}
+
+// Test involving 3 different bytecode_id's for each 2 opcodes (same bytecode).
+TEST(BytecodeTraceGenTest, InstrFetchingMultipleBytecodes)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    constexpr size_t num_of_opcodes = 2;
+    constexpr std::array<WireOpCode, num_of_opcodes> opcodes = {
+        WireOpCode::DIV_16,
+        WireOpCode::RETURNDATASIZE,
+    };
+
+    std::vector<Instruction> instructions = gen_random_instructions(opcodes);
+    std::vector<size_t> pcs = gen_pcs(opcodes);
+    std::vector<uint8_t> bytecode = create_bytecode(instructions);
+
+    std::vector<InstructionFetchingEvent> events;
+    for (size_t i = 0; i < 3; i++) {
+        auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
+        auto new_events =
+            create_instruction_fetching_events(instructions, pcs, bytecode_ptr, static_cast<BytecodeId>(i + 1));
+        events.insert(events.end(), new_events.begin(), new_events.end());
+    }
+
+    builder.process_instruction_fetching(events, trace);
+
+    // One extra empty row is prepended.
+    const auto rows = trace.as_rows();
+    EXPECT_EQ(rows.size(), 6 + 1);
+
+    for (size_t i = 0; i < 3; i++) {
+        EXPECT_THAT(rows.at(2 * i + 1), ROW_FIELD_EQ(R, instr_fetching_pc, 0));
+    }
+}
+
+// Test which processes three single instruction events, each of one with a different parsing error.
+// The bytecode can be filled with trivial bytes of size 20 with all bytes being increasing from 0 to 19.
+// First byte at index 0 is set to LAST_OPCODE_SENTINEL + 1.
+// Then consider for the instruction events pc = 0, pc = 19, pc = 38.
+// pc == 0 will correspond to the error OPCODE_OUT_OF_RANGE
+// pc == 19 will have INSTRUCTION_OUT_OF_RANGE
+// pc == 38 will have PC_OUT_OF_RANGE
+// Check for each row that column instr_fetching_parsing_err in addition to the column of the respective error.
+// It is not an issue that the instruction is generated at random in the event and is not consistent with the
+// bytecode for this test case.
+TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder builder;
+
+    constexpr BytecodeId bytecode_id = 1;
+    constexpr size_t bytecode_size = 20;
+    std::vector<uint8_t> bytecode(bytecode_size);
+    for (size_t i = 0; i < bytecode_size; i++) {
+        bytecode[i] = static_cast<uint8_t>(i);
+    }
+    bytecode[0] = static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL) + 1;
+
+    std::vector<InstructionFetchingEvent> events;
+    auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(bytecode);
+    events.emplace_back(InstructionFetchingEvent{
+        .bytecode_id = bytecode_id,
+        .pc = 0,
+        .instruction = testing::random_instruction(WireOpCode::ADD_8),
+        .bytecode = bytecode_ptr,
+        .error = simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE,
+    });
+    events.emplace_back(InstructionFetchingEvent{
+        .bytecode_id = bytecode_id,
+        .pc = 19,
+        .instruction = testing::random_instruction(WireOpCode::ADD_8),
+        .bytecode = bytecode_ptr,
+        .error = simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
+    });
+    events.emplace_back(InstructionFetchingEvent{
+        .bytecode_id = bytecode_id,
+        .pc = 38,
+        .instruction = testing::random_instruction(WireOpCode::ADD_8),
+        .bytecode = bytecode_ptr,
+        .error = simulation::InstrDeserializationError::PC_OUT_OF_RANGE,
+    });
+
+    builder.process_instruction_fetching(events, trace);
+
+    // One extra empty row is prepended.
+    const auto rows = trace.as_rows();
+    EXPECT_EQ(rows.size(), 3 + 1);
+
+    EXPECT_THAT(rows.at(1),
+                AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_pc, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 20),
+                      ROW_FIELD_EQ(R, instr_fetching_instr_size, 0),
+                      ROW_FIELD_EQ(R,
+                                   instr_fetching_instr_abs_diff,
+                                   20), // instr_size <= bytes_to_read: bytes_to_read - instr_size
+                      ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 19),
+                      ROW_FIELD_EQ(R, instr_fetching_opcode_out_of_range, 1)));
+
+    EXPECT_THAT(rows.at(2),
+                AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_pc, 19), // OR_16 opcode
+                      ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_instr_size, 8), // OR_16 is 8 bytes long
+                      ROW_FIELD_EQ(R,
+                                   instr_fetching_instr_abs_diff,
+                                   6), // instr_size > bytes_to_read: instr_size - bytes_to_read - 1
+                      ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 1)));
+
+    EXPECT_THAT(rows.at(3),
+                AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_pc, 38),
+                      ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_instr_size, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_instr_abs_diff, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 18),
+                      ROW_FIELD_EQ(R, instr_fetching_pc_out_of_range, 1)));
 }
 
 } // namespace
