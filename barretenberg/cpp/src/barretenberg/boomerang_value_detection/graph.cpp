@@ -1171,6 +1171,9 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
         this->variables_in_one_gate.erase(elem);
     }
     this->remove_record_witness_variables(ultra_circuit_builder);
+    for (const auto& elem: ultra_circuit_builder.get_safe_variables()) {
+        this->variables_in_one_gate.erase(ultra_circuit_builder.real_variable_index[elem]);
+    }
     return variables_in_one_gate;
 }
 
@@ -1239,6 +1242,38 @@ template <typename FF> void Graph_<FF>::print_variables_gate_counts()
 {
     for (const auto& it : variables_gate_counts) {
         info("number of gates with variables ", it.first, " == ", it.second);
+    }
+}
+
+template <typename FF>
+
+void Graph_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx)
+{
+    const auto& block_data = ultra_builder.blocks.get();
+    for (const auto& [key, gates] : variable_gates) {
+        if (key.first == real_idx) {
+            ASSERT(gates.size() == 1);
+            size_t gate_index = gates[0];
+            UltraBlock block = block_data[key.second];
+            info("gate index == ", gate_index);
+            info("---- printing variables in this gate");
+            info("w_l == ", block.w_l()[gate_index], " w_r == ", block.w_r()[gate_index], " w_o == ", block.w_o()[gate_index], " w_4 == ", block.w_4()[gate_index]);
+            info("---- printing gate selectors where variable with index ", key.first, " was found ----");
+            info("q_m == ", block.q_m()[gate_index]);
+            info("q_c == ", block.q_c()[gate_index]);
+            info("q_1 == ", block.q_1()[gate_index]);
+            info("q_2 == ", block.q_2()[gate_index]);
+            info("q_3 == ", block.q_3()[gate_index]);
+            info("q_4 == ", block.q_4()[gate_index]);
+            info("q_arith == ", block.q_arith()[gate_index]);
+            info("q_delta_range == ", block.q_delta_range()[gate_index]);
+            info("q_elliptic == ", block.q_elliptic()[gate_index]);
+            info("q_aux == ", block.q_aux()[gate_index]);
+            info("q_lookup_type == ", block.q_lookup_type()[gate_index]);
+            info("q_poseidon2_external == ", block.q_poseidon2_external()[gate_index]);
+            info("q_poseidon2_internal == ", block.q_poseidon2_internal()[gate_index]);
+            info("---- finished printing ----");
+        }
     }
 }
 
