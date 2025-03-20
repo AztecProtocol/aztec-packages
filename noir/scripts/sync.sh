@@ -212,7 +212,7 @@ function patch_repo {
   # Apply any patch file.
   if [ -f $NOIR_REPO_PATCH ]; then
     log Applying patches from $NOIR_REPO_PATCH
-    git -C noir-repo am ../$NOIR_REPO_PATCH >&2
+    git -C noir-repo am ../$NOIR_REPO_PATCH --no-gpg-sign >&2
   else
     log "No patch file to apply"
   fi
