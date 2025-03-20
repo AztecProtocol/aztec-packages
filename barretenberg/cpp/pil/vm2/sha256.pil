@@ -160,15 +160,15 @@ namespace sha256;
     // s0 := (w[i-15] `rotr` 7) `xor` (w[i-15] `rotr` 18) `xor` (w[i-15] `rightshift`  3)
     pol commit w_15_rotr_7_xor_w_15_rotr_18;
     // #[LOOKUP_W_S_0_XOR_0]
-    // dummy_zero {w_15_rotr_7, w_15_rotr_18, w_15_rotr_7_xor_w_15_rotr_18, xor_sel}
+    // dummy_zero { w_15_rotr_7, w_15_rotr_18, w_15_rotr_7_xor_w_15_rotr_18, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit w_s_0;
     // #[LOOKUP_W_S_0_XOR_1]
-    // dummy_zero {w_15_rotr_7_xor_w_15_rotr_18, w_15_rshift_3, w_s_0, xor_sel}
+    // dummy_zero { w_15_rotr_7_xor_w_15_rotr_18, w_15_rshift_3, w_s_0, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     // ========== Compute w_s1 ===================
     // w[i-2] `rotr` 17
@@ -192,15 +192,15 @@ namespace sha256;
     // s1 := (w[i-2] `rotr` 17) `xor` (w[i-2] `rotr` 19) `xor` (w[i-2] `rightshift` 10)
     pol commit w_2_rotr_17_xor_w_2_rotr_19;
     // #[LOOKUP_W_S_1_XOR_0]
-    // dummy_zero {w_2_rotr_17, w_2_rotr_19, w_2_rotr_17_xor_w_2_rotr_19, xor_sel}
+    // dummy_zero { w_2_rotr_17, w_2_rotr_19, w_2_rotr_17_xor_w_2_rotr_19, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit w_s_1;
     // #[LOOKUP_W_S_1_XOR_1]
-    // dummy_zero {w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_sel}
+    // dummy_zero { w_2_rotr_17_xor_w_2_rotr_19, w_2_rshift_10, w_s_1, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     // ========== START OF COMPRESSION BLOCK ==================
 
@@ -228,47 +228,47 @@ namespace sha256;
 
     pol commit e_rotr_6_xor_e_rotr_11;
     // #[LOOKUP_S_1_XOR_0]
-    // dummy_zero {e_rotr_6, e_rotr_11, e_rotr_6_xor_e_rotr_11, xor_sel}
+    // dummy_zero { e_rotr_6, e_rotr_11, e_rotr_6_xor_e_rotr_11, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit s_1;
     // #[LOOKUP_S_1_XOR_1]
-    // dummy_zero {e_rotr_6_xor_e_rotr_11, e_rotr_25, s_1, xor_sel}
+    // dummy_zero { e_rotr_6_xor_e_rotr_11, e_rotr_25, s_1, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     // ==== COMPUTING CH ===========
     // pol CH_0 = (E_0 `and` F_0) `xor` ((`not` E_0) `and` G_0);
     pol commit e_and_f;
 
     // #[LOOKUP_CH_AND_0]
-    // dummy_zero {e, f, e_and_f, and_sel}
+    // dummy_zero { e, f, e_and_f, and_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit not_e;
     perform_round * (e + not_e - (2**32 - 1)) = 0;
 
     pol commit not_e_and_g;
     // #[LOOKUP_CH_AND_1]
-    // dummy_zero {not_e, g, not_e_and_g, and_sel}
+    // dummy_zero { not_e, g, not_e_and_g, and_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit ch;
     // #[LOOKUP_CH_XOR]
-    // dummy_zero {e_and_f, not_e_and_g, ch, xor_sel}
+    // dummy_zero { e_and_f, not_e_and_g, ch, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     // ===== COMPUTING TMP 1 ===========
     // Lookup round constants
     pol commit round_constant;
     #[ROUND_CONSTANT]
-    perform_round {round_count, round_constant}
+    perform_round { round_count, round_constant }
     in
-    precomputed.sel_sha256_compression {precomputed.clk, precomputed.sha256_compression_round_constant};
+    precomputed.sel_sha256_compression { precomputed.clk, precomputed.sha256_compression_round_constant };
 
     pol TMP_1 = h + s_1 + ch + round_constant + w;
 
@@ -295,47 +295,47 @@ namespace sha256;
     // (A_0 `rotr` 2) `xor` (A_0 `rotr` 13)
     pol commit a_rotr_2_xor_a_rotr_13;
     // #[LOOKUP_S_0_XOR_0]
-    // dummy_zero {a_rotr_2, a_rotr_13, a_rotr_2_xor_a_rotr_13, xor_sel}
+    // dummy_zero { a_rotr_2, a_rotr_13, a_rotr_2_xor_a_rotr_13, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit s_0;
     // #[LOOKUP_S_0_XOR_1]
-    // dummy_zero {a_rotr_2_xor_a_rotr_13, a_rotr_22, s_0, xor_sel}
+    // dummy_zero { a_rotr_2_xor_a_rotr_13, a_rotr_22, s_0, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     // ====== Computing Maj =========
     // pol MAJ_0 = (A_0 `and` B_0) `xor` (A_0 `and` C_0) `xor` (B_0 `and` C_0);
     pol commit a_and_b;
     // #[LOOKUP_MAJ_AND_0]
-    // dummy_zero {a, b, a_and_b, and_sel}
+    // dummy_zero { a, b, a_and_b, and_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit a_and_c;
     // #[LOOKUP_MAJ_AND_1]
-    // dummy_zero {a, c, a_and_c, and_sel}
+    // dummy_zero { a, c, a_and_c, and_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit b_and_c;
     // #[LOOKUP_MAJ_AND_2]
-    // dummy_zero {b, c, b_and_c, and_sel}
+    // dummy_zero { b, c, b_and_c, and_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit a_and_b_xor_a_and_c;
     // #[LOOKUP_MAJ_XOR_0]
-    // dummy_zero {a_and_b, a_and_c, a_and_b_xor_a_and_c, xor_sel}
+    // dummy_zero { a_and_b, a_and_c, a_and_b_xor_a_and_c, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     pol commit maj;
     // #[LOOKUP_MAJ_XOR_1]
-    // dummy_zero {a_and_b_xor_a_and_c, b_and_c, maj, xor_sel}
+    // dummy_zero { a_and_b_xor_a_and_c, b_and_c, maj, xor_sel }
     // in
-    // binary.start {binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id};
+    // binary.start { binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id };
 
     // ==== Compute TMP 2 ====
     pol NEXT_A = s_0 + maj + TMP_1;

@@ -1,8 +1,6 @@
 import { Fr } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
-import { RollupAbi } from '@aztec/l1-artifacts';
-
-import { getContract } from 'viem';
+import { RollupContract } from '@aztec/ethereum';
 
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
@@ -19,8 +17,8 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     l2Token,
     user1Wallet,
     user2Wallet,
-    rollup,
   } = t;
+  let rollup: RollupContract;
   let cheatCodes: CheatCodes;
 
   beforeEach(async () => {
@@ -35,11 +33,10 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     ownerAddress = crossChainTestHarness.ownerAddress;
     l2Bridge = crossChainTestHarness.l2Bridge;
     l2Token = crossChainTestHarness.l2Token;
-    rollup = getContract({
-      address: crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: crossChainTestHarness.walletClient,
-    });
+    rollup = new RollupContract(
+      crossChainTestHarness!.publicClient,
+      crossChainTestHarness!.l1ContractAddresses.rollupAddress,
+    );
 
     cheatCodes = await CheatCodes.create(t.aztecNodeConfig.l1RpcUrls, t.pxe);
   }, 300_000);
@@ -91,7 +88,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     );
 
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await cheatCodes.rollup.markAsProven(await rollup.read.getPendingBlockNumber());
+    await cheatCodes.rollup.markAsProven(await rollup.getBlockNumber());
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
