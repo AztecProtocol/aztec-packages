@@ -37,11 +37,8 @@ struct EventsContainer {
     EventEmitterInterface<Poseidon2HashEvent>::Container poseidon2_hash;
     EventEmitterInterface<Poseidon2PermutationEvent>::Container poseidon2_permutation;
     EventEmitterInterface<ToRadixEvent>::Container to_radix;
-<<<<<<< HEAD
     EventEmitterInterface<MerkleCheckEvent>::Container merkle_check;
-=======
     EventEmitterInterface<RangeCheckEvent>::Container range_check;
->>>>>>> master
 };
 
 } // namespace bb::avm2::simulation

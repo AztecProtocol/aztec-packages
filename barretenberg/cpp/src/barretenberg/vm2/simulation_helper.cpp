@@ -20,12 +20,8 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
-<<<<<<< HEAD
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
-    == == ==
-    =
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
-        >>>>>>> master
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
@@ -41,120 +37,110 @@
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
 
-        namespace bb::avm2
+namespace bb::avm2 {
+
+using namespace bb::avm2::simulation;
+
+namespace {
+
+// Configuration for full simulation (for proving).
+struct ProvingSettings {
+    template <typename E> using DefaultEventEmitter = EventEmitter<E>;
+    template <typename E> using DefaultDeduplicatingEventEmitter = DeduplicatingEventEmitter<E>;
+};
+
+// Configuration for fast simulation.
+struct FastSettings {
+    template <typename E> using DefaultEventEmitter = NoopEventEmitter<E>;
+    template <typename E> using DefaultDeduplicatingEventEmitter = NoopEventEmitter<E>;
+};
+
+} // namespace
+
+template <typename S> EventsContainer AvmSimulationHelper::simulate_with_settings()
 {
+    typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
+    typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
+    typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
+    typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
+    typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
+    typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
+    typename S::template DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
+    typename S::template DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
+    typename S::template DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
+    typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
+    typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
+    typename S::template DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
+    typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
+    typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
+    typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
+    typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
 
-    using namespace bb::avm2::simulation;
+    Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
+    ToRadix to_radix(to_radix_emitter);
+    Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
+    MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
+    RangeCheck range_check(range_check_emitter);
 
-    namespace {
+    AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
+    ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
+    HintedRawContractDB raw_contract_db(inputs.hints);
+    HintedRawMerkleDB raw_merkle_db(inputs.hints, inputs.publicInputs.startTreeSnapshots);
+    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
+    MerkleDB merkle_db(raw_merkle_db);
 
-    // Configuration for full simulation (for proving).
-    struct ProvingSettings {
-        template <typename E> using DefaultEventEmitter = EventEmitter<E>;
-        template <typename E> using DefaultDeduplicatingEventEmitter = DeduplicatingEventEmitter<E>;
-    };
+    BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
+    Siloing siloing(siloing_emitter);
+    InstructionInfoDB instruction_info_db;
+    TxBytecodeManager bytecode_manager(contract_db,
+                                       merkle_db,
+                                       siloing,
+                                       bytecode_hasher,
+                                       range_check,
+                                       bytecode_retrieval_emitter,
+                                       bytecode_decomposition_emitter,
+                                       instruction_fetching_emitter);
+    ExecutionComponentsProvider execution_components(bytecode_manager, memory_emitter, instruction_info_db);
 
-    // Configuration for fast simulation.
-    struct FastSettings {
-        template <typename E> using DefaultEventEmitter = NoopEventEmitter<E>;
-        template <typename E> using DefaultDeduplicatingEventEmitter = NoopEventEmitter<E>;
-    };
+    Alu alu(alu_emitter);
+    Execution execution(alu, execution_components, instruction_info_db, execution_emitter);
+    TxExecution tx_execution(execution);
+    Sha256 sha256(sha256_compression_emitter);
 
-    } // namespace
+    tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
 
-    template <typename S> EventsContainer AvmSimulationHelper::simulate_with_settings()
-    {
-        typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
-        typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
-        typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
-        typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
-        typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
-        typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
-        typename S::template DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
-        typename S::template DefaultDeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
-        typename S::template DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
-        typename S::template DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
-        typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
-        typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
-        typename S::template DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
-        typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
-        typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
-        typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
-        typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
-<<<<<<< HEAD
-        typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
-=======
-        typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
->>>>>>> master
+    return { execution_emitter.dump_events(),
+             alu_emitter.dump_events(),
+             bitwise_emitter.dump_events(),
+             memory_emitter.dump_events(),
+             bytecode_retrieval_emitter.dump_events(),
+             bytecode_hashing_emitter.dump_events(),
+             bytecode_decomposition_emitter.dump_events(),
+             instruction_fetching_emitter.dump_events(),
+             address_derivation_emitter.dump_events(),
+             class_id_derivation_emitter.dump_events(),
+             siloing_emitter.dump_events(),
+             sha256_compression_emitter.dump_events(),
+             ecc_add_emitter.dump_events(),
+             scalar_mul_emitter.dump_events(),
+             poseidon2_hash_emitter.dump_events(),
+             poseidon2_perm_emitter.dump_events(),
+             to_radix_emitter.dump_events(),
+             merkle_check_emitter.dump_events(),
+             range_check_emitter.dump_events() };
+}
 
-        Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
-        ToRadix to_radix(to_radix_emitter);
-        Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
-<<<<<<< HEAD
-        MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
-=======
-        RangeCheck range_check(range_check_emitter);
->>>>>>> master
+EventsContainer AvmSimulationHelper::simulate()
+{
+    return simulate_with_settings<ProvingSettings>();
+}
 
-        AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
-        ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
-        HintedRawContractDB raw_contract_db(inputs.hints);
-        HintedRawMerkleDB raw_merkle_db(inputs.hints, inputs.publicInputs.startTreeSnapshots);
-        ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
-        MerkleDB merkle_db(raw_merkle_db);
-
-        BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
-        Siloing siloing(siloing_emitter);
-        InstructionInfoDB instruction_info_db;
-        TxBytecodeManager bytecode_manager(contract_db,
-                                           merkle_db,
-                                           siloing,
-                                           bytecode_hasher,
-                                           range_check,
-                                           bytecode_retrieval_emitter,
-                                           bytecode_decomposition_emitter,
-                                           instruction_fetching_emitter);
-        ExecutionComponentsProvider execution_components(bytecode_manager, memory_emitter, instruction_info_db);
-
-        Alu alu(alu_emitter);
-        Execution execution(alu, execution_components, instruction_info_db, execution_emitter);
-        TxExecution tx_execution(execution);
-        Sha256 sha256(sha256_compression_emitter);
-
-        tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
-
-        return { execution_emitter.dump_events(),
-                 alu_emitter.dump_events(),
-                 bitwise_emitter.dump_events(),
-                 memory_emitter.dump_events(),
-                 bytecode_retrieval_emitter.dump_events(),
-                 bytecode_hashing_emitter.dump_events(),
-                 bytecode_decomposition_emitter.dump_events(),
-                 instruction_fetching_emitter.dump_events(),
-                 address_derivation_emitter.dump_events(),
-                 class_id_derivation_emitter.dump_events(),
-                 siloing_emitter.dump_events(),
-                 sha256_compression_emitter.dump_events(),
-                 ecc_add_emitter.dump_events(),
-                 scalar_mul_emitter.dump_events(),
-                 poseidon2_hash_emitter.dump_events(),
-                 poseidon2_perm_emitter.dump_events(),
-                 to_radix_emitter.dump_events(),
-<<<<<<< HEAD
-                 merkle_check_emitter.dump_events() };
-=======
-                 range_check_emitter.dump_events() };
->>>>>>> master
-    }
-
-    EventsContainer AvmSimulationHelper::simulate()
-    {
-        return simulate_with_settings<ProvingSettings>();
-    }
-
-    void AvmSimulationHelper::simulate_fast()
-    {
-        simulate_with_settings<FastSettings>();
-    }
+void AvmSimulationHelper::simulate_fast()
+{
+    simulate_with_settings<FastSettings>();
+}
 
 } // namespace bb::avm2
