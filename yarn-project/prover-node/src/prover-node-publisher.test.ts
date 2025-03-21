@@ -125,11 +125,7 @@ describe('prover-node-publisher', () => {
     async ({ pendingBlockNumber, provenBlockNumber, fromBlock, toBlock, expectedPublish, message }) => {
       // Create public inputs for every block
       const blocks = Array.from({ length: 100 }, () => {
-        const publicInputs = RootRollupPublicInputs.random();
-        return {
-          publicInputs,
-          proof: Proof.empty(),
-        };
+        return RootRollupPublicInputs.random();
       });
 
       // Return the tips specified by the test
@@ -141,8 +137,8 @@ describe('prover-node-publisher', () => {
       // Return the requested block
       rollup.getBlock.mockImplementation((blockNumber: bigint) =>
         Promise.resolve({
-          blockHash: blocks[Number(blockNumber) - 1].publicInputs.endBlockHash.toString(),
-          archive: blocks[Number(blockNumber) - 1].publicInputs.endArchive.root.toString(),
+          blockHash: blocks[Number(blockNumber) - 1].endBlockHash.toString(),
+          archive: blocks[Number(blockNumber) - 1].endArchive.root.toString(),
           slotNumber: 0n, // unused,
         }),
       );
@@ -150,10 +146,10 @@ describe('prover-node-publisher', () => {
       // We have built a rollup proof of the range fromBlock - toBlock
       // so we need to set our archives and hashes accordingly
       const ourPublicInputs = RootRollupPublicInputs.random();
-      ourPublicInputs.previousBlockHash = blocks[fromBlock - 2]?.publicInputs.endBlockHash ?? Fr.ZERO;
-      ourPublicInputs.previousArchive = blocks[fromBlock - 2]?.publicInputs.endArchive ?? Fr.ZERO;
-      ourPublicInputs.endBlockHash = blocks[toBlock - 1]?.publicInputs.endBlockHash ?? Fr.ZERO;
-      ourPublicInputs.endArchive = blocks[toBlock - 1]?.publicInputs.endArchive ?? Fr.ZERO;
+      ourPublicInputs.previousBlockHash = blocks[fromBlock - 2]?.endBlockHash ?? Fr.ZERO;
+      ourPublicInputs.previousArchive = blocks[fromBlock - 2]?.endArchive ?? Fr.ZERO;
+      ourPublicInputs.endBlockHash = blocks[toBlock - 1]?.endBlockHash ?? Fr.ZERO;
+      ourPublicInputs.endArchive = blocks[toBlock - 1]?.endArchive ?? Fr.ZERO;
 
       // Return our public inputs
       const totalFields = ourPublicInputs.toFields().concat(times(AGGREGATION_OBJECT_LENGTH, Fr.zero));
