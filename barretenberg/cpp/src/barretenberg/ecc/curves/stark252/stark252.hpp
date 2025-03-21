@@ -17,7 +17,6 @@ struct FqParams {
     // Reference: https://eprint.iacr.org/2015/696.pdf
     static constexpr uint64_t r_inv = 0xffffffffffffffffULL;
 
-    /*
     static constexpr uint64_t modulus_wasm_0 = 0x00000001;
     static constexpr uint64_t modulus_wasm_1 = 0x00000000;
     static constexpr uint64_t modulus_wasm_2 = 0x00000000;
@@ -27,7 +26,11 @@ struct FqParams {
     static constexpr uint64_t modulus_wasm_6 = 0x00440000;
     static constexpr uint64_t modulus_wasm_7 = 0x00000000;
     static constexpr uint64_t modulus_wasm_8 = 0x00080000;
-    */
+
+    static constexpr uint64_t r_squared_wasm_0 = 0xfff5cdf800100001ULL;
+    static constexpr uint64_t r_squared_wasm_1 = 0x000004cc3fffffffULL;
+    static constexpr uint64_t r_squared_wasm_2 = 0xfffffffdbe000000ULL;
+    static constexpr uint64_t r_squared_wasm_3 = 0x0752ad7802200010ULL;
 };
 using fq = field<FqParams>;
 } // namespace bb::stark252
