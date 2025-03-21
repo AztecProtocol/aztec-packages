@@ -123,7 +123,7 @@ describe('prover-node-publisher', () => {
   test.each(testCases)(
     'submits proof for epoch with pendingBlock: $pendingBlockNumber, provenBlock: $provenBlockNumber, fromBlock: $fromBlock, toBlock: $toBlock',
     async ({ pendingBlockNumber, provenBlockNumber, fromBlock, toBlock, expectedPublish, message }) => {
-      // Create proofs for every block, to reference as previous archives
+      // Create public inputs for every block
       const blocks = Array.from({ length: 100 }, () => {
         const publicInputs = RootRollupPublicInputs.random();
         return {
@@ -147,14 +147,16 @@ describe('prover-node-publisher', () => {
         }),
       );
 
-      const ourLastBlock = blocks[toBlock - 1];
-      const publicInputs = ourLastBlock.publicInputs;
-      publicInputs.previousBlockHash = blocks[fromBlock - 2]?.publicInputs.endBlockHash ?? Fr.ZERO;
-      publicInputs.previousArchive = blocks[fromBlock - 2]?.publicInputs.endArchive ?? Fr.ZERO;
-      const proof = ourLastBlock.proof;
+      // We have built a rollup proof of the range fromBlock - toBlock
+      // so we need to set our archives and hashes accordingly
+      const ourPublicInputs = RootRollupPublicInputs.random();
+      ourPublicInputs.previousBlockHash = blocks[fromBlock - 2]?.publicInputs.endBlockHash ?? Fr.ZERO;
+      ourPublicInputs.previousArchive = blocks[fromBlock - 2]?.publicInputs.endArchive ?? Fr.ZERO;
+      ourPublicInputs.endBlockHash = blocks[toBlock - 1]?.publicInputs.endBlockHash ?? Fr.ZERO;
+      ourPublicInputs.endArchive = blocks[toBlock - 1]?.publicInputs.endArchive ?? Fr.ZERO;
 
       // Return our public inputs
-      const totalFields = publicInputs.toFields().concat(times(AGGREGATION_OBJECT_LENGTH, Fr.zero));
+      const totalFields = ourPublicInputs.toFields().concat(times(AGGREGATION_OBJECT_LENGTH, Fr.zero));
       rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields.map(x => x.toString()));
 
       const result = await publisher
@@ -162,8 +164,8 @@ describe('prover-node-publisher', () => {
           epochNumber: 2,
           fromBlock,
           toBlock,
-          publicInputs,
-          proof,
+          publicInputs: ourPublicInputs,
+          proof: Proof.empty(),
         })
         .then(() => 'Success')
         .catch(error => error.message);
