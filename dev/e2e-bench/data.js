@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742590951933,
+  "lastUpdate": 1742594758827,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "37ccc38aaeb539b19ff4614f02d443f1500870b0",
-          "message": "fix: revert \"Switch to `noir-repo` context for cache content hashing\" (#12824)\n\nReverts AztecProtocol/aztec-packages#12784 as it broke master",
-          "timestamp": "2025-03-17T20:55:14-04:00",
-          "tree_id": "56c879a4958121236674f628a3e2df3dd0e26b9c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/37ccc38aaeb539b19ff4614f02d443f1500870b0"
-        },
-        "date": 1742260594176,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9139,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.22300989316488057,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 139735,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 106240,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c3337af484a752294b2a817649ac69de5cadae11",
+          "message": "fix: Remove workaround (#12952)",
+          "timestamp": "2025-03-21T21:41:13Z",
+          "tree_id": "78a72acf3442cb57d2283519eb68e18e97c55857",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c3337af484a752294b2a817649ac69de5cadae11"
+        },
+        "date": 1742594757439,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9140,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23244337737438003,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 146430,
             "unit": "us"
           }
         ]
