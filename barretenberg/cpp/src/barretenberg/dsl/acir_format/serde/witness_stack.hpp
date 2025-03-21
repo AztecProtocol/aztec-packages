@@ -15,7 +15,16 @@ struct Witness {
 
     bool operator<(Witness const& rhs) const { return value < rhs.value; }
     void msgpack_pack(auto& packer) const { packer.pack(value); }
-    void msgpack_unpack(msgpack::object const& o) { o.convert(value); }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        try {
+            o.convert(value);
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting into newtype 'Witness'");
+        }
+    }
 };
 
 struct WitnessMap {
@@ -26,7 +35,16 @@ struct WitnessMap {
     static WitnessMap bincodeDeserialize(std::vector<uint8_t>);
 
     void msgpack_pack(auto& packer) const { packer.pack(value); }
-    void msgpack_unpack(msgpack::object const& o) { o.convert(value); }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        try {
+            o.convert(value);
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting into newtype 'WitnessMap'");
+        }
+    }
 };
 
 struct StackItem {
