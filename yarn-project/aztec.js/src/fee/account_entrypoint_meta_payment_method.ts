@@ -20,6 +20,15 @@ import type { GasSettings } from '@aztec/stdlib/gas';
  * Fee payment method that allows a contract to pay for its own deployment
  * It works by rerouting the provided fee payment method through the account's entrypoint,
  * which sets itself as fee payer.
+ *
+ * Usually, in order to pay fees it is necessary to obtain an ExecutionPayload that encodes the necessary information
+ * That is sent to the user's account entrypoint, that has plumbing to handle a fee payload.
+ * If there's no account contract yet (it's being deployed) a MultiCallContract is used, which doesn't have a concept of fees or
+ * how to handle this payload.
+ * HOWEVER,the account contract entrypoint does, so this method reshapes that fee payload into a call to the account contract entrypoint
+ * being deployed with the original fee payload.
+ *
+ * This class can be seen in action in AccountManager.ts -> #getSelfPaymentMethod
  */
 export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
   constructor(

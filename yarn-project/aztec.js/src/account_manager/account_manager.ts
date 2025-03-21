@@ -164,7 +164,7 @@ export class AccountManager {
     if (deployWallet) {
       // If deploying using an existing wallet/account, treat it like regular contract deployment.
       const thisWallet = await this.getWallet();
-      new DeployMethod(
+      return new DeployMethod(
         this.getPublicKeys(),
         deployWallet,
         artifact,
