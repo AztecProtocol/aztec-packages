@@ -61,5 +61,6 @@ export async function deployL1Contracts(
     log(`GovernanceProposer Address: ${l1ContractAddresses.governanceProposerAddress.toString()}`);
     log(`Governance Address: ${l1ContractAddresses.governanceAddress.toString()}`);
     log(`SlashFactory Address: ${l1ContractAddresses.slashFactoryAddress?.toString()}`);
+    log(`FeeAssetHandler Address: ${l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
   }
 }
