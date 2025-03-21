@@ -28,7 +28,7 @@ use crate::{
 };
 use std::aes128::aes128_encrypt;
 
-struct AES128 {}
+pub struct AES128 {}
 
 impl LogEncryption for AES128 {
     fn encrypt_log<let PLAINTEXT_LEN: u32>(
