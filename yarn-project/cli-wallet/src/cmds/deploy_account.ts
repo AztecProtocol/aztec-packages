@@ -40,10 +40,9 @@ export async function deployAccount(
   let tx;
   let txReceipt;
 
-  const feeOptions = await feeOpts.toDeployAccountOpts(wallet);
   const deployOpts: DeployAccountOptions = {
     skipInitialization: false,
-    fee: feeOptions.fee,
+    ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
 
   if (feeOpts.estimateOnly) {

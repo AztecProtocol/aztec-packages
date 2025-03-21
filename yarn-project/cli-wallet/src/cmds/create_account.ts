@@ -65,12 +65,11 @@ export async function createAccount(
     await account.register();
   } else {
     const wallet = await account.getWallet();
-    const feeOptions = await feeOpts.toDeployAccountOpts(wallet);
     const deployOpts: DeployAccountOptions = {
       skipClassRegistration: !publicDeploy,
       skipPublicDeployment: !publicDeploy,
       skipInitialization: skipInitialization,
-      fee: feeOptions.fee,
+      ...(await feeOpts.toDeployAccountOpts(wallet)),
     };
     if (feeOpts.estimateOnly) {
       const gas = await account.estimateDeploymentGas(deployOpts);
