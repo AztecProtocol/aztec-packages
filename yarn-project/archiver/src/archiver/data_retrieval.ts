@@ -123,6 +123,12 @@ export async function processL2BlockProposedLogs(
       };
 
       retrievedBlocks.push({ ...block, l1 });
+      logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
+        l1BlockNumber: log.blockNumber,
+        l2BlockNumber,
+        archive: archive.toString(),
+        signatures: block.signatures.map(signature => signature.toString()),
+      });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
         actual: archive,
