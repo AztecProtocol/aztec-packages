@@ -68,6 +68,7 @@ function test_cmds {
   if [ "$CI_NIGHTLY" -eq 1 ]; then
     echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
     echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-1tps"
   fi
 }
 
@@ -144,6 +145,11 @@ case "$cmd" in
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
+    ;;
+  "test-kind-1tps")
+    OVERRIDES="bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/1tps.test.ts ci.yaml one-tps${NAME_POSTFIX:-}
     ;;
   "test-kind-upgrade-rollup-version")
     OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
