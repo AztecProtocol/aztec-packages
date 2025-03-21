@@ -162,20 +162,21 @@ export class L1FeeJuicePortalManager {
    * @param amount - Amount of tokens to send.
    * @param mint - Whether to mint the tokens before sending (only during testing).
    */
-  public async bridgeTokensPublic(to: AztecAddress, amount: bigint, mint = false): Promise<L2AmountClaim> {
+  public async bridgeTokensPublic(to: AztecAddress, amount: bigint | undefined, mint = false): Promise<L2AmountClaim> {
     const [claimSecret, claimSecretHash] = await generateClaimSecret();
+    const mintableAmount = await this.tokenManager.getMintAmount();
+    const amountToBridge = amount ?? mintableAmount;
     if (mint) {
-      const mintAmount = await this.tokenManager.getMintAmount();
-      if (amount !== mintAmount) {
-        throw new Error(`Minting amount must be ${mintAmount}`);
+      if (amountToBridge !== mintableAmount) {
+        throw new Error(`Minting amount must be ${mintableAmount}`);
       }
       await this.tokenManager.mint(this.walletClient.account.address);
     }
 
-    await this.tokenManager.approve(amount, this.contract.address, 'FeeJuice Portal');
+    await this.tokenManager.approve(amountToBridge, this.contract.address, 'FeeJuice Portal');
 
     this.logger.info('Sending L1 Fee Juice to L2 to be claimed publicly');
-    const args = [to.toString(), amount, claimSecretHash.toString()] as const;
+    const args = [to.toString(), amountToBridge, claimSecretHash.toString()] as const;
 
     await this.contract.simulate.depositToAztecPublic(args);
 
@@ -192,13 +193,13 @@ export class L1FeeJuicePortalManager {
       'DepositToAztecPublic',
       log =>
         log.args.secretHash === claimSecretHash.toString() &&
-        log.args.amount === amount &&
+        log.args.amount === amountToBridge &&
         log.args.to === to.toString(),
       this.logger,
     );
 
     return {
-      claimAmount: amount,
+      claimAmount: amountToBridge,
       claimSecret,
       claimSecretHash,
       messageHash: log.args.key,

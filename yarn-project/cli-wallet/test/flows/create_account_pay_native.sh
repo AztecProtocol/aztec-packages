@@ -6,7 +6,7 @@ source shared/setup.sh
 test_title "Create an account and deploy using native fee payment with bridging"
 
 aztec-wallet create-account -a main --register-only
-aztec-wallet bridge-fee-juice 100000000000000000 main --mint --no-wait
+aztec-wallet bridge-fee-juice 1000000000000000000 main --mint --no-wait
 
 
 section "Use a pre-funded test account to send dummy txs to force block creations"
