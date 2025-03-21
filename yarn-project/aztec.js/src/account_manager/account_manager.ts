@@ -1,3 +1,4 @@
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/fields';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
@@ -10,9 +11,9 @@ import type { AccountInterface } from '../account/interface.js';
 import { Contract } from '../contract/contract.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
-import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
+import { AccountEntrypointMetaPaymentMethod } from '../fee/account_entrypoint_meta_payment_method.js';
+import { DeploySentTx, FeeJuicePaymentMethod, type FeePaymentMethod } from '../index.js';
 import { AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from '../wallet/index.js';
-import { DeployAccountMethod } from './deploy_account_method.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
 /**
@@ -179,14 +180,30 @@ export class AccountManager {
     // and it can't be used unless the contract is initialized.
     const wallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
 
-    return new DeployAccountMethod(
-      this.accountContract.getAuthWitnessProvider(completeAddress),
+    return new DeployMethod(
       this.getPublicKeys(),
       wallet,
       artifact,
+      address => Contract.at(address, artifact, wallet),
       constructorArgs,
       constructorName,
+    );
+  }
+
+  /**
+   *
+   * @param originalPaymentMethod
+   */
+  public async getSelfPaymentMethod(originalPaymentMethod?: FeePaymentMethod) {
+    const artifact = await this.accountContract.getContractArtifact();
+    const wallet = await this.getWallet();
+    const address = wallet.getAddress();
+    return new AccountEntrypointMetaPaymentMethod(
+      artifact,
+      wallet,
       'entrypoint',
+      address,
+      originalPaymentMethod ?? new FeeJuicePaymentMethod(address),
     );
   }
 
@@ -200,15 +217,25 @@ export class AccountManager {
    */
   public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
     const sentTx = this.getDeployMethod(opts?.deployWallet)
-      .then(deployMethod =>
-        deployMethod.send({
-          contractAddressSalt: new Fr(this.salt),
-          skipClassRegistration: opts?.skipClassRegistration ?? true,
-          skipPublicDeployment: opts?.skipPublicDeployment ?? true,
-          skipInitialization: opts?.skipInitialization ?? false,
-          universalDeploy: true,
-          fee: opts?.fee,
-        }),
+      .then(
+        deployMethod =>
+          new Promise<DeploySentTx<Contract>>(async resolve => {
+            const fee =
+              !opts?.deployWallet && opts?.fee
+                ? { ...opts?.fee, paymentMethod: await this.getSelfPaymentMethod(opts?.fee?.paymentMethod) }
+                : undefined;
+
+            resolve(
+              deployMethod.send({
+                contractAddressSalt: new Fr(this.salt),
+                skipClassRegistration: opts?.skipClassRegistration ?? true,
+                skipPublicDeployment: opts?.skipPublicDeployment ?? true,
+                skipInitialization: opts?.skipInitialization ?? false,
+                universalDeploy: true,
+                fee,
+              }),
+            );
+          }),
       )
       .then(tx => tx.getTxHash());
     return new DeployAccountSentTx(this.pxe, sentTx, this.getWallet());
@@ -231,5 +258,13 @@ export class AccountManager {
    */
   public async isDeployable() {
     return (await this.accountContract.getDeploymentFunctionAndArgs()) !== undefined;
+  }
+
+  /**
+   * Returns the contract artifact associated with this manager's account contract.
+   * @returns The contract artifact.
+   */
+  public getArtifact() {
+    return this.accountContract.getContractArtifact();
   }
 }

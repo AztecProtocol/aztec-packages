@@ -40,10 +40,12 @@ export async function deployAccount(
   let tx;
   let txReceipt;
 
+  const feeOptions = await feeOpts.toDeployAccountOpts(wallet);
   const deployOpts: DeployAccountOptions = {
-    ...(await feeOpts.toDeployAccountOpts(wallet)),
     skipInitialization: false,
+    fee: { ...feeOptions, paymentMethod: await account.getSelfPaymentMethod(feeOptions.fee?.paymentMethod) },
   };
+
   if (feeOpts.estimateOnly) {
     const gas = await (await account.getDeployMethod(deployOpts.deployWallet)).estimateGas(deployOpts);
     if (json) {

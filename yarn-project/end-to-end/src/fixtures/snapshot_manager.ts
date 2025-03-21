@@ -49,7 +49,13 @@ import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { type SetupOptions, createAndSyncProverNode, getLogger, getPrivateKeyFromIndex } from './utils.js';
+import {
+  type SetupOptions,
+  createAndSyncProverNode,
+  getLogger,
+  getPrivateKeyFromIndex,
+  getSponsoredFPCAddress,
+} from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export type SubsystemsContext = {
@@ -336,8 +342,9 @@ async function setupFromFresh(
   }
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
+  const sponsoredFPCAddress = await getSponsoredFPCAddress();
   const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(
-    initialFundedAccounts.map(a => a.address),
+    initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     opts.initialAccountFeeJuice,
   );
 

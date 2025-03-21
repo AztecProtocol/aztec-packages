@@ -32,7 +32,7 @@ export async function createAccount(
     Fr.ZERO,
     publicKey,
   );
-  const salt = account.getInstance().salt;
+  const { salt } = account.getInstance();
   const { address, publicKeys, partialAddress } = await account.getCompleteAddress();
 
   const out: Record<string, any> = {};
@@ -65,11 +65,12 @@ export async function createAccount(
     await account.register();
   } else {
     const wallet = await account.getWallet();
+    const feeOptions = await feeOpts.toDeployAccountOpts(wallet);
     const deployOpts: DeployAccountOptions = {
       skipClassRegistration: !publicDeploy,
       skipPublicDeployment: !publicDeploy,
       skipInitialization: skipInitialization,
-      ...(await feeOpts.toDeployAccountOpts(wallet)),
+      fee: { ...feeOptions, paymentMethod: await account.getSelfPaymentMethod(feeOptions.fee?.paymentMethod) },
     };
     if (feeOpts.estimateOnly) {
       const gas = await (await account.getDeployMethod(deployOpts.deployWallet)).estimateGas(deployOpts);

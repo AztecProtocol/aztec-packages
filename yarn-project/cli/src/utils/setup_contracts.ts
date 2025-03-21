@@ -2,12 +2,15 @@ import {
   DefaultWaitOpts,
   type EthAddress,
   FeeJuicePaymentMethod,
+  Fr,
   type PXE,
   SignerlessWallet,
   type WaitForProvenOpts,
+  getContractInstanceFromDeployParams,
   waitForProven,
 } from '@aztec/aztec.js';
-import { FEE_JUICE_INITIAL_MINT } from '@aztec/constants';
+import { FEE_JUICE_INITIAL_MINT, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { Gas } from '@aztec/stdlib/gas';
@@ -51,4 +54,36 @@ export async function setupCanonicalL2FeeJuice(
         portalAddress.toString(),
     );
   }
+}
+
+export async function setupSponsoredFPC(
+  pxe: PXE,
+  log: LogFn,
+  waitOpts = DefaultWaitOpts,
+  waitForProvenOptions?: WaitForProvenOpts,
+) {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+  const { SponsoredFPCContract } = await import('@aztec/noir-contracts.js/SponsoredFPCContract');
+
+  const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
+  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+  const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+    salt: new Fr(SPONSORED_FPC_SALT),
+  });
+  const paymentMethod = new FeeJuicePaymentMethod(sponsoredFPCInstance.address);
+
+  const deployTx = await SponsoredFPCContract.deploy(deployer).send({
+    contractAddressSalt: SPONSORED_FPC_SALT,
+    universalDeploy: true,
+    fee: { paymentMethod },
+  });
+
+  const deployed = await deployTx.deployed(waitOpts);
+
+  if (waitForProvenOptions !== undefined) {
+    await waitForProven(pxe, await deployTx.getReceipt(), waitForProvenOptions);
+  }
+
+  log(`SponsoredFPC: ${deployed.address}`);
 }
