@@ -43,10 +43,10 @@ void Execution::call(ContextInterface& context, MemoryAddress addr)
     std::vector<FF> calldata = {};
 
     // TODO: make_nested
-    auto nested_context = context_provider.make_context(contract_address,
-                                                        /*msg_sender=*/context.get_address(),
-                                                        /*calldata=*/calldata,
-                                                        /*is_static=*/false);
+    auto nested_context = context_provider.make_nested_context(contract_address,
+                                                               /*msg_sender=*/context.get_address(),
+                                                               /*calldata=*/calldata,
+                                                               /*is_static=*/false);
 
     // We recurse. When we return, we'll continue with the current loop and emit the execution event.
     // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
@@ -92,7 +92,7 @@ ExecutionResult Execution::execute(ContextInterface& context)
     // WARNING: make_context actually tries to fetch the bytecode! Maybe shouldn't be here because if this fails
     // it will fail the parent and not the child context.
     // auto context = execution_components.make_context(contract_address, msg_sender, calldata, is_static);
-    auto result = execute_internal(*context);
+    auto result = execute_internal(context);
     return result;
 }
 

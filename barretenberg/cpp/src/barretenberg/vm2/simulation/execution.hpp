@@ -19,7 +19,6 @@
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
-#include "barretenberg/vm2/simulation/tx_execution.hpp"
 
 namespace bb::avm2::simulation {
 
