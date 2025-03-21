@@ -8,7 +8,7 @@ import omit from 'lodash.omit';
 import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, randomInBlock } from '../block/in_block.js';
+import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -144,18 +144,6 @@ describe('ArchiverApiSchema', () => {
       proven: { number: 1, hash: `0x01` },
       finalized: { number: 1, hash: `0x01` },
     });
-  });
-
-  it('findNullifiersIndexesWithBlock', async () => {
-    const result = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
-    expect(result).toEqual([
-      {
-        data: expect.any(BigInt),
-        l2BlockNumber: expect.any(Number),
-        l2BlockHash: expect.any(String),
-      },
-      undefined,
-    ]);
   });
 
   it('getPrivateLogs', async () => {
@@ -319,13 +307,6 @@ class MockArchiver implements ArchiverApi {
   getL2BlockHash(blockNumber: number): Promise<string | undefined> {
     expect(blockNumber).toEqual(1);
     return Promise.resolve(`0x01`);
-  }
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
-    expect(blockNumber).toEqual(1);
-    expect(nullifiers).toHaveLength(2);
-    expect(nullifiers[0]).toBeInstanceOf(Fr);
-    expect(nullifiers[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([randomInBlock(Fr.random().toBigInt()), undefined]);
   }
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
     return Promise.resolve([PrivateLog.random()]);

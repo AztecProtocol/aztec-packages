@@ -116,7 +116,7 @@ export class BotFactory {
       const address = account.getAddress();
       this.log.info(`Deploying account at ${address}`);
 
-      const claim = await this.bridgeL1FeeJuice(address, 10n ** 22n);
+      const claim = await this.bridgeL1FeeJuice(address);
 
       // docs:start:claim_and_deploy
       const wallet = await account.getWallet();
@@ -331,7 +331,7 @@ export class BotFactory {
     await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
   }
 
-  private async bridgeL1FeeJuice(recipient: AztecAddress, amount: bigint) {
+  private async bridgeL1FeeJuice(recipient: AztecAddress) {
     const l1RpcUrls = this.config.l1RpcUrls;
     if (!l1RpcUrls?.length) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
@@ -348,12 +348,13 @@ export class BotFactory {
     const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
     const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
-    const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
+    const mintAmount = await portal.getTokenManager().getMintAmount();
+    const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 
     const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
     await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
 
-    this.log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
+    this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
 
     // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
     await this.advanceL2Block();

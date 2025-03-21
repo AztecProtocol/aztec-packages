@@ -164,8 +164,9 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       deployAccounts(this.numberOfAccounts, this.logger),
-      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig }) => {
+      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig, deployL1ContractsValues }) => {
         this.pxe = pxe;
+
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
         this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
@@ -181,13 +182,12 @@ export class FeesTest {
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
         this.coinbase = EthAddress.random();
 
-        const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode,
           aztecNodeAdmin: aztecNode,
           pxeService: pxe,
-          publicClient,
-          walletClient,
+          publicClient: deployL1ContractsValues.publicClient,
+          walletClient: deployL1ContractsValues.walletClient,
           wallet: this.aliceWallet,
           logger: this.logger,
         });
@@ -214,13 +214,12 @@ export class FeesTest {
 
         this.getGasBalanceFn = getBalancesFn('⛽', this.feeJuiceContract.methods.balance_of_public, this.logger);
 
-        const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
         this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
           aztecNode: context.aztecNode,
           aztecNodeAdmin: context.aztecNode,
           pxeService: context.pxe,
-          publicClient: publicClient,
-          walletClient: walletClient,
+          publicClient: context.deployL1ContractsValues.publicClient,
+          walletClient: context.deployL1ContractsValues.walletClient,
           wallet: this.aliceWallet,
           logger: this.logger,
         });

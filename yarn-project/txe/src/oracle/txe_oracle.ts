@@ -766,7 +766,6 @@ export class TXE implements TypedOracle {
     }
 
     await this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
-    this.node.setNullifiersIndexesWithBlock(blockNumber, txEffect.nullifiers);
     this.node.addPrivateLogsByTags(this.blockNumber, this.privateLogs);
     this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
 
