@@ -138,7 +138,7 @@ function start_txes {
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings $root/yarn-project/txe/dest/bin/index.js'" &
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'strace -e trace=network node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
@@ -146,7 +146,7 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 15 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
+        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
         sleep 1
         j=$((j+1))
       done
