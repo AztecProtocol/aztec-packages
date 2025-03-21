@@ -26,7 +26,7 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
     private artifact: ContractArtifact,
     private authWitnessProvider: AuthWitnessProvider,
     private feePaymentNameOrArtifact: string | FunctionArtifact,
-    private address: AztecAddress,
+    private accountAddress: AztecAddress,
     private paymentMethod: FeePaymentMethod,
   ) {}
 
@@ -42,7 +42,7 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
     );
     // Encode the calls for the fee
     const feePayer = await this.paymentMethod.getFeePayer(gasSettings);
-    const isFeePayer = feePayer.equals(this.address);
+    const isFeePayer = feePayer.equals(this.accountAddress);
     const feeEncodedCalls = await EncodedCallsForEntrypoint.fromFeeCalls(feeCalls, isFeePayer);
 
     // Get the entrypoint args
@@ -54,7 +54,7 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
 
     const entrypointCall = new FunctionCall(
       feePaymentArtifact.name,
-      this.address,
+      this.accountAddress,
       await FunctionSelector.fromNameAndParameters(feePaymentArtifact.name, feePaymentArtifact.parameters),
       feePaymentArtifact.functionType,
       feePaymentArtifact.isStatic,

@@ -43,11 +43,11 @@ export async function deployAccount(
   const feeOptions = await feeOpts.toDeployAccountOpts(wallet);
   const deployOpts: DeployAccountOptions = {
     skipInitialization: false,
-    fee: { ...feeOptions, paymentMethod: await account.getSelfPaymentMethod(feeOptions.fee?.paymentMethod) },
+    fee: feeOptions.fee,
   };
 
   if (feeOpts.estimateOnly) {
-    const gas = await (await account.getDeployMethod(deployOpts.deployWallet)).estimateGas(deployOpts);
+    const gas = await account.estimateDeploymentGas(deployOpts);
     if (json) {
       out.fee = {
         gasLimits: {

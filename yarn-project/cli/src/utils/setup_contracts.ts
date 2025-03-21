@@ -64,7 +64,7 @@ export async function setupSponsoredFPC(
 ) {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { SponsoredFPCContract } = await import('@aztec/noir-contracts.js/SponsoredFPCContract');
+  const { SponsoredFPCContract } = await import('@aztec/noir-contracts.js/SponsoredFPC');
 
   const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
