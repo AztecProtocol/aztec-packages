@@ -53,7 +53,7 @@ describe('e2e_fees sponsored_public_payment', () => {
       ]);
   });
 
-  it('pays fees for tx that make public transfer', async () => {
+  it('pays fees for tx that makes a public transfer', async () => {
     const bananasToSendToBob = 10n;
     // docs:start:sponsored_fpc
     const tx = await bananaCoin.methods
