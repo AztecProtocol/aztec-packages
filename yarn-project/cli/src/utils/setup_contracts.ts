@@ -74,7 +74,7 @@ export async function setupSponsoredFPC(
   const paymentMethod = new FeeJuicePaymentMethod(sponsoredFPCInstance.address);
 
   const deployTx = await SponsoredFPCContract.deploy(deployer).send({
-    contractAddressSalt: SPONSORED_FPC_SALT,
+    contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
     universalDeploy: true,
     fee: { paymentMethod },
   });
