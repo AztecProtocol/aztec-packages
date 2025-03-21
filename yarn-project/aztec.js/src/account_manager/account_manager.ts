@@ -191,8 +191,10 @@ export class AccountManager {
   }
 
   /**
-   *
-   * @param originalPaymentMethod
+   * Returns a FeePaymentMethod that routes the original one provided as an argument
+   * through the account's entrypoint. This allows an account contract to pay
+   * for its own deployment and initialization.
+   * @param originalPaymentMethod The original payment method to be wrapped.
    */
   public async getSelfPaymentMethod(originalPaymentMethod?: FeePaymentMethod) {
     const artifact = await this.accountContract.getContractArtifact();
