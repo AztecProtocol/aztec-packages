@@ -61,9 +61,9 @@ TEST(AvmSimulationFieldGreaterThanTest, Basic)
                 ElementsAreArray({ FieldGreaterThanEvent{
                     .a = a,
                     .b = b,
-                    .a_limbs = FFDecomposition{ a_lo, a_hi },
+                    .a_limbs = U256Decomposition{ a_lo, a_hi },
                     .p_sub_a_witness = LimbsComparisonWitness{ p_sub_a_witness_lo, p_sub_a_witness_hi, false },
-                    .b_limbs = FFDecomposition{ b_lo, b_hi },
+                    .b_limbs = U256Decomposition{ b_lo, b_hi },
                     .p_sub_b_witness = LimbsComparisonWitness{ p_sub_b_witness_lo, p_sub_b_witness_hi, false },
                     .res_witness = LimbsComparisonWitness{ res_witness_lo, res_witness_hi, false },
                     .result = true,

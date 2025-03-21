@@ -14,6 +14,8 @@ include "./range_check.pil";
 // | unc | unc | unc    | 0            | 1            | unc        | unc        | unc  | unc  | unc        | unc        | unc    | unc    |           0 |   1 |      0 |             0 |
 // | 0   | 0   | 0      | 0            | 0            | 0          | 0          | 0    | 0    | 0          | 0          | 0      | 0      |           0 |   0 |      0 |             0 |
 // +-----+-----+--------+--------------+--------------+------------+------------+------+------+------------+------------+--------+--------+-------------+-----+--------+---------------+
+//
+// This trace should be looked up with the tuple (a,b,result,sel_gt)
 namespace ff_gt;
     pol commit sel;
     sel * (1 - sel) = 0;

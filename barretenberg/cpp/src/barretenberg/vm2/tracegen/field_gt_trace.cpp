@@ -1,7 +1,11 @@
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/lib/u256_decomposition.hpp"
 
 namespace bb::avm2::tracegen {
+
+using simulation::LimbsComparisonWitness;
+using simulation::U256Decomposition;
 
 void FieldGreaterThanTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::FieldGreaterThanEvent>::Container& events,
@@ -11,12 +15,12 @@ void FieldGreaterThanTraceBuilder::process(
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        // Copy the things that will need range checks since we'll manipulate them in the shifts
-        auto a_limbs = event.a_limbs;
-        auto p_sub_a_witness = event.p_sub_a_witness;
-        auto b_limbs = event.b_limbs;
-        auto p_sub_b_witness = event.p_sub_b_witness;
-        auto res_witness = event.res_witness;
+        // Copy the things that will need range checks since we'll mutate them in the shifts
+        U256Decomposition a_limbs = event.a_limbs;
+        LimbsComparisonWitness p_sub_a_witness = event.p_sub_a_witness;
+        U256Decomposition b_limbs = event.b_limbs;
+        LimbsComparisonWitness p_sub_b_witness = event.p_sub_b_witness;
+        LimbsComparisonWitness res_witness = event.res_witness;
 
         bool sel_gt = true;
         int8_t cmp_rng_ctr = 4;

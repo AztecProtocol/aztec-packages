@@ -1,15 +1,29 @@
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/lib/u256_decomposition.hpp"
 
 namespace bb::avm2::simulation {
+
+namespace {
+
+LimbsComparisonWitness limb_gt_witness(const U256Decomposition& a, const U256Decomposition& b, bool allow_eq)
+{
+    bool borrow = allow_eq ? (a.lo < b.lo) : (a.lo <= b.lo);
+    // No need to add borrow * TWO_POW_128 since uint128_t will wrap in the way we need
+    uint128_t x_lo = a.lo - b.lo - (allow_eq ? 0 : 1);
+    uint128_t x_hi = a.hi - b.hi - (borrow ? 1 : 0);
+    return { x_lo, x_hi, borrow };
+}
+
+} // namespace
 
 bool FieldGreaterThan::ff_gt(const FF& a, const FF& b)
 {
     static auto p_limbs = decompose(FF::modulus);
 
-    uint256_t a_integer = static_cast<uint256_t>(a);
-    uint256_t b_integer = static_cast<uint256_t>(b);
+    uint256_t a_integer(a);
+    uint256_t b_integer(b);
 
     bool result = a_integer > b_integer;
 
