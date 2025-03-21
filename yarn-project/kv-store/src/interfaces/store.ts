@@ -82,11 +82,6 @@ export interface AztecKVStore {
   clear(): Promise<void>;
 
   /**
-   * Forks the store.
-   */
-  fork(): Promise<AztecKVStore>;
-
-  /**
    * Deletes the store
    */
   delete(): Promise<void>;
@@ -150,28 +145,18 @@ export interface AztecAsyncKVStore {
    */
   transactionAsync<T extends Exclude<any, Promise<any>>>(callback: () => Promise<T>): Promise<T>;
 
-  /**
-   * Clears all entries in the store
-   */
+  /** Clears all entries in the store */
   clear(): Promise<void>;
 
-  /**
-   * Forks the store.
-   */
-  fork(): Promise<AztecAsyncKVStore>;
-
-  /**
-   * Deletes the store
-   */
+  /** Deletes the store */
   delete(): Promise<void>;
 
-  /**
-   * Estimates the size of the store in bytes.
-   */
+  /** Estimates the size of the store in bytes. */
   estimateSize(): Promise<StoreSize>;
 
-  /**
-   * Closes the store
-   */
+  /** Closes the store */
   close(): Promise<void>;
+
+  /** Backups the store to the target folder. */
+  backupTo(dstPath: string, compact?: boolean): Promise<void>;
 }

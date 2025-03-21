@@ -189,7 +189,7 @@ describe('AztecLMDBStoreV2', () => {
     expect(Buffer.from((await store.getReadTx().get(key))!).toString()).to.eq('bar');
 
     const backupDir = await mkdtemp(join(tmpdir(), 'lmdb-store-test-backup'));
-    await store.copy(backupDir, true);
+    await store.backupTo(backupDir, true);
 
     const store2 = await openStoreAt(backupDir);
     expect(Buffer.from((await store2.getReadTx().get(key))!).toString()).to.eq('bar');

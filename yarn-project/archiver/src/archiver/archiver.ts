@@ -555,6 +555,18 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return { provenBlockNumber };
   }
 
+  /** Restarts the archiver after a stop. */
+  public restart() {
+    if (!this.runningPromise) {
+      throw new Error(`Archiver was never started`);
+    }
+    if (this.runningPromise.isRunning()) {
+      this.log.warn(`Archiver already running`);
+    }
+    this.log.info(`Restarting archiver`);
+    this.runningPromise.start();
+  }
+
   /**
    * Stops the archiver.
    * @returns A promise signalling completion of the stop process.
@@ -565,6 +577,10 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
     this.log.info('Stopped.');
     return Promise.resolve();
+  }
+
+  public backupTo(destPath: string): Promise<void> {
+    return this.dataStore.backupTo(destPath);
   }
 
   public getL1Constants(): Promise<L1RollupConstants> {
@@ -900,6 +916,7 @@ class ArchiverStoreHelper
       | 'addContractInstanceUpdates'
       | 'deleteContractInstanceUpdates'
       | 'addFunctions'
+      | 'backupTo'
     >
 {
   #log = createLogger('archiver:block-helper');
