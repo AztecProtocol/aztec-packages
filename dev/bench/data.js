@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742580526310,
+  "lastUpdate": 1742584228918,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a225aacf4fbb1760a788efe69cbf1ddd09699984",
-          "message": "fix: Listen on correct address (#12712)\n\nThe P2P needs to listen on the listen address.",
-          "timestamp": "2025-03-13T11:53:42Z",
-          "tree_id": "0146be230bb515831e1037dea12c523c19f1c305",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a225aacf4fbb1760a788efe69cbf1ddd09699984"
-        },
-        "date": 1741870154714,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18076.471907000043,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15892.721207 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18616.705553999964,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16130.475384000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3818.011874999911,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3079.320984000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54599.681152,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54599682000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10752.952208,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10752960000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1587948732,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1587948732 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 221716053,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 221716053 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2209.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3216,84 @@ window.BENCHMARK_DATA = {
             "value": 13356,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43155d693ef1e957a44cad0d8375a7d771ad857a",
+          "message": "fix: pull CRS data ahead of time (#12945)\n\nDownload a bunch of points needed for proof generation/verification.\nNOTE: the point files are cached so if the files that exist in the\ndefault location already contain enough points this is a noop (a good\nidea to use docker volumes)",
+          "timestamp": "2025-03-21T18:50:44Z",
+          "tree_id": "cb540182784315d15fd870f0df8e3dff0750f182",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/43155d693ef1e957a44cad0d8375a7d771ad857a"
+        },
+        "date": 1742584221909,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17971.27533799994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15753.714780999999 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117837653661.7,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1620540942,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 213712508,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18592.54971799987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16080.635525000002 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50253.806311,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50253805000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3867.336239999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3096.5461199999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9995.916971,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9995923000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
