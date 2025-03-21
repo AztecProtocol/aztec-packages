@@ -219,7 +219,7 @@ export interface AztecNode
    * "in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
    * is contained in the leaf preimage.
    */
-  getPublicDataTreeWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Get a block specified by its number.
@@ -436,13 +436,6 @@ export interface AztecNode
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
-
-  /**
-   * Adds a contract class bypassing the registerer.
-   * TODO(#10007): Remove this method.
-   * @param contractClass - The class to register.
-   */
-  addContractClass(contractClass: ContractClassPublic): Promise<void>;
 }
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
@@ -507,10 +500,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(L2BlockNumberSchema, schemas.Fr)
     .returns(NullifierMembershipWitness.schema.optional()),
 
-  getPublicDataTreeWitness: z
-    .function()
-    .args(L2BlockNumberSchema, schemas.Fr)
-    .returns(PublicDataWitness.schema.optional()),
+  getPublicDataWitness: z.function().args(L2BlockNumberSchema, schemas.Fr).returns(PublicDataWitness.schema.optional()),
 
   getBlock: z.function().args(z.number()).returns(L2Block.schema.optional()),
 
@@ -584,9 +574,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
 
   getEncodedEnr: z.function().returns(z.string().optional()),
-
-  // TODO(#10007): Remove this method
-  addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
 export function createAztecNodeClient(

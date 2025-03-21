@@ -40,6 +40,7 @@ export { ContractFunctionInteraction, type SendMethodOptions } from '../contract
 
 export { TxProfileResult } from '@aztec/stdlib/tx';
 export { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';
+export { ProvenTx } from '../contract/proven_tx.js';
 export {
   ContractBase,
   type ContractMethod,
@@ -49,6 +50,7 @@ export {
 export { BatchCall } from '../contract/batch_call.js';
 export { type DeployOptions, DeployMethod } from '../contract/deploy_method.js';
 export { DeploySentTx } from '../contract/deploy_sent_tx.js';
+export { waitForProven, type WaitForProvenOpts, DefaultWaitForProvenOpts } from '../contract/wait_for_proven.js';
 
 export {
   type PartialAddress,

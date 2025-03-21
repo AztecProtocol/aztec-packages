@@ -40,6 +40,9 @@ export type ArchiverConfig = {
 
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
+
+  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB. */
+  archiverStoreMapSizeKb?: number;
 } & L1ReaderConfig &
   L1ContractsConfig &
   BlobSinkConfig &
@@ -71,6 +74,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_MAX_LOGS',
     description: 'The max number of logs that can be obtained in 1 "getPublicLogs" call.',
     ...numberConfigHelper(1_000),
+  },
+  archiverStoreMapSizeKb: {
+    env: 'ARCHIVER_STORE_MAP_SIZE_KB',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.',
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,

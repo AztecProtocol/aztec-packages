@@ -12,9 +12,9 @@ if [ "$arch" == "arm64" ]; then
   export AWS_SHUTDOWN_TIME=90
 else
   if [ "$CI_FULL" -eq 1 ]; then
-    cores=192
+    cores=192,128,64
   else
-    cores=128
+    cores=128,64
   fi
 fi
 
@@ -138,7 +138,7 @@ container_script=$(cat <<EOF
   set +e
   set -x
   $cmd
-  code=\$?
+  code=\${PIPESTATUS[0]}
   case \$code in
     155) ;;
     0) log_ci_run PASSED \$ci_log_id ;;

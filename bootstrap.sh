@@ -6,6 +6,7 @@
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source $ci3/source_redis
 
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}
@@ -123,42 +124,21 @@ function test_cmds {
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
-}
-
-function start_txe {
-  cd $root/yarn-project/txe
-  LOG_LEVEL=info TXE_PORT=$1 node --no-warnings ./dest/bin/index.js &
-  local pid=$!
-  trap "kill -SIGTERM $pid &>/dev/null || true" SIGTERM;
-  wait $pid
-  wait $pid
-  local code=$?
-  if [ "$code" -ne 0 ]; then
-    sudo lsof -i
-  fi
-  return $code
-}
-export -f start_txe
-
-function stop_txes {
-  kill -SIGTERM $txe_pids &>/dev/null || true;
-  wait $txe_pids
+  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds
 }
 
 function start_txes {
   # Starting txe servers with incrementing port numbers.
-  trap 'stop_txes' EXIT
+  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
     if [ -n "$existing_pid" ]; then
-      echo "Killing existing process on port: $port"
-      kill -9 $existing_pid
-      while kill -0 $existing_pid; do echo "Waiting on process to die."; sleep 0.1; done
+      echo "Killing existing process $existing_pid on port: $port"
+      kill -9 $existing_pid &>/dev/null || true
+      while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
-    while nc -z 127.0.0.1 $port &>/dev/null; do echo "Waiting on port $port to close"; sleep 1; done
-    dump_fail "start_txe $port" &
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'strace -e trace=network node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
@@ -166,7 +146,7 @@ function start_txes {
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 15 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
+        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
         sleep 1
         j=$((j+1))
       done
@@ -198,6 +178,8 @@ function test {
 function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
+  echo_header "sync noir repo"
+  export NOIR_HASH=$(./noir/bootstrap.sh hash)
 
   check_toolchains
 
@@ -226,7 +208,7 @@ function build {
 
 function bench {
   # TODO bench for arm64.
-  if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
+  if [ $(arch) == arm64 ]; then
     return
   fi
   denoise "barretenberg/bootstrap.sh bench"

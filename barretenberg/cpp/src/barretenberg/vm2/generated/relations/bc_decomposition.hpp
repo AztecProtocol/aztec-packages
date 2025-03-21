@@ -45,7 +45,7 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_SEL_BYTES_REM_NON_ZERO
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp =
                 (new_term.bc_decomposition_bytes_remaining *
@@ -62,7 +62,7 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_LAST_CONTRACT_BYTES_REM_ONE
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp =
                 new_term.bc_decomposition_sel * (((new_term.bc_decomposition_bytes_remaining - FF(1)) *
@@ -74,21 +74,21 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_PC_ZERO_INITIALIZATION
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = (new_term.precomputed_first_row + new_term.bc_decomposition_last_of_contract) *
                        new_term.bc_decomposition_pc_shift;
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_PC_INCREMENT
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = new_term.bc_decomposition_sel * (FF(1) - new_term.bc_decomposition_last_of_contract) *
                        ((new_term.bc_decomposition_pc_shift - new_term.bc_decomposition_pc) - FF(1));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_BYTES_REMAINING_DECREMENT
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp =
                 new_term.bc_decomposition_sel * (FF(1) - new_term.bc_decomposition_last_of_contract) *
@@ -96,7 +96,7 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_ID_CONSTANT
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = new_term.bc_decomposition_sel * (FF(1) - new_term.bc_decomposition_last_of_contract) *
                        (new_term.bc_decomposition_id_shift - new_term.bc_decomposition_id);
@@ -110,7 +110,7 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_ABS_DIFF
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = new_term.bc_decomposition_sel *
                        (((FF(2) * new_term.bc_decomposition_sel_overflow_correction_needed *
@@ -121,7 +121,7 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_OVERFLOW_CORRECTION_VALUE
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = new_term.bc_decomposition_sel *
                        ((FF(1) - new_term.bc_decomposition_sel_overflow_correction_needed) *
@@ -347,7 +347,7 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<47>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DEC_UNARY_RECONSTRUCTION
             using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
             auto tmp =
                 new_term.bc_decomposition_sel *
@@ -646,7 +646,7 @@ template <typename FF_> class bc_decompositionImpl {
             tmp *= scaling_factor;
             std::get<85>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BC_DECOMPOSITION_REPACKING
             using Accumulator = typename std::tuple_element_t<86, ContainerOverSubrelations>;
             auto tmp =
                 new_term.bc_decomposition_sel_packed *

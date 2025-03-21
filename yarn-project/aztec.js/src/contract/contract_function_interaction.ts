@@ -1,11 +1,15 @@
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
-import type { Wallet } from '../account/wallet.js';
-import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
+import type { Wallet } from '../wallet/wallet.js';
+import {
+  BaseContractInteraction,
+  type RequestMethodOptions,
+  type SendMethodOptions,
+} from './base_contract_interaction.js';
 
 export type { SendMethodOptions };
 
@@ -14,7 +18,10 @@ export type { SendMethodOptions };
  * Allows specifying the address from which the view method should be called.
  * Disregarded for simulation of public functions
  */
-export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
+export type ProfileMethodOptions = Pick<
+  SendMethodOptions,
+  'authWitnesses' | 'capsules' | 'fee' | 'nonce' | 'cancellable'
+> & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
   /** The sender's Aztec address. */
@@ -23,10 +30,13 @@ export type ProfileMethodOptions = Pick<SendMethodOptions, 'fee'> & {
 
 /**
  * Represents the options for simulating a contract function interaction.
- * Allows specifying the address from which the view method should be called.
+ * Allows specifying the address from which the method should be called.
  * Disregarded for simulation of public functions
  */
-export type SimulateMethodOptions = Pick<SendMethodOptions, 'fee'> & {
+export type SimulateMethodOptions = Pick<
+  SendMethodOptions,
+  'authWitnesses' | 'capsules' | 'fee' | 'nonce' | 'cancellable'
+> & {
   /** The sender's Aztec address. */
   from?: AztecAddress;
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
@@ -45,8 +55,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
+    authWitnesses: AuthWitness[] = [],
+    capsules: Capsule[] = [],
+    private extraHashedArgs: HashedValues[] = [],
   ) {
-    super(wallet);
+    super(wallet, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error('All function interaction arguments must be defined and not null. Received: ' + args);
     }
@@ -66,20 +79,20 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
     const requestWithoutFee = await this.request(options);
 
-    const { fee: userFee } = options;
-    const fee = await this.getFeeOptions({ ...requestWithoutFee, fee: userFee });
+    const { fee: userFee, nonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
 
-    return await this.wallet.createTxExecutionRequest({ ...requestWithoutFee, fee });
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
   }
 
   // docs:start:request
   /**
    * Returns an execution request that represents this operation.
    * Can be used as a building block for constructing batch requests.
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns An execution request wrapped in promise.
+   * @param options - An optional object containing additional configuration for the request generation.
+   * @returns An execution payload wrapped in promise.
    */
-  public async request(options: SendMethodOptions = {}): Promise<Omit<ExecutionRequestInit, 'fee'>> {
+  public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
     // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
     const calls = [
@@ -93,18 +106,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         returnTypes: this.functionDao.returnTypes,
       },
     ];
-    const authWitnesses = this.getAuthWitnesses();
-    const hashedArguments = this.getHashedArguments();
-    const capsules = this.getCapsules();
-    const { nonce, cancellable } = options;
-    return {
+    const { authWitnesses, capsules } = options;
+    return new ExecutionPayload(
       calls,
-      authWitnesses,
-      hashedArguments,
-      capsules,
-      nonce,
-      cancellable,
-    };
+      this.authWitnesses.concat(authWitnesses ?? []),
+      this.capsules.concat(capsules ?? []),
+      this.extraHashedArgs,
+    );
   }
 
   // docs:start:simulate
@@ -120,11 +128,16 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options?.from);
+      return this.wallet.simulateUnconstrained(
+        this.functionDao.name,
+        this.args,
+        this.contractAddress,
+        options.authWitnesses ?? [],
+        options?.from,
+      );
     }
 
-    const fee = options.fee ?? { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) };
-    const txRequest = await this.create({ fee });
+    const txRequest = await this.create(options);
     const simulatedTx = await this.wallet.simulateTx(
       txRequest,
       true /* simulatePublic */,
@@ -161,8 +174,39 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       throw new Error("Can't profile an unconstrained function.");
     }
+    const { authWitnesses, capsules, fee } = options;
 
-    const txRequest = await this.create({ fee: options.fee });
+    const txRequest = await this.create({ fee, authWitnesses, capsules });
     return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
+  }
+
+  /**
+   * Augments this ContractFunctionInteraction with additional metadata, such as authWitnesses, capsules, and extraHashedArgs.
+   * This is useful when creating a "batteries included" interaction, such as registering a contract class with its associated
+   * capsule instead of having the user provide them externally.
+   * @param options - An object containing the metadata to add to the interaction
+   * @returns A new ContractFunctionInteraction with the added metadata, but calling the same original function in the same manner
+   */
+  public with({
+    authWitnesses = [],
+    capsules = [],
+    extraHashedArgs = [],
+  }: {
+    /** The authWitnesses to add to the interaction */
+    authWitnesses?: AuthWitness[];
+    /** The capsules to add to the interaction */
+    capsules?: Capsule[];
+    /** The extra hashed args to add to the interaction */
+    extraHashedArgs?: HashedValues[];
+  }): ContractFunctionInteraction {
+    return new ContractFunctionInteraction(
+      this.wallet,
+      this.contractAddress,
+      this.functionDao,
+      this.args,
+      this.authWitnesses.concat(authWitnesses),
+      this.capsules.concat(capsules),
+      this.extraHashedArgs.concat(extraHashedArgs),
+    );
   }
 }

@@ -37,6 +37,8 @@ export type BotConfig = {
   l1PrivateKey: string | undefined;
   /** Signing private key for the sender account. */
   senderPrivateKey: Fr | undefined;
+  /** Optional salt to use to deploy the sender account */
+  senderSalt: Fr | undefined;
   /** Encryption secret for a recipient account. */
   recipientEncryptionSecret: Fr;
   /** Salt for the token contract deployment. */
@@ -71,6 +73,8 @@ export type BotConfig = {
   maxConsecutiveErrors: number;
   /** Stops the bot if service becomes unhealthy */
   stopWhenUnhealthy: boolean;
+  /** Deploy an AMM contract and do swaps instead of transfers */
+  ammTxs: boolean;
 };
 
 export const BotConfigSchema = z
@@ -82,6 +86,7 @@ export const BotConfigSchema = z
     l1Mnemonic: z.string().optional(),
     l1PrivateKey: z.string().optional(),
     senderPrivateKey: schemas.Fr.optional(),
+    senderSalt: schemas.Fr.optional(),
     recipientEncryptionSecret: schemas.Fr,
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
@@ -99,6 +104,7 @@ export const BotConfigSchema = z
     contract: z.nativeEnum(SupportedTokenContracts),
     maxConsecutiveErrors: z.number().int().nonnegative(),
     stopWhenUnhealthy: z.boolean(),
+    ammTxs: z.boolean().default(false),
   })
   .transform(config => ({
     nodeUrl: undefined,
@@ -108,6 +114,7 @@ export const BotConfigSchema = z
     l1Mnemonic: undefined,
     l1PrivateKey: undefined,
     senderPrivateKey: undefined,
+    senderSalt: undefined,
     l2GasLimit: undefined,
     daGasLimit: undefined,
     ...config,
@@ -142,6 +149,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
     description: 'Signing private key for the sender account.',
+    parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
+  },
+  senderSalt: {
+    env: 'BOT_ACCOUNT_SALT',
+    description: 'The salt to use to deploys the sender account.',
     parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
   },
   recipientEncryptionSecret: {
@@ -246,6 +258,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   stopWhenUnhealthy: {
     env: 'BOT_STOP_WHEN_UNHEALTHY',
     description: 'Stops the bot if service becomes unhealthy',
+    ...booleanConfigHelper(false),
+  },
+  ammTxs: {
+    env: 'BOT_AMM_TXS',
+    description: 'Deploy an AMM and send swaps to it',
     ...booleanConfigHelper(false),
   },
 };

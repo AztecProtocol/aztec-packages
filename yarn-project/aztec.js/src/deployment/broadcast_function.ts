@@ -59,31 +59,31 @@ export async function broadcastPrivateFunction(
   const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
 
   const registerer = await getRegistererContract(wallet);
-  const fn = registerer.methods.broadcast_private_function(
-    contractClass.id,
-    artifactMetadataHash,
-    unconstrainedFunctionsArtifactTreeRoot,
-    privateFunctionTreeSiblingPath,
-    privateFunctionTreeLeafIndex,
-    padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
-    artifactTreeLeafIndex,
-    // eslint-disable-next-line camelcase
-    { selector, metadata_hash: functionMetadataHash, vk_hash: vkHash },
-  );
-
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-  fn.addCapsule(
-    new Capsule(
-      ProtocolContractAddress.ContractClassRegisterer,
-      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-      bytecode,
-    ),
-  );
-
-  return fn;
+  return registerer.methods
+    .broadcast_private_function(
+      contractClass.id,
+      artifactMetadataHash,
+      unconstrainedFunctionsArtifactTreeRoot,
+      privateFunctionTreeSiblingPath,
+      privateFunctionTreeLeafIndex,
+      padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
+      artifactTreeLeafIndex,
+      // eslint-disable-next-line camelcase
+      { selector, metadata_hash: functionMetadataHash, vk_hash: vkHash },
+    )
+    .with({
+      capsules: [
+        new Capsule(
+          ProtocolContractAddress.ContractClassRegisterer,
+          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          bytecode,
+        ),
+      ],
+    });
 }
 
 /**
@@ -122,27 +122,27 @@ export async function broadcastUnconstrainedFunction(
   } = await createUnconstrainedFunctionMembershipProof(selector, artifact);
 
   const registerer = await getRegistererContract(wallet);
-  const fn = registerer.methods.broadcast_unconstrained_function(
-    contractClass.id,
-    artifactMetadataHash,
-    privateFunctionsArtifactTreeRoot,
-    padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
-    artifactTreeLeafIndex,
-    // eslint-disable-next-line camelcase
-    { selector, metadata_hash: functionMetadataHash },
-  );
-
   const bytecode = bufferAsFields(
     unconstrainedFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-  fn.addCapsule(
-    new Capsule(
-      ProtocolContractAddress.ContractClassRegisterer,
-      new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
-      bytecode,
-    ),
-  );
-
-  return fn;
+  return registerer.methods
+    .broadcast_unconstrained_function(
+      contractClass.id,
+      artifactMetadataHash,
+      privateFunctionsArtifactTreeRoot,
+      padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
+      artifactTreeLeafIndex,
+      // eslint-disable-next-line camelcase
+      { selector, metadata_hash: functionMetadataHash },
+    )
+    .with({
+      capsules: [
+        new Capsule(
+          ProtocolContractAddress.ContractClassRegisterer,
+          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          bytecode,
+        ),
+      ],
+    });
 }
