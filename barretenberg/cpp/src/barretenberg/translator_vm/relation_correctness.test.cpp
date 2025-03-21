@@ -46,7 +46,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-        info(polynomial.size(), " ", polynomial.end_index());
         for (size_t i = polynomial.start_index(); i < polynomial.end_index(); i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
@@ -66,63 +65,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     // Compute the fixed numerator (part of verification key)
     key.compute_extra_range_constraint_numerator();
 
-    std::vector<FF> numerator_vec(prover_polynomials.interleaved_range_constraints_0.coeffs().begin(),
-                                  prover_polynomials.interleaved_range_constraints_0.coeffs().end());
-    numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_1.coeffs().begin(),
-                         prover_polynomials.interleaved_range_constraints_1.coeffs().end());
-    numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_2.coeffs().begin(),
-                         prover_polynomials.interleaved_range_constraints_2.coeffs().end());
-    numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_3.coeffs().begin(),
-                         prover_polynomials.interleaved_range_constraints_3.coeffs().end());
-    numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().begin(),
-                         prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().end());
-
-    std::vector<FF> denominator_vec(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
-                                    prover_polynomials.ordered_range_constraints_0.coeffs().end());
-    denominator_vec.insert(denominator_vec.end(),
-                           prover_polynomials.ordered_range_constraints_1.coeffs().begin(),
-                           prover_polynomials.ordered_range_constraints_1.coeffs().end());
-    denominator_vec.insert(denominator_vec.end(),
-                           prover_polynomials.ordered_range_constraints_2.coeffs().begin(),
-                           prover_polynomials.ordered_range_constraints_2.coeffs().end());
-    denominator_vec.insert(denominator_vec.end(),
-                           prover_polynomials.ordered_range_constraints_3.coeffs().begin(),
-                           prover_polynomials.ordered_range_constraints_3.coeffs().end());
-    denominator_vec.insert(denominator_vec.end(),
-                           prover_polynomials.ordered_range_constraints_4.coeffs().begin(),
-                           prover_polynomials.ordered_range_constraints_4.coeffs().end());
-    for (size_t i = 0; i < 5; i++) {
-        denominator_vec.emplace_back(FF(0));
-    }
-
-    std::vector<size_t> numerator(numerator_vec.size());
-    std::vector<size_t> denominator(denominator_vec.size());
-    std::transform(numerator_vec.begin(), numerator_vec.end(), numerator.begin(), [](const FF& ff) {
-        return static_cast<uint32_t>(uint256_t(ff));
-    });
-    std::transform(denominator_vec.begin(), denominator_vec.end(), denominator.begin(), [](const FF& ff) {
-        return static_cast<uint32_t>(uint256_t(ff));
-    });
-
-    std::sort(numerator.begin(), numerator.end());
-    std::sort(denominator.begin(), denominator.end());
-
-    bool first = true;
-    for (size_t i = 0; i < numerator.size(); i++) {
-        if (numerator[i] != denominator[i]) {
-            if (first) {
-                info("am I ever here?");
-                std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
-                std::cout << "denominator[" << i << "] = " << denominator[i] << std::endl;
-                first = false;
-            }
-        }
-    }
-
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
 
@@ -138,7 +80,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
-    const size_t circuit_size = Flavor::INTERLEAVING_GROUP_SIZE * mini_circuit_size;
+    const size_t full_circuit_size = Flavor::INTERLEAVING_GROUP_SIZE * mini_circuit_size;
     const auto sort_step = Flavor::SORT_STEP;
     const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
@@ -146,7 +88,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
-    prover_polynomials.lagrange_real_last.at(circuit_size - 1) = 1;
+    prover_polynomials.lagrange_real_last.at(full_circuit_size - 1) = 1;
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
     auto sorted_elements_count = (max_value / sort_step) + 1;
@@ -716,19 +658,20 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
     const size_t mini_circuit_size = 2048;
-    const size_t circuit_size = Flavor::INTERLEAVING_GROUP_SIZE * mini_circuit_size;
+    const size_t full_circuit_size = Flavor::INTERLEAVING_GROUP_SIZE * mini_circuit_size;
     const auto sort_step = Flavor::SORT_STEP;
     const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     ProverPolynomials prover_polynomials(mini_circuit_size);
 
-    size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t real_circuit_size = full_circuit_size - full_masking_offset;
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
-    prover_polynomials.lagrange_real_last.at(circuit_size - full_masking_offset - 1) = 1;
+    prover_polynomials.lagrange_real_last.at(real_circuit_size - 1) = 1;
 
-    for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
+    for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
         prover_polynomials.lagrange_masking.at(i) = 1;
     }
 
@@ -742,7 +685,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     vector_for_sorting[sorted_elements_count - 1] = max_value;
 
     // Add random values to fill the leftover space
-    for (size_t i = sorted_elements_count; i < circuit_size - full_masking_offset; i++) {
+    for (size_t i = sorted_elements_count; i < real_circuit_size; i++) {
         vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
     }
 
@@ -756,7 +699,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     // Sort the vector
     std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
 
-    for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
+    for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
         vector_for_sorting.emplace_back(FF::random_element());
     }
 
@@ -787,7 +730,9 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     const size_t mini_circuit_size = 2048;
     auto& engine = numeric::get_debug_randomness();
-    const size_t circuit_size = mini_circuit_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_circuit_size = mini_circuit_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t real_circuit_size = full_circuit_size - full_masking_offset;
 
     TranslatorProvingKey key{ mini_circuit_size };
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
@@ -800,14 +745,14 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     params.gamma = gamma;
     params.beta = beta;
 
-    // Put random values in all the non-interleaved constraint polynomials used to range constrain the values
+    // Populate the group polynomials with appropriate values and also enough random values to mask their commitment and
+    // evaluation
     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
         for (size_t i = polynomial.start_index(); i < polynomial.end_index() - MASKING_OFFSET; i++) {
             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
         }
         for (size_t i = polynomial.end_index() - MASKING_OFFSET; i < polynomial.end_index(); i++) {
-
-            polynomial.at(i) = FF(666666);
+            polynomial.at(i) = FF::random_element();
         }
     };
 
@@ -817,113 +762,31 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
         }
     }
 
-    const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
-
     // Fill in lagrange polynomials used in the permutation relation
     prover_polynomials.lagrange_first.at(0) = 1;
-    prover_polynomials.lagrange_last.at(circuit_size - 1) = 1;
-    for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
+    prover_polynomials.lagrange_last.at(full_circuit_size - 1) = 1;
+    for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
         prover_polynomials.lagrange_masking.at(i) = 1;
     }
 
     key.compute_interleaved_polynomials();
     key.compute_extra_range_constraint_numerator();
-
     key.compute_translator_range_constraint_ordered_polynomials(true);
 
+    // Populate the ordered polynomials with the random values from the interleaved polynomials
     for (size_t i = 0; i < 4; i++) {
         auto& ordered = prover_polynomials.get_ordered_constraints()[i];
         auto& interleaved = prover_polynomials.get_interleaved()[i];
-        for (size_t j = circuit_size - full_masking_offset; j < circuit_size; j++) {
-            ASSERT(ordered.at(j) == FF(0));
-            ASSERT(interleaved.at(j) == FF(666666));
+        for (size_t j = real_circuit_size; j < full_circuit_size; j++) {
             ordered.at(j) = interleaved.at(j);
-            ASSERT(ordered.at(j) == FF(666666));
         }
     }
 
-    ASSERT(prover_polynomials.ordered_range_constraints_4.at(circuit_size - full_masking_offset - 1) != FF(0));
-    for (size_t i = circuit_size - full_masking_offset; i < circuit_size; i++) {
-        FF random_value = FF(666666);
-        ASSERT(prover_polynomials.ordered_extra_range_constraints_numerator.at(i) == FF(0) &&
-               prover_polynomials.ordered_range_constraints_4.at(i) == FF(0));
+    ASSERT(prover_polynomials.ordered_range_constraints_4.at(real_circuit_size - 1) != FF(0));
+    for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
+        FF random_value = FF::random_element();
         prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = random_value;
         prover_polynomials.ordered_range_constraints_4.at(i) = random_value;
-    }
-    std::vector<FF> numerator_vec(prover_polynomials.interleaved_range_constraints_0.coeffs().begin(),
-                                  prover_polynomials.interleaved_range_constraints_0.coeffs().end());
-    numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_1.coeffs().begin(),
-                         prover_polynomials.interleaved_range_constraints_1.coeffs().end());
-    numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_2.coeffs().begin(),
-                         prover_polynomials.interleaved_range_constraints_2.coeffs().end());
-    numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.interleaved_range_constraints_3.coeffs().begin(),
-                         prover_polynomials.interleaved_range_constraints_3.coeffs().end());
-    numerator_vec.insert(numerator_vec.end(),
-                         prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().begin(),
-                         prover_polynomials.ordered_extra_range_constraints_numerator.coeffs().end());
-
-    std::vector<FF> denominator_vec(prover_polynomials.ordered_range_constraints_0.coeffs().begin(),
-                                    prover_polynomials.ordered_range_constraints_0.coeffs().end());
-    denominator_vec.insert(denominator_vec.end(),
-                           prover_polynomials.ordered_range_constraints_1.coeffs().begin(),
-                           prover_polynomials.ordered_range_constraints_1.coeffs().end());
-    denominator_vec.insert(denominator_vec.end(),
-                           prover_polynomials.ordered_range_constraints_2.coeffs().begin(),
-                           prover_polynomials.ordered_range_constraints_2.coeffs().end());
-    denominator_vec.insert(denominator_vec.end(),
-                           prover_polynomials.ordered_range_constraints_3.coeffs().begin(),
-                           prover_polynomials.ordered_range_constraints_3.coeffs().end());
-    denominator_vec.insert(denominator_vec.end(),
-                           prover_polynomials.ordered_range_constraints_4.coeffs().begin(),
-                           prover_polynomials.ordered_range_constraints_4.coeffs().end());
-    for (size_t i = 0; i < 5; i++) {
-        denominator_vec.emplace_back(FF(0));
-    }
-    info(numerator_vec.size());
-    info(denominator_vec.size());
-    // ASSERT(numerator_vec.size() == denominator_vec.size());
-    std::vector<size_t> numerator(numerator_vec.size());
-    std::vector<size_t> denominator(denominator_vec.size());
-    std::transform(numerator_vec.begin(), numerator_vec.end(), numerator.begin(), [](const FF& ff) {
-        return static_cast<uint32_t>(uint256_t(ff));
-    });
-    std::transform(denominator_vec.begin(), denominator_vec.end(), denominator.begin(), [](const FF& ff) {
-        return static_cast<uint32_t>(uint256_t(ff));
-    });
-
-    std::sort(numerator.begin(), numerator.end());
-    std::sort(denominator.begin(), denominator.end());
-
-    // // bool first = true;
-    // for (size_t i = 0; i < denominator_vec.size(); i++) {
-    //     if (denominator[i] != 0) {
-    //         std::cout << "denominator[" << i << "] = " << denominator[i] << std::endl;
-    //         break;
-    //     }
-    // }
-
-    // for (size_t i = 0; i < numerator_vec.size(); i++) {
-    //     if (numerator[i] != 0) {
-    //         std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
-    //         break;
-    //     }
-    // }
-
-    // for (size_t i = 0; i < numerator_vec.size(); i++) {
-    //     if (numerator[i] != denominator[i]) {
-    //         std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
-    //         std::cout << "denominator[" << i  << "] = " << denominator[i] << std::endl;
-    //     }
-    // }
-
-    for (size_t i = 0; i < numerator.size(); i++) {
-        if (numerator[i] != denominator[i]) {
-            std::cout << "numerator[" << i << "] = " << numerator[i] << std::endl;
-            std::cout << "denominator[" << i << "] = " << denominator[i] << std::endl;
-        }
     }
 
     // Compute the grand product polynomial

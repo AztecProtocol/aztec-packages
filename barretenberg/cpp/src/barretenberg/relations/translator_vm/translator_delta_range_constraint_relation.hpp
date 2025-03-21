@@ -29,7 +29,10 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
      *
      * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
      * 1) 2 sequential values are non-descending and have a difference of at most 3, except for the value at last index
-     * 2) The value at last index is  2¹⁴ - 1
+     * 2) The value at last index is  2¹⁴ - 1.
+     *
+     * When operating in zero knowledge, specif values of the polynomials, currently at the end, which contain random
+     * values, are marked to be excluded from the checks above.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
