@@ -886,7 +886,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
  *       ie. we can't try `bincode` format and if it fails try `msgpack`, instad we
  *       have to make a decision and commit to it.
  */
-bool is_buf_msgpack(std::vector<uint8_t> const& buf)
+std::optional<msgpack::object> maybe_buf_to_msgpack(std::vector<uint8_t> const& buf)
 {
     // We can't rely on exceptions to try to deserialize binpack, falling back to
     // msgpack if it fails, because exceptions are (or were) not supported in Wasm
@@ -909,11 +909,14 @@ bool is_buf_msgpack(std::vector<uint8_t> const& buf)
         msgpack::null_visitor probe;
         if (msgpack::parse(buffer, size, probe)) {
             auto o = msgpack::unpack(buffer, size).get();
-            // In my experiment bincode data was parsed as 0.
-            return o.type == msgpack::type::MAP;
+            // In experiments bincode data was parsed as 0.
+            // The types usd by Noir are MAPs.
+            if (o.type == msgpack::type::MAP) {
+                return std::make_optional(std::move(o));
+            }
         }
     }
-    return false;
+    return std::nullopt;
 }
 
 /**
@@ -922,21 +925,18 @@ bool is_buf_msgpack(std::vector<uint8_t> const& buf)
  */
 Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
 {
-    if (is_buf_msgpack(buf)) {
-        const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
-        size_t size = buf.size() - 1;
-        auto o = msgpack::unpack(buffer, size).get();
+    if (auto o = maybe_buf_to_msgpack(buf)) {
         try {
             // Deserialize into a partial structure that ignores the Brillig parts,
             // so that new opcodes can be added without breaking Barretenberg.
             Acir::ProgramWithoutBrillig program_wob;
-            o.convert(program_wob);
+            o->convert(program_wob);
             Acir::Program program;
             program.functions = program_wob.functions;
             return program;
         } catch (const msgpack::type_error&) {
             // To see the raw msgpack data structure as JSON:
-            std::cerr << o << std::endl;
+            std::cerr << *o << std::endl;
             throw_or_abort("failed to convert msgpack data to Program");
         }
     }
@@ -948,17 +948,14 @@ Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
  */
 Witnesses::WitnessStack witness_buf_to_witness(std::vector<uint8_t> const& buf)
 {
-    if (is_buf_msgpack(buf)) {
-        const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
-        size_t size = buf.size() - 1;
-        auto o = msgpack::unpack(buffer, size).get();
+    if (auto o = maybe_buf_to_msgpack(buf)) {
         try {
             Witnesses::WitnessStack witness_stack;
-            o.convert(witness_stack);
+            o->convert(witness_stack);
             return witness_stack;
         } catch (const msgpack::type_error&) {
             // To see the raw msgpack data structure as JSON:
-            std::cerr << o << std::endl;
+            std::cerr << *o << std::endl;
             throw_or_abort("failed to convert msgpack data to WitnessStack");
         }
     }
