@@ -33,6 +33,7 @@ pol commit parsing_err;
 parsing_err = 1 - (1 - pc_out_of_range) * (1 - instr_out_of_range) * (1 - opcode_out_of_range) * (1 - tag_out_of_range);
 // parsing_err is a boolean by definition (followed from above formula)
 
+// TODO: consider to create an extra column to decrease degree for XXX_BYTES_DECOMPOSITION sub-relations.
 pol PARSING_ERR_NO_TAG = 1 - (1 - pc_out_of_range) * (1 - instr_out_of_range) * (1 - opcode_out_of_range);
 
 // Retrieved from bc_decomposition.pil
@@ -83,6 +84,7 @@ pol commit tag_value;
 #[TAG_VALUE]
 tag_value = (sel_has_tag - sel_tag_is_op2) * op3 + sel_tag_is_op2 * op2;
 
+// TODO: Investigate whether enforcing the tag checking in execution trace or in CAST/SET gadgets might be a better option.
 #[TAG_VALUE_VALIDATION]
 sel_has_tag { tag_value, tag_out_of_range } in precomputed.sel_range_8 { precomputed.clk, precomputed.sel_mem_tag_out_of_range };
 
