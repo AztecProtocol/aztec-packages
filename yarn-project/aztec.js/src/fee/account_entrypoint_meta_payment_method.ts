@@ -28,7 +28,7 @@ import type { GasSettings } from '@aztec/stdlib/gas';
  * HOWEVER,the account contract entrypoint does, so this method reshapes that fee payload into a call to the account contract entrypoint
  * being deployed with the original fee payload.
  *
- * This class can be seen in action in AccountManager.ts -> #getSelfPaymentMethod
+ * This class can be seen in action in AccountManager.ts#getSelfPaymentMethod
  */
 export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
   constructor(

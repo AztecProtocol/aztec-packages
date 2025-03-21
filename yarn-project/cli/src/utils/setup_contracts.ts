@@ -5,6 +5,7 @@ import {
   Fr,
   type PXE,
   SignerlessWallet,
+  SponsoredFeePaymentMethod,
   type WaitForProvenOpts,
   getContractInstanceFromDeployParams,
   waitForProven,
@@ -71,7 +72,7 @@ export async function setupSponsoredFPC(
   const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
-  const paymentMethod = new FeeJuicePaymentMethod(sponsoredFPCInstance.address);
+  const paymentMethod = new SponsoredFeePaymentMethod(sponsoredFPCInstance.address);
 
   const deployTx = SponsoredFPCContract.deploy(deployer).send({
     contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
