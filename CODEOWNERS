@@ -20,9 +20,7 @@
 # on changes to PIL code-generator
 /bb-pilcom @Maddiaa0 @jeanmon @IlyasRidhuan @fcarreiro
 # on changes to PIL code (AVM circuit)
-/barretenberg/cpp/pil @jeanmon @IlyasRidhuan @fcarreiro
-# on changes to PIL-generated C++
-/barretenberg/cpp/src/barretenberg/**/generated @jeanmon @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/pil @Maddiaa0 @jeanmon @IlyasRidhuan @fcarreiro
 # on changes to AVM C++ code
 /barretenberg/cpp/src/barretenberg/vm @jeanmon @IlyasRidhuan @fcarreiro
 /barretenberg/cpp/src/barretenberg/vm2 @jeanmon @IlyasRidhuan @fcarreiro
