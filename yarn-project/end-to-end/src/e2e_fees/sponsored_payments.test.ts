@@ -1,4 +1,4 @@
-import { type AccountWallet, type AztecAddress } from '@aztec/aztec.js';
+import type { AccountWallet, AztecAddress } from '@aztec/aztec.js';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
