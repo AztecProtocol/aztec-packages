@@ -829,12 +829,6 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
     // to work with a single ACIR function
-
-    // TODO: We can't rely on exceptions to deserialize one format or the other because they are
-    // not supported in Wasm (turned off in arch.cmake, aborting in throw_or_abort).
-    // For now just try the new format and see what happens.
-    // auto circuit = Acir::Program::bincodeDeserialize(buf).functions[0];
-
     auto program = program_buf_to_program(buf);
     auto circuit = program.functions[0];
 
@@ -880,7 +874,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `witness_buf_to_witness_stack` once Honk fully supports all ACIR test flows. For now the backend still
     // expects to work with the stop of the `WitnessStack`.
-    auto witness_stack = Witnesses::WitnessStack::bincodeDeserialize(buf);
+    auto witness_stack = witness_buf_to_witness(buf);
     auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
 
     return witness_map_to_witness_vector(w);
@@ -949,6 +943,28 @@ Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
     return Acir::Program::bincodeDeserialize(buf);
 }
 
+/**
+ * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
+ */
+Witnesses::WitnessStack witness_buf_to_witness(std::vector<uint8_t> const& buf)
+{
+    if (is_buf_msgpack(buf)) {
+        const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
+        size_t size = buf.size() - 1;
+        auto o = msgpack::unpack(buffer, size).get();
+        try {
+            Witnesses::WitnessStack witness_stack;
+            o.convert(witness_stack);
+            return witness_stack;
+        } catch (msgpack::type_error) {
+            // To see the raw msgpack data structure as JSON:
+            std::cerr << o << std::endl;
+            throw_or_abort("failed to convert msgpack data to witness_stack");
+        }
+    }
+    return Witnesses::WitnessStack::bincodeDeserialize(buf);
+}
+
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
 {
     auto program = program_buf_to_program(buf);
@@ -964,7 +980,7 @@ std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& b
 
 WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
 {
-    auto witness_stack = Witnesses::WitnessStack::bincodeDeserialize(buf);
+    auto witness_stack = witness_buf_to_witness(buf);
     WitnessVectorStack witness_vector_stack;
     witness_vector_stack.reserve(witness_stack.stack.size());
     for (auto const& stack_item : witness_stack.stack) {
