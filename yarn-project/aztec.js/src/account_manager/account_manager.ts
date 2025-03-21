@@ -250,7 +250,7 @@ export class AccountManager {
    * This method is here to ensure that the fee payment method is correctly set up in case
    * the account contract needs to pay for its own deployment.
    * @param opts - Fee options to be used for the deployment.
-   * @returns A SentTx object that can be waited to get the associated Wallet.
+   * @returns The gas estimations for the account contract deployment and initialization.
    */
   public async estimateDeploymentGas(
     opts?: DeployAccountOptions,
