@@ -118,8 +118,8 @@ TEST_F(ClientIVCTests, RandomProofBytes)
         std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
     }
 
-    // Attempting to deserialize the proof from the buffer gives a cast/type error
-    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), typename ClientIVC::Proof::DeserializationError);
+    // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
+    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
 };
 
 /**
