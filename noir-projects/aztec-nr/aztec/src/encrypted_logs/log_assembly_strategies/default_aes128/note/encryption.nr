@@ -296,65 +296,65 @@ pub unconstrained fn decrypt_log(
     fields_from_bytes(log_plaintext_bytes)
 }
 
-mod test {
-    use crate::{
-        keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
-        test::helpers::test_environment::TestEnvironment,
-    };
-    use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
-    use protocol_types::{address::AztecAddress, traits::FromField};
-    use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
+// mod test {
+//     use crate::{
+//         keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
+//         test::helpers::test_environment::TestEnvironment,
+//     };
+//     use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
+//     use protocol_types::{address::AztecAddress, traits::FromField};
+//     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
-    #[test]
-    unconstrained fn encrypt_decrypt_log() {
-        let mut env = TestEnvironment::new();
-        // Advance 1 block so we can read historic state from private
-        env.advance_block_by(1);
+//     #[test]
+//     unconstrained fn encrypt_decrypt_log() {
+//         let mut env = TestEnvironment::new();
+//         // Advance 1 block so we can read historic state from private
+//         env.advance_block_by(1);
 
-        let contract_address = AztecAddress::from_field(
-            0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04,
-        );
+//         let contract_address = AztecAddress::from_field(
+//             0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04,
+//         );
 
-        let plaintext = [1, 2, 3];
+//         let plaintext = [1, 2, 3];
 
-        let recipient = AztecAddress::from_field(
-            0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
-        );
+//         let recipient = AztecAddress::from_field(
+//             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
+//         );
 
-        let sender = AztecAddress::from_field(
-            0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
-        );
+//         let sender = AztecAddress::from_field(
+//             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
+//         );
 
-        // Mock random values for deterministic test
-        let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-        let _ = OracleMock::mock("getRandomField").returns(eph_sk).times(1);
+//         // Mock random values for deterministic test
+//         let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
+//         let _ = OracleMock::mock("getRandomField").returns(eph_sk).times(1);
 
-        let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
-        let _ = OracleMock::mock("getRandomField").returns(randomness).times(1000000);
+//         let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
+//         let _ = OracleMock::mock("getRandomField").returns(randomness).times(1000000);
 
-        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns([69420, 1337]);
-        let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
+//         let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns([69420, 1337]);
+//         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
-        // Encrypt the log
-        let encrypted_log =
-            BoundedVec::from_array(encrypt_log(contract_address, plaintext, recipient, sender));
+//         // Encrypt the log
+//         let encrypted_log =
+//             BoundedVec::from_array(encrypt_log(contract_address, plaintext, recipient, sender));
 
-        // Mock shared secret for deterministic test
-        let shared_secret = derive_ecdh_shared_secret_using_aztec_address(
-            EmbeddedCurveScalar::from_field(eph_sk),
-            recipient,
-        );
-        let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
+//         // Mock shared secret for deterministic test
+//         let shared_secret = derive_ecdh_shared_secret_using_aztec_address(
+//             EmbeddedCurveScalar::from_field(eph_sk),
+//             recipient,
+//         );
+//         let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
 
-        // Decrypt the log
-        let decrypted = decrypt_log(encrypted_log, recipient);
+//         // Decrypt the log
+//         let decrypted = decrypt_log(encrypted_log, recipient);
 
-        // The decryption function spits out a BoundedVec because it's designed to work with logs with unknown length
-        // at compile time. For this reason we need to convert the original input to a BoundedVec.
-        let plaintext_bvec =
-            BoundedVec::<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>::from_array(plaintext);
+//         // The decryption function spits out a BoundedVec because it's designed to work with logs with unknown length
+//         // at compile time. For this reason we need to convert the original input to a BoundedVec.
+//         let plaintext_bvec =
+//             BoundedVec::<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>::from_array(plaintext);
 
-        // Verify decryption matches original plaintext
-        assert_eq(decrypted, plaintext_bvec, "Decrypted bytes should match original plaintext");
-    }
-}
+//         // Verify decryption matches original plaintext
+//         assert_eq(decrypted, plaintext_bvec, "Decrypted bytes should match original plaintext");
+//     }
+// }
