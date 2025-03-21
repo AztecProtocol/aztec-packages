@@ -5,7 +5,6 @@ use crate::{
         log_assembly_strategies::default_aes128::arithmetic_generics_utils::{
             get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
         },
-        log_encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES,
     },
     event::event_interface::EventInterface,
     keys::{
@@ -25,6 +24,8 @@ use dep::protocol_types::{
     traits::{Serialize, ToField},
 };
 use std::aes128::aes128_encrypt;
+
+global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48;
 
 /*
  * WHY IS THERE LOTS OF CODE DUPLICATION BETWEEN event.nr and note.nr?
