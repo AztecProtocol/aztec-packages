@@ -12,9 +12,9 @@ if [ "$arch" == "arm64" ]; then
   export AWS_SHUTDOWN_TIME=90
 else
   if [ "$CI_FULL" -eq 1 ]; then
-    cores=192
+    cores=192,128,64
   else
-    cores=128
+    cores=128,64
   fi
 fi
 
@@ -138,7 +138,7 @@ container_script=$(cat <<EOF
   set +e
   set -x
   $cmd
-  code=\$?
+  code=\${PIPESTATUS[0]}
   case \$code in
     155) ;;
     0) log_ci_run PASSED \$ci_log_id ;;
@@ -189,6 +189,12 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e LOCAL_GROUP_ID=\$(id -g) \
     -e CI=$CI \
     -e CI_FULL=$CI_FULL \
+    -e CI_NIGHTLY=${CI_NIGHTLY:-0} \
+    -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
+    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
+    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
+    -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
+    -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
     -e DRY_RUN=${DRY_RUN:-0} \
     -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
     -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \

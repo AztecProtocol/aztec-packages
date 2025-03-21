@@ -29,16 +29,19 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   p2pBootstrapNodes: [],
   registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 4,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
   const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch basic contract addresses from ${url}`);
+    throw new Error(
+      `Failed to fetch basic contract addresses from ${url}. Check you are using a correct network name.`,
+    );
   }
   const json = await response.json();
+
   return json['bootnodes'];
 }
 

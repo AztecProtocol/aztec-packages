@@ -18,7 +18,7 @@ use dep::aztec::macros::aztec;
 pub contract TokenBlacklist {
     // Libs
     use dep::aztec::{
-        discovery::private_logs::attempt_note_discovery,
+        discovery::private_notes::attempt_note_discovery,
         encrypted_logs::log_assembly_strategies::default_aes128::note::{
             encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
         },

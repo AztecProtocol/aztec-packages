@@ -14,8 +14,7 @@ source $flows/shared/create_funded_account.sh operator
 aztec-wallet create-secret -a auth_nonce
 aztec-wallet create-authwit transfer_in_private operator -ca token --args accounts:main accounts:operator $TRANSFER_AMOUNT secrets:auth_nonce -f main
 
-aztec-wallet add-authwit authwits:last main -f operator
-aztec-wallet send transfer_in_private -ca token --args accounts:main accounts:operator $TRANSFER_AMOUNT secrets:auth_nonce -f operator
+aztec-wallet send transfer_in_private -ca token --args accounts:main accounts:operator $TRANSFER_AMOUNT secrets:auth_nonce -aw authwits:last -f operator
 
 RESULT_MAIN=$(aztec-wallet simulate balance_of_private -ca token --args accounts:main -f main | grep "Simulation result:" | awk '{print $3}')
 RESULT_RECIPIENT=$(aztec-wallet simulate balance_of_private -ca token --args accounts:operator -f operator | grep "Simulation result:" | awk '{print $3}')

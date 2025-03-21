@@ -8,7 +8,7 @@ import {
 } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 
-import type { Wallet } from '../account/wallet.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 
 /**

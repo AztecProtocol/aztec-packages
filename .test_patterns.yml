@@ -7,6 +7,7 @@
 # If there is no owner for failed test the build will fail, regardless of if it matches in this file.
 # When a failing test matches one or more of the "regex" properties below,
 # a message is sent to slack channel #aztec3-ci tagging the owners.
+# If an optional error_regex is provided, the output file must match for the test to be considered a flake.
 
 names:
   - adam: &adam "U04BM8H25NJ"
@@ -21,6 +22,7 @@ names:
   - phil: &phil "U02G4KAD57Y"
   - sean: &sean "U04DT239VQU"
   - tom: &tom "U04LLT331NK"
+  - sergei: &sergei "U05RR81391B"
 
 tests:
   # barretenberg
@@ -33,8 +35,15 @@ tests:
   #   Actual: false
   # Expected: true
   - regex: "join_split_example_tests"
+    skip: true
+    error_regex: "field_t::range_constraint"
     owners:
       - *luke
+
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
+    error_regex: "Out of bounds memory access"
+    owners:
+      - *sergei
 
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
@@ -52,6 +61,7 @@ tests:
     skip: true
     owners:
       - *charlie
+
   # Sometimes see this on ARM. But not when run on it's own...
   # FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
   #                                                                                                                                                                                running 1 test
@@ -142,6 +152,10 @@ tests:
       - *palla
 
   # yarn-project tests
+  - regex: "p2p/src/services/discv5/discv5_service.test.ts"
+    error_regex: "Timeout: Failed to connect to"
+    owners:
+      - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     owners:
       - *sean
@@ -152,11 +166,13 @@ tests:
     owners:
       - *palla
   - regex: "yarn-project/kv-store"
+    error_regex: "Could not import your test module"
     owners:
       - *alex
 
   # boxes
   - regex: "boxes/scripts/run_test.sh vite"
+    error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
 
@@ -185,7 +201,19 @@ tests:
     owners:
       - *adam
 
+  # aztec-up
+  - regex: "aztec-up/scripts/run_test.sh"
+    error_regex: "Is the docker daemon running"
+    owners:
+      - *charlie
+
   # Slack testing.
   - regex: "nonsense to match"
     owners:
       - *charlie
+
+  - regex: "nonsense to match"
+    owners:
+      - *charlie
+      - *adam
+    error_regex: "something else"

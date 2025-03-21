@@ -20,7 +20,6 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressDataProvider,
-  AuthWitnessDataProvider,
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
@@ -136,6 +135,8 @@ export class TXE implements TypedOracle {
 
   private noteCache: ExecutionNoteCache;
 
+  private authwits: Map<string, AuthWitness> = new Map();
+
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
@@ -145,7 +146,6 @@ export class TXE implements TypedOracle {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
-    private authWitnessDataProvider: AuthWitnessDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private executionCache: HashedValuesCache,
     private contractAddress: AztecAddress,
@@ -168,7 +168,6 @@ export class TXE implements TypedOracle {
       this.syncDataProvider,
       this.taggingDataProvider,
       this.addressDataProvider,
-      this.authWitnessDataProvider,
       this.logger,
     );
   }
@@ -179,7 +178,6 @@ export class TXE implements TypedOracle {
     const baseFork = await nativeWorldStateService.fork();
 
     const addressDataProvider = new AddressDataProvider(store);
-    const authWitnessDataProvider = new AuthWitnessDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
@@ -204,7 +202,6 @@ export class TXE implements TypedOracle {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
-      authWitnessDataProvider,
       accountDataProvider,
       executionCache,
       await AztecAddress.random(),
@@ -331,7 +328,7 @@ export class TXE implements TypedOracle {
     const schnorr = new Schnorr();
     const signature = await schnorr.constructSignature(messageHash.toBuffer(), privateKey);
     const authWitness = new AuthWitness(messageHash, [...signature.toBuffer()]);
-    return this.authWitnessDataProvider.addAuthWitness(authWitness.requestHash, authWitness.witness);
+    return this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
   async addPublicDataWrites(writes: PublicDataWrite[]) {
@@ -471,7 +468,7 @@ export class TXE implements TypedOracle {
     return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
   }
 
-  async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
 
     const lowLeafResult = await snap.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -544,7 +541,8 @@ export class TXE implements TypedOracle {
   }
 
   getAuthWitness(messageHash: Fr) {
-    return this.pxeOracleInterface.getAuthWitness(messageHash);
+    const authwit = this.authwits.get(messageHash.toString());
+    return Promise.resolve(authwit?.witness);
   }
 
   async getNotes(

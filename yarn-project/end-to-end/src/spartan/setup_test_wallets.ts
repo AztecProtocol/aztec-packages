@@ -15,6 +15,7 @@ import {
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 export interface TestWallets {
   pxe: PXE;
@@ -108,8 +109,10 @@ async function bridgeL1FeeJuice(
   const chain = createEthereumChain(l1RpcUrls, l1ChainId);
   const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
+  // docs:start:bridge_fee_juice
   const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
+  // docs:end:bridge_fee_juice
 
   const isSynced = async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
   await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
@@ -118,9 +121,9 @@ async function bridgeL1FeeJuice(
   return claim;
 }
 
-async function advanceL2Block(node: AztecNode) {
+async function advanceL2Block(node: AztecNode, nodeAdmin?: AztecNodeAdmin) {
   const initialBlockNumber = await node.getBlockNumber();
-  await node!.flushTxs();
+  await nodeAdmin?.flushTxs();
   await retryUntil(async () => (await node.getBlockNumber()) >= initialBlockNumber + 1);
 }
 

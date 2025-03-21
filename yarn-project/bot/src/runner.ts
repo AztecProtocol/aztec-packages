@@ -1,16 +1,20 @@
 import { type AztecNode, type PXE, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { type AztecNodeAdmin, createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
 
+import { AmmBot } from './amm_bot.js';
+import type { BaseBot } from './base_bot.js';
 import { Bot } from './bot.js';
 import { type BotConfig, getVersions } from './config.js';
 import type { BotRunnerApi } from './interface.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
   private log = createLogger('bot');
-  private bot?: Promise<Bot>;
+  private bot?: Promise<BaseBot>;
   private pxe?: PXE;
   private node: AztecNode;
+  private nodeAdmin?: AztecNodeAdmin;
   private runningPromise: RunningPromise;
   private consecutiveErrors = 0;
   private healthy = true;
@@ -19,15 +23,19 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   public constructor(
     private config: BotConfig,
-    dependencies: { pxe?: PXE; node?: AztecNode; telemetry: TelemetryClient },
+    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin; telemetry: TelemetryClient },
   ) {
     this.tracer = dependencies.telemetry.getTracer('Bot');
     this.pxe = dependencies.pxe;
     if (!dependencies.node && !config.nodeUrl) {
       throw new Error(`Missing node URL in config or dependencies`);
     }
-    this.node =
-      dependencies.node ?? createAztecNodeClient(config.nodeUrl!, getVersions(), makeTracedFetch([1, 2, 3], true));
+    const versions = getVersions();
+    const fetch = makeTracedFetch([1, 2, 3], true);
+    this.node = dependencies.node ?? createAztecNodeClient(config.nodeUrl!, versions, fetch);
+    this.nodeAdmin =
+      dependencies.nodeAdmin ??
+      (config.nodeAdminUrl ? createAztecNodeAdminClient(config.nodeAdminUrl, versions, fetch) : undefined);
     this.runningPromise = new RunningPromise(() => this.#work(), this.log, config.txIntervalSeconds * 1000);
   }
 
@@ -131,7 +139,9 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   async #createBot() {
     try {
-      this.bot = Bot.create(this.config, { pxe: this.pxe, node: this.node });
+      this.bot = this.config.ammTxs
+        ? AmmBot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin })
+        : Bot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin });
       await this.bot;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);

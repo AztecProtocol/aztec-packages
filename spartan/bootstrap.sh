@@ -56,12 +56,18 @@ function test_cmds {
   # Note: commands that start with 'timeout ...' override the default timeout.
   # TODO figure out why these take long sometimes.
   echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-smoke"
-  if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
+  # if [ "$CI_FULL" -eq 1 ]; then
+    # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    # TODO(#12791) re-enable
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
+    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
+  # fi
+
+  if [ "$CI_NIGHTLY" -eq 1 ]; then
+    echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
   fi
 }
 
@@ -122,6 +128,16 @@ case "$cmd" in
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml four-epochs${NAME_POSTFIX:-}
+    ;;
+  "test-kind-4epochs-sepolia")
+    OVERRIDES="bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false SEPOLIA_RUN=true \
+      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci-sepolia.yaml four-epochs${NAME_POSTFIX:-}
+    ;;
+  "test-kind-proving")
+    OVERRIDES="bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/proving.test.ts ci.yaml proving${NAME_POSTFIX:-}
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer

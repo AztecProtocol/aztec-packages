@@ -13,7 +13,7 @@ import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
-import { fromACVMField, witnessMapToFields } from './acvm/deserialize.js';
+import { witnessMapToFields } from './acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from './acvm/index.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
@@ -113,7 +113,7 @@ export function extractPrivateCircuitPublicInputs(
     if (returnedField === undefined) {
       throw new Error(`Missing return value for index ${i}`);
     }
-    returnData.push(fromACVMField(returnedField));
+    returnData.push(Fr.fromString(returnedField));
   }
   return PrivateCircuitPublicInputs.fromFields(returnData);
 }
