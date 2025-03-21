@@ -178,6 +178,14 @@ export class DatabaseVersionManager<T> {
     return [await this.onOpen(this.dataDirectory), needsReset];
   }
 
+  /** Writes the version to target path */
+  public writeVersionTo(dstPath: string): Promise<void> {
+    return this.fileSystem.writeFile(
+      join(dstPath, DatabaseVersionManager.VERSION_FILE),
+      this.currentVersion.toBuffer(),
+    );
+  }
+
   /**
    * Writes the current version to the version file
    */

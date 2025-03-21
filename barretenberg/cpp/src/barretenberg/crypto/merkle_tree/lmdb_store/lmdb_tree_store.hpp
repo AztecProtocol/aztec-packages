@@ -171,6 +171,8 @@ class LMDBTreeStore : public LMDBStoreBase {
     LMDBTreeStore& operator=(LMDBTreeStore&& other) = delete;
     ~LMDBTreeStore() override = default;
 
+    const std::string& get_name() const;
+
     void get_stats(TreeDBStats& stats, ReadTransaction& tx);
 
     void write_block_data(const block_number_t& blockNumber, const BlockPayload& blockData, WriteTransaction& tx);

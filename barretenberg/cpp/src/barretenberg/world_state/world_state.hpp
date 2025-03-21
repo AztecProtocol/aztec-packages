@@ -89,6 +89,14 @@ class WorldState {
                uint32_t initial_header_generator_point);
 
     /**
+     * @brief Copies all underlying LMDB stores to the target directory while acquiring a write lock
+     *
+     * @param dstPath Parent folder where trees will be copied
+     * @param compact Whether to compact stores when copying
+     */
+    void copy_stores(const std::string& dstPath, bool compact) const;
+
+    /**
      * @brief Get tree metadata for a particular tree
      *
      * @param revision The revision to query

@@ -38,6 +38,8 @@ import { NativeWorldState } from './native_world_state_instance.js';
 // Increment this when making incompatible changes to the database schema
 export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
+const WORLD_STATE_DIR = 'world_state';
+
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
@@ -46,6 +48,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected constructor(
     protected readonly instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
+    protected readonly versionManager: DatabaseVersionManager<NativeWorldState>,
     protected readonly log = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
   ) {}
@@ -59,7 +62,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
-    const worldStateDirectory = join(dataDir, 'world_state');
+    const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
     // Create a version manager to handle versioning
     const versionManager = new DatabaseVersionManager(
       WORLD_STATE_DB_VERSION,
@@ -71,7 +74,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
 
     const [instance] = await versionManager.open();
-    const worldState = new this(instance, instrumentation, log, cleanup);
+    const worldState = new this(instance, instrumentation, versionManager, log, cleanup);
     try {
       await worldState.init();
     } catch (e) {
@@ -313,5 +316,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         treeStateReferenceToSnapshot(resp.state[MerkleTreeId.PUBLIC_DATA_TREE]),
       ),
     );
+  }
+
+  public async copy(dstPath: string, compact: boolean = true) {
+    const fullPath = join(dstPath, WORLD_STATE_DIR);
+    await this.instance.call(WorldStateMessageType.COPY_STORES, {
+      dstPath: fullPath,
+      compact,
+      canonical: true,
+    });
+    await this.versionManager.writeVersionTo(fullPath);
   }
 }
