@@ -37,6 +37,8 @@ export type BotConfig = {
   l1PrivateKey: string | undefined;
   /** Signing private key for the sender account. */
   senderPrivateKey: Fr | undefined;
+  /** Optional salt to use to deploy the sender account */
+  senderSalt: Fr | undefined;
   /** Encryption secret for a recipient account. */
   recipientEncryptionSecret: Fr;
   /** Salt for the token contract deployment. */
@@ -84,6 +86,7 @@ export const BotConfigSchema = z
     l1Mnemonic: z.string().optional(),
     l1PrivateKey: z.string().optional(),
     senderPrivateKey: schemas.Fr.optional(),
+    senderSalt: schemas.Fr.optional(),
     recipientEncryptionSecret: schemas.Fr,
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
@@ -111,6 +114,7 @@ export const BotConfigSchema = z
     l1Mnemonic: undefined,
     l1PrivateKey: undefined,
     senderPrivateKey: undefined,
+    senderSalt: undefined,
     l2GasLimit: undefined,
     daGasLimit: undefined,
     ...config,
@@ -145,6 +149,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
     description: 'Signing private key for the sender account.',
+    parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
+  },
+  senderSalt: {
+    env: 'BOT_ACCOUNT_SALT',
+    description: 'The salt to use to deploys the sender account.',
     parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
   },
   recipientEncryptionSecret: {

@@ -104,7 +104,7 @@ export class BotFactory {
   }
 
   private async setupAccountWithPrivateKey(privateKey: Fr) {
-    const salt = Fr.ONE;
+    const salt = this.config.senderSalt ?? Fr.ONE;
     const signingKey = deriveSigningKey(privateKey);
     const account = await getSchnorrAccount(this.pxe, privateKey, signingKey, salt);
     const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
