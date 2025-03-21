@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742573132574,
+  "lastUpdate": 1742574894529,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de11e938e6830afb4228104dc659a5a9c655922e",
-          "message": "chore: Sumcheck optimizations (#12630)\n\nCompared to master for 16 cores, sumcheck of bulk test AVM V2 takes 2.5%\nless time and ca. 5% less memory.\n\nmaster: 16.22 seconds\nthis pr:  15.80 seconds\n\nAverage of 5 measurements on each branch.\nMemory peak in proving: No change for bulk test, it remains at 4.32 GB\nmaximum resident size\nMemory impact during sumcheck: reduce from 2831 MB to 2677 MB (measured\nwith Tracy on bulk test v2)\n\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1120.",
-          "timestamp": "2025-03-12T17:42:05+01:00",
-          "tree_id": "538b925e1fafcabea9f98c2c7b7cdccf1fc92951",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/de11e938e6830afb4228104dc659a5a9c655922e"
-        },
-        "date": 1741799922337,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18107.63354599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16046.646261 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18699.454239000035,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16222.502703 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3888.038520000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3097.689061 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55537.646,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55537647000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9943.196952999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9943201000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1608749629,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1608749629 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 212844317,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 212844317 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2297.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3334,6 +3262,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15213,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42733a693956e67a38a094688df119a7a87593f8",
+          "message": "fix: Fix prover node publisher for multi-proofs (#12924)\n\nThe prover node publisher did not correctly support multi-proofs. This\nshould fix it.",
+          "timestamp": "2025-03-21T16:09:06Z",
+          "tree_id": "9dce50895632c159921223e7600a6e5f59794ebe",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/42733a693956e67a38a094688df119a7a87593f8"
+        },
+        "date": 1742574887098,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39523,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26446,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11847,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14448,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15165,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
