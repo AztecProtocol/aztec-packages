@@ -18,6 +18,7 @@
 #include "flavor_settings.hpp"
 
 // Relations
+#include "relations/address_derivation.hpp"
 #include "relations/alu.hpp"
 #include "relations/bc_decomposition.hpp"
 #include "relations/bc_hashing.hpp"
@@ -27,6 +28,7 @@
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/merkle_check.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/range_check.hpp"
@@ -35,12 +37,14 @@
 #include "relations/to_radix.hpp"
 
 // Lookup and permutation relations
+#include "relations/lookups_address_derivation.hpp"
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_instr_fetching.hpp"
+#include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
@@ -88,17 +92,28 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 806;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 115;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 888;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 123;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 965;
+    static constexpr size_t NUM_ALL_ENTITIES = 1055;
+
+    // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
+    // evenly processed by all the threads. This constant defines the maximum number of rows
+    // that a given thread will process per chunk. This constant is assumed to be a power of 2
+    // greater or equal to 2.
+    // The current constant 32 is the result of time measurements using 16 threads and against
+    // bulk test v2. It was performed at a stage where the trace was not large.
+    // We note that all the experiments with constants below 256 did not exhibit any significant differences.
+    // TODO: Fine-tune the following constant when avm is close to completion.
+    static constexpr size_t MAX_CHUNK_THREAD_PORTION_SIZE = 32;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = std::tuple<
         // Relations
+        avm2::address_derivation<FF_>,
         avm2::alu<FF_>,
         avm2::bc_decomposition<FF_>,
         avm2::bc_hashing<FF_>,
@@ -108,6 +123,7 @@ class AvmFlavor {
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::merkle_check<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
@@ -121,6 +137,17 @@ class AvmFlavor {
     template <typename FF_>
     using LookupRelations_ = std::tuple<
         // Lookups
+        lookup_address_derivation_address_ecadd_relation<FF_>,
+        lookup_address_derivation_partial_address_poseidon2_relation<FF_>,
+        lookup_address_derivation_preaddress_poseidon2_relation<FF_>,
+        lookup_address_derivation_preaddress_scalar_mul_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_0_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_1_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_2_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_3_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
+        lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
+        lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_decomposition_bytes_to_read_as_unary_relation<FF_>,
@@ -133,8 +160,12 @@ class AvmFlavor {
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
+        lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
+        lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,
+        lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_merkle_check_merkle_poseidon2_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
@@ -184,7 +215,7 @@ class AvmFlavor {
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
         CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
-    template <typename DataType> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType> class PrecomputedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
         DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_PRECOMPUTED_ENTITIES)
@@ -259,6 +290,8 @@ class AvmFlavor {
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
 
         size_t circuit_size;
+        size_t log_circuit_size;
+        size_t num_public_inputs;
         bb::EvaluationDomain<FF> evaluation_domain;
         std::shared_ptr<CommitmentKey> commitment_key;
 
@@ -275,7 +308,7 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         using FF = VerificationKey_::FF;
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
@@ -409,8 +442,9 @@ class AvmFlavor {
             this->precomputed_clk = verification_key->precomputed_clk;
             this->precomputed_exec_opcode = verification_key->precomputed_exec_opcode;
             this->precomputed_first_row = verification_key->precomputed_first_row;
-            this->precomputed_instr_size_in_bytes = verification_key->precomputed_instr_size_in_bytes;
+            this->precomputed_instr_size = verification_key->precomputed_instr_size;
             this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
+            this->precomputed_opcode_out_of_range = verification_key->precomputed_opcode_out_of_range;
             this->precomputed_p_decomposition_limb = verification_key->precomputed_p_decomposition_limb;
             this->precomputed_p_decomposition_limb_index = verification_key->precomputed_p_decomposition_limb_index;
             this->precomputed_p_decomposition_radix = verification_key->precomputed_p_decomposition_radix;
@@ -438,7 +472,6 @@ class AvmFlavor {
             this->precomputed_sel_p_decomposition = verification_key->precomputed_sel_p_decomposition;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
-            this->precomputed_sel_range_wire_opcode = verification_key->precomputed_sel_range_wire_opcode;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
             this->precomputed_sel_to_radix_safe_limbs = verification_key->precomputed_sel_to_radix_safe_limbs;
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;

@@ -12,7 +12,7 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
@@ -20,7 +20,6 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressDataProvider,
-  AuthWitnessDataProvider,
   CapsuleDataProvider,
   ContractDataProvider,
   NoteDataProvider,
@@ -46,6 +45,7 @@ import {
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
+  PublicContractsDB,
   type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
@@ -74,8 +74,13 @@ import {
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { type KeyValidationRequest, PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
-import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
-import { IndexedTaggingSecret, type PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  IndexedTaggingSecret,
+  LogWithTxData,
+  type PrivateLog,
+  type PublicLog,
+} from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import {
@@ -99,7 +104,7 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/nati
 import { TXENode } from '../node/txe_node.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
+import { TXEPublicTreesDB } from '../util/txe_public_dbs.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 1;
@@ -130,6 +135,8 @@ export class TXE implements TypedOracle {
 
   private noteCache: ExecutionNoteCache;
 
+  private authwits: Map<string, AuthWitness> = new Map();
+
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
@@ -139,7 +146,6 @@ export class TXE implements TypedOracle {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
-    private authWitnessDataProvider: AuthWitnessDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private executionCache: HashedValuesCache,
     private contractAddress: AztecAddress,
@@ -162,7 +168,6 @@ export class TXE implements TypedOracle {
       this.syncDataProvider,
       this.taggingDataProvider,
       this.addressDataProvider,
-      this.authWitnessDataProvider,
       this.logger,
     );
   }
@@ -173,7 +178,6 @@ export class TXE implements TypedOracle {
     const baseFork = await nativeWorldStateService.fork();
 
     const addressDataProvider = new AddressDataProvider(store);
-    const authWitnessDataProvider = new AuthWitnessDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
@@ -198,7 +202,6 @@ export class TXE implements TypedOracle {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
-      authWitnessDataProvider,
       accountDataProvider,
       executionCache,
       await AztecAddress.random(),
@@ -325,7 +328,7 @@ export class TXE implements TypedOracle {
     const schnorr = new Schnorr();
     const signature = await schnorr.constructSignature(messageHash.toBuffer(), privateKey);
     const authWitness = new AuthWitness(messageHash, [...signature.toBuffer()]);
-    return this.authWitnessDataProvider.addAuthWitness(authWitness.requestHash, authWitness.witness);
+    return this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
   async addPublicDataWrites(writes: PublicDataWrite[]) {
@@ -465,7 +468,7 @@ export class TXE implements TypedOracle {
     return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
   }
 
-  async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
 
     const lowLeafResult = await snap.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
@@ -538,7 +541,8 @@ export class TXE implements TypedOracle {
   }
 
   getAuthWitness(messageHash: Fr) {
-    return this.pxeOracleInterface.getAuthWitness(messageHash);
+    const authwit = this.authwits.get(messageHash.toString());
+    return Promise.resolve(authwit?.witness);
   }
 
   async getNotes(
@@ -753,7 +757,7 @@ export class TXE implements TypedOracle {
 
     await this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
     this.node.setNullifiersIndexesWithBlock(blockNumber, txEffect.nullifiers);
-    this.node.addNoteLogsByTags(this.blockNumber, this.privateLogs);
+    this.node.addPrivateLogsByTags(this.blockNumber, this.privateLogs);
     this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
 
     const stateReference = await fork.getStateReference();
@@ -779,6 +783,8 @@ export class TXE implements TypedOracle {
     // against the block's state reference (which is this state reference here in the fork).
     // This essentially commits the state updates to the unforked state and sanity checks the roots.
     await this.nativeWorldStateService.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
+
+    await this.syncDataProvider.setHeader(header);
 
     this.publicDataWrites = [];
     this.privateLogs = [];
@@ -933,12 +939,9 @@ export class TXE implements TypedOracle {
     // See note at revert below.
     const checkpoint = await ForkCheckpoint.new(db);
     try {
-      const simulator = new PublicTxSimulator(
-        db,
-        new TXEWorldStateDB(db, new TXEPublicContractDataSource(this), this),
-        globalVariables,
-        /*doMerkleOperations=*/ true,
-      );
+      const treesDB = new TXEPublicTreesDB(db, this);
+      const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
+      const simulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, /*doMerkleOperations=*/ true);
 
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
       const firstNullifier = usedTxRequestHashForNonces
@@ -1086,7 +1089,11 @@ export class TXE implements TypedOracle {
     );
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.pxeOracleInterface.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+      await this.pxeOracleInterface.processTaggedLogs(
+        this.contractAddress,
+        taggedLogs,
+        AztecAddress.fromString(recipient),
+      );
     }
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -1094,17 +1101,26 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
-  deliverNote(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _nonce: Fr,
-    _content: Fr[],
-    _noteHash: Fr,
-    _nullifier: Fr,
-    _txHash: Fr,
-    _recipient: AztecAddress,
+  public async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
   ): Promise<void> {
-    throw new Error('deliverNote');
+    await this.pxeOracleInterface.deliverNote(
+      contractAddress,
+      storageSlot,
+      nonce,
+      content,
+      noteHash,
+      nullifier,
+      txHash,
+      recipient,
+    );
   }
 
   async getLogByTag(tag: Fr): Promise<LogWithTxData | null> {
@@ -1237,5 +1253,9 @@ export class TXE implements TypedOracle {
   aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
+  }
+
+  getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+    return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 }

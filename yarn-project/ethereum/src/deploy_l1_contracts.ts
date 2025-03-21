@@ -328,6 +328,8 @@ export const deployRollup = async (
     minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
+    manaTarget: args.manaTarget,
+    provingCostPerMana: args.provingCostPerMana,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
@@ -388,19 +390,15 @@ export const cheat_initializeValidatorSet = async (
   acceleratedTestDeployments: boolean | undefined,
   logger: Logger,
 ) => {
-  const rollup = getContract({
-    address: getAddress(rollupAddress.toString()),
-    abi: l1Artifacts.rollup.contractAbi,
-    client: clients.walletClient,
-  });
-  const minimumStake = await rollup.read.getMinimumStake();
+  const rollup = new RollupContract(clients.publicClient, rollupAddress);
+  const minimumStake = await rollup.getMinimumStake();
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
       const validatorsInfo = await Promise.all(
         validators.map(async address => ({
           address,
-          ...(await rollup.read.getInfo([address])),
+          ...(await rollup.getInfo(address)),
         })),
       );
       const existingValidators = validatorsInfo.filter(v => v.status !== 0);
@@ -535,7 +533,7 @@ export const deployL1Contracts = async (
   // @note @LHerskind the assets are expected to be the same at some point, but for better
   // configurability they are different for now.
   const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
-    feeAssetAddress.toString(),
+    stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);

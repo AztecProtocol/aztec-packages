@@ -17,7 +17,7 @@ void PrecomputedTraceBuilder::process_misc(TraceContainer& trace, const uint32_t
     // First row.
     trace.set(C::precomputed_first_row, 0, 1);
 
-    // Clk.
+    // Clk
     // TODO: What a waste of 64MB. Can we elegantly have a flag for this?
     trace.reserve_column(C::precomputed_clk, num_rows);
     for (uint32_t i = 0; i < num_rows; i++) {
@@ -194,22 +194,30 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
     };
 
     // First set the selector for this table lookup.
-    for (uint32_t i = 0; i < static_cast<uint32_t>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
-        trace.set(C::precomputed_sel_range_wire_opcode, i, 1);
+    constexpr uint32_t num_rows = 1 << 8; // 256
+    constexpr uint32_t num_opcodes = static_cast<uint32_t>(WireOpCode::LAST_OPCODE_SENTINEL);
+    trace.reserve_column(C::precomputed_opcode_out_of_range, num_rows - num_opcodes);
+    for (uint32_t i = num_opcodes; i < num_rows; i++) {
+        trace.set(C::precomputed_opcode_out_of_range, i, 1);
     }
+
+    for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
+        trace.reserve_column(sel_op_dc_columns.at(i), num_opcodes);
+    }
+    trace.reserve_column(C::precomputed_exec_opcode, num_opcodes);
+    trace.reserve_column(C::precomputed_instr_size, num_opcodes);
 
     // Fill the lookup tables with the operand decomposition selectors.
     for (const auto& [wire_opcode, wire_instruction_spec] : WIRE_INSTRUCTION_SPEC) {
         for (size_t i = 0; i < NUM_OP_DC_SELECTORS; i++) {
-            trace.set(
-                sel_op_dc_columns[i], static_cast<uint32_t>(wire_opcode), wire_instruction_spec.op_dc_selectors[i]);
+            trace.set(sel_op_dc_columns.at(i),
+                      static_cast<uint32_t>(wire_opcode),
+                      wire_instruction_spec.op_dc_selectors.at(i));
         }
         trace.set(C::precomputed_exec_opcode,
                   static_cast<uint32_t>(wire_opcode),
                   static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
-        trace.set(C::precomputed_instr_size_in_bytes,
-                  static_cast<uint32_t>(wire_opcode),
-                  wire_instruction_spec.size_in_bytes);
+        trace.set(C::precomputed_instr_size, static_cast<uint32_t>(wire_opcode), wire_instruction_spec.size_in_bytes);
     }
 }
 

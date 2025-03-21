@@ -207,8 +207,6 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     const acir_format::ProgramMetadata metadata{ ivc };
 
     // Accumulate the entire program stack into the IVC
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1116): remove manual setting of is_kernel once databus
-    // has been integrated into noir kernel programs
     bool is_kernel = false;
     auto start = std::chrono::steady_clock::now();
     for (Program& program : folding_stack) {

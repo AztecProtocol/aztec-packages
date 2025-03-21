@@ -1,3 +1,7 @@
+import type { EnvVar } from '@aztec/foundation/config';
+
+import path from 'path';
+
 export type NetworkNames = 'testnet-ignition';
 
 export type L2ChainConfig = {
@@ -25,16 +29,19 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   p2pBootstrapNodes: [],
   registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 4,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
   const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch basic contract addresses from ${url}`);
+    throw new Error(
+      `Failed to fetch basic contract addresses from ${url}. Check you are using a correct network name.`,
+    );
   }
   const json = await response.json();
+
   return json['bootnodes'];
 }
 
@@ -47,7 +54,7 @@ export async function getL2ChainConfig(networkName: NetworkNames): Promise<L2Cha
   return undefined;
 }
 
-function enrichVar(envVar: string, value: string) {
+function enrichVar(envVar: EnvVar, value: string) {
   // Don't override
   if (process.env[envVar]) {
     return;
@@ -64,11 +71,12 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
   enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
   enrichVar('AZTEC_PROOF_SUBMISSION_WINDOW', config.aztecProofSubmissionWindow.toString());
-  enrichVar('P2P_BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
+  enrichVar('BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
   enrichVar('TEST_ACCOUNTS', config.testAccounts.toString());
   enrichVar('P2P_ENABLED', config.p2pEnabled.toString());
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
   enrichVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
+  enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', networkName, 'data'));
 }

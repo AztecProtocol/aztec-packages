@@ -8,7 +8,8 @@ import {
   type ContractArtifact,
   type ContractInstanceWithAddress,
   loadContractArtifact,
-  getContractClassFromArtifact,
+  getAllFunctionAbis,
+  type FunctionAbi,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -120,10 +121,11 @@ const loadingArtifactContainer = css({
   gap: '2rem',
 });
 
-const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes'];
+const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
+  const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
 
   const [filters, setFilters] = useState({
     searchTerm: '',
@@ -163,11 +165,10 @@ export function ContractComponent() {
       setIsLoadingArtifact(true);
       const artifactAsString = await walletDB.retrieveAlias(`artifacts:${currentContractAddress}`);
       const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
-      const contractClass = await getContractClassFromArtifact(contractArtifact);
-      console.log(contractClass);
       const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
       setCurrentContract(contract);
       setContractArtifact(contract.artifact);
+      setFunctionAbis(getAllFunctionAbis(contract.artifact));
       setFilters({
         searchTerm: '',
         private: true,
@@ -189,6 +190,7 @@ export function ContractComponent() {
       reader.onload = async e => {
         const contractArtifact = loadContractArtifact(JSON.parse(e.target?.result as string));
         setContractArtifact(contractArtifact);
+        setFunctionAbis(getAllFunctionAbis(contractArtifact));
         setIsLoadingArtifact(false);
       };
       reader.readAsText(file);
@@ -216,7 +218,8 @@ export function ContractComponent() {
     setIsWorking(true);
     let result;
     try {
-      const call = currentContract.methods[fnName](...parameters[fnName]);
+      const fnParameters = parameters[fnName] ?? [];
+      const call = currentContract.methods[fnName](...fnParameters);
 
       result = await call.simulate();
       setSimulationResults({
@@ -295,7 +298,6 @@ export function ContractComponent() {
 
   const handleAuthwitCreation = async (witness?: AuthWitness, alias?: string) => {
     if (witness && alias) {
-      await wallet.addAuthWitness(witness);
       await walletDB.storeAuthwitness(witness, undefined, alias);
     }
     setAuthwitFnData({ name: '', parameters: [], isPrivate: false });
@@ -430,7 +432,7 @@ export function ContractComponent() {
               </FormGroup>
             </div>
           </div>
-          {contractArtifact.functions
+          {functionAbis
             .filter(
               fn =>
                 !fn.isInternal &&

@@ -1,6 +1,7 @@
 ---
 title: How to Pay Fees
 tags: [fees, transactions, developers]
+sidebar_position: 3
 ---
 
 There a several ways to pay for transaction fees, thanks to fee abstraction implemented in the Aztec protocol.
@@ -21,11 +22,49 @@ Processing this transaction first claims bridged fee juice then is paid for from
 
 A fee paying contract (FPC) is created and nominates a token that it accepts to then pay for txs in fee juice. So a user doesn't need to hold fee juice, they only need the token that the FPC accepts.
 
+### Sponsored Fee Paying Contract (SponsoredFPC)
+
+The most straightforward way to pay for a transaction is via the sponsored fee payment method, bootstrapping some transactions by skipping the need to bridge fee juice to the account. This method uses a type of fee paying contract configured to pay for a number of transactions without requiring payment.
+
+## Bridging fee-juice
+
+To first get fee juice into an account it needs to be bridged from L1. You can skip this section if you want to first make a transaction via the SponsoredFPC.
+
+:::note
+See here to [Bridge Fee Juice](../../../developers/reference/environment_reference/cli_wallet_reference#bridge-fee-juice) via the CLI wallet.
+
+:::
+
+One way of bridging of tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec). Below summarises specifically bridging fee juice on the sandbox.
+
+First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
+
+#include_code get_node_info_pub_client yarn-project/end-to-end/src/spartan/smoke.test.ts javascript
+
+After importing:
+
+```ts
+import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
+```
+
+Create a new fee juice portal manager and bridge fee juice publicly to Aztec:
+
+#include_code bridge_fee_juice yarn-project/end-to-end/src/spartan/setup_test_wallets.ts javascript
+
+Bridging can also be done privately with the corresponding function:
+
+#include_code bridge_tokens_private yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
+
+For the mechanisms to complete bridging between L1 and Aztec, any two other transactions on the sandbox are made. After this, an already deployed account should have its fee juice ready to use in transactions.
+
+Alternatively, the resulting claim object can be used to create a payment method to claim and pay for a transaction in one, where the transaction is the contract's deployment.
+
+
 ## Fee Options
 
 Functions pertaining to sending a transaction, such as `deploy` and `send`, each include a `fee` variable defined with the following (optional) parameters:
 
-#include_code user_fee_options yarn-project/aztec.js/src/entrypoint/payload.ts javascript
+#include_code user_fee_options yarn-project/entrypoints/src/interfaces.ts javascript
 
 
 ### Fee Payment Method
@@ -53,14 +92,24 @@ With the fee options explained, lets do a paid transaction.
 
 ## Examples
 
+### Sponsored Fee Paying Contract
+
+Creating the SponsoredFPC is as simple as passing it the PXE:
+```ts
+const paymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+```
+
+Then a transaction can specify this as the `paymentMethod` in the fee object.
+For example, a contract can be deployed with an fpc as follows:
+
+```ts
+const paymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+myAccountManager.deploy({ fee: { paymentMethod } });
+```
+
 ### Pay with FeeJuice
 
-An account can be deployed directly via fee-juice payment if the address has been pre-funded.
-This is done using the AccountManager as follows:
-
-#include_code pay_fee_juice_deploy yarn-project/end-to-end/src/e2e_fees/account_init.test.ts javascript
-
-Or to send a transaction from an account holding fee juice:
+To send a transaction from an already deployed account already holding fee juice:
 (Note: this example is a public token transfer call, but can equally be a private function call)
 
 #include_code pay_fee_juice_send yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts javascript
@@ -71,20 +120,17 @@ import { CLI_Fees } from '/components/snippets';
 
 <CLI_Fees />
 
-See here to [Bridge Fee Juice](../../../developers/reference/environment_reference/cli_wallet_reference#bridge-fee-juice) via the CLI wallet.
+### Claim and deploy
 
-### Claim and pay
+Here we will use the `claim` object previously from the bridging section, and the corresponding `wallet`, to create the payment method. The payment method is then used to claim fee juice and pay for account contract deployment. Note the function used to bridge fee juice (private/public) should correspond to how the fee juice is claimed.
 
-After a user has sent fee juice from L1 to be bridged to L2, a transaction can be made that claims this to pay for itself, and make the transaction, in one.
+#include_code claim_and_deploy yarn-project/bot/src/factory.ts javascript
 
-The claim object:
+#### Claim and Pay
 
-#include_code claim_type_amount yarn-project/aztec.js/src/ethereum/portal_manager.ts javascript
-
-Calling a function on an object (in this case checking the balance of the fee juice contract)
+Calling a function, in this case checking the balance of the fee juice contract:
 
 #include_code claim_and_pay yarn-project/end-to-end/src/e2e_fees/fee_juice_payments.test.ts javascript
-
 
 ### Fee Paying Contract
 

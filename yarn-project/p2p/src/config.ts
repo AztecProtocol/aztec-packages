@@ -46,24 +46,19 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   l2QueueSize: number;
 
   /**
-   * The announce address for TCP.
+   * The port for the P2P service.
    */
-  tcpAnnounceAddress?: string;
+  p2pPort: number;
 
   /**
-   * The announce address for UDP.
+   * The IP address for the P2P service.
    */
-  udpAnnounceAddress?: string;
+  p2pIp?: string;
 
   /**
-   * The listen address for TCP.
+   * The listen address.
    */
-  tcpListenAddress: string;
-
-  /**
-   * The listen address for UDP.
-   */
-  udpListenAddress: string;
+  listenAddress: string;
 
   /**
    * An optional peer id private key. If blank, will generate a random key.
@@ -169,6 +164,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * A list of trusted peers.
    */
   trustedPeers: string[];
+
+  /**
+   * The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
+   */
+  p2pStoreMapSizeKb?: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -197,25 +197,19 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Size of queue of L2 blocks to store.',
     ...numberConfigHelper(1_000),
   },
-  tcpListenAddress: {
-    env: 'P2P_TCP_LISTEN_ADDR',
-    defaultValue: '0.0.0.0:40400',
-    description: 'The listen address for TCP. Format: <IP_ADDRESS>:<PORT>.',
+  listenAddress: {
+    env: 'P2P_LISTEN_ADDR',
+    defaultValue: '0.0.0.0',
+    description: 'The listen address. ipv4 address.',
   },
-  udpListenAddress: {
-    env: 'P2P_UDP_LISTEN_ADDR',
-    defaultValue: '0.0.0.0:40400',
-    description: 'The listen address for UDP. Format: <IP_ADDRESS>:<PORT>.',
+  p2pPort: {
+    env: 'P2P_PORT',
+    description: 'The port for the P2P service.',
+    ...numberConfigHelper(40400),
   },
-  tcpAnnounceAddress: {
-    env: 'P2P_TCP_ANNOUNCE_ADDR',
-    description:
-      'The announce address for TCP. Format: <IP_ADDRESS>:<PORT>. Leave IP_ADDRESS blank to query for public IP.',
-  },
-  udpAnnounceAddress: {
-    env: 'P2P_UDP_ANNOUNCE_ADDR',
-    description:
-      'The announce address for UDP. Format: <IP_ADDRESS>:<PORT>. Leave IP_ADDRESS blank to query for public IP.',
+  p2pIp: {
+    env: 'P2P_IP',
+    description: 'The IP address for the P2P service. ipv4 address.',
   },
   peerIdPrivateKey: {
     env: 'PEER_ID_PRIVATE_KEY',
@@ -342,6 +336,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'A list of trusted peers ENRs. Separated by commas.',
     defaultValue: [],
   },
+  p2pStoreMapSizeKb: {
+    env: 'P2P_STORE_MAP_SIZE_KB',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.',
+  },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
 };
@@ -361,15 +360,18 @@ export function getP2PDefaultConfig(): P2PConfig {
 /**
  * Required P2P config values for a bootstrap node.
  */
-export type BootnodeConfig = Pick<P2PConfig, 'udpAnnounceAddress' | 'peerIdPrivateKey' | 'bootstrapNodes'> &
-  Required<Pick<P2PConfig, 'udpListenAddress'>> &
+export type BootnodeConfig = Pick<
+  P2PConfig,
+  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'bootstrapNodes' | 'listenAddress'
+> &
+  Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
   Pick<ChainConfig, 'l1ChainId'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
-  'udpAnnounceAddress',
+  'p2pIp',
+  'p2pPort',
   'peerIdPrivateKey',
-  'udpListenAddress',
   'dataDirectory',
   'dataStoreMapSizeKB',
   'bootstrapNodes',

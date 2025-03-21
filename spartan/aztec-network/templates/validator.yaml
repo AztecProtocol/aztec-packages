@@ -141,8 +141,6 @@ spec:
               value: "{{ .Values.validator.validator.disabled }}"
             - name: VALIDATOR_REEXECUTE
               value: "{{ .Values.validator.validator.reexecute }}"
-            - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
-              value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
             - name: SEQ_MAX_TX_PER_BLOCK
@@ -195,8 +193,8 @@ spec:
             {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
-            - containerPort: {{ .Values.validator.service.p2pTcpPort }}
-            - containerPort: {{ .Values.validator.service.p2pUdpPort }}
+            - containerPort: {{ .Values.validator.service.p2pPort }}
+            - containerPort: {{ .Values.validator.service.p2pPort }}
               protocol: UDP
           resources:
             {{- toYaml .Values.validator.resources | nindent 12 }}
@@ -235,10 +233,10 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pTcpPort }}
+    - port: {{ .Values.validator.service.p2pPort }}
       name: p2p-tcp
       protocol: TCP
-    - port: {{ .Values.validator.service.p2pUdpPort }}
+    - port: {{ .Values.validator.service.p2pPort }}
       name: p2p-udp
       protocol: UDP
     - port: {{ .Values.validator.service.nodePort }}

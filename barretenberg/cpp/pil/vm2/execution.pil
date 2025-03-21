@@ -1,5 +1,6 @@
 include "alu.pil";
 include "addressing.pil";
+include "address_derivation.pil";
 include "bc_decomposition.pil";
 include "bc_hashing.pil";
 include "bc_retrieval.pil";
@@ -7,6 +8,7 @@ include "instr_fetching.pil";
 include "class_id_derivation.pil";
 include "range_check.pil";
 include "bitwise.pil";
+include "merkle_check.pil";
 include "precomputed.pil";
 include "sha256.pil";
 include "ecc.pil";

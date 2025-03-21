@@ -326,6 +326,13 @@ template <typename Fr> class Polynomial {
     Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
 
     /**
+     * @brief The end_index of the polynomial is decreased without any memory de-allocation.
+     *        This is a very fast way to zeroize the polynomial tail from new_end_index to the
+     *        end. It also means that the new end_index might be smaller than the backed memory.
+     */
+    void shrink_end_index(const size_t new_end_index);
+
+    /**
      * @brief Copys the polynomial, but with the whole address space usable.
      * The value of the polynomial remains the same, but defined memory region differs.
      *

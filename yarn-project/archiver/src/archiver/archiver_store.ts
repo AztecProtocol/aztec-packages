@@ -15,7 +15,7 @@ import type { InboxLeaf } from '@aztec/stdlib/messaging';
 import { BlockHeader, type TxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
 import type { DataRetrieval } from './structs/data_retrieval.js';
-import type { L1Published } from './structs/published.js';
+import type { PublishedL2Block } from './structs/published.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
@@ -39,7 +39,7 @@ export interface ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean>;
+  addBlocks(blocks: PublishedL2Block[]): Promise<boolean>;
 
   /**
    * Unwinds blocks from the database
@@ -56,7 +56,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]>;
+  getBlocks(from: number, limit: number): Promise<PublishedL2Block[]>;
 
   /**
    * Gets up to `limit` amount of L2 block headers starting from `from`.
@@ -244,8 +244,9 @@ export interface ArchiverDataStore {
   /**
    * Returns a contract instance given its address and the given block number, or undefined if not exists.
    * @param address - Address of the contract.
+   * @param blockNumber - Block number to get the contract instance at. Contract updates might change the instance at a given block.
    */
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
 
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;

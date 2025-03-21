@@ -113,7 +113,9 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     /**
      * @brief The ending index of the memory-backed range.
      *
-     * Represents the first index after `start_` that is not backed by actual memory.
+     * Represents the first index after `start_` that is not backed by actual memory. Note however that
+     * the backed memory might extend beyond end_ index but will not be accessed anymore. Namely, any
+     * access after after end_ returns zero. (Happens after Polynomial::shrink_end_index() call).
      */
     size_t end_ = 0;
 
@@ -128,7 +130,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     /**
      * @brief Shared pointer to the underlying memory array.
      *
-     * The memory is allocated for the range [start_, end_). It is shared across instances to allow
+     * The memory is allocated for at least the range [start_, end_). It is shared across instances to allow
      * for efficient memory use when arrays are shifted or otherwise manipulated.
      */
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
