@@ -934,7 +934,7 @@ Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
             Acir::Program program;
             program.functions = program_wob.functions;
             return program;
-        } catch (msgpack::type_error) {
+        } catch (const msgpack::type_error&) {
             // To see the raw msgpack data structure as JSON:
             std::cerr << o << std::endl;
             throw_or_abort("failed to convert msgpack data to Program");
@@ -956,10 +956,10 @@ Witnesses::WitnessStack witness_buf_to_witness(std::vector<uint8_t> const& buf)
             Witnesses::WitnessStack witness_stack;
             o.convert(witness_stack);
             return witness_stack;
-        } catch (msgpack::type_error) {
+        } catch (const msgpack::type_error&) {
             // To see the raw msgpack data structure as JSON:
             std::cerr << o << std::endl;
-            throw_or_abort("failed to convert msgpack data to witness_stack");
+            throw_or_abort("failed to convert msgpack data to WitnessStack");
         }
     }
     return Witnesses::WitnessStack::bincodeDeserialize(buf);
