@@ -43,8 +43,8 @@ class Execution : public ExecutionInterface {
               ExecutionComponentsProviderInterface& execution_components,
               const InstructionInfoDBInterface& instruction_info_db,
               EventEmitterInterface<ExecutionEvent>& event_emitter)
-        : context_provider(context_provider)
-        , execution_components(execution_components)
+        : execution_components(execution_components)
+        , context_provider(context_provider)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , events(event_emitter)
