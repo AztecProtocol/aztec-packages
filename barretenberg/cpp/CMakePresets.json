@@ -217,6 +217,7 @@
         "CMAKE_BUILD_TYPE": "Debug"
       },
       "cacheVariables": {
+        "SHOW_INFORMATION": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
       }
