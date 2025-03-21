@@ -1,7 +1,5 @@
 #pragma once
 
-#include <list>
-
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
 

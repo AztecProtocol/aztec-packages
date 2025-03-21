@@ -12,6 +12,7 @@ import {
 } from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
+  type FunctionArtifactWithContractName,
   FunctionCall,
   FunctionSelector,
   FunctionType,
@@ -100,7 +101,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }));
   }
 
-  async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact> {
+  async getFunctionArtifact(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionArtifactWithContractName> {
     const artifact = await this.contractDataProvider.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataProvider.getFunctionDebugMetadata(contractAddress, selector);
     return {
@@ -112,7 +116,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async getFunctionArtifactByName(
     contractAddress: AztecAddress,
     functionName: string,
-  ): Promise<FunctionArtifact | undefined> {
+  ): Promise<FunctionArtifactWithContractName | undefined> {
     const instance = await this.contractDataProvider.getContractInstance(contractAddress);
     const artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
@@ -158,7 +162,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
-    return leafIndex;
+    return leafIndex?.data;
   }
 
   public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
@@ -651,24 +655,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
     // note existence in said tree.
-    const [uniqueNoteHashTreeIndex] = await this.aztecNode.findLeavesIndexes(
+    const [uniqueNoteHashTreeIndexInBlock] = await this.aztecNode.findLeavesIndexes(
       syncedBlockNumber,
       MerkleTreeId.NOTE_HASH_TREE,
       [uniqueNoteHash],
     );
-    if (uniqueNoteHashTreeIndex === undefined) {
+    if (uniqueNoteHashTreeIndexInBlock === undefined) {
       throw new Error(
         `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
       );
-    }
-
-    // TODO (#12550): findLeavesIndexes should probably return an InBlock, same as findNullifiersIndexesWithBlock. This
-    // would save us from having to then query the tx receipt in order to get the block hash and number. Note regardless
-    // that we're not validating that the note was indeed created in this tx (which would require inspecting the tx
-    // effects), so maybe what we really want is an InTx.
-    const txReceipt = await this.aztecNode.getTxReceipt(new TxHash(txHash));
-    if (txReceipt === undefined) {
-      throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
     }
 
     const noteDao = new NoteDao(
@@ -679,9 +674,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       noteHash,
       siloedNullifier,
       new TxHash(txHash),
-      txReceipt.blockNumber!,
-      txReceipt.blockHash!.toString(),
-      uniqueNoteHashTreeIndex,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockHash,
+      uniqueNoteHashTreeIndexInBlock?.data,
       recipient,
     );
 
@@ -693,7 +688,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       nullifier: noteDao.siloedNullifier.toString(),
     });
 
-    const [nullifierIndex] = await this.aztecNode.findNullifiersIndexesWithBlock(syncedBlockNumber, [siloedNullifier]);
+    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
+      siloedNullifier,
+    ]);
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
       await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
@@ -750,7 +747,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
+      const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
+        'latest',
+        MerkleTreeId.NULLIFIER_TREE,
+        nullifiersToCheck,
+      );
 
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {

@@ -156,6 +156,13 @@ library FeeLib {
     });
   }
 
+  function updateManaTarget(uint256 _manaTarget) internal {
+    FeeStore storage feeStore = getStorage();
+    feeStore.manaTarget = _manaTarget;
+    feeStore.congestionUpdateFraction =
+      _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR;
+  }
+
   function writeFeeHeader(
     uint256 _blockNumber,
     int256 _feeAssetPriceModifier,

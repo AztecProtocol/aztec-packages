@@ -18,7 +18,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { getL1Config } from '../get_l1_config.js';
-import { extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
@@ -98,6 +98,8 @@ export async function startProverNode(
       `Running prover node without local prover agent. Connect one or more prover agents to this node or pass --proverAgent.proverAgentCount`,
     );
   }
+
+  await preloadCrsDataForVerifying(proverConfig, userLog);
 
   const initialFundedAccounts = proverConfig.testAccounts ? await getInitialTestAccounts() : [];
   const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));

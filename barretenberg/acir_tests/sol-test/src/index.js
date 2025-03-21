@@ -248,12 +248,11 @@ try {
     );
 
     proofStr = proofStr.substring(32 * 2 * numPublicInputs); // Remove the publicInput bytes from the proof
-  }
 
-  // Honk proof have field length as the first 4 bytes
-  // This should go away in the future
-  if (testingHonk) {
-    proofStr = proofStr.substring(8);
+    // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
+    if (testingHonk) {
+      proofStr = proofStr.substring(8);
+    }
   }
 
   proofStr = "0x" + proofStr;

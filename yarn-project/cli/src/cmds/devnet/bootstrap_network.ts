@@ -13,7 +13,6 @@ import {
   retryUntil,
   waitForProven,
 } from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
   type ContractArtifacts,
   type L1Clients,
@@ -291,10 +290,9 @@ async function fundFPC(
     debugLog,
   );
 
-  const amount = FEE_FUNDING_FOR_TESTER_ACCOUNT;
   const { claimAmount, claimSecret, messageLeafIndex, messageHash } = await feeJuicePortal.bridgeTokensPublic(
     fpcAddress,
-    amount,
+    undefined,
     true,
   );
 
