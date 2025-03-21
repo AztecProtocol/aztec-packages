@@ -130,4 +130,65 @@ class NestedContext : public BaseContext {
         : BaseContext(context_id, address, msg_sender, calldata, is_static, std::move(bytecode), std::move(memory))
     {}
 };
+
+//(ripped from ExecutionComponents)
+class ContextProviderInterface {
+  public:
+    virtual ~ContextProviderInterface() = default;
+
+    virtual std::unique_ptr<EnqueuedCallContext> make_enqueued_context(AztecAddress address,
+                                                                       AztecAddress msg_sender,
+                                                                       std::span<const FF> calldata,
+                                                                       bool is_static) = 0;
+    // TODO: Update params for this nested call
+    virtual std::unique_ptr<NestedContext> make_nested_context(AztecAddress address,
+                                                               AztecAddress msg_sender,
+                                                               std::span<const FF> calldata,
+                                                               bool is_static) = 0;
+};
+
+class ContextProvider : public ContextProviderInterface {
+  public:
+    ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager, EventEmitterInterface<MemoryEvent>& memory_events)
+        : tx_bytecode_manager(tx_bytecode_manager)
+        , memory_events(memory_events)
+    {}
+    std::unique_ptr<EnqueuedCallContext> make_enqueued_context(AztecAddress address,
+                                                               AztecAddress msg_sender,
+                                                               std::span<const FF> calldata,
+                                                               bool is_static) override
+    {
+
+        // TODO update this
+        auto context_id = next_context_id++;
+        return std::make_unique<EnqueuedCallContext>(context_id,
+                                                     address,
+                                                     msg_sender,
+                                                     calldata,
+                                                     is_static,
+                                                     std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
+                                                     std::make_unique<Memory>(context_id, memory_events));
+    }
+
+    std::unique_ptr<NestedContext> make_nested_context(AztecAddress address,
+                                                       AztecAddress msg_sender,
+                                                       std::span<const FF> calldata,
+                                                       bool is_static) override
+    {
+
+        auto context_id = next_context_id++;
+        return std::make_unique<NestedContext>(context_id,
+                                               address,
+                                               msg_sender,
+                                               calldata,
+                                               is_static,
+                                               std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
+                                               std::make_unique<Memory>(context_id, memory_events));
+    }
+
+  private:
+    uint32_t next_context_id;
+    TxBytecodeManagerInterface& tx_bytecode_manager;
+    EventEmitterInterface<MemoryEvent>& memory_events;
+};
 } // namespace bb::avm2::simulation
