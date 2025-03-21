@@ -48,8 +48,7 @@ class ClientIVCTests : public ::testing::Test {
 };
 
 /**
- * WORKTODO: test ser/deser of msgpack buffer file; this will replace logic in CIVC api methods that uses the old
- * serialization lib
+ * @brief Test methods for serializing and deserializing a proof to/from a file in msgpack format
  *
  */
 TEST_F(ClientIVCTests, MsgpackProofFromFile)
@@ -68,9 +67,8 @@ TEST_F(ClientIVCTests, MsgpackProofFromFile)
 
     const auto proof = ivc.prove();
 
-    const std::string filename = "proof.msgpack";
-
     // Serialize/deserialize the proof to/from a file as proof-of-concept
+    const std::string filename = "proof.msgpack";
     proof.to_file_msgpack(filename);
     auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
 
@@ -78,8 +76,8 @@ TEST_F(ClientIVCTests, MsgpackProofFromFile)
 };
 
 /**
- * WORKTODO:
- *
+ * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize a
+ * random buffer of bytes fails gracefully with a type error
  */
 TEST_F(ClientIVCTests, RandomProofBytes)
 {
@@ -101,15 +99,6 @@ TEST_F(ClientIVCTests, RandomProofBytes)
     msgpack::sbuffer buffer = proof.to_msgpack_buffer();
     auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
     EXPECT_TRUE(ivc.verify(proof_deserialized));
-
-    // WORKTODO: Phil and co want to be able to gracefully handle the receipt of a CIVC proof consisting of purely
-    // random bytes (i.e. it should fail verification gracefully in some small amount of time). This currently causes
-    // chaos because our serialization library introduces/expects 4-byte chunks embedded at various intervals indicating
-    // the size of sub-buffers within the larger proof buffer. If those bytes contain random 32-bit inegers, we end up
-    // reading way beyond well defined memory. The hope is that msgpack will error more gracefully, leading to
-    // consistent verification times and safer behavior. This test shows that we get type errors in msgpack indicating
-    // bad size data in the msgpackbuffer which is much better than trying to read uninitialized memory and segfaulting
-    // etc.
 
     // Overwrite the buffer with random bytes for testing failure case
     {
