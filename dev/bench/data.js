@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742560109812,
+  "lastUpdate": 1742563263773,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "27168983deb9346aacc68b43938a86a442aa01e4",
-          "message": "feat!: disable PXE concurrency (#12637)\n\nDebugging https://github.com/AztecProtocol/aztec-packages/pull/12391 led\nme to discover that we cannot have concurrent simulations due to\ncontracts now being allowed to read and write to PXE's stores at\narbitrary moments. E.g.\nhttps://github.com/AztecProtocol/aztec-packages/pull/12391 was failing\nCI due to multiple concurrent simulations deleting the same pending\npartial note from a capsule array.\n\nThis PR disables that behavior by putting the problematic tasks in a\nserial queue. Multiple tests still call PXE expecting concurrency\n(typically via usage of `await Promise.all`), but I thought it made more\nsense to disable the behavior this way and issue a warning (to unblock\nhttps://github.com/AztecProtocol/aztec-packages/pull/12391) and then\nworry about removing attempts to achieve concurrent behavior.\n\nI considered putting _all_ PXE functions in the serial queue, but\nrefrained from doing so to avoid introducing a larger than strictly\nneeded change. We may want to do this automatically via e.g.\nmonkey-patching to avoid accidentally forgetting a case.",
-          "timestamp": "2025-03-11T18:48:04Z",
-          "tree_id": "bdfa72012a899605d0dfcac37aa822cd35209152",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/27168983deb9346aacc68b43938a86a442aa01e4"
-        },
-        "date": 1741720942728,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18347.307196999966,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16162.820423 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18628.98519700002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16336.402362999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3872.9640219999055,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3109.9187680000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56066.345175999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56066345000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10496.748318,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10496754000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1611100843,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1611100843 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 222444889,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 222444889 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3420,6 +3348,84 @@ window.BENCHMARK_DATA = {
             "value": 14994,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "isennovskiy@gmail.com",
+            "name": "Innokentii Sennovskii",
+            "username": "Rumata888"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c524339c1fcc5202a634fe2edeff4c4606a31d87",
+          "message": "feat: Montgomery optimisation (partial) (#12822)\n\nChanges Montgomery reduction in wasm for 254-bit fields to include\nYuval's trick and prepares constants for similar changes in x86_64.\nBefore:\n\n![image](https://github.com/user-attachments/assets/0fb0f037-b24f-43d2-b12e-ae6c9675abe8)\nAfter:\n\n![image](https://github.com/user-attachments/assets/52914d78-5d8a-4735-be9e-d58bb1822cab)",
+          "timestamp": "2025-03-21T12:42:42Z",
+          "tree_id": "c3703c4d20381bcfcb427902832d6275209ab565",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c524339c1fcc5202a634fe2edeff4c4606a31d87"
+        },
+        "date": 1742563256556,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18465.73607099981,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16176.484716 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117840275535.90001,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1608833256,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 215615375,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18693.86850700016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16340.628059 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50449.320998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50449319000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3918.34969200022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3109.6519559999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9570.909935,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9570914000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
