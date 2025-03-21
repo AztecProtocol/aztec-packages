@@ -81,6 +81,7 @@ impl ArgsHasher {
     }
 }
 
+// Computes the hash of input arguments or return values for private functions, or for authwit creation.
 pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
     if args.len() == 0 {
         0
@@ -89,6 +90,7 @@ pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
     }
 }
 
+// Same as `hash_args_array`, but takes a slice instead of an array.
 pub fn hash_args(args: [Field]) -> Field {
     if args.len() == 0 {
         0
@@ -97,6 +99,7 @@ pub fn hash_args(args: [Field]) -> Field {
     }
 }
 
+// Computes the hash of calldata for public functions.
 pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
     if calldata.len() == 0 {
         0
@@ -105,6 +108,7 @@ pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
     }
 }
 
+// Same as `hash_calldata_array`, but takes a slice instead of an array.
 pub fn hash_calldata(calldata: [Field]) -> Field {
     if calldata.len() == 0 {
         0

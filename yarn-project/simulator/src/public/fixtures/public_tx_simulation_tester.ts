@@ -3,7 +3,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
-import { computeCalldataHash } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { GlobalVariables, PublicCallRequestWithCalldata, type Tx } from '@aztec/stdlib/tx';
@@ -104,9 +103,8 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const fnAbi = getContractFunctionAbi(call.fnName, contractArtifact)!;
     const encodedArgs = encodeArguments(fnAbi, call.args);
     const calldata = [fnSelector.toField(), ...encodedArgs];
-    const calldataHash = await computeCalldataHash(calldata);
     const isStaticCall = call.isStaticCall ?? false;
-    const request = new PublicCallRequest(sender, address, isStaticCall, calldataHash);
+    const request = await PublicCallRequest.fromCalldata(sender, address, isStaticCall, calldata);
 
     return new PublicCallRequestWithCalldata(request, calldata);
   }

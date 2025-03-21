@@ -57,10 +57,12 @@ export class HashedValues {
     return new HashedValues(reader.readVector(Fr), Fr.fromBuffer(reader));
   }
 
+  // Computes the hash of input arguments or return values for private functions, or for authwit creation.
   static async fromArgs(args: Fr[]) {
     return new HashedValues(args, await computeVarArgsHash(args));
   }
 
+  // Computes the hash of calldata for public functions.
   static async fromCalldata(calldata: Fr[]) {
     return new HashedValues(calldata, await computeCalldataHash(calldata));
   }

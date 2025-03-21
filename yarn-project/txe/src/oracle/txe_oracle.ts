@@ -64,7 +64,6 @@ import type { ContractInstance, ContractInstanceWithAddress } from '@aztec/stdli
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
-  computeCalldataHash,
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computeUniqueNoteHash,
@@ -925,8 +924,7 @@ export class TXE implements TypedOracle {
     isStaticCall: boolean,
     isTeardown: boolean = false,
   ) {
-    const calldataHash = await computeCalldataHash(calldata);
-    const callRequest = new PublicCallRequest(msgSender, contractAddress, isStaticCall, calldataHash);
+    const callRequest = await PublicCallRequest.fromCalldata(msgSender, contractAddress, isStaticCall, calldata);
     const executionRequest = new PublicCallRequestWithCalldata(callRequest, calldata);
 
     const db = this.baseFork;

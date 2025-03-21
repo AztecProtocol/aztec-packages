@@ -1,7 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeCalldataHash } from '@aztec/stdlib/hash';
 import { HashedValues, type Tx } from '@aztec/stdlib/tx';
 
 export function patchNonRevertibleFn(
@@ -31,13 +30,13 @@ async function patchFn(
       ? index
       : index + tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests.length;
   const calldata = [overrides.selector.toField(), ...(overrides.args ?? [])];
-  const calldataHash = await computeCalldataHash(calldata);
-  tx.publicFunctionCalldata[calldataIndex] = new HashedValues(calldata, calldataHash);
+  const hashedCalldata = await HashedValues.fromCalldata(calldata);
+  tx.publicFunctionCalldata[calldataIndex] = hashedCalldata;
 
   const request = tx.data.forPublic![where].publicCallRequests[index];
   request.contractAddress = overrides.address ?? request.contractAddress;
   request.msgSender = overrides.msgSender ?? request.msgSender;
-  request.calldataHash = calldataHash;
+  request.calldataHash = hashedCalldata.hash;
   tx.data.forPublic![where].publicCallRequests[index] = request;
 
   return request.contractAddress;

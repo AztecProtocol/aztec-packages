@@ -80,6 +80,7 @@ export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, sto
 
 /**
  * Computes the hash of a list of arguments.
+ * Used for input arguments or return values for private functions, or for authwit creation.
  * @param args - Arguments to hash.
  * @returns Hash of the arguments.
  */

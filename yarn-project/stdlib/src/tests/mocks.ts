@@ -11,7 +11,6 @@ import { SerializableContractInstance } from '../contract/contract_instance.js';
 import type { ContractInstanceWithAddress } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
-import { computeCalldataHash } from '../hash/hash.js';
 import { Nullifier } from '../kernel/nullifier.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import {
@@ -110,8 +109,9 @@ export const mockTx = async (
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i));
     const calldata = times(totalPublicCallRequests, i => times(publicCalldataSize, j => new Fr(seed + (i * 13 + j))));
     for (let i = 0; i < publicCallRequests.length; i++) {
-      publicCallRequests[i].calldataHash = await computeCalldataHash(calldata[i]);
-      publicFunctionCalldata.push(await HashedValues.fromCalldata(calldata[i]));
+      const hashedCalldata = await HashedValues.fromCalldata(calldata[i]);
+      publicFunctionCalldata.push(hashedCalldata);
+      publicCallRequests[i].calldataHash = hashedCalldata.hash;
     }
 
     if (hasPublicTeardownCallRequest) {

@@ -8,6 +8,7 @@ import { inspect } from 'util';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { computeCalldataHash } from '../hash/index.js';
 import type { UInt32 } from '../types/shared.js';
 
 /**
@@ -109,6 +110,16 @@ export class PublicCallRequest {
       isStaticCall: ${this.isStaticCall}
       calldataHash: ${this.calldataHash}
     }`;
+  }
+
+  static async fromCalldata(
+    msgSender: AztecAddress,
+    contractAddress: AztecAddress,
+    isStaticCall: boolean,
+    calldata: Fr[],
+  ) {
+    const calldataHash = await computeCalldataHash(calldata);
+    return new PublicCallRequest(msgSender, contractAddress, isStaticCall, calldataHash);
   }
 }
 
