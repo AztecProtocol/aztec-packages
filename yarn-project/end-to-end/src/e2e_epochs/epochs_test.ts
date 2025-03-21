@@ -1,8 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
+import { Fr, type Logger, MerkleTreeId, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor } from '@aztec/ethereum/test';
-import { DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
@@ -11,7 +10,6 @@ import type { SequencerPublisher } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { L2BlockNumber } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { join } from 'path';
 import type { Hex, PublicClient } from 'viem';
@@ -209,7 +207,7 @@ export class EpochsTestContext {
   /** Verifies whether the given block number is found on the aztec node. */
   public async verifyHistoricBlock(blockNumber: L2BlockNumber, expectedSuccess: boolean) {
     const result = await this.context.aztecNode
-      .findBlockNumbersForIndexes(blockNumber, MerkleTreeId.NULLIFIER_TREE, [0n])
+      .findLeavesIndexes(blockNumber, MerkleTreeId.NULLIFIER_TREE, [Fr.ZERO])
       .then(_ => true)
       .catch(_ => false);
     expect(result).toBe(expectedSuccess);
