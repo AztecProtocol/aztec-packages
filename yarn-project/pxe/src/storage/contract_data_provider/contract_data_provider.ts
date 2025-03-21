@@ -6,6 +6,7 @@ import {
   type ContractArtifact,
   type FunctionAbi,
   type FunctionArtifact,
+  type FunctionArtifactWithContractName,
   type FunctionDebugMetadata,
   FunctionSelector,
   FunctionType,
@@ -169,14 +170,18 @@ export class ContractDataProvider implements DataProvider {
   public async getFunctionArtifact(
     contractAddress: AztecAddress,
     selector: FunctionSelector,
-  ): Promise<FunctionArtifact | undefined> {
+  ): Promise<FunctionArtifactWithContractName | undefined> {
     const artifact = await this.#getContractArtifactByAddress(contractAddress);
-    return artifact && this.#findFunctionArtifactBySelector(artifact, selector);
+    const fnArtifact = artifact && (await this.#findFunctionArtifactBySelector(artifact, selector));
+    return fnArtifact && { ...fnArtifact, contractName: artifact.name };
   }
 
-  public async getPublicFunctionArtifact(contractAddress: AztecAddress): Promise<FunctionArtifact | undefined> {
+  public async getPublicFunctionArtifact(
+    contractAddress: AztecAddress,
+  ): Promise<FunctionArtifactWithContractName | undefined> {
     const artifact = await this.#getContractArtifactByAddress(contractAddress);
-    return artifact && artifact.functions.find(fn => fn.functionType === FunctionType.PUBLIC);
+    const fnArtifact = artifact && artifact.functions.find(fn => fn.functionType === FunctionType.PUBLIC);
+    return fnArtifact && { ...fnArtifact, contractName: artifact.name };
   }
 
   /**

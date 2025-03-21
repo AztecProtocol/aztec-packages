@@ -836,15 +836,14 @@ export class TXE implements TypedOracle {
 
     const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
     if (!artifact) {
-      throw new Error();
+      throw new Error(`Artifact not found when calling private function. Contract address: ${targetContractAddress}.`);
     }
 
-    const acir = artifact.bytecode;
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
     const acirExecutionResult = await this.simulationProvider
-      .executeUserCircuit(acir, initialWitness, acvmCallback)
+      .executeUserCircuit(initialWitness, artifact, acvmCallback)
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, artifact);
 
