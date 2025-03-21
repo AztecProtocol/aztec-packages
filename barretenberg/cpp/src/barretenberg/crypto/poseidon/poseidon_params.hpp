@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./stark252/stark252.hpp"
+#include "barretenberg/ecc/curves/stark252/stark252.hpp"
 
 namespace bb::crypto {
 
