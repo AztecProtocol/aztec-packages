@@ -49,6 +49,7 @@ using pc_abs_diff_positive_lookup = lookup_instr_fetching_pc_abs_diff_positive_r
 using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
 using bc_decomposition_lookup = lookup_instr_fetching_bytes_from_bc_dec_relation<FF>;
 using bytecode_size_bc_decomposition_lookup = lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF>;
+using tag_validation_lookup = lookup_instr_fetching_tag_value_validation_relation<FF>;
 
 using testing::random_bytes;
 
@@ -317,6 +318,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     precomputed_builder.process_wire_instruction_spec(trace);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_sel_range_16(trace);
+    precomputed_builder.process_memory_tag_range(trace);
     bytecode_builder.process_instruction_fetching(instr_events, trace);
     bytecode_builder.process_decomposition(decomposition_events, trace);
     range_check_builder.process(range_check_events, trace);
@@ -325,6 +327,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     LookupIntoIndexedByClk<instr_abs_diff_positive_lookup::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<pc_abs_diff_positive_lookup::Settings>().process(trace);
     LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+    LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
 
@@ -336,6 +339,7 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     check_interaction<wire_instr_spec_lookup>(trace);
     check_interaction<bc_decomposition_lookup>(trace);
     check_interaction<bytecode_size_bc_decomposition_lookup>(trace);
+    check_interaction<tag_validation_lookup>(trace);
 }
 
 // Positive test with 5 five bytecodes and bytecode_id = 0,1,2,3,4
@@ -528,6 +532,40 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOpcodeOutOfRange)
     check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
 }
 
+// Positive test with one single instruction (SET_16) with error TAG_OUT_OF_RANGE.
+// The bytecode consists into a serialized single instruction with pc = 0.
+// The operand at index 1 is wrongly set to value 12
+TEST(InstrFetchingConstrainingTest, SingleInstructionTagOutOfRange)
+{
+    Instruction set_16_instruction = {
+        .opcode = WireOpCode::SET_16,
+        .indirect = 0,
+        .operands = { Operand::u16(0x1234), Operand::u8(12), Operand::u16(0x5678) },
+    };
+
+    std::vector<uint8_t> bytecode = set_16_instruction.serialize();
+    const auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(std::move(bytecode));
+
+    const std::vector<InstructionFetchingEvent> instr_events = {
+        {
+            .bytecode_id = 1,
+            .pc = 0,
+            .instruction = set_16_instruction,
+            .bytecode = bytecode_ptr,
+            .error = InstrDeserializationError::TAG_OUT_OF_RANGE,
+        },
+    };
+
+    const std::vector<BytecodeDecompositionEvent> decomposition_events = {
+        {
+            .bytecode_id = 1,
+            .bytecode = bytecode_ptr,
+        },
+    };
+
+    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+}
+
 // Negative interaction test with some values not matching the instruction spec table.
 TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions)
 {
@@ -556,14 +594,15 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
         ASSERT_EQ(trace.get(C::lookup_instr_fetching_wire_instruction_info_counts, static_cast<uint32_t>(opcode)), 1);
         check_interaction<wire_instr_spec_lookup>(trace);
 
-        constexpr std::array<C, 20> mutated_cols = {
-            C::instr_fetching_exec_opcode,  C::instr_fetching_instr_size,   C::instr_fetching_sel_op_dc_0,
-            C::instr_fetching_sel_op_dc_1,  C::instr_fetching_sel_op_dc_2,  C::instr_fetching_sel_op_dc_3,
-            C::instr_fetching_sel_op_dc_4,  C::instr_fetching_sel_op_dc_5,  C::instr_fetching_sel_op_dc_6,
-            C::instr_fetching_sel_op_dc_7,  C::instr_fetching_sel_op_dc_8,  C::instr_fetching_sel_op_dc_9,
-            C::instr_fetching_sel_op_dc_10, C::instr_fetching_sel_op_dc_11, C::instr_fetching_sel_op_dc_12,
-            C::instr_fetching_sel_op_dc_13, C::instr_fetching_sel_op_dc_14, C::instr_fetching_sel_op_dc_15,
-            C::instr_fetching_sel_op_dc_16, C::instr_fetching_sel_op_dc_17,
+        constexpr std::array<C, 22> mutated_cols = {
+            C::instr_fetching_exec_opcode,    C::instr_fetching_instr_size,   C::instr_fetching_sel_has_tag,
+            C::instr_fetching_sel_tag_is_op2, C::instr_fetching_sel_op_dc_0,  C::instr_fetching_sel_op_dc_1,
+            C::instr_fetching_sel_op_dc_2,    C::instr_fetching_sel_op_dc_3,  C::instr_fetching_sel_op_dc_4,
+            C::instr_fetching_sel_op_dc_5,    C::instr_fetching_sel_op_dc_6,  C::instr_fetching_sel_op_dc_7,
+            C::instr_fetching_sel_op_dc_8,    C::instr_fetching_sel_op_dc_9,  C::instr_fetching_sel_op_dc_10,
+            C::instr_fetching_sel_op_dc_11,   C::instr_fetching_sel_op_dc_12, C::instr_fetching_sel_op_dc_13,
+            C::instr_fetching_sel_op_dc_14,   C::instr_fetching_sel_op_dc_15, C::instr_fetching_sel_op_dc_16,
+            C::instr_fetching_sel_op_dc_17,
         };
 
         // Mutate execution opcode
@@ -699,6 +738,49 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
 
         EXPECT_THROW_WITH_MESSAGE(check_interaction<bytecode_size_bc_decomposition_lookup>(mutated_trace),
                                   "Relation.*BYTECODE_SIZE_FROM_BC_DEC.* ACCUMULATION.* is non-zero");
+    }
+}
+
+// Negative interaction test for #[TAG_VALUE_VALIDATION] where tag_out_of_range is wrongly mutated
+TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    // Some chosen opcode with a tag. We limit to one as this unit test is costly.
+    // Test works if the following vector is extended to other opcodes though.
+    std::vector<WireOpCode> opcodes = { WireOpCode::SET_8 };
+
+    for (const auto& opcode : opcodes) {
+        TestTraceContainer trace;
+        const auto instr = testing::random_instruction(opcode);
+        bytecode_builder.process_instruction_fetching(
+            { { .bytecode_id = 1,
+                .pc = 0,
+                .instruction = instr,
+                .bytecode = std::make_shared<std::vector<uint8_t>>(instr.serialize()) } },
+            trace);
+        precomputed_builder.process_memory_tag_range(trace);
+        precomputed_builder.process_sel_range_8(trace);
+        precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
+
+        LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
+
+        auto valid_trace = trace; // Keep original trace before lookup processing
+        check_interaction<tag_validation_lookup>(valid_trace);
+
+        // Mutate tag out-of-range error
+        auto mutated_trace = trace;
+        ASSERT_EQ(trace.get(C::instr_fetching_tag_out_of_range, 1), 0);
+        mutated_trace.set(C::instr_fetching_tag_out_of_range, 1, 1); // Mutate by toggling the error.
+
+        // We do not need to re-run LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
+        // because we never mutate the indexing column for this lookup (clk) and for this lookup
+        // find_in_dst only uses column C::instr_fetching_tag_value mapped to (clk). So, the counts are still valid.
+
+        EXPECT_THROW_WITH_MESSAGE(check_interaction<tag_validation_lookup>(mutated_trace),
+                                  "Relation.*TAG_VALUE_VALIDATION.* ACCUMULATION.* is non-zero");
     }
 }
 

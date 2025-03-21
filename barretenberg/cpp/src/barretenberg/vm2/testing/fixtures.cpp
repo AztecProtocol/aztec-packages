@@ -14,9 +14,6 @@ using simulation::Instruction;
 using simulation::Operand;
 using simulation::OperandType;
 
-// If MemoryTag enum changes, this value might need to be adjusted.
-constexpr uint8_t NUM_MEMORY_TAGS = static_cast<int>(MemoryTag::U128) + 1;
-
 std::vector<FF> random_fields(size_t n)
 {
     std::vector<FF> fields;
@@ -52,7 +49,8 @@ Operand random_operand(OperandType operand_type)
     case OperandType::TAG: {
         uint8_t operand_u8 = 0;
         serialize::read(pos_ptr, operand_u8);
-        return Operand::u8(operand_u8 % NUM_MEMORY_TAGS); // Insecure bias but it is fine for testing purposes.
+        return Operand::u8(operand_u8 % static_cast<uint8_t>(MemoryTag::MAX) +
+                           1); // Insecure bias but it is fine for testing purposes.
     }
     case OperandType::INDIRECT16: // Irrelevant bits might be toggled but they are ignored during address resolution.
     case OperandType::UINT16: {
