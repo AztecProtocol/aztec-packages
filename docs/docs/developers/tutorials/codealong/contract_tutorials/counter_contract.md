@@ -5,7 +5,7 @@ sidebar_position: 0
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter. This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase the awesome stuff Aztec is capable of.
+In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
 ## Prerequisites
 
