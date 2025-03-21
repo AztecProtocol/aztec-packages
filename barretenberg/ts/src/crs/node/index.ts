@@ -106,6 +106,7 @@ export class GrumpkinCrs {
     const crs = new NetGrumpkinCrs(this.numPoints);
     await crs.init();
     writeFileSync(this.path + '/grumpkin_g1.dat', crs.getG1Data());
+    writeFileSync(this.path + '/grumpkin_size', String(crs.numPoints));
   }
 
   /**
