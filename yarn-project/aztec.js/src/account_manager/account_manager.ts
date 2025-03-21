@@ -246,10 +246,9 @@ export class AccountManager {
   }
 
   /**
-   * Deploys the account contract that backs this account.
-   * Does not register the associated class nor publicly deploy the instance by default.
-   * Uses the salt provided in the constructor or a randomly generated one.
-   * Registers the account in the PXE Service before deploying the contract.
+   * Estimates the gas needed to deploy the account contract that backs this account.
+   * This method is here to ensure that the fee payment method is correctly set up in case
+   * the account contract needs to pay for its own deployment.
    * @param opts - Fee options to be used for the deployment.
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
