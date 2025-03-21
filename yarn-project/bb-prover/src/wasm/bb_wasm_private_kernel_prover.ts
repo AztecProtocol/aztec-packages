@@ -29,15 +29,16 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
       { threads: this.threads, logger: this.log.verbose, wasmPath: process.env.BB_WASM_PATH },
     );
 
-    const [proof, vk] = await backend.prove(executionSteps.map(step => ungzip(serializeWitness(step.witness))));
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1297): the vk is not provided to the network anymore.
+    // Move this sanity check inside the wasm code and remove the vk from the return value.
+    const [proof, _vk] = await backend.prove(executionSteps.map(step => ungzip(serializeWitness(step.witness))));
     await backend.destroy();
     this.log.info(`Generated ClientIVC proof`, {
       eventName: 'client-ivc-proof-generation',
       duration: timer.ms(),
       proofSize: proof.length,
-      vkSize: vk.length,
     });
-    return new ClientIvcProof(Buffer.from(proof), Buffer.from(vk));
+    return new ClientIvcProof(Buffer.from(proof));
   }
 
   public override async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {

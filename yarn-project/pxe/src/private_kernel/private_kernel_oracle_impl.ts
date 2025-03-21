@@ -107,7 +107,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
       ProtocolContractAddress.ContractInstanceDeployer,
       sharedMutableHashSlot,
     );
-    const updatedClassIdWitness = await this.node.getPublicDataTreeWitness(this.blockNumber, hashLeafSlot);
+    const updatedClassIdWitness = await this.node.getPublicDataWitness(this.blockNumber, hashLeafSlot);
 
     if (!updatedClassIdWitness) {
       throw new Error(`No public data tree witness found for ${hashLeafSlot}`);

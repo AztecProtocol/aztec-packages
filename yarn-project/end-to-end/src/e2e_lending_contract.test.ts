@@ -1,14 +1,12 @@
 import { type AccountWallet, Fr, type Logger } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
-import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
+import { type DeployL1ContractsReturnType, RollupContract } from '@aztec/ethereum';
 import type { TestDateProvider } from '@aztec/foundation/timer';
-import { RollupAbi } from '@aztec/l1-artifacts';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
 import { PriceFeedContract } from '@aztec/noir-contracts.js/PriceFeed';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { afterAll, jest } from '@jest/globals';
-import { getContract } from 'viem';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
@@ -67,11 +65,10 @@ describe('e2e_lending_contract', () => {
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
     await ensureAccountsPubliclyDeployed(wallet, [wallet]);
 
-    const rollup = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: deployL1ContractsValues.walletClient,
-    });
+    const rollup = new RollupContract(
+      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    );
 
     lendingAccount = new LendingAccount(wallet.getAddress(), new Fr(42));
 

@@ -481,6 +481,8 @@ export async function setup(
       l1RpcUrls: config.l1RpcUrls,
       rollupAddress: config.l1Contracts.rollupAddress,
       port: blobSinkPort,
+      dataDirectory: config.dataDirectory,
+      dataStoreMapSizeKB: config.dataStoreMapSizeKB,
     },
     telemetry,
   );

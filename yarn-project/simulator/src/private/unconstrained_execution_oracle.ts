@@ -103,11 +103,11 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public override async getPublicDataTreeWitness(
+  public override async getPublicDataWitness(
     blockNumber: number,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
-    return await this.executionDataProvider.getPublicDataTreeWitness(blockNumber, leafSlot);
+    return await this.executionDataProvider.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   /**

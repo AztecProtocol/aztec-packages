@@ -302,11 +302,11 @@ mod test {
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{decrypt_log, encrypt_log, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
-    use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
+    use protocol_types::{address::AztecAddress, traits::FromField};
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]
-    unconstrained fn test_encrypt_decrypt_log() {
+    unconstrained fn encrypt_decrypt_log() {
         let mut env = TestEnvironment::new();
         // Advance 1 block so we can read historic state from private
         env.advance_block_by(1);
@@ -344,7 +344,7 @@ mod test {
             EmbeddedCurveScalar::from_field(eph_sk),
             recipient,
         );
-        let _ = OracleMock::mock("getSharedSecret").returns(shared_secret.serialize());
+        let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
 
         // Decrypt the log
         let decrypted = decrypt_log(encrypted_log, recipient);
