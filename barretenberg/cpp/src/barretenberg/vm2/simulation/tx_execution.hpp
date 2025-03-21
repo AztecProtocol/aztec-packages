@@ -40,7 +40,14 @@ class ContextProvider : public ContextProviderInterface {
     {
 
         // TODO update this
-        return make_nested_context(address, msg_sender, calldata, is_static);
+        auto context_id = next_context_id++;
+        return std::make_unique<EnqueuedCallContext>(context_id,
+                                                     address,
+                                                     msg_sender,
+                                                     calldata,
+                                                     is_static,
+                                                     std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
+                                                     std::make_unique<Memory>(context_id, memory_events));
     }
 
     std::unique_ptr<NestedContext> make_nested_context(AztecAddress address,
@@ -50,13 +57,13 @@ class ContextProvider : public ContextProviderInterface {
     {
 
         auto context_id = next_context_id++;
-        return std::make_unique<EnqueuedCallContext>(context_id,
-                                                     address,
-                                                     msg_sender,
-                                                     calldata,
-                                                     is_static,
-                                                     std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
-                                                     std::make_unique<Memory>(context_id, memory_events));
+        return std::make_unique<NestedContext>(context_id,
+                                               address,
+                                               msg_sender,
+                                               calldata,
+                                               is_static,
+                                               std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
+                                               std::make_unique<Memory>(context_id, memory_events));
     }
 
   private:
