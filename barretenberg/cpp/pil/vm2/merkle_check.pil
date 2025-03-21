@@ -47,11 +47,12 @@ namespace merkle_check;
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
     sel = 0;
+    // NOTE: the first row in a column with a shift is enforced to be 0 by the Polynomial Commitment System and Shplemini.
 
     // If the current row is not active, then there are no more active rows after that.
     // (not enforced for the first row)
     // Gives guarantee that once the trace activates, it is contiguous (sel == 1) all the
-    // way until the last ever active row. After that point, sel == 1 for all remaining rows.
+    // way until the last ever active row. After that point, sel == 0 for all remaining rows.
     #[TRACE_CONTINUITY]
     (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
 
@@ -72,9 +73,6 @@ namespace merkle_check;
     start * (1 - start) = 0; // bool
     end * (1 - end) = 0; // bool
 
-    // only one of end or first_row can be 1
-    // end can't be 1 for first row
-    end * precomputed.first_row = 0;
     // LATCH_CONDITION is true if either end is 1 or first_row is 1
     pol LATCH_CONDITION = end + precomputed.first_row;
 
