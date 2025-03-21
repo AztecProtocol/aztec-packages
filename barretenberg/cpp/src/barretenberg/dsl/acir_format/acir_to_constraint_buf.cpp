@@ -924,6 +924,7 @@ bool is_buf_msgpack(std::vector<uint8_t> const& buf)
 
 /**
  * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
+ * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
  */
 Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
 {
@@ -932,11 +933,15 @@ Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
         size_t size = buf.size() - 1;
         auto o = msgpack::unpack(buffer, size).get();
         try {
+            // Deserialize into a partial structure that ignores the Brillig parts,
+            // so that new opcodes can be added without breaking Barretenberg.
+            Acir::ProgramWithoutBrillig program_wob;
+            o.convert(program_wob);
             Acir::Program program;
-            // To see the raw msgpack data structure as JSON:
-            o.convert(program);
+            program.functions = program_wob.functions;
             return program;
         } catch (msgpack::type_error) {
+            // To see the raw msgpack data structure as JSON:
             std::cerr << o << std::endl;
             throw_or_abort("failed to convert msgpack data to Program");
         }
