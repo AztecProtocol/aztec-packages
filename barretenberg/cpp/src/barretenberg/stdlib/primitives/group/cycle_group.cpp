@@ -170,18 +170,18 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // Since we are not using these coordinates anyway
     // We can set them both to be zero
     if (_in.is_point_at_infinity()) {
-        result.x = field_t(witness_t(_context, FF::zero()));
-        result.y = field_t(witness_t(_context, FF::zero()));
+        result.x = FF::zero();
+        result.y = FF::zero();
+        result._is_constant = true;
     } else {
         result.x = field_t(witness_t(_context, _in.x));
         result.y = field_t(witness_t(_context, _in.y));
+        result.x.assert_equal(result.x.get_value());
+        result.y.assert_equal(result.y.get_value());
+        result._is_constant = false;
     }
-    result.x.assert_equal(result.x.get_value());
-    result.y.assert_equal(result.y.get_value());
-
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
-    result._is_constant = false;
     result._is_standard = true;
     return result;
 }
@@ -237,7 +237,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  */
 template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
 {
-    ASSERT(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant() == this->_is_constant);
+    ASSERT((this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant()) == this->_is_constant);
 
     this->_is_standard = true;
 
@@ -303,8 +303,10 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
-    ASSERT(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant() == this->_is_constant);
-    ASSERT(this->_is_infinity.is_constant() && this->_is_infinity.get_value() && this->_is_constant);
+    ASSERT((this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant()) == this->_is_constant);
+    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+        ASSERT(this->_is_constant && this->_is_standard);
+    }
 
     if (this->_is_standard) {
         return;
@@ -665,7 +667,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
         lambda = (y2 - y1).divide_no_zero_check(x_diff);
     } else {
-        lambda = field_t::from_witness(context, (y2.get_value() - y1.get_value()) / x_diff.get_value());
+        lambda =
+            field_t::from_witness(this->get_context(other), (y2.get_value() - y1.get_value()) / x_diff.get_value());
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
     }
 
@@ -728,7 +731,16 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto x2 = other.x;
     auto y2 = other.y;
     auto x_diff = x2.add_two(-x1, x_coordinates_match);
-    auto lambda = (-y2 - y1) / x_diff;
+    // Computes lambda = (-y2-y1)/x_diff, using the fact that x_diff is never 0
+    field_t lambda;
+    if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
+        lambda = (-y2 - y1).divide_no_zero_check(x_diff);
+    } else {
+        lambda =
+            field_t::from_witness(this->get_context(other), (-y2.get_value() - y1.get_value()) / x_diff.get_value());
+        field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
+    }
+
     auto x3 = lambda.madd(lambda, -(x2 + x1));
     auto y3 = lambda.madd(x1 - x3, -y1);
     cycle_group add_result(x3, y3, x_coordinates_match);
