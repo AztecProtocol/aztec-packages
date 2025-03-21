@@ -77,6 +77,10 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeDb.fork(blockNumber);
   }
 
+  public backupTo(dstPath: string, compact?: boolean): Promise<void> {
+    return this.merkleTreeDb.backupTo(dstPath, compact);
+  }
+
   public async start() {
     if (this.currentState === WorldStateRunningState.STOPPED) {
       throw new Error('Synchronizer already stopped');
@@ -145,6 +149,21 @@ export class ServerWorldStateSynchronizer
 
   public async getLatestBlockNumber() {
     return (await this.getL2Tips()).latest.number;
+  }
+
+  public async stopSync() {
+    this.log.debug('Stopping sync...');
+    await this.blockStream?.stop();
+    this.log.info('Stopped sync');
+  }
+
+  public resumeSync() {
+    if (!this.blockStream) {
+      throw new Error('Cannot resume sync as block stream is not initialized');
+    }
+    this.log.debug('Resuming sync...');
+    this.blockStream.start();
+    this.log.info('Resumed sync');
   }
 
   /**

@@ -318,7 +318,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
-  public async copy(dstPath: string, compact: boolean = true) {
+  public async backupTo(dstPath: string, compact: boolean = true) {
     const fullPath = join(dstPath, WORLD_STATE_DIR);
     await this.instance.call(WorldStateMessageType.COPY_STORES, {
       dstPath: fullPath,

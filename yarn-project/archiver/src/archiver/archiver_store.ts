@@ -244,4 +244,7 @@ export interface ArchiverDataStore {
    * Estimates the size of the store in bytes.
    */
   estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
+
+  /** Backups the archiver db to the target folder. */
+  backupTo(path: string): Promise<void>;
 }

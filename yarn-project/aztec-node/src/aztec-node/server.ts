@@ -1,4 +1,4 @@
-import { createArchiver } from '@aztec/archiver';
+import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
@@ -86,6 +86,7 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
+import { uploadSnapshot } from '../actions/upload-snapshot.js';
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
 import { type AztecNodeConfig, getPackageVersion } from './config.js';
@@ -989,6 +990,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getValidatorsStats(): Promise<ValidatorsStats> {
     return this.validatorsSentinel?.computeStats() ?? Promise.resolve({ stats: {}, slotWindow: 0 });
+  }
+
+  public startSnapshotUpload(): Promise<void> {
+    // Do not wait for the upload to be complete to return to the caller
+    // Note that we are forcefully casting the blocksource as an archiver
+    // We break support for archiver running remotely to the node
+    void uploadSnapshot(this.blockSource as Archiver, this.worldStateSynchronizer, this.config, this.log).catch(err =>
+      this.log.error(`Error uploading snapshot: ${err}`),
+    );
+    return Promise.resolve();
   }
 
   /**

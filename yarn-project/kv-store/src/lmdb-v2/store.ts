@@ -82,7 +82,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return db;
   }
 
-  public async copy(dstPath: string, compact = true) {
+  public async backupTo(dstPath: string, compact = true) {
     await this.channel.sendMessage(LMDBMessageType.COPY_STORE, { dstPath, compact });
   }
 
@@ -157,10 +157,6 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   clear(): Promise<void> {
     return Promise.resolve();
-  }
-
-  fork(): Promise<AztecAsyncKVStore> {
-    throw new Error('Not implemented');
   }
 
   async delete(): Promise<void> {

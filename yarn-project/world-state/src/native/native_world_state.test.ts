@@ -84,7 +84,7 @@ describe('NativeWorldState', () => {
     it('copies and restores committed state', async () => {
       backupDir = await mkdtemp(join(tmpdir(), 'world-state-backup-test'));
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await ws.copy(backupDir, true);
+      await ws.backupTo(backupDir, true);
       await ws.close();
 
       const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, defaultDBMapSize);
@@ -96,7 +96,7 @@ describe('NativeWorldState', () => {
     it('blocks writes while copying', async () => {
       backupDir = await mkdtemp(join(tmpdir(), 'world-state-backup-test'));
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      const copyPromise = ws.copy(backupDir, true);
+      const copyPromise = ws.backupTo(backupDir, true);
 
       await timesAsync(5, async i => {
         const fork = await ws.fork();

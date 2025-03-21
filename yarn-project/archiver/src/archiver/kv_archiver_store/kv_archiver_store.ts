@@ -49,6 +49,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#contractInstanceStore = new ContractInstanceStore(db);
   }
 
+  public backupTo(path: string, compress = true): Promise<void> {
+    return this.db.backupTo(path, compress);
+  }
+
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
