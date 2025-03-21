@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
-import type { NullifierWithBlockSource } from '../block/nullifier_with_block_source.js';
 import { PublishedL2BlockSchema } from '../block/published_l2_block.js';
 import {
   ContractClassPublicSchema,
@@ -26,7 +25,7 @@ import { GetContractClassLogsResponseSchema, GetPublicLogsResponseSchema } from 
 import type { L2LogsSource } from './l2_logs_source.js';
 
 export type ArchiverApi = Omit<
-  L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource & NullifierWithBlockSource,
+  L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource,
   'start' | 'stop'
 >;
 
@@ -61,10 +60,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(z.array(schemas.Fr))
     .returns(z.array(z.array(TxScopedL2Log.schema))),
-  findNullifiersIndexesWithBlock: z
-    .function()
-    .args(z.number(), z.array(schemas.Fr))
-    .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),

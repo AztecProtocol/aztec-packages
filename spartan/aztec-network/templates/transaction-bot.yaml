@@ -125,6 +125,8 @@ spec:
               export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
+
+              export BOT_SENDER_SALT=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF+1}') # +1 so that salt is not 0
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
           env:
             - name: K8S_POD_UID
