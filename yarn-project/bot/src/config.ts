@@ -71,6 +71,8 @@ export type BotConfig = {
   maxConsecutiveErrors: number;
   /** Stops the bot if service becomes unhealthy */
   stopWhenUnhealthy: boolean;
+  /** Deploy an AMM contract and do swaps instead of transfers */
+  ammTxs: boolean;
 };
 
 export const BotConfigSchema = z
@@ -99,6 +101,7 @@ export const BotConfigSchema = z
     contract: z.nativeEnum(SupportedTokenContracts),
     maxConsecutiveErrors: z.number().int().nonnegative(),
     stopWhenUnhealthy: z.boolean(),
+    ammTxs: z.boolean().default(false),
   })
   .transform(config => ({
     nodeUrl: undefined,
@@ -246,6 +249,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   stopWhenUnhealthy: {
     env: 'BOT_STOP_WHEN_UNHEALTHY',
     description: 'Stops the bot if service becomes unhealthy',
+    ...booleanConfigHelper(false),
+  },
+  ammTxs: {
+    env: 'BOT_AMM_TXS',
+    description: 'Deploy an AMM and send swaps to it',
     ...booleanConfigHelper(false),
   },
 };

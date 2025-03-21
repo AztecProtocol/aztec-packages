@@ -12,7 +12,6 @@ import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
-import { isAvmBytecode } from './bytecode_utils.js';
 import {
   AvmExecutionError,
   AvmRevertReason,
@@ -139,7 +138,6 @@ export class AvmSimulator {
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResult> {
     const startTotalTime = performance.now();
-    assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
     assert(bytecode.length > 0, "AVM simulator can't execute empty bytecode");
 
     this.bytecode = bytecode;

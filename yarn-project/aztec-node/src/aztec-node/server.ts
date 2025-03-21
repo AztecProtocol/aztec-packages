@@ -15,6 +15,7 @@ import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
@@ -101,6 +102,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private packageVersion: string;
   private metrics: NodeMetrics;
 
+  // Serial queue to ensure that we only send one tx at a time
+  private txQueue: SerialQueue = new SerialQueue();
+
   public readonly tracer: Tracer;
 
   constructor(
@@ -123,6 +127,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.packageVersion = getPackageVersion();
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
+    this.txQueue.start();
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
@@ -419,6 +424,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
+    await this.txQueue
+      .put(async () => {
+        await this.#sendTx(tx);
+      })
+      .catch(error => {
+        this.log.error(`Error sending tx`, { error });
+      });
+  }
+
+  async #sendTx(tx: Tx) {
     const timer = new Timer();
     const txHash = (await tx.getTxHash()).toString();
 
@@ -464,6 +479,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    */
   public async stop() {
     this.log.info(`Stopping`);
+    await this.txQueue.end();
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();

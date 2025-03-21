@@ -17,6 +17,6 @@ module "iam" {
 
 module "firewall" {
   source        = "../../modules/firewall/gcp"
-  p2p_tcp_ports = var.p2p_tcp_ports
-  p2p_udp_ports = var.p2p_udp_ports
+  p2p_tcp_ports = var.p2p_ports
+  p2p_udp_ports = var.p2p_ports
 }

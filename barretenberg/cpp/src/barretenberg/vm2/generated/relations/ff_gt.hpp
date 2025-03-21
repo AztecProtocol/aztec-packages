@@ -62,7 +62,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // A_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = new_term.ff_gt_sel_gt *
                        (new_term.ff_gt_a - (new_term.ff_gt_a_lo + ff_gt_POW_128 * new_term.ff_gt_a_hi));
@@ -75,7 +75,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // P_SUB_A_LO
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = new_term.ff_gt_sel_gt *
                        (new_term.ff_gt_p_sub_a_lo -
@@ -83,14 +83,14 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // P_SUB_A_HI
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = new_term.ff_gt_sel_gt *
                        (new_term.ff_gt_p_sub_a_hi - ((ff_gt_P_HI - new_term.ff_gt_a_hi) - new_term.ff_gt_p_a_borrow));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // B_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = new_term.ff_gt_sel_gt *
                        (new_term.ff_gt_b - (new_term.ff_gt_b_lo + ff_gt_POW_128 * new_term.ff_gt_b_hi));
@@ -103,7 +103,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // P_SUB_B_LO
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = new_term.ff_gt_sel_gt *
                        (new_term.ff_gt_p_sub_b_lo -
@@ -111,14 +111,14 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // P_SUB_B_HI
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = new_term.ff_gt_sel_gt *
                        (new_term.ff_gt_p_sub_b_hi - ((ff_gt_P_HI - new_term.ff_gt_b_hi) - new_term.ff_gt_p_b_borrow));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // RES_LO
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp =
                 new_term.ff_gt_sel_gt *
@@ -126,7 +126,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // RES_HI
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp =
                 new_term.ff_gt_sel_gt *
@@ -134,13 +134,13 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SET_RNG_CTR
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = new_term.ff_gt_sel_gt * (new_term.ff_gt_cmp_rng_ctr - FF(4));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SUB_RNG_CTR
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp =
                 new_term.ff_gt_cmp_rng_ctr * ((new_term.ff_gt_cmp_rng_ctr - FF(1)) - new_term.ff_gt_cmp_rng_ctr_shift);
@@ -153,7 +153,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // RNG_CTR_NON_ZERO
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = (new_term.ff_gt_cmp_rng_ctr *
                             ((FF(1) - new_term.ff_gt_sel_shift_rng) * (FF(1) - new_term.ff_gt_cmp_rng_ctr_inv) +
@@ -162,7 +162,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SHIFT_0
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp = (new_term.ff_gt_a_lo_shift - new_term.ff_gt_p_sub_a_lo) * new_term.ff_gt_sel_shift_rng;
             tmp *= scaling_factor;
@@ -174,7 +174,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SHIFT_1
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = (new_term.ff_gt_p_sub_a_lo_shift - new_term.ff_gt_b_lo) * new_term.ff_gt_sel_shift_rng;
             tmp *= scaling_factor;
@@ -186,7 +186,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SHIFT_2
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
             auto tmp = (new_term.ff_gt_b_lo_shift - new_term.ff_gt_p_sub_b_lo) * new_term.ff_gt_sel_shift_rng;
             tmp *= scaling_factor;
@@ -198,7 +198,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SHIFT_3
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
             auto tmp = (new_term.ff_gt_p_sub_b_lo_shift - new_term.ff_gt_res_lo) * new_term.ff_gt_sel_shift_rng;
             tmp *= scaling_factor;
@@ -210,7 +210,7 @@ template <typename FF_> class ff_gtImpl {
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_CONSISTENCY
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
             auto tmp = ((new_term.ff_gt_sel_shift_rng + new_term.ff_gt_sel_gt_shift) - new_term.ff_gt_sel_shift);
             tmp *= scaling_factor;

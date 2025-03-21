@@ -3,13 +3,15 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type AztecNodeAdmin, createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
 
+import { AmmBot } from './amm_bot.js';
+import type { BaseBot } from './base_bot.js';
 import { Bot } from './bot.js';
 import { type BotConfig, getVersions } from './config.js';
 import type { BotRunnerApi } from './interface.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
   private log = createLogger('bot');
-  private bot?: Promise<Bot>;
+  private bot?: Promise<BaseBot>;
   private pxe?: PXE;
   private node: AztecNode;
   private nodeAdmin?: AztecNodeAdmin;
@@ -137,7 +139,9 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   async #createBot() {
     try {
-      this.bot = Bot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin });
+      this.bot = this.config.ammTxs
+        ? AmmBot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin })
+        : Bot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin });
       await this.bot;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);

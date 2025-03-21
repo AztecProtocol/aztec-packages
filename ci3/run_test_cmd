@@ -116,7 +116,7 @@ function fail {
 function flake {
   echo -e "${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$REF_NAME" != "master" ]; then
     return
   fi
 
