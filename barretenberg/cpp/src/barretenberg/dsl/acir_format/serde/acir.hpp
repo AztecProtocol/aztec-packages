@@ -127,17 +127,17 @@ struct BinaryFieldOp {
         default:
             throw_or_abort("unknown enum 'BinaryFieldOp' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -359,17 +359,17 @@ struct BinaryIntOp {
         default:
             throw_or_abort("unknown enum 'BinaryIntOp' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -525,17 +525,17 @@ struct IntegerBitSize {
         default:
             throw_or_abort("unknown enum 'IntegerBitSize' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -632,17 +632,17 @@ struct BitSize {
         default:
             throw_or_abort("unknown enum 'BitSize' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -745,17 +745,17 @@ struct MemoryAddress {
         default:
             throw_or_abort("unknown enum 'MemoryAddress' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -1135,17 +1135,17 @@ struct BlackBoxOp {
         default:
             throw_or_abort("unknown enum 'BlackBoxOp' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -1412,17 +1412,17 @@ struct HeapValueType {
         default:
             throw_or_abort("unknown enum 'HeapValueType' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -1566,17 +1566,17 @@ struct ValueOrArray {
         default:
             throw_or_abort("unknown enum 'ValueOrArray' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -1986,17 +1986,17 @@ struct BrilligOpcode {
         default:
             throw_or_abort("unknown enum 'BrilligOpcode' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -2299,17 +2299,17 @@ struct ConstantOrWitnessEnum {
         default:
             throw_or_abort("unknown enum 'ConstantOrWitnessEnum' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -2723,17 +2723,17 @@ struct BlackBoxFuncCall {
         default:
             throw_or_abort("unknown enum 'BlackBoxFuncCall' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -3045,17 +3045,17 @@ struct BlockType {
         default:
             throw_or_abort("unknown enum 'BlockType' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -3197,17 +3197,17 @@ struct BrilligInputs {
         default:
             throw_or_abort("unknown enum 'BrilligInputs' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -3327,17 +3327,17 @@ struct BrilligOutputs {
         default:
             throw_or_abort("unknown enum 'BrilligOutputs' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -3525,17 +3525,17 @@ struct Opcode {
         default:
             throw_or_abort("unknown enum 'Opcode' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -3685,17 +3685,17 @@ struct ExpressionOrMemory {
         default:
             throw_or_abort("unknown enum 'ExpressionOrMemory' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -3795,17 +3795,17 @@ struct ExpressionWidth {
         default:
             throw_or_abort("unknown enum 'ExpressionWidth' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
@@ -3899,17 +3899,17 @@ struct OpcodeLocation {
         default:
             throw_or_abort("unknown enum 'OpcodeLocation' variant index: " + std::to_string(value.index()));
         }
-        std::visit(
-            [&packer, tag, is_unit](const auto& arg) {
-                if (is_unit) {
-                    packer.pack(tag);
-                } else {
+        if (is_unit) {
+            packer.pack(tag);
+        } else {
+            std::visit(
+                [&packer, tag](const auto& arg) {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                }
-            },
-            value);
+                },
+                value);
+        }
     }
 
     void msgpack_unpack(msgpack::object const& o)
