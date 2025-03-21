@@ -42,10 +42,10 @@ get_bb_version_for_noir() {
         fi
     fi
 
-    local lookup_url="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/tf/fix-bbup-again/barretenberg/bbup/max-bb-versions.json"
+    local lookup_url="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/tf/fix-bbup-again/barretenberg/bbup/bb-versions.json"
 
     # Extract BB version from install script
-    local bb_version=$(curl -s "$url" | jq --arg version "$resolved_version" '.[$version]')
+    local bb_version=$(curl -s "$lookup_url" | jq -r --arg version "$resolved_version" '.[$version]')
     echo "$bb_version"
 }
 
@@ -195,7 +195,7 @@ main() {
         fi
         version=$(get_bb_version_for_noir "$noir_version")
 
-        if [ -n "$version" ]; then
+        if [ ! -n "$version" ]; then
             printf "${RED}${ERROR} No version specified and couldn't determine version from noir${NC}\n"
             exit 1
         fi
