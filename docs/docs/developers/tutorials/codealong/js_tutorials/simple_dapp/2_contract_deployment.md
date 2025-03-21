@@ -22,6 +22,7 @@ Then, open the `contracts/token/Nargo.toml` configuration file, and add the `azt
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
 compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/compressed-string"}
+uint_note = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.81.0", directory = "noir-projects/aztec-nr/uint-note" }
 ```
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
