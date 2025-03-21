@@ -13,10 +13,7 @@ export async function uploadSnapshot(
   store: FileStore,
 ): Promise<SnapshotMetadata> {
   const timestamp = Date.now();
-  const date = new Date()
-    .toISOString()
-    .replace(/[\-:T]/g, '')
-    .replace(/\..+$/, '');
+  const date = new Date().toISOString().replace(/[-:T]/g, '').replace(/\..+$/, '');
 
   const basePath = getBasePath(metadata);
   const [archiverDataUrl, worldStateDataUrl] = await Promise.all([
