@@ -150,9 +150,11 @@ export class ProverNodePublisher {
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
-    if (proven !== BigInt(fromBlock) - 1n) {
+    // Don't publish if proven is beyond our toBlock, pointless to do so
+    if (proven > BigInt(toBlock)) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as proven block is ${proven}`);
     }
+    // toBlock can't be greater than pending
     if (toBlock > pending) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as pending block is ${pending}`);
     }
