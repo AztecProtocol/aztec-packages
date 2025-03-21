@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742567977470,
+  "lastUpdate": 1742568719046,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mvezenov@gmail.com",
-            "name": "Maxim Vezenov",
-            "username": "vezenovm"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8ec910b794ba3afa28517a7a58abe59bcf9560d7",
-          "message": "chore: Remove roots arg on __compute_fracs in blob lib (#12663)\n\nSome cleanup missed in\nhttps://github.com/AztecProtocol/aztec-packages/pull/12418",
-          "timestamp": "2025-03-11T22:51:53Z",
-          "tree_id": "8645695905f962042d497dae5ac33bccb23df495",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8ec910b794ba3afa28517a7a58abe59bcf9560d7"
-        },
-        "date": 1741735565605,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18231.52282000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16024.868468999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18740.09194799987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16323.040796999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3883.198520000178,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3171.807745 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55152.739046,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55152740000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11198.90372,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11198907000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1633341113,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1633341113 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 221300736,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 221300736 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2281.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3388,6 +3316,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15280,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9770e1513e46566147f471f287f4202c27dfd604",
+          "message": "feat!: `AztecNode.findLeavesIndexes` returning block info (#12890)",
+          "timestamp": "2025-03-21T08:26:50-06:00",
+          "tree_id": "b5a2ec16b2d2e9850232410212fff88e9465e365",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9770e1513e46566147f471f287f4202c27dfd604"
+        },
+        "date": 1742568709940,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39349,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26150,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11829,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14956,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15224,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
