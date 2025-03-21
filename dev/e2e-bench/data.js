@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742576997514,
+  "lastUpdate": 1742580529306,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2fc01a3e84a1d72c91c47f061936974921c3a1fc",
-          "message": "chore: simplify note getter oracle (#12807)\n\nThe `get_notes` oracle is extremely messy, not maintained and not\ndocumented. I intend to simplify it a bit, use generics and structs to\nbetter convey what is going on, etc., so that we are able to actually\nwork with it in the future (e.g. to extract a note's randomness from its\ncontents). This is just an initial pass removing some of the superfluous\narray lengths and unnecessary redundant type bindings that made the\nthing just more difficult to read.",
-          "timestamp": "2025-03-17T16:42:38-03:00",
-          "tree_id": "68521e1773e5a38df1d96e7ce979fc19989e73f5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2fc01a3e84a1d72c91c47f061936974921c3a1fc"
-        },
-        "date": 1742242054602,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9167,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2236924783180473,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 137066,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 148508,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0ae68919479ba44188ad3797ef7832c987870a18",
+          "message": "feat(avm): Port field gt to vm2 (#12883)\n\nPorts field greater than to vm2, removing non-ff and eq functionality,\nwhich could be trivally inlined in other gadgets.",
+          "timestamp": "2025-03-21T18:36:23+01:00",
+          "tree_id": "24dc2925ae93c0ccda3b9cf0d73e24ddb80fa6c0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0ae68919479ba44188ad3797ef7832c987870a18"
+        },
+        "date": 1742580527965,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8377,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2130508109139965,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 108081,
             "unit": "us"
           }
         ]
