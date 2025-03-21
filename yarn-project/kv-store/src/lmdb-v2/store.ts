@@ -82,6 +82,10 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return db;
   }
 
+  public async copy(dstPath: string, compact = true) {
+    await this.channel.sendMessage(LMDBMessageType.COPY_STORE, { dstPath, compact });
+  }
+
   public getReadTx(): ReadTransaction {
     if (!this.open) {
       throw new Error('Store is closed');
