@@ -41,6 +41,7 @@ void TranslatorDeltaRangeConstraintRelationImpl<FF>::accumulate(ContainerOverSub
         auto ordered_range_constraints_2_shift = View(in.ordered_range_constraints_2_shift);
         auto ordered_range_constraints_3_shift = View(in.ordered_range_constraints_3_shift);
         auto ordered_range_constraints_4_shift = View(in.ordered_range_constraints_4_shift);
+        // Represents the positon at which the actual last index should be checked
         auto lagrange_real_last = View(in.lagrange_real_last);
         auto lagrange_masking = View(in.lagrange_masking);
 

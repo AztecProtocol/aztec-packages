@@ -56,7 +56,6 @@ class TranslatorProvingKey {
                     }
                 }
             });
-            wire_poly.mask(); // ugh
         }
 
         // First and last lagrange polynomials (in the full circuit size)
@@ -74,8 +73,6 @@ class TranslatorProvingKey {
         compute_extra_range_constraint_numerator();
 
         // Construct the polynomials resulted from interleaving the small polynomials in each group
-        // This is fine in terms of masking
-        // This ends up with the random values
         compute_interleaved_polynomials();
 
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
@@ -95,7 +92,7 @@ class TranslatorProvingKey {
     {
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
         // to 10 rounds of folding (i.e. 20 circuits)
-        if (circuit.num_gates > Flavor::TRANSLATOR_VM_FIXED_SIZE - MASKING_OFFSET) {
+        if (circuit.num_gates > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
         mini_circuit_dyadic_size = Flavor::TRANSLATOR_VM_FIXED_SIZE;
