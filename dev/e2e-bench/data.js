@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742568722234,
+  "lastUpdate": 1742570918853,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "99fc7052763c6095bf809308b5761cd37c0a3b6f",
-          "message": "chore: remove some unnecessary mod.nr files (#12797)\n\nThis is ultimately a styling choice, I find it annoying that the code\nfor both `note_getter` and most of the macros is in `mod.nr` files,\nwhich make it a bit harder to find the content, and make it quite\nconfusing when you have five of those files open in the IDE and you\ncan't tell them apart by name. Ideally if we have a single mod `foo`\nwe'd just have `foo.nr`, and only do `foo/mod.nr` once there's multiple\nfiles, keeping the `mod` as a source of further mode declarations and\npotentially exports, but not actual source code.",
-          "timestamp": "2025-03-17T14:09:25-03:00",
-          "tree_id": "c4beae3f6db47ba2afc32dedc8bfd9aef87e30c9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/99fc7052763c6095bf809308b5761cd37c0a3b6f"
-        },
-        "date": 1742233884122,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9217,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.22491151418753078,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 144665,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 135651,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cb978b5a848214803d81dc791800c0976835e4ad",
+          "message": "chore: Add comment on verifyHistoricBlock (#12933)\n\nAdds comment on `verifyHistoricBlock` for clarity.",
+          "timestamp": "2025-03-21T15:17:48Z",
+          "tree_id": "9a98b7a24f0f7eae4d0b3aeb28f4f207cf02536c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cb978b5a848214803d81dc791800c0976835e4ad"
+        },
+        "date": 1742570917582,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9809,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24945780346417062,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 131851,
             "unit": "us"
           }
         ]
