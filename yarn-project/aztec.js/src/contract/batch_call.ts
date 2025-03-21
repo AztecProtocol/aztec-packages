@@ -1,5 +1,4 @@
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { mergeExecutionPayloads } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 

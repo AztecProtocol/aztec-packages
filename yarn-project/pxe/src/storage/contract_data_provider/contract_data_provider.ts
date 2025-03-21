@@ -6,6 +6,7 @@ import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simula
 import {
   type ContractArtifact,
   type FunctionArtifact,
+  type FunctionArtifactWithContractName,
   type FunctionDebugMetadata,
   FunctionSelector,
   FunctionType,
@@ -168,9 +169,17 @@ export class ContractDataProvider implements DataProvider {
    * @param selector - The function selector.
    * @returns The corresponding function's artifact as an object.
    */
-  public async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector) {
+  public async getFunctionArtifact(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionArtifactWithContractName> {
     const tree = await this.getTreeForAddress(contractAddress);
-    return tree.getFunctionArtifact(selector);
+    const contractArtifact = tree.getArtifact();
+    const functionArtifact = await tree.getFunctionArtifact(selector);
+    return {
+      ...functionArtifact,
+      contractName: contractArtifact.name,
+    };
   }
 
   /**
