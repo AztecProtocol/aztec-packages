@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742568719046,
+  "lastUpdate": 1742570915900,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "80cd840a188ae14a313e15e46f642a05bbccfbb4",
-          "message": "chore: aztec start should use pxe proving by default (#12676)\n\nResolves #12677\n\nCo-authored-by: sklppy88 <esau@aztecprotocol.com>",
-          "timestamp": "2025-03-13T01:03:30+09:00",
-          "tree_id": "066e51c49445ed16e0004038cb00339bf5e44d16",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/80cd840a188ae14a313e15e46f642a05bbccfbb4"
-        },
-        "date": 1741797633962,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18268.226581000134,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16148.071877999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18818.40012099997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16333.048755 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3908.0636460000733,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3109.444194 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55340.052856,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55340053000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 9939.128168,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9939132000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1629512970,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1629512970 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 233776250,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 233776250 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2217.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3370,6 +3298,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15224,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cb978b5a848214803d81dc791800c0976835e4ad",
+          "message": "chore: Add comment on verifyHistoricBlock (#12933)\n\nAdds comment on `verifyHistoricBlock` for clarity.",
+          "timestamp": "2025-03-21T15:17:48Z",
+          "tree_id": "9a98b7a24f0f7eae4d0b3aeb28f4f207cf02536c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cb978b5a848214803d81dc791800c0976835e4ad"
+        },
+        "date": 1742570907979,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39411,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 25798,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11813,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14379,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15240,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
