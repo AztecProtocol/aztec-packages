@@ -4,13 +4,18 @@ use crate::{
         log_assembly_strategies::default_aes128::arithmetic_generics_utils::{
             get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
         },
-        log_encryption::{LogEncryption, PRIVATE_LOG_CIPHERTEXT_LEN},
+        log_encryption::{
+            EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS,
+            HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_CIPHERTEXT_LEN,
+            PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
+        },
     },
     keys::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
     oracle::{aes128_decrypt::aes128_decrypt_oracle, shared_secret::get_shared_secret},
+    prelude::AztecAddress,
     utils::{
         array,
         conversion::{
@@ -21,22 +26,7 @@ use crate::{
         random::get_random_bytes,
     },
 };
-use protocol_types::{address::AztecAddress, traits::ToField};
 use std::aes128::aes128_encrypt;
-
-// ciphertext_length (2) + 14 bytes pkcs#7 AES padding.
-pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 16;
-
-global EPH_PK_X_SIZE_IN_FIELDS: u32 = 1;
-global EPH_PK_SIGN_BYTE_SIZE_IN_BYTES: u32 = 1;
-pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES: u32 = (
-    PRIVATE_LOG_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS
-)
-    * 31
-    - HEADER_CIPHERTEXT_SIZE_IN_BYTES
-    - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES;
-// Each field of the original note log was serialized to 32 bytes. Below we convert the bytes back to fields.
-pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS: u32 = PRIVATE_LOG_PLAINTEXT_SIZE_IN_BYTES / 32;
 
 struct AES128 {}
 
@@ -235,7 +225,7 @@ impl LogEncryption for AES128 {
 
         // Extract ciphertext length from header (2 bytes, big-endian)
         let ciphertext_length =
-            ((header_plaintext.get(32) as u32) << 8) | (header_plaintext.get(33) as u32);
+            ((header_plaintext.get(0) as u32) << 8) | (header_plaintext.get(1) as u32);
 
         // Extract and decrypt main ciphertext
         let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
@@ -254,11 +244,11 @@ impl LogEncryption for AES128 {
 
 mod test {
     use crate::{
-        encrypted_logs::log_encryption::LogEncryption,
+        encrypted_logs::log_encryption::{LogEncryption, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS},
         keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         test::helpers::test_environment::TestEnvironment,
     };
-    use super::{AES128, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS};
+    use super::AES128;
     use protocol_types::{address::AztecAddress, traits::FromField};
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
@@ -304,5 +294,9 @@ mod test {
 
         // Verify decryption matches original plaintext
         assert_eq(decrypted, plaintext_bvec, "Decrypted bytes should match original plaintext");
+
+        // The following is a workaround of "struct is never constructed" Noir compilation error (we only ever use
+        // static methods of the struct).
+        let _ = AES128 {};
     }
 }
