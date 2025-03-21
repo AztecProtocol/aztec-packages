@@ -434,7 +434,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
 
     // Write the proof and verification keys into the working directory in 'binary' format
     vinfo("writing ClientIVC proof and vk...");
-    write_file(output_dir / "proof", to_buffer(proof));
+    proof.to_file_msgpack(output_dir / "proof");
 
     auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
