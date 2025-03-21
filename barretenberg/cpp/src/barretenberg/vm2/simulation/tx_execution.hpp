@@ -40,7 +40,7 @@ class ContextProvider : public ContextProviderInterface {
     {
 
         // TODO update this
-        make_nested_context(address, msg_sender, calldata, is_static);
+        return make_nested_context(address, msg_sender, calldata, is_static);
     }
 
     std::unique_ptr<NestedContext> make_nested_context(AztecAddress address,
