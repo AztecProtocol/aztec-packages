@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742576995068,
+  "lastUpdate": 1742580523307,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "janbenes1234@gmail.com",
-            "name": "Jan Beneš",
-            "username": "benesjan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "47e5bc0bff4d41051a75b5a41e87423fa4637e2d",
-          "message": "refactor: storing recipient address instead of recipient address point (#12684)",
-          "timestamp": "2025-03-12T18:30:57+01:00",
-          "tree_id": "36c7136a39ce76b03b084b1dac4506f6909abb26",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/47e5bc0bff4d41051a75b5a41e87423fa4637e2d"
-        },
-        "date": 1741803516867,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18178.116490999855,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15941.593843 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18965.704278999965,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16435.547475 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3955.1680090003174,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3069.705422 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55372.562074,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55372562000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10878.479430999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10878480000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1610632112,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1610632112 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 226186411,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 226186411 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2297.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3300,6 +3228,84 @@ window.BENCHMARK_DATA = {
             "value": 15191,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0ae68919479ba44188ad3797ef7832c987870a18",
+          "message": "feat(avm): Port field gt to vm2 (#12883)\n\nPorts field greater than to vm2, removing non-ff and eq functionality,\nwhich could be trivally inlined in other gadgets.",
+          "timestamp": "2025-03-21T18:36:23+01:00",
+          "tree_id": "24dc2925ae93c0ccda3b9cf0d73e24ddb80fa6c0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0ae68919479ba44188ad3797ef7832c987870a18"
+        },
+        "date": 1742580512175,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 16784.564521999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14805.066171 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117850055055.7,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1441079664,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199128986,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 17561.83371899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15189.908022000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 45958.22453199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 45958226000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3045.0406009999824,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 2875.8087669999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 7868.143594,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 7868145000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
