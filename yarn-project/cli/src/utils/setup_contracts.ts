@@ -57,22 +57,33 @@ export async function setupCanonicalL2FeeJuice(
   }
 }
 
+async function getSponsoredFPCContract() {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+  const { SponsoredFPCContract } = await import('@aztec/noir-contracts.js/SponsoredFPC');
+  return SponsoredFPCContract;
+}
+
+export async function getSponsoredFPCAddress() {
+  const SponsoredFPCContract = await getSponsoredFPCContract();
+  const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+    salt: new Fr(SPONSORED_FPC_SALT),
+  });
+  return sponsoredFPCInstance.address;
+}
+
 export async function setupSponsoredFPC(
   pxe: PXE,
   log: LogFn,
   waitOpts = DefaultWaitOpts,
   waitForProvenOptions?: WaitForProvenOpts,
 ) {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const { SponsoredFPCContract } = await import('@aztec/noir-contracts.js/SponsoredFPC');
-
+  const SponsoredFPCContract = await getSponsoredFPCContract();
+  const address = await getSponsoredFPCAddress();
+  const paymentMethod = new SponsoredFeePaymentMethod(address);
   const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
+
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
-  const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
-    salt: new Fr(SPONSORED_FPC_SALT),
-  });
-  const paymentMethod = new SponsoredFeePaymentMethod(sponsoredFPCInstance.address);
 
   const deployTx = SponsoredFPCContract.deploy(deployer).send({
     contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
