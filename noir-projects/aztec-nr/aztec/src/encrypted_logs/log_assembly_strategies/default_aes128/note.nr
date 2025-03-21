@@ -1,7 +1,10 @@
 use crate::{
     context::PrivateContext,
-    encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::encrypt_log,
+    encrypted_logs::{
+        log_assembly_strategies::default_aes128::aes128::AES128, log_encryption::LogEncryption,
+    },
     note::{note_emission::NoteEmission, note_interface::NoteType},
+    oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -143,7 +146,6 @@ where
 }
 
 pub fn compute_log<Note, let N: u32>(
-    context: PrivateContext,
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
@@ -152,13 +154,37 @@ pub fn compute_log<Note, let N: u32>(
 where
     Note: NoteType + Packable<N>,
 {
-    let final_plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot);
+    let plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot);
 
-    encrypt_log(context.this_address(), final_plaintext, recipient, sender)
+    let ciphertext = AES128::encrypt_log(plaintext, recipient);
+
+    let log = prefix_with_tag(ciphertext, sender, recipient);
+
+    log
+}
+
+fn prefix_with_tag<let L: u32>(
+    log_without_tag: [Field; L],
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> [Field; L + 1] {
+    // Safety: we assume that the sender wants for the recipient to find the tagged note, and therefore that they will
+    // cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the
+    // note automatically.
+    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
+    increment_app_tagging_secret_index_as_sender(sender, recipient);
+
+    let mut log_with_tag = [0; L + 1];
+
+    log_with_tag[0] = tag;
+    for i in 0..log_without_tag.len() {
+        log_with_tag[i + 1] = log_without_tag[i];
+    }
+
+    log_with_tag
 }
 
 pub unconstrained fn compute_log_unconstrained<Note, let N: u32>(
-    context: PrivateContext,
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
@@ -167,7 +193,7 @@ pub unconstrained fn compute_log_unconstrained<Note, let N: u32>(
 where
     Note: NoteType + Packable<N>,
 {
-    compute_log(context, note, storage_slot, recipient, sender)
+    compute_log(note, storage_slot, recipient, sender)
 }
 
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
@@ -187,7 +213,7 @@ where
         let note_hash_counter = e.note_hash_counter;
         assert_note_exists(*context, note_hash_counter);
 
-        let encrypted_log = compute_log(*context, note, storage_slot, recipient, sender);
+        let encrypted_log = compute_log(note, storage_slot, recipient, sender);
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }
@@ -213,9 +239,9 @@ where
 
         assert_note_exists(*context, note_hash_counter);
 
-        // Safety: this function does not constrain the encryption of the log, as explainted on its description.
+        // Safety: this function does not constrain the encryption of the log, as explained on its description.
         let encrypted_log =
-            unsafe { compute_log_unconstrained(*context, note, storage_slot, recipient, sender) };
+            unsafe { compute_log_unconstrained(note, storage_slot, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }

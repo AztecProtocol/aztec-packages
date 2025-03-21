@@ -2,12 +2,10 @@ use crate::{
     context::PrivateContext,
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
-        log_assembly_strategies::default_aes128::{
-            arithmetic_generics_utils::{
-                get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
-            },
-            note::encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES,
+        log_assembly_strategies::default_aes128::arithmetic_generics_utils::{
+            get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
         },
+        log_encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES,
     },
     event::event_interface::EventInterface,
     keys::{

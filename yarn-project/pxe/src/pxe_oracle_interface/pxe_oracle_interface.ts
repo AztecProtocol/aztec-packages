@@ -608,10 +608,13 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
       }
 
+      // We don't perform tagging in Noir and for this reason we pass the log into `process_log` without the tag.
+      const logFieldsWithoutTag = scopedLog.log.toFields().slice(1);
+
       // This will trigger calls to the deliverNote oracle
       await this.callProcessLog(
         contractAddress,
-        scopedLog.log.toFields(),
+        logFieldsWithoutTag,
         scopedLog.txHash,
         txEffect.data.noteHashes,
         txEffect.data.nullifiers[0],

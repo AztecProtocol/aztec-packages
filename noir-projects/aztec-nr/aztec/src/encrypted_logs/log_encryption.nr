@@ -3,7 +3,7 @@ use protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS;
 
 pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // 1 field for the tag
 
-// TODO: the following should not be here as it's AES128 specific.
+// TODO(#12750): The global variables below should not be here as they are AES128 specific.
 // ciphertext_length (2) + 14 bytes pkcs#7 AES padding.
 pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 16;
 
