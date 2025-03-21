@@ -2,7 +2,7 @@
 
 namespace bb::avm2::simulation {
 
-const uint256_t TWO_POW_128 = uint256_t{ 1 } << 128;
+const uint256_t TWO_POW_128 = uint256_t(1) << 128;
 
 U256Decomposition decompose(const uint256_t& x)
 {

@@ -8,7 +8,7 @@
 namespace bb::avm2::simulation {
 
 using ::testing::_;
-using ::testing::ElementsAreArray;
+using ::testing::ElementsAre;
 using ::testing::NiceMock;
 using ::testing::SizeIs;
 
@@ -46,19 +46,19 @@ TEST(AvmSimulationFieldGreaterThanTest, Basic)
     uint128_t res_witness_hi = a_hi - b_hi - 0;
 
     EXPECT_THAT(range_checks,
-                ElementsAreArray({ a_lo,
-                                   a_hi,
-                                   p_sub_a_witness_lo,
-                                   p_sub_a_witness_hi,
-                                   b_lo,
-                                   b_hi,
-                                   p_sub_b_witness_lo,
-                                   p_sub_b_witness_hi,
-                                   res_witness_lo,
-                                   res_witness_hi }));
+                ElementsAre(a_lo,
+                            a_hi,
+                            p_sub_a_witness_lo,
+                            p_sub_a_witness_hi,
+                            b_lo,
+                            b_hi,
+                            p_sub_b_witness_lo,
+                            p_sub_b_witness_hi,
+                            res_witness_lo,
+                            res_witness_hi));
 
     EXPECT_THAT(event_emitter.dump_events(),
-                ElementsAreArray({ FieldGreaterThanEvent{
+                ElementsAre(FieldGreaterThanEvent{
                     .a = a,
                     .b = b,
                     .a_limbs = U256Decomposition{ a_lo, a_hi },
@@ -67,7 +67,7 @@ TEST(AvmSimulationFieldGreaterThanTest, Basic)
                     .p_sub_b_witness = LimbsComparisonWitness{ p_sub_b_witness_lo, p_sub_b_witness_hi, false },
                     .res_witness = LimbsComparisonWitness{ res_witness_lo, res_witness_hi, false },
                     .result = true,
-                } }));
+                }));
 }
 
 TEST(AvmSimulationFieldGreaterThanTest, Results)
@@ -77,13 +77,13 @@ TEST(AvmSimulationFieldGreaterThanTest, Results)
     EventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
-    assert(field_gt.ff_gt(1, 0));
-    assert(field_gt.ff_gt(-1, 0));
+    EXPECT_TRUE(field_gt.ff_gt(1, 0));
+    EXPECT_TRUE(field_gt.ff_gt(-1, 0));
 
-    assert(!field_gt.ff_gt(0, 0));
-    assert(!field_gt.ff_gt(-1, -1));
-    assert(!field_gt.ff_gt(0, 1));
-    assert(!field_gt.ff_gt(0, -1));
+    EXPECT_FALSE(field_gt.ff_gt(0, 0));
+    EXPECT_FALSE(field_gt.ff_gt(-1, -1));
+    EXPECT_FALSE(field_gt.ff_gt(0, 1));
+    EXPECT_FALSE(field_gt.ff_gt(0, -1));
 
     EXPECT_THAT(event_emitter.dump_events(), SizeIs(6));
 }
