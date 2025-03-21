@@ -1,10 +1,11 @@
 import { createLogger } from '@aztec/foundation/log';
-import initACVM, { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
+import initACVM, { type ExecutionError, executeCircuit } from '@aztec/noir-acvm_js';
 import initAbi from '@aztec/noir-noirc_abi';
-import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
-import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
+import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
+import type { WitnessMap } from '@aztec/noir-types';
+import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 
-import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
+import { type ACIRCallback, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, enrichNoirError } from './simulation_provider.js';
 
@@ -21,49 +22,41 @@ export class WASMSimulator implements SimulationProvider {
     }
   }
 
-  async executeProtocolCircuit(
-    input: ACVMWitness,
-    artifact: NoirCompiledCircuitWithName,
-    callback: ForeignCallHandler,
-  ): Promise<ACVMWitness> {
-    this.log.debug('init', { hash: artifact.hash });
+  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
+    this.log.debug('init', { hash: compiledCircuit.hash });
     await this.init();
-
+    // Execute the circuit on those initial witness values
+    //
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-    const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
+    const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
     //
     // Execute the circuit
     try {
-      const result = await executeCircuit(
+      const _witnessMap = await executeCircuit(
         decodedBytecode,
         input,
-        callback, // handle calls to debug_log
+        foreignCallHandler, // handle calls to debug_log
       );
-      this.log.debug('execution successful', { hash: artifact.hash });
-      return result;
+      this.log.debug('execution successful', { hash: compiledCircuit.hash });
+      return _witnessMap;
     } catch (err) {
-      // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
-      // assertion payload.
+      // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        const parsed = enrichNoirError(artifact, err as ExecutionError);
+        const parsed = enrichNoirError(compiledCircuit, err as ExecutionError);
         this.log.debug('execution failed', {
-          hash: artifact.hash,
+          hash: compiledCircuit.hash,
           error: parsed,
           message: parsed.message,
         });
         throw parsed;
       }
-      this.log.debug('execution failed', { hash: artifact.hash, error: err });
+      this.log.debug('execution failed', { hash: compiledCircuit.hash, error: err });
       throw new Error(`Circuit execution failed: ${err}`);
     }
   }
 
-  async executeUserCircuit(
-    input: ACVMWitness,
-    artifact: FunctionArtifactWithContractName,
-    callback: ACIRCallback,
-  ): Promise<ACIRExecutionResult> {
+  async executeUserCircuit(acir: Buffer, initialWitness: ACVMWitness, callback: ACIRCallback) {
     await this.init();
-    return acvm(artifact.bytecode, input, callback);
+    return acvm(acir, initialWitness, callback);
   }
 }

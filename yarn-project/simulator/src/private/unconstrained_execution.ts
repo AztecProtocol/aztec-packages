@@ -1,11 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import {
-  type AbiDecoded,
-  type FunctionArtifactWithContractName,
-  type FunctionSelector,
-  decodeFromAbi,
-} from '@aztec/stdlib/abi';
+import { type AbiDecoded, type FunctionArtifact, type FunctionSelector, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
@@ -21,7 +16,7 @@ import type { UnconstrainedExecutionOracle } from './unconstrained_execution_ora
 export async function executeUnconstrainedFunction(
   simulatorProvider: SimulationProvider,
   oracle: UnconstrainedExecutionOracle,
-  artifact: FunctionArtifactWithContractName,
+  artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   args: Fr[],
@@ -32,9 +27,10 @@ export async function executeUnconstrainedFunction(
     selector: functionSelector,
   });
 
+  const acir = artifact.bytecode;
   const initialWitness = toACVMWitness(0, args);
   const acirExecutionResult = await simulatorProvider
-    .executeUserCircuit(initialWitness, artifact, new Oracle(oracle))
+    .executeUserCircuit(acir, initialWitness, new Oracle(oracle))
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(

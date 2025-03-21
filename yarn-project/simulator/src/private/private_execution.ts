@@ -3,12 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import {
-  type FunctionArtifact,
-  type FunctionArtifactWithContractName,
-  type FunctionSelector,
-  countArgumentsSize,
-} from '@aztec/stdlib/abi';
+import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -30,18 +25,19 @@ import type { SimulationProvider } from './providers/simulation_provider.js';
 export async function executePrivateFunction(
   simulator: SimulationProvider,
   privateExecutionOracle: PrivateExecutionOracle,
-  artifact: FunctionArtifactWithContractName,
+  artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   log = createLogger('simulator:private_execution'),
 ): Promise<PrivateCallExecutionResult> {
   const functionName = await privateExecutionOracle.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
+  const acir = artifact.bytecode;
   const initialWitness = privateExecutionOracle.getInitialWitness(artifact);
   const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator
-    .executeUserCircuit(initialWitness, artifact, acvmCallback)
+    .executeUserCircuit(acir, initialWitness, acvmCallback)
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(
@@ -83,7 +79,7 @@ export async function executePrivateFunction(
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
   return new PrivateCallExecutionResult(
-    artifact.bytecode,
+    acir,
     Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,

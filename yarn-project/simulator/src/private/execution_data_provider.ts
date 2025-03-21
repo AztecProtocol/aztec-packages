@@ -1,5 +1,5 @@
 import type { Fr, Point } from '@aztec/foundation/fields';
-import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
+import type { FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -83,10 +83,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param selector - The corresponding function selector.
    * @returns A Promise that resolves to a FunctionArtifact object.
    */
-  getFunctionArtifact(
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithContractName>;
+  getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact>;
 
   /**
    * Generates a stable function name for debug purposes.

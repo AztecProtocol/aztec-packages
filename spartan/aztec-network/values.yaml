@@ -235,6 +235,7 @@ bot:
   followChain: "NONE"
   botNoStart: false
   feePaymentMethod: "fee_juice"
+  ammTxs: false
   maxErrors: 3
   stopIfUnhealthy: true
   service:

@@ -1,0 +1,6 @@
+MintTest
+├── when the caller is not a minter
+│   └── it reverts
+└── when the caller is a minter
+    ├── it mints the amount to _to
+    └── it emits a Transfer event
