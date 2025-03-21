@@ -762,7 +762,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
       const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers, recipient);
-
       nullifiedNotes.forEach(noteDao => {
         this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,
