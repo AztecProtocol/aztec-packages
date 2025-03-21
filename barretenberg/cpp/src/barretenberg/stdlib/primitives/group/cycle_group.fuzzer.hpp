@@ -1418,7 +1418,6 @@ template <typename Builder> class CycleGroupBase {
 
             ExecutionHandler result;
 
-                second_index, first_index, stack, "Selecting #" + std::to_string(!predicate) + " from", ", ")
 #ifdef SHOW_INFORMATION
             PREP_TWO_ARG(stack, first_index, second_index, output_index)
             std::cout << out << " = cycle_group_t::conditional_assign(";
