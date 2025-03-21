@@ -15,9 +15,7 @@ class TranslatorProvingKey {
     using CommitmentKey = typename Flavor::CommitmentKey;
 
     size_t mini_circuit_dyadic_size;
-    size_t mini_size_premasking;
     size_t dyadic_circuit_size;
-    size_t size_premasking;
     std::shared_ptr<ProvingKey> proving_key;
 
     BF batching_challenge_v = { 0 };
@@ -32,8 +30,6 @@ class TranslatorProvingKey {
 
     {
         proving_key->polynomials = Flavor::ProverPolynomials(mini_circuit_dyadic_size);
-        mini_size_premasking = mini_circuit_dyadic_size - MASKING_OFFSET;
-        size_premasking = (mini_circuit_dyadic_size - MASKING_OFFSET) * Flavor::INTERLEAVING_GROUP_SIZE;
     }
 
     TranslatorProvingKey(const Circuit& circuit, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
@@ -70,7 +66,6 @@ class TranslatorProvingKey {
 
         // Construct polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
         // polynomials at second and second to last indices in the minicircuit
-        // WORKTODO add the required positional lagranges
         compute_lagrange_polynomials();
 
         // Construct the extra range constraint numerator which contains all the additional values in the ordered range
@@ -81,28 +76,11 @@ class TranslatorProvingKey {
         // Construct the polynomials resulted from interleaving the small polynomials in each group
         // This is fine in terms of masking
         // This ends up with the random values
-        compute_interleaved_polynomials(); // this will be masked
+        compute_interleaved_polynomials();
 
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
         // bridge the range from 0 to 3 (3 is the maximum allowed range defined by the range constraint).
         compute_translator_range_constraint_ordered_polynomials();
-
-        // finalise masking
-        for (size_t i = 0; i < Flavor::NUM_INTERLEAVED_WIRES; i++) {
-            auto& interleaved = proving_key->polynomials.get_interleaved()[i];
-            auto& ordered = proving_key->polynomials.get_ordered_constraints()[i];
-            for (size_t j = size_premasking; j < dyadic_circuit_size; j++) {
-                ordered.at(j) = interleaved.at(j);
-            }
-        }
-
-        auto& extra_numerator = proving_key->polynomials.ordered_extra_range_constraints_numerator;
-        auto& ordered = proving_key->polynomials.ordered_range_constraints_4;
-        for (size_t j = size_premasking; j < dyadic_circuit_size; j++) {
-            FF masking_element = FF::random_element();
-            ordered.at(j) = masking_element;
-            extra_numerator.at(j) = masking_element;
-        }
     };
 
     inline void compute_dyadic_circuit_size()

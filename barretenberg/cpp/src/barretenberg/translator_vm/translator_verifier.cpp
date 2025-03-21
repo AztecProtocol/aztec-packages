@@ -80,8 +80,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    FF beta = transcript->template get_challenge<FF>("beta");
     // Get permutation challenges
+    FF beta = transcript->template get_challenge<FF>("beta");
     FF gamma = transcript->template get_challenge<FF>("gamma");
 
     relation_parameters.beta = beta;

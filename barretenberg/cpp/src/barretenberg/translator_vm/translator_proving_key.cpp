@@ -121,7 +121,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 
         // Calculate how much space there is for values from the group polynomials given we also need to append the
         // additional steps
-        auto free_space_before_runway = size_premasking - sorted_elements_count;
+        auto free_space_before_runway = real_circuit_size - sorted_elements_count;
 
         // Calculate the starting index of this group's overflowing elements in the extra denominator polynomial
         size_t extra_denominator_offset = i * sorted_elements_count;
@@ -178,7 +178,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 #else
     std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator_uint.end());
 #endif
-    ASSERT(extra_denominator_uint.size() == size_premasking);
+    ASSERT(extra_denominator_uint.size() == real_circuit_size);
 
     // Copy the values into the actual polynomial
     proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);

@@ -32,7 +32,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
 
     // Fill relation parameters
     RelationParameters<FF> params;
-
     params.gamma = gamma;
     params.beta = beta;
 
@@ -684,7 +683,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     }
     vector_for_sorting[sorted_elements_count - 1] = max_value;
 
-    // Add random values to fill the leftover space
+    // Add random values in the appropriate range to fill the leftover space
     for (size_t i = sorted_elements_count; i < real_circuit_size; i++) {
         vector_for_sorting.emplace_back(engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1));
     }
@@ -699,6 +698,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     // Sort the vector
     std::sort(vector_for_sorting.begin(), vector_for_sorting.end());
 
+    // Add masking values
     for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
         vector_for_sorting.emplace_back(FF::random_element());
     }
@@ -773,7 +773,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     key.compute_extra_range_constraint_numerator();
     key.compute_translator_range_constraint_ordered_polynomials(true);
 
-    // Populate the ordered polynomials with the random values from the interleaved polynomials
+    // Populate the first 4 ordered polynomials with the random values from the interleaved polynomials
     for (size_t i = 0; i < 4; i++) {
         auto& ordered = prover_polynomials.get_ordered_constraints()[i];
         auto& interleaved = prover_polynomials.get_interleaved()[i];
@@ -782,7 +782,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
         }
     }
 
-    ASSERT(prover_polynomials.ordered_range_constraints_4.at(real_circuit_size - 1) != FF(0));
+    // Populate the last ordered range constraint and the extra polynomial in the numerator with random values
     for (size_t i = real_circuit_size; i < full_circuit_size; i++) {
         FF random_value = FF::random_element();
         prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = random_value;

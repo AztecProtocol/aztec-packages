@@ -263,7 +263,6 @@ template <typename Fr> class Polynomial {
      */
     void mask()
     {
-        // NB also that we don't overwrite elements
         // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
         ASSERT(virtual_size() >= MASKING_OFFSET);
         ASSERT(virtual_size() == end_index());
