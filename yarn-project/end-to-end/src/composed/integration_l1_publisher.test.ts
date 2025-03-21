@@ -100,6 +100,7 @@ describe('L1Publisher integration', () => {
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
+  let version: number;
 
   let ethCheatCodes: EthCheatCodesWithState;
   let worldStateSynchronizer: ServerWorldStateSynchronizer;
@@ -231,6 +232,7 @@ describe('L1Publisher integration', () => {
 
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || (await AztecAddress.random());
+    version = config.version ?? 1;
 
     const fork = await worldStateSynchronizer.fork();
 
@@ -253,7 +255,7 @@ describe('L1Publisher integration', () => {
     makeBloatedProcessedTx({
       header: prevHeader,
       chainId: fr(chainId),
-      version: fr(config.version),
+      version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
@@ -422,7 +424,7 @@ describe('L1Publisher integration', () => {
 
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
-          new Fr(config.version),
+          new Fr(version),
           new Fr(1 + i),
           new Fr(slot),
           new Fr(timestamp),
@@ -559,7 +561,7 @@ describe('L1Publisher integration', () => {
       const timestamp = await rollup.getTimestampForSlot(slot);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
-        new Fr(config.version),
+        new Fr(version),
         new Fr(1),
         new Fr(slot),
         new Fr(timestamp),
