@@ -160,7 +160,7 @@ export class ProverNodePublisher {
     }
 
     // Check the block hash and archive for the immediate block before the epoch
-    const blockLog = await this.rollupContract.getBlock(proven);
+    const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
     if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
       throw new Error(
         `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,

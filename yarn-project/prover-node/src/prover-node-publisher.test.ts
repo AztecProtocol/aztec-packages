@@ -123,31 +123,47 @@ describe('prover-node-publisher', () => {
   test.each(testCases)(
     'submits proof for epoch with pendingBlock: $pendingBlockNumber, provenBlock: $provenBlockNumber, fromBlock: $fromBlock, toBlock: $toBlock',
     async ({ pendingBlockNumber, provenBlockNumber, fromBlock, toBlock, expectedPublish, message }) => {
-      const publicInputs = RootRollupPublicInputs.random();
+      // Create proofs for every block, to reference as previous archives
+      const blocks = Array.from({ length: 100 }, () => {
+        const publicInputs = RootRollupPublicInputs.random();
+        return {
+          publicInputs,
+          proof: Proof.empty(),
+        };
+      });
+
+      // Return the tips specified by the test
       rollup.getTips.mockResolvedValue({
         pendingBlockNumber,
         provenBlockNumber,
       });
-      rollup.getBlock.mockResolvedValueOnce({
-        blockHash: publicInputs.previousBlockHash.toString(),
-        archive: publicInputs.previousArchive.root.toString(),
-        slotNumber: provenBlockNumber - 1n,
-      });
-      rollup.getBlock.mockResolvedValueOnce({
-        blockHash: publicInputs.endBlockHash.toString(),
-        archive: publicInputs.endArchive.root.toString(),
-        slotNumber: pendingBlockNumber - 2n,
-      });
+
+      // Return the requested block
+      rollup.getBlock.mockImplementation((blockNumber: bigint) =>
+        Promise.resolve({
+          blockHash: blocks[Number(blockNumber) - 1].publicInputs.endBlockHash.toString(),
+          archive: blocks[Number(blockNumber) - 1].publicInputs.endArchive.root.toString(),
+          slotNumber: 0n, // unused,
+        }),
+      );
+
+      const ourLastBlock = blocks[toBlock - 1];
+      const publicInputs = ourLastBlock.publicInputs;
+      publicInputs.previousBlockHash = blocks[fromBlock - 2]?.publicInputs.endBlockHash ?? Fr.ZERO;
+      publicInputs.previousArchive = blocks[fromBlock - 2]?.publicInputs.endArchive ?? Fr.ZERO;
+      const proof = ourLastBlock.proof;
+
+      // Return our public inputs
       const totalFields = publicInputs.toFields().concat(times(AGGREGATION_OBJECT_LENGTH, Fr.zero));
       rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields.map(x => x.toString()));
 
       const result = await publisher
         .submitEpochProof({
-          epochNumber: 1,
+          epochNumber: 2,
           fromBlock,
           toBlock,
           publicInputs,
-          proof: Proof.empty(),
+          proof,
         })
         .then(() => 'Success')
         .catch(error => error.message);
