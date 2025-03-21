@@ -747,13 +747,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      this.log.debug(`Checking ${nullifiersToCheck.length} nullifiers for recipient ${recipient}`);
       const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
         'latest',
         MerkleTreeId.NULLIFIER_TREE,
         nullifiersToCheck,
       );
-      this.log.debug(`Found ${nullifierIndexes.length} nullifiers for recipient ${recipient}`);
 
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {
@@ -763,7 +761,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         })
         .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-      this.log.debug(`Removing ${foundNullifiers.length} nullifiers for recipient ${recipient}`);
       const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers, recipient);
 
       nullifiedNotes.forEach(noteDao => {
