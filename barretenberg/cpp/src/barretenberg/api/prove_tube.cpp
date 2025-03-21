@@ -25,7 +25,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     init_grumpkin_crs(1 << 18);
 
     // Read the proof  and verification data from given files
-    auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
+    auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
     // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
