@@ -90,10 +90,9 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 
     // Number of elements needed to go from 0 to MAX_VALUE with our step
     constexpr size_t sorted_elements_count = (max_value / sort_step) + 1 + (max_value % sort_step == 0 ? 0 : 1);
-    info("sorted element count in ordering ", sorted_elements_count);
 
     // Check if we can construct these polynomials
-    ASSERT((num_interleaved_wires + 1) * sorted_elements_count < full_circuit_size - full_masking_offset);
+    ASSERT((num_interleaved_wires + 1) * sorted_elements_count < real_circuit_size);
 
     // First use integers (easier to sort)
     std::vector<size_t> sorted_elements(sorted_elements_count);
@@ -130,7 +129,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * (mini_circuit_dyadic_size - MASKING_OFFSET);
+            auto current_offset = j * (mini_circuit_dyadic_size - mini_masking_offset);
             // For each element in the polynomial
             for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_masking_offset; k++) {
 
@@ -140,7 +139,8 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 
                     // Or in the extra one if there is no space left
                 } else {
-                    extra_denominator_uint[extra_denominator_offset] = static_cast<uint32_t>(uint256_t(group[j][k]));
+                    extra_denominator_uint[extra_denominator_offset] =
+                        static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
                     extra_denominator_offset++;
                 }
             }

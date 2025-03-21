@@ -560,7 +560,6 @@ class TranslatorFlavor {
                              this->ordered_range_constraints_4 };
         };
 
-        // Gemini-specific getters.
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
