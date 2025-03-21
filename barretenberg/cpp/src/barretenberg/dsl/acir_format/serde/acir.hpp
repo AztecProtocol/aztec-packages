@@ -130,11 +130,11 @@ struct BinaryFieldOp {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -362,11 +362,11 @@ struct BinaryIntOp {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -528,11 +528,11 @@ struct IntegerBitSize {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -635,11 +635,11 @@ struct BitSize {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -748,11 +748,11 @@ struct MemoryAddress {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -1138,11 +1138,11 @@ struct BlackBoxOp {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -1415,11 +1415,11 @@ struct HeapValueType {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -1569,11 +1569,11 @@ struct ValueOrArray {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -1989,11 +1989,11 @@ struct BrilligOpcode {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -2302,11 +2302,11 @@ struct ConstantOrWitnessEnum {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -2726,11 +2726,11 @@ struct BlackBoxFuncCall {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -3048,11 +3048,11 @@ struct BlockType {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -3200,11 +3200,11 @@ struct BrilligInputs {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -3330,11 +3330,11 @@ struct BrilligOutputs {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -3528,11 +3528,11 @@ struct Opcode {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -3688,11 +3688,11 @@ struct ExpressionOrMemory {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -3798,11 +3798,11 @@ struct ExpressionWidth {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
@@ -3902,11 +3902,11 @@ struct OpcodeLocation {
         std::visit(
             [&packer, tag, is_unit](const auto& arg) {
                 if (is_unit) {
+                    packer.pack(tag);
+                } else {
                     std::map<std::string, msgpack::object> data;
                     data[tag] = msgpack::object(arg);
                     packer.pack(data);
-                } else {
-                    packer.pack(tag);
                 }
             },
             value);
