@@ -194,6 +194,9 @@ export class AccountManager {
    * Returns a FeePaymentMethod that routes the original one provided as an argument
    * through the account's entrypoint. This allows an account contract to pay
    * for its own deployment and initialization.
+   *
+   * For more details on how the fee payment routing works see documentation of AccountEntrypointMetaPaymentMethod class.
+   *
    * @param originalPaymentMethod - originalPaymentMethod The original payment method to be wrapped.
    * @returns A FeePaymentMethod that routes the original one through the account's entrypoint (AccountEntrypointMetaPaymentMethod)
    */
