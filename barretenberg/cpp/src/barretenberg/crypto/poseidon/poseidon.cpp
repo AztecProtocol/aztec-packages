@@ -1,30 +1,17 @@
 #include "./poseidon.hpp"
-#include "./poseidon_params.hpp"
-#include "./poseidon_permutation.hpp"
-#include "../poseidon2/sponge/sponge.hpp"
 
 namespace bb::crypto {
-
-template <typename Params> class Poseidon {
-  public:
-    using FF = typename Params::FF;
-
-    using Sponge = FieldSponge<FF, Params::t - 1, 1, Params::t, PoseidonPermutation<Params>>;
-
-    static FF hash(const std::vector<FF>& input);
-
-    static FF hash_buffer(const std::vector<uint8_t>& input);
-};
-
-extern template class Poseidon<PoseidonStark252BaseFieldParams>;
 
 template <typename Params>
 typename Poseidon<Params>::FF Poseidon<Params>::hash(const std::vector<typename Poseidon<Params>::FF>& input)
 {
-    std::vector<FF> modified_input = { FF(1), FF(0) };
-    modified_input.insert(modified_input.end(), input.begin(), input.end());
-    FF iv = FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")); // "StarknetHonk"
-    return Sponge::hash_internal(modified_input, iv);
+    return Sponge::hash_internal(input);
+}
+
+template <typename Params>
+typename Poseidon<Params>::FF Poseidon<Params>::hash(const std::vector<typename Poseidon<Params>::FF>& input, FF iv)
+{
+    return Sponge::hash_internal(input, iv);
 }
 
 template <typename Params>
@@ -73,12 +60,17 @@ PoseidonHash poseidon_stark252(const std::vector<uint8_t>& input)
     using FF = Permutation::FF;
 
     //size_t elem_count = input.size() / 32;
-    //std::vector<FF> elems(2 * elem_count);
+    //std::vector<FF> elems(2 * (1 + elem_count));
+
+    //elems[0] = FF(1);
+    //elems[1] = FF(0);
+
+    FF iv = FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")); // "StarknetHonk" 
 
     State state = {
       FF(1),
       FF(0),
-      FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")), // "StarknetHonk"
+      iv,
     };
 
     state = Permutation::permutation(state);
@@ -95,8 +87,8 @@ PoseidonHash poseidon_stark252(const std::vector<uint8_t>& input)
         FF limb0 = from_buffer<FF>(limb_lo);
         FF limb1 = from_buffer<FF>(limb_hi);
 
-        //elems[2 * k + 0] = limb0;
-        //elems[2 * k + 1] = limb1;
+        //elems[2 * (1 + k) + 0] = limb0;
+        //elems[2 * (1 + k) + 1] = limb1;
 
         state[0] += limb0;
         state[1] += limb1;
@@ -105,7 +97,7 @@ PoseidonHash poseidon_stark252(const std::vector<uint8_t>& input)
     }
 
     //FF output1 = Poseidon<PoseidonStark252BaseFieldParams>::hash_buffer(input);
-    //FF output2 = Poseidon<PoseidonStark252BaseFieldParams>::hash(elems);
+    //FF output2 = Poseidon<PoseidonStark252BaseFieldParams>::hash(elems, iv);
     //std::cout << output1 << std::endl;
     //std::cout << output2 << std::endl;
     //std::cout << state[0] << std::endl;
