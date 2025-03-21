@@ -10,7 +10,8 @@ import {
 } from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import type { Fieldable } from '@aztec/foundation/serialize';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
@@ -28,6 +29,7 @@ import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { NativeWorldStateService } from '@aztec/world-state';
 
+import { strict as assert } from 'assert';
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
@@ -42,6 +44,7 @@ import {
   getAvmGadgetsTestContractBytecode,
   getAvmTestContractArtifact,
   getAvmTestContractBytecode,
+  getContractFunctionArtifact,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
@@ -51,6 +54,7 @@ import {
   randomMemoryFields,
   randomMemoryUint64s,
   resolveAvmTestContractAssertionMessage,
+  resolveContractAssertionMessage,
 } from './fixtures/index.js';
 import { SimpleContractDataSource } from './fixtures/simple_contract_data_source.js';
 import type { AvmPersistableStateManager } from './journal/journal.js';
@@ -1267,6 +1271,29 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(trace.tracePublicStorageWrite).toHaveBeenCalledWith(address, slot0, value0, false);
       });
     });
+  });
+
+  it('should be able to execute contracts that only have private functions', async () => {
+    const context = initContext({ env: initExecutionEnvironment({ calldata: [] }) });
+
+    // Counter contract is a private only contract (no public functions)
+    const counterDispatch = getContractFunctionArtifact(
+      'public_dispatch',
+      CounterContract.artifact,
+    ) as FunctionArtifact;
+    assert(!!counterDispatch?.bytecode);
+    const results = await new AvmSimulator(context).executeBytecode(counterDispatch.bytecode);
+
+    expect(results.reverted).toBe(true);
+    expect(results.revertReason).toBeDefined();
+    expect(
+      resolveContractAssertionMessage(
+        'public_dispatch',
+        results.revertReason!,
+        results.output,
+        CounterContract.artifact,
+      ),
+    ).toMatch('No public functions');
   });
 });
 
