@@ -4,7 +4,7 @@
 
 namespace acir_format {
 
-std::optional<msgpack::object> maybe_buf_to_msgpack(std::vector<uint8_t> const& buf);
+bool is_buf_msgpack(std::vector<uint8_t> const& buf);
 Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf);
 Witnesses::WitnessStack witness_buf_to_witness(std::vector<uint8_t> const& buf);
 
