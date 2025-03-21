@@ -1,16 +1,7 @@
-import {
-  type AztecAddress,
-  EthAddress,
-  ProvenTx,
-  Tx,
-  TxReceipt,
-  TxStatus,
-  elapsed,
-  waitForProven,
-} from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, ProvenTx, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
-import { randomBytes } from '@aztec/foundation/crypto';
+// import { randomBytes } from '@aztec/foundation/crypto';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import type { FieldsOf } from '@aztec/foundation/types';
