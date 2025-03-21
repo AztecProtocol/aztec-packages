@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742557031817,
+  "lastUpdate": 1742560112069,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "db3d860992eae972c8f7d1db2daf66673d83fb4b",
-          "message": "chore: silence circuit return values in CI (#11259)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
-          "timestamp": "2025-01-16T14:12:13Z",
-          "tree_id": "1ad8c2f92bc3b9684c3ea6490b2a5f513e71b80d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/db3d860992eae972c8f7d1db2daf66673d83fb4b"
-        },
-        "date": 1737038112111,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 4564,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 3.4297316577950943,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 643910,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 131138,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7aa0b871bb154ad50cb4643bae0879d89244f784",
+          "message": "fix: pass bot salt (#12923)\n\nPass deployment salt for the bot's account contract based on the its pod\nname. (This way we can have multiple bots all producing private txs)",
+          "timestamp": "2025-03-21T11:56:10Z",
+          "tree_id": "8eb2656a7b0c3e8945c741f701f5852dc442b313",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7aa0b871bb154ad50cb4643bae0879d89244f784"
+        },
+        "date": 1742560111282,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9456,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2404891934978456,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 132321,
             "unit": "us"
           }
         ]
