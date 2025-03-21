@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742589293007,
+  "lastUpdate": 1742589984995,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b933222cb2d2ae7b4fd8258e20960f913074905f",
-          "message": "fix: revert \"refactor: `CommitmentsDB` interface cleanup (#12695)\" (#12723)\n\nThis reverts commit 43f54da6d3f261cf8f577b1386b92f65b0b1e65f, from\nmerging #12695.",
-          "timestamp": "2025-03-13T16:03:57Z",
-          "tree_id": "0f657ba3870a8956a3ef52a007dc0b0fdb992f92",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b933222cb2d2ae7b4fd8258e20960f913074905f"
-        },
-        "date": 1741883853527,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18129.133349000083,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16064.721085000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18627.005855000105,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16098.183690999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3855.6125560000964,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3085.209272 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 54808.452619,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 54808453000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10597.556953999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10597562000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1612265018,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1612265018 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 231102617,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 231102617 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2209.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3264,6 +3192,84 @@ window.BENCHMARK_DATA = {
             "value": 13293,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "397144f93b72ea7fdbddc7251e3fd3cef8672652",
+          "message": "fix: no hardcoded versions in bbup (#12944)\n\nI've updated bbup to pull the version of bb to install for a given noir\nversion from a json file in aztec-packages (previously it would read\nsome file inside of the noir repo at the given release tag of noir that\nthey have installed.\n\nWe can then update this in future without needing to migrate people onto\nnew versions of bbup.",
+          "timestamp": "2025-03-21T20:35:32Z",
+          "tree_id": "076d83003542592699f9b338ba04ba2d6b26fbe6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/397144f93b72ea7fdbddc7251e3fd3cef8672652"
+        },
+        "date": 1742589977406,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17027.95696699991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15221.162809000001 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117850042675.9,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1441807793,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201721424,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 17622.93710500012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15291.272468000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 46003.901425,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 46003901000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3067.263771000171,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 2906.68655 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 8149.405669999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 8149406000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
