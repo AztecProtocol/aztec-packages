@@ -35,7 +35,7 @@ import {
   convertRootRollupOutputsFromWitnessMap,
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
-  getSimulatedServerCircuitArtifact,
+  getServerCircuitArtifact,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { WitnessMap } from '@aztec/noir-types';
@@ -411,7 +411,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       outputWitnessFile,
     );
 
-    const artifact = getSimulatedServerCircuitArtifact(circuitType);
+    const artifact = getServerCircuitArtifact(circuitType);
 
     logger.debug(`Generating witness data for ${circuitType}`);
 
