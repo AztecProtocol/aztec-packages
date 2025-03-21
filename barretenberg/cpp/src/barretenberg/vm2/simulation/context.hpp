@@ -30,7 +30,7 @@ class ContextInterface {
     virtual bool halted() const = 0;
     virtual void halt() = 0;
 
-    virtual uint32_t get_context_id() = 0;
+    virtual uint32_t get_context_id() const = 0;
 
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
@@ -53,11 +53,11 @@ class BaseContext : public ContextInterface {
                 bool is_static,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
                 std::unique_ptr<MemoryInterface> memory)
-        : context_id(context_id)
-        , address(address)
+        : address(address)
         , msg_sender(msg_sender)
         , calldata(calldata.begin(), calldata.end())
         , is_static(is_static)
+        , context_id(context_id)
         , bytecode(std::move(bytecode))
         , memory(std::move(memory))
     {}
@@ -74,7 +74,7 @@ class BaseContext : public ContextInterface {
     bool halted() const override { return has_halted; }
     void halt() override { has_halted = true; }
 
-    uitn32_t get_context_id() const override { return context_id; }
+    uint32_t get_context_id() const override { return context_id; }
 
     // Environment.
     const AztecAddress& get_address() const override { return address; }
@@ -83,8 +83,8 @@ class BaseContext : public ContextInterface {
     bool get_is_static() const override { return is_static; }
 
     // Event Emitting
-    void emit_context_snapshot(){};
-    void emit_current_context(){};
+    void emit_context_snapshot() override{};
+    void emit_current_context() override{};
 
   private:
     // Environment.
@@ -114,7 +114,7 @@ class EnqueuedCallContext : public BaseContext {
                         bool is_static,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory)
-        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+        : BaseContext(context_id, address, msg_sender, calldata, is_static, std::move(bytecode), std::move(memory))
     {}
 };
 
@@ -127,7 +127,7 @@ class NestedContext : public BaseContext {
                   bool is_static,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory)
-        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
+        : BaseContext(context_id, address, msg_sender, calldata, is_static, std::move(bytecode), std::move(memory))
     {}
-}
+};
 } // namespace bb::avm2::simulation
