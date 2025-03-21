@@ -2,7 +2,7 @@
 title: Getting Started
 hide_title: true
 description: Barretenberg is a high-performance zero-knowledge proof system implementation written in C++. It serves as the cryptographic engine powering Aztec's privacy-focused blockchain solutions. The system includes efficient implementations of key cryptographic primitives, constraint system construction, and proof generation optimized for modern hardware.
-keywords: 
+keywords:
     [zero-knowledge proofs, ZK proofs, cryptography, blockchain, privacy, Aztec, C++, PLONK, arithmetic circuits, constraint systems, elliptic curves, performance optimization, zkSNARKs, zero-knowledge]
 sidebar_position: 1
 ---
@@ -22,7 +22,7 @@ curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/head
 bbup
 ```
 
-Following these prompts, you should be able to see `bb` binary in `$HOME/.bb/bb`. 
+Following these prompts, you should be able to see `bb` binary in `$HOME/.bb/bb`.
 
 ## Usage
 

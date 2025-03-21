@@ -8,8 +8,7 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
-      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
+    $(find docs -type f -name "*.md" | sort | xargs cat | sha256sum | awk '{ print $1 }')
 )
 
 if semver check $REF_NAME; then
