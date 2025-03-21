@@ -329,8 +329,7 @@ describe('full_prover', () => {
             ),
             ClientIvcProof.random(),
             provenTx.contractClassLogs,
-            provenTx.enqueuedPublicFunctionCalls,
-            provenTx.publicTeardownFunctionCall,
+            provenTx.publicFunctionCalldata,
           ),
         );
 
