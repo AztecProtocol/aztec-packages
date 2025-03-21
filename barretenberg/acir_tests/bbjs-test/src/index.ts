@@ -13,7 +13,7 @@ const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_FIELD;
 
 const proofPath = (dir: string) => path.join(dir, "proof");
 const publicInputsAsFieldsPath = (dir: string) =>
-  path.join(dir, "public_inputs_as_fields.json");
+  path.join(dir, "public_inputs_fields.json");
 const vkeyPath = (dir: string) => path.join(dir, "vk");
 
 async function generateProof({
