@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742584231135,
+  "lastUpdate": 1742589290985,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "critesjosh@gmail.com",
-            "name": "josh crites",
-            "username": "critesjosh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a8fefc8d7d84630b1cebc8a3c19af60fee6e0cbb",
-          "message": "fix(docs): Remove @aztec/types from token bridge tutorial deps (#12700)\n\nThe @aztec/types dependency is no longer needed for the token bridge\ntutorial",
-          "timestamp": "2025-03-13T15:36:20+04:00",
-          "tree_id": "40b61b04ba5a282e3874e22ea0bacfb8ed53b0c0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a8fefc8d7d84630b1cebc8a3c19af60fee6e0cbb"
-        },
-        "date": 1741870242539,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18049.184637000053,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16029.003297000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18624.094542999956,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16286.422487 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3814.443310999877,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3079.11707 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55010.767123,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55010769000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10310.045288,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10310056000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1608351186,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 1608351186 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 211737889,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 211737889 ns\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2209.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3204,84 @@ window.BENCHMARK_DATA = {
             "value": 13321,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a016024b60b6b35946d899b3943a420b010b768",
+          "message": "feat: use msgpack for ClientIvc::Proof in API (#12911)\n\nSwitches to using msgpack for serialization/deserialization of a\nClientIVC::Proof, instead of our custom serialization lib.\n\nThis was motivated by the desire to gracefully handle (reject) invalid\nproof buffers (in the form of fully random bytes) in native\nverification. Our custom serialization library is not meant to handle a\nfully random buffer because it relies on 4-byte chunks containing size\ndata that indicate how much to read from an address. When the size bytes\nare corrupted, the code may attempt to read into uninitialized memory.\nMsgpack on the other hand will throw a meaningful and consistent error\nwhen the proof structure is not as expected. This results in\nverification failure by default.\n\nNote: if the proof has valid structure but is not itself valid,\nverification will proceed as normal and return failure in a time less\nthan or equal to that required for successful verification.\n\n---------\n\nCo-authored-by: PhilWindle <philip.windle@gmail.com>\nCo-authored-by: cody <codygunton@gmail.com>",
+          "timestamp": "2025-03-21T20:02:31Z",
+          "tree_id": "25c0caa77aef167d7c1fa6c708028ff6457b93ae",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a016024b60b6b35946d899b3943a420b010b768"
+        },
+        "date": 1742589283727,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18377.42336300016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16250.040685000002 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 117857147905.69998,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1585997818,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 212462355,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 18889.139067000087,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16266.897395 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50261.068602,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50261067000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3991.220455000075,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3101.4006249999998 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9683.995098000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9683997000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2217.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
