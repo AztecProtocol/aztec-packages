@@ -34,7 +34,6 @@ export class TokenContractTest {
     this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath, {
       metricsPort: metricsPort ? parseInt(metricsPort) : undefined,
-      realProofs: false,
     });
   }
 

@@ -55,9 +55,7 @@ export class CrossChainMessagingTest {
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath, {
-      realProofs: false,
-    });
+    this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath);
   }
 
   async assumeProven() {

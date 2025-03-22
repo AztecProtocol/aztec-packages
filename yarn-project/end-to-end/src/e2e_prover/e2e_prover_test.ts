@@ -93,8 +93,7 @@ export class FullProverTest {
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
-      // Set real proofs to false to start with, proving is enabled later
-      { startProverNode: true, fundRewardDistributor: true, coinbase, realProofs: false },
+      { startProverNode: true, fundRewardDistributor: true, coinbase },
       {},
     );
   }
