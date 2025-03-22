@@ -257,6 +257,10 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     _dispatcher.register_target(
         WorldStateMessageType::REVERT_CHECKPOINT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_checkpoint(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::COPY_STORES,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return copy_stores(obj, buffer); });
 }
 
 Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
@@ -820,6 +824,20 @@ bool WorldStateWrapper::get_status(msgpack::object& obj, msgpack::sbuffer& buf) 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusSummary> resp_msg(WorldStateMessageType::GET_STATUS, header, { status });
     msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::copy_stores(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<CopyStoresRequest> request;
+    obj.convert(request);
+
+    _ws->copy_stores(request.value.dstPath, request.value.compact.value_or(false));
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COPY_STORES, header, {});
+    msgpack::pack(buffer, resp_msg);
 
     return true;
 }
