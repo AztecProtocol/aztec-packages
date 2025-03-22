@@ -51,15 +51,16 @@ export async function deployContractsToL1(
   contractDeployLogger = logger,
   opts: { assumeProvenThroughBlockNumber?: number; salt?: number; genesisArchiveRoot?: Fr; genesisBlockHash?: Fr } = {},
 ) {
+  const l1RpcUrl = aztecNodeConfig.l1RpcUrls[0];
   const chain =
     aztecNodeConfig.l1RpcUrls.length > 0
-      ? createEthereumChain(aztecNodeConfig.l1RpcUrls, aztecNodeConfig.l1ChainId)
+      ? createEthereumChain([l1RpcUrl], aztecNodeConfig.l1ChainId)
       : { chainInfo: localAnvil };
 
   await waitForPublicClient(aztecNodeConfig);
 
   const l1Contracts = await deployL1Contracts(
-    aztecNodeConfig.l1RpcUrls,
+    [l1RpcUrl],
     hdAccount,
     chain.chainInfo,
     contractDeployLogger,
@@ -90,6 +91,8 @@ export type SandboxConfig = AztecNodeConfig & {
   noPXE: boolean;
   /** Whether to deploy test accounts on sandbox start.*/
   testAccounts: boolean;
+  /** Port for anvil to listen on. If not specified, a random port will be used.*/
+  anvilPort?: number;
 };
 
 /**
@@ -106,7 +109,20 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   if ((config.l1RpcUrls?.length || 0) > 1) {
     logger.warn(`Multiple L1 RPC URLs provided. Sandbox will only use the first one: ${l1RpcUrl}`);
   }
-  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
+
+  // If anvilPort is specified, update the l1RpcUrl to use that port
+  let effectiveL1RpcUrl = l1RpcUrl;
+  if (config.anvilPort) {
+    const url = new URL(l1RpcUrl);
+    url.port = config.anvilPort.toString();
+    effectiveL1RpcUrl = url.toString();
+  }
+
+  const aztecNodeConfig: AztecNodeConfig = {
+    ...getConfigEnvVars(),
+    ...config,
+    l1RpcUrls: [effectiveL1RpcUrl]
+  };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
@@ -148,15 +164,15 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
 
     const chain =
       aztecNodeConfig.l1RpcUrls.length > 0
-        ? createEthereumChain([l1RpcUrl], aztecNodeConfig.l1ChainId)
+        ? createEthereumChain([effectiveL1RpcUrl], aztecNodeConfig.l1ChainId)
         : { chainInfo: localAnvil };
 
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: fallback([httpViemTransport(l1RpcUrl)]) as any,
+      transport: fallback([httpViemTransport(effectiveL1RpcUrl)]) as any,
     });
 
-    watcher = new AnvilTestWatcher(new EthCheatCodes([l1RpcUrl]), l1ContractAddresses.rollupAddress, publicClient);
+    watcher = new AnvilTestWatcher(new EthCheatCodes([effectiveL1RpcUrl]), l1ContractAddresses.rollupAddress, publicClient);
     watcher.setIsSandbox(true);
     await watcher.start();
   }
