@@ -110,7 +110,7 @@ export class FeesTest {
     this.snapshotManager = createSnapshotManager(
       `e2e_fees/${testName}-${numberOfAccounts}`,
       dataPath,
-      { startProverNode: true, ...setupOptions },
+      { startProverNode: true, realProofs: false, ...setupOptions },
       { ...setupOptions },
     );
   }

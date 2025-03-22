@@ -71,7 +71,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     description: 'Enable real proofs',
-    ...booleanConfigHelper(),
+    ...booleanConfigHelper(true),
   },
 };
 

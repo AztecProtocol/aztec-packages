@@ -32,7 +32,7 @@ export class DeployTest {
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_deploy_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
+    this.snapshotManager = createSnapshotManager(`e2e_deploy_contract/${testName}`, dataPath, { realProofs: false });
   }
 
   async setup() {

@@ -97,6 +97,7 @@ export class P2PNetworkTest {
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 1,
+        realProofs: false,
       },
       {
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,

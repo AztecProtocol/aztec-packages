@@ -25,7 +25,9 @@ export class NestedContractTest {
 
   constructor(testName: string, private numberOfAccounts = 1) {
     this.logger = createLogger(`e2e:e2e_nested_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_nested_contract/${testName}-${numberOfAccounts}`, dataPath);
+    this.snapshotManager = createSnapshotManager(`e2e_nested_contract/${testName}-${numberOfAccounts}`, dataPath, {
+      realProofs: false,
+    });
   }
 
   /**

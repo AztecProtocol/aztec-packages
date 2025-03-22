@@ -75,7 +75,9 @@ export class BlacklistTokenContractTest {
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_blacklist_token_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_blacklist_token_contract/${testName}`, dataPath);
+    this.snapshotManager = createSnapshotManager(`e2e_blacklist_token_contract/${testName}`, dataPath, {
+      realProofs: false,
+    });
   }
 
   async mineBlocks(amount: number = BlacklistTokenContractTest.DELAY) {
