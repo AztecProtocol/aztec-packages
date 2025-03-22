@@ -36,7 +36,7 @@ async function generateProof({
   const backend = new UltraHonkBackend(bytecode, { threads: multiThreaded ? 8 : 1 });
 
   const witness = await fs.readFile(witnessPath);
-  const proof = await backend.generateProof(new Uint8Array(witness), { keccak: (oracleHash === "keccak") });
+  const proof = await backend.generateProof(new Uint8Array(witness), { keccak: (oracleHash === "keccak"), starknet: (oracleHash === "starknet") });
   assert(proof.proof.length === UH_PROOF_LENGTH_IN_BYTES, `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`);
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
@@ -45,7 +45,7 @@ async function generateProof({
   await fs.writeFile(publicInputsPath(outputDirectory), JSON.stringify(proof.publicInputs));
   debug("Public inputs written to " + publicInputsPath(outputDirectory));
 
-  const verificationKey = await backend.getVerificationKey({ keccak: (oracleHash === "keccak") });
+  const verificationKey = await backend.getVerificationKey({ keccak: (oracleHash === "keccak"), starknet: (oracleHash === "starknet") });
   await fs.writeFile(vkeyPath(outputDirectory), Buffer.from(verificationKey));
   debug("Verification key written to " + vkeyPath(outputDirectory));
 

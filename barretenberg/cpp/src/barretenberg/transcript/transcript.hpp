@@ -8,6 +8,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/crypto/poseidon/poseidon.hpp"
 #include <concepts>
 
 namespace bb {
@@ -568,5 +569,22 @@ struct KeccakTranscriptParams {
 };
 
 using KeccakTranscript = BaseTranscript<KeccakTranscriptParams>;
+
+inline bb::fr starknet_hash_uint256(std::vector<bb::fr> const& data)
+{
+    std::vector<uint8_t> buffer = to_buffer(data);
+
+    auto result = crypto::poseidon_stark252(buffer);
+
+    auto result_fr = from_buffer<bb::fr>(result);
+
+    return result_fr;
+}
+
+struct StarknetTranscriptParams : public KeccakTranscriptParams {
+    static inline Fr hash(const std::vector<Fr>& data) { return starknet_hash_uint256(data); }
+};
+
+using StarknetTranscript = BaseTranscript<StarknetTranscriptParams>;
 
 } // namespace bb
