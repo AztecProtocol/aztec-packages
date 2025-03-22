@@ -21,7 +21,7 @@ where
 
     // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
     // where the value gets decoded.
-    fields[0] = (PRIVATE_EVENT_LOG_TYPE_ID * 2.pow_32(64));
+    fields[0] = PRIVATE_EVENT_LOG_TYPE_ID as Field;
     for i in 0..serialized_event.len() {
         fields[i + 1] = serialized_event[i];
     }

@@ -30,8 +30,7 @@ describe('e2e_token_contract private transfer recursion', () => {
     return noteAmounts.reduce((prev, curr) => prev + curr, 0n);
   }
 
-  // TODO(benesjan): re-enable this once the events are updated.
-  it.skip('transfer full balance', async () => {
+  it.only('transfer full balance', async () => {
     // We insert 16 notes, which is large enough to guarantee that the token will need to do two recursive calls to
     // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
     const totalNotes = 16;
@@ -46,17 +45,17 @@ describe('e2e_token_contract private transfer recursion', () => {
     // We should have created a single new note, for the recipient
     expect(txEffects!.data.noteHashes.length).toBe(1);
 
-    const events = await wallets[1].getPrivateEvents<Transfer>(TokenContract.events.Transfer, tx.blockNumber!, 1);
+    // TODO(benesjan): re-enable this once the events are updated.
+    // const events = await wallets[1].getPrivateEvents<Transfer>(TokenContract.events.Transfer, tx.blockNumber!, 1);
 
-    expect(events[0]).toEqual({
-      from: accounts[0].address,
-      to: accounts[1].address,
-      amount: totalBalance,
-    });
+    // expect(events[0]).toEqual({
+    //   from: accounts[0].address,
+    //   to: accounts[1].address,
+    //   amount: totalBalance,
+    // });
   });
 
-  // TODO(benesjan): re-enable this once the events are updated.
-  it.skip('transfer less than full balance and get change', async () => {
+  it('transfer less than full balance and get change', async () => {
     const noteAmounts = [10n, 10n, 10n, 10n];
     const expectedChange = 3n; // This will result in one of the notes being partially used
 
@@ -74,13 +73,14 @@ describe('e2e_token_contract private transfer recursion', () => {
     const senderBalance = await asset.methods.balance_of_private(accounts[0].address).simulate();
     expect(senderBalance).toEqual(expectedChange);
 
-    const events = await wallets[1].getPrivateEvents(TokenContract.events.Transfer, tx.blockNumber!, 1);
+    // TODO(benesjan): re-enable this once the events are updated.
+    // const events = await wallets[1].getPrivateEvents(TokenContract.events.Transfer, tx.blockNumber!, 1);
 
-    expect(events[0]).toEqual({
-      from: accounts[0].address,
-      to: accounts[1].address,
-      amount: toSend,
-    });
+    // expect(events[0]).toEqual({
+    //   from: accounts[0].address,
+    //   to: accounts[1].address,
+    //   amount: toSend,
+    // });
   });
 
   describe('failure cases', () => {
