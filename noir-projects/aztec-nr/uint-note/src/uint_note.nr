@@ -1,6 +1,6 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
-    encrypted_logs::log_assembly_strategies::default_aes128,
+    encrypted_logs::{log_assembly_strategies::default_aes128, log_type::PARTIAL_NOTE_LOG_TYPE_ID},
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
     note::note_interface::{NoteHash, NoteType},
@@ -188,9 +188,9 @@ struct PrivateUintPartialNotePrivateLogContent {
 
 impl NoteType for PrivateUintPartialNotePrivateLogContent {
     fn get_id() -> Field {
-        // We abuse the fact that note type ids are 7 bits long to use the 8th bit indicate the log corresponds to a
-        // partial note. Ideally we'd use proper events with selectors, but those are not handled well at the moment.
-        UintNote::get_id() + 128
+        // The log type id is 1 to indicate this is a partial note log, and the log metadata is the note type id
+        // TODO: Mixing the log type id and note type id here is a hack and should be separated.
+        (PARTIAL_NOTE_LOG_TYPE_ID * 2.pow_32(64)) + UintNote::get_id()
     }
 }
 
