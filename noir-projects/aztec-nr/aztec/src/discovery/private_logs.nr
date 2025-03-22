@@ -1,13 +1,15 @@
 use crate::{
     discovery::{
         ComputeNoteHashAndNullifier, MAX_LOG_CONTENT_LEN,
-        partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
-        private_notes::process_private_note_log,
+        partial_notes::process_partial_note_private_log, private_events::process_private_event_log,
+        PRIVATE_LOG_EXPANDED_METADATA_LEN, private_notes::process_private_note_log,
     },
     encrypted_logs::{
         log_assembly_strategies::default_aes128::aes128::AES128,
         log_encryption::LogEncryption,
-        log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
+        log_type::{
+            PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_EVENT_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID,
+        },
         metadata_packing::from_expanded_metadata,
     },
     oracle::message_discovery::sync_notes,
@@ -84,6 +86,11 @@ pub unconstrained fn do_process_log<Env>(
         debug_log("Processing partial note private log");
 
         process_partial_note_private_log(contract_address, recipient, log_metadata, log_content);
+    } else if log_type_id == PRIVATE_EVENT_LOG_TYPE_ID {
+        debug_log("Processing private event log");
+
+        // Log metadata are currently not used by event logs.
+        process_private_event_log(contract_address, recipient, log_content);
     } else {
         // TODO(#11569): handle events
         debug_log_format(
