@@ -52,7 +52,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
-  getContractFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+  getDebugFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 

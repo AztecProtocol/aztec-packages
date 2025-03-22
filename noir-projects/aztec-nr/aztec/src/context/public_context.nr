@@ -84,9 +84,9 @@ impl PublicContext {
         args: [Field],
         gas_opts: GasOpts,
     ) -> [Field] {
-        let args = args.push_front(function_selector.to_field());
+        let calldata = args.push_front(function_selector.to_field());
 
-        call(gas_for_call(gas_opts), contract_address, args);
+        call(gas_for_call(gas_opts), contract_address, calldata);
         // Use success_copy to determine whether the call succeeded
         let success = success_copy();
 
@@ -105,9 +105,9 @@ impl PublicContext {
         args: [Field],
         gas_opts: GasOpts,
     ) -> [Field] {
-        let args = args.push_front(function_selector.to_field());
+        let calldata = args.push_front(function_selector.to_field());
 
-        call_static(gas_for_call(gas_opts), contract_address, args);
+        call_static(gas_for_call(gas_opts), contract_address, calldata);
         // Use success_copy to determine whether the call succeeded
         let success = success_copy();
 

@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
-import { getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import { getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasFees } from '@aztec/stdlib/gas';
@@ -68,26 +68,25 @@ export class GasTxValidator implements TxValidator<Tx> {
     );
 
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
-    const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
+    const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
     const increasePublicBalanceSelector = await FunctionSelector.fromSignature(
       '_increase_public_balance((Field),u128)',
     );
+
+    // Arguments of the claim function call:
+    // - args[0]: Amount recipient.
+    // - args[1]: Amount being claimed.
     const claimFunctionCall = setupFns.find(
       fn =>
-        fn.callContext.contractAddress.equals(this.#feeJuiceAddress) &&
-        fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
-        fn.args.length > 2 &&
-        // Public functions get routed through the dispatch function, whose first argument is the target function selector.
-        fn.args[0].equals(increasePublicBalanceSelector.toField()) &&
-        fn.args[1].equals(feePayer.toField()) &&
-        !fn.callContext.isStaticCall,
+        fn.request.contractAddress.equals(this.#feeJuiceAddress) &&
+        fn.request.msgSender.equals(this.#feeJuiceAddress) &&
+        fn.calldata.length > 2 &&
+        fn.functionSelector.equals(increasePublicBalanceSelector) &&
+        fn.args[0].equals(feePayer.toField()) &&
+        !fn.request.isStaticCall,
     );
 
-    // The claim amount is at index 2 in the args array because:
-    // - Index 0: Target function selector (due to dispatch routing)
-    // - Index 1: Amount recipient
-    // - Index 2: Amount being claimed
-    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;
+    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[1]) : initialBalance;
     if (balance.lt(feeLimit)) {
       this.#log.warn(`Rejecting transaction due to not enough fee payer balance`, {
         feePayer,

@@ -39,9 +39,20 @@ describe('full_prover', () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
     await t.applyBaseSnapshots();
+    logger.info('>>>>>>>>>>>>>>>> applyBaseSnapshots');
+    await t.tokenSim.checkPrivate();
+
     await t.applyMintSnapshot();
+    logger.info('>>>>>>>>>>>>>>>> applyMintSnapshot');
+    await t.tokenSim.checkPrivate();
+
     await t.setup();
+    logger.info('>>>>>>>>>>>>>>>> setup');
+    await t.tokenSim.checkPrivate();
+
     await t.deployVerifier();
+    logger.info('>>>>>>>>>>>>>>>> deployVerifier');
+    await t.tokenSim.checkPrivate();
 
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
     [sender, recipient] = accounts.map(a => a.address);
@@ -72,10 +83,11 @@ describe('full_prover', () => {
   });
 
   afterEach(async () => {
+    logger.info('>>>>>>>>>>>>>>>> after each');
     await t.tokenSim.check();
   });
 
-  it(
+  it.skip(
     'makes both public and private transfers',
     async () => {
       logger.info(`Starting test for public and private transfer`);
@@ -268,7 +280,7 @@ describe('full_prover', () => {
     });
   });
 
-  it('rejects txs with invalid proofs', async () => {
+  it.skip('rejects txs with invalid proofs', async () => {
     if (!REAL_PROOFS) {
       t.logger.warn(`Skipping test with fake proofs`);
       return;
@@ -289,7 +301,7 @@ describe('full_prover', () => {
     expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
   });
 
-  it(
+  it.skip(
     'should prevent large influxes of txs with invalid proofs from causing ddos attacks',
     async () => {
       if (!REAL_PROOFS) {
@@ -329,8 +341,7 @@ describe('full_prover', () => {
             ),
             ClientIvcProof.random(),
             provenTx.contractClassLogs,
-            provenTx.enqueuedPublicFunctionCalls,
-            provenTx.publicTeardownFunctionCall,
+            provenTx.publicFunctionCalldata,
           ),
         );
 

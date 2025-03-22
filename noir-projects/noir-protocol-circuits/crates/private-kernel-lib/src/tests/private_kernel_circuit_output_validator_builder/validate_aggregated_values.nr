@@ -186,7 +186,7 @@ fn validate_aggregated_values_public_teardown_call_request_from_previous_mismatc
     builder.previous_kernel.set_public_teardown_call_request();
     builder.output.set_public_teardown_call_request();
     // Tweak the output.
-    builder.output.public_teardown_call_request.args_hash += 1;
+    builder.output.public_teardown_call_request.calldata_hash += 1;
 
     builder.validate_as_inner_call();
 }
@@ -198,7 +198,7 @@ fn validate_aggregated_values_public_teardown_call_request_from_private_call_mis
     builder.private_call.set_public_teardown_call_request();
     builder.output.set_public_teardown_call_request();
     // Tweak the output.
-    builder.output.public_teardown_call_request.args_hash += 1;
+    builder.output.public_teardown_call_request.calldata_hash += 1;
 
     builder.validate_as_inner_call();
 }

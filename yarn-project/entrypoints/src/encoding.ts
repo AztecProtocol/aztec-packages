@@ -15,7 +15,8 @@ const FEE_MAX_CALLS = 2;
 /* eslint-disable camelcase */
 /** Encoded function call for an Aztec entrypoint */
 export type EncodedFunctionCall = {
-  /** Arguments hash for the call */
+  /** Arguments hash for the call. */
+  /** This should be the calldata hash `hash([function_selector, ...args])` if `is_public` is true. */
   args_hash: Fr;
   /** Selector of the function to call */
   function_selector: Fr;
@@ -206,7 +207,11 @@ export async function computeCombinedPayloadHash(
 export async function encode(calls: FunctionCall[]): Promise<EncodedCalls> {
   const hashedArguments: HashedValues[] = [];
   for (const call of calls) {
-    hashedArguments.push(await HashedValues.fromValues(call.args));
+    const hashed =
+      call.type === FunctionType.PUBLIC
+        ? await HashedValues.fromCalldata([call.selector.toField(), ...call.args])
+        : await HashedValues.fromArgs(call.args);
+    hashedArguments.push(hashed);
   }
 
   /* eslint-disable camelcase */

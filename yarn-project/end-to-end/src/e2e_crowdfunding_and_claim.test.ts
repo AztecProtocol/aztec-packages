@@ -312,7 +312,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     const [call] = (await crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request())
       .calls;
     // ...using the withdraw fn as our entrypoint
-    const entrypointHashedValues = await HashedValues.fromValues(call.args);
+    const entrypointHashedValues = await HashedValues.fromArgs(call.args);
     const maxFeesPerGas = await pxe.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,

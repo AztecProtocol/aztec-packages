@@ -1,53 +1,53 @@
 [inputs.tube_data.public_inputs.constants]
-vk_tree_root = "0x0d68c827603caf8ed7281abafbb115482afc07fa00d4a6c8eeb7a8cd6c0e7b4b"
-protocol_contract_tree_root = "0x093cc9324e5a7b44883f515ac490e7294ef8cb1e6d2d8c503255b1b3a9409262"
+vk_tree_root = "0x22a749df2f64e23077f364a4efdd544e0a0666eb43bd1560f5a698b10997c43c"
+protocol_contract_tree_root = "0x16862f3a312325ba6b37abe1073a51ffb333ee32fbaa437454dce33423766de6"
 
   [inputs.tube_data.public_inputs.constants.historical_header]
-  total_fees = "0x0000000000000000000000000000000000000000000000000000001012410f10"
-  total_mana_used = "0x0000000000000000000000000000000000000000000000000000000000014d58"
+  total_fees = "0x00000000000000000000000000000000000000000000000000000098a68c8d4c"
+  total_mana_used = "0x0000000000000000000000000000000000000000000000000000000000019e8f"
 
     [inputs.tube_data.public_inputs.constants.historical_header.last_archive]
-    root = "0x174e9cfc6f791f8d344fd8a67fb9b0f42a3fec0795f2ad253ccf1c74450a887f"
-    next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000008"
+    root = "0x2e64c26fcfac3753f52faeb3fe3e01da50d21fca91dcb3f78b26abbf962aca85"
+    next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000006"
 
     [inputs.tube_data.public_inputs.constants.historical_header.content_commitment]
     num_txs = "0x0000000000000000000000000000000000000000000000000000000000000001"
-    blobs_hash = "0x00cbfdb0195da5a63551854cd2a20411dbdeac4a0a38b6d1c6b4bd1102b64506"
+    blobs_hash = "0x00ea3a920ac1f28fa3653d01c5fcb56dd3a5b743dfbe2d4ff0b56a19b0070a51"
     in_hash = "0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c"
     out_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000080"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000060"
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.partial.note_hash_tree]
-root = "0x23ce59c60b56f13c1349a30a02c2597d32605ee69b64d52dd8aa964afdd2e72c"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000200"
+root = "0x1c1b0cf0a9fc7fa11c87e27cd0e7aab2f96fdfaa9f7af0ef7089ed45af4242dc"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000180"
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.partial.nullifier_tree]
-root = "0x0ae5d828d965ab462523ef6a3dbfdddb2a32eb53e463ed6d24fb7ef2e1f1c0d3"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000280"
+root = "0x2b7df5ccc7e2f93e227df2b3702ab9e93fd821364ed56e2837a1ae45f32ec7e6"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000200"
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.partial.public_data_tree]
-root = "0x0f4e0fabafbf787ad5e28b65be94099688808b0511148f80fbbc0b24def4436c"
-next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000009a"
+root = "0x22e6f3265727498f791055b26567a50808efacd47fc407471c92d359f95aff4a"
+next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000008e"
 
     [inputs.tube_data.public_inputs.constants.historical_header.global_variables]
     chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
     version = "0x0000000000000000000000000000000000000000000000000000000000000001"
-    block_number = "0x0000000000000000000000000000000000000000000000000000000000000008"
-    slot_number = "0x0000000000000000000000000000000000000000000000000000000000000013"
-    timestamp = "0x0000000000000000000000000000000000000000000000000000000067cf14e3"
+    block_number = "0x0000000000000000000000000000000000000000000000000000000000000006"
+    slot_number = "0x0000000000000000000000000000000000000000000000000000000000000008"
+    timestamp = "0x0000000000000000000000000000000000000000000000000000000067d9b690"
 
       [inputs.tube_data.public_inputs.constants.historical_header.global_variables.coinbase]
-      inner = "0x00000000000000000000000065074a817b672b183cd0cdcce0667a9dcee64d5b"
+      inner = "0x000000000000000000000000a540911acb4195ad0bbfa2c10a46e3e54df4c649"
 
       [inputs.tube_data.public_inputs.constants.historical_header.global_variables.fee_recipient]
       inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
       [inputs.tube_data.public_inputs.constants.historical_header.global_variables.gas_fees]
       fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
-      fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000000c57a6"
+      fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000005e43f4"
 
   [inputs.tube_data.public_inputs.constants.tx_context]
   chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
@@ -63,7 +63,7 @@ l2_gas = "0x00000000000000000000000000000000000000000000000000000000005b8d80"
 
 [inputs.tube_data.public_inputs.constants.tx_context.gas_settings.max_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
-fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000000ae876"
+fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000000128928"
 
 [inputs.tube_data.public_inputs.constants.tx_context.gas_settings.max_priority_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -71,7 +71,7 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
 
 [inputs.tube_data.public_inputs.rollup_validation_requests.max_block_number._opt]
 _is_some = true
-_value = "0x0000000000000000000000000000000000000000000000000000000000000e18"
+_value = "0x0000000000000000000000000000000000000000000000000000000000000e16"
 
 [inputs.tube_data.public_inputs.non_revertible_accumulated_data]
 note_hashes = [
@@ -141,7 +141,7 @@ note_hashes = [
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
 nullifiers = [
-  "0x1bbcff5131e39906b119b2f2e24712ae549e60e7bf99dbe04fe365d4a3a30e81",
+  "0x231cf4a17df42b0a5e5933787a476cbc804051e77546e5acb846cb6b544c43d3",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -1010,418 +1010,322 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.non_revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.tube_data.public_inputs.revertible_accumulated_data]
@@ -2361,423 +2265,327 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x291cfaa206a6209e3eeb4beb45625172fe2da587525b5bff6a4ba9c8fcd7d370"
+  calldata_hash = "0x2aa4c862f6f0edb013d95bafe7234508bfdccbac4e1b3abd9794dd03b926d914"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
-    inner = "0x137ae9c8319af18d654e2e1a3fb2d5f48ec5bb612688fb6a446e3fd0b35e73f9"
+    inner = "0x1fbffb7e3dd073d1ff0f74491a59a89d1da4ed5f6fd76188dfd7a2c682719495"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x240ee2de37fe87e76008fd215653f0cdad2e4c115ce2d14ba626cad540f2ab38"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
-    inner = "0x00000000000000000000000000000000000000000000000000000000d5441b0d"
+    inner = "0x1312c2dcc4ce1917d2fb76c7f3f81e88109c09f390f50104aab96fbd381644af"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.tube_data.public_inputs.revertible_accumulated_data.public_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.tube_data.public_inputs.public_teardown_call_request]
 is_static_call = false
-args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [inputs.tube_data.public_inputs.public_teardown_call_request.msg_sender]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -2785,15 +2593,12 @@ args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
   [inputs.tube_data.public_inputs.public_teardown_call_request.contract_address]
   inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-  [inputs.tube_data.public_inputs.public_teardown_call_request.function_selector]
-  inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
 [inputs.tube_data.public_inputs.gas_used]
 da_gas = "0x0000000000000000000000000000000000000000000000000000000000000400"
 l2_gas = "0x0000000000000000000000000000000000000000000000000000000000006500"
 
 [inputs.tube_data.public_inputs.fee_payer]
-inner = "0x137ae9c8319af18d654e2e1a3fb2d5f48ec5bb612688fb6a446e3fd0b35e73f9"
+inner = "0x1fbffb7e3dd073d1ff0f74491a59a89d1da4ed5f6fd76188dfd7a2c682719495"
 
 [inputs.tube_data.proof]
 fields = [
@@ -3338,11 +3143,11 @@ fields = [
 vk_index = "0x0000000000000000000000000000000000000000000000000000000000000004"
 vk_path = [
   "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "0x2ad44dcd7a04b8309d15ca37feaee260f70c73f4d69ae794619afde01cddf242",
-  "0x0190c24d1cf4145833e1a518d52a3e974b77e683208d408a475eeb8fc96d5081",
-  "0x189e4d1c1623eb167bb17c51ddff33f9b63303a0fa433911871bd3a225205009",
-  "0x2e6803c952a4cd20d9ff1ab458fafeb0990aade0ae0d3eae64fa2ef7b3589135",
-  "0x1fbbffddc6daf7f2899e65511d0ba4e38c76fbe03eb8b194705acef0499a3b04"
+  "0x0c2435b8880c6003dfc21a8850e38f0beb4c0f7ac6ccc6b7f30e8ced27d8b516",
+  "0x02370e3878cde2a8c84c40391c1115962ed9f0543e0c443869d9791a3f033733",
+  "0x19816d7c1dabb2893c3f4ef0250936cb55ae926b870e7b14e990d50bdf9eb084",
+  "0x1269cc8f8216b2d60daca30e5e0ba1e1d11dfe89f0f0c2cadb113c30de181554",
+  "0x26b3cce275e6a21ac2049ab937390d4afb7793ec68d1d7bcddadfbfe45fbfb06"
 ]
 
   [inputs.tube_data.vk_data.vk]
@@ -3490,41 +3295,41 @@ vk_path = [
   hash = "0x0000000000000000000000000000000000000000000000000000000000000002"
 
 [inputs.avm_proof_data.public_inputs]
-transaction_fee = "0x000000000000000000000000000000000000000000000000000000044ff4ff80"
+transaction_fee = "0x00000000000000000000000000000000000000000000000000000009798d5824"
 reverted = false
 
   [inputs.avm_proof_data.public_inputs.global_variables]
   chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
   version = "0x0000000000000000000000000000000000000000000000000000000000000001"
-  block_number = "0x000000000000000000000000000000000000000000000000000000000000000b"
-  slot_number = "0x0000000000000000000000000000000000000000000000000000000000000024"
-  timestamp = "0x0000000000000000000000000000000000000000000000000000000067cf167b"
+  block_number = "0x0000000000000000000000000000000000000000000000000000000000000009"
+  slot_number = "0x0000000000000000000000000000000000000000000000000000000000000014"
+  timestamp = "0x0000000000000000000000000000000000000000000000000000000067d9b7b0"
 
     [inputs.avm_proof_data.public_inputs.global_variables.coinbase]
-    inner = "0x00000000000000000000000065074a817b672b183cd0cdcce0667a9dcee64d5b"
+    inner = "0x000000000000000000000000a540911acb4195ad0bbfa2c10a46e3e54df4c649"
 
     [inputs.avm_proof_data.public_inputs.global_variables.fee_recipient]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.global_variables.gas_fees]
     fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
-    fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000000034fd0"
+    fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000000747f2"
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000000a0"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000080"
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.note_hash_tree]
-root = "0x0c36102a1b5b45c1410c1f5b43733139072bb00067c99c82890a999533835d6e"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000300"
+root = "0x0c76c865a447b2c937b3d073815c14cef22a1754711d81c7347823ac0a10f86f"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000280"
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.nullifier_tree]
-root = "0x30568194e5a5405375a7c9cd1492640666298a647312566ff7c107570a35d7a4"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000380"
+root = "0x09b3ab900a568736185f4bc77b777b0657e0f8756a3039e0c9f6c8d85571f380"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000300"
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.public_data_tree]
-root = "0x046a7b358442fa18cd658b803916c2a8cf0a5d11f341d53a7bdb2f81b3a145bb"
-next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000009a"
+root = "0x10ac3fce53498412659b041779d80ebca3880e437b4fd9077a5419eaebe6f146"
+next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000008f"
 
   [inputs.avm_proof_data.public_inputs.start_gas_used]
   da_gas = "0x0000000000000000000000000000000000000000000000000000000000000400"
@@ -3540,18 +3345,18 @@ l2_gas = "0x00000000000000000000000000000000000000000000000000000000005b8d80"
 
 [inputs.avm_proof_data.public_inputs.gas_settings.max_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
-fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000000ae876"
+fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000000128928"
 
 [inputs.avm_proof_data.public_inputs.gas_settings.max_priority_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
 fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [inputs.avm_proof_data.public_inputs.fee_payer]
-  inner = "0x137ae9c8319af18d654e2e1a3fb2d5f48ec5bb612688fb6a446e3fd0b35e73f9"
+  inner = "0x1fbffb7e3dd073d1ff0f74491a59a89d1da4ed5f6fd76188dfd7a2c682719495"
 
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3559,12 +3364,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3572,12 +3374,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3585,12 +3384,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3598,12 +3394,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3611,12 +3404,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3624,12 +3414,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3637,12 +3424,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3650,12 +3434,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3663,12 +3444,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3676,12 +3454,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3689,12 +3464,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3702,12 +3474,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3715,12 +3484,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3728,12 +3494,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3741,12 +3504,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3754,12 +3514,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3767,12 +3524,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3780,12 +3534,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3793,12 +3544,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3806,12 +3554,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3819,12 +3564,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3832,12 +3574,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3845,12 +3584,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3858,12 +3594,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3871,12 +3604,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3884,12 +3614,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3897,12 +3624,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3910,12 +3634,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3923,12 +3644,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3936,12 +3654,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3949,12 +3664,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_setup_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3962,25 +3674,19 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_setup_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_setup_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x291cfaa206a6209e3eeb4beb45625172fe2da587525b5bff6a4ba9c8fcd7d370"
+  calldata_hash = "0x2aa4c862f6f0edb013d95bafe7234508bfdccbac4e1b3abd9794dd03b926d914"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
-    inner = "0x137ae9c8319af18d654e2e1a3fb2d5f48ec5bb612688fb6a446e3fd0b35e73f9"
+    inner = "0x1fbffb7e3dd073d1ff0f74491a59a89d1da4ed5f6fd76188dfd7a2c682719495"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
-    inner = "0x240ee2de37fe87e76008fd215653f0cdad2e4c115ce2d14ba626cad540f2ab38"
-
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x00000000000000000000000000000000000000000000000000000000d5441b0d"
+    inner = "0x1312c2dcc4ce1917d2fb76c7f3f81e88109c09f390f50104aab96fbd381644af"
 
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3988,12 +3694,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4001,12 +3704,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4014,12 +3714,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4027,12 +3724,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4040,12 +3734,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4053,12 +3744,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4066,12 +3754,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4079,12 +3764,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4092,12 +3774,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4105,12 +3784,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4118,12 +3794,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4131,12 +3804,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4144,12 +3814,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4157,12 +3824,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4170,12 +3834,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4183,12 +3844,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4196,12 +3854,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4209,12 +3864,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4222,12 +3874,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4235,12 +3884,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4248,12 +3894,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4261,12 +3904,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4274,12 +3914,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4287,12 +3924,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4300,12 +3934,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4313,12 +3944,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4326,12 +3954,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4339,12 +3964,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4352,12 +3974,9 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -4365,33 +3984,24 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
   [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [inputs.avm_proof_data.public_inputs.public_teardown_call_request]
   is_static_call = false
-  args_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
+  calldata_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_teardown_call_request.msg_sender]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs.public_teardown_call_request.contract_address]
-    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-    [inputs.avm_proof_data.public_inputs.public_teardown_call_request.function_selector]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [inputs.avm_proof_data.public_inputs.previous_non_revertible_accumulated_data_array_lengths]
@@ -4472,7 +4082,7 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
   nullifiers = [
-  "0x1bbcff5131e39906b119b2f2e24712ae549e60e7bf99dbe04fe365d4a3a30e81",
+  "0x231cf4a17df42b0a5e5933787a476cbc804051e77546e5acb846cb6b544c43d3",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -4850,23 +4460,23 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000000a0"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000080"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.note_hash_tree]
-root = "0x0c36102a1b5b45c1410c1f5b43733139072bb00067c99c82890a999533835d6e"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000340"
+root = "0x0c76c865a447b2c937b3d073815c14cef22a1754711d81c7347823ac0a10f86f"
+next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000002c0"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.nullifier_tree]
-root = "0x21c639c1ac07578423a8e644e4ab55fc6d00c9e96b5fac2ddd88e09afd43b1ee"
-next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000003c0"
+root = "0x15a6897572df1d9946d50916a80c62dfeb2e7ee5734e15204d91c3a9fc6ab175"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000340"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.public_data_tree]
-root = "0x13e3af3af3db20c7659f06eb463e0497092a15f0b431440dc08b91836e51743d"
-next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000009a"
+root = "0x0420a25edac3ef713e3ea28ddc946e433a90ef9876f770e9a54a628005adb397"
+next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000008f"
 
   [inputs.avm_proof_data.public_inputs.end_gas_used]
   da_gas = "0x0000000000000000000000000000000000000000000000000000000000000800"
-  l2_gas = "0x0000000000000000000000000000000000000000000000000000000000014d58"
+  l2_gas = "0x0000000000000000000000000000000000000000000000000000000000014d22"
 
   [inputs.avm_proof_data.public_inputs.accumulated_data]
   note_hashes = [
@@ -4936,7 +4546,7 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
   nullifiers = [
-  "0x1bbcff5131e39906b119b2f2e24712ae549e60e7bf99dbe04fe365d4a3a30e81",
+  "0x231cf4a17df42b0a5e5933787a476cbc804051e77546e5acb846cb6b544c43d3",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -5259,16 +4869,16 @@ fields = [
 ]
 
     [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
-    leaf_slot = "0x17e388f66a2bf06510b96bc5d7e3f64361719103d78526004a7f2bc47831d0c0"
-    value = "0x0000000000000000000000000000000000000000000000000000000000001c20"
+    leaf_slot = "0x177db8f86ebaf88525c84fe28061b9c66ec66819cebbcc97cf3568f9b39f291b"
+    value = "0x0000000000000000000000000000000000000000000000000000000000001f40"
 
     [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
-    leaf_slot = "0x28745986e2f2d89576d25415003da6f60982f7dbe85f3b212d0111b3e992ba88"
-    value = "0x0000000000000000000000000000000000000000000000000000000000000af0"
+    leaf_slot = "0x174be7beba6ac763873c96e607124e6ff9fc24c919dca3968f9cd60e350731f1"
+    value = "0x00000000000000000000000000000000000000000000000000000000000007d0"
 
     [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
-    leaf_slot = "0x232b1f3aec86cec4e74e213f8cdd0421c77a4e415c06bcc3a27ff074340e1efd"
-    value = "0x00000000000000000000000000000000000000000000021e19e0c45905f22938"
+    leaf_slot = "0x10bd5eb801c0a60ecde3a0f7b44428535c228e6c67894e5baaa9c85394bbacde"
+    value = "0x00000000000000000000000000000000000000000000021e19e0c540cf9982a8"
 
     [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
     leaf_slot = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -9676,103 +9286,103 @@ fields = [
 vk_index = "0x0000000000000000000000000000000000000000000000000000000000000005"
 vk_path = [
   "0x27dbd017f63a5339a96cbc9ab86dc2b137d7c0ed488f2ea3e33424d7a44562c3",
-  "0x2ad44dcd7a04b8309d15ca37feaee260f70c73f4d69ae794619afde01cddf242",
-  "0x0190c24d1cf4145833e1a518d52a3e974b77e683208d408a475eeb8fc96d5081",
-  "0x189e4d1c1623eb167bb17c51ddff33f9b63303a0fa433911871bd3a225205009",
-  "0x2e6803c952a4cd20d9ff1ab458fafeb0990aade0ae0d3eae64fa2ef7b3589135",
-  "0x1fbbffddc6daf7f2899e65511d0ba4e38c76fbe03eb8b194705acef0499a3b04"
+  "0x0c2435b8880c6003dfc21a8850e38f0beb4c0f7ac6ccc6b7f30e8ced27d8b516",
+  "0x02370e3878cde2a8c84c40391c1115962ed9f0543e0c443869d9791a3f033733",
+  "0x19816d7c1dabb2893c3f4ef0250936cb55ae926b870e7b14e990d50bdf9eb084",
+  "0x1269cc8f8216b2d60daca30e5e0ba1e1d11dfe89f0f0c2cadb113c30de181554",
+  "0x26b3cce275e6a21ac2049ab937390d4afb7793ec68d1d7bcddadfbfe45fbfb06"
 ]
 
   [inputs.avm_proof_data.vk_data.vk]
   key = [
-  "0x1a28829d698d5bad0f11742f09f40571f5beeba8e156347e179fa5274e8e6c6a",
-  "0x2e30b84e673b9574f17fdb7c63e5e7cdad9aa38b66c1f3781c91ea8a1d568843",
-  "0x2e44015a55ee9d0b4c07a796bf75926400c50b2a4936df7ca4d4c6bf8534ca94",
-  "0x07e6a001053efaf4078650d1ce6742b952b89ec2fa6e984c728fa4d5024e6328",
-  "0x2d0fc693fafd91e4b380ea807d8c15e85bfa5a8895ddec8e017386e61d6125dc",
-  "0x04a982774da93f2c8b82d30c1167beafef02c34d1a3064da4f154c0e50e2a15f",
-  "0x0830608a0c7d9bd296a4a726e56abe962c845b3599800fed1c5f9d17aae9e807",
-  "0x085edbba0ecfd87f27a99ce1fb36cc70fc72c439f01562cec0aacfc1edee6acc",
-  "0x1a05fc329c0161efa4df1e3f633fa810cc6c9c6e1bf9576590f0da8bc9156da5",
-  "0x2b631f9408c2c33260e178b4f2be9cb3dc6e97d94d277da03eec817d62017a46",
-  "0x23ae1ade51e5c2e84b9009c9a190c0c11ccdc5448166c7bed50d2a27e9d11c7f",
-  "0x0f73b0b030d9b0b8cbfd6d7d21809bb52aaf5d1e4359b055c08ac945394f6f9e",
-  "0x01da0e1426b97c6404facbe8d1c5f0ae2ec0dd7fba12c531dec9f10ec46c6dde",
-  "0x2322c11e3053f754737097fe55f0a5f7dac207c823ae9e2b0a042b37c74cd59c",
-  "0x0b716c62a1c1621d175f1cb0ee3643580e7a181c394b48c3f4f7cf86bbe0db73",
-  "0x21f0860c094584d7e1f48dcd4ffeec36ce74f7398594869bb62cfff363dad90b",
-  "0x0044a9a0fa95b0571842196a49c9fdaecc5383cbc2d1b063b866b1fe0c48cf5e",
-  "0x28928ada9bd8d223cc3ecc64e6296e13f5907fce3eeae1c488ee372703dc9b70",
-  "0x2f6cc510c998337b655349b5c3bcfd0a82ffe2044d384ceca1e64ad10836a78a",
-  "0x173fed9d481fb37ad278f8a9600b9bb1aab487411cdf8f4ded2cb6b0d4d4ed2a",
-  "0x1e02189c97e2ad7877fe3d70f8458bb2e9e04a757875bba862a77e05eb575bc2",
-  "0x1924d9017d125e0243c7a629d580fe4f0baaab8f6c05fd5c96a486ac0b71a5d8",
-  "0x16f10c044e537d243a8bc72cbbc553d72a5a0e6cecd9c45670f5753c9bf103c2",
-  "0x2393265f3fb038a205b0c925ddc4af9614387faf425b6b8e38f9f84466cb003e",
-  "0x15b405bbe04b16433f6fbca2f6c3019a02e33a76ba5c343918c18955a6329e44",
-  "0x13df7165db8061faa5016743beccaa634bfd6ae49b737a90793bd22af1b1ddeb",
-  "0x2c2bcd235321eaa02c473313173686bf6374627e3adc67e54e9cd726399e7447",
-  "0x09e598e0d93f0e1aca80e470f9722e1a9708d6fad058ac59b278ee5131ec8a8c",
-  "0x1b160fbae0b54ac021f319e4203aded43174c855b42ed37b65ca18be205355ed",
-  "0x2ef7e2060e8bad07df19f093a9f05a2e533a14aeda7e37fbf6c6ea25210b2b24",
-  "0x2edbd096a63c719d1199ae03d106ea0fe98c64141569d1eea3e540a853bda731",
-  "0x26d28186df181fe0131bc40bc8f0ae38c7958c4df4533d828a40626f29c7da48",
-  "0x28601b58b0d6bec9ece3335de852e77c3333e42a90dc6ed3383bf06540ef7044",
-  "0x2d7b09de929b188e8bd28b41378b6d4bdf23290fd0d860b82415136492b7a66b",
-  "0x053cd1aa5302ef31ab730a197b5f5850676cf0b08bcce0cba63b7eaa24788d3e",
-  "0x22b4a6f99ab5616470d4b5ad08c8d0ee54d402eb60e6773093a0aeb0828672cc",
-  "0x065ab7e10e74120dfaad77b55703f4117f75907ed9bafe07eed2c624707c4734",
-  "0x07c4a80384a0252b3b4112e1601f03238e45801f13bdb77d097a18389329f566",
-  "0x0ac7f0449677e71c44482c2656faafa1e5ed4a6b8793cb5d482e7c5b9e4047ae",
-  "0x230c7d0a6b950bc27abf5463289fc4fe588358ff7b6ca3a21f05c1094fc0d6dc",
-  "0x0ee436e731e47de056ea26110b792de6b89dcd480a26285e67f02168c04c2a49",
-  "0x21966543963a24882683fe9e6590d29cc4526aebd244e7a0ebb616836c43611d",
-  "0x2d6316476dad82edfdc83b22702d002f96c39541cc443abca1716ba12c7a7cfe",
-  "0x0c503dbcfe9be4c6852b05ca1fad8b5ee1788f661e19b1d11af9e7a4862ece05",
-  "0x11a7024a2ae76e861c0564d59d1660270c044cd93bbc422c4a55a7f044631b06",
-  "0x15b573efbe521bc9efa37fc537273a49bba65d0e34dfc1dfa0e6627017cf10a1",
-  "0x0b3a7b82e6086909e611efe576a18a872a1677f03158009d720e2167ca9e15fb",
-  "0x1d70ebe5d2e19565196b91853424e8e5dfdca475f53c25790991bed14aaa7931",
-  "0x05a1b1355b1b57644b7aed3966c3dfe12a60b50420e1d91fb640e1e9747c4d1c",
-  "0x109aeca025c771a238c5af45662922353224309a91d4130d8c5686473281e934",
-  "0x2d2e9a252c71d799077bb34ecc530dd33303ab63e5004c5cfa7f13eb114da754",
-  "0x01bb00b7d8d1b745620a48ff6a43ff6aa33e91f96f8f003dc0d5f5631027f0e1",
-  "0x15f118c3f71d95dacf1b76fc600aa67a3d785c719e39ba058cf3f8c4c8c8eaf2",
-  "0x30183773dba0a1ba08b8ae0f4f84fd4a58c2dbb3f6418c31eba94c4287789b78",
-  "0x1854d458fbad3b2cde35d07ec80a6c2ca96d0a7888f9c901046bba710fd1ec30",
-  "0x0690411971c7549ab963a3c98739fb864780749b72bd4946fef025ec6761a52e",
-  "0x0267f7df929ebbcb02cb300c510508e813017ec8d225c7c567665f18c5c5dc98",
-  "0x2026ee9ccc4febacae5cb10a3357da8dec22cb408b8aed6d23bc17ca7d98217a",
-  "0x20c4db58bd85e2a68b327690a7e7d713fc368d1b3b6f769bfaca5510eece8633",
-  "0x0414ebc6349375f09595f54d2393fb8267c07acd2a0f4ae4f630f07fcf5bc0a9",
-  "0x2676421b4363f77c89a414ec498851cc984563fbdace6be1958ef1a945ff4760",
-  "0x0fccdbeb0fc05eb81ab814643c1d77e0026171936fc69fca0e0c1e7a3e34613d",
-  "0x2a220f540fcba41d769bbd03967b7924a641be7b3bbdc210a3bb173b624d8c83",
-  "0x1580fa274e10713f0221859fbed7ec0ef55d6540ea5e957be2cb6a9f608b84b1",
-  "0x2935d9f28b02e5539aa3573d5c937cdfc60d56bb0f4137e1b7d2c0e3a7123625",
-  "0x24dfeb7ea5d4ccfa064e6069bb28afdce686f87804d589e998965607f8c5a358",
-  "0x06170524a62879286ee3946cddf5674426aa1171a008cc994b4f97099230218b",
-  "0x21c08c5612991d1f5d46bb3b0bca2a68630604d846b68ea8c0289e23a1e6f0d6",
-  "0x176782f2a75791d4834c34ef8ca07750d19dff953f2469c98a0c65fd4394b14c",
-  "0x0ea7fde3ba3953530a67449e891ddb2d80bde8b93a65acf3890fb2023b370247",
-  "0x293911f459e20c609f6c424aef100f771a012f1ba855f5ad8576355ef4a76918",
-  "0x09a2913911d6f37ee28774f3b670a02c85334792cd6f63903d888ea0b0ad7ee9",
-  "0x2f395a058f246c2693edee4afdb0ce92944c745d4fa25222651fbecce6ea7e25",
-  "0x1f934e216aa8fe9cd943103e11277c045577e5608d779ace5ed1b39d54e3d20f",
-  "0x2e943a8dd130e7b5b815d638b75776b55403118fca818ad097399f95ea1a4fed",
-  "0x2bc99d8e6eba736fd83b1e37128ae901c1e0df966126e6ae5570cc0651eb443c",
-  "0x1d0025646ea486df9eecb7366890d95601688d570ff9f51e16402f931daaf653",
-  "0x24d07e3d960103bc729b593ee1c00b0baab6b1c24207c72c8b2d92316d321da3",
-  "0x15adbe3883b4900f5264eb5233d94ec62775fce73d4fdfbf7f23391687405386",
-  "0x120c8f98c9472ca4ba69d551748858e947518ec1f32a7959ce60cceb5e87aca8",
-  "0x1d728207265de8b1cf8dc658cc7ef3a75f9107ae4da069ddc558386a9bab3cd5",
-  "0x0bce5b6d21adf66ac53d4603bd6a48d3f37fa3a5c2edba37726ff02af2d2182b",
-  "0x05264b949e5e16bc592262289a1acd1778cec7e18d84e86be1a3c8f50e765d67",
-  "0x152f764452a2d3fe048db51314f6ff188b04ce883c4fc29f81bb4802fd53da9e",
-  "0x134a15f14f8ca965205830698f0518b0f0259a5653cb32488d4c406d5911d397",
-  "0x212837805869a5fdb127f7366a0e70c43266f5dc0d390762ba0d78b4a2dac0ed"
+  "0x00fdbdd4aaa1b6482707acefa2f1c0963e4e037fb2592b9bd483aa01729b34b4",
+  "0x2b44b30d3936a6649df4c3bdca54717f4beee6180e6dae4ab7ec383248a9173c",
+  "0x2e4e382608bd8559ece655d167d6da0bfbd9d5cd98554b78b0bb24f3f18b1f89",
+  "0x22afd3068ce9f9e746d3091083f1f39babb40695dacb7ba1d8a3ab25b3fc62cb",
+  "0x26f2643722b3de61c71deb8f1a08187c2bd046328aaaebfa42a47fc8d0a3d51f",
+  "0x2b449440716663e521cf02ef7f9d936f2ff379116714f0f8e088cf1d1f548ec9",
+  "0x05baa241d05b279e926811f86c02b131f3be1c3d4c32f7c170dd39d5c3ec09c5",
+  "0x03905358da1dc0135c9e3c014f8dc29e98ef3133c77b04db9d46aedc8ac784f2",
+  "0x1563905e38fc98eb21f48a07b9a4441585929ccdea9d001730b87e5cad3e1a5a",
+  "0x100efa5bc1f2bbab94c3cd382b1ff4f8e020335a00a2a0ba3b2faa15b7bec6a0",
+  "0x08e554f6caa35bdf15b9cbc6e3ee6433c1731efe929233b5d5c0d5ba24dc07fa",
+  "0x01716e241a83750d5f6d3f1dffa4f8e243f93553e021dc94585e4fe1a655ab30",
+  "0x0679464adad74903a3f0b818a76284ef4daa28e8e5e0933abd7394b471024df8",
+  "0x2abe22d3e1e3b0bb70a3f14920f1d8937dd25f007e5f49674edc4119853b4874",
+  "0x1871b374441f40ec4766d60e5c9ab8579fd3353dfd9a0eaf416ebbdc889578e9",
+  "0x19b31a7319581170d7dafe088e2202b7cbb52b68a8d6820a9c9afc6387c15393",
+  "0x2a35e371cdcb2815bc97644f0944820532703701b194752828336febb2a706c6",
+  "0x0d4ccb610097bd9ee97cf00f26bb0bac02fe0a3ab0194797edf4c409c5779f6f",
+  "0x08307915f2e57e338c6974b24524ff4ed41a1d09e1f69e9cb9d9077f9b7472f4",
+  "0x24e8bf5230d23f255a4169c88046cd4b0772358d5be8e1c1eda0ec4ef99a7a1f",
+  "0x15bb752c85f3e9cf04744277d6b1919057dbfeee09ee0edda0d214b496b9644c",
+  "0x0eb00691a98c8413125d54ec83ac0d2eb227e6954ccf4b45093d25424797a63a",
+  "0x116916e9b3fda76918fd69adf3d07b3ab14a43cc1fd8b9efb259b55f203f0cc3",
+  "0x2337efe5788beebd4aff4da3d3ec06aee870e4a939acfe5f1ce2c0fe1d884221",
+  "0x2c913e7c506cd1ee401b6237619159ea12686ce03673a9c6cf4d3f2707b43f58",
+  "0x1d6d64ab5d9446ed1610a0c7c0b5ef731b42ebc49a960b26bf9a8932be965d6f",
+  "0x229d8bdea926b5cca9eea66624f95c6a458da5b3609b9d2ff16cd68aa21ed84b",
+  "0x1c8572c35768ba809ef661edf74e410c3c7f2ae4bbeead5bf5f617c2c18edebf",
+  "0x2840f271a70d4ccfe6a0d8100a02b7b7833b297fdf04760859b403d475e9f36b",
+  "0x1957e163526215d1883fac8ba00ca0d9eba884ef2ea2d5f511dfa7f886a38d94",
+  "0x26ce6c384128c8d355ab66bfc85a301d5d436d35910a68ab2ad1073586418a8d",
+  "0x06e770791a8f81c956eb226eae7c56b10acee98689124902ed849b07915ae2f2",
+  "0x05f6d082855995e51295d64b52ee82fc7d21f5ddd04be6676f8e6d9dfbf9933c",
+  "0x2ba6ffbf631795492b2e6834acfed04dff8f2752f4367ff7e0d5be13fc32a2e8",
+  "0x26bfba6b9f99326261e1caaef27778d0395239cad82c2ba2c710d3847c6e95dc",
+  "0x0ea74c2b382cf26f46060bd438960ce4961b3a38899d9dd82879a07f80ad3321",
+  "0x066a0a424766c6bc85f93e1a69496f9c0b17704f718d546d6fea2c5452b488f4",
+  "0x090f7d73299353fe6fc7dd9a4576d1d995636af588c8207fa85f20bc2269f20a",
+  "0x1e335d0b7884c533e73bc6f448a23d532a92c3e5e902cd0ffa991f81f793e805",
+  "0x01fb69681d6468b30db25b874c9e38d805bd22721e060d0c8a88918d76e2f4e5",
+  "0x24fcfd9fb72da0cf3fdb1ff257e6359f397c180a154ad74b586e781d7ac10ff7",
+  "0x1b14ebf700a3e2ac2f894cf5600da74d63cbe65d0c9d2ec1866fd9f920bf0b20",
+  "0x04b69832cefd00e8b4982f6be186902da32afa93499d97163b70d6d70104867c",
+  "0x03f2d63f041c5394a2bd80548b9c32a95105c8e1a193adc0740d1db9fb808080",
+  "0x265c2ca926cb7e6a7fc58d721a7654bbe58fb57702fa8723ed453cb185e3ae52",
+  "0x12c0bf3a43c39ee347bd1480f691a8b537eb5c09bf8e610e54216fc3a8046ccd",
+  "0x1432c3f5bad25cbf4f170886a3d9b7f23fd7ab75b607adec4f76e77301e1e523",
+  "0x0d9c0f7e2540e59411d7b77fbcadda6a6b5c97f63416cc8e4d7a018235189cfb",
+  "0x27af3067bc6cce504571c984131a737384696e670f5d087864cb20e943aedd46",
+  "0x28dcd52d730c6935ecc20b35922e80af622db9ae7116156d63ab450a88e6ba20",
+  "0x1e3191dfc930d226e50624eb19e755c8199bdd222ef5167b1aef6f2a22b57c3b",
+  "0x21b3bc0016b88821cf9a5043f56faf7fa46f5a73b10c3981a4bf0025cf0537b3",
+  "0x00df84c8ac5fc7f8889d83872939fc705f1a6f12c0315584dfbabc1199ece751",
+  "0x005c26426af97fb0ef912311ab5537b7ed510a9cf09db88cbc9d37c3963b529d",
+  "0x22451a6d0994de13a13a6ee00e8c86a522bd948282b2987eee3d518c92c9427a",
+  "0x014bc126d8ef9007b5383002bd758b89db0bf4758a9fbf9db568e9984059c8b8",
+  "0x15819038bb8877fb475d63edbba3c5bf0bdb8e07bb602c9ef3d4fa1e2f937bc0",
+  "0x0144409bd6349ec1cf9805588b2b7107c170755b8783f1d6a557510354080370",
+  "0x19238a0e29464f9b0c32d1935fb0f37493904a05cf0432818174545b220507a1",
+  "0x10afe599a3513b97901dceae3db129708de6503a9aff90526e32501ec9311830",
+  "0x2a3d634c1088f4d053da370041936158bbc5fbc78e09fdb82a8dfe27ae8e3249",
+  "0x0e0b79c05cae6cce766b22efe97733ac75375f5673bade0085d2b449c9d1cecb",
+  "0x1851f03e68800c2752e085594a87d0bc185df94c1030f0980837b0269d92ed32",
+  "0x2df7c6d7fc84dc2c36435529caa0d2b6ccff720fb180bcb2961b1a381f35ecd3",
+  "0x25cc58d834b21030cc64f3569d0b64211062f0886cc3365d5c98c36adb2b0dee",
+  "0x0f35c11a785b6418200f8c246236b2022240af99fc2a6b96f1fe4327703ec0dd",
+  "0x228e5badbcbc9db113012dcd090d16d994e3553281120658571ff307a432e0be",
+  "0x2190bd4a4d0fc3c0c50968f85e1bfc959a2b3a8d279ec57d4e286a173dce005e",
+  "0x29e7b5c632df3810df1be512fedfe18bf06552d4e32faabcf685d0df31548f89",
+  "0x1032e21f31c98b368a6b7b5101c0334a19dc3e1916e86538476afc87860ec31c",
+  "0x0701f31ef9be861680a8014bc09ead7129d3983f57d81fd598e8e66ca744c7a3",
+  "0x015edfc01182cf4688c9e76b7753acf26b24424160c98ba6f8d92f0107684b10",
+  "0x26d5a088c0a9fb478ce5244b45b26e916e503e96deaa94ea4d000fb70bc86b46",
+  "0x0f14d1f8042250c706afe8e6449d3dd4d86f2588c23ab73e88f0f9ad962b39c0",
+  "0x0d45e7680b0ef760327d2d1eab4b06a9719bdf76d8d09d7f115d6cb60d897f48",
+  "0x05fdb4f589a47083ad4ec061a72d3847527108327fa57a7100480efb1564c6ff",
+  "0x1ce8a087d4b6e26edf03896c52f523a777e2fbe47925c8c8adaabdcf45c7b375",
+  "0x123766eb5769e610174227fce9e8d93ca5317f64cf2131bd86d8570c10e0ec1b",
+  "0x03daa6dcd61a0e55a76e8839a8243878b054df91d2d367f2d5410deaf1bedb7b",
+  "0x01a1913a13dfc9be285fc834d2bf7ef7abd46bfeabde4575de231c49446eb7d1",
+  "0x10bdd99cd954c08e5a0d810cc6467dfc3ac22d2d6d0e70f200560f835150724e",
+  "0x051404bc03ca6ea1645eaf7985124ee7580a095701a540e8900657efe2ae3514",
+  "0x288bf55ae8f9bd072b5d0e4ff538bba41d2a8969ae76c58090a3b3b51a7e0e5b",
+  "0x0324a8b7d177dbca770d4db242a39010f212378b8572c0180edbdca68ca50529",
+  "0x0294c132b0c073651bc6c2413cb5c98d70d8648beec81d49ec002f51f13b2573",
+  "0x07330c2cba05d0eb94613052ca7aad3dab31eb0a2fec2dca45b0ae256f044943"
 ]
-  hash = "0x03280212bdba0cf0d857b0fc520947845aa9c591aa6ee98beb710d1596032297"
+  hash = "0x120c680d78ad91ca04b68c6f4f6af4f9f0451351d0613b37404d75d80650dccb"
 
 [inputs.start_sponge_blob]
 fields = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -9794,12 +9404,12 @@ expected_fields = "0x00000000000000000000000000000000000000000000000000000000000
   squeeze_mode = false
 
 [inputs.archive_root_membership_witness]
-leaf_index = "8"
+leaf_index = "6"
 sibling_path = [
-  "0x126d9c2bcd418ae8da16eebc1585c38356c63e2500ed9ff2485bd260ae7e8213",
-  "0x2f2c45741f51474be0eb0d62b44c3f5400e0591d16fb3000e6c9f40629f4124b",
-  "0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290",
-  "0x26af637f3c65be031c865b398446da9a397f37f5de131720d3886a3263c5d44e",
+  "0x0e985f17b6197e3811560c29506b6fc05a7e0e3c985948f2c8dfa314ac47d123",
+  "0x08f779c2240c69002c7fb90bed618bb333162c0d7a6677a2e71cdd7cdc2b0ab3",
+  "0x1e67f5e145726547a580db0eebc501a7df4db58efc77097c660ab0ca9a97af8d",
+  "0x21ee6dfad1dfb05fd29676bdc64616faabcefb38c585bfd6640057ffd2b26073",
   "0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e",
   "0x120157cfaaa49ce3da30f8b47879114977c24b266d58b0ac18b325d878aafddf",
   "0x01c28fe1059ae0237b72334700697bdf465e03df03986fe05200cadeda66bd76",
@@ -12855,26 +12465,26 @@ fields = [
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.constants]
-vk_tree_root = "0x0d68c827603caf8ed7281abafbb115482afc07fa00d4a6c8eeb7a8cd6c0e7b4b"
-protocol_contract_tree_root = "0x093cc9324e5a7b44883f515ac490e7294ef8cb1e6d2d8c503255b1b3a9409262"
+vk_tree_root = "0x22a749df2f64e23077f364a4efdd544e0a0666eb43bd1560f5a698b10997c43c"
+protocol_contract_tree_root = "0x16862f3a312325ba6b37abe1073a51ffb333ee32fbaa437454dce33423766de6"
 
   [inputs.constants.last_archive]
-  root = "0x15ed53bb988cba8c5b7457b5b3eb6d73bc36303e13ff09644dccb34145b57e55"
-  next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000000b"
+  root = "0x12f5c698e8699fb38f5a359e0e6a1735fc9f40978a1b9deaa9564d3d5b484311"
+  next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000009"
 
   [inputs.constants.global_variables]
   chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
   version = "0x0000000000000000000000000000000000000000000000000000000000000001"
-  block_number = "0x000000000000000000000000000000000000000000000000000000000000000b"
-  slot_number = "0x0000000000000000000000000000000000000000000000000000000000000024"
-  timestamp = "0x0000000000000000000000000000000000000000000000000000000067cf167b"
+  block_number = "0x0000000000000000000000000000000000000000000000000000000000000009"
+  slot_number = "0x0000000000000000000000000000000000000000000000000000000000000014"
+  timestamp = "0x0000000000000000000000000000000000000000000000000000000067d9b7b0"
 
     [inputs.constants.global_variables.coinbase]
-    inner = "0x00000000000000000000000065074a817b672b183cd0cdcce0667a9dcee64d5b"
+    inner = "0x000000000000000000000000a540911acb4195ad0bbfa2c10a46e3e54df4c649"
 
     [inputs.constants.global_variables.fee_recipient]
     inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.constants.global_variables.gas_fees]
     fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
-    fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000000034fd0"
+    fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000000747f2"

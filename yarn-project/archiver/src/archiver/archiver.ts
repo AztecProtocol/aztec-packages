@@ -805,8 +805,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
 
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getContractFunctionName(address, selector);
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getDebugFunctionName(address, selector);
   }
 
   async getL2Tips(): Promise<L2Tips> {
@@ -1137,8 +1137,8 @@ class ArchiverStoreHelper
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getContractFunctionName(address, selector);
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getDebugFunctionName(address, selector);
   }
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();

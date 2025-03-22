@@ -9,7 +9,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { SideEffectTrace } from '../../../public/side_effect_trace.js';
 import type { AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
 import {
-  getContractFunctionArtifact,
+  getContractFunctionAbi,
   getFunctionSelector,
   initContext,
   initExecutionEnvironment,
@@ -73,7 +73,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       throw new Error(`Contract not found at address: ${address}`);
     }
     const fnSelector = await getFunctionSelector(fnName, contractArtifact);
-    const fnAbi = getContractFunctionArtifact(fnName, contractArtifact);
+    const fnAbi = getContractFunctionAbi(fnName, contractArtifact);
     const encodedArgs = encodeArguments(fnAbi!, args);
     const calldata = [fnSelector.toField(), ...encodedArgs];
 

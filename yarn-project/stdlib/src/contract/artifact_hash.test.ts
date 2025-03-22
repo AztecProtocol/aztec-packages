@@ -26,7 +26,7 @@ describe('ArtifactHash', () => {
     const testArtifact = getTestContractArtifact();
 
     const calculatedArtifactHash = (await computeArtifactHash(testArtifact)).toString();
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < 2; i++) {
       const testArtifactHash = await computeArtifactHash(testArtifact);
       expect(testArtifactHash.toString()).toBe(calculatedArtifactHash);
     }

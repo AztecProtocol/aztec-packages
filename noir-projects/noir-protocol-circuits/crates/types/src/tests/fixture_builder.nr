@@ -150,6 +150,7 @@ pub struct FixtureBuilder {
     // Function.
     pub function_data: FunctionData,
     pub args_hash: Field,
+    pub calldata_hash: Field,
     pub returns_hash: Field,
 
     // Private call.
@@ -538,9 +539,8 @@ impl FixtureBuilder {
         PublicCallRequest {
             msg_sender: self.msg_sender,
             contract_address: self.contract_address,
-            function_selector: self.function_data.selector,
             is_static_call: self.is_static_call,
-            args_hash: self.args_hash,
+            calldata_hash: self.calldata_hash,
         }
     }
 
@@ -1242,6 +1242,7 @@ impl Empty for FixtureBuilder {
             validation_requests_split_counter: Option::none(),
             function_data: FunctionData::empty(),
             args_hash: 0,
+            calldata_hash: 0,
             returns_hash: 0,
             function_leaf_membership_witness: MembershipWitness::empty(),
             salted_initialization_hash: SaltedInitializationHash::from_field(0),

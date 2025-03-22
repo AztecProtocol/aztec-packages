@@ -238,7 +238,7 @@ export interface ArchiverDataStore {
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**
    * Estimates the size of the store in bytes.

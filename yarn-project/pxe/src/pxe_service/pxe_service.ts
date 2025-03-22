@@ -450,10 +450,8 @@ export class PXEService implements PXE {
     isContractClassPubliclyRegistered: boolean;
     artifact: ContractArtifact | undefined;
   }> {
-    let artifact;
-    try {
-      artifact = await this.contractDataProvider.getContractArtifact(id);
-    } catch {
+    const artifact = await this.contractDataProvider.getContractArtifact(id);
+    if (!artifact) {
       this.log.warn(`No artifact found for contract class ${id.toString()} when looking for its metadata`);
     }
 
@@ -572,6 +570,11 @@ export class PXEService implements PXE {
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
+      if (!artifact) {
+        throw new Error(
+          `Artifact not found when registering an instance. Contract class: ${instance.currentContractClassId}.`,
+        );
+      }
     }
 
     await this.contractDataProvider.addContractInstance(instance);
@@ -585,6 +588,9 @@ export class PXEService implements PXE {
     // class while we're simulating it.
     return this.#putInJobQueue(async () => {
       const currentInstance = await this.contractDataProvider.getContractInstance(contractAddress);
+      if (!currentInstance) {
+        throw new Error(`Instance not found when updating a contract. Contract address: ${contractAddress}.`);
+      }
       const contractClass = await getContractClassFromArtifact(artifact);
       await this.synchronizer.sync();
 

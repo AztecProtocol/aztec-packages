@@ -75,7 +75,6 @@ describe('e2e_deploy_contract contract class registration', () => {
       expect(registeredClass!.artifactHash.toString()).toEqual(contractClass.artifactHash.toString());
       expect(registeredClass!.privateFunctionsRoot.toString()).toEqual(contractClass.privateFunctionsRoot.toString());
       expect(registeredClass!.packedBytecode.toString('hex')).toEqual(contractClass.packedBytecode.toString('hex'));
-      expect(registeredClass!.publicFunctions).toEqual(contractClass.publicFunctions);
       expect(registeredClass!.privateFunctions).toEqual([]);
     });
 

@@ -78,7 +78,6 @@ import {
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
-  type PublicFunction,
   SerializableContractInstance,
   type UnconstrainedFunctionWithMembershipProof,
   computeContractClassId,
@@ -523,13 +522,7 @@ function makePrivateCallRequest(seed = 1): PrivateCallRequest {
 }
 
 export function makePublicCallRequest(seed = 1) {
-  return new PublicCallRequest(
-    makeAztecAddress(seed),
-    makeAztecAddress(seed + 1),
-    makeSelector(seed + 2),
-    false,
-    fr(seed + 0x3),
-  );
+  return new PublicCallRequest(makeAztecAddress(seed), makeAztecAddress(seed + 1), false, fr(seed + 0x3));
 }
 
 function makeCountedPublicCallRequest(seed = 1) {
@@ -1171,16 +1164,10 @@ export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): Unconstr
   };
 }
 
-export async function makeContractClassPublic(
-  seed = 0,
-  publicDispatchFunction?: PublicFunction,
-): Promise<ContractClassPublic> {
+export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer): Promise<ContractClassPublic> {
   const artifactHash = fr(seed + 1);
-  const publicFunctions = publicDispatchFunction
-    ? [publicDispatchFunction]
-    : makeTuple(1, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
-  const packedBytecode = publicDispatchFunction?.bytecode ?? makeBytes(100, seed + 4);
+  const packedBytecode = publicBytecode ?? makeBytes(100, seed + 4);
   const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
   const id = await computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {
@@ -1188,17 +1175,9 @@ export async function makeContractClassPublic(
     artifactHash,
     packedBytecode,
     privateFunctionsRoot,
-    publicFunctions,
     privateFunctions: [],
     unconstrainedFunctions: [],
     version: 1,
-  };
-}
-
-function makeContractClassPublicFunction(seed = 0): PublicFunction {
-  return {
-    selector: FunctionSelector.fromField(fr(seed + 1)),
-    bytecode: makeBytes(100, seed + 2),
   };
 }
 

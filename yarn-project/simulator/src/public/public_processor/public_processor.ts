@@ -321,7 +321,7 @@ export class PublicProcessor implements Traceable {
     this.log.verbose(
       !tx.hasPublicCalls()
         ? `Processed tx ${processedTx.hash} with no public calls in ${time}ms`
-        : `Processed tx ${processedTx.hash} with ${tx.enqueuedPublicFunctionCalls.length} public calls in ${time}ms`,
+        : `Processed tx ${processedTx.hash} with ${tx.numberOfPublicCalls()} public calls in ${time}ms`,
       {
         txHash: processedTx.hash,
         txFee: processedTx.txEffect.transactionFee.toBigInt(),

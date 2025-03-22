@@ -1,6 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 
-import { FunctionSelector } from '../../abi/index.js';
+import type { FunctionSelector } from '../../abi/index.js';
 import type { AztecAddress } from '../../aztec-address/index.js';
 import type { ContractClassPublic } from './contract_class.js';
 import type { ContractInstanceWithAddress } from './contract_instance.js';
@@ -32,8 +32,8 @@ export interface ContractDataSource {
    */
   getContractClassIds(): Promise<Fr[]>;
 
-  /** Returns a function's name */
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  /** Returns a function's name. It's only available if provided by calling `registerContractFunctionSignatures`. */
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
   /** Registers a function names. Useful for debugging. */
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
 }

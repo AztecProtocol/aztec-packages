@@ -41,7 +41,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
 
     // Obtain the entrypoint hashed args, built from the function call and the user's address
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [encodedCalls, this.userAddress]));
+    const entrypointHashedArgs = await HashedValues.fromArgs(encodeArguments(abi, [encodedCalls, this.userAddress]));
 
     // Construct an auth witness for the entrypoint, by signing the hash of the action to perform
     // (the dapp calls a function on the user's behalf)

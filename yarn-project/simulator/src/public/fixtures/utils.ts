@@ -24,28 +24,33 @@ import {
   countAccumulatedItems,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
-import { type PublicExecutionRequest, Tx } from '@aztec/stdlib/tx';
-import { BlockHeader, TxConstantData, TxContext } from '@aztec/stdlib/tx';
+import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import {
+  BlockHeader,
+  HashedValues,
+  PublicCallRequestWithCalldata,
+  Tx,
+  TxConstantData,
+  TxContext,
+} from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
 /**
  * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
-export async function createTxForPublicCalls(
+export function createTxForPublicCalls(
   firstNullifier: Fr,
-  setupExecutionRequests: PublicExecutionRequest[],
-  appExecutionRequests: PublicExecutionRequest[],
-  teardownExecutionRequest?: PublicExecutionRequest,
+  setupCallRequests: PublicCallRequestWithCalldata[],
+  appCallRequests: PublicCallRequestWithCalldata[],
+  teardownCallRequest?: PublicCallRequestWithCalldata,
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
-): Promise<Tx> {
+): Tx {
   assert(
-    setupExecutionRequests.length > 0 || appExecutionRequests.length > 0 || teardownExecutionRequest !== undefined,
+    setupCallRequests.length > 0 || appCallRequests.length > 0 || teardownCallRequest !== undefined,
     "Can't create public tx with no enqueued calls",
   );
-  const setupCallRequests = await Promise.all(setupExecutionRequests.map(er => er.toCallRequest()));
-  const appCallRequests = await Promise.all(appExecutionRequests.map(er => er.toCallRequest()));
   // use max limits
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
@@ -55,17 +60,18 @@ export async function createTxForPublicCalls(
 
   // We reverse order because the simulator expects it to be like a "stack" of calls to pop from
   for (let i = setupCallRequests.length - 1; i >= 0; i--) {
-    forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i];
+    forPublic.nonRevertibleAccumulatedData.publicCallRequests[setupCallRequests.length - i - 1] =
+      setupCallRequests[i].request;
   }
   for (let i = appCallRequests.length - 1; i >= 0; i--) {
-    forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i];
+    forPublic.revertibleAccumulatedData.publicCallRequests[appCallRequests.length - i - 1] = appCallRequests[i].request;
   }
-  if (teardownExecutionRequest) {
-    forPublic.publicTeardownCallRequest = await teardownExecutionRequest.toCallRequest();
+  if (teardownCallRequest) {
+    forPublic.publicTeardownCallRequest = teardownCallRequest.request;
   }
 
   const maxFeesPerGas = feePayer.isZero() ? GasFees.empty() : new GasFees(10, 10);
-  const teardownGasLimits = teardownExecutionRequest ? gasLimits : Gas.empty();
+  const teardownGasLimits = teardownCallRequest ? gasLimits : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
@@ -77,18 +83,14 @@ export async function createTxForPublicCalls(
     feePayer,
     forPublic,
   );
-  const tx = Tx.newWithTxData(txData, teardownExecutionRequest);
 
-  // Reverse order because the simulator expects it to be like a "stack" of calls to pop from.
-  // Also push app calls before setup calls for this reason.
-  for (let i = appExecutionRequests.length - 1; i >= 0; i--) {
-    tx.enqueuedPublicFunctionCalls.push(appExecutionRequests[i]);
-  }
-  for (let i = setupExecutionRequests.length - 1; i >= 0; i--) {
-    tx.enqueuedPublicFunctionCalls.push(setupExecutionRequests[i]);
-  }
+  const calldata = [
+    ...setupCallRequests,
+    ...appCallRequests,
+    ...(teardownCallRequest ? [teardownCallRequest] : []),
+  ].map(r => new HashedValues(r.calldata, r.request.calldataHash));
 
-  return tx;
+  return new Tx(txData, ClientIvcProof.empty(), [], calldata);
 }
 
 export function createTxForPrivateOnly(feePayer = AztecAddress.zero(), gasUsedByPrivate: Gas = new Gas(10, 10)): Tx {
@@ -110,7 +112,7 @@ export function createTxForPrivateOnly(feePayer = AztecAddress.zero(), gasUsedBy
     /*forPublic=*/ undefined,
     forRollup,
   );
-  return Tx.newWithTxData(txData);
+  return new Tx(txData, ClientIvcProof.empty(), [], []);
 }
 
 export async function addNewContractClassToTx(

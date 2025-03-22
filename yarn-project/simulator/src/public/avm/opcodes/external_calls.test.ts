@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/fields';
-import { FunctionSelector } from '@aztec/stdlib/abi';
 import { computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
@@ -124,10 +123,7 @@ describe('External Calls', () => {
         new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 3),
         new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
       ]);
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
@@ -180,10 +176,7 @@ describe('External Calls', () => {
       ]);
       mockGetNullifierIndex(treesDB, addr);
 
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
@@ -261,10 +254,7 @@ describe('External Calls', () => {
       const otherContextInstructionsBytecode = encodeToBytecode(otherContextInstructions);
       mockGetNullifierIndex(treesDB, addr.toFr());
 
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);

@@ -54,7 +54,7 @@ describe('Data generation for noir tests', () => {
   test.each(contracts)('Computes contract info for %s', async contract => {
     const defaultVkHash = await hashVK(new Array(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS).fill(Fr.ZERO));
     contract.privateFunctions.forEach(p => (p.vkHash = defaultVkHash));
-    const contractClass: ContractClass = { ...contract, publicFunctions: [], version: 1 };
+    const contractClass: ContractClass = { ...contract, version: 1 };
     const contractClassId = await computeContractClassId(contractClass);
     const initializationHash = await computeInitializationHashFromEncodedArgs(constructorSelector, []);
     const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } = await computeContractClassIdPreimage(

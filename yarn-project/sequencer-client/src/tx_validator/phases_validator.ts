@@ -1,9 +1,9 @@
 import { createLogger } from '@aztec/foundation/log';
-import { PublicContractsDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import { PublicContractsDB, getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
-  type PublicExecutionRequest,
+  PublicCallRequestWithCalldata,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -32,13 +32,13 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         return { result: 'valid' };
       }
 
-      const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
+      const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
       for (const setupFn of setupFns) {
         if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
           this.#log.warn(
             `Rejecting tx ${await Tx.getHash(tx)} because it calls setup function not on allow list: ${
-              setupFn.callContext.contractAddress
-            }:${setupFn.callContext.functionSelector}`,
+              setupFn.request.contractAddress
+            }:${setupFn.functionSelector}`,
             { allowList: this.setupAllowList },
           );
 
@@ -52,12 +52,16 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     }
   }
 
-  async isOnAllowList(publicCall: PublicExecutionRequest, allowList: AllowedElement[]): Promise<boolean> {
+  private async isOnAllowList(
+    publicCall: PublicCallRequestWithCalldata,
+    allowList: AllowedElement[],
+  ): Promise<boolean> {
     if (publicCall.isEmpty()) {
       return true;
     }
 
-    const { contractAddress, functionSelector } = publicCall.callContext;
+    const contractAddress = publicCall.request.contractAddress;
+    const functionSelector = publicCall.functionSelector;
 
     // do these checks first since they don't require the contract class
     for (const entry of allowList) {

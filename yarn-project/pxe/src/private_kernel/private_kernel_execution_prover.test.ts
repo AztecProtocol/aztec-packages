@@ -20,13 +20,7 @@ import {
 import { PublicKeys } from '@aztec/stdlib/keys';
 import { Note } from '@aztec/stdlib/note';
 import { makeTxRequest } from '@aztec/stdlib/testing';
-import {
-  NoteAndSlot,
-  PrivateCallExecutionResult,
-  PrivateExecutionResult,
-  PublicExecutionRequest,
-  type TxRequest,
-} from '@aztec/stdlib/tx';
+import { NoteAndSlot, PrivateCallExecutionResult, PrivateExecutionResult, type TxRequest } from '@aztec/stdlib/tx';
 import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
@@ -52,7 +46,7 @@ describe('Private Kernel Sequencer', () => {
   const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateExecutionResult => {
-    return new PrivateExecutionResult(createCallExecutionResult(fnName, newNoteIndices), Fr.zero());
+    return new PrivateExecutionResult(createCallExecutionResult(fnName, newNoteIndices), Fr.zero(), []);
   };
 
   const createCallExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateCallExecutionResult => {
@@ -77,8 +71,6 @@ describe('Private Kernel Sequencer', () => {
       new Map(),
       [],
       (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
-      [],
-      PublicExecutionRequest.empty(),
       [],
     );
   };

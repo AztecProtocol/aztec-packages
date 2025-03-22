@@ -77,8 +77,6 @@ export async function executePrivateFunction(
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const nestedExecutions = privateExecutionOracle.getNestedExecutions();
-  const enqueuedPublicFunctionCalls = privateExecutionOracle.getEnqueuedPublicFunctionCalls();
-  const publicTeardownFunctionCall = privateExecutionOracle.getPublicTeardownFunctionCall();
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
@@ -92,8 +90,6 @@ export async function executePrivateFunction(
     noteHashNullifierCounterMap,
     rawReturnValues,
     nestedExecutions,
-    enqueuedPublicFunctionCalls,
-    publicTeardownFunctionCall,
     contractClassLogs,
   );
 }
