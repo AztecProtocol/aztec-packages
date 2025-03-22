@@ -93,12 +93,11 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     }
 
     // Get permutation challenges
+    FF beta = transcript->template get_challenge<FF>("beta");
     FF gamma = transcript->template get_challenge<FF>("gamma");
 
-    relation_parameters.beta = 0;
+    relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    relation_parameters.public_input_delta = 0;
-    relation_parameters.lookup_grand_product_delta = 0;
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);

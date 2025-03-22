@@ -65,7 +65,7 @@ class TranslatorFlavor {
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
-    // The step in the DeltaRangeConstraint relation
+    // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
 
     // The bitness of the range constraint
@@ -81,10 +81,10 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 184;
+    static constexpr size_t NUM_ALL_ENTITIES = 186;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
@@ -149,11 +149,14 @@ class TranslatorFlavor {
                               ordered_extra_range_constraints_numerator, // column 0
                               lagrange_first,                            // column 1
                               lagrange_last,                             // column 2
-                              // TODO(#758): Check if one of these can be replaced by shifts
-                              lagrange_odd_in_minicircuit,             // column 3
-                              lagrange_even_in_minicircuit,            // column 4
-                              lagrange_second,                         // column 5
-                              lagrange_second_to_last_in_minicircuit); // column 6
+                              // TODO(https://github.com/AztecProtocol/barretenberg/issues/758): Check if one of these
+                              // can be replaced by shifts
+                              lagrange_odd_in_minicircuit,            // column 3
+                              lagrange_even_in_minicircuit,           // column 4
+                              lagrange_second,                        // column 5
+                              lagrange_second_to_last_in_minicircuit, // column 6
+                              lagrange_masking,                       // column 7
+                              lagrange_real_last);                    // column 8
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -557,7 +560,6 @@ class TranslatorFlavor {
                              this->ordered_range_constraints_4 };
         };
 
-        // Gemini-specific getters.
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
@@ -622,6 +624,7 @@ class TranslatorFlavor {
             z_perm = Polynomial{ /*size*/ circuit_size - 1,
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
+
             // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
             // circuit
             for (auto& poly : get_to_be_shifted()) {
@@ -725,7 +728,9 @@ class TranslatorFlavor {
                        lagrange_odd_in_minicircuit,
                        lagrange_even_in_minicircuit,
                        lagrange_second,
-                       lagrange_second_to_last_in_minicircuit);
+                       lagrange_second_to_last_in_minicircuit,
+                       lagrange_masking,
+                       lagrange_real_last);
     };
 
     /**
@@ -866,6 +871,8 @@ class TranslatorFlavor {
             this->lagrange_second = "__LAGRANGE_SECOND";
             this->lagrange_second_to_last_in_minicircuit = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
+            this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
 
@@ -882,6 +889,8 @@ class TranslatorFlavor {
             this->lagrange_second_to_last_in_minicircuit = verification_key->lagrange_second_to_last_in_minicircuit;
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
+            this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_real_last = verification_key->lagrange_real_last;
         }
     };
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
