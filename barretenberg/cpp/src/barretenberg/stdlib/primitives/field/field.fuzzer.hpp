@@ -69,10 +69,9 @@ FastRandom VarianceRNG(0);
 
 #define PRINT_SLICE(first_index, lsb, msb, vector)                                                                     \
     {                                                                                                                  \
-        std::cout << "Slice:"                                                                                          \
-                  << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")                       \
-                  << vector[first_index].field.get_value() << ") at " << first_index << " "                            \
-                  << "(" << (size_t)lsb << ":" << (size_t)msb << ")" << std::flush;                                    \
+        std::cout << "Slice:" << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")           \
+                  << vector[first_index].field.get_value() << ") at " << first_index << " " << "(" << (size_t)lsb      \
+                  << ":" << (size_t)msb << ")" << std::flush;                                                          \
     }
 
 #define PRINT_RESULT(prefix, action, index, value)                                                                     \
@@ -648,7 +647,7 @@ template <typename Builder> class FieldBase {
                           instruction_opcode == Instruction::OPCODE::WITNESS ||
                           instruction_opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
                 *Data = instruction.id;
-                bb::fr::serialize_to_buffer(insturction.arguments.element.data, Data + 1);
+                bb::fr::serialize_to_buffer(instruction.arguments.element.data, Data + 1);
             }
 
             if constexpr (instruction_opcode == Instruction::OPCODE::ASSERT_ZERO ||

@@ -130,9 +130,9 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     for (size_t i = 0; i < polynomial_size; i++) {
         auto b = offset[i / 8];
 
-        poly[i] = polynomial_coefficients[i];
+        poly.at(i) = polynomial_coefficients[i];
         if ((b >> (i % 8)) & 1) {
-            poly[i].self_from_montgomery_form();
+            poly.at(i).self_from_montgomery_form();
         }
     }
 

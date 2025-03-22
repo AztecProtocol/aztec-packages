@@ -196,8 +196,8 @@ template <typename Builder> class cycle_group {
 
   public:
     cycle_group(Builder* _context = nullptr);
-    cycle_group(field_t _x, field_t _y, bool_t _is_infinity, bool is_standard = false);
-    cycle_group(const FF& _x, const FF& _y, bool _is_infinity, bool is_standard = false);
+    cycle_group(field_t _x, field_t _y, bool_t _is_infinity);
+    cycle_group(const FF& _x, const FF& _y, bool _is_infinity);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
