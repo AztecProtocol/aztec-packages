@@ -31,7 +31,7 @@ $BIN write_solidity_verifier --scheme ultra_honk -k $VK -o $VERIFIER_PATH
 
 # Verify the proof using the solidity verifier
 export PROOF=$output_dir/proof
-export PUBLIC_INPUTS=$output_dir/public-inputs
+export PUBLIC_INPUTS_AS_FIELDS=$output_dir/public_inputs_fields.json
 export TEST_PATH=$(realpath "../../sol-test/HonkTest.sol")
 export TESTING_HONK="true"
 export TEST_NAME=$(basename $(realpath ./))

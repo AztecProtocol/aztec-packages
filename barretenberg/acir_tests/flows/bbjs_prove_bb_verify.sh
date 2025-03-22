@@ -24,14 +24,14 @@ node ../../bbjs-test prove \
 # Join the proof and public inputs to a single file
 # this will not be needed after #11024
 
-NUM_PUBLIC_INPUTS=$(cat $output_dir/public-inputs | jq 'length')
+NUM_PUBLIC_INPUTS=$(cat $output_dir/public_inputs_fields.json | jq 'length')
 UH_PROOF_FIELDS_LENGTH=440
 PROOF_AND_PI_LENGTH_IN_FIELDS=$((NUM_PUBLIC_INPUTS + UH_PROOF_FIELDS_LENGTH))
 # First 4 bytes is PROOF_AND_PI_LENGTH_IN_FIELDS
 proof_header=$(printf "%08x" $PROOF_AND_PI_LENGTH_IN_FIELDS)
 
 proof_bytes=$(cat $output_dir/proof | xxd -p)
-public_inputs=$(cat $output_dir/public-inputs | jq -r '.[]')
+public_inputs=$(cat $output_dir/public_inputs_fields.json | jq -r '.[]')
 
 public_inputs_bytes=""
 for input in $public_inputs; do

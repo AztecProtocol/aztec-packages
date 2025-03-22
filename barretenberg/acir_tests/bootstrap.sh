@@ -38,12 +38,10 @@ function run_proof_generation {
   dump_fail "$prove_cmd"
 
   local vk_fields=$(cat "$outdir/vk_fields.json")
+  local public_inputs_fields=$(cat "$outdir/public_inputs_fields.json")
   local proof_fields=$(cat "$outdir/proof_fields.json")
-  local num_inner_public_inputs=$(( 16#$(echo "$vk_fields" | jq -r '.[1] | ltrimstr("0x")') - adjustment ))
 
-  echo "num_inner_public_inputs for $program = $num_inner_public_inputs"
-
-  generate_toml "$program" "$vk_fields" "$proof_fields" "$num_inner_public_inputs"
+  generate_toml "$program" "$vk_fields" "$proof_fields" "$public_inputs_fields"
 }
 
 function generate_toml {
@@ -56,15 +54,15 @@ function generate_toml {
 
   jq -nr \
       --arg key_hash "$key_hash" \
-      --argjson vkf "$vk_fields" \
-      --argjson prooff "$proof_fields" \
-      --argjson num_inner_public_inputs "$num_inner_public_inputs" \
+      --argjson vk_f "$vk_fields" \
+      --argjson public_inputs_f "$public_inputs_fields" \
+      --argjson proof_f "$proof_fields" \
       '[
         "key_hash = \($key_hash)",
-        "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
-        "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
-        "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
-        '"$( [[ $program == *"double"* ]] && echo ',"proof_b = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]"' )"'
+        "proof = [\($proof_f | map("\"" + . + "\"") | join(", "))]",
+        "public_inputs = [\($public_inputs_f | map("\"" + . + "\"") | join(", "))]",
+        "verification_key = [\($vk_f | map("\"" + . + "\"") | join(", "))]"
+        '"$( [[ $program == *"double"* ]] && echo ',"proof_b = [\($proof_f | map("\"" + . + "\"") | join(", "))]"' )"'
       ] | join("\n")' > "$output_file"
 }
 

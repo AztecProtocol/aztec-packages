@@ -218,43 +218,40 @@ const killAnvil = () => {
 
 try {
   const proofPath = getEnvVar("PROOF");
-  let publicInputsPath;
+  const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
+  const proofAsFields = readFileSync(proofAsFieldsPath);
+
+  let proofStr = "";
+
+  const proof = readFileSync(proofPath);
+  proofStr = proof.toString("hex");
+
+  let publicInputsAsFieldsPath;
   try {
-    publicInputsPath = getEnvVar("PUBLIC_INPUTS");
+    publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
   } catch (e) {
     // noop
   }
+  var publicInputs;
+  const [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
+    JSON.parse(proofAsFields.toString())
+  );
+  // We need to do this because plonk doesn't define this path
+  if (publicInputsAsFieldsPath) {
+    const innerPublicInputs = JSON.parse(
+      readFileSync(publicInputsAsFieldsPath).toString()
+    ); // assumes JSON array of PI hex strings
 
-  let proofStr = '';
-  let publicInputs = [];
-
-  // If "path to public inputs" is provided, it means that the proof and public inputs are saved as separate files
-  // A bit hacky, but this can go away once BB CLI saves them as separate files - #11024
-  if (publicInputsPath) {
-    const proof = readFileSync(proofPath);
-    proofStr = proof.toString("hex");
-    publicInputs = JSON.parse(readFileSync(publicInputsPath).toString()); // assumes JSON array of PI hex strings
+    publicInputs = innerPublicInputs.concat(extraPublicInputs);
   } else {
-    // Proof and public inputs are saved in a single file; we need to extract the PI from the proof
-    const proof = readFileSync(proofPath);
-    proofStr = proof.toString("hex");
-
-    const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
-    const proofAsFields = readFileSync(proofAsFieldsPath);
-
-    let numPublicInputs;
-    [numPublicInputs, publicInputs] = readPublicInputs(
-      JSON.parse(proofAsFields.toString())
-    );
-
-    proofStr = proofStr.substring(32 * 2 * numPublicInputs); // Remove the publicInput bytes from the proof
-
-    // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
-    if (testingHonk) {
-      proofStr = proofStr.substring(8);
-    }
+    publicInputs = extraPublicInputs;
   }
 
+  // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
+  if (testingHonk) {
+    proofStr = proofStr.substring(8);
+  }
+  proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 
   const key =
