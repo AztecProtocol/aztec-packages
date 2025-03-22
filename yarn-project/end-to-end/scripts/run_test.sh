@@ -38,6 +38,7 @@ case "$type" in
       -e BENCH_OUTPUT \
       -e CAPTURE_IVC_FOLDER \
       -e LOG_LEVEL \
+      -e COLLECT_METRICS \
       --workdir "$repo_dir/yarn-project/end-to-end" \
       aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST
   ;;
