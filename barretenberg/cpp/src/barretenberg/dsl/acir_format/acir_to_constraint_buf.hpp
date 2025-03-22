@@ -4,7 +4,11 @@
 
 namespace acir_format {
 
-bool is_buf_msgpack(std::vector<uint8_t> const& buf);
+template <typename T>
+T deserialize_any_format(std::vector<uint8_t> const& buf,
+                         std::function<T(msgpack::object const&)> decode_msgpack,
+                         std::function<T(std::vector<uint8_t>)> decode_binpack);
+
 Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf);
 Witnesses::WitnessStack witness_buf_to_witness(std::vector<uint8_t> const& buf);
 
