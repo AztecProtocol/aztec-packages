@@ -49,8 +49,14 @@ export function addressFromPrivateKey(privateKey: Buffer): EthAddress {
  * @returns The address.
  */
 export function recoverAddress(hash: Buffer32, signature: Signature): EthAddress {
-  const publicKey = recoverPublicKey(hash, signature);
-  return publicKeyToAddress(publicKey);
+  try {
+    const publicKey = recoverPublicKey(hash, signature);
+    return publicKeyToAddress(publicKey);
+  } catch (err) {
+    throw new Error(
+      `Error recovering Ethereum address from hash ${hash.toString()} and signature ${signature.toString()}: ${err}`,
+    );
+  }
 }
 
 /**

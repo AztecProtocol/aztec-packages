@@ -58,7 +58,9 @@ export class KvAttestationPool implements AttestationPool {
           this.getAttestationKey(slotNumber, proposalId, address),
         );
 
-        this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
+        this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${address}`, {
+          signature: attestation.signature.toString(),
+        });
       }
     });
 
