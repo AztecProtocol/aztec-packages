@@ -130,7 +130,9 @@ export class TokenSimulator {
     const results = (
       await Promise.all(chunk(defaultCalls, 4).map(batch => new BatchCall(this.defaultWallet, batch).simulate()))
     ).flat();
+    this.logger.info('results', results);
     for (let i = 0; i < defaultLookups.length; i++) {
+      this.logger.info(`${i}`, { result: results[i], lookup: defaultLookups[i] });
       expect(results[i]).toEqual(this.balanceOfPrivate(defaultLookups[i]));
     }
 
