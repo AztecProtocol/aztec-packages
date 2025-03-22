@@ -21,12 +21,10 @@ pub contract Token {
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext},
         encrypted_logs::log_assembly_strategies::default_aes128::{
-            // TODO(benesjan): uncomment this once the events are updated.
-            // event::encode_and_encrypt_event_unconstrained,
+            event::encode_and_encrypt_event_unconstrained,
             note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
-        // TODO(benesjan): uncomment this once the events are updated.
-        // event::event_interface::EventInterface,
+        event::event_interface::EventInterface,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, view},
@@ -290,13 +288,11 @@ pub contract Token {
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
-        // TODO(benesjan): uncomment this once the events are updated. For some reason, the events are not being passed
-        // to process_log and it makes it all fail.
-        // Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
-        //     &mut context,
-        //     to,
-        //     from,
-        // ));
+        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+            &mut context,
+            to,
+            from,
+        ));
     }
     // docs:end:transfer
 
