@@ -28,7 +28,7 @@ fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u3
 fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
-    log_type_id: Field,
+    log_type_id: u64,
 ) -> [Field; (N + 2)]
 where
     Note: NoteType + Packable<N>,
@@ -39,7 +39,7 @@ where
 
     // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
     // where the value gets decoded.
-    fields[0] = (log_type_id * 2.pow_32(64));
+    fields[0] = (log_type_id as Field * 2.pow_32(64));
     fields[1] = storage_slot;
     for i in 0..packed_note.len() {
         fields[i + 2] = packed_note[i];
@@ -89,7 +89,7 @@ fn compute_log<Note, let N: u32>(
     storage_slot: Field,
     recipient: AztecAddress,
     sender: AztecAddress,
-    log_type_id: Field,
+    log_type_id: u64,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Note: NoteType + Packable<N>,
