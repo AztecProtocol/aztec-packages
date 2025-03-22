@@ -102,12 +102,12 @@ pub unconstrained fn do_process_log<Env>(
 /// ```
 ///
 /// The expanded metadata itself is (currently) interpreted as a u64, of which:
-///  - the upper 57 bits are the log type id
-///  - the remaining 7 bits are called the 'log metadata'
+///  - the upper 64 bits are the log type id
+///  - the remaining 64 bits are called the 'log metadata'
 ///
 /// ```
-/// log_expanded_metadata: [  log_type_id   |  log_metadata ]
-///                        <--- 57 bits --->|<--- 7 bits --->
+/// log_expanded_metadata: [  log_type_id    |  log_metadata  ]
+///                        <---  64 bits --->|<--- 64 bits --->
 /// ```
 ///
 /// The meaning of the log metadata and log content depend on the value of the log type id. Note that there is
@@ -131,8 +131,8 @@ unconstrained fn decode_log_plaintext(
     // See the documentation of this function for a description of the log layout
     let expanded_log_metadata = log_plaintext.get(0);
 
-    let log_type_id = ((expanded_log_metadata as u64) / 128);
-    let log_metadata = ((expanded_log_metadata as u64) % 128);
+    let log_type_id = ((expanded_log_metadata as u128) >> 64) as u64;
+    let log_metadata = (expanded_log_metadata as u64);
 
     let log_content = array::subbvec(log_plaintext, PRIVATE_LOG_EXPANDED_METADATA_LEN);
 
