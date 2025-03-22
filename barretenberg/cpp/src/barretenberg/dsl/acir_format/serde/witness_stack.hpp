@@ -1,49 +1,76 @@
 #pragma once
 
 #include "bincode.hpp"
+#include "msgpack.hpp"
 #include "serde.hpp"
 
-namespace WitnessStack {
+namespace Witnesses {
 
 struct Witness {
     uint32_t value;
 
     friend bool operator==(const Witness&, const Witness&);
-
-    bool operator<(Witness const& rhs) const { return value < rhs.value; }
-
     std::vector<uint8_t> bincodeSerialize() const;
     static Witness bincodeDeserialize(std::vector<uint8_t>);
+
+    bool operator<(Witness const& rhs) const { return value < rhs.value; }
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        try {
+            o.convert(value);
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting into newtype 'Witness'");
+        }
+    }
 };
 
 struct WitnessMap {
-    std::map<WitnessStack::Witness, std::string> value;
+    std::map<Witnesses::Witness, std::string> value;
 
     friend bool operator==(const WitnessMap&, const WitnessMap&);
     std::vector<uint8_t> bincodeSerialize() const;
     static WitnessMap bincodeDeserialize(std::vector<uint8_t>);
+
+    void msgpack_pack(auto& packer) const { packer.pack(value); }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        try {
+            o.convert(value);
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting into newtype 'WitnessMap'");
+        }
+    }
 };
 
 struct StackItem {
     uint32_t index;
-    WitnessStack::WitnessMap witness;
+    Witnesses::WitnessMap witness;
 
     friend bool operator==(const StackItem&, const StackItem&);
     std::vector<uint8_t> bincodeSerialize() const;
     static StackItem bincodeDeserialize(std::vector<uint8_t>);
+
+    MSGPACK_FIELDS(index, witness);
 };
 
 struct WitnessStack {
-    std::vector<StackItem> stack;
+    std::vector<Witnesses::StackItem> stack;
 
     friend bool operator==(const WitnessStack&, const WitnessStack&);
     std::vector<uint8_t> bincodeSerialize() const;
     static WitnessStack bincodeDeserialize(std::vector<uint8_t>);
+
+    MSGPACK_FIELDS(stack);
 };
 
-} // end of namespace WitnessStack
+} // end of namespace Witnesses
 
-namespace WitnessStack {
+namespace Witnesses {
 
 inline bool operator==(const StackItem& lhs, const StackItem& rhs)
 {
@@ -73,11 +100,11 @@ inline StackItem StackItem::bincodeDeserialize(std::vector<uint8_t> input)
     return value;
 }
 
-} // end of namespace WitnessStack
+} // end of namespace Witnesses
 
 template <>
 template <typename Serializer>
-void serde::Serializable<WitnessStack::StackItem>::serialize(const WitnessStack::StackItem& obj, Serializer& serializer)
+void serde::Serializable<Witnesses::StackItem>::serialize(const Witnesses::StackItem& obj, Serializer& serializer)
 {
     serializer.increase_container_depth();
     serde::Serializable<decltype(obj.index)>::serialize(obj.index, serializer);
@@ -87,17 +114,17 @@ void serde::Serializable<WitnessStack::StackItem>::serialize(const WitnessStack:
 
 template <>
 template <typename Deserializer>
-WitnessStack::StackItem serde::Deserializable<WitnessStack::StackItem>::deserialize(Deserializer& deserializer)
+Witnesses::StackItem serde::Deserializable<Witnesses::StackItem>::deserialize(Deserializer& deserializer)
 {
     deserializer.increase_container_depth();
-    WitnessStack::StackItem obj;
+    Witnesses::StackItem obj;
     obj.index = serde::Deserializable<decltype(obj.index)>::deserialize(deserializer);
     obj.witness = serde::Deserializable<decltype(obj.witness)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
     return obj;
 }
 
-namespace WitnessStack {
+namespace Witnesses {
 
 inline bool operator==(const Witness& lhs, const Witness& rhs)
 {
@@ -124,11 +151,11 @@ inline Witness Witness::bincodeDeserialize(std::vector<uint8_t> input)
     return value;
 }
 
-} // end of namespace WitnessStack
+} // end of namespace Witnesses
 
 template <>
 template <typename Serializer>
-void serde::Serializable<WitnessStack::Witness>::serialize(const WitnessStack::Witness& obj, Serializer& serializer)
+void serde::Serializable<Witnesses::Witness>::serialize(const Witnesses::Witness& obj, Serializer& serializer)
 {
     serializer.increase_container_depth();
     serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
@@ -137,16 +164,16 @@ void serde::Serializable<WitnessStack::Witness>::serialize(const WitnessStack::W
 
 template <>
 template <typename Deserializer>
-WitnessStack::Witness serde::Deserializable<WitnessStack::Witness>::deserialize(Deserializer& deserializer)
+Witnesses::Witness serde::Deserializable<Witnesses::Witness>::deserialize(Deserializer& deserializer)
 {
     deserializer.increase_container_depth();
-    WitnessStack::Witness obj;
+    Witnesses::Witness obj;
     obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
     return obj;
 }
 
-namespace WitnessStack {
+namespace Witnesses {
 
 inline bool operator==(const WitnessMap& lhs, const WitnessMap& rhs)
 {
@@ -173,12 +200,11 @@ inline WitnessMap WitnessMap::bincodeDeserialize(std::vector<uint8_t> input)
     return value;
 }
 
-} // end of namespace WitnessStack
+} // end of namespace Witnesses
 
 template <>
 template <typename Serializer>
-void serde::Serializable<WitnessStack::WitnessMap>::serialize(const WitnessStack::WitnessMap& obj,
-                                                              Serializer& serializer)
+void serde::Serializable<Witnesses::WitnessMap>::serialize(const Witnesses::WitnessMap& obj, Serializer& serializer)
 {
     serializer.increase_container_depth();
     serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
@@ -187,16 +213,16 @@ void serde::Serializable<WitnessStack::WitnessMap>::serialize(const WitnessStack
 
 template <>
 template <typename Deserializer>
-WitnessStack::WitnessMap serde::Deserializable<WitnessStack::WitnessMap>::deserialize(Deserializer& deserializer)
+Witnesses::WitnessMap serde::Deserializable<Witnesses::WitnessMap>::deserialize(Deserializer& deserializer)
 {
     deserializer.increase_container_depth();
-    WitnessStack::WitnessMap obj;
+    Witnesses::WitnessMap obj;
     obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
     return obj;
 }
 
-namespace WitnessStack {
+namespace Witnesses {
 
 inline bool operator==(const WitnessStack& lhs, const WitnessStack& rhs)
 {
@@ -223,12 +249,11 @@ inline WitnessStack WitnessStack::bincodeDeserialize(std::vector<uint8_t> input)
     return value;
 }
 
-} // end of namespace WitnessStack
+} // end of namespace Witnesses
 
 template <>
 template <typename Serializer>
-void serde::Serializable<WitnessStack::WitnessStack>::serialize(const WitnessStack::WitnessStack& obj,
-                                                                Serializer& serializer)
+void serde::Serializable<Witnesses::WitnessStack>::serialize(const Witnesses::WitnessStack& obj, Serializer& serializer)
 {
     serializer.increase_container_depth();
     serde::Serializable<decltype(obj.stack)>::serialize(obj.stack, serializer);
@@ -237,10 +262,10 @@ void serde::Serializable<WitnessStack::WitnessStack>::serialize(const WitnessSta
 
 template <>
 template <typename Deserializer>
-WitnessStack::WitnessStack serde::Deserializable<WitnessStack::WitnessStack>::deserialize(Deserializer& deserializer)
+Witnesses::WitnessStack serde::Deserializable<Witnesses::WitnessStack>::deserialize(Deserializer& deserializer)
 {
     deserializer.increase_container_depth();
-    WitnessStack::WitnessStack obj;
+    Witnesses::WitnessStack obj;
     obj.stack = serde::Deserializable<decltype(obj.stack)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
     return obj;
