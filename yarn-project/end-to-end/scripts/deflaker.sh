@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 testname=$1
 script_dir=$(dirname "$0")

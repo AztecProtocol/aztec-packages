@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Function to get the PPID in macOS
 get_ppid_macos() {
