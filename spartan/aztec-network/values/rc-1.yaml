@@ -40,7 +40,7 @@ proverAgent:
       cpu: "31"
 
 bot:
-  replicas: 1
+  replicas: 4
   ammTxs: true
   followChain: "PENDING"
   enabled: true
