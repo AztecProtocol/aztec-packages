@@ -861,14 +861,6 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
     return wv;
 }
 
-/**
- * @brief Converts from the ACIR-native `WitnessStack` format to Barretenberg's internal `WitnessVector` format.
- *
- * @param buf Serialized representation of a `WitnessMap`.
- * @return A `WitnessVector` equivalent to the last `WitnessMap` in the stack.
- * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
- *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
- */
 WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
@@ -880,15 +872,6 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     return witness_map_to_witness_vector(w);
 }
 
-/**
- * @brief Deserialize `buf` either based on the first byte interpreted as a
-          Noir serialization format byte, or falling back to `bincode` if
-          the format cannot be recognized. Currently only `msgpack` format
-          is expected, or the legacy `bincode` format.
- * @note Due to the lack of exception handling available to us in Wasm we can't
- *       try `bincode` format and if it fails try `msgpack`; instead we have to
- *       make a decision and commit to it.
- */
 template <typename T>
 T deserialize_any_format(std::vector<uint8_t> const& buf,
                          std::function<T(msgpack::object const&)> decode_msgpack,
@@ -932,10 +915,6 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
     return decode_binpack(buf);
 }
 
-/**
- * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
- * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
- */
 Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
 {
     return deserialize_any_format<Acir::Program>(
@@ -957,9 +936,6 @@ Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
         &Acir::Program::bincodeDeserialize);
 }
 
-/**
- * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
- */
 Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t> const& buf)
 {
     return deserialize_any_format<Witnesses::WitnessStack>(
