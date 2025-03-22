@@ -1,5 +1,13 @@
+bot:
+  enabled: false
+
 telemetry:
   enabled: true
+
+aztec:
+  slotDuration: 24
+  epochDuration: 4
+  proofSubmissionWindow: 8
 
 validator:
   replicas: 1
@@ -9,9 +17,11 @@ validator:
     disabled: false
 
 ethereum:
+  blockTime: 6
+  acceleratedTestDeployments: true
   execution:
-    storageSize: "10Gi"
+    storageSize: "1Gi"
   beacon:
-    storageSize: "10Gi"
+    storageSize: "1Gi"
   validator:
-    storageSize: "10Gi"
+    storageSize: "1Gi"

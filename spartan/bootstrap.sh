@@ -120,8 +120,9 @@ case "$cmd" in
     $cmd
     ;;
   "test-kind-smoke")
+    OVERRIDES="telemetry.enabled=false,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml smoke${NAME_POSTFIX:-}
+      ./scripts/test_kind.sh src/spartan/smoke.test.ts 1-validators.yaml smoke${NAME_POSTFIX:-}
     ;;
   "test-kind-4epochs")
     # TODO(#12163) reenable bot once not conflicting with transfer
