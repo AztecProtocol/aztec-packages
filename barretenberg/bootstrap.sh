@@ -9,6 +9,7 @@ function bootstrap_all {
   ./cpp/bootstrap.sh $@
   ./ts/bootstrap.sh $@
   ./acir_tests/bootstrap.sh $@
+  ./docs/bootstrap.sh $@
 }
 
 function hash {
@@ -39,11 +40,16 @@ case "$cmd" in
   ""|clean|ci|fast|test|test_cmds|release)
     bootstrap_all $cmd $@
     ;;
+  "release-preview")
+    ./docs/bootstrap.sh release-preview
+    ;;
   bench)
     bench
     ;;
+  
   *)
     echo "Unknown command: $cmd"
     exit 1
   ;;
 esac
+
