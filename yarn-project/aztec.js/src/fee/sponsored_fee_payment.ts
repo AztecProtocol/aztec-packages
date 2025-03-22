@@ -3,6 +3,10 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+/**
+ * A fee payment method that uses a contract that blindly sponsors transactions.
+ * This contract is expected to be prefunded in testing environments.
+ */
 export class SponsoredFeePaymentMethod implements FeePaymentMethod {
   constructor(private paymentContract: AztecAddress) {}
 
