@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Targets a running cluster and deploys example contracts for testing
 set -eu
 set -o pipefail

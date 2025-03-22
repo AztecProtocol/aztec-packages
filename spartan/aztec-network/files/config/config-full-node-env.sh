@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 # if the registry address is already set and the bootstrap nodes are set, then we don't need to wait for the services

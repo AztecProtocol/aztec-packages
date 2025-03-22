@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu -o pipefail
 [ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
 

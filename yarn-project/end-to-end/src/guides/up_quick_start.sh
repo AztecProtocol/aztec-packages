@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Run locally from end-to-end folder while running anvil and sandbox with:
 # PATH=$PATH:../node_modules/.bin ./src/guides/up_quick_start.sh
 set -eux

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script will SSH into the provided HOST, write a new tag file and restart the bootnode service
 
@@ -13,7 +13,7 @@ SERVICE_NAME=aztec-bootnode
 ssh -i $SSH_KEY_FILE $USER@$HOST << ENDSSH
   echo "Updating the target file..."
   sudo bash -c 'cat << ENDFILE > $FILE
-  #!/bin/bash
+  #!/usr/bin/env bash
   export TAG=$TAG
 ENDFILE'
 

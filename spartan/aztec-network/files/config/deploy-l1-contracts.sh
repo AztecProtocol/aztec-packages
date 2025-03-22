@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -exu
 
 # If REGISTRY_CONTRACT_ADDRESS is already set, skip deployment and just write the file

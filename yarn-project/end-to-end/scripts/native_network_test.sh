@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage: ./native_network_test.sh
 # Starts a test scenario where as many pieces as practical are

@@ -131,7 +131,7 @@ resource "aws_efs_mount_target" "public_az2" {
 data "template_file" "user_data" {
   count    = local.node_count
   template = <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo ECS_CLUSTER=${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name} >> /etc/ecs/ecs.config
 echo 'ECS_INSTANCE_ATTRIBUTES={"group": "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"}' >> /etc/ecs/ecs.config
 EOF

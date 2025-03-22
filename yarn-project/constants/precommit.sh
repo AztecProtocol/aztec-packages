@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Precommit hook simply to warn the user that they've staged a change to constants.nr.
 # Longer-term, there might be a more-robust solution, but the goal of this script is
@@ -8,7 +8,7 @@
 # In the case where they've already generated and staged all the constant files of
 # this commit, they'll have to cope with this small bit of noise.
 
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail  # Fail on errors, unset variables, and pipeline failures
 
 cd "$(dirname "$0")"  # Change to the script's directory

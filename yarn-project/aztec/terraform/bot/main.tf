@@ -72,7 +72,7 @@ resource "aws_service_discovery_service" "aztec-bot" {
 # Create a fleet.
 data "template_file" "user_data" {
   template = <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo ECS_CLUSTER=${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name} >> /etc/ecs/ecs.config
 echo 'ECS_INSTANCE_ATTRIBUTES={"group": "${var.DEPLOY_TAG}-bot"}' >> /etc/ecs/ecs.config
 EOF

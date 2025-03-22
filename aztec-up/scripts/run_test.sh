@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 trap 'docker rm -f $1 &>/dev/null' SIGINT SIGTERM EXIT

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Launches our CI image locally and runs the bootstrap.
 # This replicates exactly what our CI run experiences.
 # We use a volume on /var/lib/docker as overlayfs trashes performance (in fact it just breaks).

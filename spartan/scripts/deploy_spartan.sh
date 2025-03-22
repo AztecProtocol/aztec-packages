@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 set -o pipefail
 
@@ -81,4 +81,3 @@ if ! upgrade | tee "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
 
   upgrade
 fi
-

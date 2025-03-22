@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Targets a running cluster and tests 5 slots worth of transfers against it.
 set -eu
 set -o pipefail

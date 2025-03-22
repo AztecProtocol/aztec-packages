@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 # We get the index in the config map from the pod name, which will have the service index within it
