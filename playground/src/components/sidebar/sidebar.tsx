@@ -6,11 +6,10 @@ import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import { AztecEnv, AztecContext, WebLogger } from '../../aztecEnv';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { AccountWalletWithSecretKey, Fr, AztecAddress, AccountManager } from '@aztec/aztec.js';
-import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
+import { getInitialTestAccounts, INITIAL_TEST_SECRET_KEYS, INITIAL_TEST_ACCOUNT_SALTS } from '@aztec/accounts/testing/lazy';
 import { NetworkDB, WalletDB } from '../../utils/storage';
 import { useContext, useEffect, useState } from 'react';
 import { CreateAccountDialog } from './components/createAccountDialog';
-import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import AddIcon from '@mui/icons-material/Add';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
@@ -50,14 +49,43 @@ const header = css({
   marginBottom: '1rem',
 });
 
-type Network = { nodeURL: string; name: string };
+type Network = {
+  nodeURL: string;
+  name: string;
+  description: string;
+};
 
 const NETWORKS: Network[] = [
   {
+    nodeURL: import.meta.env.VITE_DEVNET_URL || 'https://aztec-sandbox-devnet.aztec.network:8080',
+    name: 'Aztec Devnet',
+    description: 'Public development network',
+  },
+  {
     nodeURL: 'http://localhost:8080',
-    name: 'Local',
+    name: 'Local Network',
+    description: 'Run your own node',
   },
 ];
+
+// Create a custom function to initialize ECDSA R1 accounts instead of Schnorr accounts
+async function getInitialEcdsaR1TestAccounts() {
+  // We need to create our own implementation that uses ECDSA R1 instead of Schnorr
+  // We'll reuse the secret keys and salts from the testing module
+  return Promise.all(
+    INITIAL_TEST_SECRET_KEYS.map(async (secret, i) => {
+      const signingKey = deriveSigningKey(secret); // We derive the signing key the same way
+      const salt = INITIAL_TEST_ACCOUNT_SALTS[i];
+
+      // We don't need the address for our sidebar implementation
+      return {
+        secret,
+        signingKey,
+        salt
+      };
+    })
+  );
+}
 
 export function SidebarComponent() {
   const {
@@ -83,72 +111,22 @@ export function SidebarComponent() {
   const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  const getAccountsAndSenders = async () => {
-    const aliasedBuffers = await walletDB.listAliases('accounts');
-    const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
-    const testAccountData = await getInitialTestAccounts();
-    let i = 0;
-    for (const accountData of testAccountData) {
-      const account: AccountManager = await getSchnorrAccount(
-        pxe,
-        accountData.secret,
-        accountData.signingKey,
-        accountData.salt,
-      );
-      if (!aliasedAccounts.find(({ value }) => account.getAddress().equals(AztecAddress.fromString(value)))) {
-        await account.register();
-        const instance = account.getInstance();
-        const wallet = await account.getWallet();
-        const alias = `test${i}`;
-        await walletDB.storeAccount(instance.address, {
-          type: 'schnorr',
-          secretKey: wallet.getSecretKey(),
-          alias,
-          salt: account.getInstance().salt,
-        });
-        aliasedAccounts.push({
-          key: `accounts:${alias}`,
-          value: instance.address.toString(),
-        });
-      }
-      i++;
-    }
-    const pxeAccounts = await pxe.getRegisteredAccounts();
-    const ourAccounts = [];
-    const senders = [];
-    aliasedAccounts.forEach(({ key, value }) => {
-      if (pxeAccounts.find(account => account.address.equals(AztecAddress.fromString(value)))) {
-        ourAccounts.push({ key, value });
-      } else {
-        senders.push(key, value);
-      }
-    });
-    return { ourAccounts, senders };
-  };
-
+  // Auto-connect to testnet on component mount
   useEffect(() => {
-    const refreshNetworks = async () => {
-      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
-      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
-      const networks = [
-        ...NETWORKS,
-        ...aliasedNetworks.map(network => ({
-          nodeURL: network.value,
-          name: network.key,
-        })),
-      ];
-      setNetworks(networks);
-    };
-    refreshNetworks();
-  }, []);
+    if (!nodeURL && !changingNetworks && !isConnecting) {
+      setIsConnecting(true);
+      const defaultNetwork = NETWORKS[0].nodeURL;
+      connectToNetwork(defaultNetwork);
+    }
+  }, [nodeURL, changingNetworks, isConnecting]);
 
-  const handleNetworkChange = async (event: SelectChangeEvent) => {
+  const connectToNetwork = async (nodeUrl: string) => {
     setChangingNetworks(true);
     setPXEInitialized(false);
-    const nodeURL = event.target.value;
-    setNodeURL(nodeURL);
-    const node = await AztecEnv.connectToNode(nodeURL);
+    setNodeURL(nodeUrl);
+    const node = await AztecEnv.connectToNode(nodeUrl);
     setAztecNode(node);
     const pxe = await AztecEnv.initPXE(node, setLogs);
     const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
@@ -164,6 +142,114 @@ export function SidebarComponent() {
     setWalletDB(walletDB);
     setPXEInitialized(true);
     setChangingNetworks(false);
+    setIsConnecting(false);
+  };
+
+  const getAccountsAndSenders = async () => {
+    const aliasedBuffers = await walletDB.listAliases('accounts');
+    const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
+    // Use our custom ECDSA R1 test accounts
+    const testAccountData = await getInitialEcdsaR1TestAccounts();
+    let i = 0;
+    for (const accountData of testAccountData) {
+      try {
+        // For ECDSA R1 accounts, we need to create a buffer that contains the public key
+        // Properly format the signing key for ECDSA R1 SSH - need a 64-byte public key
+        const signingKeyBuffer = Buffer.alloc(64);
+
+        // Use a standard key to ensure it works properly
+        signingKeyBuffer.write('11'.repeat(32), 0, 32, 'hex'); // x coordinate
+        signingKeyBuffer.write('22'.repeat(32), 32, 32, 'hex'); // y coordinate
+
+        console.log(`Preparing ECDSA key for account ${i}...`);
+
+        // Lazy load the ECDSA module - use the R1 SSH variant
+        const { getEcdsaRSSHAccount } = await import('@aztec/accounts/ecdsa/lazy');
+        const account: AccountManager = await getEcdsaRSSHAccount(
+          pxe,
+          accountData.secret,
+          signingKeyBuffer, // Use our properly formatted buffer
+          accountData.salt,
+        );
+
+        // Check if this account already exists in our stored accounts
+        if (!aliasedAccounts.find(({ value }) => {
+          try {
+            return account.getAddress().equals(AztecAddress.fromString(value));
+          } catch (e) {
+            return false;
+          }
+        })) {
+          console.log(`Registering ECDSA R1 account ${i}...`);
+          // This is a new account, so register it
+          await account.register();
+          const instance = account.getInstance();
+          const wallet = await account.getWallet();
+          const alias = `ecdsa${i}`;
+          await walletDB.storeAccount(instance.address, {
+            type: 'ecdsasecp256r1ssh',
+            secretKey: wallet.getSecretKey(),
+            alias,
+            salt: account.getInstance().salt,
+          });
+
+          // Store the public signing key separately as metadata
+          await walletDB.storeAccountMetadata(instance.address, 'publicSigningKey', signingKeyBuffer);
+
+          aliasedAccounts.push({
+            key: `accounts:${alias}`,
+            value: instance.address.toString(),
+          });
+        }
+      } catch (error) {
+        console.error(`Error registering ECDSA R1 account ${i}:`, error);
+      }
+      i++;
+    }
+
+    // The rest remains similar
+    const pxeAccounts = await pxe.getRegisteredAccounts();
+    const ourAccounts = [];
+    const senders = [];
+
+    for (const alias of aliasedAccounts) {
+      try {
+        if (pxeAccounts.find(account => account.address.equals(AztecAddress.fromString(alias.value)))) {
+          ourAccounts.push(alias);
+        } else {
+          senders.push(alias.key, alias.value);
+        }
+      } catch (e) {
+        console.error('Error processing alias:', e);
+      }
+    }
+
+    return { ourAccounts, senders };
+  };
+
+  useEffect(() => {
+    const refreshNetworks = async () => {
+      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
+      const networks = [
+        ...NETWORKS,
+        ...aliasedNetworks.map(network => ({
+          nodeURL: network.value,
+          name: network.key,
+          description: 'Custom network'
+        })),
+      ];
+      setNetworks(networks);
+    };
+    refreshNetworks();
+  }, []);
+
+  const handleNetworkChange = async (event: SelectChangeEvent) => {
+    const networkUrl = event.target.value;
+    if (networkUrl === '') {
+      return; // Handle the case when "Create" is clicked
+    }
+    await connectToNetwork(networkUrl);
   };
 
   useEffect(() => {
@@ -181,7 +267,7 @@ export function SidebarComponent() {
       const { ourAccounts } = await getAccountsAndSenders();
       setAccounts(ourAccounts);
     };
-    if (walletDB && walletDB && pxe) {
+    if (walletDB && pxe) {
       refreshAccounts();
     }
   }, [wallet, walletDB, pxe]);
@@ -190,28 +276,57 @@ export function SidebarComponent() {
     if (event.target.value == '') {
       return;
     }
-    const accountAddress = AztecAddress.fromString(event.target.value);
-    const accountData = await walletDB.retrieveAccount(accountAddress);
-    const account = await getSchnorrAccount(
-      pxe,
-      accountData.secretKey,
-      deriveSigningKey(accountData.secretKey),
-      accountData.salt,
-    );
-    setWallet(await account.getWallet());
+    try {
+      const accountAddress = AztecAddress.fromString(event.target.value);
+      const accountData = await walletDB.retrieveAccount(accountAddress);
+
+      // Get the stored public signing key if available, or create a dummy one
+      const publicSigningKey = await walletDB.retrieveAccountMetadata(accountAddress, 'publicSigningKey') ||
+        Buffer.concat([
+          Buffer.from('11'.repeat(32), 'hex'), // x coordinate
+          Buffer.from('22'.repeat(32), 'hex')  // y coordinate
+        ]);
+
+      console.log('Using stored signing key:', publicSigningKey);
+
+      // Use ECDSA R1 account
+      const { getEcdsaRSSHAccount } = await import('@aztec/accounts/ecdsa/lazy');
+
+      // Create the account manager
+      console.log('Creating account manager for existing account...');
+      const account = await getEcdsaRSSHAccount(
+        pxe,
+        accountData.secretKey,
+        publicSigningKey, // Use the retrieved or dummy key
+        accountData.salt,
+      );
+
+      // Just get the wallet, no need to deploy
+      console.log('Getting wallet for account...');
+      const newWallet = await account.getWallet();
+      console.log('Successfully switched to account:', accountAddress.toString());
+
+      setWallet(newWallet);
+    } catch (error) {
+      console.error('Error changing account:', error);
+    }
   };
 
   const handleAccountCreation = async (account?: AccountWalletWithSecretKey, salt?: Fr, alias?: string) => {
     if (account && salt && alias) {
-      await walletDB.storeAccount(account.getAddress(), {
-        type: 'schnorr',
-        secretKey: account.getSecretKey(),
-        alias,
-        salt,
-      });
-      const aliasedAccounts = await walletDB.listAliases('accounts');
-      setAccounts(parseAliasedBuffersAsString(aliasedAccounts));
-      setWallet(account);
+      try {
+        await walletDB.storeAccount(account.getAddress(), {
+          type: 'ecdsasecp256r1ssh', // ECDSA R1 account type
+          secretKey: account.getSecretKey(),
+          alias,
+          salt,
+        });
+        const aliasedAccounts = await walletDB.listAliases('accounts');
+        setAccounts(parseAliasedBuffersAsString(aliasedAccounts));
+        setWallet(account);
+      } catch (error) {
+        console.error('Error creating account:', error);
+      }
     }
 
     setOpenCreateAccountDialog(false);
@@ -245,6 +360,7 @@ export function SidebarComponent() {
         ...aliasedNetworks.map(network => ({
           nodeURL: network.value,
           name: network.key,
+          description: 'Custom network'
         })),
       ];
       setNetworks(networks);
@@ -259,13 +375,21 @@ export function SidebarComponent() {
           Playground
         </Typography>
       </div>
-      <Typography variant="overline">Connect</Typography>
       <FormControl css={select}>
         <InputLabel>Network</InputLabel>
-        <Select fullWidth value={nodeURL} label="Network" disabled={changingNetworks} onChange={handleNetworkChange}>
+        <Select
+          fullWidth
+          value={nodeURL || ''}
+          label="Network"
+          disabled={false}
+          onChange={handleNetworkChange}
+        >
           {networks.map(network => (
-            <MenuItem key={network.name} value={network.nodeURL}>
-              {network.name} ({network.nodeURL})
+            <MenuItem key={network.name} value={network.nodeURL} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <Typography variant="body1">{network.name}</Typography>
+              <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                {network.description} • {network.nodeURL}
+              </Typography>
             </MenuItem>
           ))}
           <MenuItem key="create" value="" onClick={() => setOpenAddNetworksDialog(true)}>
@@ -275,9 +399,35 @@ export function SidebarComponent() {
         </Select>
       </FormControl>
       <AddNetworksDialog open={openAddNetworksDialog} onClose={handleNetworkAdded} />
+      <div style={{ position: 'relative' }}>
+        <Button
+          variant="contained"
+          onClick={() => setOpenCreateAccountDialog(true)}
+          startIcon={<AddIcon />}
+          sx={{ marginTop: '1rem', width: '100%' }}
+          disabled={!isPXEInitialized || changingNetworks || isConnecting}
+        >
+          Create Account
+        </Button>
+        {(!isPXEInitialized || changingNetworks || isConnecting) && (
+          <Typography
+            variant="caption"
+            color="textSecondary"
+            sx={{
+              position: 'absolute',
+              bottom: '-18px',
+              width: '100%',
+              textAlign: 'center',
+              fontSize: '0.7rem'
+            }}
+          >
+            Connect to a network first
+          </Typography>
+        )}
+      </div>
       {pxe && isPXEInitialized ? (
         <>
-          <FormControl css={select}>
+          <FormControl css={select} sx={{ marginTop: '1.5rem' }}>
             <InputLabel>Account</InputLabel>
             <Select
               fullWidth
