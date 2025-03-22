@@ -11,7 +11,7 @@ The full code for this tutorial is [available on the `aztec-packages` repository
 ## Dependencies
 
 - Linux or OSX environment
-- [NodeJS](https://nodejs.org/) 18 or higher
+- [NodeJS](https://nodejs.org/) version 18.19.0
 - [Aztec Sandbox](../../../../getting_started.md)
 
 ## Prerequisites
