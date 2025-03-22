@@ -71,6 +71,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
+    "@aztec/l1-artifacts": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/prover-client": "workspace:^",
@@ -82,7 +83,8 @@
     "@aztec/world-state": "workspace:^",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "viem": "2.23.7"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

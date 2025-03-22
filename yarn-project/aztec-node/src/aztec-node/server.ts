@@ -20,6 +20,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { type P2P, createP2PClient } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -84,6 +85,8 @@ import {
 } from '@aztec/telemetry-client';
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
+
+import { createPublicClient, fallback, getContract, http } from 'viem';
 
 import { type AztecNodeConfig, getPackageVersion } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
@@ -164,6 +167,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
     }
 
+    const publicClient = createPublicClient({
+      chain: ethereumChain.chainInfo,
+      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      pollingInterval: config.viemPollingIntervalMS,
+    });
+
+    const registry = getContract({
+      address: config.l1Contracts.registryAddress.toString(),
+      abi: RegistryAbi,
+      client: publicClient,
+    });
+
+    const version = Number(await registry.read.getVersionFor([config.l1Contracts.rollupAddress.toString()]));
+
+    if (config.version !== version) {
+      log.warn(
+        `L2 version (${config.version}) does not match with version detected from rollup (${version}). Using version detected from rollup.`,
+      );
+      config.version = version;
+    }
+
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
     // now create the merkle trees and the world state synchronizer
@@ -226,7 +250,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       worldStateSynchronizer,
       sequencer,
       ethereumChain.chainInfo.id,
-      config.version,
+      version,
       new GlobalVariableBuilder(config),
       proofVerifier,
       telemetry,
