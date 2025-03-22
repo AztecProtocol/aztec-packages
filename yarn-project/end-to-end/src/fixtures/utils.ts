@@ -351,8 +351,9 @@ export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {
     customForwarderContractAddress: EthAddress.ZERO,
+    realProofs: false,
   },
-  pxeOpts: Partial<PXEServiceConfig> = {},
+  pxeOpts: Partial<PXEServiceConfig> = { proverEnabled: false },
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
