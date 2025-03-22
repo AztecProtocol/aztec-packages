@@ -46,6 +46,8 @@ import {
   TxValidationResultSchema,
 } from '../tx/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
+import { ValidatorsStatsSchema } from '../validators/schemas.js';
+import type { ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import {
   type GetContractClassLogsResponse,
@@ -379,6 +381,9 @@ export interface AztecNode
    */
   getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader | undefined>;
 
+  /** Returns stats for validators if enabled. */
+  getValidatorsStats(): Promise<ValidatorsStats>;
+
   /**
    * Simulates the public part of a transaction with the current state.
    * This currently just checks that the transaction execution succeeds.
@@ -524,6 +529,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getPublicStorageAt: z.function().args(L2BlockNumberSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema.optional()),
+
+  getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 

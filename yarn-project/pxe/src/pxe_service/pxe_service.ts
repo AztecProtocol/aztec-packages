@@ -6,7 +6,7 @@ import { Timer } from '@aztec/foundation/timer';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { L2TipsStore } from '@aztec/kv-store/stores';
+import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
   ProtocolContractAddress,
   type ProtocolContractsProvider,
@@ -140,7 +140,7 @@ export class PXEService implements PXE {
     const taggingDataProvider = new TaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
-    const tipsStore = new L2TipsStore(store, 'pxe');
+    const tipsStore = new L2TipsKVStore(store, 'pxe');
     const synchronizer = new Synchronizer(
       node,
       syncDataProvider,

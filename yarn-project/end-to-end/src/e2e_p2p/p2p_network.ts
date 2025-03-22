@@ -54,6 +54,7 @@ export class P2PNetworkTest {
   public attesterPublicKeys: string[] = [];
   public proposerPrivateKeys: `0x${string}`[] = [];
   public peerIdPrivateKeys: string[] = [];
+  public validators: { attester: `0x${string}`; proposer: `0x${string}`; withdrawer: `0x${string}` }[] = [];
 
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
@@ -230,9 +231,10 @@ export class P2PNetworkTest {
             amount: l1ContractsConfig.minimumStake,
           } as const);
 
-          this.logger.verbose(`Adding (attester, proposer) pair: (${attester.address}, ${forwarder}) as validator`);
+          this.logger.info(`Adding attester ${attester.address} proposer ${forwarder} as validator`);
         }
 
+        this.validators = validators;
         await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
           hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
         });

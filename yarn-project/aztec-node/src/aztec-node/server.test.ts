@@ -115,6 +115,7 @@ describe('aztec node', () => {
       l1ToL2MessageSource,
       worldState,
       undefined,
+      undefined,
       12345,
       1,
       globalVariablesBuilder,
