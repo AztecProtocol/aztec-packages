@@ -1,6 +1,6 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
-    encrypted_logs::{log_assembly_strategies::default_aes128, log_type::PARTIAL_NOTE_LOG_TYPE_ID},
+    encrypted_logs::log_assembly_strategies::default_aes128,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
     note::note_interface::{NoteHash, NoteType},
@@ -143,12 +143,12 @@ impl UintNote {
             public_log_tag: commitment,
         };
 
-        // TODO: we're abusing the note encoding scheme by computing the log for a fake note type with such a note type
-        // id that the recipient will realize that these are the private fields of a partial note. Ideally we'd not rely
-        // on this crude mechanism and we'd instead compute it as a proper event log. However, given the current state
-        // of the log library it's far easier to do it this way.
-        let encrypted_log =
-            default_aes128::note::compute_log(private_log_content, storage_slot, recipient, sender);
+        let encrypted_log = default_aes128::note::compute_partial_note_log(
+            private_log_content,
+            storage_slot,
+            recipient,
+            sender,
+        );
         context.emit_private_log(encrypted_log);
 
         PartialUintNote { commitment }
@@ -188,9 +188,7 @@ struct PrivateUintPartialNotePrivateLogContent {
 
 impl NoteType for PrivateUintPartialNotePrivateLogContent {
     fn get_id() -> Field {
-        // The log type id is 1 to indicate this is a partial note log, and the log metadata is the note type id
-        // TODO: Mixing the log type id and note type id here is a hack and should be separated.
-        (PARTIAL_NOTE_LOG_TYPE_ID * 2.pow_32(64)) + UintNote::get_id()
+        UintNote::get_id()
     }
 }
 
