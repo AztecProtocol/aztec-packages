@@ -39,7 +39,7 @@ where
 
     // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
     // where the value gets decoded.
-    fields[0] = (log_type_id as Field * 2.pow_32(64));
+    fields[0] = (Note::get_id() * 2.pow_32(64)) + log_type_id as Field;
     fields[1] = storage_slot;
     for i in 0..packed_note.len() {
         fields[i + 2] = packed_note[i];
