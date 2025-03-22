@@ -829,7 +829,7 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
     // to work with a single ACIR function
-    auto program = program_buf_to_program(buf);
+    auto program = deserialize_program(buf);
     auto circuit = program.functions[0];
 
     return circuit_serde_to_acir_format(circuit, honk_recursion);
@@ -862,10 +862,10 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
 }
 
 /**
- * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
+ * @brief Converts from the ACIR-native `WitnessStack` format to Barretenberg's internal `WitnessVector` format.
  *
  * @param buf Serialized representation of a `WitnessMap`.
- * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
+ * @return A `WitnessVector` equivalent to the last `WitnessMap` in the stack.
  * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
  *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
  */
@@ -874,7 +874,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `witness_buf_to_witness_stack` once Honk fully supports all ACIR test flows. For now the backend still
     // expects to work with the stop of the `WitnessStack`.
-    auto witness_stack = witness_buf_to_witness(buf);
+    auto witness_stack = deserialize_witness_stack(buf);
     auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
 
     return witness_map_to_witness_vector(w);
@@ -936,7 +936,7 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
  * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
  * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
  */
-Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
+Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
 {
     return deserialize_any_format<Acir::Program>(
         buf,
@@ -960,7 +960,7 @@ Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf)
 /**
  * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
  */
-Witnesses::WitnessStack witness_buf_to_witness(std::vector<uint8_t> const& buf)
+Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t> const& buf)
 {
     return deserialize_any_format<Witnesses::WitnessStack>(
         buf,
@@ -979,7 +979,7 @@ Witnesses::WitnessStack witness_buf_to_witness(std::vector<uint8_t> const& buf)
 
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
 {
-    auto program = program_buf_to_program(buf);
+    auto program = deserialize_program(buf);
 
     std::vector<AcirFormat> constraint_systems;
     constraint_systems.reserve(program.functions.size());
@@ -992,7 +992,7 @@ std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& b
 
 WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
 {
-    auto witness_stack = witness_buf_to_witness(buf);
+    auto witness_stack = deserialize_witness_stack(buf);
     WitnessVectorStack witness_vector_stack;
     witness_vector_stack.reserve(witness_stack.stack.size());
     for (auto const& stack_item : witness_stack.stack) {

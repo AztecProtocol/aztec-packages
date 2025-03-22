@@ -9,13 +9,11 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
                          std::function<T(msgpack::object const&)> decode_msgpack,
                          std::function<T(std::vector<uint8_t>)> decode_binpack);
 
-Acir::Program program_buf_to_program(std::vector<uint8_t> const& buf);
-Witnesses::WitnessStack witness_buf_to_witness(std::vector<uint8_t> const& buf);
-
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
+Acir::Program deserialize_program(std::vector<uint8_t> const& buf);
+Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t> const& buf);
 
 /**
- * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
+ * @brief Converts from the ACIR-native `WitnessStack` format to Barretenberg's internal `WitnessVector` format.
  *
  * @param buf Serialized representation of a `WitnessMap`.
  * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
@@ -23,6 +21,8 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t 
  *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
  */
 WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf);
+
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
 
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
 
