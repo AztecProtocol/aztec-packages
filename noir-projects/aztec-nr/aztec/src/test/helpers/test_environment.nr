@@ -1,18 +1,22 @@
 use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
 
 use crate::context::{
-    call_interfaces::CallInterface, PrivateContext, PublicContext, UnconstrainedContext,
+    call_interfaces::CallInterface, PrivateContext, PublicContext, returns_hash::ReturnsHash,
+    UnconstrainedContext,
 };
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
 
+use crate::context::call_interfaces::PrivateCallInterface;
+use crate::context::call_interfaces::PrivateVoidCallInterface;
 use crate::note::note_interface::{NoteHash, NoteType};
 use crate::oracle::{
     execution::{get_block_number, get_contract_address},
+    execution_cache,
     notes::notify_created_note,
 };
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
-use protocol_types::traits::{FromField, Packable, ToField};
+use protocol_types::traits::{Deserialize, FromField, Packable, ToField};
 
 pub struct TestEnvironment {}
 
@@ -183,6 +187,46 @@ impl TestEnvironment {
             cheatcodes::get_side_effects_counter() as Field,
             call_interface.get_is_static(),
         );
+    }
+
+    pub unconstrained fn call_private_new_flow<T, let M: u32>(
+        _self: Self,
+        call_interface: PrivateCallInterface<M, T>,
+    ) -> T
+    where
+        T: Deserialize<M>,
+    {
+        execution_cache::store(call_interface.get_args());
+        let start_side_effect_counter = cheatcodes::get_side_effects_counter();
+
+        let (_end_side_effect_counter, returns_hash) = cheatcodes::private_call_new_flow(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            hash_args(call_interface.get_args()),
+            start_side_effect_counter,
+            call_interface.get_is_static(),
+        );
+
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        returns
+    }
+
+    pub unconstrained fn call_private_void_new_flow<let M: u32>(
+        _self: Self,
+        call_interface: PrivateVoidCallInterface<M>,
+    ) {
+        execution_cache::store(call_interface.get_args());
+        let start_side_effect_counter = cheatcodes::get_side_effects_counter();
+
+        let (_end_side_effect_counter, returns_hash) = cheatcodes::private_call_new_flow(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            hash_args(call_interface.get_args()),
+            start_side_effect_counter,
+            call_interface.get_is_static(),
+        );
+
+        ReturnsHash::new(returns_hash).assert_empty();
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
