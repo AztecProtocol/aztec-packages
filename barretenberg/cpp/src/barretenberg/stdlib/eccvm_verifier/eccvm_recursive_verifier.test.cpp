@@ -3,6 +3,7 @@
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
+#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -149,6 +150,28 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         EXPECT_FALSE(CircuitChecker::check(outer_circuit));
     }
 
+    static void test_recursive_verification_failure_tampered_proof()
+    {
+        for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
+            InnerBuilder builder = generate_circuit(&engine);
+            InnerProver prover(builder);
+            ECCVMProof proof = prover.construct_proof();
+
+            // Tamper with the proof to be verified
+            TamperType tamper_type = static_cast<TamperType>(idx);
+            tamper_with_proof<InnerProver, InnerFlavor>(prover, proof, tamper_type);
+
+            auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
+
+            OuterBuilder outer_circuit;
+            RecursiveVerifier verifier{ &outer_circuit, verification_key };
+            verifier.verify_proof(proof);
+
+            // Check for a failure flag in the recursive verifier circuit
+            EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+        }
+    }
+
     static void test_independent_vk_hash()
     {
 
@@ -195,6 +218,11 @@ TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerification)
 TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_failure();
+};
+
+TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailureTamperedProof)
+{
+    TestFixture::test_recursive_verification_failure_tampered_proof();
 };
 
 TYPED_TEST(ECCVMRecursiveTests, IndependentVKHash)
