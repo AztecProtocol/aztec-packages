@@ -888,6 +888,10 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
  */
 bool is_buf_msgpack(std::vector<uint8_t> const& buf)
 {
+    // TODO: It would be nice to return `std::optional<msgpack::object>`
+    // to avoid having to parse again, but some integration test failed
+    // when I tried. Need to investigate.
+
     // We can't rely on exceptions to try to deserialize binpack, falling back to
     // msgpack if it fails, because exceptions are (or were) not supported in Wasm
     // and they are turned off in arch.cmake.
@@ -899,17 +903,18 @@ bool is_buf_msgpack(std::vector<uint8_t> const& buf)
     // Unfortunately this doesn't seem to work either: `msgpack::parse`
     // returns true for a `bincode` encoded program, and we have to check
     // whether the value parsed is plausible.
-    if (buf.size() > 0) {
-        // Skip the first byte, which would be our format marker;
-        // we know it's going to be msgpack in this experiment.
-        // Once we remove support for legacy bincode format,
-        // we should be able to just look at the value
+
+    // Once we remove support for legacy bincode format, we should expect to always
+    // have a format marker corresponding to acir::serialization::Format::Msgpack
+    if (buf.size() > 0 && buf[0] == 2) {
+        // Skip the format marker to get the data.
         const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
         size_t size = buf.size() - 1;
         msgpack::null_visitor probe;
         if (msgpack::parse(buffer, size, probe)) {
             auto o = msgpack::unpack(buffer, size).get();
             // In my experiment bincode data was parsed as 0.
+            // All the top level formats we look for are MAP types.
             return o.type == msgpack::type::MAP;
         }
     }
