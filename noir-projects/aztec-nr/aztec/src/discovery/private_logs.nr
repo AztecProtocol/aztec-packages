@@ -5,7 +5,9 @@ use crate::{
         private_notes::process_private_note_log,
     },
     encrypted_logs::{
-        log_assembly_strategies::default_aes128::aes128::AES128, log_encryption::LogEncryption,
+        log_assembly_strategies::default_aes128::aes128::AES128,
+        log_encryption::LogEncryption,
+        log_type::{PARTIAL_NOTE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
     },
     oracle::message_discovery::sync_notes,
     utils::array,
@@ -68,7 +70,7 @@ pub unconstrained fn do_process_log<Env>(
 
     let (log_type_id, log_metadata, log_content) = decode_log_plaintext(log_plaintext);
 
-    if log_type_id == 0 {
+    if log_type_id == PRIVATE_NOTE_LOG_TYPE_ID {
         debug_log("Processing private note log");
 
         process_private_note_log(
@@ -81,7 +83,7 @@ pub unconstrained fn do_process_log<Env>(
             log_metadata,
             log_content,
         );
-    } else if log_type_id == 1 {
+    } else if log_type_id == PARTIAL_NOTE_LOG_TYPE_ID {
         debug_log("Processing partial note private log");
 
         process_partial_note_private_log(contract_address, recipient, log_metadata, log_content);
@@ -105,12 +107,12 @@ pub unconstrained fn do_process_log<Env>(
 /// ```
 ///
 /// The expanded metadata itself is (currently) interpreted as a u64, of which:
-///  - the upper 57 bits are the log type id
-///  - the remaining 7 bits are called the 'log metadata'
+///  - the upper 64 bits are the log type id
+///  - the remaining 64 bits are called the 'log metadata'
 ///
 /// ```
-/// log_expanded_metadata: [  log_type_id   |  log_metadata ]
-///                        <--- 57 bits --->|<--- 7 bits --->
+/// log_expanded_metadata: [  log_type_id    |  log_metadata  ]
+///                        <---  64 bits --->|<--- 64 bits --->
 /// ```
 ///
 /// The meaning of the log metadata and log content depend on the value of the log type id. Note that there is
@@ -134,8 +136,8 @@ unconstrained fn decode_log_plaintext(
     // See the documentation of this function for a description of the log layout
     let expanded_log_metadata = log_plaintext.get(0);
 
-    let log_type_id = ((expanded_log_metadata as u64) / 128);
-    let log_metadata = ((expanded_log_metadata as u64) % 128);
+    let log_metadata = ((expanded_log_metadata as u128) >> 64) as u64;
+    let log_type_id = (expanded_log_metadata as u64);
 
     let log_content = array::subbvec(log_plaintext, PRIVATE_LOG_EXPANDED_METADATA_LEN);
 
