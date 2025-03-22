@@ -4,9 +4,18 @@ sidebar_position: 0
 tags: [sandbox]
 ---
 
-This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
+The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
 
-The Sandbox is an Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet.
+What's included in the sandbox:
+
+- Local Ethereum network (Anvil)
+- Deployed Aztec protocol contracts (for L1 and L2)
+- A set of test accounts with some test tokens to pay fees
+- Development tools to compile contracts and interact with the network (`aztec-nargo` and `aztec-wallet`)
+
+All of this comes packages in a Docker container to make it easy to install and run.
+
+This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
 
 ## Prerequisites
 
@@ -74,7 +83,6 @@ You'll know the sandbox is ready to go when you see something like this:
 import { CLI_Add_Test_Accounts } from '/components/snippets';
 
 <CLI_Add_Test_Accounts />
-
 
 To add the test accounts:
 
