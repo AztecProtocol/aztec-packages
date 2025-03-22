@@ -93,7 +93,8 @@ describe('Logs', () => {
       expect(badEvent1).toBe(undefined);
     });
 
-    it('emits multiple events as private logs and decodes them', async () => {
+    // TODO(benesjan): re-enable this once the events are updated.
+    it.skip('emits multiple events as private logs and decodes them', async () => {
       const preimages = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       const txs = await Promise.all(

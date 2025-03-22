@@ -1,10 +1,12 @@
+use crate::encrypted_logs::log_encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES;
+
 /********************************************************/
 // Disgusting arithmetic on generics
 /********************************************************/
 
 // In this section, instead of initialising arrays with very complicated generic
 // arithmetic, such as:
-// let my_arr: [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] = [0; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))];
+// let my_arr: [u8; (((PT + (16 - (PT % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)) + ((((((PT + (16 - (PT % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1))))] = [0; (((PT + (16 - (PT % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)) + ((((((PT + (16 - (PT % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + (HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1))))];
 //... we instead do the arithmetic a little bit at a time, so that the computation
 // can be audited and understood. Now, we can't do arithmetic on generics in the body
 // of a function, so we abusing functions in the following way:
@@ -31,13 +33,15 @@ fn get_arr_of_size__ciphertext<let FULL_PT: u32, let PT_AES_PADDING: u32>(
 
 // Ok, so we have the following bytes:
 // eph_pk_sign, header_ciphertext, ciphertext:
-// Let lbwop = 1 + 48 + |ct| // aka log bytes without padding
-fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8; 1 + 48 + CT] {
-    [0; 1 + 48 + CT]
+// Let lbwop = 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| // aka log bytes without padding
+fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(
+    _ct: [u8; CT],
+) -> [u8; 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + CT] {
+    [0; 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + CT]
 }
 
 // Recall:
-//   lbwop := 1 + 48 + |ct| // aka log bytes without padding
+//   lbwop := 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| // aka log bytes without padding
 // We now want to pad b to the next multiple of 31, so as to "fill" fields.
 // Let p be that padding.
 // p = 31 * ceil(lbwop / 31) - lbwop
@@ -49,9 +53,9 @@ fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(
     [0; (31 * ((LBWOP + 30) / 31)) - LBWOP]
 }
 
-// |log_bytes| = 1 + 48 + |ct| + p // aka log bytes (with padding)
+// |log_bytes| = 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct| + p // aka log bytes (with padding)
 // Recall:
-//   lbwop := 1 + 48 + |ct|
+//   lbwop := 1 + HEADER_CIPHERTEXT_SIZE_IN_BYTES + |ct|
 //   p is the padding
 fn get_arr_of_size__log_bytes<let LBWOP: u32, let P: u32>(
     _lbwop: [u8; LBWOP],
@@ -63,7 +67,7 @@ fn get_arr_of_size__log_bytes<let LBWOP: u32, let P: u32>(
 // The return type is pasted from the LSP's expectation, because it was too difficult
 // to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
 // PT is the plaintext length.
-pub(crate) fn get_arr_of_size__log_bytes_padding__from_PT<let PT: u32>() -> [u8; ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49))] {
+pub(crate) fn get_arr_of_size__log_bytes_padding__from_PT<let PT: u32>() -> [u8; ((((((PT + (16 - (PT % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1))] {
     let full_pt = get_arr_of_size__full_plaintext::<PT>();
     let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
     let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
@@ -74,7 +78,7 @@ pub(crate) fn get_arr_of_size__log_bytes_padding__from_PT<let PT: u32>() -> [u8;
 
 // The return type is pasted from the LSP's expectation, because it was too difficult
 // to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
-pub(crate) fn get_arr_of_size__log_bytes__from_PT<let PT: u32>() -> [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] {
+pub(crate) fn get_arr_of_size__log_bytes__from_PT<let PT: u32>() -> [u8; (((PT + (16 - (PT % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1) + ((((((PT + (16 - (PT % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + HEADER_CIPHERTEXT_SIZE_IN_BYTES + 1)))] {
     let full_pt = get_arr_of_size__full_plaintext::<PT>();
     let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
     let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
