@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742655114894,
+  "lastUpdate": 1742672131333,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e9526cf008b9b4d8af057e83782f432bfd215ab9",
-          "message": "chore: bump noir (#12760)\n\nAutomated pull of nightly from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore(docs): Brillig opcodes\n(https://github.com/noir-lang/noir/pull/7722)\nchore: add lambda calculus test\n(https://github.com/noir-lang/noir/pull/7646)\nchore: bump external pinned commits\n(https://github.com/noir-lang/noir/pull/7728)\nchore: pull most logic from `get_all_contracts` up out of the\n`CrateDefMap` (https://github.com/noir-lang/noir/pull/7715)\nchore: add timeouts to CI (https://github.com/noir-lang/noir/pull/7725)\nchore: Resolve various rustdoc warnings\n(https://github.com/noir-lang/noir/pull/7724)\nchore: encapsulate `Index` within `LocalModuleId`\n(https://github.com/noir-lang/noir/pull/7719)\nfix: doc comments on functions warn unexpectedly\n(https://github.com/noir-lang/noir/pull/7721)\nchore: update docusaurus config to correct trailing slash issue\n(https://github.com/noir-lang/noir/pull/7720)\nfeat: allow `fn` returning `()` without having to write `-> ()`\n(https://github.com/noir-lang/noir/pull/7717)\nfix: allow omitting ';' after last block statement if it's an assignment\n(https://github.com/noir-lang/noir/pull/7718)\nchore: fix rustdoc issues (https://github.com/noir-lang/noir/pull/7712)\nchore: check test program execution success output\n(https://github.com/noir-lang/noir/pull/7713)\nchore: remove ultraplonk tests\n(https://github.com/noir-lang/noir/pull/7680)\nchore(docs): Document BlackBoxFuncCall enum\n(https://github.com/noir-lang/noir/pull/7702)\nchore: hide Ident fields (https://github.com/noir-lang/noir/pull/7709)\nchore(frontend): Regression test for creating a mutable reference to an\narray element (https://github.com/noir-lang/noir/pull/7699)\nfix: wrong printing of line comment in quoted\n(https://github.com/noir-lang/noir/pull/7694)\nchore: more descriptive SSA tests\n(https://github.com/noir-lang/noir/pull/7697)\nchore(artifact_cli): Print circuit output to stdout\n(https://github.com/noir-lang/noir/pull/7696)\nfeat(ssa): Dominance frontiers\n(https://github.com/noir-lang/noir/pull/7692)\nchore: add cargo deny advisory\n(https://github.com/noir-lang/noir/pull/7691)\nchore: add workflow to publish rustdoc to github pages\n(https://github.com/noir-lang/noir/pull/7687)\nfix: allow renaming a trait when importing it\n(https://github.com/noir-lang/noir/pull/7688)\nchore: Update README.md to add trailing docs `/`\n(https://github.com/noir-lang/noir/pull/7689)\nchore: add tests for trait renaming in imports\n(https://github.com/noir-lang/noir/pull/7631)\nfeat(ssa): Post dominator tree\n(https://github.com/noir-lang/noir/pull/7595)\nchore(docs): Extend stable documentation versions to build to cover\nmultiple `beta.n` releases (https://github.com/noir-lang/noir/pull/7685)\nchore(docs): Minor fixes on local documentation development workflows\n(https://github.com/noir-lang/noir/pull/7684)\nchore: add trailing slash to link on docs homepage\n(https://github.com/noir-lang/noir/pull/7682)\nfix: allow referring to comptime locals at runtime\n(https://github.com/noir-lang/noir/pull/7681)\nchore: easier way to test monormophization errors\n(https://github.com/noir-lang/noir/pull/7679)\nchore(docs): update bb commands to match the new version\n(https://github.com/noir-lang/noir/pull/7677)\nchore: update yarn version to 4.5.2\n(https://github.com/noir-lang/noir/pull/7678)\nchore: migrate to use new flat eslint config file\n(https://github.com/noir-lang/noir/pull/7676)\nchore: bump JS dependencies\n(https://github.com/noir-lang/noir/pull/7669)\nchore: bump wasm-pack to 0.13.1\n(https://github.com/noir-lang/noir/pull/7675)\nchore: bump node to v22.18.3\n(https://github.com/noir-lang/noir/pull/7668)\nchore!: make `ResolverError::UnnecessaryPub` a hard error\n(https://github.com/noir-lang/noir/pull/7664)\nfix: correctly format let followed by comment before unsafe\n(https://github.com/noir-lang/noir/pull/7659)\nchore: bump external pinned commits\n(https://github.com/noir-lang/noir/pull/7667)\nchore: fixing timeouts (https://github.com/noir-lang/noir/pull/7666)\nchore(ssa): Do not print entire functions in underconstrained values\ncheck trace (https://github.com/noir-lang/noir/pull/7665)\nchore(ci): Exclude enum tests from Brillig reports\n(https://github.com/noir-lang/noir/pull/7661)\nchore: add regression tests for PR #7570 from lambda interpreter test\n(https://github.com/noir-lang/noir/pull/7638)\nchore: remove some unused HIR code\n(https://github.com/noir-lang/noir/pull/7643)\nchore: update examples to use UltraHonk\n(https://github.com/noir-lang/noir/pull/7653)\nfix: allow method call after block, if and match\n(https://github.com/noir-lang/noir/pull/7655)\nchore: address recurring typo in docs\n(https://github.com/noir-lang/noir/pull/7656)\nfix(ssa): don't check Brillig calls for coverage if they don't return\nanything (e.g. println) (https://github.com/noir-lang/noir/pull/7644)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
-          "timestamp": "2025-03-18T11:22:50Z",
-          "tree_id": "a7e3e6924421a513e075a145027588aa69e0b2b4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e9526cf008b9b4d8af057e83782f432bfd215ab9"
-        },
-        "date": 1742298180403,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9102,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2220954304087289,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 143602,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 138853,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "distinct": true,
+          "id": "3933b35bcf92f20c32dfd742d01c3caaf7ad977f",
+          "message": "fix: yolo txe binds just to localhost by default.",
+          "timestamp": "2025-03-22T19:11:58Z",
+          "tree_id": "c917dc69dc265ae758cde5692d8f0692512851f9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3933b35bcf92f20c32dfd742d01c3caaf7ad977f"
+        },
+        "date": 1742672130324,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9843,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2503157733480786,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 148031,
             "unit": "us"
           }
         ]
