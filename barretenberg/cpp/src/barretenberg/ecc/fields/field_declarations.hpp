@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/common/utils.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -728,7 +729,6 @@ template <typename B, typename Params> void write(B& buf, field<Params> const& v
 template <typename Params> struct std::hash<bb::field<Params>> {
     std::size_t operator()(const bb::field<Params>& ff) const noexcept
     {
-        return std::hash<uint64_t>()(ff.data[0]) ^ (std::hash<uint64_t>()(ff.data[1]) << 1) ^
-               (std::hash<uint64_t>()(ff.data[2]) << 2) ^ (std::hash<uint64_t>()(ff.data[3]) << 3);
+        return bb::utils::hash_as_tuple(ff.data[0], ff.data[1], ff.data[2], ff.data[3]);
     }
 };

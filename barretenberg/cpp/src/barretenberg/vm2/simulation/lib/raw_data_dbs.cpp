@@ -1,22 +1,24 @@
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
-#include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 #include <cassert>
 #include <optional>
+#include <stdexcept>
+
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::simulation {
 
 // HintedRawContractDB starts.
 HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
 {
-    vinfo("Initializing HintedRawContractDB with ",
+    vinfo("Initializing HintedRawContractDB with...",
+          "\n * contractInstances: ",
           hints.contractInstances.size(),
-          " contract instances, ",
+          "\n * contractClasses: ",
           hints.contractClasses.size(),
-          " contract classes, and ",
-          hints.bytecodeCommitments.size(),
-          " bytecode commitments.");
+          "\n * bytecodeCommitments: ",
+          hints.bytecodeCommitments.size());
 
     for (const auto& contract_instance_hint : hints.contractInstances) {
         // TODO(fcarreiro): We are currently generating duplicates in TS.
@@ -90,8 +92,54 @@ FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id)
 }
 
 // Hinted MerkleDB starts.
-HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints&, const TreeSnapshots& tree_roots)
+HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots)
     : tree_roots(tree_roots)
-{}
+{
+    vinfo("Initializing HintedRawMerkleDB with...");
+    vinfo("\n * get_sibling_path hints: ", hints.getSiblingPathHints.size());
+
+    for (const auto& get_sibling_path_hint : hints.getSiblingPathHints) {
+        GetSiblingPathKey key = { get_sibling_path_hint.hintKey,
+                                  get_sibling_path_hint.treeId,
+                                  get_sibling_path_hint.index };
+        get_sibling_path_hints[key] = get_sibling_path_hint.path;
+    }
+}
+
+const AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTreeId tree_id) const
+{
+    switch (tree_id) {
+    case world_state::MerkleTreeId::NULLIFIER_TREE:
+        return tree_roots.nullifierTree;
+    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
+        return tree_roots.publicDataTree;
+    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+        return tree_roots.noteHashTree;
+    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+        return tree_roots.l1ToL2MessageTree;
+    default:
+        throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
+    }
+}
+
+crypto::merkle_tree::fr_sibling_path HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id,
+                                                                         crypto::merkle_tree::index_t leaf_index) const
+{
+    auto tree_info = get_tree_info(tree_id);
+    GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
+    auto it = get_sibling_path_hints.find(key);
+    if (it == get_sibling_path_hints.end()) {
+        throw std::runtime_error(format("Sibling path not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", tree_id: ",
+                                        static_cast<uint32_t>(tree_id),
+                                        ", leaf_index: ",
+                                        leaf_index,
+                                        ")"));
+    }
+    return it->second;
+}
 
 } // namespace bb::avm2::simulation
