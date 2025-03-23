@@ -142,7 +142,10 @@ container_script=$(cat <<EOF
   case \$code in
     155) ;;
     0) log_ci_run PASSED \$ci_log_id ;;
-    *) log_ci_run FAILED \$ci_log_id ;;
+    *)
+      sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
+      log_ci_run FAILED \$ci_log_id
+      ;;
   esac
   exit \$code
 EOF
@@ -182,6 +185,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
     -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
     -v /tmp:/tmp \
+    -v /dev/kmsg:/dev/kmsg \
     -e USE_TEST_CACHE=1 \
     -e CI_REDIS='ci-redis.lzka0i.0001.use2.cache.amazonaws.com' \
     -e SSH_CONNECTION=' ' \
