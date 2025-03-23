@@ -325,4 +325,12 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @returns The secret for the given address.
    */
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
+
+  /**
+   * Stores an event log in the database.
+   * @param contractAddress - The address of the contract that emitted the log.
+   * @param recipient - The address of the recipient.
+   * @param logContent - The content of the log.
+   */
+  storePrivateEventLog(contractAddress: AztecAddress, recipient: AztecAddress, logContent: Fr[]): Promise<void>;
 }

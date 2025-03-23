@@ -490,4 +490,18 @@ export class Oracle {
     );
     return secret.toFields().map(toACVMField);
   }
+
+  async storePrivateEventLog(
+    [contractAddress]: ACVMField[],
+    [recipient]: ACVMField[],
+    logContentBVecStorage: ACVMField[],
+    [logContentLength]: ACVMField[],
+  ) {
+    await this.typedOracle.storePrivateEventLog(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      AztecAddress.fromField(Fr.fromString(recipient)),
+      fromBoundedVec(logContentBVecStorage, logContentLength),
+    );
+    return [];
+  }
 }

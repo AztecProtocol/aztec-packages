@@ -376,4 +376,12 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
   public override getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.executionDataProvider.getSharedSecret(address, ephPk);
   }
+
+  public override storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    logContent: Fr[],
+  ): Promise<void> {
+    return this.executionDataProvider.storePrivateEventLog(contractAddress, recipient, logContent);
+  }
 }

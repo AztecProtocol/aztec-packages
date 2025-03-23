@@ -23,6 +23,7 @@ import { AddressDataProvider } from '../storage/address_data_provider/address_da
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { PXEOracleInterface } from './pxe_oracle_interface.js';
@@ -46,6 +47,7 @@ describe('PXEOracleInterface', () => {
   let aztecNode: MockProxy<AztecNode>;
 
   let addressDataProvider: AddressDataProvider;
+  let privateEventDataProvider: PrivateEventDataProvider;
   let contractDataProvider: ContractDataProvider;
   let noteDataProvider: NoteDataProvider;
   let syncDataProvider: SyncDataProvider;
@@ -66,6 +68,7 @@ describe('PXEOracleInterface', () => {
     jest.spyOn(contractDataProvider, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
 
     addressDataProvider = new AddressDataProvider(store);
+    privateEventDataProvider = new PrivateEventDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
     syncDataProvider = new SyncDataProvider(store);
     taggingDataProvider = new TaggingDataProvider(store);
@@ -82,6 +85,7 @@ describe('PXEOracleInterface', () => {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
     ); // Set up contract address
     contractAddress = await AztecAddress.random();
     // Set up recipient account

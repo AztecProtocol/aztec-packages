@@ -630,6 +630,19 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
+  async storePrivateEventLog(
+    contractAddress: ForeignCallSingle,
+    recipient: ForeignCallSingle,
+    logContent: ForeignCallArray,
+  ) {
+    await this.typedOracle.storePrivateEventLog(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      AztecAddress.fromField(fromSingle(recipient)),
+      fromArray(logContent),
+    );
+    return toForeignCallResult([]);
+  }
+
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
