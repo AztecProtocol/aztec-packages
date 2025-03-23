@@ -80,6 +80,7 @@ export const AztecContext = createContext<{
   currentContractAddress: AztecAddress;
   currentContract: Contract;
   currentTx: ContractFunctionInteractionTx;
+  selectedPredefinedContract: string;
   logs: Log[];
   logsOpen: boolean;
   drawerOpen: boolean;
@@ -95,6 +96,8 @@ export const AztecContext = createContext<{
   setCurrentTx: (currentTx: ContractFunctionInteractionTx) => void;
   setCurrentContract: (currentContract: Contract) => void;
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
+  setSelectedPredefinedContract: (contract: string) => void;
+  setShowContractInterface: (show: boolean) => void;
 }>({
   pxe: null,
   nodeURL: '',
@@ -105,6 +108,7 @@ export const AztecContext = createContext<{
   currentContract: null,
   currentContractAddress: null,
   currentTx: null,
+  selectedPredefinedContract: '',
   logs: [],
   logsOpen: false,
   drawerOpen: false,
@@ -120,6 +124,8 @@ export const AztecContext = createContext<{
   setCurrentTx: () => {},
   setCurrentContract: () => {},
   setCurrentContractAddress: () => {},
+  setSelectedPredefinedContract: () => {},
+  setShowContractInterface: () => {},
 });
 
 export class AztecEnv {

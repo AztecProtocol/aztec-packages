@@ -32,3 +32,7 @@ Production:
 yarn build
 yarn preview
 ``````
+
+## TODO / to ask
+
+- SSH_AUTH_SOCK not setwhe

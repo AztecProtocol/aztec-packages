@@ -10,6 +10,7 @@ import {
   loadContractArtifact,
   getAllFunctionAbis,
   type FunctionAbi,
+  AztecAddress,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -123,6 +124,46 @@ const loadingArtifactContainer = css({
 
 const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
+// Define predefined contract types - keep in sync with sidebar.tsx
+const PREDEFINED_CONTRACTS = {
+  SIMPLE_VOTING: 'simple_voting',
+  SIMPLE_TOKEN: 'simple_token',
+  CUSTOM_UPLOAD: 'custom_upload'
+};
+
+const MOCK_SIMPLE_TOKEN_ARTIFACT = {
+  name: 'SimpleToken',
+  version: '0.1.0',
+  functions: [
+    {
+      name: 'transfer',
+      functionType: 'private',
+      parameters: [
+        { name: 'to', type: 'address' },
+        { name: 'amount', type: 'field' }
+      ],
+      returnType: 'bool'
+    },
+    {
+      name: 'balance_of',
+      functionType: 'public',
+      parameters: [
+        { name: 'account', type: 'address' }
+      ],
+      returnType: 'field'
+    },
+    {
+      name: 'mint',
+      functionType: 'public',
+      parameters: [
+        { name: 'to', type: 'address' },
+        { name: 'amount', type: 'field' }
+      ],
+      returnType: 'bool'
+    }
+  ]
+};
+
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
@@ -155,11 +196,113 @@ export function ContractComponent() {
     walletDB,
     currentContractAddress,
     currentContract,
+    selectedPredefinedContract,
     setCurrentContract,
     setCurrentContractAddress,
     setCurrentTx,
   } = useContext(AztecContext);
 
+  useEffect(() => {
+    console.log('Wallet:', wallet);
+    console.log('Current Contract:', currentContract);
+    console.log('Is Working:', isWorking);
+  }, [wallet, currentContract, isWorking]);
+
+  // Sort functions in a specific order for EasyPrivateVoting contract
+  const sortFunctions = (functions: FunctionAbi[], contractName: string): FunctionAbi[] => {
+    if (contractName === 'SimplePrivateVoting') {
+      // Define the order fofr EasyPrivateVoting functions
+      const order = ['constructor', 'cast_vote', 'end_vote', 'get_vote'];
+
+      // Create a copy of the array to avoid mutating the original
+      return [...functions].sort((a, b) => {
+        const indexA = order.indexOf(a.name);
+        const indexB = order.indexOf(b.name);
+
+        // If both functions are in the order array, sort by their position
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+
+        // If only one function is in the order array, prioritize it
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+
+        // For functions not in the order array, maintain their original order
+        return 0;
+      });
+    }
+
+    // For other contracts, return the original array
+    return functions;
+  };
+
+  // Load predefined contract artifacts
+  useEffect(() => {
+    const loadPredefinedContract = async () => {
+      setIsLoadingArtifact(true);
+
+      let contractArtifact;
+
+      if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING) {
+        try {
+          // Use absolute path to the contract file in the public directory
+          const response = await fetch('/contracts/SimplePrivateVoting.json', {
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch contract: ${response.status} ${response.statusText}`);
+          }
+          const artifact = await response.json();
+          contractArtifact = loadContractArtifact(artifact);
+        } catch (err) {
+          console.error('Error loading SimplePrivateVoting artifact:', err);
+        }
+      } else if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
+        try {
+          // For now, use the mock artifact since we don't have the real one
+          contractArtifact = MOCK_SIMPLE_TOKEN_ARTIFACT as unknown as ContractArtifact;
+
+          // When you have the real SimpleToken artifact, uncomment this line and import the file:
+          // import SimpleToken from '../../assets/contracts/SimpleToken.json';
+          // @ts-ignore - Add this comment when uncommenting
+          // contractArtifact = loadContractArtifact(SimpleToken);
+        } catch (err) {
+          console.error('Error loading SimpleToken artifact:', err);
+        }
+      }
+
+      if (contractArtifact) {
+        console.log('Loaded contract artifact:', contractArtifact);
+        setContractArtifact(contractArtifact);
+        setFunctionAbis(sortFunctions(getAllFunctionAbis(contractArtifact), contractArtifact.name));
+        setFilters({
+          searchTerm: '',
+          private: true,
+          public: true,
+          unconstrained: true,
+        });
+
+        // Use a valid placeholder Aztec address
+        const mockAddress = AztecAddress.fromString('0x0000000000000000000000000000000000000000'); // Valid placeholder address
+        const mockContract = await Contract.at(mockAddress, contractArtifact, wallet);
+
+        console.log('Setting current contract:', contractArtifact.name);
+        setCurrentContract(mockContract);
+      }
+
+      setIsLoadingArtifact(false);
+    };
+
+    if (selectedPredefinedContract) {
+      loadPredefinedContract();
+    }
+  }, [selectedPredefinedContract]);
+
+  // Load user's contract from address
   useEffect(() => {
     const loadCurrentContract = async () => {
       setIsLoadingArtifact(true);
@@ -168,7 +311,7 @@ export function ContractComponent() {
       const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
       setCurrentContract(contract);
       setContractArtifact(contract.artifact);
-      setFunctionAbis(getAllFunctionAbis(contract.artifact));
+      setFunctionAbis(sortFunctions(getAllFunctionAbis(contract.artifact), contract.artifact.name));
       setFilters({
         searchTerm: '',
         private: true,
@@ -190,7 +333,7 @@ export function ContractComponent() {
       reader.onload = async e => {
         const contractArtifact = loadContractArtifact(JSON.parse(e.target?.result as string));
         setContractArtifact(contractArtifact);
-        setFunctionAbis(getAllFunctionAbis(contractArtifact));
+        setFunctionAbis(sortFunctions(getAllFunctionAbis(contractArtifact), contractArtifact.name));
         setIsLoadingArtifact(false);
       };
       reader.readAsText(file);
@@ -202,6 +345,18 @@ export function ContractComponent() {
     const fnParameters = parameters[fnName] || [];
     fnParameters[index] = value;
     setParameters({ ...parameters, [fnName]: fnParameters });
+  };
+
+  const handleContractDeployment = async (contract?: ContractInstanceWithAddress, alias?: string) => {
+    if (contract) {
+      // Use the real contract address
+      const deployedContract = await Contract.at(contract.address, contractArtifact, wallet);
+      setCurrentContractAddress(deployedContract.address);
+      setCurrentContract(deployedContract);
+      // Save the contract in the wallet database
+      await walletDB.storeContract(deployedContract.address, contractArtifact, undefined, alias);
+    }
+    setOpenDeployContractDialog(false);
   };
 
   const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
@@ -327,30 +482,33 @@ export function ContractComponent() {
               <Typography variant="h3" css={{ marginRight: '0.5rem' }}>
                 {contractArtifact.name}
               </Typography>
-              {!currentContract && wallet && (
-                <div css={contractActions}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    css={{ marginRight: '0.5rem' }}
-                    onClick={() => setOpenDeployContractDialog(true)}
-                  >
-                    Deploy
-                  </Button>
-                  <Button size="small" variant="contained" onClick={() => setOpenRegisterContractDialog(true)}>
-                    Register
-                  </Button>
-                  <DeployContractDialog
-                    contractArtifact={contractArtifact}
-                    open={openDeployContractDialog}
-                    onClose={handleContractCreation}
-                  />
-                  <RegisterContractDialog
-                    contractArtifact={contractArtifact}
-                    open={openRegisterContractDialog}
-                    onClose={handleContractCreation}
-                  />
-                </div>
+              <div css={contractActions}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  css={{ marginRight: '0.5rem' }}
+                  onClick={() => setOpenDeployContractDialog(true)}
+                >
+                  Deploy
+                </Button>
+                <Button size="small" variant="contained" onClick={() => setOpenRegisterContractDialog(true)}>
+                  Register
+                </Button>
+                <DeployContractDialog
+                  contractArtifact={contractArtifact}
+                  open={openDeployContractDialog}
+                  onClose={handleContractDeployment}
+                />
+                <RegisterContractDialog
+                  contractArtifact={contractArtifact}
+                  open={openRegisterContractDialog}
+                  onClose={handleContractCreation}
+                />
+              </div>
+              {selectedPredefinedContract && (
+                <Typography variant="subtitle1" color="text.secondary">
+                  Sample Contract
+                </Typography>
               )}
               {currentContract && (
                 <div css={contractActions}>

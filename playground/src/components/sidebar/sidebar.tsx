@@ -15,12 +15,14 @@ import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import { formatFrAsString, parseAliasedBuffersAsString } from '../../utils/conversion';
-import ContactsIcon from '@mui/icons-material/Contacts';
 import { CopyToClipboardButton } from '../common/copyToClipboardButton';
 import { AddSendersDialog } from './components/addSenderDialog';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TxsPanel } from './components/txsPanel';
 import { AddNetworksDialog } from './components/addNetworkDialog';
+import CodeIcon from '@mui/icons-material/Code';
+import ContactsIcon from '@mui/icons-material/Contacts';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 const container = css({
   display: 'flex',
@@ -87,6 +89,13 @@ async function getInitialEcdsaR1TestAccounts() {
   );
 }
 
+// Define predefined contract types
+const PREDEFINED_CONTRACTS = {
+  SIMPLE_VOTING: 'simple_voting',
+  SIMPLE_TOKEN: 'simple_token',
+  CUSTOM_UPLOAD: 'custom_upload'
+};
+
 export function SidebarComponent() {
   const {
     setPXE,
@@ -98,11 +107,14 @@ export function SidebarComponent() {
     setAztecNode,
     setLogs,
     currentContractAddress,
+    selectedPredefinedContract,
     wallet,
     walletDB,
     nodeURL,
     isPXEInitialized,
     pxe,
+    setSelectedPredefinedContract,
+    setShowContractInterface,
   } = useContext(AztecContext);
   const [changingNetworks, setChangingNetworks] = useState(false);
   const [accounts, setAccounts] = useState([]);
@@ -333,11 +345,44 @@ export function SidebarComponent() {
   };
 
   const handleContractChange = async (event: SelectChangeEvent) => {
-    if (event.target.value == '') {
+    const contractValue = event.target.value;
+
+    // Handle predefined contracts
+    if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_VOTING) {
+      // Will load the simple voting contract artifact
+      setSelectedPredefinedContract(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
+      setCurrentContractAddress(null); // Clear any existing contract address
+      setShowContractInterface(true);
+      return;
+    } else if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
+      // Will load the simple token contract artifact
+      setSelectedPredefinedContract(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
+      setCurrentContractAddress(null); // Clear any existing contract address
+      setShowContractInterface(true);
+      return;
+    } else if (contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
+      // Show the contract interface with the upload area
+      setSelectedPredefinedContract('');
+      setCurrentContractAddress(null);
+      setShowContractInterface(true);
       return;
     }
-    const contractAddress = AztecAddress.fromString(event.target.value);
-    setCurrentContractAddress(contractAddress);
+
+    // Handle user-deployed contracts
+    if (contractValue === '') {
+      return; // Handle the case when "Create" is clicked
+    }
+
+    try {
+      // Clear any predefined contract selection
+      setSelectedPredefinedContract('');
+
+      // Set the user's contract address
+      const contractAddress = AztecAddress.fromString(contractValue);
+      setCurrentContractAddress(contractAddress);
+    } catch (error) {
+      console.error('Error setting contract address:', error);
+    }
   };
 
   const handleSenderAdded = async (sender?: AztecAddress, alias?: string) => {
@@ -366,6 +411,11 @@ export function SidebarComponent() {
       setNetworks(networks);
     }
     setOpenAddNetworksDialog(false);
+  };
+
+  // Add this function to handle showing the contract interface
+  const handleShowContractInterface = () => {
+    setShowContractInterface(true);
   };
 
   return (
@@ -452,32 +502,66 @@ export function SidebarComponent() {
       ) : (
         <></>
       )}
-      {wallet && (
-        <>
-          <Typography variant="overline">Tools</Typography>
-          <FormControl css={select}>
-            <InputLabel>Contracts</InputLabel>
-            <Select
-              value={currentContractAddress?.toString() ?? ''}
-              label="Contract"
-              onChange={handleContractChange}
-              fullWidth
-            >
-              {contracts.map(contract => (
-                <MenuItem key={`${contract.key}-${contract.value}`} value={contract.value}>
-                  {contract.key.split(':')[1]}&nbsp;(
-                  {formatFrAsString(contract.value)})
-                </MenuItem>
-              ))}
-            </Select>
-            <CopyToClipboardButton disabled={!currentContractAddress} data={currentContractAddress?.toString()} />
-          </FormControl>
-          <Button variant="contained" onClick={() => setOpenAddSendersDialog(true)} endIcon={<ContactsIcon />}>
-            Contacts
-          </Button>
-          <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />
-        </>
-      )}
+
+      {/* Always show Contracts section, but disable it until an account is selected */}
+      <div style={{ marginTop: '1.5rem', opacity: wallet ? 1 : 0.5 }}>
+        <Typography variant="overline">Contracts</Typography>
+        <FormControl css={select}>
+          <InputLabel>Contracts</InputLabel>
+          <Select
+            value={selectedPredefinedContract || currentContractAddress?.toString() || ''}
+            label="Contract"
+            onChange={handleContractChange}
+            fullWidth
+            disabled={!wallet}
+          >
+            {/* Predefined contracts */}
+            <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>
+              Easy Private Voting
+            </MenuItem>
+            <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_TOKEN}>
+              Simple Token Contract
+            </MenuItem>
+            <MenuItem value={PREDEFINED_CONTRACTS.CUSTOM_UPLOAD} sx={{ display: 'flex', alignItems: 'center' }}>
+              <UploadFileIcon fontSize="small" sx={{ mr: 1 }} />
+              Upload Your Own
+            </MenuItem>
+            <Divider />
+            {/* User's deployed/registered contracts */}
+            {contracts.map(contract => (
+              <MenuItem key={`${contract.key}-${contract.value}`} value={contract.value}>
+                {contract.key.split(':')[1]}&nbsp;(
+                {formatFrAsString(contract.value)})
+              </MenuItem>
+            ))}
+          </Select>
+          <CopyToClipboardButton
+            disabled={!currentContractAddress}
+            data={currentContractAddress?.toString()}
+          />
+        </FormControl>
+        <Button
+          variant="contained"
+          onClick={() => setOpenAddSendersDialog(true)}
+          endIcon={<ContactsIcon />}
+          disabled={!wallet}
+          sx={{ mt: 1 }}
+        >
+          Contacts
+        </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleShowContractInterface}
+          endIcon={<CodeIcon />}
+          disabled={!wallet}
+          sx={{ mt: 1, width: '100%' }}
+        >
+          Start Coding
+        </Button>
+        <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />
+      </div>
+
       <div css={{ flex: '1 0 auto', margin: 'auto' }} />
       <Typography variant="overline">Transactions</Typography>
       <Divider />

@@ -1,8 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
 import { AccountWalletWithSecretKey, Fr } from '@aztec/aztec.js';
-// Import the ECDSA R1 SSH account instead of Schnorr
-// import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
