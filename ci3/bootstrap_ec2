@@ -181,6 +181,8 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   sudo apt-get update
   sudo apt-get install -y sysdig
   sudo sysdig -p '%evt.time %proc.cmdline %evt.dir %evt.type %evt.args' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
+  netfile_pid=\$!
+  trap 'sudo kill \$netfile_pid' EXIT
 
   echo Starting devbox...
   docker run --privileged ${docker_args:-} \
