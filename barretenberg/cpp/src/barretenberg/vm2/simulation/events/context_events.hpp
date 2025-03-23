@@ -6,7 +6,7 @@ namespace bb::avm2::simulation {
 
 struct ContextEvent {
     uint32_t id;
-    uint32_t parent_id;
+    // uint32_t parent_id;
 
     // State
     uint32_t pc;
@@ -15,12 +15,12 @@ struct ContextEvent {
     bool is_static;
 
     // Calldata info
-    uint32_t cd_addr;
-    uint32_t cd_size_addr;
+    // uint32_t cd_addr;
+    // uint32_t cd_size_addr;
 
     // Returndata info
-    uint32_t rd_addr;
-    uint32_t rd_size_addr;
+    // uint32_t rd_addr;
+    // uint32_t rd_size_addr;
 
     // Success
     bool nested_ctx_success;
@@ -37,7 +37,7 @@ struct ContextEvent {
 
 struct ContextStackEvent {
     uint32_t id;
-    uint32_t parent_id;
+    // uint32_t parent_id;
 
     // State
     uint32_t pc;
@@ -46,8 +46,8 @@ struct ContextStackEvent {
     bool is_static;
 
     // Calldata info
-    uint32_t cd_addr;
-    uint32_t cd_size_addr;
+    // uint32_t cd_addr;
+    // uint32_t cd_size_addr;
 
     // Gas
     // uint32_t l2_gas_used;

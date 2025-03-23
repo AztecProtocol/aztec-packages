@@ -42,10 +42,10 @@ void Execution::call(ContextInterface& context, MemoryAddress addr)
     const auto [contract_address, _] = memory.get(addr);
     std::vector<FF> calldata = {};
 
-    auto nested_context = context_provider.make_nested_context(contract_address,
-                                                               /*msg_sender=*/context.get_address(),
-                                                               /*calldata=*/calldata,
-                                                               /*is_static=*/false);
+    auto nested_context = execution_components.make_nested_context(contract_address,
+                                                                   /*msg_sender=*/context.get_address(),
+                                                                   /*calldata=*/calldata,
+                                                                   /*is_static=*/false);
 
     // We recurse. When we return, we'll continue with the current loop and emit the execution event.
     // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
@@ -107,7 +107,6 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
         try {
             // Basic pc and bytecode setup.
             auto pc = context.get_pc();
-            ex_event.pc = pc;
             ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
 
             // We try to fetch an instruction.
@@ -128,9 +127,10 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 
-            // Emit the context event
+            // "Emit" the context event
             // TODO: think about whether we need to know the success at this point
-            context.emit_context_snapshot();
+            auto context_event = context.get_current_context();
+            ex_event.context_event = context_event;
 
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);

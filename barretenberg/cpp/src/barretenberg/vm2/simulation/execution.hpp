@@ -32,24 +32,27 @@ class ExecutionInterface {
     virtual ~ExecutionInterface() = default;
     // Returns the top-level execution result. TODO: This should only be top level enqueud calls
     virtual ExecutionResult execute(ContextInterface& context) = 0;
+
+    // This feels off, but we need access to the context provider at both the tx and execution level
+    // and threading it feels worse.
+    virtual ExecutionComponentsProviderInterface& get_provider() = 0;
 };
 
 // In charge of executing a single enqueued call.
 class Execution : public ExecutionInterface {
   public:
     Execution(AluInterface& alu,
-              ContextProviderInterface& context_provider,
               ExecutionComponentsProviderInterface& execution_components,
               const InstructionInfoDBInterface& instruction_info_db,
               EventEmitterInterface<ExecutionEvent>& event_emitter)
         : execution_components(execution_components)
-        , context_provider(context_provider)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , events(event_emitter)
     {}
 
     ExecutionResult execute(ContextInterface& enqueued_call_context) override;
+    ExecutionComponentsProviderInterface& get_provider() override { return execution_components; };
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -72,7 +75,6 @@ class Execution : public ExecutionInterface {
     std::vector<Operand> resolve_operands(const Instruction& instruction, const ExecInstructionSpec& spec);
 
     ExecutionComponentsProviderInterface& execution_components;
-    ContextProviderInterface& context_provider;
     const InstructionInfoDBInterface& instruction_info_db;
 
     AluInterface& alu;

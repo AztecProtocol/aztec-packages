@@ -38,9 +38,9 @@ class ContextInterface {
     virtual std::span<const FF> get_calldata() const = 0;
     virtual bool get_is_static() const = 0;
 
-    // Event emitting
+    // Events
     virtual void emit_context_snapshot() = 0;
-    virtual void emit_current_context() = 0;
+    virtual ContextEvent get_current_context() = 0;
 };
 
 // The context for a single nested call.
@@ -52,7 +52,8 @@ class BaseContext : public ContextInterface {
                 std::span<const FF> calldata,
                 bool is_static,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
-                std::unique_ptr<MemoryInterface> memory)
+                std::unique_ptr<MemoryInterface> memory,
+                EventEmitterInterface<ContextStackEvent>& ctx_stack_events)
         : address(address)
         , msg_sender(msg_sender)
         , calldata(calldata.begin(), calldata.end())
@@ -60,6 +61,7 @@ class BaseContext : public ContextInterface {
         , context_id(context_id)
         , bytecode(std::move(bytecode))
         , memory(std::move(memory))
+        , ctx_stack_events(ctx_stack_events)
     {}
 
     // Having getters and setters make it easier to mock the context.
@@ -83,8 +85,18 @@ class BaseContext : public ContextInterface {
     bool get_is_static() const override { return is_static; }
 
     // Event Emitting
-    void emit_context_snapshot() override{};
-    void emit_current_context() override{};
+    void emit_context_snapshot() override
+    {
+        ctx_stack_events.emit(
+            { .id = context_id, .pc = pc, .msg_sender = msg_sender, .contract_addr = address, .is_static = is_static });
+    };
+
+    ContextEvent get_current_context() override
+    {
+        return {
+            .id = context_id, .pc = pc, .msg_sender = msg_sender, .contract_addr = address, .is_static = is_static
+        };
+    };
 
   private:
     // Environment.
@@ -102,6 +114,9 @@ class BaseContext : public ContextInterface {
     std::vector<FF> nested_returndata;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
+
+    // Emiiters
+    EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 };
 
 // TODO(ilyas): flesh these out, these are just temporary
@@ -113,8 +128,16 @@ class EnqueuedCallContext : public BaseContext {
                         std::span<const FF> calldata,
                         bool is_static,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
-                        std::unique_ptr<MemoryInterface> memory)
-        : BaseContext(context_id, address, msg_sender, calldata, is_static, std::move(bytecode), std::move(memory))
+                        std::unique_ptr<MemoryInterface> memory,
+                        EventEmitterInterface<ContextStackEvent>& ctx_stack_events)
+        : BaseContext(context_id,
+                      address,
+                      msg_sender,
+                      calldata,
+                      is_static,
+                      std::move(bytecode),
+                      std::move(memory),
+                      ctx_stack_events)
     {}
 };
 
@@ -126,69 +149,17 @@ class NestedContext : public BaseContext {
                   std::span<const FF> calldata,
                   bool is_static,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
-                  std::unique_ptr<MemoryInterface> memory)
-        : BaseContext(context_id, address, msg_sender, calldata, is_static, std::move(bytecode), std::move(memory))
+                  std::unique_ptr<MemoryInterface> memory,
+                  EventEmitterInterface<ContextStackEvent>& ctx_stack_events)
+        : BaseContext(context_id,
+                      address,
+                      msg_sender,
+                      calldata,
+                      is_static,
+                      std::move(bytecode),
+                      std::move(memory),
+                      ctx_stack_events)
     {}
 };
 
-//(ripped from ExecutionComponents)
-class ContextProviderInterface {
-  public:
-    virtual ~ContextProviderInterface() = default;
-
-    virtual std::unique_ptr<EnqueuedCallContext> make_enqueued_context(AztecAddress address,
-                                                                       AztecAddress msg_sender,
-                                                                       std::span<const FF> calldata,
-                                                                       bool is_static) = 0;
-    // TODO: Update params for this nested call
-    virtual std::unique_ptr<NestedContext> make_nested_context(AztecAddress address,
-                                                               AztecAddress msg_sender,
-                                                               std::span<const FF> calldata,
-                                                               bool is_static) = 0;
-};
-
-class ContextProvider : public ContextProviderInterface {
-  public:
-    ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager, EventEmitterInterface<MemoryEvent>& memory_events)
-        : tx_bytecode_manager(tx_bytecode_manager)
-        , memory_events(memory_events)
-    {}
-    std::unique_ptr<EnqueuedCallContext> make_enqueued_context(AztecAddress address,
-                                                               AztecAddress msg_sender,
-                                                               std::span<const FF> calldata,
-                                                               bool is_static) override
-    {
-
-        // TODO update this
-        auto context_id = next_context_id++;
-        return std::make_unique<EnqueuedCallContext>(context_id,
-                                                     address,
-                                                     msg_sender,
-                                                     calldata,
-                                                     is_static,
-                                                     std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
-                                                     std::make_unique<Memory>(context_id, memory_events));
-    }
-
-    std::unique_ptr<NestedContext> make_nested_context(AztecAddress address,
-                                                       AztecAddress msg_sender,
-                                                       std::span<const FF> calldata,
-                                                       bool is_static) override
-    {
-
-        auto context_id = next_context_id++;
-        return std::make_unique<NestedContext>(context_id,
-                                               address,
-                                               msg_sender,
-                                               calldata,
-                                               is_static,
-                                               std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
-                                               std::make_unique<Memory>(context_id, memory_events));
-    }
-
-  private:
-    uint32_t next_context_id;
-    TxBytecodeManagerInterface& tx_bytecode_manager;
-    EventEmitterInterface<MemoryEvent>& memory_events;
-};
 } // namespace bb::avm2::simulation
