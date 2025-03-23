@@ -35,4 +35,5 @@ yarn preview
 
 ## TODO / to ask
 
-- SSH_AUTH_SOCK not setwhe
+- SSH_AUTH_SOCK not set when trying to deploy
+- fee paymasters on devnet

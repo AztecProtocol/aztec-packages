@@ -38,14 +38,14 @@ import SendIcon from '@mui/icons-material/Send';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import { CreateAuthwitDialog } from './components/createAuthwitDialog';
 import { parse } from 'buffer-json';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 const container = css({
   display: 'flex',
+  flexDirection: 'column',
   height: 'calc(100vh - 50px)',
   width: '100%',
   overflow: 'hidden',
-  justifyContent: 'center',
-  alignItems: 'center',
 });
 
 const dropZoneContainer = css({
@@ -53,29 +53,41 @@ const dropZoneContainer = css({
   flexDirection: 'column',
   width: '100%',
   height: '80%',
-  border: '3px dashed black',
+  border: '3px dashed #1976d2',
   borderRadius: '15px',
   margin: '0rem 2rem 2rem 2rem',
+  backgroundColor: 'rgba(25, 118, 210, 0.04)',
+});
+
+const uploadIcon = css({
+  fontSize: '64px',
+  color: '#1976d2',
+  marginBottom: '1rem',
 });
 
 const contractFnContainer = css({
-  display: 'block',
+  display: 'flex',
+  flexDirection: 'column',
   width: '100%',
-  overflowY: 'auto',
-  color: 'black',
   height: '100%',
+  overflow: 'hidden',
 });
 
 const headerContainer = css({
   display: 'flex',
   flexDirection: 'column',
-  flexGrow: 1,
-  flexWrap: 'wrap',
+  width: '100%',
   margin: '0 0.5rem',
-  padding: '0.1rem',
+  padding: '0.5rem',
   overflow: 'hidden',
-  justifyContent: 'stretch',
-  marginBottom: '0.5rem',
+  flexShrink: 0,
+  maxHeight: '120px',
+});
+
+const functionListContainer = css({
+  flex: 1,
+  overflowY: 'auto',
+  padding: '0 0.5rem',
 });
 
 const header = css({
@@ -124,12 +136,37 @@ const loadingArtifactContainer = css({
 
 const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
-// Define predefined contract types - keep in sync with sidebar.tsx
 const PREDEFINED_CONTRACTS = {
   SIMPLE_VOTING: 'simple_voting',
   SIMPLE_TOKEN: 'simple_token',
   CUSTOM_UPLOAD: 'custom_upload'
 };
+
+interface ExtendedFunctionAbi extends FunctionAbi {
+  originalName?: string;
+}
+
+const TOKEN_FUNCTION_MAPPING = {
+  'transfer_in_public': 'public_transfer',
+  'transfer_to_public': 'transfer_from_private_to_public',
+  'transfer_to_private': 'transfer_from_public_to_private'
+};
+
+const TOKEN_ALLOWED_FUNCTIONS = [
+  'name',
+  'symbol',
+  'decimals',
+  'balance_of_private',
+  'balance_of_public',
+  'total_supply_private',
+  'total_supply_public',
+  'mint_privately',
+  'mint_publicly',
+  'private_transfer',
+  'transfer_in_public', // Will be renamed to public_transfer
+  'transfer_to_public', // Will be renamed to transfer_from_private_to_public
+  'transfer_to_private', // Will be renamed to transfer_from_public_to_private
+];
 
 const MOCK_SIMPLE_TOKEN_ARTIFACT = {
   name: 'SimpleToken',
@@ -166,7 +203,8 @@ const MOCK_SIMPLE_TOKEN_ARTIFACT = {
 
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
-  const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
+  const [functionAbis, setFunctionAbis] = useState<ExtendedFunctionAbi[]>([]);
+  const [showUploadArea, setShowUploadArea] = useState(false);
 
   const [filters, setFilters] = useState({
     searchTerm: '',
@@ -200,7 +238,16 @@ export function ContractComponent() {
     setCurrentContract,
     setCurrentContractAddress,
     setCurrentTx,
+    setSelectedPredefinedContract,
   } = useContext(AztecContext);
+
+  useEffect(() => {
+    if (selectedPredefinedContract === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
+      setShowUploadArea(true);
+    } else {
+      setShowUploadArea(false);
+    }
+  }, [selectedPredefinedContract]);
 
   useEffect(() => {
     console.log('Wallet:', wallet);
@@ -208,36 +255,44 @@ export function ContractComponent() {
     console.log('Is Working:', isWorking);
   }, [wallet, currentContract, isWorking]);
 
-  // Sort functions in a specific order for EasyPrivateVoting contract
   const sortFunctions = (functions: FunctionAbi[], contractName: string): FunctionAbi[] => {
     if (contractName === 'SimplePrivateVoting') {
-      // Define the order fofr EasyPrivateVoting functions
       const order = ['constructor', 'cast_vote', 'end_vote', 'get_vote'];
 
-      // Create a copy of the array to avoid mutating the original
       return [...functions].sort((a, b) => {
         const indexA = order.indexOf(a.name);
         const indexB = order.indexOf(b.name);
 
-        // If both functions are in the order array, sort by their position
         if (indexA !== -1 && indexB !== -1) {
           return indexA - indexB;
         }
 
-        // If only one function is in the order array, prioritize it
         if (indexA !== -1) return -1;
         if (indexB !== -1) return 1;
 
-        // For functions not in the order array, maintain their original order
         return 0;
       });
     }
 
-    // For other contracts, return the original array
     return functions;
   };
 
-  // Load predefined contract artifacts
+
+  const filterTokenFunctions = (functions: FunctionAbi[]): ExtendedFunctionAbi[] => {
+    return functions
+      .filter(fn => TOKEN_ALLOWED_FUNCTIONS.includes(fn.name))
+      .map(fn => {
+        if (TOKEN_FUNCTION_MAPPING[fn.name]) {
+          return {
+            ...fn,
+            name: TOKEN_FUNCTION_MAPPING[fn.name],
+            originalName: fn.name
+          };
+        }
+        return fn;
+      });
+  };
+
   useEffect(() => {
     const loadPredefinedContract = async () => {
       setIsLoadingArtifact(true);
@@ -246,7 +301,6 @@ export function ContractComponent() {
 
       if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING) {
         try {
-          // Use absolute path to the contract file in the public directory
           const response = await fetch('/contracts/SimplePrivateVoting.json', {
             headers: {
               'Content-Type': 'application/json',
@@ -263,22 +317,35 @@ export function ContractComponent() {
         }
       } else if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
         try {
-          // For now, use the mock artifact since we don't have the real one
-          contractArtifact = MOCK_SIMPLE_TOKEN_ARTIFACT as unknown as ContractArtifact;
-
-          // When you have the real SimpleToken artifact, uncomment this line and import the file:
-          // import SimpleToken from '../../assets/contracts/SimpleToken.json';
-          // @ts-ignore - Add this comment when uncommenting
-          // contractArtifact = loadContractArtifact(SimpleToken);
+          const response = await fetch('/contracts/Token.json', {
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch contract: ${response.status} ${response.statusText}`);
+          }
+          const artifact = await response.json();
+          contractArtifact = loadContractArtifact(artifact);
         } catch (err) {
-          console.error('Error loading SimpleToken artifact:', err);
+          console.error('Error loading Token artifact:', err);
         }
       }
 
       if (contractArtifact) {
         console.log('Loaded contract artifact:', contractArtifact);
         setContractArtifact(contractArtifact);
-        setFunctionAbis(sortFunctions(getAllFunctionAbis(contractArtifact), contractArtifact.name));
+
+        let functionAbis = getAllFunctionAbis(contractArtifact);
+
+        if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
+          functionAbis = filterTokenFunctions(functionAbis);
+        }
+
+        functionAbis = sortFunctions(functionAbis, contractArtifact.name);
+
+        setFunctionAbis(functionAbis);
         setFilters({
           searchTerm: '',
           private: true,
@@ -286,12 +353,7 @@ export function ContractComponent() {
           unconstrained: true,
         });
 
-        // Use a valid placeholder Aztec address
-        const mockAddress = AztecAddress.fromString('0x0000000000000000000000000000000000000000'); // Valid placeholder address
-        const mockContract = await Contract.at(mockAddress, contractArtifact, wallet);
-
-        console.log('Setting current contract:', contractArtifact.name);
-        setCurrentContract(mockContract);
+        console.log('Setting up contract artifact:', contractArtifact.name);
       }
 
       setIsLoadingArtifact(false);
@@ -302,7 +364,6 @@ export function ContractComponent() {
     }
   }, [selectedPredefinedContract]);
 
-  // Load user's contract from address
   useEffect(() => {
     const loadCurrentContract = async () => {
       setIsLoadingArtifact(true);
@@ -327,54 +388,136 @@ export function ContractComponent() {
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async files => {
+      if (!files || files.length === 0) return;
+
       const file = files[0];
+      if (!file.name.endsWith('.json')) {
+        alert('Please upload a JSON file. Other file types are not supported.');
+        return;
+      }
+
       const reader = new FileReader();
       setIsLoadingArtifact(true);
+
       reader.onload = async e => {
-        const contractArtifact = loadContractArtifact(JSON.parse(e.target?.result as string));
-        setContractArtifact(contractArtifact);
-        setFunctionAbis(sortFunctions(getAllFunctionAbis(contractArtifact), contractArtifact.name));
+        try {
+          if (!e.target?.result) {
+            throw new Error('Could not read the file content');
+          }
+
+          const fileContent = e.target.result as string;
+          const artifact = JSON.parse(fileContent);
+          const contractArtifact = loadContractArtifact(artifact);
+
+          setSelectedPredefinedContract('');
+          setCurrentContractAddress(null);
+
+          setContractArtifact(contractArtifact);
+
+          let functionAbis = getAllFunctionAbis(contractArtifact);
+          functionAbis = sortFunctions(functionAbis, contractArtifact.name);
+          setFunctionAbis(functionAbis);
+
+          setFilters({
+            searchTerm: '',
+            private: true,
+            public: true,
+            unconstrained: true,
+          });
+
+
+          setShowUploadArea(false);
+
+          if (wallet) {
+            setTimeout(() => {
+              if (confirm('Would you like to deploy this contract now?')) {
+                setOpenDeployContractDialog(true);
+              }
+            }, 500);
+          }
+
+        } catch (error) {
+          console.error('Error parsing contract artifact:', error);
+          alert(`Failed to load contract artifact: ${error.message || 'Unknown error'}`);
+        } finally {
+          setIsLoadingArtifact(false);
+        }
+      };
+
+      reader.onerror = () => {
+        console.error('Error reading file:', reader.error);
+        alert('Error reading the uploaded file. Please try again.');
         setIsLoadingArtifact(false);
       };
+
       reader.readAsText(file);
     },
+    accept: {
+      'application/json': ['.json']
+    },
+    multiple: false
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleParameterChange = (fnName: string, index: number, value: any) => {
-    const fnParameters = parameters[fnName] || [];
+    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+    const realFnName =
+      selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+      matchingFn?.originalName || fnName;
+
+    const fnParameters = parameters[realFnName] || [];
     fnParameters[index] = value;
-    setParameters({ ...parameters, [fnName]: fnParameters });
+    setParameters({ ...parameters, [realFnName]: fnParameters });
   };
 
   const handleContractDeployment = async (contract?: ContractInstanceWithAddress, alias?: string) => {
     if (contract) {
-      // Use the real contract address
-      const deployedContract = await Contract.at(contract.address, contractArtifact, wallet);
-      setCurrentContractAddress(deployedContract.address);
-      setCurrentContract(deployedContract);
-      // Save the contract in the wallet database
-      await walletDB.storeContract(deployedContract.address, contractArtifact, undefined, alias);
+      try {
+        const deployedContract = await Contract.at(contract.address, contractArtifact, wallet);
+        setCurrentContractAddress(deployedContract.address);
+        setCurrentContract(deployedContract);
+        await walletDB.storeContract(deployedContract.address, contractArtifact, undefined, alias);
+        console.log('Successfully deployed contract at address:', deployedContract.address.toString());
+      } catch (error) {
+        console.error('Error setting up deployed contract:', error);
+        alert('Error setting up the deployed contract. Please try again.');
+      }
     }
     setOpenDeployContractDialog(false);
   };
 
   const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
     if (contract && alias) {
-      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
-      setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
-      setCurrentContractAddress(contract.address);
+      try {
+        await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+        setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
+        setCurrentContractAddress(contract.address);
+        console.log('Successfully registered contract at address:', contract.address.toString());
+      } catch (error) {
+        console.error('Error registering contract:', error);
+        alert('Error registering the contract. Please try again.');
+      }
     }
     setOpenDeployContractDialog(false);
     setOpenRegisterContractDialog(false);
   };
 
   const simulate = async (fnName: string) => {
+    if (!currentContract) {
+      alert('You need to deploy this contract before you can simulate functions.');
+      return;
+    }
+
     setIsWorking(true);
     let result;
     try {
-      const fnParameters = parameters[fnName] ?? [];
-      const call = currentContract.methods[fnName](...fnParameters);
+      const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+      const realFnName =
+        selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+        matchingFn?.originalName || fnName;
+
+      const fnParameters = parameters[realFnName] ?? [];
+      const call = currentContract.methods[realFnName](...fnParameters);
 
       result = await call.simulate();
       setSimulationResults({
@@ -382,27 +525,40 @@ export function ContractComponent() {
         ...{ [fnName]: { success: true, data: result } },
       });
     } catch (e) {
+      console.error('Simulation error:', e);
       setSimulationResults({
         ...simulationResults,
         ...{ [fnName]: { success: false, error: e.message } },
       });
+    } finally {
+      setIsWorking(false);
     }
-
-    setIsWorking(false);
   };
 
   const send = async (fnName: string) => {
+    if (!currentContract) {
+      alert('You need to deploy this contract before you can send transactions.');
+      return;
+    }
+
     setIsWorking(true);
     let receipt;
     let txHash;
+
+    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+    const realFnName =
+      selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+      matchingFn?.originalName || fnName;
+
     const currentTx = {
       status: 'proving' as const,
       fnName: fnName,
       contractAddress: currentContract.address,
     };
     setCurrentTx(currentTx);
+
     try {
-      const call = currentContract.methods[fnName](...parameters[fnName]);
+      const call = currentContract.methods[realFnName](...(parameters[realFnName] || []));
 
       const provenCall = await call.prove();
       txHash = await provenCall.getTxHash();
@@ -427,7 +583,7 @@ export function ContractComponent() {
         },
       });
     } catch (e) {
-      console.error(e);
+      console.error('Transaction error:', e);
       setCurrentTx({
         ...currentTx,
         ...{
@@ -436,9 +592,9 @@ export function ContractComponent() {
           error: e.message,
         },
       });
+    } finally {
+      setIsWorking(false);
     }
-
-    setIsWorking(false);
   };
 
   const handleAuthwitFnDataChanged = (
@@ -447,7 +603,12 @@ export function ContractComponent() {
     parameters: any[],
     isPrivate: boolean,
   ) => {
-    setAuthwitFnData({ name: fnName, parameters, isPrivate });
+    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+    const realFnName =
+      selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+      matchingFn?.originalName || fnName;
+
+    setAuthwitFnData({ name: realFnName, parameters, isPrivate });
     setOpenCreateAuthwitDialog(true);
   };
 
@@ -461,20 +622,44 @@ export function ContractComponent() {
 
   return (
     <div css={container}>
-      {!contractArtifact ? (
+      {showUploadArea ? (
         !isLoadingArtifact ? (
-          <div css={dropZoneContainer}>
-            <div {...getRootProps({ className: 'dropzone' })}>
-              <input {...getInputProps()} />
-              <Typography>Drag 'n' drop some files here, or click to select files</Typography>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '1rem' }}>
+            <div css={dropZoneContainer}>
+              <div {...getRootProps({ className: 'dropzone' })}>
+                <input {...getInputProps()} />
+                <UploadFileIcon css={uploadIcon} />
+                <Typography variant="h5" sx={{ mb: 2, color: '#1976d2' }}>Upload Contract JSON Artifact</Typography>
+                <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, mb: 3, display: 'block' }}>
+                  The contract artifact should be a JSON file exported from your Noir/Aztec project
+                </Typography>
+                <Button
+                  variant="contained"
+                  sx={{ mt: 2 }}
+                >
+                  Select File
+                </Button>
+              </div>
             </div>
           </div>
         ) : (
-          <div css={loadingArtifactContainer}>
-            <Typography variant="h5">Loading artifact...</Typography>
-            <CircularProgress size={100} />
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <div css={loadingArtifactContainer}>
+              <Typography variant="h5">Loading artifact...</Typography>
+              <CircularProgress size={100} />
+            </div>
           </div>
         )
+      ) : !contractArtifact ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <div css={loadingArtifactContainer}>
+            <Typography variant="h5">No contract loaded</Typography>
+            <Typography>
+              Select a contract from the dropdown or upload your own.
+            </Typography>
+          </div>
+        </div>
       ) : (
         <div css={contractFnContainer}>
           <div css={headerContainer}>
@@ -590,115 +775,130 @@ export function ContractComponent() {
               </FormGroup>
             </div>
           </div>
-          {functionAbis
-            .filter(
-              fn =>
-                !fn.isInternal &&
-                !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
-                ((filters.private && fn.functionType === 'private') ||
-                  (filters.public && fn.functionType === 'public') ||
-                  (filters.unconstrained && fn.functionType === 'unconstrained')) &&
-                (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
-            )
-            .map(fn => (
-              <Card
-                key={fn.name}
-                variant="outlined"
-                sx={{
-                  backgroundColor: 'primary.light',
-                  margin: '0.5rem',
-                  overflow: 'hidden',
-                }}
-              >
-                <CardContent sx={{ textAlign: 'left' }}>
-                  <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
-                    {fn.functionType}
-                  </Typography>
-                  <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
-                    {fn.name}
-                  </Typography>
-                  {fn.parameters.length > 0 && (
-                    <>
-                      <Typography
-                        gutterBottom
-                        sx={{
-                          color: 'text.secondary',
-                          fontSize: 14,
-                          marginTop: '1rem',
-                        }}
-                      >
-                        Parameters
-                      </Typography>
-                      <FormGroup row css={{ marginBottom: '1rem' }}>
-                        {fn.parameters.map((param, i) => (
-                          <FunctionParameter
-                            parameter={param}
-                            key={param.name}
-                            onParameterChange={newValue => {
-                              handleParameterChange(fn.name, i, newValue);
-                            }}
-                          />
-                        ))}
-                      </FormGroup>
-                    </>
-                  )}
 
-                  {!isWorking && simulationResults[fn.name] !== undefined && (
-                    <div css={simulationContainer}>
-                      <Typography variant="body1" sx={{ fontWeight: 200 }}>
-                        Simulation results:&nbsp;
-                      </Typography>
-                      {simulationResults[fn.name].success ? (
-                        <Typography variant="body1">
-                          {simulationResults?.[fn.name]?.data.length === 0
-                            ? '-'
-                            : simulationResults?.[fn.name].data.toString()}
+          {!currentContract && (
+            <div style={{ padding: '20px', margin: '10px', textAlign: 'center', backgroundColor: 'rgba(33, 150, 243, 0.1)', borderRadius: '8px' }}>
+              <Typography variant="subtitle1" color="primary">
+                You need to deploy this contract before you can interact with it.
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Click the "Deploy" button above to deploy this contract to the network.
+              </Typography>
+            </div>
+          )}
+
+          {/* Contract functions list */}
+          <div css={functionListContainer}>
+            {functionAbis
+              .filter(
+                fn =>
+                  !fn.isInternal &&
+                  !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
+                  ((filters.private && fn.functionType === 'private') ||
+                    (filters.public && fn.functionType === 'public') ||
+                    (filters.unconstrained && fn.functionType === 'unconstrained')) &&
+                  (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
+              )
+              .map(fn => (
+                <Card
+                  key={fn.name}
+                  variant="outlined"
+                  sx={{
+                    backgroundColor: 'primary.light',
+                    margin: '0.5rem',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <CardContent sx={{ textAlign: 'left' }}>
+                    <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
+                      {fn.functionType}
+                    </Typography>
+                    <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
+                      {fn.name}
+                    </Typography>
+                    {fn.parameters.length > 0 && (
+                      <>
+                        <Typography
+                          gutterBottom
+                          sx={{
+                            color: 'text.secondary',
+                            fontSize: 14,
+                            marginTop: '1rem',
+                          }}
+                        >
+                          Parameters
                         </Typography>
-                      ) : (
-                        <Typography variant="body1" color="error">
-                          {simulationResults?.[fn.name]?.error}
+                        <FormGroup row css={{ marginBottom: '1rem' }}>
+                          {fn.parameters.map((param, i) => (
+                            <FunctionParameter
+                              parameter={param}
+                              key={param.name}
+                              onParameterChange={newValue => {
+                                handleParameterChange(fn.name, i, newValue);
+                              }}
+                            />
+                          ))}
+                        </FormGroup>
+                      </>
+                    )}
+
+                    {!isWorking && simulationResults[fn.name] !== undefined && (
+                      <div css={simulationContainer}>
+                        <Typography variant="body1" sx={{ fontWeight: 200 }}>
+                          Simulation results:&nbsp;
                         </Typography>
-                      )}{' '}
-                    </div>
-                  )}
-                  {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
-                </CardContent>
-                <CardActions>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking}
-                    color="secondary"
-                    variant="contained"
-                    size="small"
-                    onClick={() => simulate(fn.name)}
-                    endIcon={<PsychologyIcon />}
-                  >
-                    Simulate
-                  </Button>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
-                    size="small"
-                    color="secondary"
-                    variant="contained"
-                    onClick={() => send(fn.name)}
-                    endIcon={<SendIcon />}
-                  >
-                    Send
-                  </Button>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
-                    size="small"
-                    color="secondary"
-                    variant="contained"
-                    onClick={() =>
-                      handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === 'private')
-                    }
-                    endIcon={<VpnKeyIcon />}
-                  >
-                    Authwit
-                  </Button>
-                </CardActions>
-              </Card>
-            ))}
+                        {simulationResults[fn.name].success ? (
+                          <Typography variant="body1">
+                            {simulationResults?.[fn.name]?.data.length === 0
+                              ? '-'
+                              : simulationResults?.[fn.name].data.toString()}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body1" color="error">
+                            {simulationResults?.[fn.name]?.error}
+                          </Typography>
+                        )}{' '}
+                      </div>
+                    )}
+                    {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
+                  </CardContent>
+                  <CardActions>
+                    <Button
+                      disabled={!wallet || !currentContract || isWorking}
+                      color="secondary"
+                      variant="contained"
+                      size="small"
+                      onClick={() => simulate(fn.name)}
+                      endIcon={<PsychologyIcon />}
+                    >
+                      Simulate
+                    </Button>
+                    <Button
+                      disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
+                      size="small"
+                      color="secondary"
+                      variant="contained"
+                      onClick={() => send(fn.name)}
+                      endIcon={<SendIcon />}
+                    >
+                      Send
+                    </Button>
+                    <Button
+                      disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
+                      size="small"
+                      color="secondary"
+                      variant="contained"
+                      onClick={() =>
+                        handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === 'private')
+                      }
+                      endIcon={<VpnKeyIcon />}
+                    >
+                      Authwit
+                    </Button>
+                  </CardActions>
+                </Card>
+              ))}
+          </div>
         </div>
       )}
       <CreateAuthwitDialog

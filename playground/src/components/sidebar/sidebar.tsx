@@ -23,6 +23,9 @@ import { AddNetworksDialog } from './components/addNetworkDialog';
 import CodeIcon from '@mui/icons-material/Code';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { IconButton } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import ListSubheader from '@mui/material/ListSubheader';
 
 const container = css({
   display: 'flex',
@@ -70,16 +73,13 @@ const NETWORKS: Network[] = [
   },
 ];
 
-// Create a custom function to initialize ECDSA R1 accounts instead of Schnorr accounts
 async function getInitialEcdsaR1TestAccounts() {
-  // We need to create our own implementation that uses ECDSA R1 instead of Schnorr
-  // We'll reuse the secret keys and salts from the testing module
+
   return Promise.all(
     INITIAL_TEST_SECRET_KEYS.map(async (secret, i) => {
-      const signingKey = deriveSigningKey(secret); // We derive the signing key the same way
+      const signingKey = deriveSigningKey(secret);
       const salt = INITIAL_TEST_ACCOUNT_SALTS[i];
 
-      // We don't need the address for our sidebar implementation
       return {
         secret,
         signingKey,
@@ -89,7 +89,6 @@ async function getInitialEcdsaR1TestAccounts() {
   );
 }
 
-// Define predefined contract types
 const PREDEFINED_CONTRACTS = {
   SIMPLE_VOTING: 'simple_voting',
   SIMPLE_TOKEN: 'simple_token',
@@ -125,7 +124,6 @@ export function SidebarComponent() {
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Auto-connect to testnet on component mount
   useEffect(() => {
     if (!nodeURL && !changingNetworks && !isConnecting) {
       setIsConnecting(true);
@@ -165,26 +163,22 @@ export function SidebarComponent() {
     let i = 0;
     for (const accountData of testAccountData) {
       try {
-        // For ECDSA R1 accounts, we need to create a buffer that contains the public key
-        // Properly format the signing key for ECDSA R1 SSH - need a 64-byte public key
+
         const signingKeyBuffer = Buffer.alloc(64);
 
-        // Use a standard key to ensure it works properly
-        signingKeyBuffer.write('11'.repeat(32), 0, 32, 'hex'); // x coordinate
-        signingKeyBuffer.write('22'.repeat(32), 32, 32, 'hex'); // y coordinate
+        signingKeyBuffer.write('11'.repeat(32), 0, 32, 'hex');
+        signingKeyBuffer.write('22'.repeat(32), 32, 32, 'hex');
 
         console.log(`Preparing ECDSA key for account ${i}...`);
 
-        // Lazy load the ECDSA module - use the R1 SSH variant
         const { getEcdsaRSSHAccount } = await import('@aztec/accounts/ecdsa/lazy');
         const account: AccountManager = await getEcdsaRSSHAccount(
           pxe,
           accountData.secret,
-          signingKeyBuffer, // Use our properly formatted buffer
+          signingKeyBuffer,
           accountData.salt,
         );
 
-        // Check if this account already exists in our stored accounts
         if (!aliasedAccounts.find(({ value }) => {
           try {
             return account.getAddress().equals(AztecAddress.fromString(value));
@@ -193,7 +187,6 @@ export function SidebarComponent() {
           }
         })) {
           console.log(`Registering ECDSA R1 account ${i}...`);
-          // This is a new account, so register it
           await account.register();
           const instance = account.getInstance();
           const wallet = await account.getWallet();
@@ -205,7 +198,6 @@ export function SidebarComponent() {
             salt: account.getInstance().salt,
           });
 
-          // Store the public signing key separately as metadata
           await walletDB.storeAccountMetadata(instance.address, 'publicSigningKey', signingKeyBuffer);
 
           aliasedAccounts.push({
@@ -219,7 +211,6 @@ export function SidebarComponent() {
       i++;
     }
 
-    // The rest remains similar
     const pxeAccounts = await pxe.getRegisteredAccounts();
     const ourAccounts = [];
     const senders = [];
@@ -259,7 +250,7 @@ export function SidebarComponent() {
   const handleNetworkChange = async (event: SelectChangeEvent) => {
     const networkUrl = event.target.value;
     if (networkUrl === '') {
-      return; // Handle the case when "Create" is clicked
+      return;
     }
     await connectToNetwork(networkUrl);
   };
@@ -292,28 +283,24 @@ export function SidebarComponent() {
       const accountAddress = AztecAddress.fromString(event.target.value);
       const accountData = await walletDB.retrieveAccount(accountAddress);
 
-      // Get the stored public signing key if available, or create a dummy one
       const publicSigningKey = await walletDB.retrieveAccountMetadata(accountAddress, 'publicSigningKey') ||
         Buffer.concat([
-          Buffer.from('11'.repeat(32), 'hex'), // x coordinate
-          Buffer.from('22'.repeat(32), 'hex')  // y coordinate
+          Buffer.from('11'.repeat(32), 'hex'),
+          Buffer.from('22'.repeat(32), 'hex')
         ]);
 
       console.log('Using stored signing key:', publicSigningKey);
 
-      // Use ECDSA R1 account
       const { getEcdsaRSSHAccount } = await import('@aztec/accounts/ecdsa/lazy');
 
-      // Create the account manager
       console.log('Creating account manager for existing account...');
       const account = await getEcdsaRSSHAccount(
         pxe,
         accountData.secretKey,
-        publicSigningKey, // Use the retrieved or dummy key
+        publicSigningKey,
         accountData.salt,
       );
 
-      // Just get the wallet, no need to deploy
       console.log('Getting wallet for account...');
       const newWallet = await account.getWallet();
       console.log('Successfully switched to account:', accountAddress.toString());
@@ -347,39 +334,33 @@ export function SidebarComponent() {
   const handleContractChange = async (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
 
-    // Handle predefined contracts
     if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_VOTING) {
-      // Will load the simple voting contract artifact
       setSelectedPredefinedContract(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
-      setCurrentContractAddress(null); // Clear any existing contract address
+      setCurrentContractAddress(null);
       setShowContractInterface(true);
       return;
     } else if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
-      // Will load the simple token contract artifact
       setSelectedPredefinedContract(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
-      setCurrentContractAddress(null); // Clear any existing contract address
+      setCurrentContractAddress(null);
       setShowContractInterface(true);
       return;
     } else if (contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
-      // Show the contract interface with the upload area
-      setSelectedPredefinedContract('');
+      setSelectedPredefinedContract(PREDEFINED_CONTRACTS.CUSTOM_UPLOAD);
       setCurrentContractAddress(null);
       setShowContractInterface(true);
       return;
     }
 
-    // Handle user-deployed contracts
     if (contractValue === '') {
-      return; // Handle the case when "Create" is clicked
+      return;
     }
 
     try {
-      // Clear any predefined contract selection
       setSelectedPredefinedContract('');
 
-      // Set the user's contract address
       const contractAddress = AztecAddress.fromString(contractValue);
       setCurrentContractAddress(contractAddress);
+      setShowContractInterface(true);
     } catch (error) {
       console.error('Error setting contract address:', error);
     }
@@ -413,7 +394,6 @@ export function SidebarComponent() {
     setOpenAddNetworksDialog(false);
   };
 
-  // Add this function to handle showing the contract interface
   const handleShowContractInterface = () => {
     setShowContractInterface(true);
   };
@@ -520,20 +500,29 @@ export function SidebarComponent() {
               Easy Private Voting
             </MenuItem>
             <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_TOKEN}>
-              Simple Token Contract
+              Simple Token
             </MenuItem>
+
+            <Divider />
+            {/* Upload your own option - always present */}
             <MenuItem value={PREDEFINED_CONTRACTS.CUSTOM_UPLOAD} sx={{ display: 'flex', alignItems: 'center' }}>
               <UploadFileIcon fontSize="small" sx={{ mr: 1 }} />
               Upload Your Own
             </MenuItem>
+
             <Divider />
             {/* User's deployed/registered contracts */}
-            {contracts.map(contract => (
-              <MenuItem key={`${contract.key}-${contract.value}`} value={contract.value}>
-                {contract.key.split(':')[1]}&nbsp;(
-                {formatFrAsString(contract.value)})
-              </MenuItem>
-            ))}
+            {contracts.length > 0 && (
+              <>
+                <ListSubheader>Deployed Contracts</ListSubheader>
+                {contracts.map(contract => (
+                  <MenuItem key={`${contract.key}-${contract.value}`} value={contract.value}>
+                    {contract.key.split(':')[1]}&nbsp;(
+                    {formatFrAsString(contract.value)})
+                  </MenuItem>
+                ))}
+              </>
+            )}
           </Select>
           <CopyToClipboardButton
             disabled={!currentContractAddress}
