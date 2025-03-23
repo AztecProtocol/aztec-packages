@@ -7,7 +7,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import type { CommitmentsDBInterface } from '../common/db_interfaces.js';
 import type { NoteData } from './acvm/index.js';
@@ -330,7 +330,13 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * Stores an event log in the database.
    * @param contractAddress - The address of the contract that emitted the log.
    * @param recipient - The address of the recipient.
-   * @param logContent - The content of the log.
+   * @param logContent - The content of the private event log.
+   * @param txHash - The hash of the transaction that emitted the log.
    */
-  storePrivateEventLog(contractAddress: AztecAddress, recipient: AztecAddress, logContent: Fr[]): Promise<void>;
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    logContent: Fr[],
+    txHash: TxHash,
+  ): Promise<void>;
 }

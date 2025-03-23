@@ -1,4 +1,4 @@
-import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, Fr, Point, TxHash } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -634,11 +634,13 @@ export class TXEService {
     contractAddress: ForeignCallSingle,
     recipient: ForeignCallSingle,
     logContent: ForeignCallArray,
+    txHash: ForeignCallSingle,
   ) {
     await this.typedOracle.storePrivateEventLog(
       AztecAddress.fromField(fromSingle(contractAddress)),
       AztecAddress.fromField(fromSingle(recipient)),
       fromArray(logContent),
+      new TxHash(fromSingle(txHash)),
     );
     return toForeignCallResult([]);
   }

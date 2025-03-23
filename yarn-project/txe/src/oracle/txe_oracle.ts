@@ -1261,7 +1261,12 @@ export class TXE implements TypedOracle {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  async storePrivateEventLog(contractAddress: AztecAddress, recipient: AztecAddress, logContent: Fr[]): Promise<void> {
-    return this.pxeOracleInterface.storePrivateEventLog(contractAddress, recipient, logContent);
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    logContent: Fr[],
+    txHash: TxHash,
+  ): Promise<void> {
+    return this.pxeOracleInterface.storePrivateEventLog(contractAddress, recipient, logContent, txHash);
   }
 }

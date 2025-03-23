@@ -124,12 +124,13 @@ export abstract class BaseWallet implements Wallet {
   }
 
   getPrivateEvents<T>(
+    contractAddress: AztecAddress,
     event: EventMetadataDefinition,
     from: number,
     limit: number,
-    vpks: Point[] = [this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
+    recipients: AztecAddress[] = [this.getCompleteAddress().address],
   ): Promise<T[]> {
-    return this.pxe.getPrivateEvents(event, from, limit, vpks);
+    return this.pxe.getPrivateEvents(contractAddress, event, from, limit, recipients);
   }
   getPublicEvents<T>(event: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
     return this.pxe.getPublicEvents(event, from, limit);

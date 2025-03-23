@@ -847,8 +847,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return deriveEcdhSharedSecret(addressSecret, ephPk);
   }
 
-  async storePrivateEventLog(contractAddress: AztecAddress, recipient: AztecAddress, logContent: Fr[]): Promise<void> {
-    return this.privateEventDataProvider.storePrivateEventLog(contractAddress, recipient, logContent);
+  async storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    logContent: Fr[],
+    txHash: TxHash,
+  ): Promise<void> {
+    const txReceipt = await this.aztecNode.getTxReceipt(txHash);
+    const blockNumber = txReceipt.blockNumber;
+    return this.privateEventDataProvider.storePrivateEventLog(contractAddress, recipient, logContent, blockNumber);
   }
 }
 

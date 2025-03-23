@@ -90,7 +90,7 @@ pub unconstrained fn do_process_log<Env>(
         debug_log("Processing private event log");
 
         // Log metadata are currently not used by event logs.
-        store_private_event_log(contract_address, recipient, log_content);
+        store_private_event_log(contract_address, recipient, log_content, tx_hash);
     } else {
         // TODO(#11569): handle events
         debug_log_format(

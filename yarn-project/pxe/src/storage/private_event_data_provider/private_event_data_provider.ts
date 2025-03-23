@@ -5,9 +5,14 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { DataProvider } from '../data_provider.js';
 
+interface PrivateEventEntry {
+  logContent: Buffer;
+  blockNumber: number;
+}
+
 export class PrivateEventDataProvider implements DataProvider {
   #store: AztecAsyncKVStore;
-  #eventLogs: AztecAsyncArray<Buffer>;
+  #eventLogs: AztecAsyncArray<PrivateEventEntry>;
   #eventLogIndex: AztecAsyncMap<string, number[]>;
 
   logger = createLogger('private_event_data_provider');
@@ -18,44 +23,65 @@ export class PrivateEventDataProvider implements DataProvider {
     this.#eventLogIndex = this.#store.openMap('private_event_log_index');
   }
 
-  async storePrivateEventLog(contractAddress: AztecAddress, recipient: AztecAddress, logContent: Fr[]): Promise<void> {
-    this.logger.verbose('storing private event log', { contractAddress, recipient, logContent });
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    logContent: Fr[],
+    blockNumber: number,
+  ): Promise<void> {
+    this.logger.verbose('storing private event log', { contractAddress, recipient, logContent, blockNumber });
     return this.#store.transactionAsync(async () => {
       const key = `${contractAddress.toString()}_${recipient.toString()}`;
       const logBuffer = Buffer.concat(logContent.map(fr => fr.toBuffer()));
 
       const index = await this.#eventLogs.lengthAsync();
-      await this.#eventLogs.push(logBuffer);
+      await this.#eventLogs.push({ logContent: logBuffer, blockNumber });
 
       const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
       await this.#eventLogIndex.set(key, [...existingIndices, index]);
     });
   }
 
-  async getEventLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<Fr[][]> {
-    const key = `${contractAddress.toString()}_${recipient.toString()}`;
-    const indices = (await this.#eventLogIndex.getAsync(key)) || [];
+  public async getPrivateEvents(
+    contractAddress: AztecAddress,
+    from: number,
+    limit: number,
+    recipients: AztecAddress[],
+  ): Promise<Fr[][]> {
+    const events: Fr[][] = [];
 
-    const logs = await Promise.all(
-      indices.map(async index => {
-        const buffer = await this.#eventLogs.atAsync(index);
-        if (!buffer) {
-          return [];
+    for (const recipient of recipients) {
+      const key = `${contractAddress.toString()}_${recipient.toString()}`;
+      const indices = (await this.#eventLogIndex.getAsync(key)) || [];
+
+      for (const index of indices) {
+        const entry = await this.#eventLogs.atAsync(index);
+        if (!entry || entry.blockNumber < from) {
+          continue;
         }
 
         // Convert buffer back to Fr array
         const frs: Fr[] = [];
-        for (let i = 0; i < buffer.length; i += 32) {
-          frs.push(Fr.fromBuffer(buffer.slice(i, i + 32)));
+        for (let i = 0; i < entry.logContent.length; i += 32) {
+          frs.push(Fr.fromBuffer(entry.logContent.slice(i, i + 32)));
         }
-        return frs;
-      }),
-    );
 
-    return logs;
+        events.push(frs);
+
+        if (events.length >= limit) {
+          break;
+        }
+      }
+
+      if (events.length >= limit) {
+        break;
+      }
+    }
+
+    return events;
   }
 
-  async getSize(): Promise<number> {
+  getSize(): Promise<number> {
     return this.#eventLogs.lengthAsync();
   }
 }

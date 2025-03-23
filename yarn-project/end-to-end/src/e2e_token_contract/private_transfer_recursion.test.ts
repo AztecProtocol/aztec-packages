@@ -32,17 +32,22 @@ describe('e2e_token_contract private transfer recursion', () => {
     // We should have created a single new note, for the recipient
     expect(txEffects!.data.noteHashes.length).toBe(1);
 
-    // TODO: remove the following hack
+    // TODO(benesjan): remove the following hack
     await asset.methods.sync_notes().simulate();
 
-    // TODO(benesjan): re-enable this once the events are updated.
-    // const events = await wallets[1].getPrivateEvents<Transfer>(TokenContract.events.Transfer, tx.blockNumber!, 1);
+    const events = await wallets[1].getPrivateEvents<Transfer>(
+      asset.address,
+      TokenContract.events.Transfer,
+      tx.blockNumber!,
+      1,
+      [wallets[1].getAddress()],
+    );
 
-    // expect(events[0]).toEqual({
-    //   from: accounts[0].address,
-    //   to: accounts[1].address,
-    //   amount: totalBalance,
-    // });
+    expect(events[0]).toEqual({
+      from: accounts[0].address,
+      to: accounts[1].address,
+      amount: totalBalance,
+    });
   });
 
   it('transfer less than full balance and get change', async () => {

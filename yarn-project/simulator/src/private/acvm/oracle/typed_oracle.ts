@@ -7,7 +7,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { ContractClassLog, IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import type { MessageLoadOracleInputs } from '../../../common/message_load_oracle_inputs.js';
 
@@ -259,7 +259,12 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
   }
 
-  storePrivateEventLog(_contractAddress: AztecAddress, _recipient: AztecAddress, _logContent: Fr[]): Promise<void> {
+  storePrivateEventLog(
+    _contractAddress: AztecAddress,
+    _recipient: AztecAddress,
+    _logContent: Fr[],
+    _txHash: TxHash,
+  ): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('storePrivateEventLog'));
   }
 }

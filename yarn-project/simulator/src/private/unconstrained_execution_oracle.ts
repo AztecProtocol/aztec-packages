@@ -9,7 +9,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, TxHash } from '@aztec/stdlib/tx';
 
 import { type NoteData, TypedOracle } from './acvm/index.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
@@ -381,7 +381,8 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     logContent: Fr[],
+    txHash: TxHash,
   ): Promise<void> {
-    return this.executionDataProvider.storePrivateEventLog(contractAddress, recipient, logContent);
+    return this.executionDataProvider.storePrivateEventLog(contractAddress, recipient, logContent, txHash);
   }
 }
