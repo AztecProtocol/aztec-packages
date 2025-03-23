@@ -141,6 +141,7 @@ container_script=$(cat <<EOF
   code=\${PIPESTATUS[0]}
 
   sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
+  sudo cat /tmp/netfile | ci3/cache_log 'netfile'
 
   case \$code in
     155) ;;
@@ -175,6 +176,11 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
   sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
   echo Done in \$SECONDS seconds.
+
+  echo Installing and starting sysdig...
+  sudo apt-get update
+  sudo apt-get install -y sysdig
+  sudo sysdig -p '%evt.time %proc.cmdline %evt.dir %evt.type %evt.args' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
 
   echo Starting devbox...
   docker run --privileged ${docker_args:-} \
