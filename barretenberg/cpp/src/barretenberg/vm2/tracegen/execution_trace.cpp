@@ -82,6 +82,17 @@ void ExecutionTraceBuilder::process(
                 { C::execution_op4_after_relative, static_cast<FF>(operands_after_relative.at(3)) },
             } });
 
+        // Context
+        trace.set(row,
+                  { {
+                      { C::execution_context_id, ex_event.context_event.id },
+                      { C::execution_pc, ex_event.context_event.pc },
+                      { C::execution_is_static, ex_event.context_event.is_static },
+                      { C::execution_msg_sender, ex_event.context_event.msg_sender },
+                      { C::execution_contract_address, ex_event.context_event.contract_addr },
+
+                  } });
+
         row++;
     }
 

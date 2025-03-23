@@ -87,8 +87,11 @@ class BaseContext : public ContextInterface {
     // Event Emitting
     void emit_context_snapshot() override
     {
-        ctx_stack_events.emit(
-            { .id = context_id, .pc = pc, .msg_sender = msg_sender, .contract_addr = address, .is_static = is_static });
+        ctx_stack_events.emit({ .id = context_id,
+                                .next_pc = next_pc,
+                                .msg_sender = msg_sender,
+                                .contract_addr = address,
+                                .is_static = is_static });
     };
 
     ContextEvent get_current_context() override

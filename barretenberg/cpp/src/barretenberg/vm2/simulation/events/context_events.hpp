@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
+
 namespace bb::avm2::simulation {
 
 struct ContextEvent {
@@ -40,7 +42,7 @@ struct ContextStackEvent {
     // uint32_t parent_id;
 
     // State
-    uint32_t pc;
+    uint32_t next_pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
     bool is_static;
