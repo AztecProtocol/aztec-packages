@@ -139,13 +139,13 @@ container_script=$(cat <<EOF
   set -x
   $cmd
   code=\${PIPESTATUS[0]}
+
+  sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
+
   case \$code in
     155) ;;
     0) log_ci_run PASSED \$ci_log_id ;;
-    *)
-      sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
-      log_ci_run FAILED \$ci_log_id
-      ;;
+    *) log_ci_run FAILED \$ci_log_id ;;
   esac
   exit \$code
 EOF
