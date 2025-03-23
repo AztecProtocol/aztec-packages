@@ -1,116 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742740217765,
+  "lastUpdate": 1742740219764,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "04981e2a395e51cd07a398c173d55a3a3a53ae44",
-          "message": "refactor(avm): vm2 recursive execution (#12842)\n\nAfter discussions with @IlyasRidhuan we think this is the most viable\npath to make things work for CALL and context management.",
-          "timestamp": "2025-03-19T23:10:37+08:00",
-          "tree_id": "363b64f68372aa2a122218855730d4bdbcc0fe17",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/04981e2a395e51cd07a398c173d55a3a3a53ae44"
-        },
-        "date": 1742398748550,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 34003,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 22356,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17115.814393999928,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15113.863798999999 ms\nthreads: 1"
-          },
-          {
-            "name": "field_ops_heuristic",
-            "value": 117822023765.3,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1495092600,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 203417844,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 17996.02665499992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15474.759369000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 49957.784125,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 49957785000 ms\nthreads: 1"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 10755,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 13018,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 13339,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3362.6136400000632,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 2963.554606 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 8840.967408,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 8840968000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2217.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3042,6 +2934,60 @@ window.BENCHMARK_DATA = {
             "value": "2217.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "18bcc1b1777650d6249e2cdc824ed8acbe39c506",
+          "message": "refactor: remove selector from public call request (#12828)\n\n- Remove `function_selector` from `PublicCallRequest` as it is no longer\nused.\n- Remove `public_functions` from `ContractClass`.\n- `ContractClass` checks that there's at most 1 public function in the\nartifact.\n- Rename `args` to `calldata` when it's public calldata that includes\nthe function selector.\n- Use different generator indexes for calldata and regular args.\n\n### aztec-nr\n- Rename oracle calls `enqueue_public_function_call_internal ` to\n`notify_enqueued_public_function_call `, and\n`set_public_teardown_function_call_internal` to\n`notify_set_public_teardown_function_call `, to be consistent with other\noracle calls.\n- Storing data to execution cache will need to provide the hash in\naddition to the preimage, making it possible to use it for different\ntypes of data. Currently it's used for calldata and args.\n\n### node\n- Rename `getContractFunctionName` to `getDebugFunctionName`, as the\nfunction name won't always be available. It's set by explicitly calling\n`registerContractFunctionSignatures` for debugging purpose.\n- Remove `ExecutionRequest[]` in `Tx` and replace it with `calldata[]`.\nWe now loop through the `publicCallRequests` in the public inputs and\npair each with an entry in `calldata[]`.\n- `DataValidator` checks that calldata are provided for all the\nnon-empty public call requests, and the hash is correct.",
+          "timestamp": "2025-03-23T13:50:19Z",
+          "tree_id": "da67f601d8c18deba44229b7133b3a9d7a20a73f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/18bcc1b1777650d6249e2cdc824ed8acbe39c506"
+        },
+        "date": 1742740219222,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39783,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26141,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11615,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14874,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15159,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
         ]
       }
