@@ -21,6 +21,7 @@
     "@aztec/aztec.js": "latest"
   },
   "devDependencies": {
+    "@aztec/builder": "^0.82.1",
     "@playwright/test": "1.49.0",
     "@types/node": "^20.11.17",
     "assert": "^2.1.0",
