@@ -89,23 +89,6 @@ export interface ArchiverDataStore {
   deleteLogs(blocks: L2Block[]): Promise<boolean>;
 
   /**
-   * Append new nullifiers to the store's list.
-   * @param blocks - The blocks for which to add the nullifiers.
-   * @returns True if the operation is successful.
-   */
-  addNullifiers(blocks: L2Block[]): Promise<boolean>;
-  deleteNullifiers(blocks: L2Block[]): Promise<boolean>;
-
-  /**
-   * Returns the provided nullifier indexes scoped to the block
-   * they were first included in, or undefined if they're not present in the tree
-   * @param blockNumber Max block number to search for the nullifiers
-   * @param nullifiers Nullifiers to get
-   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
-   */
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]>;
-
-  /**
    * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
@@ -255,7 +238,7 @@ export interface ArchiverDataStore {
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**
    * Estimates the size of the store in bytes.

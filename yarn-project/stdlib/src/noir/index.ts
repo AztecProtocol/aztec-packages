@@ -75,7 +75,7 @@ export interface NoirCompiledContract {
 }
 
 /**
- * The compilation result of an Aztec.nr contract.
+ * The compilation result of a protocol (non-contract) circuit.
  */
 export interface NoirCompiledCircuit {
   /** The hash of the circuit. */
@@ -90,6 +90,11 @@ export interface NoirCompiledCircuit {
   debug_symbols: string;
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
+}
+
+export interface NoirCompiledCircuitWithName extends NoirCompiledCircuit {
+  /** The name of the circuit. */
+  name: string;
 }
 
 /**

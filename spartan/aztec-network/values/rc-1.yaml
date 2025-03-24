@@ -40,8 +40,7 @@ proverAgent:
       cpu: "31"
 
 bot:
-  # 4 bots each building txs as fast as possible
-  replicas: 4
+  replicas: 8
   ammTxs: true
   followChain: "PENDING"
   enabled: true

@@ -41,11 +41,12 @@ export async function deployAccount(
   let txReceipt;
 
   const deployOpts: DeployAccountOptions = {
-    ...(await feeOpts.toDeployAccountOpts(wallet)),
     skipInitialization: false,
+    ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
+
   if (feeOpts.estimateOnly) {
-    const gas = await (await account.getDeployMethod(deployOpts.deployWallet)).estimateGas(deployOpts);
+    const gas = await account.estimateDeploymentGas(deployOpts);
     if (json) {
       out.fee = {
         gasLimits: {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Post-checkout hook for warning the user to create a patch file before running a build,
 # if there are outstanding commits that could get lost if we switch to a different noir-repo checkout.
 set -euo pipefail

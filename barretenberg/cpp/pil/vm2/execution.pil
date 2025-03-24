@@ -16,6 +16,7 @@ include "poseidon2_hash.pil";
 include "poseidon2_perm.pil";
 include "scalar_mul.pil";
 include "to_radix.pil";
+include "ff_gt.pil";
 
 namespace execution;
 

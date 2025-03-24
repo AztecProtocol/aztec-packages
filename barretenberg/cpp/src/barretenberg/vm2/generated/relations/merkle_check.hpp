@@ -37,7 +37,7 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // TRACE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp = (FF(1) - new_term.precomputed_first_row) * (FF(1) - new_term.merkle_check_sel) *
                        new_term.merkle_check_sel_shift;
@@ -62,60 +62,60 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_AFTER_LATCH
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp =
                 new_term.merkle_check_sel_shift * (new_term.merkle_check_start_shift - merkle_check_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SELECTOR_ON_END
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_end * (FF(1) - new_term.merkle_check_sel);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INITIALIZE_CURRENT_NODE
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_start * (new_term.merkle_check_current_node - new_term.merkle_check_leaf);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INITIALIZE_CURRENT_INDEX_IN_LAYER
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_start *
                        (new_term.merkle_check_current_index_in_layer - new_term.merkle_check_leaf_index);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INITIALIZE_REMAINING_PATH_LEN
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_start *
                        ((new_term.merkle_check_tree_height - new_term.merkle_check_remaining_path_len) - FF(1));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PROPAGATE_LEAF
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = merkle_check_NOT_END * (new_term.merkle_check_leaf_shift - new_term.merkle_check_leaf);
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PROPAGATE_LEAF_INDEX
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp =
                 merkle_check_NOT_END * (new_term.merkle_check_leaf_index_shift - new_term.merkle_check_leaf_index);
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PROPAGATE_TREE_HEIGHT
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp =
                 merkle_check_NOT_END * (new_term.merkle_check_tree_height_shift - new_term.merkle_check_tree_height);
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PATH_LEN_DECREMENTS
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp =
                 merkle_check_NOT_END *
@@ -123,7 +123,7 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // END_WHEN_PATH_EMPTY
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_sel *
                        ((new_term.merkle_check_remaining_path_len *
@@ -140,7 +140,7 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // NEXT_INDEX_IS_HALVED
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = merkle_check_NOT_END *
                        ((new_term.merkle_check_current_index_in_layer_shift * FF(2) + merkle_check_INDEX_IS_ODD) -
@@ -148,14 +148,14 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // FINAL_INDEX_IS_0_OR_1
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_end * new_term.merkle_check_current_index_in_layer *
                        (FF(1) - new_term.merkle_check_current_index_in_layer);
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp =
                 new_term.merkle_check_sel * ((new_term.merkle_check_index_is_even *
@@ -165,7 +165,7 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // ASSIGN_SIBLING_LEFT_OR_RIGHT
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
             auto tmp =
                 new_term.merkle_check_sel * ((new_term.merkle_check_index_is_even *
@@ -181,7 +181,7 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp =
                 merkle_check_NOT_END * (new_term.merkle_check_current_node_shift - new_term.merkle_check_output_hash);

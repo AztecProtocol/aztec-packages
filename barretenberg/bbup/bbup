@@ -29,8 +29,7 @@ print_spinner() {
 
 get_bb_version_for_noir() {
     local noir_version=$1
-    local url=""
-    local resolved_version=""
+    local resolved_version=$noir_version
 
     if [ "$noir_version" = "stable" ] || [ "$noir_version" = "nightly" ]; then
         # Get releases from GitHub API
@@ -41,15 +40,12 @@ get_bb_version_for_noir() {
         else
             resolved_version=$(echo "$releases" | grep -o '"tag_name": "nightly[^"]*"' | head -1 | cut -d'"' -f4)
         fi
-
-        url="https://raw.githubusercontent.com/noir-lang/noir/${resolved_version}/scripts/install_bb.sh"
-    else
-        url="https://raw.githubusercontent.com/noir-lang/noir/v${noir_version}/scripts/install_bb.sh"
     fi
 
+    local lookup_url="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/barretenberg/bbup/bb-versions.json"
+
     # Extract BB version from install script
-    local install_script=$(curl -s "$url")
-    local bb_version=$(echo "$install_script" | grep 'VERSION=' | cut -d'"' -f2)
+    local bb_version=$(curl -s "$lookup_url" | jq -r --arg version "$resolved_version" '.[$version]')
     echo "$bb_version"
 }
 
@@ -198,6 +194,11 @@ main() {
             printf "${GREEN}${SUCCESS} Resolved noir version ${noir_version} to ${resolved_version}${NC}\n"
         fi
         version=$(get_bb_version_for_noir "$noir_version")
+
+        if [ ! -n "$version" ]; then
+            printf "${RED}${ERROR} No version specified and couldn't determine version from noir${NC}\n"
+            exit 1
+        fi
         printf "${GREEN}${SUCCESS} Resolved to barretenberg version ${version}${NC}\n"
     fi
 
