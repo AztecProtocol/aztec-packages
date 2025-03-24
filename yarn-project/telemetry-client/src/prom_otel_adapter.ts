@@ -203,7 +203,7 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
 /**
  * Implementation of a Histogram collector
  */
-export class OtelHistogram<Labels extends LabelsGeneric = NoLabels> {
+export class OtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogram<Labels> {
   private histogram: Histogram;
 
   constructor(
@@ -270,7 +270,7 @@ export class OtelHistogram<Labels extends LabelsGeneric = NoLabels> {
 /**
  * Implementation of an AvgMinMax collector
  */
-export class OtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> {
+export class OtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvgMinMax<Labels> {
   private gauges: {
     avg: ObservableGauge;
     min: ObservableGauge;
@@ -363,11 +363,11 @@ export class OtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> {
   }
 
   private observeMin(result: any): void {
-    this.observeAggregation(result, arr => Math.min(...arr));
+    this.observeAggregation(result, arr => Math.min.apply(null, arr));
   }
 
   private observeMax(result: any): void {
-    this.observeAggregation(result, arr => Math.max(...arr));
+    this.observeAggregation(result, arr => Math.max.apply(null, arr));
   }
 }
 
