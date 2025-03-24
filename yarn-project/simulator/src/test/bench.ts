@@ -1,16 +1,10 @@
 import { mean, stdDev } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { MetricsType, TelemetryClient, ValueType } from '@aztec/telemetry-client';
+import { Metrics } from '@aztec/telemetry-client';
 import { type BenchmarkDataPoint, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { writeFileSync } from 'fs';
-import { mkdirpSync } from 'fs-extra';
-import { globSync } from 'glob';
-import { join } from 'path';
-
-import { PUBLIC_EXECUTOR_PREFIX } from '../../../telemetry-client/src/metrics.js';
-import { PublicTxSimulator } from '../server.js';
 
 let telemetry: BenchmarkTelemetryClient | undefined = undefined;
 //function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}): BenchmarkTelemetryClient {
@@ -81,6 +75,7 @@ type GithubActionBenchmarkResult = {
   value: number;
   range?: string;
   unit: string;
+  extra?: string;
 };
 
 function formatMetricsForGithubBenchmarkAction(
@@ -105,7 +100,7 @@ function formatMetricsForGithubBenchmarkAction(
 
 // strip prefixes
 function stripMetricPrefix(metric: string) {
-  return metric.replace(`${PUBLIC_EXECUTOR_PREFIX}simulation_`, '');
+  return metric.replace(`${Metrics.PUBLIC_EXECUTOR_PREFIX}simulation_`, '');
 }
 function stripPublicTxSimulatorPrefix(metric: string) {
   return metric.replace('PublicTxSimulator.', '');
@@ -113,6 +108,8 @@ function stripPublicTxSimulatorPrefix(metric: string) {
 
 /**
  * Prints metrics in the format: <meter name>: <metric0 & units>, <metric1 & units>
+ * WARNING: This function should not be used with many data points. It is meant for brief benchmark tests
+ * with only a few data points.
  */
 export function printMetrics(data: BenchmarkMetricsType, filter: (MetricsType | MetricFilter)[], logger: Logger) {
   const allFilters: MetricFilter[] = filter.map(f =>
@@ -156,28 +153,4 @@ function getMetricValues(points: BenchmarkDataPoint[]) {
     const values = points.map(point => point.value);
     return { value: mean(values), range: `± ${stdDev(values)}` };
   }
-}
-
-/**
- * Creates and returns a directory with the current job name and a random number.
- * @param index - Index to merge into the dir path.
- * @returns A path to a created dir.
- */
-export function makeDataDirectory(index: number) {
-  const testName = expect.getState().currentTestName!.split(' ')[0].replaceAll('/', '_');
-  const db = join('data', testName, index.toString(), `${randomInt(99)}`);
-  mkdirpSync(db);
-  return db;
-}
-
-/**
- * Returns the size in disk of a folder.
- * @param path - Path to the folder.
- * @returns Size in bytes.
- */
-export function getFolderSize(path: string): number {
-  return globSync('**', { stat: true, cwd: path, nodir: true, withFileTypes: true }).reduce(
-    (accum, file) => accum + (file as any as { /** Size */ size: number }).size,
-    0,
-  );
 }
