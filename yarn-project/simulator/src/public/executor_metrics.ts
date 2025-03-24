@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import {
   Attributes,
   type Histogram,
@@ -43,6 +44,11 @@ export class ExecutorMetrics {
   }
 
   recordFunctionSimulation(durationMs: number, manaUsed: number, fnName: string) {
+    const logger = createLogger('executor-metrics');
+    logger.error(`Recording function simulation: ${fnName}`, {
+      durationMs,
+      manaUsed,
+    });
     this.fnCount.add(1, {
       [Attributes.OK]: true,
       [Attributes.APP_CIRCUIT_NAME]: fnName,

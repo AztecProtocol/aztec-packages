@@ -6,6 +6,7 @@ import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { PublicExecutionRequest, type Tx } from '@aztec/stdlib/tx';
 import { CallContext, GlobalVariables } from '@aztec/stdlib/tx';
+import type { TelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
@@ -35,14 +36,18 @@ export type TestEnqueuedCall = {
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private txCount = 0;
 
-  constructor(private merkleTree: MerkleTreeWriteOperations, contractDataSource: SimpleContractDataSource) {
+  constructor(
+    private merkleTree: MerkleTreeWriteOperations,
+    contractDataSource: SimpleContractDataSource,
+    private telemetryClient?: TelemetryClient,
+  ) {
     super(contractDataSource, merkleTree);
   }
 
-  public static async create(): Promise<PublicTxSimulationTester> {
+  public static async create(telemetryClient?: TelemetryClient): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await (await NativeWorldStateService.tmp()).fork();
-    return new PublicTxSimulationTester(merkleTree, contractDataSource);
+    return new PublicTxSimulationTester(merkleTree, contractDataSource, telemetryClient);
   }
 
   public async createTx(
@@ -127,6 +132,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     /* need some unique first nullifier for note-nonce computations */
     firstNullifier = new Fr(420000 + this.txCount++),
     globals = defaultGlobals(),
+    metricsTag?: string,
   ): Promise<PublicTxResult> {
     const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, firstNullifier);
 
@@ -134,10 +140,17 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     const treesDB = new PublicTreesDB(this.merkleTree);
     const contractsDB = new PublicContractsDB(this.contractDataSource);
-    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const simulator = new PublicTxSimulator(
+      treesDB,
+      contractsDB,
+      globals,
+      /*doMerkleOperations=*/ true,
+      /*skipFeeEnforcement=*/ false,
+      this.telemetryClient,
+    );
 
     const startTime = performance.now();
-    const avmResult = await simulator.simulate(tx);
+    const avmResult = await simulator.simulate(tx, metricsTag);
     const endTime = performance.now();
     this.logger.debug(`Public transaction simulation took ${endTime - startTime}ms`);
 
