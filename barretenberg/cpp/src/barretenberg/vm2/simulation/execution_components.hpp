@@ -23,7 +23,8 @@ class ExecutionComponentsProviderInterface {
     // TODO: Update this, these params are temporary
     virtual std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                                   AztecAddress msg_sender,
-                                                                  std::span<const FF> calldata,
+                                                                  MemoryAddress cd_offset_addr,
+                                                                  MemoryAddress cd_size_addr,
                                                                   bool is_static) = 0;
 
     virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
@@ -47,7 +48,8 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                           AztecAddress msg_sender,
-                                                          std::span<const FF> calldata,
+                                                          uint32_t cd_offset_addr,
+                                                          uint32_t cd_size_addr,
                                                           bool is_static) override;
     std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                             AztecAddress msg_sender,

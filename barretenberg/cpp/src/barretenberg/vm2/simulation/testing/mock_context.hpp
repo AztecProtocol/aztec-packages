@@ -32,8 +32,11 @@ class MockContext : public ContextInterface {
     // Environment.
     MOCK_METHOD(const AztecAddress&, get_address, (), (const, override));
     MOCK_METHOD(const AztecAddress&, get_msg_sender, (), (const, override));
-    MOCK_METHOD(std::span<const FF>, get_calldata, (), (const, override));
     MOCK_METHOD(bool, get_is_static, (), (const, override));
+
+    // Input / Output.
+    MOCK_METHOD(std::vector<FF>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
+    MOCK_METHOD(std::vector<FF>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (const, override));
 
     // Event Emitting
     MOCK_METHOD(void, emit_context_snapshot, (), (override));

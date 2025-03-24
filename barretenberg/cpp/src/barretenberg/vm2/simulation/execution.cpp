@@ -40,11 +40,11 @@ void Execution::call(ContextInterface& context, MemoryAddress addr)
 
     // TODO: Read more stuff from call operands (e.g., calldata, gas)
     const auto [contract_address, _] = memory.get(addr);
-    std::vector<FF> calldata = {};
 
     auto nested_context = execution_components.make_nested_context(contract_address,
                                                                    /*msg_sender=*/context.get_address(),
-                                                                   /*calldata=*/calldata,
+                                                                   /*cd_offset_addr=*/0,
+                                                                   /*cd_size_addr=*/0,
                                                                    /*is_static=*/false);
 
     // We recurse. When we return, we'll continue with the current loop and emit the execution event.
