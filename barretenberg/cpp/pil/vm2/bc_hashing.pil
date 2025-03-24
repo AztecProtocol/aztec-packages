@@ -75,9 +75,9 @@ namespace bc_hashing;
 
     pol commit packed_field;
     #[GET_PACKED_FIELD]
-    sel {pc_index, bytecode_id, packed_field}
+    sel { pc_index, bytecode_id, packed_field }
     in 
-    bc_decomposition.sel_packed {bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field};
+    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
     
     // This tracks the incremental bytecode hash after the i-th input
     // The first incremental hash of each new bytecode_id is the length of the bytecode
@@ -86,16 +86,16 @@ namespace bc_hashing;
     // At the start of a new bytecode hash, the initial incremental hash has to be the length of the bytecode
     // Note the looked up PC = 0 (enforced by the PC_INCREMENTS relation), i.e. the initial incremental hash value == bytecode length
     #[IV_IS_LEN]
-    start {pc_index, bytecode_id, incremental_hash}
+    start { pc_index, bytecode_id, incremental_hash }
     in
-    bc_decomposition.sel_packed {bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining};
+    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining };
     
     // Start Hashing, Poseidon2(packed_field, running_hash)
     pol commit output_hash;
     #[POSEIDON2_HASH]
-    sel {packed_field, incremental_hash, output_hash}
-    in poseidon2_hash.sel {poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output};
-    
+    sel { packed_field, incremental_hash, output_hash }
+    in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
+
     // The output hash has to be incremental_hash of the next row (unless it's latched)
     #[CHAIN_OUTPUT_TO_INCR]
     sel' * (1 - LATCH_CONDITION) * (incremental_hash' - output_hash) = 0;

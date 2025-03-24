@@ -48,6 +48,70 @@ class ClientIVCTests : public ::testing::Test {
 };
 
 /**
+ * @brief Test methods for serializing and deserializing a proof to/from a file in msgpack format
+ *
+ */
+TEST_F(ClientIVCTests, MsgpackProofFromFile)
+{
+    ClientIVC ivc;
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize the proof to/from a file as proof-of-concept
+    const std::string filename = "proof.msgpack";
+    proof.to_file_msgpack(filename);
+    auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
+
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+};
+
+/**
+ * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize a
+ * random buffer of bytes fails gracefully with a type error
+ */
+TEST_F(ClientIVCTests, RandomProofBytes)
+{
+    ClientIVC ivc;
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize proof to msgpack buffer, check that it verifies
+    msgpack::sbuffer buffer = proof.to_msgpack_buffer();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+
+    // Overwrite the buffer with random bytes for testing failure case
+    {
+        std::vector<uint8_t> random_bytes(buffer.size());
+        std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
+        std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+    }
+
+    // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
+    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+};
+
+/**
  * @brief A simple-as-possible test demonstrating IVC for two mock circuits
  * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
  * verification occurs.

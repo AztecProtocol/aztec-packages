@@ -102,7 +102,7 @@ export class NetGrumpkinCrs {
     }
 
     const g1Start = 28;
-    const g1End = this.numPoints * 64 - 1;
+    const g1End = g1Start + (this.numPoints * 64 - 1);
 
     const response = await fetch('https://aztec-ignition.s3.amazonaws.com/TEST%20GRUMPKIN/monomial/transcript00.dat', {
       headers: {

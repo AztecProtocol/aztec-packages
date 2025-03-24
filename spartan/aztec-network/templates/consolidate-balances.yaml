@@ -35,7 +35,7 @@ spec:
             - -c
             - |
               cat > /scripts/consolidate-sepolia-balances.sh << 'EOF'
-              #!/bin/bash
+              #!/usr/bin/env bash
               set -eu
 
               mnemonic=$1

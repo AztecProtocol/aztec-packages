@@ -52,13 +52,13 @@ template <typename FF_> class bc_hashingImpl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_AFTER_LATCH
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = new_term.bc_hashing_sel_shift * (new_term.bc_hashing_start_shift - bc_hashing_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PC_INCREMENTS
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = new_term.bc_hashing_sel *
                        (new_term.bc_hashing_pc_index_shift -
@@ -66,14 +66,14 @@ template <typename FF_> class bc_hashingImpl {
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // ID_CONSISTENCY
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = new_term.bc_hashing_sel * (FF(1) - bc_hashing_LATCH_CONDITION) *
                        (new_term.bc_hashing_bytecode_id_shift - new_term.bc_hashing_bytecode_id);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // CHAIN_OUTPUT_TO_INCR
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = new_term.bc_hashing_sel_shift * (FF(1) - bc_hashing_LATCH_CONDITION) *
                        (new_term.bc_hashing_incremental_hash_shift - new_term.bc_hashing_output_hash);

@@ -71,8 +71,8 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: "The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.",
   },
-  ...l1ReaderConfigMappings,
   ...dataConfigMappings,
+  ...l1ReaderConfigMappings,
 };
 
 export const defaultProverBrokerConfig: ProverBrokerConfig = getDefaultConfig(proverBrokerConfigMappings);
@@ -125,7 +125,7 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
   realProofs: {
     env: 'PROVER_REAL_PROOFS',
     description: 'Whether to construct real proofs',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
   proverTestDelayType: {
     env: 'PROVER_TEST_DELAY_TYPE',

@@ -1,12 +1,12 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
-import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { InboxAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassRegisteredEvent,
   PrivateFunctionBroadcastedEvent,
@@ -25,7 +25,6 @@ import {
   type L2BlockSource,
   L2BlockSourceEvents,
   type L2Tips,
-  type NullifierWithBlockSource,
 } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
@@ -67,11 +66,7 @@ import type { PublishedL2Block } from './structs/published.js';
 /**
  * Helper interface to combine all sources this archiver implementation provides.
  */
-export type ArchiveSource = L2BlockSource &
-  L2LogsSource &
-  ContractDataSource &
-  L1ToL2MessageSource &
-  NullifierWithBlockSource;
+export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -84,7 +79,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
    */
   private runningPromise?: RunningPromise;
 
-  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private rollup: RollupContract;
   private inbox: GetContractReturnType<typeof InboxAbi, ViemPublicClient>;
 
   private store: ArchiverStoreHelper;
@@ -119,11 +114,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     this.tracer = instrumentation.tracer;
     this.store = new ArchiverStoreHelper(dataStore);
 
-    this.rollup = getContract({
-      address: l1Addresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: publicClient,
-    });
+    this.rollup = new RollupContract(publicClient, l1Addresses.rollupAddress);
 
     this.inbox = getContract({
       address: l1Addresses.inboxAddress.toString(),
@@ -152,15 +143,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       pollingInterval: config.viemPollingIntervalMS,
     });
 
-    const rollup = getContract({
-      address: config.l1Contracts.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: publicClient,
-    });
+    const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
 
     const [l1StartBlock, l1GenesisTime] = await Promise.all([
-      rollup.read.L1_BLOCK_AT_GENESIS(),
-      rollup.read.getGenesisTime(),
+      rollup.getL1StartBlock(),
+      rollup.getL1GenesisTime(),
     ] as const);
 
     const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
@@ -306,7 +293,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   /** Queries the rollup contract on whether a prune can be executed on the immediatenext L1 block. */
   private async canPrune(currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
     const time = (currentL1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
-    return await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber });
+    return await this.rollup.canPruneAtTime(time, { blockNumber: currentL1BlockNumber });
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
@@ -394,7 +381,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   ): Promise<{ provenBlockNumber: bigint }> {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
     const [provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber] =
-      await this.rollup.read.status([localPendingBlockNumber], { blockNumber: currentL1BlockNumber });
+      await this.rollup.status(localPendingBlockNumber, { blockNumber: currentL1BlockNumber });
 
     const updateProvenBlock = async () => {
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
@@ -473,7 +460,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
             break;
           }
 
-          const archiveAtContract = await this.rollup.read.archiveAt([BigInt(candidateBlock.number)]);
+          const archiveAtContract = await this.rollup.archiveAt(BigInt(candidateBlock.number));
 
           if (archiveAtContract === candidateBlock.archive.root.toString()) {
             break;
@@ -504,7 +491,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
       // TODO(md): Retrieve from blob sink then from consensus client, then from peers
       const retrievedBlocks = await retrieveBlocksFromRollup(
-        this.rollup,
+        this.rollup.getContract(),
         this.publicClient,
         this.blobSinkClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
@@ -743,17 +730,6 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   }
 
   /**
-   * Returns the provided nullifier indexes scoped to the block
-   * they were first included in, or undefined if they're not present in the tree
-   * @param blockNumber Max block number to search for the nullifiers
-   * @param nullifiers Nullifiers to get
-   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
-   */
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
-    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
-  }
-
-  /**
    * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
@@ -829,8 +805,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
 
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getContractFunctionName(address, selector);
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getDebugFunctionName(address, selector);
   }
 
   async getL2Tips(): Promise<L2Tips> {
@@ -891,8 +867,6 @@ class ArchiverStoreHelper
       ArchiverDataStore,
       | 'addLogs'
       | 'deleteLogs'
-      | 'addNullifiers'
-      | 'deleteNullifiers'
       | 'addContractClasses'
       | 'deleteContractClasses'
       | 'addContractInstances'
@@ -1058,7 +1032,6 @@ class ArchiverStoreHelper
           ])
         ).every(Boolean);
       }),
-      this.store.addNullifiers(blocks.map(block => block.block)),
       this.store.addBlocks(blocks),
     ]);
 
@@ -1125,9 +1098,6 @@ class ArchiverStoreHelper
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
   }
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
-    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
-  }
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);
   }
@@ -1167,8 +1137,8 @@ class ArchiverStoreHelper
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getContractFunctionName(address, selector);
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getDebugFunctionName(address, selector);
   }
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();

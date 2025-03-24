@@ -1,6 +1,8 @@
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/fields';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
@@ -10,9 +12,9 @@ import type { AccountInterface } from '../account/interface.js';
 import { Contract } from '../contract/contract.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
-import { DefaultMultiCallEntrypoint } from '../entrypoint/default_multi_call_entrypoint.js';
+import { AccountEntrypointMetaPaymentMethod } from '../fee/account_entrypoint_meta_payment_method.js';
+import { FeeJuicePaymentMethod, type FeePaymentMethod } from '../index.js';
 import { AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from '../wallet/index.js';
-import { DeployAccountMethod } from './deploy_account_method.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
 /**
@@ -139,12 +141,11 @@ export class AccountManager {
 
   /**
    * Returns the pre-populated deployment method to deploy the account contract that backs this account.
-   * Typically you will not need this method and can call `deploy` directly. Use this for having finer
-   * grained control on when to create, simulate, and send the deployment tx.
+   * If no wallet is provided, it uses a signerless wallet with the multi call entrypoint
    * @param deployWallet - Wallet used for deploying the account contract.
-   * @returns A DeployMethod instance that deploys this account contract.
+   * @returns A DeployMethod instance that deploys this account contract
    */
-  public async getDeployMethod(deployWallet?: Wallet) {
+  async #getDeployMethod(deployWallet?: Wallet): Promise<DeployMethod> {
     const artifact = await this.accountContract.getContractArtifact();
 
     if (!(await this.isDeployable())) {
@@ -179,14 +180,36 @@ export class AccountManager {
     // and it can't be used unless the contract is initialized.
     const wallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
 
-    return new DeployAccountMethod(
-      this.accountContract.getAuthWitnessProvider(completeAddress),
+    return new DeployMethod(
       this.getPublicKeys(),
       wallet,
       artifact,
+      address => Contract.at(address, artifact, wallet),
       constructorArgs,
       constructorName,
+    );
+  }
+
+  /**
+   * Returns a FeePaymentMethod that routes the original one provided as an argument
+   * through the account's entrypoint. This allows an account contract to pay
+   * for its own deployment and initialization.
+   *
+   * For more details on how the fee payment routing works see documentation of AccountEntrypointMetaPaymentMethod class.
+   *
+   * @param originalPaymentMethod - originalPaymentMethod The original payment method to be wrapped.
+   * @returns A FeePaymentMethod that routes the original one through the account's entrypoint (AccountEntrypointMetaPaymentMethod)
+   */
+  async #getSelfPaymentMethod(originalPaymentMethod?: FeePaymentMethod) {
+    const artifact = await this.accountContract.getContractArtifact();
+    const wallet = await this.getWallet();
+    const address = wallet.getAddress();
+    return new AccountEntrypointMetaPaymentMethod(
+      artifact,
+      wallet,
       'entrypoint',
+      address,
+      originalPaymentMethod ?? new FeeJuicePaymentMethod(address),
     );
   }
 
@@ -199,19 +222,55 @@ export class AccountManager {
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
   public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
-    const sentTx = this.getDeployMethod(opts?.deployWallet)
-      .then(deployMethod =>
-        deployMethod.send({
+    let deployMethod: DeployMethod;
+    const sentTx = this.#getDeployMethod(opts?.deployWallet)
+      .then(method => {
+        deployMethod = method;
+        if (!opts?.deployWallet && opts?.fee) {
+          return this.#getSelfPaymentMethod(opts?.fee?.paymentMethod);
+        }
+      })
+      .then(maybeWrappedPaymentMethod => {
+        let fee = opts?.fee;
+        if (maybeWrappedPaymentMethod) {
+          fee = { ...opts?.fee, paymentMethod: maybeWrappedPaymentMethod };
+        }
+        return deployMethod.send({
           contractAddressSalt: new Fr(this.salt),
           skipClassRegistration: opts?.skipClassRegistration ?? true,
           skipPublicDeployment: opts?.skipPublicDeployment ?? true,
           skipInitialization: opts?.skipInitialization ?? false,
           universalDeploy: true,
-          fee: opts?.fee,
-        }),
-      )
+          fee,
+        });
+      })
       .then(tx => tx.getTxHash());
     return new DeployAccountSentTx(this.pxe, sentTx, this.getWallet());
+  }
+
+  /**
+   * Estimates the gas needed to deploy the account contract that backs this account.
+   * This method is here to ensure that the fee payment method is correctly set up in case
+   * the account contract needs to pay for its own deployment.
+   * @param opts - Fee options to be used for the deployment.
+   * @returns The gas estimations for the account contract deployment and initialization.
+   */
+  public async estimateDeploymentGas(
+    opts?: DeployAccountOptions,
+  ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
+    const deployMethod = await this.#getDeployMethod(opts?.deployWallet);
+    const fee =
+      !opts?.deployWallet && opts?.fee
+        ? { ...opts.fee, paymentMethod: await this.#getSelfPaymentMethod(opts.fee.paymentMethod) }
+        : opts?.fee;
+    return deployMethod.estimateGas({
+      contractAddressSalt: new Fr(this.salt),
+      skipClassRegistration: opts?.skipClassRegistration ?? true,
+      skipPublicDeployment: opts?.skipPublicDeployment ?? true,
+      skipInitialization: opts?.skipInitialization ?? false,
+      universalDeploy: true,
+      fee,
+    });
   }
 
   /**

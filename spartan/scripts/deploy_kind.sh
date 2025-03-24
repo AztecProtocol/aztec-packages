@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Helper script for deploying local KIND scenarios.
 # Overrides refers to overriding values in the values yaml file
@@ -157,7 +157,7 @@ helm upgrade --install "$helm_instance" ../aztec-network \
   --wait-for-jobs=true \
   --timeout="$install_timeout"
 
-kubectl wait pod -l app==pxe -l app.kubernetes.io/instance="$helm_instance" --for=condition=Ready -n "$namespace" --timeout=10m
+kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=10m
 
 if [ -n "$chaos_values" ]; then
   ../bootstrap.sh chaos-mesh

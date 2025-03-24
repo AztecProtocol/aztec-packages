@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 # Get the name of the script without the path and extension
@@ -62,7 +62,6 @@ export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="false"
-export SEQ_MAX_SECONDS_BETWEEN_BLOCKS="0"
 export SEQ_MIN_TX_PER_BLOCK="1"
 export P2P_IP="127.0.0.1"
 export P2P_PORT="$P2P_PORT"

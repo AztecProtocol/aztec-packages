@@ -74,41 +74,17 @@ export interface AztecNode
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus>;
 
   /**
-   * Find the indexes of the given leaves in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
+   * the leaves were inserted.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data.
    * @param treeId - The tree to search in.
-   * @param leafValues - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   * @param leafValues - The values to search for.
+   * @returns The indices of leaves and the block metadata of a block in which the leaves were inserted.
    */
   findLeavesIndexes(
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(bigint | undefined)[]>;
-
-  /**
-   * Find the indexes of the given leaves in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
-   * @param treeId - The tree to search in.
-   * @param leafIndices - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
-   */
-  findBlockNumbersForIndexes(
-    blockNumber: L2BlockNumber,
-    treeId: MerkleTreeId,
-    leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]>;
-
-  /**
-   * Returns the indexes of the given nullifiers in the nullifier tree,
-   * scoped to the block they were included in.
-   * @param blockNumber - The block number at which to get the data.
-   * @param nullifiers - The nullifiers to search for.
-   * @returns The block scoped indexes of the given nullifiers in the nullifier tree, or undefined if not found.
-   */
-  findNullifiersIndexesWithBlock(
-    blockNumber: L2BlockNumber,
-    nullifiers: Fr[],
   ): Promise<(InBlock<bigint> | undefined)[]>;
 
   /**
@@ -219,14 +195,14 @@ export interface AztecNode
    * "in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
    * is contained in the leaf preimage.
    */
-  getPublicDataTreeWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Get a block specified by its number.
    * @param number - The block number being requested.
    * @returns The requested block.
    */
-  getBlock(number: number): Promise<L2Block | undefined>;
+  getBlock(number: L2BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Fetches the current block number.
@@ -446,16 +422,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   findLeavesIndexes: z
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
-    .returns(z.array(optional(schemas.BigInt))),
-
-  findBlockNumbersForIndexes: z
-    .function()
-    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.BigInt))
-    .returns(z.array(optional(schemas.BigInt))),
-
-  findNullifiersIndexesWithBlock: z
-    .function()
-    .args(L2BlockNumberSchema, z.array(schemas.Fr))
     .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
 
   getNullifierSiblingPath: z
@@ -500,12 +466,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(L2BlockNumberSchema, schemas.Fr)
     .returns(NullifierMembershipWitness.schema.optional()),
 
-  getPublicDataTreeWitness: z
-    .function()
-    .args(L2BlockNumberSchema, schemas.Fr)
-    .returns(PublicDataWitness.schema.optional()),
+  getPublicDataWitness: z.function().args(L2BlockNumberSchema, schemas.Fr).returns(PublicDataWitness.schema.optional()),
 
-  getBlock: z.function().args(z.number()).returns(L2Block.schema.optional()),
+  getBlock: z.function().args(L2BlockNumberSchema).returns(L2Block.schema.optional()),
 
   getBlockNumber: z.function().returns(z.number()),
 

@@ -28,7 +28,7 @@ case "$cmd" in
     if [ "$REF_NAME" == "master" ] && [ "$CI" -eq 1 ] && [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
       echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
       docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$COMMIT_HASH-$(arch)
-      do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH-$(arch)
+      do_or_dryrun denoise "docker push aztecprotocol/aztec:$COMMIT_HASH-$(arch)"
     fi
     ;;
   "release")

@@ -37,6 +37,9 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
 
   public async getContractAddressPreimage(address: AztecAddress) {
     const instance = await this.contractDataProvider.getContractInstance(address);
+    if (!instance) {
+      throw new Error(`Contract instance not found when getting address preimage. Contract address: ${address}.`);
+    }
     return {
       saltedInitializationHash: await computeSaltedInitializationHash(instance),
       ...instance,
@@ -45,11 +48,20 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
 
   public async getContractClassIdPreimage(contractClassId: Fr) {
     const contractClass = await this.contractDataProvider.getContractClass(contractClassId);
+    if (!contractClass) {
+      throw new Error(`Contract class not found when getting class id preimage. Class id: ${contractClassId}.`);
+    }
     return computeContractClassIdPreimage(contractClass);
   }
 
   public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
-    return await this.contractDataProvider.getFunctionMembershipWitness(contractClassId, selector);
+    const membershipWitness = await this.contractDataProvider.getFunctionMembershipWitness(contractClassId, selector);
+    if (!membershipWitness) {
+      throw new Error(
+        `Membership witness not found for contract class id ${contractClassId} and selector ${selector}.`,
+      );
+    }
+    return membershipWitness;
   }
 
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
@@ -95,7 +107,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
       ProtocolContractAddress.ContractInstanceDeployer,
       sharedMutableHashSlot,
     );
-    const updatedClassIdWitness = await this.node.getPublicDataTreeWitness(this.blockNumber, hashLeafSlot);
+    const updatedClassIdWitness = await this.node.getPublicDataWitness(this.blockNumber, hashLeafSlot);
 
     if (!updatedClassIdWitness) {
       throw new Error(`No public data tree witness found for ${hashLeafSlot}`);
