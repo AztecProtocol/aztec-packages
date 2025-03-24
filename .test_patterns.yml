@@ -172,7 +172,7 @@ tests:
 
   - regex: "spartan/bootstrap.sh test-kind-smoke"
     owners:
-      - *adam
+      - *mitch
 
   - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:

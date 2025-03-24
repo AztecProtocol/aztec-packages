@@ -106,6 +106,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     selector: FunctionSelector,
   ): Promise<FunctionArtifactWithContractName> {
     const artifact = await this.contractDataProvider.getFunctionArtifact(contractAddress, selector);
+    if (!artifact) {
+      throw new Error(`Function artifact not found for contract ${contractAddress} and selector ${selector}.`);
+    }
     const debug = await this.contractDataProvider.getFunctionDebugMetadata(contractAddress, selector);
     return {
       ...artifact,
@@ -118,6 +121,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     functionName: string,
   ): Promise<FunctionArtifactWithContractName | undefined> {
     const instance = await this.contractDataProvider.getContractInstance(contractAddress);
+    if (!instance) {
+      return;
+    }
     const artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
   }

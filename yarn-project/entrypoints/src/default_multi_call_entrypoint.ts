@@ -34,7 +34,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
 
     // Obtain the entrypoint hashed args, built from the encoded calls
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [encodedCalls]));
+    const entrypointHashedArgs = await HashedValues.fromArgs(encodeArguments(abi, [encodedCalls]));
 
     // Assemble the tx request
     const txRequest = TxExecutionRequest.from({
