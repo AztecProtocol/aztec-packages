@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # prove_then_verify produces intermediate state. We use process substitution to make parallel safe.
 set -eu
 
