@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 source $(git rev-parse --show-toplevel)/ci3/source
 source shared/setup.sh
@@ -7,7 +7,7 @@ test_title "Create an account and deploy using native fee payment with bridging"
 
 # docs:start:bridge-fee-juice
 aztec-wallet create-account -a main --register-only
-aztec-wallet bridge-fee-juice 100000000000000000 main --mint --no-wait
+aztec-wallet bridge-fee-juice 1000000000000000000 main --mint --no-wait
 # docs:end:bridge-fee-juice
 
 

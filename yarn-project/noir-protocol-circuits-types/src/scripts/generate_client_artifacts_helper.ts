@@ -19,7 +19,7 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
 
 function generateImports() {
   return `
-  import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+  import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
   import type { ClientProtocolArtifact } from './artifacts/types.js';
   import { VerificationKeyData } from '@aztec/stdlib/vks';
   import { keyJsonToVKData } from './utils/vk_json.js';
@@ -54,12 +54,12 @@ function generateCircuitArtifactImportFunction() {
       // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
       return `case '${artifactName}': {
         const { default: compiledCircuit } = await import(\"../artifacts/${artifactName}.json\");
-        return compiledCircuit as NoirCompiledCircuit;
+        return { ...(compiledCircuit as NoirCompiledCircuit), name: '${artifactName}' };
       }`;
     });
 
   return `
-    export async function getClientCircuitArtifact(artifactName: string, simulated: boolean): Promise<NoirCompiledCircuit> {
+    export async function getClientCircuitArtifact(artifactName: string, simulated: boolean): Promise<NoirCompiledCircuitWithName> {
       const isReset = artifactName.includes('private_kernel_reset');
       const normalizedArtifactName = isReset
         ? \`\${simulated ? artifactName.replace('private_kernel_reset', 'private_kernel_reset_simulated') : artifactName}\`
@@ -98,7 +98,7 @@ function generateVkImportFunction() {
 const main = async () => {
   const content = `
     /* eslint-disable camelcase */
-    // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:client-artifacts-helper\`
+    // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` in the noir-protocol-circuits-types package to update.
 
     ${generateImports()}
 

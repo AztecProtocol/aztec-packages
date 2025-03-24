@@ -5,12 +5,14 @@ import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Key, StoreSize } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
-import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { IndexedDBAztecArray } from './array.js';
 import { IndexedDBAztecMap } from './map.js';
+import { IndexedDBAztecMultiMap } from './multi_map.js';
 import { IndexedDBAztecSet } from './set.js';
 import { IndexedDBAztecSingleton } from './singleton.js';
 
@@ -34,7 +36,11 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   #name: string;
 
   #containers = new Set<
-    IndexedDBAztecArray<any> | IndexedDBAztecMap<any, any> | IndexedDBAztecSet<any> | IndexedDBAztecSingleton<any>
+    | IndexedDBAztecArray<any>
+    | IndexedDBAztecMap<any, any>
+    | IndexedDBAztecMultiMap<any, any>
+    | IndexedDBAztecSet<any>
+    | IndexedDBAztecSingleton<any>
   >();
 
   constructor(rootDB: IDBPDatabase<AztecIDBSchema>, public readonly isEphemeral: boolean, log: Logger, name: string) {
@@ -119,7 +125,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @returns A new AztecMultiMap
    */
   openMultiMap<K extends Key, V>(name: string): AztecAsyncMultiMap<K, V> {
-    const multimap = new IndexedDBAztecMap<K, V>(this.#rootDB, name);
+    const multimap = new IndexedDBAztecMultiMap<K, V>(this.#rootDB, name);
     this.#containers.add(multimap);
     return multimap;
   }

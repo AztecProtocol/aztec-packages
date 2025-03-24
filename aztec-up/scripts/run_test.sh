@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 trap 'docker rm -f $1 &>/dev/null' SIGINT SIGTERM EXIT
@@ -19,11 +19,15 @@ docker run --rm \
 
 docker save aztecprotocol/aztec:latest | docker exec -i $1 \
   bash -c "
+    echo 'Starting docker...'
     /usr/local/share/docker-init.sh &>/dev/null
+    while ! docker info &>/dev/null; do sleep 1; done
     echo 'Loading image...'
     docker load
   "
 
+# If we're running in a terminal, run the container interactively.
+# Drop into a shell if the test fails.
 if [ -t 0 ]; then
   args="-ti"
   fail_shell="|| exec bash"

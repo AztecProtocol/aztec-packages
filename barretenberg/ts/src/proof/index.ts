@@ -1,3 +1,5 @@
+import { numToUInt32BE } from "../serialize/serialize.js";
+
 /**
  * @description
  * The representation of a proof
@@ -20,24 +22,19 @@ export type ProofDataForRecursion = {
   proof: string[];
 };
 
-// Buffers are prepended with their size. The size takes 4 bytes.
-const serializedBufferSize = 4;
+// Honk proofs start with 4 bytes for the size of the proof in fields
+const metadataOffset = 4;
 const fieldByteSize = 32;
 
 export function splitHonkProof(
   proofWithPublicInputs: Uint8Array,
   numPublicInputs: number,
 ): { publicInputs: Uint8Array; proof: Uint8Array } {
-  // Account for the serialized buffer size at start
-  // Get the part before and after the public inputs
-  const proofStart = proofWithPublicInputs.slice(0, serializedBufferSize);
-  const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
-  const proofEnd = proofWithPublicInputs.slice(serializedBufferSize + publicInputsSplitIndex);
-  // Construct the proof without the public inputs
-  const proof = new Uint8Array([...proofStart, ...proofEnd]);
+  // Remove the metadata (proof size in fields)
+  const proofWithPI = proofWithPublicInputs.slice(metadataOffset);
 
-  // Fetch the number of public inputs out of the proof string
-  const publicInputs = proofWithPublicInputs.slice(serializedBufferSize, serializedBufferSize + publicInputsSplitIndex);
+  const publicInputs = proofWithPI.slice(0, numPublicInputs * fieldByteSize);
+  const proof = proofWithPI.slice(numPublicInputs * fieldByteSize);
 
   return {
     proof,
@@ -46,12 +43,10 @@ export function splitHonkProof(
 }
 
 export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array): Uint8Array {
-  const proofStart = proof.slice(0, serializedBufferSize);
-  const proofEnd = proof.slice(serializedBufferSize);
+  // Append proofWithPublicInputs size in fields
+  const proofSize = numToUInt32BE((publicInputs.length + proof.length) / fieldByteSize);
 
-  // Concatenate publicInputs and proof
-  const proofWithPublicInputs = Uint8Array.from([...proofStart, ...publicInputs, ...proofEnd]);
-
+  const proofWithPublicInputs = Uint8Array.from([...proofSize, ...publicInputs, ...proof]);
   return proofWithPublicInputs;
 }
 

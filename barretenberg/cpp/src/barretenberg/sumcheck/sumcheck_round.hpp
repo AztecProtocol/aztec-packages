@@ -159,7 +159,7 @@ template <typename Flavor> class SumcheckProverRound {
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                const bb::RelationParameters<FF>& relation_parameters,
-                                               const bb::GateSeparatorPolynomial<FF>& gate_sparators,
+                                               const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                                const RelationSeparator alpha)
     {
         PROFILE_THIS_NAME("compute_univariate");
@@ -257,7 +257,7 @@ template <typename Flavor> class SumcheckProverRound {
                     accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                     extended_edges,
                                                     relation_parameters,
-                                                    gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+                                                    gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
                 }
             }
         });
@@ -268,7 +268,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
 
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_separators);
     }
 
     /**
@@ -280,7 +280,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_univariate(const size_t round_idx,
                                                ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                const bb::RelationParameters<FF>& relation_parameters,
-                                               const bb::GateSeparatorPolynomial<FF>& gate_sparators,
+                                               const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                                const RelationSeparator alpha,
                                                const ZKData& zk_sumcheck_data, // only populated when Flavor HasZK
                                                RowDisablingPolynomial<FF> row_disabling_poly)
@@ -316,7 +316,7 @@ template <typename Flavor> class SumcheckProverRound {
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                 extended_edges,
                                                 relation_parameters,
-                                                gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+                                                gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
             }
         });
 
@@ -327,11 +327,11 @@ template <typename Flavor> class SumcheckProverRound {
         // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
         // and corrected by subtracting the contribution from the disabled rows
         const auto contribution_from_disabled_rows = compute_disabled_contribution(
-            polynomials, relation_parameters, gate_sparators, alpha, round_idx, row_disabling_poly);
+            polynomials, relation_parameters, gate_separators, alpha, round_idx, row_disabling_poly);
         const auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         const auto round_univariate =
-            batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
+            batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_separators);
         // Mask the round univariate
         return round_univariate + libra_round_univariate - contribution_from_disabled_rows;
     };
@@ -346,7 +346,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_disabled_contribution(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
-        const bb::GateSeparatorPolynomial<FF>& gate_sparators,
+        const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const RelationSeparator alpha,
         const size_t round_idx,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
@@ -363,9 +363,9 @@ template <typename Flavor> class SumcheckProverRound {
             accumulate_relation_univariates(univariate_accumulator,
                                             extended_edges,
                                             relation_parameters,
-                                            gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+                                            gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
         }
-        result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_sparators);
+        result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_separators);
         bb::Univariate<FF, 2> row_disabling_factor =
             bb::Univariate<FF, 2>({ row_disabling_polynomial.eval_at_0, row_disabling_polynomial.eval_at_1 });
         SumcheckRoundUnivariate row_disabling_factor_extended =
@@ -389,18 +389,18 @@ template <typename Flavor> class SumcheckProverRound {
      * \tilde{S}^i(D))\f$.
      *
      * @param challenge Challenge \f$\alpha\f$.
-     * @param gate_sparators Round \f$pow_{\beta}\f$-factor given by  \f$ ( (1−u_i) + u_i\cdot \beta_i )\f$.
+     * @param gate_separators Round \f$pow_{\beta}\f$-factor given by  \f$ ( (1−u_i) + u_i\cdot \beta_i )\f$.
      */
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
                                                    const RelationSeparator& challenge,
-                                                   const bb::GateSeparatorPolynomial<FF>& gate_sparators)
+                                                   const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
         auto running_challenge = FF(1);
         Utils::scale_univariates(univariate_accumulators, challenge, running_challenge);
 
         auto result = ExtendedUnivariate(0);
-        extend_and_batch_univariates(univariate_accumulators, result, gate_sparators);
+        extend_and_batch_univariates(univariate_accumulators, result, gate_separators);
 
         // Reset all univariate accumulators to 0 before beginning accumulation in the next round
         Utils::zero_univariates(univariate_accumulators);
@@ -418,16 +418,16 @@ template <typename Flavor> class SumcheckProverRound {
      * @tparam extended_size Size after extension
      * @param tuple A tuple of tuples of Univariates
      * @param result Round univariate \f$ \tilde{S}^i\f$ represented by its evaluations over \f$ \{0,\ldots, D\} \f$.
-     * @param gate_sparators Round \f$pow_{\beta}\f$-factor  \f$ ( (1−X_i) + X_i\cdot \beta_i )\f$.
+     * @param gate_separators Round \f$pow_{\beta}\f$-factor  \f$ ( (1−X_i) + X_i\cdot \beta_i )\f$.
      */
     template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
     static void extend_and_batch_univariates(const TupleOfTuplesOfUnivariates& tuple,
                                              ExtendedUnivariate& result,
-                                             const bb::GateSeparatorPolynomial<FF>& gate_sparators)
+                                             const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
         ExtendedUnivariate extended_random_polynomial;
         // Pow-Factor  \f$ (1-X) + X\beta_i \f$
-        auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_sparators.current_element() });
+        auto random_polynomial = bb::Univariate<FF, 2>({ 1, gate_separators.current_element() });
         extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
@@ -446,7 +446,7 @@ template <typename Flavor> class SumcheckProverRound {
                 // Multiply by the pow polynomial univariate contribution and the partial
                 // evaluation result c_i (i.e. \f$ pow(u_0,...,u_{l-1})) \f$ where \f$(u_0,...,u_{i-1})\f$ are the
                 // verifier challenges from previous rounds.
-                result += extended * extended_random_polynomial * gate_sparators.partial_evaluation_result;
+                result += extended * extended_random_polynomial * gate_separators.partial_evaluation_result;
             }
         };
         Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
@@ -673,12 +673,14 @@ template <typename Flavor> class SumcheckVerifierRound {
      */
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
-                                             const bb::GateSeparatorPolynomial<FF>& gate_sparators,
+                                             const bb::GateSeparatorPolynomial<FF>& gate_separators,
                                              const RelationSeparator alpha)
     {
         // The verifier should never skip computation of contributions from any relation
-        Utils::template accumulate_relation_evaluations_without_skipping<>(
-            purported_evaluations, relation_evaluations, relation_parameters, gate_sparators.partial_evaluation_result);
+        Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
+                                                                           relation_evaluations,
+                                                                           relation_parameters,
+                                                                           gate_separators.partial_evaluation_result);
 
         FF running_challenge{ 1 };
         FF output{ 0 };
