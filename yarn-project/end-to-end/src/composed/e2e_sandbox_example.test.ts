@@ -55,7 +55,6 @@ end-to-end-1  |       at Object.<anonymous> (composed/e2e_sandbox_example.test.t
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
-  SponsoredFeePaymentMethod,
   getDeployedBananaCoinAddress,
   getDeployedBananaFPCAddress,
   getDeployedSponsoredFPCAddress,
@@ -70,6 +69,7 @@ import {
   getFeeJuiceBalance,
   waitForPXE,
 } from '@aztec/aztec.js';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

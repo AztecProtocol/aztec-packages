@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 if [[ -n "${SSH_AUTH_SOCK_SOCAT_PORT:-}" ]]; then

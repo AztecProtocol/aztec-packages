@@ -41,7 +41,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
 
     // Obtain the entrypoint hashed args, built from the app and fee encoded calls
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(
+    const entrypointHashedArgs = await HashedValues.fromArgs(
       encodeArguments(abi, [appEncodedCalls, feeEncodedCalls, !!cancellable]),
     );
 
