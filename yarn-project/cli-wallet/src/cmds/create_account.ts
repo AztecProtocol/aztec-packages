@@ -5,6 +5,7 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { deploy } from './deploy.js';
 
 export async function createAccount(
   client: PXE,
@@ -72,7 +73,12 @@ export async function createAccount(
       ...(await feeOpts.toDeployAccountOpts(wallet)),
     };
     if (feeOpts.estimateOnly) {
-      const gas = await account.estimateDeploymentGas(deployOpts);
+      const fee =
+        !deployOpts?.deployWallet && deployOpts?.fee
+          ? { ...deployOpts.fee, paymentMethod: await account.getSelfPaymentMethod(deployOpts.fee.paymentMethod) }
+          : deployOpts?.fee;
+      const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
+      const gas = await deployMethod.estimateGas({ ...deployOpts, fee });
       if (json) {
         out.fee = {
           gasLimits: {
