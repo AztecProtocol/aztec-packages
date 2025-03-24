@@ -55,13 +55,13 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
  * @details  We need to prove that all the range constraint wires in the groups indeed have values within the given
  * range [0 , 2¹⁴ -1]. To do this, we use several virtual interleaved wires, each of which represents a subset of
  * the original wires (the virtual wires are interleaved_range_constraints_<i>). We also generate several new
- * polynomials of the same length as the interleaved ones (ordered_range_constrats_<i> which, as the name suggests, are
- * sorted in non-descending order). To show the interleaved range constraints have values within the appropriate range,
- * we in fact use the ordered range constraints, on which TranslatorFlavor's DeltaRangeConstraint relation operates. The
- * relation ensures that sequential values differ by no more than 3, the last value is the maximum and the first value
- * is zero (zero at the start allows us not to dance around shifts). Then, we run the TranslatorPermutationRelation on
- * interleaved_range_constraint_<i> and ordered_range_constraint_<i> to show that they contain the same values which
- * implies that the small wires in the groups are indeed within the correct range.
+ * polynomials of the same length as the interleaved ones (ordered_range_constraints_<i> which, as the name suggests,
+ * are sorted in non-descending order). To show the interleaved range constraints have values within the appropriate
+ * range, we in fact use the ordered range constraints, on which TranslatorFlavor's DeltaRangeConstraint relation
+ * operates. The relation ensures that sequential values differ by no more than 3, the last value is the maximum and the
+ * first value is zero (zero at the start allows us not to dance around shifts). Then, we run the
+ * TranslatorPermutationRelation on interleaved_range_constraint_<i> and ordered_range_constraint_<i> to show that they
+ * contain the same values which implies that the small wires in the groups are indeed within the correct range.
  *
  * Ideally, we could simply rearrange the values in interleaved_.._0 ,..., interleaved_.._3 and get 4 denominator
  * polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is the

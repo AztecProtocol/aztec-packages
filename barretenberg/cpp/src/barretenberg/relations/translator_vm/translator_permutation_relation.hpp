@@ -77,6 +77,8 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
      * the first 4 numerator polynomials are interleaved range constraint polynomials and the last one is the constant
      * extra numerator
      *
+     * If operating in zero-knowledge, we mark the positions (via the lagrange_masking polynomial) that should contain
+     * masking values, expected to be at the same indices both for the ordered and interleaved polynomials.
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
