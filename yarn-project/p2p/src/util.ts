@@ -25,11 +25,13 @@ export interface PubSubLibp2p extends Libp2p {
  * Example usage:
  * const tcpAddr = '123.456.7.8:80' -> /ip4/123.456.7.8/tcp/80
  * const udpAddr = '[2001:db8::1]:8080' -> /ip6/2001:db8::1/udp/8080
- * @param address - The address string to convert. Has to be in the format <addr>:<port>.
+ * @param address - The address string to convert.
+ * @param port - The port to use in the multiaddr string.
  * @param protocol - The protocol to use in the multiaddr string.
  * @returns A multiaddr compliant string.  */
 export function convertToMultiaddr(address: string, port: number, protocol: 'tcp' | 'udp'): string {
-  const multiaddrPrefix = addressToMultiAddressType(address);
+  const fullAddress = `${address}:${port}`;
+  const multiaddrPrefix = addressToMultiAddressType(fullAddress);
   if (multiaddrPrefix === 'dns') {
     throw new Error('Invalid address format. Expected an IPv4 or IPv6 address.');
   }
