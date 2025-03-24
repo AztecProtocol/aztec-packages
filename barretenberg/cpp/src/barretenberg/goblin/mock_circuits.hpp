@@ -127,28 +127,6 @@ class GoblinMockCircuits {
     }
 
     /**
-     * @brief Mock the interactions of a simple curcuit with the op_queue
-     * @todo The transcript aggregation protocol in the Goblin proof system can not yet support an empty "previous
-     * transcript" (see issue #723) because the corresponding commitments are zero / the point at infinity. This
-     * function mocks the interactions with the op queue of a fictional "first" circuit. This way, when we go to
-     * generate a proof over our first "real" circuit, the transcript aggregation protocol can proceed nominally.
-     * The mock data is valid in the sense that it can be processed by all stages of Goblin as if it came from a
-     * genuine circuit.
-     *
-     *
-     * @param op_queue
-     */
-    static void perform_op_queue_interactions_for_mock_first_circuit(std::shared_ptr<bb::ECCOpQueue>& op_queue)
-    {
-        PROFILE_THIS();
-
-        bb::MegaCircuitBuilder builder{ op_queue };
-
-        // Add some goblinized ecc ops
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
-    }
-
-    /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
      *
      * @param builder
