@@ -595,13 +595,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     contractAddress: AztecAddress,
     logs: TxScopedL2Log[],
     recipient: AztecAddress,
-    simulator?: AcirSimulator,
+    simulator?: AcirSimulator, // TODO: this argument is used only in 1 test hence we should remove it
   ): Promise<void> {
     for (const scopedLog of logs) {
       if (scopedLog.isFromPublic) {
         throw new Error('Attempted to decrypt public log');
       }
 
+      // TODO: The following is not required for private events hence we should feed in that info via an oracle call
+      // when needed.
       // Log processing requires the note hashes in the tx in which the note was created. We are now assuming that the
       // note was included in the same block in which the log was delivered - note that partial notes will not work this
       // way.
@@ -784,7 +786,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     noteHashes: Fr[],
     firstNullifier: Fr,
     recipient: AztecAddress,
-    simulator?: AcirSimulator,
+    simulator?: AcirSimulator, // TODO: this argument is used only in 1 test hence we should remove it
   ) {
     const artifact: FunctionArtifact | undefined = await this.contractDataProvider.getFunctionArtifactByName(
       contractAddress,
