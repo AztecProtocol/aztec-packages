@@ -44,7 +44,6 @@ export class PrivateEventDataProvider implements DataProvider {
     logContent: Fr[],
     blockNumber: number,
   ): Promise<void> {
-    this.logger.verbose('storing private event log', { contractAddress, recipient, logContent, blockNumber });
     return this.#store.transactionAsync(async () => {
       const key = `${contractAddress.toString()}_${recipient.toString()}`;
       const logBuffer = serializeToBuffer(logContent);
@@ -64,6 +63,8 @@ export class PrivateEventDataProvider implements DataProvider {
           this.logger.verbose('Event with same tag but different content detected', { tag: tagStr });
         }
       }
+
+      this.logger.verbose('storing private event log', { contractAddress, recipient, logContent, blockNumber });
 
       const index = await this.#eventLogs.lengthAsync();
       await this.#eventLogs.push({ logContent: logBuffer, blockNumber });
