@@ -3,6 +3,7 @@
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { SentTx } from '@aztec/aztec.js';
+import { SecretValue } from '@aztec/foundation/config';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { PXEService } from '@aztec/pxe/server';
@@ -110,8 +111,8 @@ export async function createValidatorConfig(
     PROPOSER_PRIVATE_KEYS_START_INDEX + accountIndex,
   )!.toString('hex')}`;
 
-  config.validatorPrivateKey = attesterPrivateKey;
-  config.publisherPrivateKey = proposerPrivateKey;
+  config.validatorPrivateKey = new SecretValue(attesterPrivateKey);
+  config.publisherPrivateKey = new SecretValue(proposerPrivateKey);
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
