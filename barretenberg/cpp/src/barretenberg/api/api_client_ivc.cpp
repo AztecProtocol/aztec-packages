@@ -275,7 +275,7 @@ void ClientIVCAPI::prove(const Flags& flags,
             write_bytes_to_stdout(buf);
         } else {
             vinfo("writing ClientIVC proof in directory ", output_dir);
-            write_file(output_dir / "proof", buf);
+            proof.to_file_msgpack(output_dir / "proof");
         }
     };
 
@@ -290,7 +290,7 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     init_bn254_crs(1);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
+    const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
@@ -434,7 +434,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
 
     // Write the proof and verification keys into the working directory in 'binary' format
     vinfo("writing ClientIVC proof and vk...");
-    write_file(output_dir / "proof", to_buffer(proof));
+    proof.to_file_msgpack(output_dir / "proof");
 
     auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
