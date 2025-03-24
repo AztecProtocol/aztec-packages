@@ -2,14 +2,12 @@ import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/acco
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
-  AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
   type GlobalVariables,
-  L1EventPayload,
   type Logger,
   type PXE,
   TxStatus,
@@ -420,7 +418,6 @@ describe('e2e_block_building', () => {
     afterAll(() => teardown());
 
     it('calls a method with nested encrypted logs', async () => {
-      const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
       const address = owner.address;
 
       // call test contract
@@ -436,11 +433,23 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], await thisWallet.getEncryptionSecret()))!;
-      expect(event0.event.items).toEqual(values);
+      const events = await pxe.getPrivateEvents(
+        testContract.address,
+        TestContract.events.ExampleEvent,
+        rct.blockNumber!,
+        1,
+        [address],
+      );
+      expect(events[0]).toEqual(values);
 
-      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], await thisWallet.getEncryptionSecret()))!;
-      expect(event1.event.items).toEqual(nestedValues);
+      const nestedEvents = await pxe.getPrivateEvents(
+        testContract.address,
+        TestContract.events.ExampleEvent,
+        rct.blockNumber!,
+        1,
+        [address],
+      );
+      expect(nestedEvents[0]).toEqual(nestedValues);
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
