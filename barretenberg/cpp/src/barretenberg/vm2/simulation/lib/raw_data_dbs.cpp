@@ -95,8 +95,7 @@ FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id)
 HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots)
     : tree_roots(tree_roots)
 {
-    vinfo("Initializing HintedRawMerkleDB with...");
-    vinfo("\n * get_sibling_path hints: ", hints.getSiblingPathHints.size());
+    vinfo("Initializing HintedRawMerkleDB with...", "\n * get_sibling_path hints: ", hints.getSiblingPathHints.size());
 
     for (const auto& get_sibling_path_hint : hints.getSiblingPathHints) {
         GetSiblingPathKey key = { get_sibling_path_hint.hintKey,
