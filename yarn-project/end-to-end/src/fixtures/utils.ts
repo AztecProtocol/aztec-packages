@@ -168,6 +168,8 @@ export async function setupPXEService(
   teardown: () => Promise<void>;
 }> {
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
+  // For tests we only want proving enabled if specifically requested
+  pxeServiceConfig.proverEnabled = !!opts.proverEnabled;
 
   // If no data directory provided, create a temp directory and clean up afterwards
   const configuredDataDirectory = pxeServiceConfig.dataDirectory;
@@ -357,6 +359,8 @@ export async function setup(
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
   config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+  // For tests we only want proving enabled if specifically requested
+  config.realProofs = !!opts.realProofs;
 
   const logger = getLogger();
 

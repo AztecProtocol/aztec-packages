@@ -165,7 +165,8 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   // Create a local blob sink client inside the sandbox, no http connectivity
   const blobSinkClient = createBlobSinkClient();
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, { prefilledPublicData });
-  const pxe = await createAztecPXE(node);
+  const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
+  const pxe = await createAztecPXE(node, pxeServiceConfig);
 
   await setupCanonicalL2FeeJuice(pxe, aztecNodeConfig.l1Contracts.feeJuicePortalAddress, logger.info);
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Helper script for consolidating balances on Sepolia, that were previously dispersed across multiple accounts.
 # The script uses the mnemonic to get the accounts' private keys & calculate which ones were funded from a helm chart yaml.
