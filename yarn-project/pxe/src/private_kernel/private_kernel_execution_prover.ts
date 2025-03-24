@@ -29,10 +29,8 @@ import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   TxRequest,
-  collectEnqueuedPublicFunctionCalls,
   collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
-  collectPublicTeardownFunctionCall,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
@@ -93,7 +91,7 @@ export class PrivateKernelExecutionProver {
 
     const timer = new Timer();
 
-    const isPrivateOnlyTx = this.isPrivateOnly(executionResult);
+    const isPrivateOnlyTx = executionResult.publicFunctionCalldata.length === 0;
 
     const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
@@ -104,10 +102,9 @@ export class PrivateKernelExecutionProver {
 
     const noteHashLeafIndexMap = collectNoteHashLeafIndexMap(executionResult);
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
-    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-    const hasPublicCalls =
-      enqueuedPublicFunctions.length > 0 || !collectPublicTeardownFunctionCall(executionResult).isEmpty();
-    const validationRequestsSplitCounter = hasPublicCalls ? getFinalMinRevertibleSideEffectCounter(executionResult) : 0;
+    const validationRequestsSplitCounter = isPrivateOnlyTx
+      ? 0
+      : getFinalMinRevertibleSideEffectCounter(executionResult);
 
     while (executionStack.length) {
       if (!firstIteration) {
@@ -338,18 +335,5 @@ export class PrivateKernelExecutionProver {
         updatedClassIdHints,
       }),
     });
-  }
-
-  private isPrivateOnly(executionResult: PrivateExecutionResult): boolean {
-    const isPrivateOnlyRecursive = (callResult: PrivateCallExecutionResult): boolean => {
-      const makesPublicCalls =
-        callResult.enqueuedPublicFunctionCalls.some(enqueuedCall => !enqueuedCall.isEmpty()) ||
-        !callResult.publicTeardownFunctionCall.isEmpty();
-      return (
-        !makesPublicCalls &&
-        callResult.nestedExecutions.every(nestedExecution => isPrivateOnlyRecursive(nestedExecution))
-      );
-    };
-    return isPrivateOnlyRecursive(executionResult.entrypoint);
   }
 }

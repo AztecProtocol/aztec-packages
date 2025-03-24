@@ -4,12 +4,7 @@ import { z } from 'zod';
 
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
-import {
-  PrivateExecutionResult,
-  collectEnqueuedPublicFunctionCalls,
-  collectPublicTeardownFunctionCall,
-  collectSortedContractClassLogs,
-} from './private_execution_result.js';
+import { PrivateExecutionResult, collectSortedContractClassLogs } from './private_execution_result.js';
 import { Tx } from './tx.js';
 
 export class TxProvingResult {
@@ -21,15 +16,12 @@ export class TxProvingResult {
 
   toTx(): Tx {
     const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
-    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
-    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
     const tx = new Tx(
       this.publicInputs,
       this.clientIvcProof,
       contractClassLogs,
-      enqueuedPublicFunctions,
-      teardownPublicFunction,
+      this.privateExecutionResult.publicFunctionCalldata,
     );
     return tx;
   }

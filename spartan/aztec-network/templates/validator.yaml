@@ -125,6 +125,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.aztec.realProofs }}"
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.validator.maxOldSpaceSize}}"
             - name: AZTEC_PORT

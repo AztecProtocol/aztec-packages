@@ -40,10 +40,9 @@ proverAgent:
       cpu: "31"
 
 bot:
-  # 2 bots each building txs as fast as possible
-  # It takes about 16 seconds to build a tx so each bot should produce ~2 txs per block
-  replicas: 2
-  followChain: "NONE"
+  replicas: 8
+  ammTxs: true
+  followChain: "PENDING"
   enabled: true
   txIntervalSeconds: 1
   resources:
