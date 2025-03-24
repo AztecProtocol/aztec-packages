@@ -27,13 +27,8 @@ describe('Public TX simulator apps tests: TokenContract', () => {
       ///*telemetryConfig=*/ {},
       /*metrics=*/ [
         Metrics.PUBLIC_EXECUTOR_SIMULATION_COUNT,
-        //Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED,
-        {
-          name: 'aztec.public_tx_simulator.simulation_total_instructions',
-          source: Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS,
-          unit: 'instructions',
-          transform: (value: number) => value,
-        },
+        Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED,
+        Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS,
         {
           // Invert mana-per-second since benchmark action requires that all metrics
           // conform to either "bigger-is-better" or "smaller-is-better".

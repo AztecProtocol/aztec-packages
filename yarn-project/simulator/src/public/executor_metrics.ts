@@ -40,10 +40,14 @@ export class ExecutorMetrics {
 
     this.manaUsed = meter.createUpDownCounter(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED, {
       description: 'Total mana used',
+      unit: 'mana',
+      valueType: ValueType.INT,
     });
 
     this.totalInstructions = meter.createUpDownCounter(Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS, {
       description: 'Total number of instructions executed',
+      unit: 'instructions',
+      valueType: ValueType.INT,
     });
 
     this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION, {
