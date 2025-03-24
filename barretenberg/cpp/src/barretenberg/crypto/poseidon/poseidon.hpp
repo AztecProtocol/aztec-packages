@@ -3,9 +3,9 @@
 #include <array>
 #include <cstdint>
 #include <vector>
-#include "./poseidon_params.hpp"
-#include "./poseidon_permutation.hpp"
-#include "../poseidon2/sponge/sponge.hpp"
+#include "poseidon_params.hpp"
+#include "poseidon_permutation.hpp"
+#include "barretenberg/crypto/poseidon2/sponge/sponge.hpp"
 
 namespace bb::crypto {
 

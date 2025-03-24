@@ -1,4 +1,4 @@
-#include "./poseidon.hpp"
+#include "poseidon.hpp"
 
 namespace bb::crypto {
 
@@ -55,25 +55,16 @@ PoseidonHash poseidon_stark252(const std::vector<uint8_t>& input)
 {
     assert(input.size() % 32 == 0);
 
-    using Permutation = PoseidonPermutation<PoseidonStark252BaseFieldParams>;
-    using State = Permutation::State;
-    using FF = Permutation::FF;
-
-    //size_t elem_count = input.size() / 32;
-    //std::vector<FF> elems(2 * (1 + elem_count));
-
-    //elems[0] = FF(1);
-    //elems[1] = FF(0);
+    using Poseidon = Poseidon<PoseidonStark252BaseFieldParams>;
+    using FF = Poseidon::FF;
 
     FF iv = FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")); // "StarknetHonk" 
 
-    State state = {
-      FF(1),
-      FF(0),
-      iv,
-    };
+    size_t elem_count = input.size() / 32;
+    std::vector<FF> elems(2 * (1 + elem_count));
 
-    state = Permutation::permutation(state);
+    elems[0] = FF(1);
+    elems[1] = FF(0);
 
     for (size_t k = 0; k < input.size() / 32; ++k) {
         std::array<uint8_t, 32> limb_lo = {};
@@ -87,22 +78,13 @@ PoseidonHash poseidon_stark252(const std::vector<uint8_t>& input)
         FF limb0 = from_buffer<FF>(limb_lo);
         FF limb1 = from_buffer<FF>(limb_hi);
 
-        //elems[2 * (1 + k) + 0] = limb0;
-        //elems[2 * (1 + k) + 1] = limb1;
-
-        state[0] += limb0;
-        state[1] += limb1;
-
-        state = Permutation::permutation(state);
+        elems[2 * (1 + k) + 0] = limb0;
+        elems[2 * (1 + k) + 1] = limb1;
     }
 
-    //FF output1 = Poseidon<PoseidonStark252BaseFieldParams>::hash_buffer(input);
-    //FF output2 = Poseidon<PoseidonStark252BaseFieldParams>::hash(elems, iv);
-    //std::cout << output1 << std::endl;
-    //std::cout << output2 << std::endl;
-    //std::cout << state[0] << std::endl;
+    FF output = Poseidon::hash(elems, iv);
 
-    std::vector<uint8_t> digest = to_buffer(state[0]);
+    std::vector<uint8_t> digest = to_buffer(output);
 
     PoseidonHash result;
     for (size_t i = 0; i < 32; ++i) {
