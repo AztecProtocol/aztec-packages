@@ -1,9 +1,11 @@
 import { NULL_KEY } from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
+  type SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  secretValueConfigHelper,
 } from '@aztec/foundation/config';
 
 /**
@@ -11,7 +13,7 @@ import {
  */
 export interface ValidatorClientConfig {
   /** The private key of the validator participating in attestation duties */
-  validatorPrivateKey?: string;
+  validatorPrivateKey: SecretValue<`0x${string}`>;
 
   /** Do not run the validator */
   disableValidator: boolean;
@@ -26,8 +28,8 @@ export interface ValidatorClientConfig {
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
   validatorPrivateKey: {
     env: 'VALIDATOR_PRIVATE_KEY',
-    parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
     description: 'The private key of the validator participating in attestation duties',
+    ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
