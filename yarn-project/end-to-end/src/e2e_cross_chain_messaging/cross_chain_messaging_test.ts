@@ -119,15 +119,6 @@ export class CrossChainMessagingTest {
           ['Underlying', 'UND', walletClient.account.address],
         ).then(({ address }) => address);
 
-        const underlyingERC20 = getContract({
-          address: underlyingERC20Address!.toString(),
-          abi: TestERC20Abi,
-          client: walletClient,
-        });
-
-        // allow anyone to mint
-        await underlyingERC20.write.setFreeForAll([true], {} as any);
-
         this.logger.verbose(`Setting up cross chain harness...`);
         this.crossChainTestHarness = await CrossChainTestHarness.new(
           this.aztecNode,

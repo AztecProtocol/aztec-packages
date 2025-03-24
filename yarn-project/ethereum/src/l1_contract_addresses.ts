@@ -26,7 +26,7 @@ export const L1ContractsNames = [
 /** Provides the directory of current L1 contract addresses */
 export type L1ContractAddresses = {
   [K in (typeof L1ContractsNames)[number]]: EthAddress;
-} & { slashFactoryAddress?: EthAddress | undefined };
+} & { slashFactoryAddress?: EthAddress | undefined; feeAssetHandlerAddress?: EthAddress | undefined };
 
 export const L1ContractAddressesSchema = z.object({
   rollupAddress: schemas.EthAddress,
@@ -41,6 +41,7 @@ export const L1ContractAddressesSchema = z.object({
   governanceProposerAddress: schemas.EthAddress,
   governanceAddress: schemas.EthAddress,
   slashFactoryAddress: schemas.EthAddress.optional(),
+  feeAssetHandlerAddress: schemas.EthAddress.optional(),
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
@@ -104,6 +105,11 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
   slashFactoryAddress: {
     env: 'SLASH_FACTORY_CONTRACT_ADDRESS',
     description: 'The deployed L1 slashFactory contract address',
+    parseEnv,
+  },
+  feeAssetHandlerAddress: {
+    env: 'FEE_ASSET_HANDLER_CONTRACT_ADDRESS',
+    description: 'The deployed L1 feeAssetHandler contract address',
     parseEnv,
   },
 };

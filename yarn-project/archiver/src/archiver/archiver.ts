@@ -25,7 +25,6 @@ import {
   type L2BlockSource,
   L2BlockSourceEvents,
   type L2Tips,
-  type NullifierWithBlockSource,
 } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
@@ -67,11 +66,7 @@ import type { PublishedL2Block } from './structs/published.js';
 /**
  * Helper interface to combine all sources this archiver implementation provides.
  */
-export type ArchiveSource = L2BlockSource &
-  L2LogsSource &
-  ContractDataSource &
-  L1ToL2MessageSource &
-  NullifierWithBlockSource;
+export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
@@ -735,17 +730,6 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   }
 
   /**
-   * Returns the provided nullifier indexes scoped to the block
-   * they were first included in, or undefined if they're not present in the tree
-   * @param blockNumber Max block number to search for the nullifiers
-   * @param nullifiers Nullifiers to get
-   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
-   */
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
-    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
-  }
-
-  /**
    * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
@@ -821,8 +805,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
 
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getContractFunctionName(address, selector);
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getDebugFunctionName(address, selector);
   }
 
   async getL2Tips(): Promise<L2Tips> {
@@ -883,8 +867,6 @@ class ArchiverStoreHelper
       ArchiverDataStore,
       | 'addLogs'
       | 'deleteLogs'
-      | 'addNullifiers'
-      | 'deleteNullifiers'
       | 'addContractClasses'
       | 'deleteContractClasses'
       | 'addContractInstances'
@@ -1050,7 +1032,6 @@ class ArchiverStoreHelper
           ])
         ).every(Boolean);
       }),
-      this.store.addNullifiers(blocks.map(block => block.block)),
       this.store.addBlocks(blocks),
     ]);
 
@@ -1117,9 +1098,6 @@ class ArchiverStoreHelper
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     return this.store.getLogsByTags(tags);
   }
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
-    return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
-  }
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);
   }
@@ -1159,8 +1137,8 @@ class ArchiverStoreHelper
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getContractFunctionName(address, selector);
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getDebugFunctionName(address, selector);
   }
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();

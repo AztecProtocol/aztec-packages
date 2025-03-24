@@ -1,10 +1,11 @@
-import { EncodedCallsForEntrypoint } from '@aztec/entrypoints/encoding';
-import type { EntrypointInterface, FeeOptions } from '@aztec/entrypoints/interfaces';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
+
+import { EncodedCallsForEntrypoint } from './encoding.js';
+import type { EntrypointInterface, FeeOptions } from './interfaces.js';
+import type { ExecutionPayload } from './payload.js';
 
 /**
  * Implementation for an entrypoint interface that can execute multiple function calls in a single transaction
@@ -20,12 +21,20 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     // Initial request with calls, authWitnesses and capsules
     const { calls, authWitnesses, capsules, extraHashedArgs } = exec;
 
-    // Encode the calls
-    const encodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls);
+    // Get the execution payload for the fee, it includes the calls and potentially authWitnesses
+    const {
+      calls: feeCalls,
+      authWitnesses: feeAuthwitnesses,
+      extraHashedArgs: feeExtraHashedArgs,
+    } = await fee.paymentMethod.getExecutionPayload(fee.gasSettings);
+
+    // Encode the calls, including the fee calls
+    // (since this entrypoint does not distinguish between app and fee calls)
+    const encodedCalls = await EncodedCallsForEntrypoint.fromAppExecution(calls.concat(feeCalls));
 
     // Obtain the entrypoint hashed args, built from the encoded calls
     const abi = this.getEntrypointAbi();
-    const entrypointHashedArgs = await HashedValues.fromValues(encodeArguments(abi, [encodedCalls]));
+    const entrypointHashedArgs = await HashedValues.fromArgs(encodeArguments(abi, [encodedCalls]));
 
     // Assemble the tx request
     const txRequest = TxExecutionRequest.from({
@@ -33,8 +42,8 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
       origin: this.address,
       functionSelector: await FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs],
-      authWitnesses,
+      argsOfCalls: [...encodedCalls.hashedArguments, entrypointHashedArgs, ...extraHashedArgs, ...feeExtraHashedArgs],
+      authWitnesses: [...feeAuthwitnesses, ...authWitnesses],
       capsules,
     });
 

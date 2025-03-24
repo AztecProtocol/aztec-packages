@@ -53,7 +53,7 @@ describe('Registry', () => {
       genesisBlockHash: Fr.random(),
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
-    deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
+    deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress', 'feeAssetHandlerAddress');
     registry = new RegistryContract(publicClient, deployedAddresses.registryAddress);
   });
 

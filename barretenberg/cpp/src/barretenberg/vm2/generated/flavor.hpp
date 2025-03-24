@@ -27,7 +27,9 @@
 #include "relations/class_id_derivation.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
+#include "relations/ff_gt.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/merkle_check.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/range_check.hpp"
@@ -42,7 +44,9 @@
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
+#include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_instr_fetching.hpp"
+#include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
@@ -90,12 +94,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 870;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 115;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 914;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 134;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1029;
+    static constexpr size_t NUM_ALL_ENTITIES = 1092;
 
     // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
     // evenly processed by all the threads. This constant defines the maximum number of rows
@@ -120,7 +124,9 @@ class AvmFlavor {
         avm2::class_id_derivation<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
+        avm2::ff_gt<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::merkle_check<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::range_check<FF_>,
@@ -157,11 +163,14 @@ class AvmFlavor {
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
+        lookup_ff_gt_a_hi_range_relation<FF_>,
+        lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_merkle_check_merkle_poseidon2_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
