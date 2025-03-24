@@ -59,10 +59,9 @@ class AvmGoblinRecursiveVerifier {
         , builder(builder)
     {}
 
-    RecursiveAvmGoblinOutput verify_proof(
-        const StdlibProof<Builder>& stdlib_proof,
-        const std::vector<std::vector<typename UltraRollupRecursiveFlavor::FF>>& public_inputs,
-        AggregationObject agg_obj) const
+    RecursiveAvmGoblinOutput verify_proof(const StdlibProof<Builder>& stdlib_proof,
+                                          const std::vector<std::vector<UltraFF>>& public_inputs,
+                                          AggregationObject agg_obj) const
     {
 
         using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaCircuitBuilder>;
@@ -116,48 +115,44 @@ class AvmGoblinRecursiveVerifier {
         */
 
         // STEP 1:
-        // Take the UltraBuilder proof inputs and convert into MegaBuilder proof inputs
+        // Convert the stdlib Ultra proof, public inputs, and VK to stdlib Mega counterparts
         // (later on we must validate that the AVM proof fed into the MegaCircuit matches the one fed into the upstream
         // UltraCircuit)
-        StdlibProof<MegaCircuitBuilder> mega_stdlib_proof;
-        std::vector<std::vector<typename AvmRecursiveFlavor::FF>> mega_public_inputs;
+
         GoblinProver goblin;
         MegaCircuitBuilder inner_builder(goblin.op_queue);
 
-        std::vector<FF> input_hash;
-        std::vector<UltraFF> upstream_hash;
-        for (auto& element : stdlib_proof) {
-            FF val = FF::from_witness(&inner_builder, element.get_value());
-            mega_stdlib_proof.emplace_back(val);
-            input_hash.emplace_back(val);
-            upstream_hash.emplace_back(element);
-        }
-        for (auto& input_vec : public_inputs) {
-            std::vector<FF> inner_vec;
-            for (auto& input : input_vec) {
-                FF val = FF::from_witness(&inner_builder, input.get_value());
-                inner_vec.emplace_back(val);
-                input_hash.emplace_back(val);
-                upstream_hash.emplace_back(input);
-            }
-            mega_public_inputs.emplace_back(inner_vec);
-        }
+        // Buffers to be hashed containing the elements of the Mega and Ultra proof, public inputs, and VK
+        std::vector<FF> mega_hash_buffer;
+        std::vector<UltraFF> ultra_hash_buffer;
 
-        // Step 1.5 Convert the UltraRollupCircuit representation of the AVM verification key into a MegaCircuit
-        // representation
-        std::vector<FF> key_fields;
-        for (const auto& f : outer_key_fields) {
-            FF val = FF::from_witness(&inner_builder, f.get_value());
-            key_fields.emplace_back(val);
-            input_hash.emplace_back(val);
-            upstream_hash.emplace_back(f);
+        // lambda to convert from Ultra to Mega stdlib field buffer and add all elements to respective hash buffers
+        auto convert_stdlib_ultra_to_stdlib_mega = [&](const std::vector<UltraFF>& ultra_object) {
+            std::vector<FF> mega_object;
+            for (const UltraFF& ultra_element : ultra_object) {
+                FF mega_element = FF::from_witness(&inner_builder, ultra_element.get_value());
+                mega_object.emplace_back(mega_element);
+                mega_hash_buffer.emplace_back(mega_element);
+                ultra_hash_buffer.emplace_back(ultra_element);
+            }
+            return mega_object;
+        };
+
+        // Convert the stdlib Ultra proof, public inputs, and VK to stdlib Mega counterparts
+        StdlibProof<MegaCircuitBuilder> mega_stdlib_proof = convert_stdlib_ultra_to_stdlib_mega(stdlib_proof);
+        std::vector<std::vector<FF>> mega_public_inputs;
+        mega_public_inputs.reserve(public_inputs.size());
+        for (const std::vector<UltraFF>& input_vec : public_inputs) {
+            mega_public_inputs.emplace_back(convert_stdlib_ultra_to_stdlib_mega(input_vec));
         }
-        auto stdlib_key = std::make_shared<AvmRecursiveFlavor_<MegaCircuitBuilder>::VerificationKey>(
-            inner_builder, std::span<FF>(key_fields));
+        std::vector<FF> key_fields = convert_stdlib_ultra_to_stdlib_mega(outer_key_fields);
+
+        auto stdlib_key =
+            std::make_shared<AvmRecursiveFlavor::VerificationKey>(inner_builder, std::span<FF>(key_fields));
 
         // we use the hash of the proof + public inputs to validate that we're correctly transferring data between the
         // Mega and Ultra circuits
-        auto mega_input_hash = stdlib::poseidon2<MegaCircuitBuilder>::hash(inner_builder, input_hash);
+        auto mega_input_hash = stdlib::poseidon2<MegaCircuitBuilder>::hash(inner_builder, mega_hash_buffer);
         // NOTE: there doesn't seem to be an easy way to know *which* public input index will map to mega_input_hash
         // which is troublesome
         mega_input_hash.set_public();
@@ -228,7 +223,7 @@ class AvmGoblinRecursiveVerifier {
             mega_input_hash_public_input_index += 1;
         }
         auto ultra_output_hash =
-            stdlib::poseidon2<UltraRollupRecursiveFlavor::CircuitBuilder>::hash(*builder, upstream_hash);
+            stdlib::poseidon2<UltraRollupRecursiveFlavor::CircuitBuilder>::hash(*builder, ultra_hash_buffer);
         stdlib_recursion_proof[mega_input_hash_public_input_index].assert_equal(ultra_output_hash);
 
         // Step 10: gather up the ipa proof, ipa claim and output aggregation object produced from verifying the mega

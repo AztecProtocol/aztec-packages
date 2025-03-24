@@ -108,7 +108,6 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
-
     InnerBuilder circuit_builder = generate_avm_circuit();
     InnerComposer composer = InnerComposer();
     InnerProver prover = composer.create_prover(circuit_builder);
