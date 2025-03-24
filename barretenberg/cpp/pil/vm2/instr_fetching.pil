@@ -2,6 +2,82 @@ include "bc_decomposition.pil";
 include "range_check.pil";
 include "constants_gen.pil";
 
+// Explanations
+// *****************************************************************************
+// The role of this subtrace is to fetch an instruction from the bytecode at a
+// position specified by pc. This subtrace copies the relevant bytecode portion
+// from subtrace specified in bc_decomposition.pil.
+// Note that instruction fetching will only be performed for the instructions
+// which are executed by the execution trace and only once, i.e., even if
+// the AVM executes several times a given instruction, the current sub-trace
+// will only produce one row per static instruction.
+// The main work performed by the current sub-trace consists in transforming
+// bytes into the operands of the corresponding instruction. This part is
+// expressed by the relations #[INDIRECT_BYTES_DECOMPOSITION] and
+// #[OPXXX_BYTES_DECOMPOSITION]. They encode each operand based on relevant bytes
+// of the relative position to PC depending on each opcode. Each wire opcode has
+// a static specification in precomputed.pil (see WIRE INSTRUCTION SPEC table)
+// corresponding to the operand decomposition (sel_op_dc_XXX).
+// All the other relations deal with error handling (except lookups/interactions).
+// We handle 4 possible different errors and consolidate into a single one: parsing_err.
+// Only parsing_err is propagated to the execution trace. The four errors are part
+// of the same temporality group.
+// List of errors:
+// 1) pc_out_of_range: pc is out-of-range if pc >= bytecode_size.
+//    - bytecode_size is retrieved from bc_decomposition.pil at pc == 0.
+// 2) opcode_out_of_range:
+//    - opcode is out-of-range if the byte at pc is not a valid wire opcode.
+//    - this information is retrieved from precomputed.pil.
+// 3) instr_out_of_range: remaing bytes in bytecode are less than instruction size.
+//    - instruction size (in bytes) is retrieved from precomputed.pil.
+//    - bytes_to_read (remaining bytes in bytecode) is retrieved from bc_decomposition.pil.
+// 4) tag_out_of_range:
+//    - tag is out-of-range if a tag operand is not a valid memory tag.
+//    - this information is retrieved from precomputed.pil.
+//
+// There is a hierarchy among these errors, in the sense that if any of them is encountered
+// the next ones are irrelevant. If pc is out of range, there is no instruction to consider.
+// If the opcode is invalid, we cannot consider any instruction. If the instruction is not
+// complete then there is no point to validate tag operands.
+// It is also important to note whether a single error or several at the same time occur do
+// not affect the AVM behavior. What we need to prove is that the consolidated error parsing_err
+// is toggled if and only if at least one of the 4 errors occur.
+// Therefore, if an error occurs, we do not have to take care of properly constraining any error
+// which is placed in the above list after the original error. (It does not make sense anyway as
+// explained above.) Based on our witness generation, if an error is toggled, all the others are not.
+// However, we do not constrain this and a prover not following our witness generation could in
+// principle make several errors being toggled. For our relations to be sound, it is however
+// not possible for a malicious prover to toggle any single error when no error should occur.
+// We also prevent from a malicious prover attempting to omit any error.
+// It is sufficient to analyse each error relation by assuming that all the previous ones were
+// not toggled.
+// All this can be derived by logical equivalence: a v (¬a ^ b) <==> a v b
+// Let us denote Ei the error at i). Then:
+//
+// E1 v (¬E1 v E2) v ((¬E1 ^ ¬E2) v E3) v ((¬E1 ^ ¬E2 ^ ¬E3) v E4))) <==>
+//     (E1 v E2)   v (¬(E1 v E2) v E3)  v (¬(E1 v E2 v E3) v E4))) <==>
+//          E1 v E2 v E3                v (¬(E1 v E2 v E3) v E4))) <==>
+// E1 v E2 v E3 v E4
+//
+// This shows that error handling can be proven sound by veryfying that the following predicated
+// are correctly set:
+// E1
+// ¬E1 v E2
+// (¬E1 ^ ¬E2) v E3
+// (¬E1 ^ ¬E2 ^ ¬E3) v E4
+//
+// To conclude, to prove the soundness of the cumulative error, one can isolate each error.
+// To achieve witness generation, we sometimes have to gate certain operations based on the
+// non-activation of the previous error. For instance, below we activate the lookup to
+// precomputed.pil based on sel_opcode_defined = sel * (1 - pc_out_of_range) (i.e., ¬E1).
+// We do not need to gate explicitly for the case ¬E2, i.e., ¬opcode_out_of_range because
+// even if the opcode is out of range, we get instr_size == 0 from precomputed.pil and
+// handle E3 with this default value.
+// Finally, handling E4 is much easier (see explanations below) if we can gate the relations
+// involved into operands decomposition with (¬E1 ^ ¬E2 ^ ¬E3) which is expressed by the term
+// (1 - parsing_err_no_tag).
+
+
 namespace instr_fetching;
 
 pol commit sel;
