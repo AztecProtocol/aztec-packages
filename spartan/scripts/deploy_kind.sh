@@ -63,7 +63,7 @@ function show_status_until_pxe_ready {
     echo "--- Pod logs ---"
     for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}'); do
       echo "Logs from $pod:"
-      kubectl logs --tail=10 -n "$namespace" $pod 2>/dev/null || echo "Cannot get logs yet"
+      kubectl logs --tail=10 -n "$namespace" --all-containers=true $pod 2>/dev/null || echo "Cannot get logs yet"
       echo "-------------------"
     done
 
