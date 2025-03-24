@@ -137,6 +137,9 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         info("Variables in one gate: ", variables_in_one_gate.size());
         info("First variable in one gate: ",
              std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[0]);
+        for (const auto& elem: variables_in_one_gate) {
+            info("elem == ", elem);
+        }
     }
 };
 
