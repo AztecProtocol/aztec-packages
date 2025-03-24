@@ -105,7 +105,7 @@ function formatMetricsForGithubBenchmarkAction(
 
 // strip prefixes
 function stripMetricPrefix(metric: string) {
-  return metric.replace(PUBLIC_EXECUTOR_PREFIX, '');
+  return metric.replace(`${PUBLIC_EXECUTOR_PREFIX}simulation_`, '');
 }
 function stripPublicTxSimulatorPrefix(metric: string) {
   return metric.replace('PublicTxSimulator.', '');
