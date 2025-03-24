@@ -55,10 +55,13 @@ export class PrivateEventDataProvider implements DataProvider {
       if (existingContent) {
         // Compare content
         if (existingContent.equals(logBuffer)) {
-          this.logger.warn('Ignoring duplicate event with same tag and content', { tag: tagStr });
+          // Duplicate events are expected since the tagging scheme looks back through tag indices,
+          // which can result in the same event being processed multiple times
+          this.logger.verbose('Ignoring duplicate event with same tag and content', { tag: tagStr });
           return;
         } else {
-          this.logger.warn('Event with same tag but different content detected', { tag: tagStr });
+          // This can also occur because we don't have a guarantee that indexes won't be re-used.
+          this.logger.verbose('Event with same tag but different content detected', { tag: tagStr });
         }
       }
 
@@ -93,7 +96,6 @@ export class PrivateEventDataProvider implements DataProvider {
 
         // Convert buffer back to Fr array
         const reader = BufferReader.asReader(entry.logContent);
-
         const numFields = entry.logContent.length / Fr.SIZE_IN_BYTES;
         const logContent = reader.readArray(numFields, Fr);
 
