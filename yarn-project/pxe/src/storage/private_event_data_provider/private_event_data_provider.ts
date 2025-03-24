@@ -17,8 +17,11 @@ export class PrivateEventDataProvider implements DataProvider {
   #eventLogs: AztecAsyncArray<PrivateEventEntry>;
   /** Map from contract_address_recipient to array of indices into #eventLogs for efficient lookup */
   #eventLogIndex: AztecAsyncMap<string, number[]>;
-  /** Map from tag to event log content for duplicate detection */
-  #tagToContent: AztecAsyncMap<string, Buffer>;
+  /**
+   * Map from tag to array of event log contents.
+   * @dev A single tag can map to multiple contents because we don't have a guarantee that tag indices won't be reused.
+   */
+  #tagToContent: AztecAsyncMap<string, Buffer[]>;
 
   logger = createLogger('private_event_data_provider');
 
@@ -46,34 +49,34 @@ export class PrivateEventDataProvider implements DataProvider {
   ): Promise<void> {
     return this.#store.transactionAsync(async () => {
       const key = `${contractAddress.toString()}_${recipient.toString()}`;
-      const logBuffer = serializeToBuffer(logContent);
+      const logContentBuffer = serializeToBuffer(logContent);
       const tagStr = tag.toString();
 
-      // Check if event with this tag already exists
-      const existingContent = await this.#tagToContent.getAsync(tagStr);
-      if (existingContent) {
-        // Compare content
-        if (existingContent.equals(logBuffer)) {
-          // Duplicate events are expected since the tagging scheme looks back through tag indices,
-          // which can result in the same event being processed multiple times
-          this.logger.verbose('Ignoring duplicate event with same tag and content', { tag: tagStr });
-          return;
-        } else {
-          // This can also occur because we don't have a guarantee that indexes won't be re-used.
-          this.logger.verbose('Event with same tag but different content detected', { tag: tagStr });
-        }
+      // Check if events with this tag already exist
+      const existingContents = (await this.#tagToContent.getAsync(tagStr)) || [];
+      const isDuplicate = existingContents.some(content => content.equals(logContentBuffer));
+
+      if (isDuplicate) {
+        // Duplicate events are expected since the tagging scheme looks back through tag indices,
+        // which can result in the same event being processed multiple times
+        this.logger.verbose('Ignoring duplicate event with same tag and content', { tag: tagStr });
+        return;
+      } else if (existingContents.length > 0) {
+        // We've stumbled upon a tag which already has a content stored for it but the content is different.
+        // This can also occur because we don't have a guarantee that indexes won't be re-used.
+        this.logger.verbose('Event with same tag but different content detected', { tag: tagStr });
       }
 
       this.logger.verbose('storing private event log', { contractAddress, recipient, logContent, blockNumber });
 
       const index = await this.#eventLogs.lengthAsync();
-      await this.#eventLogs.push({ logContent: logBuffer, blockNumber });
+      await this.#eventLogs.push({ logContent: logContentBuffer, blockNumber });
 
       const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
       await this.#eventLogIndex.set(key, [...existingIndices, index]);
 
       // Store tag->content mapping
-      await this.#tagToContent.set(tagStr, logBuffer);
+      await this.#tagToContent.set(tagStr, [...existingContents, logContentBuffer]);
     });
   }
 
