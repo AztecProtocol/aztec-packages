@@ -102,6 +102,9 @@ export class PeerManager {
           }),
         )
         .finally(() => {
+          if (!this.trustedPeersInitialized) {
+            this.trustedPeersInitialized = true;
+          }
           this.privatePeersInitialized = true;
         })
         .catch(e => this.logger.error('Error initializing private peers', e));
