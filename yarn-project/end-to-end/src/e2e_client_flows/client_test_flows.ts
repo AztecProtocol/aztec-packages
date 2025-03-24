@@ -34,7 +34,7 @@ import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
-export class FeesTest {
+export class ClientFlowsTest {
   private snapshotManager: ISnapshotManager;
 
   public logger: Logger;
@@ -122,7 +122,7 @@ export class FeesTest {
   async applyInitialAccountsSnapshot() {
     await this.snapshotManager.snapshot(
       'initial_accounts',
-      deployAccounts(0, this.logger),
+      deployAccounts(1, this.logger),
       async ({}, { pxe, aztecNode, aztecNodeConfig, deployL1ContractsValues }) => {
         this.pxe = pxe;
 
