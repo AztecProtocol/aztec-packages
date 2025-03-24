@@ -165,7 +165,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
-    agg_obj.aggregate(pairing_points, recursion_separator);
+    agg_obj.template aggregate<typename Curve::Builder>(pairing_points, recursion_separator);
     return agg_obj;
 }
 
