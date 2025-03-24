@@ -31,7 +31,6 @@ pol commit op1, op2, op3, op4;
 // resolved operands
 pol commit rop1, rop2, rop3, rop4;
 
-// pol commit pc;
 pol commit bytecode_id;
 pol commit clk;
 pol commit last;
