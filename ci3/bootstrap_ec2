@@ -151,6 +151,7 @@ container_script=$(cat <<EOF
   }
   export -f run
 
+  set +e
   set -x
   $run_cmd
   code=\${PIPESTATUS[0]}
