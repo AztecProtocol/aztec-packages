@@ -142,6 +142,7 @@ container_script=$(cat <<EOF
     set -x
     $cmd
     local code=\${PIPESTATUS[0]}
+    set +x
     sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
     sudo cat /tmp/netfile | ci3/cache_log 'netfile'
     sudo cat /tmp/cpufile | ci3/cache_log 'cpufile'
@@ -150,6 +151,7 @@ container_script=$(cat <<EOF
   }
   export -f run
 
+  set -x
   $run_cmd
   code=\${PIPESTATUS[0]}
 
