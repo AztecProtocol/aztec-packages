@@ -171,9 +171,9 @@ class AvmGoblinRecursiveVerifier {
             stdlib::recursion::init_default_agg_obj_indices<MegaCircuitBuilder>(mega_builder));
 
         // Step 4: generate a proof of the above MegaCircuit
-        std::shared_ptr<MegaDeciderProvingKey> ultra_instance = std::make_shared<MegaDeciderProvingKey>(mega_builder);
-        MegaProver ultra_prover(ultra_instance);
-        auto recursion_proof = ultra_prover.construct_proof();
+        std::shared_ptr<MegaDeciderProvingKey> mega_instance = std::make_shared<MegaDeciderProvingKey>(mega_builder);
+        MegaProver mega_prover(mega_instance);
+        auto recursion_proof = mega_prover.construct_proof();
 
         // Step 5: make a goblin proof and construct a GoblinRecursiveVerifier
         GoblinProof g_proof = goblin.prove();
@@ -195,7 +195,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Step 7: Compute the verification key to recursively verify the MegaProof
         // NOTE: this part could be precomputed to save time
-        auto native_outer_vk = std::make_shared<MegaFlavor::VerificationKey>(ultra_instance->proving_key);
+        auto native_outer_vk = std::make_shared<MegaFlavor::VerificationKey>(mega_instance->proving_key);
         auto outer_vk =
             std::make_shared<MegaRecursiveFlavorForUltraCircuit::VerificationKey>(ultra_builder, native_outer_vk);
 
