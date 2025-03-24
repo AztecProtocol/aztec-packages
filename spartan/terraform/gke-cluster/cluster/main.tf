@@ -103,6 +103,42 @@ resource "google_container_node_pool" "aztec_nodes-2core" {
   }
 }
 
+# Create 4 core node pool no ssd
+resource "google_container_node_pool" "aztec_nodes-4core" {
+  name     = "${var.cluster_name}-4core"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 8
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-4"
+
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env       = "production"
+      local-ssd = "false"
+      node-type = "network"
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = false
+  }
+}
+
 # Create spot instance node pool with autoscaling
 resource "google_container_node_pool" "spot_nodes_32core" {
   name     = "${var.cluster_name}-32core-spot"

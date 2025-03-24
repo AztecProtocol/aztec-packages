@@ -59,6 +59,7 @@ aztec:
 
   l1Salt: "" # leave empty for random salt
   testAccounts: true
+  sponsoredFPC: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
   manaTarget: "" # use default value
 
