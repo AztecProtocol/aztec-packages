@@ -102,7 +102,7 @@ export class PeerManager {
           }),
         )
         .finally(() => {
-          if (!this.trustedPeersInitialized) {
+          if (!this.config.trustedPeers) {
             this.trustedPeersInitialized = true;
           }
           this.privatePeersInitialized = true;
