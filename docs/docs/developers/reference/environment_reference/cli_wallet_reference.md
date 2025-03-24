@@ -43,16 +43,25 @@ You can create arbitrary aliases with the `alias` command. For example `aztec-wa
 
 ## Paying Fees
 
-
 import { Why_Fees, CLI_Fees } from '/components/snippets';
 
 <Why_Fees />
 
 Below are all the payment methods available to pay transaction fees on Aztec, starting with the simplest.
 
+### Fee Paying Contract
+
+Fee paying contracts specify their own criteria of payment in exchange for paying the fee juice of a transaction, e.g. an FPC
+be written to accept some banana tokens to pay for another's transaction fee.
+With an alias corresponding to the FPC's address this would be:
+
+```bash
+aztec-wallet <your transaction> --payment method=fpc,fpc-contract=contracts:bananaFPC
+```
+
 ### Sponsored Fee Paying Contract
 
-This is a special type of FPC (explained [below](#fee-paying-contract)) that can be used to pay for account deployment and regular txs.
+This is a special type of FPC that can be used to pay for account deployment and regular txs.
 Eg: to create an account paid for by the sponsoredFPC:
 
 ```bash
@@ -75,9 +84,11 @@ Then use the alias (test0, test1...) when paying in fee juice. Eg to create acco
 
 #include_code declare-accounts yarn-project/end-to-end/src/guides/up_quick_start.sh bash
 
-### Bridging fee juice
+### Mint and Bridge Fee Juice
 
-First register an account and bridge fee juice to it via minting:
+#### On Sandbox
+
+First register an account, mint the fee asset on L1 and bridge it to fee juice:
 
 #include_code bridge-fee-juice yarn-project/cli-wallet/test/flows/create_account_pay_native.sh bash
 
@@ -90,22 +101,22 @@ Now the funded account can deploy itself with the bridged fees, that is claim th
 
 #include_code claim-deploy-account yarn-project/cli-wallet/test/flows/create_account_pay_native.sh bash
 
-### Fee Paying Contract
+#### Minting on Testnet
 
-Fee paying contracts specify their own criteria of payment in exchange for paying the fee juice of a transaction, Eg an FPC
-be written to accept some banana tokens to pay for another's transaction fee.
-With an alias corresponding to the FPC's address this would be:
+To mint the fee asset on L1, call the fee asset ERC20 token contract on the appropriate network.
 
 ```bash
-aztec-wallet <your transaction> --payment method=fpc,fpc-contract=contracts:bananaFPC
+cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <RPC_URL>
 ```
 
+The minted fee assets will have to bridged to Aztec. This can be done use the `L1FeeJuicePortalManager` in Aztec.js. Read more about
+the process [here](../../guides/js_apps/pay_fees.md#bridging-fee-juice).
 
 ## Account Management
 
 The wallet comes with some options for account deployment and management. You can register and deploy accounts, or only register them, and pass different options to serve your workflow.
 
-### create-account
+### Create Account
 
 Generates a secret key and deploys an account contract.
 
@@ -217,4 +228,5 @@ aztec-wallet bridge-fee-juice --mint 1000 master_yoda
 ```
 
 ## Proving
+
 You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/local_env/sandbox_proving.md#proving-with-aztec-wallet)
