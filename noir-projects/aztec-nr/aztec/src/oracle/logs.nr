@@ -1,5 +1,4 @@
-use crate::discovery::MAX_LOG_CONTENT_LEN;
-use protocol_types::address::AztecAddress;
+use crate::{discovery::MAX_LOG_CONTENT_LEN, prelude::AztecAddress};
 
 /// The below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
 pub unconstrained fn notify_created_contract_class_log<let N: u32>(

@@ -11,6 +11,9 @@ interface PrivateEventEntry {
   blockNumber: number;
 }
 
+/**
+ * Stores decrypted private event logs.
+ */
 export class PrivateEventDataProvider implements DataProvider {
   #store: AztecAsyncKVStore;
   /** Array storing the actual private event log entries containing the log content and block number */
@@ -33,7 +36,7 @@ export class PrivateEventDataProvider implements DataProvider {
   }
 
   /**
-   * Store a private event log in the data provider.
+   * Store a private event log.
    * @param tag - The tag of the event log.
    * @param contractAddress - The address of the contract that emitted the event.
    * @param recipient - The recipient of the event.
@@ -80,6 +83,14 @@ export class PrivateEventDataProvider implements DataProvider {
     });
   }
 
+  /**
+   * Returns the private events given search parameters.
+   * @param contractAddress - The address of the contract to get events from.
+   * @param from - The block number to search from.
+   * @param numBlocks - The amount of blocks to search.
+   * @param recipients - The addresses that decrypted the logs.
+   * @returns - The event log contents.
+   */
   public async getPrivateEvents(
     contractAddress: AztecAddress,
     from: number,
