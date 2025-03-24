@@ -395,6 +395,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_parsing_err, event.error != NO_ERROR ? 1 : 0 },
+                      { C::instr_fetching_parsing_err_no_tag,
+                        event.error != NO_ERROR && event.error != TAG_OUT_OF_RANGE ? 1 : 0 },
 
                       // selector for lookups
                       { C::instr_fetching_sel_opcode_defined, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
