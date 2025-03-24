@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { SecretValue } from '@aztec/foundation/config';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherConfig } from '@aztec/slasher/config';
@@ -26,8 +27,13 @@ export function createValidatorClient(
   if (config.disableValidator) {
     return undefined;
   }
+<<<<<<< HEAD
   if (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys?.length) {
     config.validatorPrivateKeys = [generatePrivateKey()];
+=======
+  if (!config.validatorPrivateKey.getValue()) {
+    config.validatorPrivateKey = new SecretValue(generatePrivateKey());
+>>>>>>> 616633765c (feat: prevent secret values from leaking in log messages)
   }
 
   return ValidatorClient.new(

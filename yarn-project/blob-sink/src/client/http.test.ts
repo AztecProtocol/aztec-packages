@@ -1,5 +1,6 @@
 import { Blob, type BlobJson } from '@aztec/blob-lib';
 import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
+import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
@@ -232,7 +233,7 @@ describe('HttpBlobSinkClient', () => {
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-        l1ConsensusHostApiKeys: ['test-api-key'],
+        l1ConsensusHostApiKeys: ['test-api-key'].map(k => new SecretValue(k)),
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
@@ -241,7 +242,7 @@ describe('HttpBlobSinkClient', () => {
       const clientWithNoKey = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-        l1ConsensusHostApiKeys: [],
+        l1ConsensusHostApiKeys: [].map(k => new SecretValue(k)),
       });
 
       const retrievedBlobsWithNoKey = await clientWithNoKey.getBlobSidecar('0x1234', [testEncodedBlobHash]);
@@ -250,7 +251,7 @@ describe('HttpBlobSinkClient', () => {
       const clientWithInvalidKey = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-        l1ConsensusHostApiKeys: ['invalid-key'],
+        l1ConsensusHostApiKeys: ['invalid-key'].map(k => new SecretValue(k)),
       });
 
       const retrievedBlobsWithInvalidKey = await clientWithInvalidKey.getBlobSidecar('0x1234', [testEncodedBlobHash]);
@@ -264,7 +265,7 @@ describe('HttpBlobSinkClient', () => {
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-        l1ConsensusHostApiKeys: ['header-api-key'],
+        l1ConsensusHostApiKeys: ['header-api-key'].map(k => new SecretValue(k)),
         l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
       });
 
@@ -274,7 +275,7 @@ describe('HttpBlobSinkClient', () => {
       const clientWithWrongHeader = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-        l1ConsensusHostApiKeys: ['header-api-key'],
+        l1ConsensusHostApiKeys: ['header-api-key'].map(k => new SecretValue(k)),
         l1ConsensusHostApiKeyHeaders: ['WRONG-HEADER'],
       });
 
@@ -284,7 +285,7 @@ describe('HttpBlobSinkClient', () => {
       const clientWithWrongKey = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
-        l1ConsensusHostApiKeys: ['invalid-key'],
+        l1ConsensusHostApiKeys: ['invalid-key'].map(k => new SecretValue(k)),
         l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
       });
 
@@ -313,7 +314,7 @@ describe('HttpBlobSinkClient', () => {
           `http://localhost:${consensusPort2}`,
           `http://localhost:${consensusPort3}`,
         ],
-        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'],
+        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'].map(k => new SecretValue(k)),
         l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
       });
 
@@ -329,7 +330,7 @@ describe('HttpBlobSinkClient', () => {
           `http://localhost:${consensusPort2}`,
           `http://localhost:${consensusPort3}`,
         ],
-        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'],
+        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'].map(k => new SecretValue(k)),
         l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
       });
 
@@ -345,7 +346,7 @@ describe('HttpBlobSinkClient', () => {
           `http://localhost:${consensusPort2}`,
           `http://localhost:${consensusPort3}`,
         ],
-        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'],
+        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'].map(k => new SecretValue(k)),
         l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
       });
 

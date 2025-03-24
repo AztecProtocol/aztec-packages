@@ -55,6 +55,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -420,7 +421,7 @@ describe('e2e_synching', () => {
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
+        publisherPrivateKey: new SecretValue(sequencerPK),
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,

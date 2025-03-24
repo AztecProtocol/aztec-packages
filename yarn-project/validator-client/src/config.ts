@@ -1,8 +1,10 @@
 import {
   type ConfigMappingsType,
+  type SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  secretValueConfigHelper,
 } from '@aztec/foundation/config';
 
 /**
@@ -10,7 +12,7 @@ import {
  */
 export interface ValidatorClientConfig {
   /** The private keys of the validators participating in attestation duties */
-  validatorPrivateKeys?: `0x${string}`[];
+  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
 
   /** Do not run the validator */
   disableValidator: boolean;
@@ -28,8 +30,10 @@ export interface ValidatorClientConfig {
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
   validatorPrivateKeys: {
     env: 'VALIDATOR_PRIVATE_KEYS',
-    parseEnv: (val: string) => val.split(',').map(key => `0x${key.replace('0x', '')}`),
     description: 'List of private keys of the validators participating in attestation duties',
+    ...secretValueConfigHelper<`0x${string}`[]>(val =>
+      val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
+    ),
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
