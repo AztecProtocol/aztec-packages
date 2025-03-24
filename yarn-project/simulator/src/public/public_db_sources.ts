@@ -271,7 +271,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
   }
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return await this.dataSource.getContractFunctionName(address, selector);
+    return await this.dataSource.getDebugFunctionName(address, selector);
   }
 }
 

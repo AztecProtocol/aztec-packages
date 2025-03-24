@@ -211,6 +211,7 @@ proverNode:
 
 pxe:
   enabled: true
+  nodeUrl: ""
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
@@ -221,6 +222,7 @@ pxe:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
+  resources: {}
 
 bot:
   enabled: true
@@ -235,6 +237,7 @@ bot:
   followChain: "NONE"
   botNoStart: false
   feePaymentMethod: "fee_juice"
+  ammTxs: false
   maxErrors: 3
   stopIfUnhealthy: true
   service:
@@ -249,6 +252,7 @@ bot:
   gke:
     spotEnabled: true
   maxOldSpaceSize: "4608"
+  resources: {}
 
 ethereum:
   acceleratedTestDeployments: false

@@ -217,6 +217,13 @@ impl PartialUintNote {
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
     pub fn complete(self, value: u128, context: &mut PublicContext) {
+        // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
+        // because this will result in the completion log having its last field set to 0. Public logs currently do not
+        // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
+        // last field (the value), and note discovery failing.
+        // TODO(#11636): remove this
+        assert(value != 0, "Cannot complete a PartialUintNote with a value of 0");
+
         // We need to do two things:
         //  - emit a public log containing the public fields (the value). The contract will later find it by searching
         //  for the expected tag (which is simply the partial note commitment).

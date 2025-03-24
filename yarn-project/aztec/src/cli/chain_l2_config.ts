@@ -2,7 +2,7 @@ import type { EnvVar } from '@aztec/foundation/config';
 
 import path from 'path';
 
-export type NetworkNames = 'testnet-ignition';
+export type NetworkNames = 'testnet-ignition' | 'alpha-testnet';
 
 export type L2ChainConfig = {
   l1ChainId: number;
@@ -16,6 +16,7 @@ export type L2ChainConfig = {
   registryAddress: string;
   seqMinTxsPerBlock: number;
   seqMaxTxsPerBlock: number;
+  realProofs: boolean;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -29,7 +30,23 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   p2pBootstrapNodes: [],
   registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
   seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 0,
+  realProofs: true,
+};
+
+export const alphaTestnetL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  ethereumSlotDuration: 12,
+  aztecSlotDuration: 36,
+  aztecEpochDuration: 32,
+  aztecProofSubmissionWindow: 64,
+  testAccounts: false,
+  p2pEnabled: true,
+  p2pBootstrapNodes: [],
+  registryAddress: '', // To be updated
+  seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 4,
+  realProofs: true,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -48,6 +65,10 @@ export async function getBootnodes(networkName: NetworkNames) {
 export async function getL2ChainConfig(networkName: NetworkNames): Promise<L2ChainConfig | undefined> {
   if (networkName === 'testnet-ignition') {
     const config = { ...testnetIgnitionL2ChainConfig };
+    config.p2pBootstrapNodes = await getBootnodes(networkName);
+    return config;
+  } else if (networkName === 'alpha-testnet') {
+    const config = { ...alphaTestnetL2ChainConfig };
     config.p2pBootstrapNodes = await getBootnodes(networkName);
     return config;
   }
@@ -79,4 +100,6 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
   enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', networkName, 'data'));
+  enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
+  enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
 }
