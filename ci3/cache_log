@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Runs the given command.
 # If a redis cache is available, redirect input into a cache log.
 # If DUP=1 then we duplicate input also to stdout.

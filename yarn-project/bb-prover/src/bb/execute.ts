@@ -624,8 +624,7 @@ export async function verifyClientIvcProof(
     const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath];
     const timer = new Timer();
     const command = 'verify';
-    const timeout = 1000; // 1s verification timeout for invalid proofs
-    const result = await executeBB(pathToBB, command, args, log, timeout);
+    const result = await executeBB(pathToBB, command, args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, durationMs: duration };

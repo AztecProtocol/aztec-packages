@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.82.2](https://github.com/AztecProtocol/aztec-packages/compare/v0.82.1...v0.82.2) (2025-03-24)
+
+
+### Features
+
+* optimize unconstrained `embedded_curve_add` (https://github.com/noir-lang/noir/pull/7751) ([1e796e2](https://github.com/AztecProtocol/aztec-packages/commit/1e796e2d1cc293010942b85165aa04c8b3ab31b3))
+* translator zk relation adjustments testing ([#12718](https://github.com/AztecProtocol/aztec-packages/issues/12718)) ([33e528f](https://github.com/AztecProtocol/aztec-packages/commit/33e528f15947eef5697f2b70d7f510b5ba6b60fa))
+
+
+### Bug Fixes
+
+* increased poseidon gates ([#12973](https://github.com/AztecProtocol/aztec-packages/issues/12973)) ([49d6bfa](https://github.com/AztecProtocol/aztec-packages/commit/49d6bfadb0584e7d5238a319540e2b28255fb688))
+
+
+### Miscellaneous
+
+* bump bb to 0.82.0 (https://github.com/noir-lang/noir/pull/7777) ([1e796e2](https://github.com/AztecProtocol/aztec-packages/commit/1e796e2d1cc293010942b85165aa04c8b3ab31b3))
+* Fix for e2e gossip network test ([#12954](https://github.com/AztecProtocol/aztec-packages/issues/12954)) ([5a256c8](https://github.com/AztecProtocol/aztec-packages/commit/5a256c8abaeb65a1fdc47eb674ae19819a795d48))
+* get logs from init containers ([#12974](https://github.com/AztecProtocol/aztec-packages/issues/12974)) ([28d1f3e](https://github.com/AztecProtocol/aztec-packages/commit/28d1f3e0907bf0c151cc8211bf826dee19d1c72f))
+* remove duplication on library list files (https://github.com/noir-lang/noir/pull/7774) ([1e796e2](https://github.com/AztecProtocol/aztec-packages/commit/1e796e2d1cc293010942b85165aa04c8b3ab31b3))
+
+## [0.82.1](https://github.com/AztecProtocol/aztec-packages/compare/v0.82.0...v0.82.1) (2025-03-24)
+
+
+### Features
+
+* **avm:** Port field gt to vm2 ([#12883](https://github.com/AztecProtocol/aztec-packages/issues/12883)) ([0ae6891](https://github.com/AztecProtocol/aztec-packages/commit/0ae68919479ba44188ad3797ef7832c987870a18))
+* use msgpack for ClientIvc::Proof in API ([#12911](https://github.com/AztecProtocol/aztec-packages/issues/12911)) ([1a01602](https://github.com/AztecProtocol/aztec-packages/commit/1a016024b60b6b35946d899b3943a420b010b768))
+
+
+### Bug Fixes
+
+* disable proving on vite box ([#12971](https://github.com/AztecProtocol/aztec-packages/issues/12971)) ([69a0fb6](https://github.com/AztecProtocol/aztec-packages/commit/69a0fb683b609d6fb38024644e6c5082c256ee44))
+* no hardcoded versions in bbup ([#12944](https://github.com/AztecProtocol/aztec-packages/issues/12944)) ([397144f](https://github.com/AztecProtocol/aztec-packages/commit/397144f93b72ea7fdbddc7251e3fd3cef8672652))
+* pull CRS data ahead of time ([#12945](https://github.com/AztecProtocol/aztec-packages/issues/12945)) ([43155d6](https://github.com/AztecProtocol/aztec-packages/commit/43155d693ef1e957a44cad0d8375a7d771ad857a))
+* Remove workaround ([#12952](https://github.com/AztecProtocol/aztec-packages/issues/12952)) ([c3337af](https://github.com/AztecProtocol/aztec-packages/commit/c3337af484a752294b2a817649ac69de5cadae11))
+* set the correct env var ([#12959](https://github.com/AztecProtocol/aztec-packages/issues/12959)) ([bd0f4b2](https://github.com/AztecProtocol/aztec-packages/commit/bd0f4b23950f609c68718608c8f1fd7b416c05e9))
+* yolo add bunch of test flakes ([13c19da](https://github.com/AztecProtocol/aztec-packages/commit/13c19da2dbbc64b8c3ee05a79a892cf26629380c))
+* yolo e2e_p2p tests now fully skipped due to huge speed regression ([9141410](https://github.com/AztecProtocol/aztec-packages/commit/9141410ff59c9ab12fffe2157b59216e4e6bc9a1))
+* yolo txe binds just to localhost by default. ([3933b35](https://github.com/AztecProtocol/aztec-packages/commit/3933b35bcf92f20c32dfd742d01c3caaf7ad977f))
+
+
+### Miscellaneous
+
+* Change `/bin/bash` shebang to be env based ([#12834](https://github.com/AztecProtocol/aztec-packages/issues/12834)) ([7843a67](https://github.com/AztecProtocol/aztec-packages/commit/7843a6714547a71c64274830ebb6176d78dbb890))
+* clean up avm codeowners ([#12860](https://github.com/AztecProtocol/aztec-packages/issues/12860)) ([35a8f46](https://github.com/AztecProtocol/aztec-packages/commit/35a8f46f22f8ab78fc2a25076903b921fcd823aa))
+* deflake the kind smoke test ([#12955](https://github.com/AztecProtocol/aztec-packages/issues/12955)) ([1a37d6d](https://github.com/AztecProtocol/aztec-packages/commit/1a37d6d4c5f4470fa87bd5bd3934e23ce0a9fb10)), closes [#11177](https://github.com/AztecProtocol/aztec-packages/issues/11177)
+* fee cleanup ([#12941](https://github.com/AztecProtocol/aztec-packages/issues/12941)) ([fdf1da4](https://github.com/AztecProtocol/aztec-packages/commit/fdf1da45cb25b756eaa6af15e5dc7761d15cbcc3))
+* Increase bot count ([#12963](https://github.com/AztecProtocol/aztec-packages/issues/12963)) ([16edd06](https://github.com/AztecProtocol/aztec-packages/commit/16edd06f9538bdc4949f795370b774215441038c))
+* L2 chain config for alpha testnet ([#12962](https://github.com/AztecProtocol/aztec-packages/issues/12962)) ([e13edb8](https://github.com/AztecProtocol/aztec-packages/commit/e13edb83b72a593ba3a5106d411d2537016d036e))
+* Reduce bots ([#12953](https://github.com/AztecProtocol/aztec-packages/issues/12953)) ([4bbc5da](https://github.com/AztecProtocol/aztec-packages/commit/4bbc5da5accb4733b9d5849e0ee5b897c64565ea))
+* remove selector from public call request ([#12828](https://github.com/AztecProtocol/aztec-packages/issues/12828)) ([18bcc1b](https://github.com/AztecProtocol/aztec-packages/commit/18bcc1b1777650d6249e2cdc824ed8acbe39c506))
+* replace relative paths to noir-protocol-circuits ([61cf4b6](https://github.com/AztecProtocol/aztec-packages/commit/61cf4b635978af7a587c854069615e35d339e1c8))
+* replace relative paths to noir-protocol-circuits ([4356c17](https://github.com/AztecProtocol/aztec-packages/commit/4356c17ac618bd1411fcffdc36be691de1717d50))
+* replace relative paths to noir-protocol-circuits ([f73f47d](https://github.com/AztecProtocol/aztec-packages/commit/f73f47d3b18f055a530e247c35049d0d66a7888f))
+* Set default proving config to true ([#12964](https://github.com/AztecProtocol/aztec-packages/issues/12964)) ([75c1549](https://github.com/AztecProtocol/aztec-packages/commit/75c1549dd325cd42da22e407de8971c909050561))
+
 ## [0.82.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.81.0...v0.82.0) (2025-03-21)
 
 

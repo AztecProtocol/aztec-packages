@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Function to handle cleanup when the script is terminated
 cleanup() {

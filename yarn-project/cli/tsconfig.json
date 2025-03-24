@@ -16,6 +16,9 @@
       "path": "../constants"
     },
     {
+      "path": "../entrypoints"
+    },
+    {
       "path": "../foundation"
     },
     {

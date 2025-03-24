@@ -28,7 +28,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
     const call = calls[0];
 
     // Hash the arguments for the function call
-    const hashedArguments = [await HashedValues.fromValues(call.args)];
+    const hashedArguments = [await HashedValues.fromArgs(call.args)];
 
     if (call.type !== FunctionType.PRIVATE) {
       throw new Error('Public entrypoints are not allowed');
