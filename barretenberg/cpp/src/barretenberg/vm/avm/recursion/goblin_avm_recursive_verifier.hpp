@@ -111,13 +111,12 @@ class AvmGoblinRecursiveVerifier {
                                   |
                                   v
                        UltraProof + IPA Proof
-
         */
 
         // STEP 1:
-        // Convert the stdlib Ultra proof, public inputs, and VK to stdlib Mega counterparts
-        // (later on we must validate that the AVM proof fed into the MegaCircuit matches the one fed into the upstream
-        // UltraCircuit)
+        // Convert the stdlib Ultra proof, public inputs, and VK to stdlib Mega counterparts to be used as input to the
+        // mega-arithmetized AVM recursive verifier circuit. Construct two hash buffers containing all of this data, one
+        // for the ultra representaiton and one for mega.
 
         GoblinProver goblin;
         MegaCircuitBuilder mega_builder(goblin.op_queue);
@@ -188,12 +187,6 @@ class AvmGoblinRecursiveVerifier {
         // Step 6: In our UltraCircuit, recursively verify the goblin proof
         stdlib::recursion::honk::GoblinRecursiveVerifier gverifier{ ultra_builder, goblin_vinput };
         stdlib::recursion::honk::GoblinRecursiveVerifierOutput goblin_verifier_output = gverifier.verify(g_proof);
-
-        // // NOTE: I think this part is wrong. What do we initialize the builder's agg object to be?
-        // PairingPointAccumulatorIndices current_aggregation_object =
-        //     stdlib::recursion::init_default_agg_obj_indices<UltraCircuitBuilder>(*builder);
-        // // This is currently just setting the aggregation object to the default one.
-        // builder->add_pairing_point_accumulator(current_aggregation_object);
 
         // We only calls the IPA recursive verifier once, so we can just add this IPA claim and proof
         ultra_builder->add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
