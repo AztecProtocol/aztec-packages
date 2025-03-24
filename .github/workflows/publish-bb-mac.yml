@@ -37,7 +37,9 @@ jobs:
           ref: ${{ inputs.tag || github.sha }}
 
       - name: Create Mac Build Environment
-        run: brew install cmake ninja llvm@18
+        run: |
+          brew install cmake ninja llvm@18
+          echo "BREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
 
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
@@ -74,7 +76,9 @@ jobs:
           ref: ${{ inputs.tag || github.sha }}
 
       - name: Create Mac Build Environment
-        run: brew install cmake ninja
+        run: |
+          brew install cmake ninja llvm@18
+          echo "BREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
 
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
@@ -84,8 +88,8 @@ jobs:
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
         run: |
-          cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
-          cmake --build --preset default --target bb
+          cmake --preset homebrew
+          cmake --build --preset homebrew --target bb
 
       - name: Package barretenberg artifact (arm64-darwin)
         working-directory: barretenberg/cpp/build/bin

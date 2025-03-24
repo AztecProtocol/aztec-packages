@@ -44,8 +44,8 @@
       "description": "Build with Clang installed via Homebrew",
       "inherits": "default",
       "environment": {
-        "CC": "/opt/homebrew/opt/llvm@18/bin/clang",
-        "CXX": "/opt/homebrew/opt/llvm@18/bin/clang++"
+        "CC": "$env{BREW_PREFIX}/opt/llvm@18/bin/clang",
+        "CXX": "$env{BREW_PREFIX}/opt/llvm@18/bin/clang++"
       }
     },
     {
