@@ -49,6 +49,9 @@ export const schemas = {
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: foundationSchemas.HexString,
 
+  /** Schema for secret config value */
+  SecretValue: foundationSchemas.SecretValue,
+
   /** Accepts a hex string. */
   AztecAddress: AztecAddress.schema,
 
