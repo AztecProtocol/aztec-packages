@@ -6,10 +6,10 @@
 
 namespace bb::avm2::simulation {
 
-std::unique_ptr<NestedContext> ExecutionComponentsProvider::make_nested_context(AztecAddress address,
-                                                                                AztecAddress msg_sender,
-                                                                                std::span<const FF> calldata,
-                                                                                bool is_static)
+std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_nested_context(AztecAddress address,
+                                                                                   AztecAddress msg_sender,
+                                                                                   std::span<const FF> calldata,
+                                                                                   bool is_static)
 {
     uint32_t context_id = next_context_id++;
     return std::make_unique<NestedContext>(context_id,
@@ -22,10 +22,10 @@ std::unique_ptr<NestedContext> ExecutionComponentsProvider::make_nested_context(
                                            ctx_stack_events);
 }
 
-std::unique_ptr<EnqueuedCallContext> ExecutionComponentsProvider::make_enqueued_context(AztecAddress address,
-                                                                                        AztecAddress msg_sender,
-                                                                                        std::span<const FF> calldata,
-                                                                                        bool is_static)
+std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_enqueued_context(AztecAddress address,
+                                                                                     AztecAddress msg_sender,
+                                                                                     std::span<const FF> calldata,
+                                                                                     bool is_static)
 {
 
     uint32_t context_id = next_context_id++;

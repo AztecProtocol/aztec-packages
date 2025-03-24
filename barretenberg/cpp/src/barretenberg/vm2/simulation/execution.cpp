@@ -90,9 +90,6 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
 // This context interface is an top-level enqueued one
 ExecutionResult Execution::execute(ContextInterface& context)
 {
-    // WARNING: make_context actually tries to fetch the bytecode! Maybe shouldn't be here because if this fails
-    // it will fail the parent and not the child context.
-    // auto context = execution_components.make_context(contract_address, msg_sender, calldata, is_static);
     auto result = execute_internal(context);
     return result;
 }
@@ -130,7 +127,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // "Emit" the context event
             // TODO: think about whether we need to know the success at this point
             auto context_event = context.get_current_context();
-            ex_event.context_event = context_event;
+            ex_event.context_event = std::move(context_event);
 
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);

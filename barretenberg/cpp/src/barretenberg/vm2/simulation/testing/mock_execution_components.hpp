@@ -16,12 +16,12 @@ class MockExecutionComponentsProvider : public ExecutionComponentsProviderInterf
     MockExecutionComponentsProvider();
     ~MockExecutionComponentsProvider() override;
 
-    MOCK_METHOD(std::unique_ptr<EnqueuedCallContext>,
+    MOCK_METHOD(std::unique_ptr<ContextInterface>,
                 make_enqueued_context,
                 (AztecAddress address, AztecAddress msg_sender, std::span<const FF> calldata, bool is_static),
                 (override));
 
-    MOCK_METHOD(std::unique_ptr<NestedContext>,
+    MOCK_METHOD(std::unique_ptr<ContextInterface>,
                 make_nested_context,
                 (AztecAddress address, AztecAddress msg_sender, std::span<const FF> calldata, bool is_static),
                 (override));

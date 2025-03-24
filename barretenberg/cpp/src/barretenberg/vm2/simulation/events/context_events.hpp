@@ -25,7 +25,7 @@ struct ContextEvent {
     // uint32_t rd_size_addr;
 
     // Success
-    bool nested_ctx_success;
+    // bool nested_ctx_success;
 
     // Gas
     // uint32_t l2_gas_used;

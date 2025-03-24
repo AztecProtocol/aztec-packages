@@ -137,7 +137,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              to_radix_emitter.dump_events(),
              field_gt_emitter.dump_events(),
              merkle_check_emitter.dump_events(),
-             range_check_emitter.dump_events() };
+             range_check_emitter.dump_events(),
+             context_stack_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

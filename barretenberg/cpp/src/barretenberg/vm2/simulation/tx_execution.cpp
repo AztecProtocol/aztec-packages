@@ -21,10 +21,10 @@ void TxExecution::simulate(const Tx& tx)
 }
 
 // This is effectively just calling into the execution provider
-std::unique_ptr<EnqueuedCallContext> TxExecution::make_enqueued_context(AztecAddress address,
-                                                                        AztecAddress msg_sender,
-                                                                        std::span<const FF> calldata,
-                                                                        bool is_static)
+std::unique_ptr<ContextInterface> TxExecution::make_enqueued_context(AztecAddress address,
+                                                                     AztecAddress msg_sender,
+                                                                     std::span<const FF> calldata,
+                                                                     bool is_static)
 {
     auto& execution_provider = call_execution.get_provider();
     return execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static);

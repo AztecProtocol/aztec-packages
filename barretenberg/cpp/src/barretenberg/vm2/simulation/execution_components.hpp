@@ -21,15 +21,15 @@ class ExecutionComponentsProviderInterface {
     virtual ~ExecutionComponentsProviderInterface() = default;
 
     // TODO: Update this, these params are temporary
-    virtual std::unique_ptr<NestedContext> make_nested_context(AztecAddress address,
-                                                               AztecAddress msg_sender,
-                                                               std::span<const FF> calldata,
-                                                               bool is_static) = 0;
+    virtual std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
+                                                                  AztecAddress msg_sender,
+                                                                  std::span<const FF> calldata,
+                                                                  bool is_static) = 0;
 
-    virtual std::unique_ptr<EnqueuedCallContext> make_enqueued_context(AztecAddress address,
-                                                                       AztecAddress msg_sender,
-                                                                       std::span<const FF> calldata,
-                                                                       bool is_static) = 0;
+    virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
+                                                                    AztecAddress msg_sender,
+                                                                    std::span<const FF> calldata,
+                                                                    bool is_static) = 0;
 
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
 };
@@ -45,14 +45,14 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
         , ctx_stack_events(ctx_stack_events)
         , instruction_info_db(instruction_info_db)
     {}
-    std::unique_ptr<NestedContext> make_nested_context(AztecAddress address,
-                                                       AztecAddress msg_sender,
-                                                       std::span<const FF> calldata,
-                                                       bool is_static) override;
-    std::unique_ptr<EnqueuedCallContext> make_enqueued_context(AztecAddress address,
-                                                               AztecAddress msg_sender,
-                                                               std::span<const FF> calldata,
-                                                               bool is_static) override;
+    std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
+                                                          AztecAddress msg_sender,
+                                                          std::span<const FF> calldata,
+                                                          bool is_static) override;
+    std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
+                                                            AztecAddress msg_sender,
+                                                            std::span<const FF> calldata,
+                                                            bool is_static) override;
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
   private:

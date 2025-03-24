@@ -1,7 +1,6 @@
 #pragma once
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
-#include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 
 namespace bb::avm2::simulation {
@@ -19,10 +18,10 @@ class TxExecution final {
 
     void simulate(const Tx& tx);
 
-    std::unique_ptr<EnqueuedCallContext> make_enqueued_context(AztecAddress address,
-                                                               AztecAddress msg_sender,
-                                                               std::span<const FF> calldata,
-                                                               bool is_static);
+    std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
+                                                            AztecAddress msg_sender,
+                                                            std::span<const FF> calldata,
+                                                            bool is_static);
 
   private:
     ExecutionInterface& call_execution;

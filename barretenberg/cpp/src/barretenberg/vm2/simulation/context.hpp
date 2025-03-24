@@ -122,7 +122,7 @@ class BaseContext : public ContextInterface {
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 };
 
-// TODO(ilyas): flesh these out, these are just temporary
+// TODO(ilyas): flesh these out in the cpp file, these are just temporary
 class EnqueuedCallContext : public BaseContext {
   public:
     EnqueuedCallContext(uint32_t context_id,
@@ -144,6 +144,7 @@ class EnqueuedCallContext : public BaseContext {
     {}
 };
 
+// Parameters for a nested call need to be changed
 class NestedContext : public BaseContext {
   public:
     NestedContext(uint32_t context_id,
