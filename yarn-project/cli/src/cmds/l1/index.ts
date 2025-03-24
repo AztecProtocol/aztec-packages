@@ -42,6 +42,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
+    .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--accelerated-test-deployments', 'Fire and forget deployment transactions, use in testing only', false)
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
@@ -56,6 +57,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.mnemonicIndex,
         options.salt,
         options.testAccounts,
+        options.sponsoredFpc,
         options.acceleratedTestDeployments,
         options.json,
         initialValidators,
@@ -457,6 +459,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .addOption(l1ChainIdOption)
     .requiredOption('-t, --token <string>', 'The address of the token to bridge', parseEthereumAddress)
     .requiredOption('-p, --portal <string>', 'The address of the portal contract', parseEthereumAddress)
+    .option('-f, --faucet <string>', 'The address of the faucet contract (only used if minting)', parseEthereumAddress)
     .option('--l1-private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option('--json', 'Output the claim in JSON format')
     .action(async (amount, recipient, options) => {
@@ -469,6 +472,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.l1PrivateKey,
         options.mnemonic,
         options.token,
+        options.faucet,
         options.portal,
         options.private,
         options.mint,

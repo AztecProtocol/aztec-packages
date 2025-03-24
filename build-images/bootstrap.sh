@@ -7,7 +7,7 @@ arch=$(arch)
 branch=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
 function check_login {
-  if [ -z "$DOCKERHUB_PASSWORD" ]; then
+  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
     echo "No DOCKERHUB_PASSWORD provided."
     exit 1
   fi

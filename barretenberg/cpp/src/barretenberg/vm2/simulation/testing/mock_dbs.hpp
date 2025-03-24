@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <gmock/gmock.h>
+#include <optional>
 
 namespace bb::avm2::simulation {
 
@@ -10,8 +11,11 @@ class MockContractDB : public ContractDBInterface {
     MockContractDB();
     ~MockContractDB() override;
 
-    MOCK_METHOD(ContractInstance, get_contract_instance, (const AztecAddress& address), (const, override));
-    MOCK_METHOD(ContractClass, get_contract_class, (const ContractClassId& class_id), (const, override));
+    MOCK_METHOD(std::optional<ContractInstance>,
+                get_contract_instance,
+                (const AztecAddress& address),
+                (const, override));
+    MOCK_METHOD(std::optional<ContractClass>, get_contract_class, (const ContractClassId& class_id), (const, override));
 };
 
 class MockMerkleDB : public MerkleDBInterface {

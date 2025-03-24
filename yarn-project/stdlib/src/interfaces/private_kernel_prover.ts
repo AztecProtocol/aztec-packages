@@ -1,6 +1,5 @@
-import type { WitnessMap } from '@aztec/noir-acvm_js';
-
 import type {
+  PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
@@ -101,7 +100,7 @@ export interface PrivateKernelProver {
    * @param acirs The program bytecode.
    * @param witnessStack The witnessses for each program bytecode.
    */
-  createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof>;
+  createClientIvcProof(executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof>;
 
   /**
    * Compute the gate count for a given circuit.

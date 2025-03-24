@@ -127,7 +127,7 @@ where
 
 impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext>
 where
-    Note: NoteType + NoteHash + Packable<N>,
+    Note: NoteType + NoteHash + Packable<N> + Eq,
 {
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();

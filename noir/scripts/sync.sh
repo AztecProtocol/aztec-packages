@@ -152,8 +152,10 @@ function has_tag_commit {
 }
 
 # Indicate that the `make-patch` command should be used to create a new patch file.
+# If we're not on a detached head but a stable branch, then we can safely come back
+# to these commits and we don't need to make them into a patch file to preserve them.
 function needs_patch {
-  is_detached_head && ! is_last_commit_patch
+  is_detached_head && has_patch_commit && ! is_last_commit_patch
 }
 
 # Indicate that both the fixup and the patch has been applied.
@@ -195,7 +197,10 @@ function latest_nightly {
 
 # Create an empty marker commit to show that patches have been applied or put in a patch file.
 function commit_patch_marker {
-  git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty
+  # The output is redirected to stderr, otherwise a message like
+  # `[detached HEAD e4c68760f0] Noir local patch commit.` appears
+  # in the output, becoming part of e.g. `noir/bootstrap.sh hash`
+  git -C noir-repo commit -m "$PATCH_COMMIT_MSG" --allow-empty --no-gpg-sign >&2
 }
 
 # Apply the fixup script and any local patch file.
@@ -203,11 +208,11 @@ function patch_repo {
   log Applying fixup on noir-repo
   # Redirect the `bb` reference to the local one.
   scripts/sync-in-fixup.sh
-  git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG" --allow-empty
+  git -C noir-repo add . && git -C noir-repo commit -m "$FIXUP_COMMIT_MSG" --allow-empty --no-gpg-sign >&2
   # Apply any patch file.
   if [ -f $NOIR_REPO_PATCH ]; then
     log Applying patches from $NOIR_REPO_PATCH
-    git -C noir-repo am ../$NOIR_REPO_PATCH
+    git -C noir-repo am ../$NOIR_REPO_PATCH --no-gpg-sign >&2
   else
     log "No patch file to apply"
   fi
@@ -337,6 +342,26 @@ function make_patch {
   fi
 }
 
+# Decide what kind of caching we should do.
+function cache_mode {
+  if has_uncommitted_changes; then
+    # Same magic word as the ci3 scripts like `cache_content_hash` use.
+    echo "disabled-cache"
+  elif is_on_branch; then
+    # If we're on a branch (not a tag or a commit) then we can only cache
+    # based on the evolving content of the noir-repo itself.
+    echo "noir-repo"
+  elif is_last_commit_patch; then
+    # If we're on a detached head and the last commit is the patch,
+    # then we can use the noir-repo-ref and the patch file as cache key.
+    echo "noir"
+  else
+    # Otherwise we're on a tag and added some extra commits which are
+    # not part of a patch yet, so we can't use the cache.
+    echo "disabled-cache"
+  fi
+}
+
 # Show debug information
 function info {
   function pad {
@@ -365,6 +390,7 @@ function info {
   echo_info "Has fixup and patch" $(yesno has_fixup_and_patch)
   echo_info "Has uncommitted changes" $(yesno has_uncommitted_changes)
   echo_info "Latest nightly" $(latest_nightly)
+  echo_info "Cache mode" $(cache_mode)
 }
 
 cmd=${1:-}
@@ -382,6 +408,9 @@ case "$cmd" in
     ;;
   "needs-patch")
     [ -d noir-repo ] && [ -d noir-repo/.git ] && needs_patch && exit 0 || exit 1
+    ;;
+  "cache-mode")
+    echo $(cache_mode)
     ;;
   "latest-nightly")
     echo $(latest_nightly)

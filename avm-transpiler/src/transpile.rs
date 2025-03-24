@@ -475,17 +475,6 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
         *value = resolved_location;
     }
 
-    // TEMPORARY: Add a "magic number" instruction to the end of the program.
-    // This makes it possible to know that the bytecode corresponds to the AVM.
-    // We are adding a MOV instruction that moves a value to itself.
-    // This should therefore not affect the program's execution.
-    avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::MOV_16,
-        indirect: Some(AddressingModeBuilder::default().build()),
-        operands: vec![AvmOperand::U16 { value: 0x18ca }, AvmOperand::U16 { value: 0x18ca }],
-        ..Default::default()
-    });
-
     dbg_print_avm_program(&avm_instrs);
 
     // Constructing bytecode from instructions

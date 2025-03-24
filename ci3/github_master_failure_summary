@@ -1,0 +1,36 @@
+#!/bin/bash
+
+cd $(dirname "$0")
+
+# Function to process a single commit
+function process_commit {
+  local commit="$1"
+  local title=$(git log -1 --format='%s' "$commit")
+  local output=""
+
+  output+="$(echo_header "Commit: $title")\n"
+
+  # Track seen URLs locally for each commit
+  declare -A local_seen
+
+  for run in $(gh run list --workflow CI3 --commit "$commit" --json databaseId --jq '.[].databaseId'); do
+    while read -r line; do
+      url=$(echo "$line" | grep -oE 'http[s]?://[^)]+' | head -n1)
+      if [ -n "$url" ] && [ -z "${local_seen[$url]}" ]; then
+        output+="$line\n"
+        local_seen[$url]=1
+      fi
+    done < <(gh run view "$run" --log 2>/dev/null | grep -E "FAILED|FLAKED")
+  done
+
+  # Return the output for this commit
+  echo -e "$output"
+}
+
+export -f process_commit
+
+# Get list of commits first
+commits=($(git log -${NUM_COMMITS:-100} --format='%H' origin/master))
+
+# Process commits in parallel but maintain order
+parallel --keep-order --jobs 24 process_commit ::: "${commits[@]}"

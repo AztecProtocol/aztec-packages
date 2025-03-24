@@ -62,6 +62,8 @@ describe('Client IVC Integration', () => {
   it.skip('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1296)
+    // These tests were left mysteriously failing. Once the prove step is fixed, this also needs to use the constant vk's.
     const proof = await createClientIvcProof(witnessStack, bytecodes);
     await writeToOutputDirectory(proof, bbWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(
@@ -84,6 +86,8 @@ describe('Client IVC Integration', () => {
   it.skip('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1296)
+    // These tests were left mysteriously failing. Once the prove step is fixed, this also needs to use the constant vk's.
     const proof = await createClientIvcProof(witnessStack, bytecodes);
     await writeToOutputDirectory(proof, bbWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(

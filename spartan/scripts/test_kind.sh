@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage: ./test_kind.sh <test> <values_file=default.yaml>
 # The <test> file is located in yarn-project/end-to-end/src/spartan.
@@ -57,6 +57,8 @@ fi
 # If fresh_install is true, delete the namespace
 if [ "$fresh_install" = "true" ]; then
   echo "Deleting existing namespace due to FRESH_INSTALL=true"
+  # Run helm uninstall first to ensure post-delete hooks are run
+  helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
   kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
 fi
 
@@ -69,6 +71,8 @@ function cleanup {
   if [ "$cleanup_cluster" = "true" ]; then
     kind delete cluster || true
   elif [ "$fresh_install" = "true" ]; then
+    # Run helm uninstall first to ensure post-delete hooks are run
+    helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
     kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
   fi
 }
@@ -122,6 +126,7 @@ export NAMESPACE="$namespace"
 export CONTAINER_PXE_PORT="8081"
 export CONTAINER_ETHEREUM_PORT="8545"
 export CONTAINER_NODE_PORT="8080"
+export CONTAINER_NODE_ADMIN_PORT="8880"
 export CONTAINER_SEQUENCER_PORT="8080"
 export CONTAINER_PROVER_NODE_PORT="8080"
 export CONTAINER_METRICS_PORT="80"

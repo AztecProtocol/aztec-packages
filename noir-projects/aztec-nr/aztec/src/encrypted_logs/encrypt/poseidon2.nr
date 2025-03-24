@@ -143,21 +143,18 @@ pub fn poseidon2_decrypt<let L: u32>(
 
 mod test {
     use super::{poseidon2_decrypt, poseidon2_encrypt, TWO_POW_128};
-    use std::{
-        embedded_curve_ops::{fixed_base_scalar_mul, multi_scalar_mul},
-        hash::from_field_unsafe as fr_to_fq_unsafe,
-    };
+    use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul, multi_scalar_mul};
 
     // Helper function that allows us to test encryption, then decryption, for various sizes of message.
     fn encrypt_then_decrypt<let N: u32>(msg: [Field; N]) {
         // Alice encrypting to Bob:
 
         let bob_sk = 0x2345; // Obviously, Alice doesn't know this.
-        let bob_pk = fixed_base_scalar_mul(fr_to_fq_unsafe(bob_sk));
+        let bob_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(bob_sk));
 
         let eph_sk = 0x5678;
-        let eph_pk = fixed_base_scalar_mul(fr_to_fq_unsafe(eph_sk));
-        let shared_secret = multi_scalar_mul([bob_pk], [fr_to_fq_unsafe(eph_sk)]);
+        let eph_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(eph_sk));
+        let shared_secret = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]);
 
         let nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?
 
@@ -167,7 +164,7 @@ mod test {
 
         // Bob sees: [Epk, ciphertext, nonce]:
 
-        let shared_secret = multi_scalar_mul([eph_pk], [fr_to_fq_unsafe(bob_sk)]);
+        let shared_secret = multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]);
 
         let result = poseidon2_decrypt(ciphertext, shared_secret, nonce);
 
@@ -194,11 +191,11 @@ mod test {
         // Alice encrypting to Bob:
 
         let bob_sk = 0x2345; // Obviously, Alice doesn't know this.
-        let bob_pk = fixed_base_scalar_mul(fr_to_fq_unsafe(bob_sk));
+        let bob_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(bob_sk));
 
         let eph_sk = 0x5678;
-        let eph_pk = fixed_base_scalar_mul(fr_to_fq_unsafe(eph_sk));
-        let shared_secret = multi_scalar_mul([bob_pk], [fr_to_fq_unsafe(eph_sk)]);
+        let eph_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(eph_sk));
+        let shared_secret = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]);
 
         let msg = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -210,7 +207,8 @@ mod test {
 
         // Bob sees: [Epk, ciphertext, nonce]:
 
-        let mut shared_secret = multi_scalar_mul([eph_pk], [fr_to_fq_unsafe(bob_sk)]);
+        let mut shared_secret =
+            multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]);
         // Let's intentionally corrupt the shared secret, so that decryption should fail
         shared_secret.x += 1;
 
@@ -224,11 +222,10 @@ mod test {
         // Alice encrypting to Bob:
 
         let bob_sk = 0x2345; // Obviously, Alice doesn't know this.
-        let bob_pk = fixed_base_scalar_mul(fr_to_fq_unsafe(bob_sk));
+        let bob_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(bob_sk));
 
         let eph_sk = 0x5678;
-        let eph_pk = fixed_base_scalar_mul(fr_to_fq_unsafe(eph_sk));
-        let shared_secret = multi_scalar_mul([bob_pk], [fr_to_fq_unsafe(eph_sk)]);
+        let shared_secret = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]);
 
         let nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?
 

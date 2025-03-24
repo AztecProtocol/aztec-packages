@@ -11,6 +11,7 @@ const EpochProvingJobState = [
   'failed',
   'stopped',
   'timed-out',
+  'reorg',
 ] as const;
 
 export type EpochProvingJobState = (typeof EpochProvingJobState)[number];
@@ -20,6 +21,7 @@ export const EpochProvingJobTerminalState: EpochProvingJobState[] = [
   'failed',
   'stopped',
   'timed-out',
+  'reorg',
 ] as const;
 
 export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)[number];
@@ -29,8 +31,6 @@ export interface ProverNodeApi {
   getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]>;
 
   startProof(epochNumber: number): Promise<void>;
-
-  prove(epochNumber: number): Promise<void>;
 }
 
 /** Schemas for prover node API functions. */
@@ -41,6 +41,4 @@ export const ProverNodeApiSchema: ApiSchemaFor<ProverNodeApi> = {
     .returns(z.array(z.object({ uuid: z.string(), status: z.enum(EpochProvingJobState), epochNumber: z.number() }))),
 
   startProof: z.function().args(schemas.Integer).returns(z.void()),
-
-  prove: z.function().args(schemas.Integer).returns(z.void()),
 };
