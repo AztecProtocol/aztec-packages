@@ -109,8 +109,7 @@ To mint the fee asset on L1, call the fee asset ERC20 token contract on the appr
 cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <RPC_URL>
 ```
 
-The minted fee assets will have to bridged to Aztec. This can be done use the `L1FeeJuicePortalManager` in Aztec.js. Read more about
-the process [here](../../guides/js_apps/pay_fees.md#bridging-fee-juice).
+With the fee asset on L1, call `bridge-fee-juice` to bridge it to Aztec, omitting the `--mint` flag, as described [here](../../reference/environment_reference/cli_reference.md#bridge-fee-juice).
 
 ## Account Management
 
