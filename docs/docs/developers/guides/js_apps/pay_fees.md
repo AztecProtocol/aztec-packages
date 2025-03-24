@@ -22,11 +22,15 @@ Processing this transaction first claims bridged fee juice then is paid for from
 
 A fee paying contract (FPC) is created and nominates a token that it accepts to then pay for transactions in fee juice. So a user doesn't need to hold fee juice, they only need the token that the FPC accepts.
 
-4. Sponsored Fee Paying Contract (SponsoredFPC)
+The FPC can also decide to refund users in cases of overpayment. For private FPCs, this incurrs a substantial gate count (proving time) and DA costs so in some cases it might be cheaper to not get the refund. The sample FPCs we show here refund the users but a FPC deployer or user should think carefully if asking for refunds is a smart option.
+
+The most straightforward way to pay for a transaction is via the sponsored fee payment method, bootstrapping some transactions by skipping the need to bridge fee juice to the account. This method uses a type of fee paying contract configured to pay for a number of transactions without requiring payment, but also requires that there is a sponsor to pay for the transactions. **This only exists on the sandbox as a convenience to get started quickly, though you could deploy it on testnet too for your own use case**
 
 The most straightforward way to pay for a transaction is via the sponsored fee payment method, bootstrapping some transactions by skipping the need to bridge fee juice to the account. This method uses a type of fee paying contract configured to pay for a number of transactions without requiring payment, but also requires that there is a sponsor to pay for the transactions.
 
 ## Bridging Fee Juice
+
+### Sandbox
 
 To first get fee juice into an account it needs to be bridged from L1. You can skip this section if you want to first make a transaction via the SponsoredFPC.
 
@@ -55,6 +59,16 @@ Create a new fee juice portal manager and bridge fee juice publicly to Aztec:
 For the mechanisms to complete bridging between L1 and Aztec, we have to wait for 2 Aztec blocks to progress. This can be triggered manually by sending 2 transactions in the sandbox, or by waiting for 2 blocks on a public network. After this, an account should have its fee juice ready to use in transactions.
 
 Alternatively, the resulting claim object can be used to create a payment method to claim and pay for a transaction in one, where the transaction is the contract's deployment.
+
+### Testnet
+
+The `L1FeeJuicePortalManager` will not be able to mint assets for you on testnet. You will need to call the fee asset's `mint` function on L1 to mint fee juice, e.g.:
+
+```bash
+cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <RPC_URL>
+```
+
+Then bridge it to L2, using the the `L1FeeJuicePortalManager` as described above.
 
 ## Examples
 
@@ -118,6 +132,8 @@ The fee payment method is created and used as follows, with similar syntax for p
 In this example, thanks to the FPC's `accepted_asset` being banana tokens, Alice only needs to hold this token and not fee juice. The asset that a FPC accepts for paying fees is determined when the FPC is deployed. The function being called happens to also be a transfer of banana tokens to Bob.
 
 More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr)
+
+See this [section](../../reference/environment_reference/cli_wallet_reference.md#fee-paying-contract) for paying fees via an FPC using the CLI wallet.
 
 ### Sponsored Fee Paying Contract
 
