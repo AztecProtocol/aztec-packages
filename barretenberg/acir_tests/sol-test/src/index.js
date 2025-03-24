@@ -218,8 +218,6 @@ const killAnvil = () => {
 
 try {
   const proofPath = getEnvVar("PROOF");
-  const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
-  const proofAsFields = readFileSync(proofAsFieldsPath);
 
   let proofStr = "";
 
@@ -233,9 +231,22 @@ try {
     // noop
   }
   var publicInputs;
-  const [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
-    JSON.parse(proofAsFields.toString())
-  );
+  let proofAsFieldsPath;
+  try {
+    proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
+  } catch (e) {
+    // noop
+  }
+  let numExtraPublicInputs = 0;
+  let extraPublicInputs = [];
+  if (proofAsFieldsPath) {
+    const proofAsFields = readFileSync(proofAsFieldsPath);
+    [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
+      JSON.parse(proofAsFields.toString())
+    );
+    // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
+    proofStr = proofStr.substring(8);
+  }
   // We need to do this because plonk doesn't define this path
   if (publicInputsAsFieldsPath) {
     const innerPublicInputs = JSON.parse(
@@ -247,10 +258,8 @@ try {
     publicInputs = extraPublicInputs;
   }
 
-  // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
-  if (testingHonk) {
-    proofStr = proofStr.substring(8);
-  }
+  console.log("numExtraPublicInputs: ", numExtraPublicInputs);
+  console.log("Proof length: ", proofStr.length);
   proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 
