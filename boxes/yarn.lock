@@ -27,25 +27,6 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/builder@npm:^0.82.1":
-  version: 0.82.1
-  resolution: "@aztec/builder@npm:0.82.1"
-  dependencies:
-    "@aztec/foundation": "npm:0.82.1"
-    "@aztec/stdlib": "npm:0.82.1"
-    commander: "npm:^12.1.0"
-  bin:
-    aztec-builder: dest/bin/cli.js
-  checksum: 10c0/a6c68fe913843180da7409cdb8408a2262f7a39a443c08bee4cc231915c723abe76c16d508f51524c3690114c3cb44cc8c7758464aebc99bf081beb47d5e3df3
-  languageName: node
-  linkType: hard
-
-"@aztec/foundation@link:../yarn-project/foundation::locator=aztec-app%40workspace%3A.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/foundation@link:../yarn-project/foundation::locator=aztec-app%40workspace%3A."
-  languageName: node
-  linkType: soft
-
 "@aztec/pxe@link:../yarn-project/pxe::locator=aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/pxe@link:../yarn-project/pxe::locator=aztec-app%40workspace%3A."
@@ -58,7 +39,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@aztec/builder": "npm:^0.82.1"
     "@playwright/test": "npm:1.49.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^20.5.9"
@@ -114,7 +94,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@aztec/builder": "npm:^0.82.1"
     "@playwright/test": "npm:1.49.0"
     "@types/node": "npm:^20.11.17"
     assert: "npm:^2.1.0"
@@ -135,7 +114,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@aztec/builder": "npm:^0.82.1"
     "@aztec/pxe": "npm:latest"
     "@aztec/stdlib": "npm:latest"
     "@eslint/js": "npm:^9.13.0"
