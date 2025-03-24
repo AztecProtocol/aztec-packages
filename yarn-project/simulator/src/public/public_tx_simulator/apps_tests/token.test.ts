@@ -3,10 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { Metrics } from '@aztec/telemetry-client';
-import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { benchmarkSetup } from '../../../test/bench.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 import type { PublicTxResult } from '../public_tx_simulator.js';
 
@@ -19,30 +16,8 @@ describe('Public TX simulator apps tests: TokenContract', () => {
   let token: ContractInstanceWithAddress;
   let simTester: PublicTxSimulationTester;
 
-  let telemetryClient: TelemetryClient;
-  let teardown: () => Promise<void>;
-
-  beforeAll(() => {
-    ({ telemetryClient, teardown } = benchmarkSetup(
-      ///*telemetryConfig=*/ {},
-      /*metrics=*/ [
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_COUNT,
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED,
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS,
-        {
-          // Invert mana-per-second since benchmark action requires that all metrics
-          // conform to either "bigger-is-better" or "smaller-is-better".
-          name: 'aztec.public_tx_simulator.simulation_mana_per_second',
-          source: Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND,
-          unit: 'us/mana',
-          transform: (value: number) => 1e6 / value,
-        },
-      ],
-    ));
-  });
-
   beforeEach(async () => {
-    simTester = await PublicTxSimulationTester.create(telemetryClient);
+    simTester = await PublicTxSimulationTester.create();
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
     token = await simTester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
 
@@ -56,17 +31,8 @@ describe('Public TX simulator apps tests: TokenContract', () => {
           args: constructorArgs,
         },
       ],
-      /*teardownCall=*/ undefined, // use default
-      /*feePayer=*/ undefined, // use default
-      /*firstNullifier=*/ undefined, // use default
-      /*globals=*/ undefined, // use default
-      /*metricsTag=*/ 'TokenContract.constructor',
     );
     expect(constructorResult.revertCode.isOK()).toBe(true);
-  });
-
-  afterAll(async () => {
-    await teardown();
   });
 
   it('token mint, transfer, burn (and check balances)', async () => {
@@ -88,11 +54,6 @@ describe('Public TX simulator apps tests: TokenContract', () => {
           args: [/*to=*/ sender, mintAmount],
         },
       ],
-      /*teardownCall=*/ undefined, // use default
-      /*feePayer=*/ undefined, // use default
-      /*firstNullifier=*/ undefined, // use default
-      /*globals=*/ undefined, // use default
-      /*metricsTag=*/ 'TokenContract.mint',
     );
     expect(mintResult.revertCode.isOK()).toBe(true);
     await checkBalance(sender, mintAmount);
@@ -107,11 +68,6 @@ describe('Public TX simulator apps tests: TokenContract', () => {
           args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
         },
       ],
-      /*teardownCall=*/ undefined, // use default
-      /*feePayer=*/ undefined, // use default
-      /*firstNullifier=*/ undefined, // use default
-      /*globals=*/ undefined, // use default
-      /*metricsTag=*/ 'TokenContract.transfer_in_public',
     );
     expect(transferResult.revertCode.isOK()).toBe(true);
     await checkBalance(sender, mintAmount - transferAmount);
@@ -127,11 +83,6 @@ describe('Public TX simulator apps tests: TokenContract', () => {
           args: [/*from=*/ receiver, transferAmount, nonce],
         },
       ],
-      /*teardownCall=*/ undefined, // use default
-      /*feePayer=*/ undefined, // use default
-      /*firstNullifier=*/ undefined, // use default
-      /*globals=*/ undefined, // use default
-      /*metricsTag=*/ 'TokenContract.burn',
     );
     expect(burnResult.revertCode.isOK()).toBe(true);
     await checkBalance(receiver, 0n);
@@ -152,11 +103,6 @@ describe('Public TX simulator apps tests: TokenContract', () => {
           isStaticCall: true,
         },
       ],
-      /*teardownCall=*/ undefined, // use default
-      /*feePayer=*/ undefined, // use default
-      /*firstNullifier=*/ undefined, // use default
-      /*globals=*/ undefined, // use default
-      /*metricsTag=*/ 'TokenContract.balance_of_public',
     );
     expect(balResult.revertCode.isOK()).toBe(true);
     expectAppCall0Output(balResult, [new Fr(expectedBalance)]);
