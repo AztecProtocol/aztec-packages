@@ -56,6 +56,7 @@ template <typename Curve> struct aggregation_state {
     }
 
     PairingPointAccumulatorIndices get_witness_indices()
+        requires(!std::same_as<typename Curve::Group, element_goblin::BiggroupGoblin>)
     {
         PairingPointAccumulatorIndices witness_indices = {
             P0.x.binary_basis_limbs[0].element.normalize().witness_index,
@@ -77,6 +78,7 @@ template <typename Curve> struct aggregation_state {
         };
         return witness_indices;
     }
+
     void assign_object_to_proof_outputs()
     {
         P0 = P0.reduce();

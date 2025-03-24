@@ -150,7 +150,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
  * @param input_aggregation_object_indices. The aggregation object coming from previous Honk/Avm recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  */
-PairingPointAccumulatorIndices create_avm_recursion_constraints(
+PairingPointAccumulatorIndices create_avm_recursion_constraints_legacy(
     Builder& builder,
     const RecursionConstraint& input,
     PairingPointAccumulatorIndices input_aggregation_object_indices,
@@ -204,7 +204,7 @@ PairingPointAccumulatorIndices create_avm_recursion_constraints(
 }
 
 // NEW VERSION THAT USES GOBLIN PLONK IN VERIFICATION ALGO
-HonkRecursionConstraintOutput create_avm_recursion_constraints2(
+HonkRecursionConstraintOutput create_avm_recursion_constraints_new(
     Builder& builder,
     const RecursionConstraint& input,
     PairingPointAccumulatorIndices input_aggregation_object_indices,

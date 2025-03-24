@@ -42,7 +42,11 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
     using OuterVerificationKey = UltraFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite()
+    {
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    }
 
     // mutate the input kernel_public_inputs_vec to add end gas values
     static InnerBuilder create_inner_circuit([[maybe_unused]] std::vector<FF>& kernel_public_inputs_vec)

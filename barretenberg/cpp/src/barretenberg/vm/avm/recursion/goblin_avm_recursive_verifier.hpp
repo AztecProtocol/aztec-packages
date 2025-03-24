@@ -61,7 +61,7 @@ class AvmGoblinRecursiveVerifier {
 
     RecursiveAvmGoblinOutput verify_proof(const StdlibProof<Builder>& stdlib_proof,
                                           const std::vector<std::vector<UltraFF>>& public_inputs,
-                                          AggregationObject agg_obj) const
+                                          AggregationObject input_agg_obj) const
     {
 
         using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaCircuitBuilder>;
@@ -160,11 +160,11 @@ class AvmGoblinRecursiveVerifier {
         // Step 2: Verify the AVM proof
         // NOTICE!!!! We don't currently propagate the aggregation object which we need to for this to be sound!
         RecursiveVerifier recursive_verifier{ &inner_builder, stdlib_key };
-        auto mega_agg_object =
+        auto default_agg_object =
             stdlib::recursion::init_default_aggregation_state<MegaCircuitBuilder, typename AvmRecursiveFlavor::Curve>(
                 inner_builder);
-        [[maybe_unused]] auto agg_output =
-            recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, mega_agg_object);
+        [[maybe_unused]] auto mega_agg_output =
+            recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, default_agg_object);
 
         // Step 3: run the goblin merge protocol
         // WORKTODO: this used to use goblin.merge() which I think added a merge rec verifier. Dont think this is needed
@@ -191,11 +191,11 @@ class AvmGoblinRecursiveVerifier {
         stdlib::recursion::honk::GoblinRecursiveVerifier gverifier{ builder, goblin_vinput };
         stdlib::recursion::honk::GoblinRecursiveVerifierOutput goblin_verifier_output = gverifier.verify(g_proof);
 
-        // NOTE: I think this part is wrong. What do we initialize the builder's agg object to be?
-        PairingPointAccumulatorIndices current_aggregation_object =
-            stdlib::recursion::init_default_agg_obj_indices<UltraCircuitBuilder>(*builder);
-        // This is currently just setting the aggregation object to the default one.
-        builder->add_pairing_point_accumulator(current_aggregation_object);
+        // // NOTE: I think this part is wrong. What do we initialize the builder's agg object to be?
+        // PairingPointAccumulatorIndices current_aggregation_object =
+        //     stdlib::recursion::init_default_agg_obj_indices<UltraCircuitBuilder>(*builder);
+        // // This is currently just setting the aggregation object to the default one.
+        // builder->add_pairing_point_accumulator(current_aggregation_object);
 
         // We only calls the IPA recursive verifier once, so we can just add this IPA claim and proof
         builder->add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
@@ -210,7 +210,7 @@ class AvmGoblinRecursiveVerifier {
         // Step 8: In our UltraCirfcuit, recursively verify the mega proof
         UltraRecursiveVerifier outer_verifier(builder, outer_vk);
         StdlibProof<Builder> stdlib_recursion_proof = bb::convert_native_proof_to_stdlib(builder, recursion_proof);
-        auto outer_verifier_output = outer_verifier.verify_proof(stdlib_recursion_proof, agg_obj);
+        auto outer_verifier_output = outer_verifier.verify_proof(stdlib_recursion_proof, input_agg_obj);
 
         // Step 9: Validate that both `builder` and `inner_builder` use the same AVM proof data and AVM public inputs
         // Note: we don't seem to have a nice way of finding out where within a public input space a given value is that

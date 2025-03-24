@@ -8,15 +8,17 @@ using Builder = bb::UltraCircuitBuilder;
 
 using namespace bb;
 
-PairingPointAccumulatorIndices create_avm_recursion_constraints(Builder& builder,
-                                                                const RecursionConstraint& input,
-                                                                PairingPointAccumulatorIndices input_aggregation_object,
-                                                                bool has_valid_witness_assignments);
+PairingPointAccumulatorIndices create_avm_recursion_constraints_legacy(
+    Builder& builder,
+    const RecursionConstraint& input,
+    PairingPointAccumulatorIndices input_aggregation_object,
+    bool has_valid_witness_assignments);
 
-HonkRecursionConstraintOutput create_avm_recursion_constraints2(Builder& builder,
-                                                                const RecursionConstraint& input,
-                                                                PairingPointAccumulatorIndices input_aggregation_object,
-                                                                bool has_valid_witness_assignments);
+HonkRecursionConstraintOutput create_avm_recursion_constraints_new(
+    Builder& builder,
+    const RecursionConstraint& input,
+    PairingPointAccumulatorIndices input_aggregation_object,
+    bool has_valid_witness_assignments);
 
 } // namespace acir_format
 #endif // DISABLE_AZTEC_VM
