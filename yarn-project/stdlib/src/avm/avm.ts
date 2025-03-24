@@ -98,7 +98,7 @@ export class AvmContractInstanceHint {
 ////////////////////////////////////////////////////////////////////////////
 // Hints (merkle db)
 ////////////////////////////////////////////////////////////////////////////
-// Hint for MerkleTreeDB.getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>>;
+// Hint for MerkleTreeDB.getSiblingPath.
 export class AvmGetSiblingPathHint {
   constructor(
     public readonly hintKey: AppendOnlyTreeSnapshot,
@@ -118,6 +118,34 @@ export class AvmGetSiblingPathHint {
         path: schemas.Fr.array(),
       })
       .transform(({ hintKey, treeId, index, path }) => new AvmGetSiblingPathHint(hintKey, treeId, index, path));
+  }
+}
+
+// Hint for MerkleTreeDB.getPreviousValueIndex.
+export class AvmGetPreviousValueIndexHint {
+  constructor(
+    public readonly hintKey: AppendOnlyTreeSnapshot,
+    // params
+    public readonly treeId: MerkleTreeId,
+    public readonly value: bigint,
+    // return
+    public readonly index: bigint,
+    public readonly alreadyPresent: boolean,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        hintKey: AppendOnlyTreeSnapshot.schema,
+        treeId: z.number().int().nonnegative(),
+        value: schemas.BigInt,
+        index: schemas.BigInt,
+        alreadyPresent: z.boolean(),
+      })
+      .transform(
+        ({ hintKey, treeId, value, index, alreadyPresent }) =>
+          new AvmGetPreviousValueIndexHint(hintKey, treeId, value, index, alreadyPresent),
+      );
   }
 }
 
@@ -156,6 +184,7 @@ export class AvmExecutionHints {
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
     // Merkle DB hints.
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
+    public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
   ) {}
 
   static empty() {
@@ -170,15 +199,24 @@ export class AvmExecutionHints {
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
+        getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
       })
       .transform(
-        ({ enqueuedCalls, contractInstances, contractClasses, bytecodeCommitments, getSiblingPathHints }) =>
+        ({
+          enqueuedCalls,
+          contractInstances,
+          contractClasses,
+          bytecodeCommitments,
+          getSiblingPathHints,
+          getPreviousValueIndexHints,
+        }) =>
           new AvmExecutionHints(
             enqueuedCalls,
             contractInstances,
             contractClasses,
             bytecodeCommitments,
             getSiblingPathHints,
+            getPreviousValueIndexHints,
           ),
       );
   }

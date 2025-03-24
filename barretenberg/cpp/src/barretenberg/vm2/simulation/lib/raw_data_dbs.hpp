@@ -38,6 +38,8 @@ class HintedRawMerkleDB final : public MerkleDBInterface {
 
     crypto::merkle_tree::fr_sibling_path get_sibling_path(world_state::MerkleTreeId tree_id,
                                                           crypto::merkle_tree::index_t leaf_index) const override;
+    crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
+                                                                        const FF& value) const override;
 
   private:
     TreeSnapshots tree_roots;
@@ -45,6 +47,9 @@ class HintedRawMerkleDB final : public MerkleDBInterface {
     using GetSiblingPathKey =
         utils::HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
     unordered_flat_map<GetSiblingPathKey, crypto::merkle_tree::fr_sibling_path> get_sibling_path_hints;
+    using GetPreviousValueIndexKey = utils::HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, FF>;
+    unordered_flat_map<GetPreviousValueIndexKey, crypto::merkle_tree::GetLowIndexedLeafResponse>
+        get_previous_value_index_hints;
 
     const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
 };

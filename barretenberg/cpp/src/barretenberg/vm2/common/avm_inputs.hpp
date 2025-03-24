@@ -118,6 +118,20 @@ struct GetSiblingPathHint {
     MSGPACK_FIELDS(hintKey, treeId, index, path);
 };
 
+struct GetPreviousValueIndexHint {
+    AppendOnlyTreeSnapshot hintKey;
+    // params
+    world_state::MerkleTreeId treeId;
+    uint64_t value;
+    // return
+    uint64_t index;
+    bool alreadyPresent;
+
+    bool operator==(const GetPreviousValueIndexHint& other) const = default;
+
+    MSGPACK_FIELDS(hintKey, treeId, value, index, alreadyPresent);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -143,10 +157,16 @@ struct ExecutionHints {
     std::vector<BytecodeCommitmentHint> bytecodeCommitments;
     // Merkle DB.
     std::vector<GetSiblingPathHint> getSiblingPathHints;
+    std::vector<GetPreviousValueIndexHint> getPreviousValueIndexHints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
-    MSGPACK_FIELDS(enqueuedCalls, contractInstances, contractClasses, bytecodeCommitments, getSiblingPathHints);
+    MSGPACK_FIELDS(enqueuedCalls,
+                   contractInstances,
+                   contractClasses,
+                   bytecodeCommitments,
+                   getSiblingPathHints,
+                   getPreviousValueIndexHints);
 };
 
 ////////////////////////////////////////////////////////////////////////////

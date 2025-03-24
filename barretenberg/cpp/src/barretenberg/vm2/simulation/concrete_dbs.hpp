@@ -46,6 +46,8 @@ class MerkleDB final : public MerkleDBInterface {
 
     crypto::merkle_tree::fr_sibling_path get_sibling_path(world_state::MerkleTreeId tree_id,
                                                           crypto::merkle_tree::index_t leaf_index) const override;
+    crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
+                                                                        const FF& value) const override;
 
   private:
     MerkleDBInterface& raw_merkle_db;

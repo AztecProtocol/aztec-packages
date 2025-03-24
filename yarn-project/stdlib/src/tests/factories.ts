@@ -62,6 +62,7 @@ import {
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
+  AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
   RevertCode,
 } from '../avm/index.js';
@@ -1268,6 +1269,19 @@ export function makeAvmGetSiblingPathHint(seed = 0): AvmGetSiblingPathHint {
   );
 }
 
+export function makeAvmGetPreviousValueIndexHint(seed = 0): AvmGetPreviousValueIndexHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const value = BigInt(`0x${sha256(Buffer.from((seed + 2).toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetPreviousValueIndexHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    value,
+    index,
+    /*alreadyPresent=*/ value % 2n === 0n,
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1333,6 +1347,7 @@ export async function makeAvmExecutionHints(
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
+    getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
     ...overrides,
   };
 
@@ -1342,6 +1357,7 @@ export async function makeAvmExecutionHints(
     fields.contractClasses,
     fields.bytecodeCommitments,
     fields.getSiblingPathHints,
+    fields.getPreviousValueIndexHints,
   );
 }
 

@@ -95,13 +95,48 @@ FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id)
 HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots)
     : tree_roots(tree_roots)
 {
-    vinfo("Initializing HintedRawMerkleDB with...", "\n * get_sibling_path hints: ", hints.getSiblingPathHints.size());
+    vinfo("Initializing HintedRawMerkleDB with...",
+          "\n * get_sibling_path hints: ",
+          hints.getSiblingPathHints.size(),
+          "\n * get_previous_value_index hints: ",
+          hints.getPreviousValueIndexHints.size());
+    debug("Initializing HintedRawMerkleDB with snapshots...",
+          "\n * nullifierTree: ",
+          tree_roots.nullifierTree.root,
+          " (size: ",
+          tree_roots.nullifierTree.nextAvailableLeafIndex,
+          ")",
+          "\n * publicDataTree: ",
+          tree_roots.publicDataTree.root,
+          " (size: ",
+          tree_roots.publicDataTree.nextAvailableLeafIndex,
+          ")",
+          "\n * noteHashTree: ",
+          tree_roots.noteHashTree.root,
+          " (size: ",
+          tree_roots.noteHashTree.nextAvailableLeafIndex,
+          ")",
+          "\n * l1ToL2MessageTree: ",
+          tree_roots.l1ToL2MessageTree.root,
+          " (size: ",
+          tree_roots.l1ToL2MessageTree.nextAvailableLeafIndex,
+          ")");
 
     for (const auto& get_sibling_path_hint : hints.getSiblingPathHints) {
         GetSiblingPathKey key = { get_sibling_path_hint.hintKey,
                                   get_sibling_path_hint.treeId,
                                   get_sibling_path_hint.index };
         get_sibling_path_hints[key] = get_sibling_path_hint.path;
+    }
+
+    for (const auto& get_previous_value_index_hint : hints.getPreviousValueIndexHints) {
+        GetPreviousValueIndexKey key = { get_previous_value_index_hint.hintKey,
+                                         get_previous_value_index_hint.treeId,
+                                         get_previous_value_index_hint.value };
+        get_previous_value_index_hints[key] = {
+            get_previous_value_index_hint.alreadyPresent,
+            get_previous_value_index_hint.index,
+        };
     }
 }
 
@@ -136,6 +171,26 @@ crypto::merkle_tree::fr_sibling_path HintedRawMerkleDB::get_sibling_path(world_s
                                         static_cast<uint32_t>(tree_id),
                                         ", leaf_index: ",
                                         leaf_index,
+                                        ")"));
+    }
+    return it->second;
+}
+
+crypto::merkle_tree::GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(
+    world_state::MerkleTreeId tree_id, const FF& value) const
+{
+    auto tree_info = get_tree_info(tree_id);
+    GetPreviousValueIndexKey key = { tree_info, tree_id, value };
+    auto it = get_previous_value_index_hints.find(key);
+    if (it == get_previous_value_index_hints.end()) {
+        throw std::runtime_error(format("Low indexed leaf not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", tree_id: ",
+                                        static_cast<uint32_t>(tree_id),
+                                        ", value: ",
+                                        value,
                                         ")"));
     }
     return it->second;

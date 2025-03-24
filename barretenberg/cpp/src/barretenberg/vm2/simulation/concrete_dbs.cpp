@@ -43,4 +43,11 @@ crypto::merkle_tree::fr_sibling_path MerkleDB::get_sibling_path(world_state::Mer
     return raw_merkle_db.get_sibling_path(tree_id, leaf_index);
 }
 
+// TODO(fcarreiro): We wouldn't have a low level method here because it can't be constrained.
+crypto::merkle_tree::GetLowIndexedLeafResponse MerkleDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
+                                                                              const FF& value) const
+{
+    return raw_merkle_db.get_low_indexed_leaf(tree_id, value);
+}
+
 } // namespace bb::avm2::simulation

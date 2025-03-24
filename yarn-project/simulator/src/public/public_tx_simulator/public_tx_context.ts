@@ -308,7 +308,7 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  public async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
+  public async generateAvmCircuitPublicInputs(): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const stateManager = this.state.getActiveStateManager();
 
@@ -319,14 +319,10 @@ export class PublicTxContext {
       this.startStateReference.partial.publicDataTree,
     );
 
-    // Will be patched/padded at the end of this fn
-    const endTreeSnapshots = new TreeSnapshots(
-      endStateReference.l1ToL2MessageTree,
-      endStateReference.partial.noteHashTree,
-      endStateReference.partial.nullifierTree,
-      endStateReference.partial.publicDataTree,
-    );
-
+    // FIXME: We are first creating the PIs with the wrong endTreeSnapshots, then patching them.
+    // This is because we need to know the lengths of the accumulated data arrays to pad them.
+    // We should refactor this to avoid this hack.
+    // We should just get the info we need from the trace, and create the rest of the PIs here.
     const avmCircuitPublicInputs = this.trace.toAvmCircuitPublicInputs(
       this.globalVariables,
       startTreeSnapshots,
@@ -338,7 +334,7 @@ export class PublicTxContext {
       /*teardownCallRequest=*/ this.teardownCallRequests.length
         ? this.teardownCallRequests[0].request
         : PublicCallRequest.empty(),
-      endTreeSnapshots,
+      /*endTreeSnapshots=*/ TreeSnapshots.empty(), // Will be patched/padded at the end of this fn
       /*endGasUsed=*/ this.getTotalGasUsed(),
       /*transactionFee=*/ this.getTransactionFeeUnsafe(),
       /*reverted=*/ !this.revertCode.isOK(),

@@ -24,6 +24,14 @@ class MockMerkleDB : public MerkleDBInterface {
     ~MockMerkleDB() override;
 
     MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
+    MOCK_METHOD(crypto::merkle_tree::fr_sibling_path,
+                get_sibling_path,
+                (world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index),
+                (const, override));
+    MOCK_METHOD(crypto::merkle_tree::GetLowIndexedLeafResponse,
+                get_low_indexed_leaf,
+                (world_state::MerkleTreeId tree_id, const FF& value),
+                (const, override));
 };
 
 } // namespace bb::avm2::simulation

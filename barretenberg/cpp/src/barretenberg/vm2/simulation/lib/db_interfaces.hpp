@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -30,6 +31,8 @@ class MerkleDBInterface {
 
     virtual crypto::merkle_tree::fr_sibling_path get_sibling_path(world_state::MerkleTreeId tree_id,
                                                                   crypto::merkle_tree::index_t leaf_index) const = 0;
+    virtual crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
+                                                                                const FF& value) const = 0;
 };
 
 } // namespace bb::avm2::simulation
