@@ -1422,17 +1422,17 @@ template <typename Builder> class CycleGroupBase {
             PREP_TWO_ARG(stack, first_index, second_index, output_index)
             std::cout << out << " = cycle_group_t::conditional_assign(";
 #endif
-                result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
+            result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
 #ifdef SHOW_INFORMATION
-                std::cout << rhs << ", " << lhs << ");" << std::endl;
+            std::cout << rhs << ", " << lhs << ");" << std::endl;
 #endif
-                // If the output index is larger than the number of elements in stack, append
-                if (output_index >= stack.size()) {
-                    stack.push_back(result);
-                } else {
-                    stack[output_index] = result;
-                }
-                return 0;
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
         };
 
         /**

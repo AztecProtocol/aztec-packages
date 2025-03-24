@@ -69,9 +69,10 @@ FastRandom VarianceRNG(0);
 
 #define PRINT_SLICE(first_index, lsb, msb, vector)                                                                     \
     {                                                                                                                  \
-        std::cout << "Slice:" << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")           \
-                  << vector[first_index].field.get_value() << ") at " << first_index << " " << "(" << (size_t)lsb      \
-                  << ":" << (size_t)msb << ")" << std::flush;                                                          \
+        std::cout << "Slice:"                                                                                          \
+                  << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")                       \
+                  << vector[first_index].field.get_value() << ") at " << first_index << " "                            \
+                  << "(" << (size_t)lsb << ":" << (size_t)msb << ")" << std::flush;                                    \
     }
 
 #define PRINT_RESULT(prefix, action, index, value)                                                                     \
