@@ -26,8 +26,14 @@ describe('Public TX simulator apps tests: TokenContract', () => {
     ({ telemetryClient, teardown } = benchmarkSetup(
       ///*telemetryConfig=*/ {},
       /*metrics=*/ [
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND,
         Metrics.PUBLIC_EXECUTOR_SIMULATION_COUNT,
+        //Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED,
+        {
+          name: 'aztec.public_tx_simulator.simulation_total_instructions',
+          source: Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS,
+          unit: 'instructions',
+          transform: (value: number) => value,
+        },
         {
           // Invert mana-per-second since benchmark action requires that all metrics
           // conform to either "bigger-is-better" or "smaller-is-better".
@@ -110,7 +116,7 @@ describe('Public TX simulator apps tests: TokenContract', () => {
       /*feePayer=*/ undefined, // use default
       /*firstNullifier=*/ undefined, // use default
       /*globals=*/ undefined, // use default
-      /*metricsTag=*/ 'TokenContract.transfer',
+      /*metricsTag=*/ 'TokenContract.transfer_in_public',
     );
     expect(transferResult.revertCode.isOK()).toBe(true);
     await checkBalance(sender, mintAmount - transferAmount);

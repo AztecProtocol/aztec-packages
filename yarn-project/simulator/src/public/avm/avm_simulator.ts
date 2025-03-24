@@ -46,8 +46,8 @@ export class AvmSimulator {
   // only. Otherwise, use build() below.
   constructor(
     private context: AvmContext,
-    private instructionSet: InstructionSet = INSTRUCTION_SET,
     enableTallying = false,
+    private instructionSet: InstructionSet = INSTRUCTION_SET,
   ) {
     // This will be used by the CALL opcode to create a new simulator. It is required to
     // avoid a dependency cycle.
@@ -66,8 +66,8 @@ export class AvmSimulator {
 
   // Factory to have a proper function name in the logger. Retrieving the name is asynchronous and
   // cannot be done as part of the constructor.
-  public static async build(context: AvmContext): Promise<AvmSimulator> {
-    const simulator = new AvmSimulator(context);
+  public static async build(context: AvmContext, enableTallying: boolean = false): Promise<AvmSimulator> {
+    const simulator = new AvmSimulator(context, enableTallying);
     const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
     simulator.log = createLogger(`simulator:avm(f:${fnName})`);
 
@@ -83,6 +83,7 @@ export class AvmSimulator {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
+    enableTallying: boolean = true,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -96,7 +97,7 @@ export class AvmSimulator {
 
     const avmMachineState = new AvmMachineState(allocatedGas);
     const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
-    return await AvmSimulator.build(avmContext);
+    return await AvmSimulator.build(avmContext, enableTallying);
   }
 
   /**
@@ -147,7 +148,6 @@ export class AvmSimulator {
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
-      let instrCounter = 0;
       while (!machineState.getHalted()) {
         // Get the instruction from cache, or deserialize for the first time
         let cachedInstruction = this.deserializedInstructionsCache.get(machineState.pc);
@@ -163,13 +163,11 @@ export class AvmSimulator {
         if (this.log.isLevelEnabled('trace')) {
           // Skip this entirely to avoid toStringing etc if trace is not enabled
           this.log.trace(
-            `[PC:${machineState.pc}] [IC:${instrCounter}] ${instruction.toString()} (gasLeft l2=${
+            `[PC:${machineState.pc}] [IC:${machineState.instrCounter}] ${instruction.toString()} (gasLeft l2=${
               machineState.l2GasLeft
             } da=${machineState.daGasLeft})`,
           );
         }
-        instrCounter++;
-
         machineState.nextPc = machineState.pc + bytesRead;
 
         // Execute the instruction.
@@ -180,6 +178,8 @@ export class AvmSimulator {
           // Increment PC if the instruction doesn't handle it itself
           machineState.pc += bytesRead;
         }
+
+        machineState.instrCounter++;
 
         // gas used by this instruction - used for profiling/tallying
         const gasUsed: Gas = {
@@ -197,13 +197,19 @@ export class AvmSimulator {
       const output = machineState.getOutput();
       const reverted = machineState.getReverted();
       const revertReason = reverted ? await revertReasonFromExplicitRevert(output, this.context) : undefined;
-      const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
+      const results = new AvmContractCallResult(
+        reverted,
+        output,
+        machineState.gasLeft,
+        revertReason,
+        machineState.instrCounter,
+      );
       this.log.debug(`Context execution results: ${results.toString()}`);
       const totalGasUsed: Gas = {
         l2Gas: callStartGas.l2Gas - machineState.l2GasLeft,
         daGas: callStartGas.daGas - machineState.daGasLeft,
       };
-      this.log.debug(`Executed ${instrCounter} instructions and consumed ${totalGasUsed.l2Gas} L2 Gas`);
+      this.log.debug(`Executed ${machineState.instrCounter} instructions and consumed ${totalGasUsed.l2Gas} L2 Gas`);
 
       this.tallyPrintFunction();
 
@@ -233,7 +239,13 @@ export class AvmSimulator {
       // Exceptional halts consume all allocated gas
       const noGasLeft = { l2Gas: 0, daGas: 0 };
       // Note: "exceptional halts" cannot return data, hence [].
-      const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], noGasLeft, revertReason);
+      const results = new AvmContractCallResult(
+        /*reverted=*/ true,
+        /*output=*/ [],
+        noGasLeft,
+        revertReason,
+        machineState.instrCounter,
+      );
       this.log.debug(`Context execution results: ${results.toString()}`);
 
       this.tallyPrintFunction();

@@ -38,6 +38,8 @@ export class AvmMachineState {
   public pc: number = 0;
   /** program counter of the next instruction, byte based */
   public nextPc: number = 0;
+  /** instruction counter, including nested calls */
+  public instrCounter: number = 0;
   /** return/revertdata of the last nested call. */
   public nestedReturndata: Fr[] = [];
   /** Tracks whether the last external call was successful */

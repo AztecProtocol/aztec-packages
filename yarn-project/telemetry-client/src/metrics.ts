@@ -100,6 +100,8 @@ export const PUBLIC_PROCESSOR_TREE_INSERTION = 'aztec.public_processor.tree_inse
 export const PUBLIC_EXECUTOR_SIMULATION_COUNT = 'aztec.public_executor.simulation_count';
 export const PUBLIC_EXECUTOR_SIMULATION_DURATION = 'aztec.public_executor.simulation_duration';
 export const PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND = 'aztec.public_executor.simulation_mana_per_second';
+export const PUBLIC_EXECUTOR_SIMULATION_MANA_USED = 'aztec.public_executor.simulation_mana_used';
+export const PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS = 'aztec.public_executor.simulation_total_instructions';
 export const PUBLIC_EXECUTION_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.simulation_bytecode_size';
 export const PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION = 'aztec.public_executor.private_effects_insertion';
 

@@ -147,6 +147,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       /*doMerkleOperations=*/ true,
       /*skipFeeEnforcement=*/ false,
       this.telemetryClient,
+      /*enableCoreSimulationMetrics=*/ true,
     );
 
     const startTime = performance.now();

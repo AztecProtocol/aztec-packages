@@ -14,6 +14,8 @@ export class ExecutorMetrics {
   private fnCount: UpDownCounter;
   private fnDuration: Histogram;
   private manaPerSecond: Histogram;
+  private manaUsed: UpDownCounter;
+  private totalInstructions: UpDownCounter;
   private privateEffectsInsertions: Histogram;
 
   constructor(client: TelemetryClient, name = 'PublicExecutor') {
@@ -36,6 +38,14 @@ export class ExecutorMetrics {
       valueType: ValueType.INT,
     });
 
+    this.manaUsed = meter.createUpDownCounter(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED, {
+      description: 'Total mana used',
+    });
+
+    this.totalInstructions = meter.createUpDownCounter(Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS, {
+      description: 'Total number of instructions executed',
+    });
+
     this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION, {
       description: 'Private effects insertion time',
       unit: 'us',
@@ -43,16 +53,24 @@ export class ExecutorMetrics {
     });
   }
 
-  recordFunctionSimulation(durationMs: number, manaUsed: number, fnName: string) {
+  recordFunctionSimulation(durationMs: number, manaUsed: number, fnName: string, totalInstructions: number) {
     const logger = createLogger('executor-metrics');
     logger.error(`Recording function simulation: ${fnName}`, {
       durationMs,
       manaUsed,
+      totalInstructions,
     });
     this.fnCount.add(1, {
       [Attributes.OK]: true,
       [Attributes.APP_CIRCUIT_NAME]: fnName,
       [Attributes.MANA_USED]: manaUsed,
+      [Attributes.TOTAL_INSTRUCTIONS]: totalInstructions,
+    });
+    this.manaUsed.add(manaUsed, {
+      [Attributes.APP_CIRCUIT_NAME]: fnName,
+    });
+    this.totalInstructions.add(totalInstructions, {
+      [Attributes.APP_CIRCUIT_NAME]: fnName,
     });
     this.fnDuration.record(Math.ceil(durationMs));
     if (durationMs > 0 && manaUsed > 0) {

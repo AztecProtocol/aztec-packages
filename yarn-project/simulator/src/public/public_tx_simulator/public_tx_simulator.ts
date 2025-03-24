@@ -65,6 +65,7 @@ export class PublicTxSimulator {
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
+    private enableCoreSimulationMetrics: boolean = false,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
@@ -77,7 +78,7 @@ export class PublicTxSimulator {
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
    * @param overrideMetrics - A metrics tag to use for benchmarking a single TX.
-   * @returns The result of the transaction's public execution.
+   * @returns The result of the transactions public execution.
    */
   public async simulate(tx: Tx, overrideMetrics?: string): Promise<PublicTxResult> {
     try {
@@ -381,6 +382,7 @@ export class PublicTxSimulator {
       executionRequest.callContext.isStaticCall,
       executionRequest.args,
       allocatedGas,
+      this.enableCoreSimulationMetrics,
     );
     const avmCallResult = await simulator.execute();
     const result = avmCallResult.finalize();
@@ -399,7 +401,12 @@ export class PublicTxSimulator {
     if (result.reverted) {
       this.metrics.recordFunctionSimulationFailure();
     } else {
-      this.metrics.recordFunctionSimulation(timer.ms(), allocatedGas.sub(result.gasLeft).l2Gas, fnName);
+      this.metrics.recordFunctionSimulation(
+        timer.ms(),
+        allocatedGas.sub(result.gasLeft).l2Gas,
+        fnName,
+        result.totalInstructions,
+      );
     }
 
     return result;
