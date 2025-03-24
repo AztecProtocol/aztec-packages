@@ -1,3 +1,4 @@
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
@@ -122,32 +123,24 @@ export class ClientFlowsTest {
   async applyInitialAccountsSnapshot() {
     await this.snapshotManager.snapshot(
       'initial_accounts',
-      deployAccounts(1, this.logger),
-      async ({}, { pxe, aztecNode, aztecNodeConfig, deployL1ContractsValues }) => {
+      deployAccounts(2, this.logger),
+      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig, deployL1ContractsValues }) => {
         this.pxe = pxe;
 
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
         this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
 
-        const fundedWallets = await getDeployedTestAccountsWallets(pxe);
-        this.adminWallet = fundedWallets[0];
+        const deployedWallets = await Promise.all(
+          deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)),
+        );
+        [this.adminWallet] = deployedWallets;
         this.adminAddress = this.adminWallet.getAddress();
-        this.sequencerAddress = fundedWallets[1].getAddress();
+        this.sequencerAddress = deployedWallets[1].getAddress();
 
         const canonicalFeeJuice = await getCanonicalFeeJuice();
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
         this.coinbase = EthAddress.random();
-
-        this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-          aztecNode,
-          aztecNodeAdmin: aztecNode,
-          pxeService: pxe,
-          publicClient: deployL1ContractsValues.publicClient,
-          walletClient: deployL1ContractsValues.walletClient,
-          wallet: this.adminWallet,
-          logger: this.logger,
-        });
       },
     );
   }

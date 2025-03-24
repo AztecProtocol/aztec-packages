@@ -1,5 +1,5 @@
 import { getEcdsaKAccount } from '@aztec/accounts/ecdsa';
-import { FeeJuicePaymentMethodWithClaim, Fr, type PXE } from '@aztec/aztec.js';
+import { type DeployOptions, FeeJuicePaymentMethodWithClaim, Fr, type PXE } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 
@@ -30,21 +30,28 @@ describe('Deploy ECDSA R1 contract, pay using bridged fee juice', () => {
     const benchysAccountManager = await getEcdsaKAccount(pxe, benchysSecretKey, benchysPrivateSigningKey);
     const benchysCompleteAddress = await benchysAccountManager.getCompleteAddress();
     const benchysAddress = benchysCompleteAddress.address;
-    const benchysWallet = await benchysAccountManager.getWallet();
+    const benchysWallet = await benchysAccountManager.register();
 
-    await benchysAccountManager.register();
     const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, benchysAddress);
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysWallet, claim);
 
     const deploymentInteraction = await benchysAccountManager.getDeployMethod();
     const wrappedPaymentMethod = await benchysAccountManager.getSelfPaymentMethod(paymentMethod);
     const fee = { paymentMethod: wrappedPaymentMethod };
-
-    await capturePrivateExecutionStepsIfEnvSet('amm-add-liquidity', deploymentInteraction, {
+    const options: DeployOptions = {
       fee,
-    });
+      universalDeploy: true,
+      skipClassRegistration: true,
+      contractAddressSalt: new Fr(benchysAccountManager.salt),
+    };
 
-    const tx = await deploymentInteraction.send({ fee }).wait();
+    await capturePrivateExecutionStepsIfEnvSet(
+      'deploy_r1+claim_fee_juice+pay_fee_juice',
+      deploymentInteraction,
+      options,
+    );
+
+    const tx = await deploymentInteraction.send(options).wait();
     expect(tx.transactionFee!).toBeGreaterThan(0n);
   });
 });

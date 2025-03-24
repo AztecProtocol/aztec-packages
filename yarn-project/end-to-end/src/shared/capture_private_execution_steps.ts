@@ -2,7 +2,12 @@
  * This module exposes the ability to capture the private exection steps that go into our "Client IVC" prover.
  * These are used for debugging and benchmarking barretenberg (the prover component).
  */
-import type { ContractFunctionInteraction, DeployMethod, ProfileMethodOptions } from '@aztec/aztec.js/contracts';
+import type {
+  ContractFunctionInteraction,
+  DeployMethod,
+  DeployOptions,
+  ProfileMethodOptions,
+} from '@aztec/aztec.js/contracts';
 import { createLogger } from '@aztec/foundation/log';
 import { serializeWitness } from '@aztec/noir-noirc_abi';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
@@ -31,7 +36,7 @@ async function _createClientIvcProofFiles(directory: string, executionSteps: Pri
 export async function capturePrivateExecutionStepsIfEnvSet(
   label: string,
   interaction: ContractFunctionInteraction | DeployMethod,
-  opts?: Omit<ProfileMethodOptions, 'profileMode'>,
+  opts?: Omit<ProfileMethodOptions & DeployOptions, 'profileMode'>,
 ) {
   // Not included in env_var.ts as internal to e2e tests.
   const ivcFolder = process.env.CAPTURE_IVC_FOLDER;

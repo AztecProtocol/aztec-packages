@@ -121,10 +121,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async profile(options: ProfileMethodOptions = { profileMode: 'gates' }): Promise<TxProfileResult> {
-    const { authWitnesses, capsules, fee } = options;
-
-    const txRequest = await this.create({ fee, authWitnesses, capsules });
+  public async profile(
+    options: DeployOptions & ProfileMethodOptions = { profileMode: 'gates' },
+  ): Promise<TxProfileResult> {
+    const txRequest = await this.create(options);
     return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
   }
 
