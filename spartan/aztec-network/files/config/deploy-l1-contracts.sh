@@ -71,6 +71,10 @@ for attempt in $(seq 1 $MAX_RETRIES); do
     base_cmd="$base_cmd --validators $VALIDATOR_ADDRESSES"
   fi
 
+  if [ "${ENABLE_SPONSORED_FPC:-false}" = "true" ]; then
+    base_cmd="$base_cmd --sponsored-fpc"
+  fi
+
   output=$(eval $base_cmd --l1-chain-id $CHAIN_ID --salt $SALT) && break
 
   echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."

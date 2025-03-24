@@ -29,6 +29,8 @@ export type AztecNodeConfig = ArchiverConfig &
     disableValidator: boolean;
     /** Whether to populate the genesis state with initial fee juice for the test accounts */
     testAccounts: boolean;
+    /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
+    enableSponsoredFpc: boolean;
   } & {
     l1Contracts: L1ContractAddresses;
   };
@@ -53,6 +55,11 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   testAccounts: {
     env: 'TEST_ACCOUNTS',
     description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
+    ...booleanConfigHelper(),
+  },
+  enableSponsoredFpc: {
+    env: 'ENABLE_SPONSORED_FPC',
+    description: 'Enable sponsored Fpc for boot node in networks',
     ...booleanConfigHelper(),
   },
 };

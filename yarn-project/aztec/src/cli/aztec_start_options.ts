@@ -273,6 +273,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(),
     },
+    {
+      flag: '--node.enableSponsoredFpc',
+      description: 'Enable sponsored Fpc for boot node in networks',
+      envVar: 'ENABLE_SPONSORED_FPC',
+      ...booleanConfigHelper(),
+    },
   ],
   'P2P SUBSYSTEM': [
     {

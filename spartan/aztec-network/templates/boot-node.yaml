@@ -113,6 +113,8 @@ spec:
               value: "{{ .Values.ethereum.l1FixedPriorityFeePerGas }}"
             - name: AZTEC_MANA_TARGET
               value: "{{ .Values.aztec.manaTarget }}"
+            - name: ENABLE_SPONSORED_FPC
+              value: "{{ .Values.aztec.enableSponsoredFpc }}"
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -230,6 +232,8 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: ENABLE_SPONSORED_FPC
+              value : "{{ .Values.aztec.enableSponsoredFpc }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}

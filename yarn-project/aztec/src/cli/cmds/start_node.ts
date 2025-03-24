@@ -15,6 +15,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
+import { getSponsoredFPCAddress } from '../../sandbox/sponsored_fpc.js';
 import { getL1Config } from '../get_l1_config.js';
 import { extractNamespacedOptions, extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
 
@@ -48,8 +49,9 @@ export async function startNode(
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
   const initialFundedAccounts = nodeConfig.testAccounts ? await getInitialTestAccounts() : [];
+  const sponsoredFPCAddress = nodeConfig.enableSponsoredFpc ? await getSponsoredFPCAddress() : [];
   const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
-    initialFundedAccounts.map(a => a.address),
+    initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
   );
 
   // Deploy contracts if needed
