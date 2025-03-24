@@ -1,5 +1,4 @@
-import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { mergeExecutionPayloads } from '@aztec/entrypoints/payload';
+import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
@@ -38,8 +37,14 @@ export class BatchCall extends BaseContractInteraction {
    * @returns An execution payload wrapped in promise.
    */
   public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
-    const requests = await this.getRequests(options);
-    return mergeExecutionPayloads(requests);
+    const requests = await this.getRequests();
+    const combinedPayload = mergeExecutionPayloads(requests);
+    return new ExecutionPayload(
+      combinedPayload.calls,
+      combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
+      combinedPayload.capsules.concat(options.capsules ?? []),
+      combinedPayload.extraHashedArgs,
+    );
   }
 
   /**
@@ -52,7 +57,7 @@ export class BatchCall extends BaseContractInteraction {
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
-    const { indexedExecutionPayloads, unconstrained } = (await this.getRequests(options)).reduce<{
+    const { indexedExecutionPayloads, unconstrained } = (await this.getRequests()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
       /** Keep track of the number of public calls to retrieve the return values */
@@ -79,7 +84,13 @@ export class BatchCall extends BaseContractInteraction {
     );
 
     const payloads = indexedExecutionPayloads.map(([request]) => request);
-    const requestWithoutFee = mergeExecutionPayloads(payloads);
+    const combinedPayload = mergeExecutionPayloads(payloads);
+    const requestWithoutFee = new ExecutionPayload(
+      combinedPayload.calls,
+      combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
+      combinedPayload.capsules.concat(options.capsules ?? []),
+      combinedPayload.extraHashedArgs,
+    );
     const { fee: userFee, nonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
     const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
@@ -117,7 +128,7 @@ export class BatchCall extends BaseContractInteraction {
     return results;
   }
 
-  private async getRequests(options: RequestMethodOptions = {}) {
-    return await Promise.all(this.calls.map(c => c.request(options)));
+  private async getRequests() {
+    return await Promise.all(this.calls.map(c => c.request()));
   }
 }
