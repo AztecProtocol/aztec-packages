@@ -108,6 +108,43 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     );
     expect(transferResult.revertCode.isOK()).toBe(true);
 
+    const balResult = await simTester.simulateTx(
+      sender,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: token.address,
+          fnName: 'balance_of_public',
+          args: [/*owner=*/ receiver],
+          isStaticCall: true,
+        },
+      ],
+      /*teardownCall=*/ undefined, // use default
+      /*feePayer=*/ undefined, // use default
+      /*firstNullifier=*/ undefined, // use default
+      /*globals=*/ undefined, // use default
+      /*metricsTag=*/ 'TokenContract.balance_of_public',
+    );
+    expect(balResult.revertCode.isOK()).toBe(true);
+
+    const burnResult = await simTester.simulateTx(
+      /*sender=*/ receiver,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: token.address,
+          fnName: 'burn_public',
+          args: [/*from=*/ receiver, transferAmount, nonce],
+        },
+      ],
+      /*teardownCall=*/ undefined, // use default
+      /*feePayer=*/ undefined, // use default
+      /*firstNullifier=*/ undefined, // use default
+      /*globals=*/ undefined, // use default
+      /*metricsTag=*/ 'TokenContract.burn_public',
+    );
+    expect(burnResult.revertCode.isOK()).toBe(true);
+
     const endTime = performance.now();
     logger.verbose(`BENCH: TokenContract public tx simulator test took ${endTime - startTime}ms\n`);
   });
