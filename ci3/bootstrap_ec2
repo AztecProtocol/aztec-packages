@@ -146,7 +146,7 @@ container_script=$(cat <<EOF
     sudo cat /tmp/netfile | ci3/cache_log 'netfile'
     sudo cat /tmp/cpufile | ci3/cache_log 'cpufile'
     sudo cat /tmp/memfile | ci3/cache_log 'memfile'
-    exit \$code
+    return \$code
   }
   export -f run
 
