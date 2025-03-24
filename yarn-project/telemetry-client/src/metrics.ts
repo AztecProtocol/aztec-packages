@@ -97,6 +97,7 @@ export const PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM = 'aztec.public_processor.tota
 export const PUBLIC_PROCESSOR_GAS_RATE = 'aztec.public_processor.gas_rate';
 export const PUBLIC_PROCESSOR_TREE_INSERTION = 'aztec.public_processor.tree_insertion';
 
+export const PUBLIC_EXECUTOR_PREFIX = 'aztec.public_executor.';
 export const PUBLIC_EXECUTOR_SIMULATION_COUNT = 'aztec.public_executor.simulation_count';
 export const PUBLIC_EXECUTOR_SIMULATION_DURATION = 'aztec.public_executor.simulation_duration';
 export const PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND = 'aztec.public_executor.simulation_mana_per_second';

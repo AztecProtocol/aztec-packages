@@ -9,6 +9,9 @@ import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
 import { join } from 'path';
 
+import { PUBLIC_EXECUTOR_PREFIX } from '../../../telemetry-client/src/metrics.js';
+import { PublicTxSimulator } from '../server.js';
+
 let telemetry: BenchmarkTelemetryClient | undefined = undefined;
 //function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}): BenchmarkTelemetryClient {
 function getTelemetryClient(): BenchmarkTelemetryClient {
@@ -42,7 +45,7 @@ export function benchmarkSetup(
     await telemetryClient.flush();
     const data = telemetryClient.getMeters();
     const formatted = formatMetricsForGithubBenchmarkAction(data, metrics);
-    printMetricsAsTable(data, metrics, logger);
+    printMetrics(data, metrics, logger);
     if (formatted.length === 0) {
       throw new Error(`No benchmark data generated. Please review your test setup.`);
     }
@@ -100,145 +103,48 @@ function formatMetricsForGithubBenchmarkAction(
   });
 }
 
-export const TableStyle = {
-  leftOutline: '| ',
-  rightOutline: ' |',
-  topOutlineColumnBorder: '-+-',
-  bottomOutlineColumnBorder: '-+-',
-  topLeftOutline: '+-',
-  bottomLeftOutline: '+-',
-  topRightOutline: '-+',
-  bottomRightOutline: '-+',
-  horizontalOutline: '-',
-  leftOutlineRowBorder: '+-',
-  rightOutlineRowBorder: '-+',
-  leftHeaderRowBorder: '+-',
-  rightHeaderRowBorder: '-+',
-  headerBorder: '-',
-  headerBorderCrossing: '-+-',
-  headerNoBorderCrossing: '--',
-  outlineNoBorderCrossing: '--',
-};
+// strip prefixes
+function stripMetricPrefix(metric: string) {
+  return metric.replace(PUBLIC_EXECUTOR_PREFIX, '');
+}
+function stripPublicTxSimulatorPrefix(metric: string) {
+  return metric.replace('PublicTxSimulator.', '');
+}
 
-function printMetricsAsTable(data: BenchmarkMetricsType, filter: (MetricsType | MetricFilter)[], logger: Logger) {
+/**
+ * Prints metrics in the format: <meter name>: <metric0 & units>, <metric1 & units>
+ */
+export function printMetrics(data: BenchmarkMetricsType, filter: (MetricsType | MetricFilter)[], logger: Logger) {
   const allFilters: MetricFilter[] = filter.map(f =>
     typeof f === 'string' ? { name: f, source: f, transform: (x: number) => x, unit: undefined } : f,
   );
 
-  // First, find all unique metrics
-  const uniqueMetrics = new Set<string>();
+  let nonEmpty = false;
   for (const meter of data) {
-    const filteredMetrics = meter.metrics.filter(metric =>
-      allFilters.map(f => f.source).includes(metric.name as MetricsType),
-    );
-    for (const metric of filteredMetrics) {
-      uniqueMetrics.add(metric.name);
-    }
-  }
-  const uniqueMetricsArray = Array.from(uniqueMetrics);
-
-  // Group data by meter
-  const meterData: Record<string, Record<string, { value: number; unit: string }>> = {};
-
-  for (const meter of data) {
-    const metricsForMeter: Record<string, { value: number; unit: string }> = {};
-
+    const entries = [];
     for (const metric of meter.metrics) {
       if (allFilters.map(f => f.source).includes(metric.name as MetricsType)) {
         const filter = allFilters.find(f => f.source === metric.name)!;
         const values = getMetricValues(metric.points.map(p => ({ ...p, value: filter.transform(p.value) })));
         if (values.value !== undefined) {
-          metricsForMeter[metric.name] = {
-            value: values.value,
-            unit: filter.unit ?? metric.unit ?? 'unknown',
-          };
+          const unit = filter.unit ?? metric.unit ?? '';
+          entries.push(`${stripMetricPrefix(metric.name)}: ${values.value} ${unit}`);
         }
       }
     }
 
-    if (Object.keys(metricsForMeter).length > 0) {
-      meterData[meter.name] = metricsForMeter;
-    }
-  }
-
-  // If no data, return early
-  if (Object.keys(meterData).length === 0) {
-    logger.info('No metrics data to display.');
-    return;
-  }
-
-  // Calculate column widths
-  const meterWidth = Math.max(10, ...Object.keys(meterData).map(name => name.length));
-  const metricWidths: Record<string, number> = {};
-
-  for (const metric of uniqueMetricsArray) {
-    // Calculate width based on metric name and values
-    const valueWidths = Object.values(meterData)
-      .filter(m => m[metric])
-      .map(m => {
-        const formattedValue = `${m[metric].value.toFixed(2)} ${m[metric].unit}`;
-        return formattedValue.length;
-      });
-
-    metricWidths[metric] = Math.max(metric.length, ...valueWidths);
-  }
-
-  // Define a single character for all vertical separators
-  const verticalSeparator = TableStyle.leftOutline.trimEnd();
-
-  // Build the top border
-  let topBorder = TableStyle.topLeftOutline + TableStyle.horizontalOutline.repeat(meterWidth);
-  for (const metric of uniqueMetricsArray) {
-    topBorder += TableStyle.topOutlineColumnBorder + TableStyle.horizontalOutline.repeat(metricWidths[metric]);
-  }
-  topBorder += TableStyle.topRightOutline;
-
-  // Build the header row
-  let headerRow = verticalSeparator + ' ' + 'Meter'.padEnd(meterWidth) + ' ';
-  for (const metric of uniqueMetricsArray) {
-    headerRow += verticalSeparator + ' ' + metric.padEnd(metricWidths[metric] - 1) + ' ';
-  }
-  headerRow += verticalSeparator;
-
-  // Build the separator
-  let headerSeparator = TableStyle.leftHeaderRowBorder + TableStyle.headerBorder.repeat(meterWidth);
-  for (const metric of uniqueMetricsArray) {
-    headerSeparator += TableStyle.headerBorderCrossing + TableStyle.headerBorder.repeat(metricWidths[metric]);
-  }
-  headerSeparator += TableStyle.rightHeaderRowBorder;
-
-  // Build the bottom border
-  let bottomBorder = TableStyle.bottomLeftOutline + TableStyle.horizontalOutline.repeat(meterWidth);
-  for (const metric of uniqueMetricsArray) {
-    bottomBorder += TableStyle.bottomOutlineColumnBorder + TableStyle.horizontalOutline.repeat(metricWidths[metric]);
-  }
-  bottomBorder += TableStyle.bottomRightOutline;
-
-  // Output the table
-  logger.info(topBorder);
-  logger.info(headerRow);
-  logger.info(headerSeparator);
-
-  // Output data rows
-  for (const [meterName, metrics] of Object.entries(meterData)) {
-    let row = verticalSeparator + ' ' + meterName.padEnd(meterWidth) + ' ';
-
-    for (const metricName of uniqueMetricsArray) {
-      const metricData = metrics[metricName];
-      if (metricData) {
-        const formattedValue = `${metricData.value.toFixed(2)} ${metricData.unit}`;
-        row += verticalSeparator + ' ' + formattedValue.padEnd(metricWidths[metricName]) + ' ';
-      } else {
-        row += verticalSeparator + ' ' + '-'.repeat(metricWidths[metricName]) + ' ';
+    if (entries.length > 0) {
+      logger.info(`--------------------------------------------------------------------------------`);
+      logger.info(`${stripPublicTxSimulatorPrefix(meter.name)}:`);
+      for (const entry of entries) {
+        logger.info(`\t${entry}`);
       }
+      nonEmpty = true;
     }
-
-    row += verticalSeparator;
-    logger.info(row);
   }
-
-  // Output bottom border
-  logger.info(bottomBorder);
+  if (nonEmpty) {
+    logger.info(`--------------------------------------------------------------------------------`);
+  }
 }
 
 function getMetricValues(points: BenchmarkDataPoint[]) {

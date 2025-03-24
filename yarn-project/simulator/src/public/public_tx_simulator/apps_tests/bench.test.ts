@@ -1,3 +1,4 @@
+import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
@@ -9,7 +10,6 @@ import { Metrics } from '@aztec/telemetry-client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { benchmarkSetup } from '../../../test/bench.js';
-import { randomMemoryBytes } from '../../avm/fixtures/index.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('Public TX simulator apps tests: benchmarks', () => {
@@ -166,77 +166,129 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       );
     });
 
-    it(`sha256_hash_100`, async () => {
+    describe.each(
+      // sha sizes
+      [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 255, 256, 511, 512, 2048],
+    )('sha256_hash_%s', (length: number) => {
+      it(`sha256_hash_${length}`, async () => {
+        const result = await simTester.simulateTx(
+          /*sender=*/ deployer,
+          /*setupCalls=*/ [],
+          /*appCalls=*/ [
+            {
+              address: avmGadgetsTestContract.address,
+              fnName: `sha256_hash_${length}`,
+              args: [/*input=*/ Array.from({ length: length }, () => randomInt(2 ** 8))],
+            },
+          ],
+          /*teardownCall=*/ undefined, // use default
+          /*feePayer=*/ undefined, // use default
+          /*firstNullifier=*/ undefined, // use default
+          /*globals=*/ undefined, // use default
+          /*metricsTag=*/ `AvmGadgetsTestContract.sha256_hash_${length}`,
+        );
+        expect(result.revertCode.isOK()).toBe(true);
+      });
+    });
+
+    it('keccak_hash', async () => {
       const result = await simTester.simulateTx(
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
           {
             address: avmGadgetsTestContract.address,
-            fnName: 'sha256_hash_100',
-            args: [/*input=*/ randomMemoryBytes(100).map(e => e.toFr())],
+            fnName: 'keccak_hash',
+            args: [/*input=*/ Array.from({ length: 10 }, () => randomInt(2 ** 8))],
           },
         ],
         /*teardownCall=*/ undefined, // use default
         /*feePayer=*/ undefined, // use default
         /*firstNullifier=*/ undefined, // use default
         /*globals=*/ undefined, // use default
-        /*metricsTag=*/ 'AvmGadgetsTestContract.sha256_hash_100',
+        /*metricsTag=*/ 'AvmGadgetsTestContract.keccak_hash',
       );
       expect(result.revertCode.isOK()).toBe(true);
     });
 
-    it(`sha256_hash_2048`, async () => {
+    it('keccak_f1600', async () => {
       const result = await simTester.simulateTx(
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
           {
             address: avmGadgetsTestContract.address,
-            fnName: 'sha256_hash_2048',
-            args: [/*input=*/ randomMemoryBytes(2048).map(e => e.toFr())],
+            fnName: 'keccak_f1600',
+            args: [/*input=*/ Array.from({ length: 25 }, () => randomInt(2 ** 32))],
           },
         ],
         /*teardownCall=*/ undefined, // use default
         /*feePayer=*/ undefined, // use default
         /*firstNullifier=*/ undefined, // use default
         /*globals=*/ undefined, // use default
-        /*metricsTag=*/ 'AvmGadgetsTestContract.sha256_hash_2048',
+        /*metricsTag=*/ 'AvmGadgetsTestContract.keccak_f1600',
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('poseidon2_hash', async () => {
+      const result = await simTester.simulateTx(
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'poseidon2_hash',
+            args: [/*input=*/ Array.from({ length: 10 }, () => Fr.random())],
+          },
+        ],
+        /*teardownCall=*/ undefined, // use default
+        /*feePayer=*/ undefined, // use default
+        /*firstNullifier=*/ undefined, // use default
+        /*globals=*/ undefined, // use default
+        /*metricsTag=*/ 'AvmGadgetsTestContract.poseidon2_hash',
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('pedersen_hash', async () => {
+      const result = await simTester.simulateTx(
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'pedersen_hash',
+            args: [/*input=*/ Array.from({ length: 10 }, () => Fr.random())],
+          },
+        ],
+        /*teardownCall=*/ undefined, // use default
+        /*feePayer=*/ undefined, // use default
+        /*firstNullifier=*/ undefined, // use default
+        /*globals=*/ undefined, // use default
+        /*metricsTag=*/ 'AvmGadgetsTestContract.pedersen_hash',
+      );
+      expect(result.revertCode.isOK()).toBe(true);
+    });
+
+    it('pedersen_hash_with_index', async () => {
+      const result = await simTester.simulateTx(
+        /*sender=*/ deployer,
+        /*setupCalls=*/ [],
+        /*appCalls=*/ [
+          {
+            address: avmGadgetsTestContract.address,
+            fnName: 'pedersen_hash_with_index',
+            args: [/*input=*/ Array.from({ length: 10 }, () => Fr.random())],
+          },
+        ],
+        /*teardownCall=*/ undefined, // use default
+        /*feePayer=*/ undefined, // use default
+        /*firstNullifier=*/ undefined, // use default
+        /*globals=*/ undefined, // use default
+        /*metricsTag=*/ 'AvmGadgetsTestContract.pedersen_hash_with_index',
       );
       expect(result.revertCode.isOK()).toBe(true);
     });
   });
-
-  //describe.each([
-  //  ['sha256_hash_10', /*input=*/ randomMemoryBytes(10)],
-  //  ['sha256_hash_20', /*input=*/ randomMemoryBytes(20)],
-  //  ['sha256_hash_30', /*input=*/ randomMemoryBytes(30)],
-  //  ['sha256_hash_40', /*input=*/ randomMemoryBytes(40)],
-  //  ['sha256_hash_50', /*input=*/ randomMemoryBytes(50)],
-  //  ['sha256_hash_60', /*input=*/ randomMemoryBytes(60)],
-  //  ['sha256_hash_70', /*input=*/ randomMemoryBytes(70)],
-  //  ['sha256_hash_80', /*input=*/ randomMemoryBytes(80)],
-  //  ['sha256_hash_90', /*input=*/ randomMemoryBytes(90)],
-  //  ['sha256_hash_100', /*input=*/ randomMemoryBytes(100)],
-  //  ['sha256_hash_255', /*input=*/ randomMemoryBytes(255)],
-  //  ['sha256_hash_256', /*input=*/ randomMemoryBytes(256)],
-  //  ['sha256_hash_511', /*input=*/ randomMemoryBytes(511)],
-  //  ['sha256_hash_512', /*input=*/ randomMemoryBytes(512)],
-  //  ['sha256_hash_2048', /*input=*/ randomMemoryBytes(2048)],
-  //  ['keccak_hash', /*input=*/ randomMemoryBytes(10)],
-  //  ['keccak_f1600', /*input=*/ randomMemoryUint64s(25)],
-  //  ['poseidon2_hash', /*input=*/ randomMemoryFields(10)],
-  //  ['pedersen_hash', /*input=*/ randomMemoryFields(10)],
-  //  ['pedersen_hash_with_index', /*input=*/ randomMemoryFields(10)],
-  //])('Hashes in noir contracts', (name: string, input: MemoryValue[]) => {
-  //  it(`Should execute contract function that performs ${name} on input of length ${input.length}`, async () => {
-  //    const calldata = input.map(e => e.toFr());
-
-  //    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-  //    const bytecode = getAvmGadgetsTestContractBytecode(name);
-  //    const results = await new AvmSimulator(context).executeBytecode(bytecode);
-
-  //    expect(results.reverted).toBe(false);
-  //  });
-  //});
 });
