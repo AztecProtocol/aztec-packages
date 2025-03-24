@@ -91,10 +91,8 @@ spec:
               cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
-              {{- else if .Values.network.public }}
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- else }}
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               until curl -s ${AZTEC_NODE_URL}/status; do echo waiting for aztec-node; sleep 2; done
@@ -119,14 +117,12 @@ spec:
               source /shared/config/otel-resource
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
-              {{- else if .Values.network.public }}
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- else }}
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
 
-              export BOT_SENDER_SALT=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF+1}') # +1 so that salt is not 0
+              export BOT_ACCOUNT_SALT=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF+1}') # +1 so that salt is not 0
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
           env:
             - name: K8S_POD_UID
