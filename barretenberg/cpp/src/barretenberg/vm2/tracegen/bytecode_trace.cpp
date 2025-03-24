@@ -284,11 +284,15 @@ void BytecodeTraceBuilder::process_instruction_fetching(
             exec_opcode = wire_instr_spec.exec_opcode;
             op_dc_selectors = wire_instr_spec.op_dc_selectors;
 
-            if (wire_instr_spec.has_tag) {
+            if (wire_instr_spec.tag_operand_idx.has_value()) {
+                const auto tag_value_idx = wire_instr_spec.tag_operand_idx.value();
+                assert((tag_value_idx == 2 || tag_value_idx == 3) &&
+                       "Current constraints support only tag for operand index equal to 2 or 3");
                 has_tag = 1;
-                if (wire_instr_spec.tag_is_op2) {
+
+                if (tag_value_idx == 2) {
                     tag_is_op2 = 1;
-                    tag_value = static_cast<uint8_t>(get_operand(1));
+                    tag_value = static_cast<uint8_t>(get_operand(1)); // in instruction.operands, op2 has index 1
                 } else {
                     tag_value = static_cast<uint8_t>(get_operand(2));
                 }

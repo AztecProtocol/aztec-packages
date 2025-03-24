@@ -458,8 +458,8 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
     for (size_t i = 0; i < num_of_opcodes; i++) {
         const auto pc = pcs.at(i);
         const auto instr_size = WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).size_in_bytes;
-        const auto has_tag = WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).has_tag;
-        const auto tag_is_op2 = WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).tag_is_op2;
+        const auto has_tag = WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).tag_operand_idx.has_value();
+        const auto tag_is_op2 = has_tag ? WIRE_INSTRUCTION_SPEC.at(opcodes.at(i)).tag_operand_idx.value() == 2 : 0;
         const auto bytes_remaining = bytecode_size - pc;
         const auto bytes_to_read = std::min<size_t>(DECOMPOSE_WINDOW_SIZE, bytes_remaining);
 

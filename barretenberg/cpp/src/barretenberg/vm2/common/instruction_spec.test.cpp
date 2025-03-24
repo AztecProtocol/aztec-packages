@@ -47,9 +47,9 @@ TEST(InstructionSpecTest, CheckAllInstructionsTagInformation)
         const auto tag_counts = std::count(operands.begin(), operands.end(), simulation::OperandType::TAG);
         const auto& wire_instruction_spec = WIRE_INSTRUCTION_SPEC.at(wire_opcode);
 
-        if (wire_instruction_spec.has_tag) {
+        if (wire_instruction_spec.tag_operand_idx.has_value()) {
             EXPECT_EQ(tag_counts, 1);
-            if (wire_instruction_spec.tag_is_op2) {
+            if (wire_instruction_spec.tag_operand_idx.value() == 2) {
                 EXPECT_EQ(operands.at(2), simulation::OperandType::TAG);
             } else {
                 EXPECT_EQ(operands.at(3), simulation::OperandType::TAG);

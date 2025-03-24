@@ -218,12 +218,14 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
                   static_cast<uint32_t>(wire_opcode),
                   static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
         trace.set(C::precomputed_instr_size, static_cast<uint32_t>(wire_opcode), wire_instruction_spec.size_in_bytes);
-        trace.set(C::precomputed_sel_has_tag,
-                  static_cast<uint32_t>(wire_opcode),
-                  static_cast<uint32_t>(wire_instruction_spec.has_tag));
-        trace.set(C::precomputed_sel_tag_is_op2,
-                  static_cast<uint32_t>(wire_opcode),
-                  static_cast<uint32_t>(wire_instruction_spec.tag_is_op2));
+
+        if (wire_instruction_spec.tag_operand_idx.has_value()) {
+            trace.set(C::precomputed_sel_has_tag, static_cast<uint32_t>(wire_opcode), 1);
+
+            if (wire_instruction_spec.tag_operand_idx.value() == 2) {
+                trace.set(C::precomputed_sel_tag_is_op2, static_cast<uint32_t>(wire_opcode), 1);
+            }
+        }
     }
 }
 

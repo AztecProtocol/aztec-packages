@@ -200,16 +200,14 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
           .exec_opcode = ExecutionOpCode::CAST,
           .size_in_bytes = 5,
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::CAST_8),
-          .has_tag = true,
-          .tag_is_op2 = false,
+          .tag_operand_idx = 3, // op3
       } },
     { WireOpCode::CAST_16,
       {
           .exec_opcode = ExecutionOpCode::CAST,
           .size_in_bytes = 7,
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::CAST_16),
-          .has_tag = true,
-          .tag_is_op2 = false,
+          .tag_operand_idx = 3, // op3
       } },
     { WireOpCode::GETENVVAR_16,
       { .exec_opcode = ExecutionOpCode::GETENVVAR,
@@ -252,48 +250,42 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
           .exec_opcode = ExecutionOpCode::SET,
           .size_in_bytes = 5,
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::SET_8),
-          .has_tag = true,
-          .tag_is_op2 = true,
+          .tag_operand_idx = 2, // op2
       } },
     { WireOpCode::SET_16,
       {
           .exec_opcode = ExecutionOpCode::SET,
           .size_in_bytes = 7,
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::SET_16),
-          .has_tag = true,
-          .tag_is_op2 = true,
+          .tag_operand_idx = 2, // op2
       } },
     { WireOpCode::SET_32,
       {
           .exec_opcode = ExecutionOpCode::SET,
           .size_in_bytes = 9,
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::SET_32),
-          .has_tag = true,
-          .tag_is_op2 = true,
+          .tag_operand_idx = 2, // op2
       } },
     { WireOpCode::SET_64,
       {
           .exec_opcode = ExecutionOpCode::SET,
           .size_in_bytes = 13,
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::SET_64),
-          .has_tag = true,
-          .tag_is_op2 = true,
+          .tag_operand_idx = 2, // op2
       } },
     { WireOpCode::SET_128,
       {
           .exec_opcode = ExecutionOpCode::SET,
           .size_in_bytes = 21,
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::SET_128),
-          .has_tag = true,
-          .tag_is_op2 = true,
+          .tag_operand_idx = 2, // op2
       } },
     { WireOpCode::SET_FF,
       {
           .exec_opcode = ExecutionOpCode::SET,
           .size_in_bytes = 37,
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::SET_FF),
-          .has_tag = true,
-          .tag_is_op2 = true,
+          .tag_operand_idx = 2, // op2
       } },
     { WireOpCode::MOV_8,
       { .exec_opcode = ExecutionOpCode::MOV,

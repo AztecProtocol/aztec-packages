@@ -33,7 +33,6 @@ pol commit parsing_err;
 parsing_err = 1 - (1 - parsing_err_no_tag) * (1 - tag_out_of_range);
 // parsing_err is a boolean by definition (followed from above formula)
 
-// TODO: consider to create an extra column to decrease degree for XXX_BYTES_DECOMPOSITION sub-relations.
 pol commit parsing_err_no_tag;
 parsing_err_no_tag = 1 - (1 - pc_out_of_range) * (1 - instr_out_of_range) * (1 - opcode_out_of_range);
 
