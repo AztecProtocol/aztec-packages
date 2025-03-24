@@ -12,7 +12,9 @@ interface PrivateEventEntry {
 
 export class PrivateEventDataProvider implements DataProvider {
   #store: AztecAsyncKVStore;
+  /** Array storing the actual private event log entries containing the log content and block number */
   #eventLogs: AztecAsyncArray<PrivateEventEntry>;
+  /** Map from contract_address_recipient to array of indices into #eventLogs for efficient lookup */
   #eventLogIndex: AztecAsyncMap<string, number[]>;
 
   logger = createLogger('private_event_data_provider');
@@ -23,6 +25,13 @@ export class PrivateEventDataProvider implements DataProvider {
     this.#eventLogIndex = this.#store.openMap('private_event_log_index');
   }
 
+  /**
+   * Store a private event log in the data provider.
+   * @param contractAddress - The address of the contract that emitted the event.
+   * @param recipient - The recipient of the event.
+   * @param logContent - The content of the event.
+   * @param blockNumber - The block number in which the event was emitted.
+   */
   storePrivateEventLog(
     contractAddress: AztecAddress,
     recipient: AztecAddress,

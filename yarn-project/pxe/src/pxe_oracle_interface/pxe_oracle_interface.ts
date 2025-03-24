@@ -855,6 +855,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   ): Promise<void> {
     const txReceipt = await this.aztecNode.getTxReceipt(txHash);
     const blockNumber = txReceipt.blockNumber;
+    if (blockNumber === undefined) {
+      throw new Error(`Block number is undefined for tx ${txHash} in storePrivateEventLog`);
+    }
     return this.privateEventDataProvider.storePrivateEventLog(contractAddress, recipient, logContent, blockNumber);
   }
 }

@@ -106,47 +106,44 @@ describe('Logs', () => {
       const numBlocks = lastBlockNumber - firstBlockNumber + 1;
 
       // We get all the events we can decrypt with our incoming viewing keys
-
+      // Each emit_encrypted_events call emits 2 ExampleEvent0s and 1 ExampleEvent1
+      // So with 5 calls we expect 10 ExampleEvent0s and 5 ExampleEvent1s
       const collectedEvent0s = await wallets[0].getPrivateEvents<ExampleEvent0>(
+        testLogContract.address,
         TestLogContract.events.ExampleEvent0,
         firstBlockNumber,
         numBlocks,
-      );
-
-      const collectedEvent0sWithIncoming = await wallets[0].getPrivateEvents<ExampleEvent0>(
-        TestLogContract.events.ExampleEvent0,
-        firstBlockNumber,
-        numBlocks,
-        // This function can be called specifying the viewing public keys associated with the encrypted event.
-        [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
+        [wallets[0].getAddress(), wallets[1].getAddress()],
       );
 
       const collectedEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
+        testLogContract.address,
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
         numBlocks,
-        [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
+        [wallets[0].getAddress(), wallets[1].getAddress()],
       );
 
-      expect(collectedEvent0sWithIncoming.length).toBe(5);
-      expect(collectedEvent0s.length).toBe(5);
-      expect(collectedEvent1s.length).toBe(5);
+      expect(collectedEvent0s.length).toBe(10); // 2 events per tx * 5 txs
+      expect(collectedEvent1s.length).toBe(5); // 1 event per tx * 5 txs
 
       const emptyEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
+        testLogContract.address,
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
         numBlocks,
-        [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
+        [wallets[0].getAddress()],
       );
 
-      expect(emptyEvent1s.length).toBe(0);
+      expect(emptyEvent1s.length).toBe(5); // Events sent to msg_sender()
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
-      expect(collectedEvent0sWithIncoming.sort(exampleEvent0Sort)).toStrictEqual(
-        preimages
-          .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
-          .sort(exampleEvent0Sort),
-      );
+      // Each preimage is used twice for ExampleEvent0
+      const expectedEvent0s = [...preimages, ...preimages].map(preimage => ({
+        value0: preimage[0].toBigInt(),
+        value1: preimage[1].toBigInt(),
+      }));
+      expect(collectedEvent0s.sort(exampleEvent0Sort)).toStrictEqual(expectedEvent0s.sort(exampleEvent0Sort));
 
       const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);
       expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
