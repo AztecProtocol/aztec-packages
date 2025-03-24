@@ -144,6 +144,8 @@ container_script=$(cat <<EOF
     local code=\${PIPESTATUS[0]}
     sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
     sudo cat /tmp/netfile | ci3/cache_log 'netfile'
+    sudo cat /tmp/cpufile | ci3/cache_log 'cpufile'
+    sudo cat /tmp/memfile | ci3/cache_log 'memfile'
     exit \$code
   }
   export -f run
@@ -190,7 +192,13 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   sudo apt-get install -y sysdig &>/dev/null
   sudo sysdig -p '%evt.time %proc.cmdline %evt.dir %evt.type %evt.args' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
   netfile_pid=\$!
-  trap 'sudo kill \$netfile_pid' EXIT
+  # Capture cpu load.
+  mpstat 2 &> /tmp/cpufile &
+  cpufile_pid=\$!
+  # Capture mem load.
+  vmstat -w -S M 2 &> /tmp/memfile &
+  memfile_pid=\$!
+  trap 'sudo kill \$netfile_pid \$cpufile_pid \$memfile_pid' EXIT
 
   echo Starting devbox...
   docker run --privileged ${docker_args:-} \
