@@ -98,13 +98,13 @@ if [ -t 1 ]; then
   ssh_args="-t"
   docker_args+=" -t"
   if [ "$NO_TERMINATE" -eq 0 ]; then
-    cmd+=" || exec zsh"
+    run_cmd="run || exec zsh"
   else
-    cmd+="; exec zsh"
+    run_cmd="run; exec zsh"
   fi
 else
   # LOG_ID can optionally be set externally to be e.g. the GA run id.
-  cmd="ci3/aws_handle_evict '$cmd' 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
+  run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
 container_script=$(cat <<EOF
@@ -136,13 +136,20 @@ container_script=$(cat <<EOF
   if semver check "\$REF_NAME"; then
     echo "Performing a release because \$REF_NAME is a semver."
   fi
-  set +e
-  set -x
-  $cmd
-  code=\${PIPESTATUS[0]}
 
-  sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
-  sudo cat /tmp/netfile | ci3/cache_log 'netfile'
+  function run {
+    set +e
+    set -x
+    $cmd
+    local code=\${PIPESTATUS[0]}
+    sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
+    sudo cat /tmp/netfile | ci3/cache_log 'netfile'
+    exit \$code
+  }
+  export -f run
+
+  $run_cmd
+  code=\${PIPESTATUS[0]}
 
   case \$code in
     155) ;;
