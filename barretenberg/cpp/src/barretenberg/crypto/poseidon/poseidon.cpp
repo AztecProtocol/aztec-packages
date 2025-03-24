@@ -58,7 +58,7 @@ PoseidonHash poseidon_stark252(const std::vector<uint8_t>& input)
     using Poseidon = Poseidon<PoseidonStark252BaseFieldParams>;
     using FF = Poseidon::FF;
 
-    FF iv = FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")); // "StarknetHonk" 
+    FF iv = FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")); // "StarknetHonk"
 
     size_t elem_count = input.size() / 32;
     std::vector<FF> elems(2 * (1 + elem_count));
