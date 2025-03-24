@@ -1,4 +1,5 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -101,8 +102,10 @@ export async function startProverNode(
 
   await preloadCrsDataForVerifying(proverConfig, userLog);
 
-  const initialFundedAccounts = proverConfig.testAccounts ? await getInitialTestAccounts() : [];
-  const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = [...testAccounts, ...sponsoredFPCAccounts];
+  const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];

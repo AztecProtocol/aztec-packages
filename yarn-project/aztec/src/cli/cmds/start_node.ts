@@ -1,5 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
+import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
@@ -47,10 +48,11 @@ export async function startNode(
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  const initialFundedAccounts = nodeConfig.testAccounts ? await getInitialTestAccounts() : [];
-  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
-    initialFundedAccounts.map(a => a.address),
-  );
+  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = [...testAccounts, ...sponsoredFPCAccounts];
+
+  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
   // Deploy contracts if needed
   if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {
