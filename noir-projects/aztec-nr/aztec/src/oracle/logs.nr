@@ -18,16 +18,18 @@ unconstrained fn notify_created_contract_class_log_private_oracle<let N: u32>(
 ) {}
 
 pub unconstrained fn store_private_event_log(
+    tag: Field,
     contract_address: AztecAddress,
     recipient: AztecAddress,
     log_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,
     tx_hash: Field,
 ) {
-    store_private_event_log_oracle(contract_address, recipient, log_content, tx_hash)
+    store_private_event_log_oracle(tag, contract_address, recipient, log_content, tx_hash)
 }
 
 #[oracle(storePrivateEventLog)]
 unconstrained fn store_private_event_log_oracle(
+    tag: Field,
     contract_address: AztecAddress,
     recipient: AztecAddress,
     log_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,

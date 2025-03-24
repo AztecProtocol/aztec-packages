@@ -17,6 +17,8 @@ export class PrivateEventDataProvider implements DataProvider {
   #eventLogs: AztecAsyncArray<PrivateEventEntry>;
   /** Map from contract_address_recipient to array of indices into #eventLogs for efficient lookup */
   #eventLogIndex: AztecAsyncMap<string, number[]>;
+  /** Map from tag to event log content for duplicate detection */
+  #tagToContent: AztecAsyncMap<string, Buffer>;
 
   logger = createLogger('private_event_data_provider');
 
@@ -24,16 +26,19 @@ export class PrivateEventDataProvider implements DataProvider {
     this.#store = store;
     this.#eventLogs = this.#store.openArray('private_event_logs');
     this.#eventLogIndex = this.#store.openMap('private_event_log_index');
+    this.#tagToContent = this.#store.openMap('tag_to_content');
   }
 
   /**
    * Store a private event log in the data provider.
+   * @param tag - The tag of the event log.
    * @param contractAddress - The address of the contract that emitted the event.
    * @param recipient - The recipient of the event.
    * @param logContent - The content of the event.
    * @param blockNumber - The block number in which the event was emitted.
    */
   storePrivateEventLog(
+    tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     logContent: Fr[],
@@ -43,12 +48,28 @@ export class PrivateEventDataProvider implements DataProvider {
     return this.#store.transactionAsync(async () => {
       const key = `${contractAddress.toString()}_${recipient.toString()}`;
       const logBuffer = serializeToBuffer(logContent);
+      const tagStr = tag.toString();
+
+      // Check if event with this tag already exists
+      const existingContent = await this.#tagToContent.getAsync(tagStr);
+      if (existingContent) {
+        // Compare content
+        if (existingContent.equals(logBuffer)) {
+          this.logger.warn('Ignoring duplicate event with same tag and content', { tag: tagStr });
+          return;
+        } else {
+          this.logger.warn('Event with same tag but different content detected', { tag: tagStr });
+        }
+      }
 
       const index = await this.#eventLogs.lengthAsync();
       await this.#eventLogs.push({ logContent: logBuffer, blockNumber });
 
       const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
       await this.#eventLogIndex.set(key, [...existingIndices, index]);
+
+      // Store tag->content mapping
+      await this.#tagToContent.set(tagStr, logBuffer);
     });
   }
 

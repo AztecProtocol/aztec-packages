@@ -59,9 +59,8 @@ pub unconstrained fn do_process_log<Env>(
 ) {
     debug_log_format("Processing log with tag {0}", [log.get(0)]);
 
-    // The tag is ignored for now.
+    // AES128::decrypt_log(...) expects to receive the log without the tag.
     let ciphertext = array::subbvec(log, 1);
-
     let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
@@ -89,8 +88,10 @@ pub unconstrained fn do_process_log<Env>(
     } else if log_type_id == PRIVATE_EVENT_LOG_TYPE_ID {
         debug_log("Processing private event log");
 
+        let tag = log.get(0);
+
         // Log metadata are currently not used by event logs.
-        store_private_event_log(contract_address, recipient, log_content, tx_hash);
+        store_private_event_log(tag, contract_address, recipient, log_content, tx_hash);
     } else {
         // TODO(#11569): handle events
         debug_log_format(

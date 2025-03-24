@@ -378,11 +378,12 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
   }
 
   public override storePrivateEventLog(
+    tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     logContent: Fr[],
     txHash: TxHash,
   ): Promise<void> {
-    return this.executionDataProvider.storePrivateEventLog(contractAddress, recipient, logContent, txHash);
+    return this.executionDataProvider.storePrivateEventLog(tag, contractAddress, recipient, logContent, txHash);
   }
 }

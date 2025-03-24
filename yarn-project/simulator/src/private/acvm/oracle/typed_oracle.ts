@@ -260,6 +260,7 @@ export abstract class TypedOracle {
   }
 
   storePrivateEventLog(
+    _tag: Fr,
     _contractAddress: AztecAddress,
     _recipient: AztecAddress,
     _logContent: Fr[],

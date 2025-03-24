@@ -848,6 +848,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   async storePrivateEventLog(
+    tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     logContent: Fr[],
@@ -858,7 +859,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     if (blockNumber === undefined) {
       throw new Error(`Block number is undefined for tx ${txHash} in storePrivateEventLog`);
     }
-    return this.privateEventDataProvider.storePrivateEventLog(contractAddress, recipient, logContent, blockNumber);
+    return this.privateEventDataProvider.storePrivateEventLog(tag, contractAddress, recipient, logContent, blockNumber);
   }
 }
 

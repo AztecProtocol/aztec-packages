@@ -328,12 +328,14 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
 
   /**
    * Stores an event log in the database.
+   * @param tag - The tag of the event log.
    * @param contractAddress - The address of the contract that emitted the log.
    * @param recipient - The address of the recipient.
    * @param logContent - The content of the private event log.
    * @param txHash - The hash of the transaction that emitted the log.
    */
   storePrivateEventLog(
+    tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     logContent: Fr[],

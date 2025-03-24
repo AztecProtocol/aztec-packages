@@ -493,6 +493,7 @@ export class Oracle {
   }
 
   async storePrivateEventLog(
+    [tag]: ACVMField[],
     [contractAddress]: ACVMField[],
     [recipient]: ACVMField[],
     logContentBVecStorage: ACVMField[],
@@ -500,6 +501,7 @@ export class Oracle {
     [txHash]: ACVMField[],
   ) {
     await this.typedOracle.storePrivateEventLog(
+      Fr.fromString(tag),
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       AztecAddress.fromField(Fr.fromString(recipient)),
       fromBoundedVec(logContentBVecStorage, logContentLength),
