@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -41,7 +42,7 @@ export class PrivateEventDataProvider implements DataProvider {
     this.logger.verbose('storing private event log', { contractAddress, recipient, logContent, blockNumber });
     return this.#store.transactionAsync(async () => {
       const key = `${contractAddress.toString()}_${recipient.toString()}`;
-      const logBuffer = Buffer.concat(logContent.map(fr => fr.toBuffer()));
+      const logBuffer = serializeToBuffer(logContent);
 
       const index = await this.#eventLogs.lengthAsync();
       await this.#eventLogs.push({ logContent: logBuffer, blockNumber });
@@ -54,7 +55,7 @@ export class PrivateEventDataProvider implements DataProvider {
   public async getPrivateEvents(
     contractAddress: AztecAddress,
     from: number,
-    limit: number,
+    numBlocks: number,
     recipients: AztecAddress[],
   ): Promise<Fr[][]> {
     const events: Fr[][] = [];
@@ -65,25 +66,17 @@ export class PrivateEventDataProvider implements DataProvider {
 
       for (const index of indices) {
         const entry = await this.#eventLogs.atAsync(index);
-        if (!entry || entry.blockNumber < from) {
+        if (!entry || entry.blockNumber < from || entry.blockNumber >= from + numBlocks) {
           continue;
         }
 
         // Convert buffer back to Fr array
-        const frs: Fr[] = [];
-        for (let i = 0; i < entry.logContent.length; i += 32) {
-          frs.push(Fr.fromBuffer(entry.logContent.slice(i, i + 32)));
-        }
+        const reader = BufferReader.asReader(entry.logContent);
 
-        events.push(frs);
+        const numFields = entry.logContent.length / Fr.SIZE_IN_BYTES;
+        const logContent = reader.readArray(numFields, Fr);
 
-        if (events.length >= limit) {
-          break;
-        }
-      }
-
-      if (events.length >= limit) {
-        break;
+        events.push(logContent);
       }
     }
 

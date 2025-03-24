@@ -357,7 +357,7 @@ export interface PXE {
    * @param contractAddress - The address of the contract to get events from.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
-   * @param limit - The amount of blocks to search.
+   * @param numBlocks - The amount of blocks to search.
    * @param recipients - The addresses that decrypted the logs.
    * @returns - The deserialized events.
    */
@@ -365,7 +365,7 @@ export interface PXE {
     contractAddress: AztecAddress,
     eventMetadata: EventMetadataDefinition,
     from: number,
-    limit: number,
+    numBlocks: number,
     recipients: AztecAddress[],
   ): Promise<T[]>;
 

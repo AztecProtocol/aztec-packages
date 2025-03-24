@@ -889,19 +889,19 @@ export class PXEService implements PXE {
     contractAddress: AztecAddress,
     eventMetadataDef: EventMetadataDefinition,
     from: number,
-    limit: number,
+    numBlocks: number,
     recipients: AztecAddress[],
   ): Promise<T[]> {
     if (recipients.length === 0) {
       throw new Error('Recipients are required to get private events');
     }
 
-    this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + limit}`);
+    this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
     // TODO: This is a temporary hack to ensure that the notes are synced before getting the events.
     await this.simulateUnconstrained('sync_notes', [], contractAddress);
 
-    const events = await this.privateEventDataProvider.getPrivateEvents(contractAddress, from, limit, recipients);
+    const events = await this.privateEventDataProvider.getPrivateEvents(contractAddress, from, numBlocks, recipients);
 
     const decodedEvents = events
       .map((event: Fr[]): T | undefined => {
