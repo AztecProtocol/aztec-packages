@@ -97,7 +97,7 @@ For the sandbox you do this by putting through two arbitrary transactions. Eg:
 
 #include_code force-two-blocks yarn-project/cli-wallet/test/flows/create_account_pay_native.sh bash
 
-Now the funded account can deploy itself with the bridged fees, that is claim the bridged fee juice and make a transaction in one:
+Now the funded account can deploy itself with the bridged fees, claiming the bridged fee juice and deploying the contract in one transaction:
 
 #include_code claim-deploy-account yarn-project/cli-wallet/test/flows/create_account_pay_native.sh bash
 
