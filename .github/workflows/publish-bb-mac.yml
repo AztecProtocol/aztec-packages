@@ -37,7 +37,7 @@ jobs:
           ref: ${{ inputs.tag || github.sha }}
 
       - name: Create Mac Build Environment
-        run: brew install cmake ninja llvm@16
+        run: brew install cmake ninja llvm@18
 
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
@@ -47,11 +47,8 @@ jobs:
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
         run: |
-          export PATH="/usr/local/opt/llvm@16/bin:$PATH"
-          export LDFLAGS="-L/usr/local/opt/llvm@16/lib"
-          export CPPFLAGS="-I/usr/local/opt/llvm@16/include"
-          cmake -DCMAKE_BUILD_TYPE=RelWithAssert --preset default
-          cmake --build --preset default --target bb
+          cmake --preset homebrew
+          cmake --build --preset homebrew --target bb
 
       - name: Package barretenberg artifact (amd64-darwin)
         working-directory: barretenberg/cpp/build/bin
