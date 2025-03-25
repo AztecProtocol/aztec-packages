@@ -40,13 +40,12 @@ pub contract TestLog {
         // We duplicate the emission, but swapping the sender and recipient:
         event0.emit(encode_and_encrypt_event(&mut context, other, context.msg_sender()));
 
-        // TODO(benesjan): Emitting this interferes with processing of the logs above. Figure out why.
-        // let event1 = ExampleEvent1 {
-        //     value2: AztecAddress::from_field(preimages[2]),
-        //     value3: preimages[3] as u8,
-        // };
+        let event1 = ExampleEvent1 {
+            value2: AztecAddress::from_field(preimages[2]),
+            value3: preimages[3] as u8,
+        };
 
-        // event1.emit(encode_and_encrypt_event(&mut context, context.msg_sender(), other));
+        event1.emit(encode_and_encrypt_event(&mut context, context.msg_sender(), other));
     }
 
     #[public]

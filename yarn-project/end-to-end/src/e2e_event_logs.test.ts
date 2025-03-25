@@ -32,11 +32,18 @@ describe('Logs', () => {
     it('emits multiple events as private logs and decodes them', async () => {
       const preimages = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
-      const txs = await Promise.all(
-        preimages.map(preimage =>
-          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait(),
-        ),
-      );
+      // TODO(benesjan): Sending the txs is sequence here instead of in parallel as they were sent before because
+      // with the processing of events in Aztec.nr this revealed a bug in log processing.
+      // const txs = await Promise.all(
+      //   preimages.map(preimage =>
+      //     testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait(),
+      //   ),
+      // );
+      const txs = [];
+      for (const preimage of preimages) {
+        const tx = await testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait();
+        txs.push(tx);
+      }
       const firstBlockNumber = Math.min(...txs.map(tx => tx.blockNumber!));
       const lastBlockNumber = Math.max(...txs.map(tx => tx.blockNumber!));
       const numBlocks = lastBlockNumber - firstBlockNumber + 1;
@@ -51,28 +58,26 @@ describe('Logs', () => {
         [wallets[0].getAddress(), wallets[1].getAddress()],
       );
 
-      // TODO(benesjan): Disabled emitting of ExampleEvent1 for now in the contracts it interferes with processing
-      // of ExampleEvent0s (Below, I get 8 obtained events instead of 10). Figure out why.
-      // const collectedEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
-      //   testLogContract.address,
-      //   TestLogContract.events.ExampleEvent1,
-      //   firstBlockNumber,
-      //   numBlocks,
-      //   [wallets[0].getAddress(), wallets[1].getAddress()],
-      // );
+      const collectedEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
+        testLogContract.address,
+        TestLogContract.events.ExampleEvent1,
+        firstBlockNumber,
+        numBlocks,
+        [wallets[0].getAddress(), wallets[1].getAddress()],
+      );
 
       expect(collectedEvent0s.length).toBe(10); // 2 events per tx * 5 txs
-      // expect(collectedEvent1s.length).toBe(5); // 1 event per tx * 5 txs
+      expect(collectedEvent1s.length).toBe(5); // 1 event per tx * 5 txs
 
-      // const emptyEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
-      //   testLogContract.address,
-      //   TestLogContract.events.ExampleEvent1,
-      //   firstBlockNumber,
-      //   numBlocks,
-      //   [wallets[0].getAddress()],
-      // );
+      const emptyEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
+        testLogContract.address,
+        TestLogContract.events.ExampleEvent1,
+        firstBlockNumber,
+        numBlocks,
+        [wallets[0].getAddress()],
+      );
 
-      // expect(emptyEvent1s.length).toBe(5); // Events sent to msg_sender()
+      expect(emptyEvent1s.length).toBe(5); // Events sent to msg_sender()
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
       // Each preimage is used twice for ExampleEvent0
@@ -82,16 +87,16 @@ describe('Logs', () => {
       }));
       expect(collectedEvent0s.sort(exampleEvent0Sort)).toStrictEqual(expectedEvent0s.sort(exampleEvent0Sort));
 
-      // const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);
-      // expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
-      //   preimages
-      //     .map(preimage => ({
-      //       value2: new AztecAddress(preimage[2]),
-      //       // We get the last byte here because value3 is of type u8
-      //       value3: BigInt(preimage[3].toBuffer().subarray(31).readUint8()),
-      //     }))
-      //     .sort(exampleEvent1Sort),
-      // );
+      const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);
+      expect(collectedEvent1s.sort(exampleEvent1Sort)).toStrictEqual(
+        preimages
+          .map(preimage => ({
+            value2: new AztecAddress(preimage[2]),
+            // We get the last byte here because value3 is of type u8
+            value3: BigInt(preimage[3].toBuffer().subarray(31).readUint8()),
+          }))
+          .sort(exampleEvent1Sort),
+      );
     });
 
     it('emits multiple unencrypted events as public logs and decodes them', async () => {
