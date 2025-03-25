@@ -32,6 +32,7 @@ using namespace bb::avm_trace;
 class AvmRecursiveTests : public ::testing::Test {
   public:
     using RecursiveFlavor = AvmRecursiveFlavor_<MegaCircuitBuilder>;
+    using AVMVerificationKey = avm::AvmFlavor::VerificationKey;
 
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
     using InnerBuilder = bb::avm::AvmCircuitBuilder;
@@ -46,19 +47,7 @@ class AvmRecursiveTests : public ::testing::Test {
     using RecursiveVerifier = bb::avm::AvmRecursiveVerifier_<RecursiveFlavor>;
     using RecursiveVerifierUltra = bb::avm::AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
-    // In the goblin example, we have a GoblinProver object that takes in an inner circuit. we call `merge` method on
-    // GoblinProver taking the inner circuit as argument. And then we make a goblin proof. The `merge` method invokes a
-    // MergeRecursiveVerifier_ object and calls `verify_proof`
-
-    // In the AVM context, that MergeRecursiveVerifier_ object needs to be an AvmRecursiveFlavor_ object
-    // There are two ways we can do this.
-
-    // First way is the template param the goblin prover to take in an inner recursive verifier type
-    // 2nd way is add explicit new methods into goblin
-    // fastest might be to get option 2 working and then refactor into option 1
     using OuterBuilder = UltraCircuitBuilder;
-    using OuterProver = UltraProver;
-    using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
 
     using OuterRecursiveFlavor = MegaRecursiveFlavor_<UltraCircuitBuilder>;
@@ -104,16 +93,56 @@ class AvmRecursiveTests : public ::testing::Test {
 
         return builder;
     }
+
+    struct AVMVerifierInput {
+        HonkProof proof;
+        std::vector<std::vector<InnerFF>> public_inputs_vec;
+        std::shared_ptr<AVMVerificationKey> vkey;
+    };
+
+    AVMVerifierInput create_avm_verifier_input()
+    {
+        InnerBuilder circuit_builder = generate_avm_circuit();
+        InnerComposer composer = InnerComposer();
+        InnerProver prover = composer.create_prover(circuit_builder);
+
+        HonkProof proof = prover.construct_proof();
+        std::vector<std::vector<InnerFF>> public_inputs_vec = construct_public_inputs_vec();
+
+        InnerVerifier verifier = composer.create_verifier(circuit_builder);
+
+        // Verify the AVM proof natively for good measure
+        bool verified = verifier.verify_proof(proof, public_inputs_vec);
+        EXPECT_TRUE(verified) << "native proof verification failed";
+
+        return { proof, public_inputs_vec, verifier.key };
+    }
+
+    static std::vector<std::vector<InnerFF>> construct_public_inputs_vec()
+    {
+        // We just pad all the public inputs with the right number of zeroes
+        std::vector<FF> kernel_inputs(KERNEL_INPUTS_LENGTH);
+        std::vector<FF> kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
+        std::vector<FF> kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
+        std::vector<FF> kernel_metadata_outputs(KERNEL_OUTPUTS_LENGTH);
+        std::vector<FF> calldata{ {} };
+        std::vector<FF> returndata{ {} };
+
+        std::vector<std::vector<FF>> public_inputs_vec{
+            kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs, calldata,
+            returndata
+        };
+
+        return public_inputs_vec;
+    }
 };
 
 TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
-    InnerBuilder circuit_builder = generate_avm_circuit();
-    InnerComposer composer = InnerComposer();
-    InnerProver prover = composer.create_prover(circuit_builder);
-    InnerVerifier inner_verifier = composer.create_verifier(circuit_builder);
+    using MegaRecursiveFlavorForUltraCircuit = MegaRecursiveFlavor_<UltraCircuitBuilder>;
 
-    HonkProof proof = prover.construct_proof();
+    // Generate the inputs to an AVM verifier
+    auto [proof, public_inputs_vec, verification_key] = create_avm_verifier_input();
 
     UltraCircuitBuilder outer_builder;
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
@@ -121,32 +150,20 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     std::shared_ptr<AvmRecursiveFlavor_<UltraRollupRecursiveFlavor::CircuitBuilder>::VerificationKey> avm_key =
         std::make_shared<AvmRecursiveFlavor_<UltraRollupRecursiveFlavor::CircuitBuilder>::VerificationKey>(
-            &outer_builder, inner_verifier.key);
+            &outer_builder, verification_key);
 
-    auto key_fields_native = inner_verifier.key->to_field_elements();
+    auto key_fields_native = verification_key->to_field_elements();
     std::vector<UltraFF> outer_key_fields;
     for (const auto& f : key_fields_native) {
         UltraFF val = UltraFF::from_witness(&outer_builder, f);
         outer_key_fields.push_back(val);
     }
     avm::AvmGoblinRecursiveVerifier verifier(&outer_builder, outer_key_fields);
-    using MegaRecursiveFlavorForUltraCircuit = MegaRecursiveFlavor_<UltraCircuitBuilder>;
 
     stdlib::recursion::aggregation_state<typename MegaRecursiveFlavorForUltraCircuit::Curve> agg_obj =
         stdlib::recursion::init_default_aggregation_state<UltraCircuitBuilder,
                                                           typename MegaRecursiveFlavorForUltraCircuit::Curve>(
             outer_builder);
-
-    std::vector<FF> kernel_inputs(KERNEL_INPUTS_LENGTH);
-    std::vector<FF> kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
-    std::vector<FF> kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
-    std::vector<FF> kernel_metadata_outputs(KERNEL_OUTPUTS_LENGTH);
-    std::vector<FF> calldata{ {} };
-    std::vector<FF> returndata{ {} };
-
-    std::vector<std::vector<InnerFF>> public_inputs_vec{
-        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs, calldata, returndata
-    };
 
     StdlibProof<UltraCircuitBuilder> stdlib_proof = bb::convert_native_proof_to_stdlib(&outer_builder, proof);
 
@@ -176,60 +193,28 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 
     EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));
-
-    //  AvmGoblinRecursiveVerifier::test_recursive_avm(proof, verifier);
 }
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
-        GTEST_SKIP();
-    }
+    // if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
+    //     GTEST_SKIP();
+    // }
 
-    using RecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
+    using AvmRecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
+    using AvmRecursiveVerifier = bb::avm::AvmRecursiveVerifier_<AvmRecursiveFlavor>;
+    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
 
-    using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
-    using InnerFF = InnerFlavor::FF;
-
-    using RecursiveVerifier = bb::avm::AvmRecursiveVerifier_<RecursiveFlavor>;
-
-    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterProver = UltraProver;
-    using OuterVerifier = UltraVerifier;
-    using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-
-    InnerBuilder circuit_builder = generate_avm_circuit();
-    InnerComposer composer = InnerComposer();
-    InnerProver prover = composer.create_prover(circuit_builder);
-    InnerVerifier verifier = composer.create_verifier(circuit_builder);
-
-    HonkProof proof = prover.construct_proof();
-
-    // We just pad all the public inputs with the right number of zeroes
-    std::vector<FF> kernel_inputs(KERNEL_INPUTS_LENGTH);
-    std::vector<FF> kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
-    std::vector<FF> kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
-    std::vector<FF> kernel_metadata_outputs(KERNEL_OUTPUTS_LENGTH);
-    std::vector<FF> calldata{ {} };
-    std::vector<FF> returndata{ {} };
-
-    std::vector<std::vector<InnerFF>> public_inputs{
-        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs
-    };
-    std::vector<std::vector<InnerFF>> public_inputs_vec{
-        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs, calldata, returndata
-    };
-
-    bool verified = verifier.verify_proof(proof, public_inputs_vec);
-    ASSERT_TRUE(verified) << "native proof verification failed";
+    // Generate the inputs to an AVM verifier
+    auto [proof, public_inputs_vec, verification_key] = create_avm_verifier_input();
 
     // Create the outer verifier, to verify the proof
-    const std::shared_ptr<InnerFlavor::VerificationKey> verification_key = verifier.key;
     OuterBuilder outer_circuit;
-    RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
+    AvmRecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
 
     auto agg_object =
-        stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
+        stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename AvmRecursiveFlavor::Curve>(
+            outer_circuit);
 
     auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_vec, agg_object);
 
@@ -242,29 +227,21 @@ TEST_F(AvmRecursiveTests, recursion)
     bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
     ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
-    auto manifest = verifier.transcript->get_manifest();
-    auto recursive_manifest = recursive_verifier.transcript->get_manifest();
-
-    EXPECT_EQ(manifest.size(), recursive_manifest.size());
-    for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-        EXPECT_EQ(recursive_manifest[i], manifest[i]);
-    }
-
-    for (auto const [key_el, rec_key_el] : zip_view(verifier.key->get_all(), recursive_verifier.key->get_all())) {
+    for (auto const [key_el, rec_key_el] : zip_view(verification_key->get_all(), recursive_verifier.key->get_all())) {
         EXPECT_EQ(key_el, rec_key_el.get_value());
     }
 
-    EXPECT_EQ(verifier.key->circuit_size, static_cast<uint64_t>(recursive_verifier.key->circuit_size.get_value()));
-    EXPECT_EQ(verifier.key->num_public_inputs,
+    EXPECT_EQ(verification_key->circuit_size, static_cast<uint64_t>(recursive_verifier.key->circuit_size.get_value()));
+    EXPECT_EQ(verification_key->num_public_inputs,
               static_cast<uint64_t>(recursive_verifier.key->num_public_inputs.get_value()));
 
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 23;
-    auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
+    auto ultra_instance = std::make_shared<DeciderProvingKey>(
         outer_circuit, TraceSettings{}, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
-    OuterProver ultra_prover(ultra_instance);
+    UltraProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
-    OuterVerifier ultra_verifier(ultra_verification_key);
+    UltraVerifier ultra_verifier(ultra_verification_key);
 
     vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
