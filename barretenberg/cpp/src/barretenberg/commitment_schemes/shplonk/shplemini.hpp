@@ -37,6 +37,8 @@ template <typename Curve> class ShpleminiProver_ {
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool has_zk = (libra_polynomials[0].size() > 0);
+
+        // When padding is enabled, the size of the multilinear challenge may be bigger than the log of `circuit_size`.
         const size_t virtual_log_n = multilinear_challenge.size();
 
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(
@@ -59,7 +61,7 @@ template <typename Curve> class ShpleminiProver_ {
         }
 
         return ShplonkProver::prove(
-            virtual_log_n, commitment_key, opening_claims, transcript, libra_opening_claims, sumcheck_round_claims);
+            commitment_key, opening_claims, transcript, libra_opening_claims, sumcheck_round_claims, virtual_log_n);
     };
 
     /**
@@ -218,6 +220,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
 
+        // When padding is enabled, the size of the multilinear challenge may be bigger than the log of `circuit_size`.
         const size_t virtual_log_n = multivariate_challenge.size();
 
         Fr batched_evaluation = Fr{ 0 };
