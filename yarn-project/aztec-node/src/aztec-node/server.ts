@@ -992,13 +992,35 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.validatorsSentinel?.computeStats() ?? Promise.resolve({ stats: {}, slotWindow: 0 });
   }
 
-  public startSnapshotUpload(): Promise<void> {
-    // Do not wait for the upload to be complete to return to the caller
+  public async startSnapshotUpload(location: string): Promise<void> {
     // Note that we are forcefully casting the blocksource as an archiver
     // We break support for archiver running remotely to the node
-    void uploadSnapshot(this.blockSource as Archiver, this.worldStateSynchronizer, this.config, this.log).catch(err =>
-      this.log.error(`Error uploading snapshot: ${err}`),
-    );
+    const archiver = this.blockSource as Archiver;
+    if (!('backupTo' in archiver)) {
+      throw new Error('Archiver implementation does not support backups. Cannot generate snapshot.');
+    }
+
+    // Test that the archiver has done an initial sync.
+    try {
+      archiver.getL1BlockNumber();
+    } catch (err) {
+      throw new Error(`Archiver initial sync not complete. Cannot start snapshot.`);
+    }
+
+    // And it has an L2 block hash
+    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.latest.hash);
+    if (!l2BlockHash) {
+      throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
+    }
+
+    // Do not wait for the upload to be complete to return to the caller
+    void uploadSnapshot(
+      location,
+      this.blockSource as Archiver,
+      this.worldStateSynchronizer,
+      this.config,
+      this.log,
+    ).catch(err => this.log.error(`Error uploading snapshot: ${err}`));
     return Promise.resolve();
   }
 

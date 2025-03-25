@@ -6,7 +6,7 @@ import type { FileStore } from '@aztec/stdlib/file-store';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { getLatestSnapshotMetadata } from './download.js';
-import type { SnapshotMetadata, SnapshotsIndex, SnapshotsIndexMetadata } from './types.js';
+import type { SnapshotDataUrls, SnapshotMetadata, SnapshotsIndex, SnapshotsIndexMetadata } from './types.js';
 import { uploadSnapshot } from './upload.js';
 
 describe('snapshots', () => {
@@ -16,17 +16,36 @@ describe('snapshots', () => {
   let snapshots: SnapshotMetadata[];
   let rollup: EthAddress;
 
+  const makeDataPaths = (index: number, basePath = ''): SnapshotDataUrls => ({
+    'archive-tree': `${basePath}/archive-tree/${index}`,
+    'l1-to-l2-message-tree': `${basePath}/l1-to-l2-message-tree/${index}`,
+    'note-hash-tree': `${basePath}/note-hash-tree/${index}`,
+    'nullifier-tree': `${basePath}/nullifier-tree/${index}`,
+    'public-data-tree': `${basePath}/public-data-tree/${index}`,
+    archiver: `${basePath}/archiver/${index}`,
+  });
+
+  const makeExpectedDataPaths = () => ({
+    'archive-tree': expect.stringContaining('archive'),
+    'l1-to-l2-message-tree': expect.stringContaining('l1-to-l2-message'),
+    'note-hash-tree': expect.stringContaining('note-hash'),
+    'nullifier-tree': expect.stringContaining('nullifier'),
+    'public-data-tree': expect.stringContaining('public-data'),
+    archiver: expect.stringContaining('archiver'),
+  });
+
   const makeSnapshotMetadata = (index: number): SnapshotMetadata => ({
-    archiverDataUrl: `/archiver/${index}`,
-    worldStateDataUrl: `/ws/${index}`,
+    dataUrls: makeDataPaths(index),
     l1BlockNumber: index,
     l2BlockNumber: index,
     l2BlockHash: `0x${index}`,
     timestamp: index,
+    schemaVersions: { archiver: 1, worldState: 1 },
   });
 
   beforeEach(() => {
     store = mock<FileStore>();
+    store.upload.mockImplementation(dest => Promise.resolve(dest));
     rollup = EthAddress.random();
     metadata = { l1ChainId: 1, l2Version: 2, rollupAddress: rollup };
     snapshots = times(5, makeSnapshotMetadata);
@@ -50,7 +69,6 @@ describe('snapshots', () => {
   describe('upload', () => {
     it('with no existing index', async () => {
       store.exists.mockResolvedValue(false);
-      store.upload.mockResolvedValueOnce('/archiver/1').mockResolvedValueOnce('/ws/1');
 
       let uploadedIndex: string;
       store.save.mockImplementation((_path, data) => {
@@ -59,14 +77,15 @@ describe('snapshots', () => {
       });
 
       const uploaded = await uploadSnapshot(
-        'archiver-1',
-        'ws-1',
+        makeDataPaths(1, '/local/'),
+        { archiver: 1, worldState: 1 },
         { ...metadata, l1BlockNumber: 1, l2BlockHash: '0x1', l2BlockNumber: 1 },
         store,
       );
 
       const expectedSnapshot: SnapshotMetadata = {
         ...makeSnapshotMetadata(1),
+        dataUrls: makeExpectedDataPaths(),
         timestamp: expect.any(Number),
       };
 
@@ -79,13 +98,12 @@ describe('snapshots', () => {
       });
 
       expect(store.exists).toHaveBeenCalledWith(`aztec-1-2-${rollup.toString()}/index.json`);
-      expect(store.upload).toHaveBeenCalledTimes(2);
+      expect(store.upload).toHaveBeenCalledTimes(6);
     });
 
     it('updates an existing index', async () => {
       store.exists.mockResolvedValue(true);
       store.read.mockResolvedValue(Buffer.from(jsonStringify(index), 'utf-8'));
-      store.upload.mockResolvedValueOnce('/archiver/6').mockResolvedValueOnce('/ws/6');
 
       let uploadedIndex: string;
       store.save.mockImplementation((_path, data) => {
@@ -94,14 +112,15 @@ describe('snapshots', () => {
       });
 
       const uploaded = await uploadSnapshot(
-        'archiver-6',
-        'ws-6',
+        makeDataPaths(6, '/local/'),
+        { archiver: 1, worldState: 1 },
         { ...metadata, l1BlockNumber: 6, l2BlockHash: '0x6', l2BlockNumber: 6 },
         store,
       );
 
       const expectedSnapshot: SnapshotMetadata = {
         ...makeSnapshotMetadata(6),
+        dataUrls: makeExpectedDataPaths(),
         timestamp: expect.any(Number),
       };
 
@@ -114,7 +133,7 @@ describe('snapshots', () => {
       });
 
       expect(store.exists).toHaveBeenCalledWith(`aztec-1-2-${rollup.toString()}/index.json`);
-      expect(store.upload).toHaveBeenCalledTimes(2);
+      expect(store.upload).toHaveBeenCalledTimes(6);
     });
   });
 });

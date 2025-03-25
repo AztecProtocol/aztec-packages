@@ -137,6 +137,6 @@ export interface AztecAsyncKVStore {
   /** Closes the store */
   close(): Promise<void>;
 
-  /** Backups the store to the target folder. */
+  /** Backups the store to the target folder.*/
   backupTo(dstPath: string, compact?: boolean): Promise<void>;
 }

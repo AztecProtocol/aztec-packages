@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
+import type { SnapshotDataKeys } from '../snapshots/types.js';
 import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from './merkle_tree_operations.js';
+
+export type { SnapshotDataKeys };
 
 /**
  * Defines the possible states of the world state synchronizer.
@@ -43,7 +46,7 @@ export interface ForkMerkleTreeOperations {
   getSnapshot(blockNumber: number): MerkleTreeReadOperations;
 
   /** Backups the db to the target path. */
-  backupTo(dstPath: string, compact?: boolean): Promise<void>;
+  backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>>;
 }
 
 /** Defines the interface for a world state synchronizer. */

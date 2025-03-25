@@ -1,7 +1,9 @@
+import { getEntries } from '@aztec/foundation/collection';
 import { jsonParseWithSchemaSync } from '@aztec/foundation/json-rpc';
 import type { FileStore } from '@aztec/stdlib/file-store';
 
 import {
+  SnapshotDataKeys,
   type SnapshotMetadata,
   type SnapshotsIndex,
   type SnapshotsIndexMetadata,
@@ -43,13 +45,9 @@ export function getSnapshotIndexPath(metadata: SnapshotsIndexMetadata): string {
 }
 
 export async function downloadSnapshot(
-  snapshot: Pick<SnapshotMetadata, 'archiverDataUrl' | 'worldStateDataUrl'>,
-  archiverPath: string,
-  worldStatePath: string,
+  snapshot: Pick<SnapshotMetadata, 'dataUrls'>,
+  localPaths: Record<SnapshotDataKeys, string>,
   store: FileStore,
 ): Promise<void> {
-  await Promise.all([
-    store.download(snapshot.archiverDataUrl, archiverPath),
-    store.download(snapshot.worldStateDataUrl, worldStatePath),
-  ]);
+  await Promise.all(getEntries(localPaths).map(([key, path]) => store.download(snapshot.dataUrls[key], path)));
 }

@@ -566,7 +566,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return Promise.resolve();
   }
 
-  public backupTo(destPath: string): Promise<void> {
+  public backupTo(destPath: string): Promise<string> {
     return this.dataStore.backupTo(destPath);
   }
 

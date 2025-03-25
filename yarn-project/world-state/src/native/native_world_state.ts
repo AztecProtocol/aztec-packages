@@ -2,7 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type {
@@ -10,6 +10,7 @@ import type {
   MerkleTreeReadOperations,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
+import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -49,7 +50,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     protected readonly instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly versionManager: DatabaseVersionManager<NativeWorldState>,
-    protected readonly log = createLogger('world-state:database'),
+    protected readonly log: Logger = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
@@ -318,13 +319,23 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
   }
 
-  public async backupTo(dstPath: string, compact: boolean = true) {
-    const fullPath = join(dstPath, WORLD_STATE_DIR);
+  public async backupTo(
+    dstPath: string,
+    compact: boolean = true,
+  ): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
     await this.instance.call(WorldStateMessageType.COPY_STORES, {
-      dstPath: fullPath,
+      dstPath,
       compact,
       canonical: true,
     });
-    await this.versionManager.writeVersionTo(fullPath);
+    await this.versionManager.writeVersionTo(dstPath);
+    // The following paths are defined in cpp-land
+    return {
+      'l1-to-l2-message-tree': join(dstPath, 'L1ToL2MessageTree', 'data.mdb'),
+      'archive-tree': join(dstPath, 'ArchiveTree', 'data.mdb'),
+      'public-data-tree': join(dstPath, 'PublicDataTree', 'data.mdb'),
+      'note-hash-tree': join(dstPath, 'NoteHashTree', 'data.mdb'),
+      'nullifier-tree': join(dstPath, 'NullifierTree', 'data.mdb'),
+    };
   }
 }

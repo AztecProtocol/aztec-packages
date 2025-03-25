@@ -1,12 +1,21 @@
 import { createLogger } from '@aztec/foundation/log';
 
 import { GoogleCloudFileStore } from './gcs.js';
+import { LocalFileStore } from './local.js';
 
-const supportedExamples = [`gs://bucket-name/path/to/store`];
+const supportedExamples = [`gs://bucket-name/path/to/store`, `file:///absolute/local/path/to/store`];
 
 export function createFileStore(config: string | undefined, logger = createLogger('stdlib:file-store')) {
   if (config === undefined) {
     return undefined;
+  } else if (config.startsWith('file://')) {
+    const url = new URL(config);
+    if (url.host) {
+      throw new Error(`File store URL only supports local paths (got host ${url.host} from ${config})`);
+    }
+    const path = url.pathname;
+    logger.info(`Creating local file file store at ${path}`);
+    return new LocalFileStore(path);
   } else if (config.startsWith('gs://')) {
     try {
       const url = new URL(config);

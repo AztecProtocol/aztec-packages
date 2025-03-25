@@ -14,7 +14,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { Archiver } from './archiver/archiver.js';
 import type { ArchiverConfig } from './archiver/config.js';
-import { KVArchiverDataStore } from './archiver/index.js';
+import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './archiver/kv_archiver_store/kv_archiver_store.js';
 import { createArchiverClient } from './rpc/index.js';
 
 /**
@@ -32,12 +32,7 @@ export async function createArchiver(
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
   const config = { ..._config, dataStoreMapSizeKB: _config.archiverStoreMapSizeKb ?? _config.dataStoreMapSizeKB };
-  const store = await createStore(
-    'archiver',
-    KVArchiverDataStore.SCHEMA_VERSION,
-    config,
-    createLogger('archiver:lmdb'),
-  );
+  const store = await createStore('archiver', ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
   const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
   await registerProtocolContracts(archiverStore);
   return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
