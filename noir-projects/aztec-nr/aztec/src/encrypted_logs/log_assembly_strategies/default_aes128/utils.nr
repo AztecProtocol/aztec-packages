@@ -29,7 +29,7 @@ mod test {
     use protocol_types::{
         address::AztecAddress,
         indexed_tagging_secret::IndexedTaggingSecret,
-        traits::{FromField, Serialize},
+        traits::{Deserialize, FromField, Serialize},
     };
     use std::test::OracleMock;
 
@@ -38,7 +38,12 @@ mod test {
         let sender = AztecAddress::from_field(1);
         let recipient = AztecAddress::from_field(2);
 
-        let indexed_tagging_secret = IndexedTaggingSecret { app_tagging_secret: 42, index: 5 };
+        let app_tagging_secret = 42;
+        let index = 5;
+
+        // I am using the deserialize trait instead of directly instantiating the IndexedTaggingSecret struct because
+        // direct instantiation functionality is not exposed.
+        let indexed_tagging_secret = IndexedTaggingSecret::deserialize([app_tagging_secret, index]);
 
         // Mock the tagging oracles
         let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(indexed_tagging_secret
