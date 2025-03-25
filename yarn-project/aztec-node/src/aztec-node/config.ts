@@ -12,6 +12,8 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
+import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
+
 export { sequencerClientConfigMappings, type SequencerClientConfig };
 
 /**
@@ -24,7 +26,8 @@ export type AztecNodeConfig = ArchiverConfig &
   WorldStateConfig &
   Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig &
-  DataStoreConfig & {
+  DataStoreConfig &
+  SentinelConfig & {
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
     /** Whether to populate the genesis state with initial fee juice for the test accounts */
@@ -41,6 +44,7 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
+  ...sentinelConfigMappings,
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,

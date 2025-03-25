@@ -181,6 +181,7 @@ describe('ValidationService', () => {
 
     // Mock the attestations to be returned
     const expectedAttestations = await Promise.all([
+      makeBlockAttestation({ signer, archive, txHashes }),
       makeBlockAttestation({ signer: attestor1, archive, txHashes }),
       makeBlockAttestation({ signer: attestor2, archive, txHashes }),
     ]);

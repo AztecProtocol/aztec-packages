@@ -521,7 +521,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     await this.mempools.txPool.addTxs([tx]);
   }
 
-  /**Process Attestation From Peer
+  /**
+   * Process Attestation From Peer
    * When a proposal is received from a peer, we add it to the attestation pool, so it can be accessed by other services.
    *
    * @param attestation - The attestation to process.
