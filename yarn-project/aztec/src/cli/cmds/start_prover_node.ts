@@ -105,7 +105,12 @@ export async function startProverNode(
   const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
   const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
-  const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+
+  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+
+  userLog(`Genesis block hash: ${genesisBlockHash}`);
+  userLog(`Genesis archive root: ${genesisArchiveRoot}`);
 
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
