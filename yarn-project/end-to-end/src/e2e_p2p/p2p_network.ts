@@ -29,7 +29,7 @@ import {
   createSnapshotManager,
   deployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
@@ -319,9 +319,11 @@ export class P2PNetworkTest {
   async setup() {
     this.ctx = await this.snapshotManager.setup();
 
-    this.prefilledPublicData = (
-      await getGenesisValues(this.ctx.initialFundedAccounts.map(a => a.address))
-    ).prefilledPublicData;
+    const sponsoredFPCAddress = await getSponsoredFPCAddress();
+    const initialFundedAccounts = [...this.ctx.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
+
+    const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+    this.prefilledPublicData = prefilledPublicData;
 
     this.startSyncMockSystemTimeInterval();
 
