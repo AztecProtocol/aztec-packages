@@ -161,7 +161,7 @@ impl LogEncryption for AES128 {
         // Prepend / append fields, to create the final log
         // *****************************************************************************
 
-        let mut final_log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN] = [0; PRIVATE_LOG_CIPHERTEXT_LEN];
+        let mut ciphertext: [Field; PRIVATE_LOG_CIPHERTEXT_LEN] = [0; PRIVATE_LOG_CIPHERTEXT_LEN];
 
         final_log[0] = eph_pk.x;
 
