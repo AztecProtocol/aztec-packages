@@ -58,20 +58,16 @@ void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddres
     // TODO: do more things based on the result. This happens in the parent context
     // 1) Accept / Reject side effects (e.g. tree state, newly emitted nullifiers, notes, public writes)
     // 2) Set return data information
-    context.set_nested_returndata(std::move(result.returndata));
+    context.set_child_context(std::move(nested_context));
+    // TODO(ilyas): Look into just having a setter using ExecutionResult, but this gives us more flexibility
+    context.set_last_rd_offset(result.rd_offset);
+    context.set_last_rd_size(result.rd_size);
+    context.set_last_success(result.success);
 }
 
 void Execution::ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset)
 {
-    auto& memory = context.get_memory();
-
-    // TODO: check tags and types (only for size, the return data is converted to FF).
-    uint32_t size = static_cast<uint32_t>(memory.get(ret_size_offset).value);
-    auto [values, _] = memory.get_slice(ret_offset, size);
-
-    // TODO: do the right thing
-    std::vector returndata(values.begin(), values.end());
-    context.set_nested_returndata(std::move(returndata));
+    set_execution_result({ .rd_offset = ret_offset, .rd_size = ret_size_offset, .success = true });
     context.halt();
 }
 
@@ -151,9 +147,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
     }
 
     // FIXME: Should return an ExecutionResult.
-    return {
-        .success = true,
-    };
+    return get_execution_result();
 }
 
 void Execution::dispatch_opcode(ExecutionOpCode opcode,

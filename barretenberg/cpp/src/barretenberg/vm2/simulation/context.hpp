@@ -8,6 +8,7 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -27,7 +28,6 @@ class ContextInterface {
     virtual void set_pc(uint32_t new_pc) = 0;
     virtual uint32_t get_next_pc() const = 0;
     virtual void set_next_pc(uint32_t new_next_pc) = 0;
-    virtual void set_nested_returndata(std::vector<FF> return_data) = 0;
     virtual bool halted() const = 0;
     virtual void halt() = 0;
 
@@ -40,7 +40,18 @@ class ContextInterface {
 
     // Input / Output
     virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
-    virtual std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) const = 0;
+    virtual std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) = 0;
+    virtual ContextInterface& get_child_context() = 0;
+    virtual void set_child_context(std::unique_ptr<ContextInterface> child_ctx) = 0;
+
+    virtual MemoryAddress get_last_rd_offset() const = 0;
+    virtual void set_last_rd_offset(MemoryAddress rd_offset) = 0;
+
+    virtual MemoryAddress get_last_rd_size() const = 0;
+    virtual void set_last_rd_size(MemoryAddress rd_size) = 0;
+
+    virtual bool get_last_success() const = 0;
+    virtual void set_last_success(bool success) = 0;
 
     // Events
     virtual ContextEvent get_current_context() = 0;
@@ -71,7 +82,6 @@ class BaseContext : public ContextInterface {
     void set_pc(uint32_t new_pc) override { pc = new_pc; }
     uint32_t get_next_pc() const override { return next_pc; }
     void set_next_pc(uint32_t new_next_pc) override { next_pc = new_next_pc; }
-    void set_nested_returndata(std::vector<FF> return_data) override { nested_returndata = std::move(return_data); }
     bool halted() const override { return has_halted; }
     void halt() override { has_halted = true; }
 
@@ -81,6 +91,34 @@ class BaseContext : public ContextInterface {
     const AztecAddress& get_address() const override { return address; }
     const AztecAddress& get_msg_sender() const override { return msg_sender; }
     bool get_is_static() const override { return is_static; }
+
+    ContextInterface& get_child_context() override { return *child_context; }
+    void set_child_context(std::unique_ptr<ContextInterface> child_ctx) override
+    {
+        child_context = std::move(child_ctx);
+    }
+
+    MemoryAddress get_last_rd_offset() const override { return last_child_rd_offset; }
+    void set_last_rd_offset(MemoryAddress rd_offset) override { last_child_rd_offset = rd_offset; }
+
+    MemoryAddress get_last_rd_size() const override { return last_child_rd_size; }
+    void set_last_rd_size(MemoryAddress rd_size) override { last_child_rd_size = rd_size; }
+
+    bool get_last_success() const override { return last_child_success; }
+    void set_last_success(bool success) override { last_child_success = success; }
+
+    // Input / Output
+    std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) override
+    {
+        MemoryInterface& child_memory = get_child_context().get_memory();
+        auto get_returndata_size = child_memory.get(last_child_rd_size);
+        uint32_t returndata_size = static_cast<uint32_t>(get_returndata_size.value);
+        [[maybe_unused]] uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
+        std::vector<FF>
+            retrieved_returndata = {}; // child_memory.set_slice(get_last_rd_offset() + rd_offset, write_size)
+        retrieved_returndata.resize(rd_size);
+        return retrieved_returndata;
+    };
 
   private:
     // Environment.
@@ -94,9 +132,14 @@ class BaseContext : public ContextInterface {
     uint32_t pc = 0;
     uint32_t next_pc = 0;
     bool has_halted = false;
-    std::vector<FF> nested_returndata;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
+
+    // Output
+    std::unique_ptr<ContextInterface> child_context = nullptr;
+    MemoryAddress last_child_rd_offset = 0;
+    MemoryAddress last_child_rd_size = 0;
+    bool last_child_success = false;
 };
 
 // TODO(ilyas): flesh these out in the cpp file, these are just temporary
@@ -122,7 +165,10 @@ class EnqueuedCallContext : public BaseContext {
                  .contract_addr = get_address(),
                  .is_static = get_is_static(),
                  .parent_cd_addr = 0,
-                 .parent_cd_size_addr = 0 };
+                 .parent_cd_size_addr = 0,
+                 .last_child_rd_addr = get_last_rd_offset(),
+                 .last_child_rd_size_addr = get_last_rd_size(),
+                 .last_child_success = get_last_success() };
     };
 
     // Input / Output
@@ -130,30 +176,19 @@ class EnqueuedCallContext : public BaseContext {
     {
         // TODO(ilyas): Do we assert to assert cd_size < calldata.size(), otherwise it could trigger a massive write of
         // zeroes. OTOH: this should be caught by an OUT_OF_GAS exception
-        return get_slice_helper(cd_offset, cd_size, calldata);
-    };
+        std::vector<FF> padded_calldata(cd_size, 0); // Vector of size cd_size filled with zeroes;
 
-    std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) const override
-    {
-        return get_slice_helper(rd_offset, rd_size, returndata);
+        // We first take a slice of the data, the most we can slice is the actual size of the data
+        size_t slice_size = std::min(static_cast<size_t>(cd_offset + cd_size), calldata.size());
+
+        for (size_t i = cd_offset; i < slice_size; i++) {
+            padded_calldata[i] = calldata[i];
+        }
+        return padded_calldata;
     };
 
   private:
-    std::vector<FF> get_slice_helper(uint32_t offset, uint32_t size, std::span<const FF> data) const
-    {
-
-        std::vector<FF> padded_data(size, 0);
-        // We first take a slice of the data, the most we can slice is the actual size of the data
-        size_t slice_size = std::min(static_cast<size_t>(offset + size), data.size());
-
-        for (size_t i = offset; i < slice_size; i++) {
-            padded_data[i] = data[i];
-        }
-        return padded_data;
-    }
-
     std::vector<FF> calldata;
-    std::vector<FF> returndata;
 };
 
 // Parameters for a nested call need to be changed
@@ -200,12 +235,6 @@ class NestedContext : public BaseContext {
         // Pad the calldata
         retrieved_calldata.resize(cd_size, 0);
         return retrieved_calldata;
-    };
-
-    std::vector<FF> get_returndata([[maybe_unused]] uint32_t rd_offset,
-                                   [[maybe_unused]] uint32_t rd_size) const override
-    {
-        return {};
     };
 
   private:

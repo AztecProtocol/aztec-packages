@@ -23,7 +23,8 @@
 namespace bb::avm2::simulation {
 
 struct ExecutionResult {
-    std::vector<FF> returndata;
+    MemoryAddress rd_offset;
+    MemoryAddress rd_size;
     bool success;
 };
 
@@ -66,6 +67,8 @@ class Execution : public ExecutionInterface {
     void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
 
   private:
+    void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
+    ExecutionResult get_execution_result() const { return exec_result; }
     ExecutionResult execute_internal(ContextInterface& context);
     void dispatch_opcode(ExecutionOpCode opcode,
                          ContextInterface& context,
@@ -84,6 +87,8 @@ class Execution : public ExecutionInterface {
     AluInterface& alu;
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
+
+    ExecutionResult exec_result;
 };
 
 } // namespace bb::avm2::simulation

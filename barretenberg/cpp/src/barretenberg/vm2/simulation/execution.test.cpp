@@ -69,7 +69,10 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
         .WillOnce(Return(std::make_unique<MockContext>()));
 
-    EXPECT_CALL(context, set_nested_returndata);
+    EXPECT_CALL(context, set_child_context(_));
+    EXPECT_CALL(context, set_last_rd_offset(_));
+    EXPECT_CALL(context, set_last_rd_size(_));
+    EXPECT_CALL(context, set_last_success(_));
 
     execution.call(context, 10, 20, 30);
 }

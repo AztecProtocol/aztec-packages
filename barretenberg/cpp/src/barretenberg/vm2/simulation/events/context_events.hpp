@@ -20,12 +20,11 @@ struct ContextEvent {
     uint32_t parent_cd_addr;
     uint32_t parent_cd_size_addr;
 
-    // Returndata info
-    // uint32_t rd_addr;
-    // uint32_t rd_size_addr;
-
+    // Returndata info from child context
+    uint32_t last_child_rd_addr;
+    uint32_t last_child_rd_size_addr;
     // Success
-    // bool nested_ctx_success;
+    bool last_child_success;
 
     // Gas
     // uint32_t l2_gas_used;
