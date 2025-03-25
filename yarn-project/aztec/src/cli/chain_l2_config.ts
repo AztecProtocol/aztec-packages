@@ -16,6 +16,7 @@ export type L2ChainConfig = {
   p2pBootstrapNodes: string[];
   registryAddress: string;
   slashFactoryAddress: string;
+  feeAssetHandlerAddress: string;
   seqMinTxsPerBlock: number;
   seqMaxTxsPerBlock: number;
   realProofs: boolean;
@@ -33,6 +34,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   p2pBootstrapNodes: [],
   registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
   slashFactoryAddress: '',
+  feeAssetHandlerAddress: '',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
@@ -50,6 +52,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   p2pBootstrapNodes: [],
   registryAddress: '0xad85d55a4bbef35e95396191c22903aa717edf1c',
   slashFactoryAddress: '0xf667f50fd68b30c38b12d29fee537fa5ea158eb8',
+  feeAssetHandlerAddress: '0xf0664fec6ac15313e18d5ad8225e46b7c6463338',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 4,
   realProofs: true,
@@ -105,6 +108,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
   enrichVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
+  enrichVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
   enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', networkName, 'data'));

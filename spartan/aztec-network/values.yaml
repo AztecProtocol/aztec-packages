@@ -51,6 +51,7 @@ aztec:
   contracts:
     registryAddress: ""
     slashFactoryAddress: ""
+    feeAssetHandlerContractAddress: ""
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 32 # how many L2 slots in an epoch
