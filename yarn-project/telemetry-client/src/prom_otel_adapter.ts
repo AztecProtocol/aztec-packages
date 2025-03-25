@@ -1,8 +1,9 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 
 import { Registry } from 'prom-client';
 
-import type { Meter, MetricsType, ObservableGauge, TelemetryClient } from './telemetry.js';
+import type { Histogram, Meter, MetricsType, ObservableGauge, TelemetryClient } from './telemetry.js';
 
 /**
  * Types matching the gossipsub and libp2p services
@@ -125,7 +126,7 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
     }
 
     for (const [labelStr, value] of this.labeledValues.entries()) {
-      const labels = this.parseLabelsSafely(labelStr);
+      const labels = parseLabelsSafely(labelStr, this.logger);
       if (labels) {
         result.observe(value, labels);
       }
@@ -146,7 +147,7 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
     }
 
     if (labelsOrValue) {
-      this.validateLabels(labelsOrValue);
+      validateLabels(labelsOrValue, this.labelNames, 'Gauge');
       const labelKey = JSON.stringify(labelsOrValue);
       const currentValue = this.labeledValues.get(labelKey) ?? 0;
       this.labeledValues.set(labelKey, currentValue + (value ?? 1));
@@ -169,7 +170,7 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
       return;
     }
 
-    this.validateLabels(labelsOrValue);
+    validateLabels(labelsOrValue, this.labelNames, 'Gauge');
     const labelKey = JSON.stringify(labelsOrValue);
     this.labeledValues.set(labelKey, value!);
   }
@@ -180,7 +181,7 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
    */
   dec(labels?: Labels): void {
     if (labels) {
-      this.validateLabels(labels);
+      validateLabels(labels, this.labelNames, 'Gauge');
       const labelKey = JSON.stringify(labels);
       const currentValue = this.labeledValues.get(labelKey) ?? 0;
       this.labeledValues.set(labelKey, currentValue - 1);
@@ -197,84 +198,215 @@ export class OtelGauge<Labels extends LabelsGeneric = NoLabels> implements IGaug
     this.currentValue = 0;
     this.labeledValues.clear();
   }
-
-  /**
-   * Validates that provided labels match the expected schema
-   * @param labels - Labels object to validate
-   * @throws Error if invalid labels are provided
-   */
-  private validateLabels(labels: Labels): void {
-    if (this.labelNames.length === 0) {
-      throw new Error('Gauge was initialized without labels support');
-    }
-
-    for (const key of Object.keys(labels)) {
-      if (!this.labelNames.includes(key as keyof Labels)) {
-        throw new Error(`Invalid label key: ${key}`);
-      }
-    }
-  }
-
-  /**
-   * Safely parses label string back to object
-   * @param labelStr - Stringified labels object
-   * @returns Labels object or null if parsing fails
-   */
-  private parseLabelsSafely(labelStr: string): Labels | null {
-    try {
-      return JSON.parse(labelStr) as Labels;
-    } catch {
-      this.logger.error(`Failed to parse label string: ${labelStr}`);
-      return null;
-    }
-  }
 }
 
 /**
- * Noop implementation of a Historgram collec
+ * Implementation of a Histogram collector
  */
-class NoopOtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogram<Labels> {
+export class OtelHistogram<Labels extends LabelsGeneric = NoLabels> implements IHistogram<Labels> {
+  private histogram: Histogram;
+
   constructor(
     private logger: Logger,
-    _meter: Meter,
-    _name: string, // MetricsType must be registered in the aztec labels registry
-    _help: string,
-    _buckets: number[] = [],
-    _labelNames: Array<keyof Labels> = [],
-  ) {}
+    meter: Meter,
+    name: string,
+    help: string,
+    buckets: number[] = [],
+    private labelNames: Array<keyof Labels> = [],
+  ) {
+    this.histogram = meter.createHistogram(name as MetricsType, {
+      description: help,
+      advice: buckets.length ? { explicitBucketBoundaries: buckets } : undefined,
+    });
+  }
 
-  // Overload signatures
-  observe(_value: number): void;
-  observe(_labels: Labels, _value: number): void;
-  observe(_valueOrLabels: number | Labels, _value?: number): void {}
+  /**
+   * Starts a timer and returns a function that when called will record the time elapsed
+   * @param labels - Optional labels for the observation
+   */
+  startTimer(labels?: Labels): () => void {
+    if (labels) {
+      validateLabels(labels, this.labelNames, 'Histogram');
+    }
 
-  startTimer(_labels?: Labels): (_labels?: Labels) => number {
-    return () => 0;
+    const timer = new Timer();
+    return () => {
+      // Use timer.s() here to get the duration in seconds since this is only currently used by gossipsub_heartbeat_duration_seconds
+      const duration = timer.s();
+      if (labels) {
+        this.observe(labels, duration);
+      } else {
+        this.observe(duration);
+      }
+    };
+  }
+
+  /**
+   * Observes a value
+   * @param value - Value to observe
+   */
+  observe(value: number): void;
+  /**
+   * Observes a value with labels
+   * @param labels - Labels object
+   * @param value - Value to observe
+   */
+  observe(labels: Labels, value: number): void;
+  observe(labelsOrValue: Labels | number, value?: number): void {
+    if (typeof labelsOrValue === 'number') {
+      this.histogram.record(labelsOrValue);
+    } else {
+      validateLabels(labelsOrValue, this.labelNames, 'Histogram');
+      this.histogram.record(value!, labelsOrValue);
+    }
   }
 
   reset(): void {
     // OpenTelemetry histograms cannot be reset, but we implement the interface
-    this.logger.silent('OpenTelemetry histograms cannot be reset');
+    this.logger.silent('OpenTelemetry histograms cannot be fully reset');
   }
 }
 
 /**
- * Noop implementation of an AvgMinMax collector
+ * Implementation of an AvgMinMax collector
  */
-class NoopOtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvgMinMax<Labels> {
+export class OtelAvgMinMax<Labels extends LabelsGeneric = NoLabels> implements IAvgMinMax<Labels> {
+  private gauges: {
+    avg: ObservableGauge;
+    min: ObservableGauge;
+    max: ObservableGauge;
+  };
+
+  private currentValues: number[] = [];
+  private labeledValues: Map<string, number[]> = new Map();
+
   constructor(
-    private _logger: Logger,
-    _meter: Meter,
-    _name: string, // MetricsType must be registered in the aztec labels registry
-    _help: string,
-    _labelNames: Array<keyof Labels> = [],
-  ) {}
+    private logger: Logger,
+    meter: Meter,
+    name: string,
+    help: string,
+    private labelNames: Array<keyof Labels> = [],
+  ) {
+    // Create three separate gauges for avg, min, and max
+    this.gauges = {
+      avg: meter.createObservableGauge(`${name}_avg` as MetricsType, {
+        description: `${help} (average)`,
+      }),
+      min: meter.createObservableGauge(`${name}_min` as MetricsType, {
+        description: `${help} (minimum)`,
+      }),
+      max: meter.createObservableGauge(`${name}_max` as MetricsType, {
+        description: `${help} (maximum)`,
+      }),
+    };
 
-  set(_values: number[]): void;
-  set(_labels: Labels, _values: number[]): void;
-  set(_valueOrLabels: number[] | Labels, _values?: number[]): void {}
+    // Register callbacks for each gauge
+    this.gauges.avg.addCallback(this.observeAvg.bind(this));
+    this.gauges.min.addCallback(this.observeMin.bind(this));
+    this.gauges.max.addCallback(this.observeMax.bind(this));
+  }
 
-  reset(): void {}
+  /**
+   * Sets the values for calculating avg, min, max
+   * @param values - Array of values
+   */
+  set(values: number[]): void;
+  /**
+   * Sets the values for calculating avg, min, max with labels
+   * @param labels - Labels object
+   * @param values - Array of values
+   */
+  set(labels: Labels, values: number[]): void;
+  set(labelsOrValues: number[] | Labels, values?: number[]): void {
+    if (Array.isArray(labelsOrValues)) {
+      this.currentValues = labelsOrValues;
+      return;
+    } else {
+      validateLabels(labelsOrValues, this.labelNames, 'AvgMinMax');
+      const labelKey = JSON.stringify(labelsOrValues);
+      this.labeledValues.set(labelKey, values || []);
+    }
+  }
+
+  /**
+   * Resets all stored values
+   */
+  reset(): void {
+    this.currentValues = [];
+    this.labeledValues.clear();
+  }
+
+  /**
+   * General function to observe an aggregation
+   * @param result - Observer result
+   * @param aggregateFn - Function that calculates the aggregation
+   */
+  private observeAggregation(result: any, aggregateFn: (arr: number[]) => number): void {
+    // Observe unlabeled values
+    if (this.currentValues.length > 0) {
+      result.observe(aggregateFn(this.currentValues));
+    }
+
+    // Observe labeled values
+    for (const [labelStr, values] of this.labeledValues.entries()) {
+      if (values.length > 0) {
+        const labels = parseLabelsSafely(labelStr, this.logger);
+        if (labels) {
+          result.observe(aggregateFn(values), labels);
+        }
+      }
+    }
+  }
+
+  private observeAvg(result: any): void {
+    this.observeAggregation(result, arr => arr.reduce((sum, val) => sum + val, 0) / arr.length);
+  }
+
+  private observeMin(result: any): void {
+    this.observeAggregation(result, arr => Math.min.apply(null, arr));
+  }
+
+  private observeMax(result: any): void {
+    this.observeAggregation(result, arr => Math.max.apply(null, arr));
+  }
+}
+
+/**
+ * Validates that provided labels match the expected schema
+ * @param labels - Labels object to validate
+ * @param labelNames - Array of allowed label names
+ * @param metricType - Type of metric for error message ('Gauge', 'Histogram', 'AvgMinMax')
+ * @throws Error if invalid labels are provided
+ */
+function validateLabels<Labels extends LabelsGeneric>(
+  labels: Labels,
+  labelNames: Array<keyof Labels>,
+  metricType: string,
+): void {
+  if (labelNames.length === 0) {
+    throw new Error(`${metricType} was initialized without labels support`);
+  }
+
+  for (const key of Object.keys(labels)) {
+    if (!labelNames.includes(key as keyof Labels)) {
+      throw new Error(`Invalid label key: ${key}`);
+    }
+  }
+}
+
+/**
+ * Safely parses label string back to object
+ * @param labelStr - Stringified labels object
+ * @param logger - Logger instance for error reporting
+ * @returns Labels object or null if parsing fails
+ */
+function parseLabelsSafely<Labels extends LabelsGeneric>(labelStr: string, logger: Logger): Labels | null {
+  try {
+    return JSON.parse(labelStr) as Labels;
+  } catch {
+    logger.error(`Failed to parse label string: ${labelStr}`);
+    return null;
+  }
 }
 
 /**
@@ -304,7 +436,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   }
 
   histogram<Labels extends LabelsGeneric = NoLabels>(configuration: HistogramConfig<Labels>): IHistogram<Labels> {
-    return new NoopOtelHistogram<Labels>(
+    return new OtelHistogram<Labels>(
       this.logger,
       this.meter,
       configuration.name as MetricsType,
@@ -315,7 +447,7 @@ export class OtelMetricsAdapter extends Registry implements MetricsRegister {
   }
 
   avgMinMax<Labels extends LabelsGeneric = NoLabels>(configuration: AvgMinMaxConfig<Labels>): IAvgMinMax<Labels> {
-    return new NoopOtelAvgMinMax<Labels>(
+    return new OtelAvgMinMax<Labels>(
       this.logger,
       this.meter,
       configuration.name as MetricsType,
