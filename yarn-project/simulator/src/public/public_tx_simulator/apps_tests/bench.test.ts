@@ -25,8 +25,10 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     ({ telemetryClient, teardown } = benchmarkSetup(
       ///*telemetryConfig=*/ {},
       /*metrics=*/ [
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED,
         Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS,
+        Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED,
+        Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND,
+        Metrics.PUBLIC_EXECUTOR_SIMULATION_DURATION,
       ],
     ));
     tester = await PublicTxSimulationTester.create(telemetryClient);

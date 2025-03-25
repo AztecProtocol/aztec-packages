@@ -117,7 +117,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
 
   const endTime = performance.now();
 
-  logger.verbose(`TokenContract public tx simulator test took ${endTime - startTime}ms\n`);
+  logger.info(`TokenContract public tx simulator test took ${endTime - startTime}ms\n`);
 }
 
 async function checkBalance(

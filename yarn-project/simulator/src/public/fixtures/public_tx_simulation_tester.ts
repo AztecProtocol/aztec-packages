@@ -9,6 +9,7 @@ import { GlobalVariables, PublicCallRequestWithCalldata, type Tx } from '@aztec/
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
+import { resolveAssertionMessageFromRevertData } from '../../client.js';
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
 import { getContractFunctionAbi, getFunctionSelector } from '../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';

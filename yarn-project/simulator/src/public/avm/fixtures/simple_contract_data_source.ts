@@ -22,6 +22,8 @@ export class SimpleContractDataSource implements ContractDataSource {
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
   // maps contract instance address to address
   private contractArtifacts: Map<string, ContractArtifact> = new Map();
+  // maps contract instance address to function selector to name
+  private debugFunctionName: Map<string, Map<string, string>> = new Map();
 
   /////////////////////////////////////////////////////////////
   // Helper functions not in the contract data source interface
@@ -41,6 +43,10 @@ export class SimpleContractDataSource implements ContractDataSource {
 
   addContractArtifact(classId: Fr, artifact: ContractArtifact): void {
     this.contractArtifacts.set(classId.toString(), artifact);
+  }
+
+  setDebugFunctionName(_address: AztecAddress, _selector: FunctionSelector, _name: string): void {
+    this.debugFunctionName.set(_address.toString(), _selector.toString(), _name);
   }
 
   /////////////////////////////////////////////////////////////

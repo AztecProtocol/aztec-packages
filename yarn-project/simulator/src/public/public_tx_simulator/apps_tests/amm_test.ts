@@ -89,11 +89,19 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   await tester.setPublicStorage(token1.address, refundToken1PartialNote.commitment, new Fr(1));
   await tester.setPublicStorage(liquidityToken.address, liquidityPartialNote.commitment, new Fr(1));
 
-  logger.debug(`Adding liquidity`);
+  // private function add_liquidity enqueues a few public calls
   const addLiquidityResult = await tester.simulateTx(
     /*sender=*/ amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
     /*setupCalls=*/ [],
     /*appCalls=*/ [
+      // TODO: add_liquidity enqueues more
+      // token0.transfer_to_public enqueues a _increase_public_balance
+      // token0.prepare_private_balance_increase enqueues a _store_balances_set_partial_note
+      // token1.transfer_to_public enqueues a _increase_public_balance
+      // token1.prepare_private_balance_increase enqueues a _store_balances_set_partial_note
+      // liquidityToken.prepare_private_balance_increase enqueues a _store_balances_set_partial_note
+
+      // _add_liquidity
       {
         fnName: '_add_liquidity',
         args: [
@@ -118,10 +126,9 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
     /*feePayer=*/ undefined,
     /*firstNullifier=*/ undefined,
     /*globals=*/ undefined,
-    /*metricsTag=*/ 'AMM.add_liquidity',
+    /*metricsTag=*/ 'AMM._add_liquidity',
   );
   expect(addLiquidityResult.revertCode.isOK()).toBe(true);
-  logger.debug(`Added liquidity`);
 
   const tokenOutPartialNote = {
     commitment: new Fr(111),
@@ -142,7 +149,7 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
     /*feePayer=*/ undefined,
     /*firstNullifier=*/ undefined,
     /*globals=*/ undefined,
-    /*metricsTag=*/ 'AMM.swap',
+    /*metricsTag=*/ 'AMM._swap_exact_tokens_for_tokens',
   );
   expect(swapResult.revertCode.isOK()).toBe(true);
 
@@ -186,13 +193,13 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
     /*feePayer=*/ undefined,
     /*firstNullifier=*/ undefined,
     /*globals=*/ undefined,
-    /*metricsTag=*/ 'AMM.remove_liquidity',
+    /*metricsTag=*/ 'AMM._remove_liquidity',
   );
   expect(removeLiquidityResult.revertCode.isOK()).toBe(true);
 
   const endTime = performance.now();
 
-  logger.verbose(`AMM public tx simulator test took ${endTime - startTime}ms\n`);
+  logger.info(`AMM public tx simulator test took ${endTime - startTime}ms\n`);
 }
 
 async function deployToken(tester: PublicTxSimulationTester, admin: AztecAddress, seed = 0) {
