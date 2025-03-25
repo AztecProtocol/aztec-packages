@@ -37,6 +37,8 @@ template <typename Curve> class ShpleminiProver_ {
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool has_zk = (libra_polynomials[0].size() > 0);
+        const size_t padded_log_n = multilinear_challenge.size();
+
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(
             circuit_size, polynomial_batcher, multilinear_challenge, commitment_key, transcript, has_zk);
         // Create opening claims for Libra masking univariates and Sumcheck Round Univariates
@@ -56,9 +58,8 @@ template <typename Curve> class ShpleminiProver_ {
                 circuit_size, multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
         }
 
-        const OpeningClaim batched_claim = ShplonkProver::prove(
-            commitment_key, opening_claims, transcript, libra_opening_claims, sumcheck_round_claims);
-        return batched_claim;
+        return ShplonkProver::prove(
+            padded_log_n, commitment_key, opening_claims, transcript, libra_opening_claims, sumcheck_round_claims);
     };
 
     /**
@@ -118,6 +119,9 @@ template <typename Curve> class ShpleminiProver_ {
             for (auto& eval_point : evaluation_points) {
                 new_claim.opening_pair.challenge = eval_point;
                 new_claim.opening_pair.evaluation = sumcheck_round_evaluations[idx][eval_idx];
+                if (new_claim.opening_pair.evaluation != new_claim.polynomial.evaluate(eval_point)) {
+                    info("not equal ", idx, " ", eval_idx);
+                }
                 sumcheck_round_claims.push_back(new_claim);
                 eval_idx++;
             }
@@ -217,6 +221,9 @@ template <typename Curve> class ShpleminiVerifier_ {
             log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
 
+        const size_t padded_log_circuit_size = multivariate_challenge.size();
+        info("shpl padded size ", padded_log_circuit_size);
+
         Fr batched_evaluation = Fr{ 0 };
 
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
@@ -229,16 +236,18 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
         const Fr gemini_batching_challenge = transcript->template get_challenge<Fr>("rho");
+        info("shpl r ", gemini_batching_challenge);
 
         // Process Gemini transcript data:
         // - Get Gemini commitments (com(A₁), com(A₂), … , com(Aₙ₋₁))
         const std::vector<Commitment> fold_commitments =
-            GeminiVerifier::get_fold_commitments(log_circuit_size, transcript);
+            GeminiVerifier::get_fold_commitments(padded_log_circuit_size, transcript);
         // - Get Gemini evaluation challenge for Aᵢ, i = 0, … , d−1
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
         // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
-        const std::vector<Fr> gemini_fold_neg_evaluations = GeminiVerifier::get_gemini_evaluations(transcript);
+        const std::vector<Fr> gemini_fold_neg_evaluations =
+            GeminiVerifier::get_gemini_evaluations(padded_log_circuit_size, transcript);
 
         // Get evaluations of partially evaluated batched interleaved polynomials P₊(rˢ) and P₋((-r)ˢ)
         Fr p_pos = Fr(0);
@@ -250,7 +259,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         const std::vector<Fr> gemini_eval_challenge_powers =
-            gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, CONST_PROOF_SIZE_LOG_N);
+            gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, padded_log_circuit_size);
 
         std::array<Fr, NUM_SMALL_IPA_EVALUATIONS> libra_evaluations;
         if (has_zk) {
@@ -266,8 +275,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Compute the powers of ν that are required for batching Gemini, SmallSubgroupIPA, and committed sumcheck
         // univariate opening claims.
-        const std::vector<Fr> shplonk_batching_challenge_powers =
-            compute_shplonk_batching_challenge_powers(shplonk_batching_challenge, has_zk, committed_sumcheck);
+        const std::vector<Fr> shplonk_batching_challenge_powers = compute_shplonk_batching_challenge_powers(
+            shplonk_batching_challenge, padded_log_circuit_size, has_zk, committed_sumcheck);
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
@@ -384,7 +393,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
         // ShpleminiVerifier, otherwise this argument is set to be empty
         if (has_zk) {
-            add_zk_data(commitments,
+            add_zk_data(padded_log_circuit_size,
+                        commitments,
                         scalars,
                         constant_term_accumulator,
                         libra_commitments,
@@ -468,11 +478,11 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                          std::vector<Fr>& scalars,
                                                          Fr& constant_term_accumulator)
     {
-
+        const size_t padded_log_circuit_size = gemini_neg_evaluations.size();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
         // Start from 1, because the commitment to A_0 is reconstructed from the commitments to the multilinear
         // polynomials. The corresponding evaluations are also handled separately.
-        for (size_t j = 1; j < CONST_PROOF_SIZE_LOG_N; ++j) {
+        for (size_t j = 1; j < padded_log_circuit_size; ++j) {
             // The index of 1/ (z - r^{2^{j}}) in the vector of inverted Gemini denominators
             const size_t pos_index = 2 * j;
             // The index of 1/ (z + r^{2^{j}}) in the vector of inverted Gemini denominators
@@ -604,7 +614,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param shplonk_batching_challenge
      * @param shplonk_evaluation_challenge
      */
-    static void add_zk_data(std::vector<Commitment>& commitments,
+    static void add_zk_data(const size_t padded_log_circuit_size,
+                            std::vector<Commitment>& commitments,
                             std::vector<Fr>& scalars,
                             Fr& constant_term_accumulator,
                             const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments,
@@ -632,7 +643,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // compute the scalars to be multiplied against the commitments [libra_concatenated], [grand_sum], [grand_sum],
         // and [libra_quotient]
         for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-            Fr scaling_factor = denominators[idx] * shplonk_batching_challenge_powers[NUM_GEMINI_CLAIMS + idx];
+            Fr scaling_factor =
+                denominators[idx] * shplonk_batching_challenge_powers[2 * padded_log_circuit_size + 2 + idx];
             batching_scalars[idx] = -scaling_factor;
             constant_term_accumulator += scaling_factor * libra_evaluations[idx];
         }
@@ -724,7 +736,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Each commitment to a sumcheck round univariate [S_i] is multiplied by the sum of three scalars corresponding
         // to the evaluations at 0, 1, and the round challenge u_i
         size_t round_idx = 0;
-        size_t power = NUM_GEMINI_CLAIMS + NUM_SMALL_IPA_EVALUATIONS;
+        size_t power = 2 * multilinear_challenge.size() + 2 + NUM_SMALL_IPA_EVALUATIONS;
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims
             Fr batched_scalar = Fr(0);

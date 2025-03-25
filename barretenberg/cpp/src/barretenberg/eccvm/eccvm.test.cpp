@@ -42,21 +42,22 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     G1 c = G1::random_element(engine);
     Fr x = Fr::random_element(engine);
     Fr y = Fr::random_element(engine);
-
-    op_queue->add_accumulate(a);
-    op_queue->mul_accumulate(a, x);
-    op_queue->mul_accumulate(b, x);
-    op_queue->mul_accumulate(b, y);
-    op_queue->add_accumulate(a);
-    op_queue->mul_accumulate(b, x);
-    op_queue->eq_and_reset();
-    op_queue->add_accumulate(c);
-    op_queue->mul_accumulate(a, x);
-    op_queue->mul_accumulate(b, x);
-    op_queue->eq_and_reset();
-    op_queue->mul_accumulate(a, x);
-    op_queue->mul_accumulate(b, x);
-    op_queue->mul_accumulate(c, x);
+    for (size_t idx = 0; idx < 150; idx++) {
+        op_queue->add_accumulate(a);
+        op_queue->mul_accumulate(a, x);
+        op_queue->mul_accumulate(b, x);
+        op_queue->mul_accumulate(b, y);
+        op_queue->add_accumulate(a);
+        op_queue->mul_accumulate(b, x);
+        op_queue->eq_and_reset();
+        op_queue->add_accumulate(c);
+        op_queue->mul_accumulate(a, x);
+        op_queue->mul_accumulate(b, x);
+        op_queue->eq_and_reset();
+        op_queue->mul_accumulate(a, x);
+        op_queue->mul_accumulate(b, x);
+        op_queue->mul_accumulate(c, x);
+    }
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
 }
@@ -84,7 +85,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters, unmasked_witness_size);
 
     // Generate gate challenges
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
         gate_challenges[idx] = FF::random_element();
     }
 }
@@ -142,13 +143,13 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 {
     using Flavor = ECCVMFlavor;
     using ProvingKey = ECCVMFlavor::ProvingKey;
-    using SumcheckProver = SumcheckProver<ECCVMFlavor>;
+    using SumcheckProver = SumcheckProver<ECCVMFlavor, CONST_ECCVM_LOG_N>;
     using FF = ECCVMFlavor::FF;
     using Transcript = Flavor::Transcript;
     using ZKData = ZKSumcheckData<Flavor>;
 
     bb::RelationParameters<FF> relation_parameters;
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
 
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
 
@@ -174,7 +175,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor> sumcheck_verifier = SumcheckVerifier<Flavor>(log_circuit_size, verifier_transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(log_circuit_size, verifier_transcript);
     SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations

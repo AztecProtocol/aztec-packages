@@ -80,6 +80,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
     // Generate the recursive verification circuit
     CIVCRecVerifierOutput output = verifier.verify(proof);
+    // info("CIVCOutput ", output);
 
     EXPECT_EQ(builder->failed(), false) << builder->err();
 
@@ -116,7 +117,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     EXPECT_EQ(tube_builder->failed(), false) << tube_builder->err();
 
-    // EXPECT_TRUE(CircuitChecker::check(*tube_builder));
+    info("circuit checker tube ", CircuitChecker::check(*tube_builder));
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
     auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
@@ -148,8 +149,9 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Natively verify the IPA proof for the base rollup circuit
     auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
     auto ipa_transcript = std::make_shared<NativeTranscript>(base_proving_key->proving_key.ipa_proof);
-    IPA<curve::Grumpkin>::reduce_verify(
+    auto reduce_verify = IPA<curve::Grumpkin>::reduce_verify(
         ipa_verification_key, output.ipa_opening_claim.get_native_opening_claim(), ipa_transcript);
+    info("reduce  verify? ", reduce_verify);
 }
 
 // Ensure that the Client IVC Recursive Verifier Circuit does not depend on the Client IVC input

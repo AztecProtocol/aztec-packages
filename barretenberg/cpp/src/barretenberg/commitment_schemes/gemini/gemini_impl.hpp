@@ -49,6 +49,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<Transcript>& transcript,
     bool has_zk)
 {
+    const size_t padded_log_n = multilinear_challenge.size();
+    info("padded log_n prover ", padded_log_n);
     const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     const size_t n = 1 << log_n;
 
@@ -66,6 +68,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
+    info("prover rho ", rho);
 
     Fr running_scalar = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
 
@@ -75,7 +78,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
-    for (size_t l = 0; l < CONST_PROOF_SIZE_LOG_N - 1; l++) {
+    for (size_t l = 0; l < padded_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
         if (l < log_n - 1) {
             transcript->send_to_verifier(label, commitment_key->commit(fold_polynomials[l]));
@@ -100,7 +103,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     std::vector<Claim> claims = construct_univariate_opening_claims(
         log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
 
-    for (size_t l = 1; l <= CONST_PROOF_SIZE_LOG_N; l++) {
+    for (size_t l = 1; l <= padded_log_n; l++) {
         std::string label = "Gemini:a_" + std::to_string(l);
         if (l <= log_n) {
             transcript->send_to_verifier(label, claims[l].opening_pair.evaluation);

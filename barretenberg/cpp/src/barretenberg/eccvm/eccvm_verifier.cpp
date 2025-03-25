@@ -53,9 +53,9 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
@@ -72,7 +72,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {
-        vinfo("eccvm sumcheck failed");
+        info("eccvm sumcheck failed");
         return false;
     }
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
@@ -88,7 +88,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                sumcheck_output.challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
-                                               Flavor::REPEATED_COMMITMENTS,
+                                               {},
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
@@ -117,8 +117,9 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
-    vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified);
-    vinfo("batch opening verified?: ", batched_opening_verified);
+    info("consistency checked? ", consistency_checked);
+    info("eccvm sumcheck verified?: ", sumcheck_output.verified);
+    info("batch opening verified?: ", batched_opening_verified);
     return sumcheck_output.verified && batched_opening_verified && consistency_checked &&
            translation_masking_consistency_checked;
 }
@@ -193,6 +194,7 @@ void ECCVMVerifier::compute_translation_opening_claims(
                                                       evaluation_challenge_x,
                                                       batching_challenge_v,
                                                       translation_masking_term_eval);
+    info("translation consistency checked ", translation_masking_consistency_checked);
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     Commitment batched_commitment = translation_commitments[0];

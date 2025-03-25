@@ -52,8 +52,7 @@ void ECCVMProver::execute_wire_commitments_round()
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - MASKING_OFFSET;
 
-    CommitmentKey::CommitType commit_type =
-        (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
+    CommitmentKey::CommitType commit_type = CommitmentKey::CommitType::Default;
 
     // Commit to wires whose length is bounded by the real size of the ECCVM
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
@@ -116,12 +115,12 @@ void ECCVMProver::execute_grand_product_computation_round()
 void ECCVMProver::execute_relation_check_rounds()
 {
 
-    using Sumcheck = SumcheckProver<Flavor>;
+    using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
 
-    auto sumcheck = Sumcheck(key->circuit_size, transcript);
+    Sumcheck sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
@@ -172,7 +171,9 @@ void ECCVMProver::execute_pcs_rounds()
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
     // Reduce the opening claims to a single opening claim via Shplonk
-    const OpeningClaim batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
+    info("before last shpl");
+    const OpeningClaim batch_opening_claim =
+        Shplonk::prove(NUM_OPENING_CLAIMS, key->commitment_key, opening_claims, transcript);
 
     // Compute the opening proof for the batched opening claim with the univariate PCS
     PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, ipa_transcript);

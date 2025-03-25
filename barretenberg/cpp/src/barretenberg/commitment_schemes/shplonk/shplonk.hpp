@@ -39,7 +39,8 @@ template <typename Curve> class ShplonkProver_ {
      * @param nu batching challenge
      * @return Polynomial Q(X)
      */
-    static Polynomial compute_batched_quotient(std::span<const ProverOpeningClaim<Curve>> opening_claims,
+    static Polynomial compute_batched_quotient(const size_t padded_log_n,
+                                               std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                                const Fr& nu,
                                                std::span<Fr> gemini_fold_pos_evaluations,
                                                std::span<const ProverOpeningClaim<Curve>> libra_opening_claims,
@@ -64,36 +65,48 @@ template <typename Curve> class ShplonkProver_ {
         Fr current_nu = Fr::one();
 
         size_t fold_idx = 0;
+        size_t idx = 0;
         for (const auto& claim : opening_claims) {
 
             // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
             if (claim.gemini_fold) {
                 tmp = claim.polynomial;
+                if (tmp.evaluate(claim.opening_pair.challenge) != claim.opening_pair.evaluation) {
+                    info(idx, " not eq");
+                }
                 tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx++];
                 tmp.factor_roots(-claim.opening_pair.challenge);
                 // Add the claim quotient to the batched quotient polynomial
                 Q.add_scaled(tmp, current_nu);
                 current_nu *= nu;
+                idx++;
             }
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
+            if (tmp.evaluate(claim.opening_pair.challenge) != claim.opening_pair.evaluation) {
+                info(idx, " not eq");
+            }
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
             // Add the claim quotient to the batched quotient polynomial
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
+            idx++;
         }
-
+        info(idx);
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
         // batched before adding Libra commitments and evaluations is bounded by 2 * CONST_PROOF_SIZE_LOG_N + 2, where
         // 2 * CONST_PROOF_SIZE_LOG_N is the number of fold claims including the dummy ones, and +2 is reserved for
         // interleaving.
-        current_nu = nu.pow(NUM_GEMINI_CLAIMS);
-
+        current_nu = nu.pow(2 * padded_log_n + 2);
+        info("libra");
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
+            if (tmp.evaluate(claim.opening_pair.challenge) != claim.opening_pair.evaluation) {
+                info(idx, " not eq");
+            }
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
 
@@ -101,11 +114,14 @@ template <typename Curve> class ShplonkProver_ {
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
         }
-
+        info("sumcheck");
         for (const auto& claim : sumcheck_round_claims) {
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
+            if (tmp.evaluate(claim.opening_pair.challenge) != claim.opening_pair.evaluation) {
+                info(idx, " not eq");
+            }
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
 
@@ -128,6 +144,7 @@ template <typename Curve> class ShplonkProver_ {
      * @return Output{OpeningPair, Polynomial}
      */
     static ProverOpeningClaim<Curve> compute_partially_evaluated_batched_quotient(
+        const size_t padded_log_n,
         std::span<const ProverOpeningClaim<Curve>> opening_claims,
         Polynomial& batched_quotient_Q,
         const Fr& nu_challenge,
@@ -194,7 +211,8 @@ template <typename Curve> class ShplonkProver_ {
         }
 
         // Take into account the constant proof size in Gemini
-        current_nu = nu_challenge.pow(NUM_GEMINI_CLAIMS);
+        info("virtual log_n, prover shpl ", padded_log_n);
+        current_nu = nu_challenge.pow(2 * padded_log_n + 2);
 
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -256,7 +274,8 @@ template <typename Curve> class ShplonkProver_ {
      * @return ProverOpeningClaim<Curve>
      */
     template <typename Transcript>
-    static ProverOpeningClaim<Curve> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+    static ProverOpeningClaim<Curve> prove(const size_t padded_log_n,
+                                           const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                            std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                            const std::shared_ptr<Transcript>& transcript,
                                            std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {},
@@ -268,11 +287,13 @@ template <typename Curve> class ShplonkProver_ {
         std::vector<Fr> gemini_fold_pos_evaluations = compute_gemini_fold_pos_evaluations(opening_claims);
 
         auto batched_quotient = compute_batched_quotient(
-            opening_claims, nu, gemini_fold_pos_evaluations, libra_opening_claims, sumcheck_round_claims);
+            padded_log_n, opening_claims, nu, gemini_fold_pos_evaluations, libra_opening_claims, sumcheck_round_claims);
         auto batched_quotient_commitment = commitment_key->commit(batched_quotient);
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
-        return compute_partially_evaluated_batched_quotient(opening_claims,
+        info("shpl eval challenge ", z);
+        return compute_partially_evaluated_batched_quotient(padded_log_n,
+                                                            opening_claims,
                                                             batched_quotient,
                                                             nu,
                                                             z,
@@ -315,6 +336,7 @@ template <typename Curve> class ShplonkVerifier_ {
         auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
         const Fr z_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
+        info("shpl z ", z_challenge);
 
         // [G] = [Q] - ∑ⱼ ρʲ / (z − xⱼ )⋅[fⱼ] + G₀⋅[1]
         //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / (z − xⱼ )]
@@ -429,7 +451,7 @@ template <typename Curve> class ShplonkVerifier_ {
                                                                 const std::vector<Fr>& gemini_eval_challenge_powers)
     {
         std::vector<Fr> denominators;
-        denominators.reserve(NUM_GEMINI_CLAIMS);
+        denominators.reserve(2 * gemini_eval_challenge_powers.size() + 2);
 
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
             // Place 1/(z - r ^ {2^j})
@@ -456,10 +478,11 @@ template <typename Curve> class ShplonkVerifier_ {
  */
 template <typename Fr>
 static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplonk_batching_challenge,
+                                                                 const size_t padded_log_circuit_size,
                                                                  bool has_zk = false,
                                                                  bool committed_sumcheck = false)
 {
-    size_t num_powers = NUM_GEMINI_CLAIMS;
+    size_t num_powers = 2 * padded_log_circuit_size + 2;
     // Each round univariate is opened at 0, 1, and a round challenge.
     static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;
 
@@ -469,7 +492,7 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
     }
 
     if (committed_sumcheck) {
-        num_powers += NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND * CONST_PROOF_SIZE_LOG_N;
+        num_powers += NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND * padded_log_circuit_size;
     }
 
     std::vector<Fr> result;
