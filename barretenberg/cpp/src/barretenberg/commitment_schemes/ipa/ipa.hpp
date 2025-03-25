@@ -278,9 +278,7 @@ template <typename Curve_> class IPA {
                     a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
-if (i == poly_length-1){
-info( "prover ipa challenge ", i, " " , round_challenge);
-}
+
         }
 
         // For dummy rounds, send commitments of zero()

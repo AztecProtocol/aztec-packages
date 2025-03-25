@@ -866,16 +866,12 @@ template <typename Flavor, size_t LOG_CIRCUIT_SIZE = CONST_PROOF_SIZE_LOG_N> cla
             full_honk_purported_value.self_reduce();
 
             // Populate claimed evaluations of Sumcheck Round Unviariates at the round challenges. These will be
-            // checked as a part of Shplemini and pad claimed evaluations to the LOG_CIRCUIT_SIZE
+            // checked as a part of Shplemini.
             for (size_t round_idx = 1; round_idx < LOG_CIRCUIT_SIZE; round_idx++) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
-                round_univariate_evaluations[round_idx - 1][2] = FF::conditional_assign(
-                    dummy_round,
-                    full_honk_purported_value,
-                    round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1]);
+                round_univariate_evaluations[round_idx - 1][2] =
+                    round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
             };
-
+            round_univariate_evaluations[LOG_CIRCUIT_SIZE - 1][2] = full_honk_purported_value;
             first_sumcheck_round_evaluations_sum.self_reduce();
             round.target_total_sum.self_reduce();
 
@@ -902,9 +898,7 @@ template <typename Flavor, size_t LOG_CIRCUIT_SIZE = CONST_PROOF_SIZE_LOG_N> cla
             };
 
             // Pad claimed evaluations to the CONST_PROOF_SIZE_LOG_N
-            for (size_t round_idx = multivariate_d; round_idx <= LOG_CIRCUIT_SIZE; round_idx++) {
-                round_univariate_evaluations[round_idx - 1][2] = full_honk_purported_value;
-            };
+            round_univariate_evaluations[LOG_CIRCUIT_SIZE - 1][2] = full_honk_purported_value;
 
             // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
             // target total sum

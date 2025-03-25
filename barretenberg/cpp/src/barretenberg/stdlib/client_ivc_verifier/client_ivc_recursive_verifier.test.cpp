@@ -119,8 +119,6 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     EXPECT_EQ(tube_builder->failed(), false) << tube_builder->err();
 
-    info("circuit checker tube ", CircuitChecker::check(*tube_builder));
-
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
     auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
     UltraProver_<NativeFlavor> tube_prover{ proving_key };
