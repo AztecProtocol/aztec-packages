@@ -160,15 +160,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @notice  Check if msg.sender can propose at a given time
    *
    * @param _ts - The timestamp to check
-   * @param _archive - The archive to check (should be the latest archive)
    *
-   * @return uint256 - The slot at the given timestamp
+   * @return Slot - The slot at the given timestamp
+   * @return Timestamp - The timestamp for the given slot
    * @return uint256 - The block number at the given timestamp
+   * @return bytes32 - The tip archive
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
+  function canProposeAtTime(Timestamp _ts)
     external
     override(IRollup)
-    returns (Slot, uint256)
+    returns (Slot, Timestamp, uint256, bytes32)
   {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
@@ -181,7 +182,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
     // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
     Signature[] memory sigs = new Signature[](0);
 
@@ -190,11 +190,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       slot,
       slot.epochFromSlot(),
       sigs,
-      _archive,
+      bytes32(0), // empty digest because we skip signature verification
       BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
     );
 
-    return (slot, pendingBlockNumber + 1);
+    return (slot, slot.toTimestamp(), pendingBlockNumber + 1, tipArchive);
   }
 
   function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
