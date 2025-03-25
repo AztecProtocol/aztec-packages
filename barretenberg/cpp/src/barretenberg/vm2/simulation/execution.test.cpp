@@ -38,8 +38,10 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
     EventEmitter<ExecutionEvent> execution_event_emitter;
+    EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
-    Execution execution = Execution(alu, execution_components, instruction_info_db, execution_event_emitter);
+    Execution execution =
+        Execution(alu, execution_components, instruction_info_db, execution_event_emitter, context_stack_event_emitter);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -54,9 +56,14 @@ TEST_F(ExecutionSimulationTest, Call)
     AztecAddress parent_address = 1;
     AztecAddress nested_address = 2;
 
-    EXPECT_CALL(context, emit_context_snapshot);
+    // Context snapshotting
+    EXPECT_CALL(context, get_context_id);
+    EXPECT_CALL(context, get_next_pc);
+    EXPECT_CALL(context, get_is_static);
+    EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
+
     EXPECT_CALL(context, get_memory);
-    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(parent_address));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
     EXPECT_CALL(memory, get).WillOnce(Return(ValueRefAndTag({ .value = nested_address, .tag = MemoryTag::U32 })));
 
     EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _))

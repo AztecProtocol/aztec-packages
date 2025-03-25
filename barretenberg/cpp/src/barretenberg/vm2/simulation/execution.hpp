@@ -44,11 +44,13 @@ class Execution : public ExecutionInterface {
     Execution(AluInterface& alu,
               ExecutionComponentsProviderInterface& execution_components,
               const InstructionInfoDBInterface& instruction_info_db,
-              EventEmitterInterface<ExecutionEvent>& event_emitter)
+              EventEmitterInterface<ExecutionEvent>& event_emitter,
+              EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , events(event_emitter)
+        , ctx_stack_events(ctx_stack_emitter)
     {}
 
     ExecutionResult execute(ContextInterface& enqueued_call_context) override;
@@ -74,11 +76,14 @@ class Execution : public ExecutionInterface {
                             const std::vector<Operand>& resolved_operands);
     std::vector<Operand> resolve_operands(const Instruction& instruction, const ExecInstructionSpec& spec);
 
+    void emit_context_snapshot(ContextInterface& context);
+
     ExecutionComponentsProviderInterface& execution_components;
     const InstructionInfoDBInterface& instruction_info_db;
 
     AluInterface& alu;
     EventEmitterInterface<ExecutionEvent>& events;
+    EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 };
 
 } // namespace bb::avm2::simulation

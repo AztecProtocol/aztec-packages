@@ -34,7 +34,7 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
 void Execution::call(ContextInterface& context, MemoryAddress addr)
 {
     // Emit Snapshot of current context
-    context.emit_context_snapshot();
+    emit_context_snapshot(context);
 
     auto& memory = context.get_memory();
 
@@ -198,5 +198,14 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
         (this->*f)(context, static_cast<std::tuple_element_t<Is, types>>(resolved_operands[Is])...);
     }(operand_indices);
 }
+
+void Execution::emit_context_snapshot(ContextInterface& context)
+{
+    ctx_stack_events.emit({ .id = context.get_context_id(),
+                            .next_pc = context.get_next_pc(),
+                            .msg_sender = context.get_msg_sender(),
+                            .contract_addr = context.get_address(),
+                            .is_static = context.get_is_static() });
+};
 
 } // namespace bb::avm2::simulation

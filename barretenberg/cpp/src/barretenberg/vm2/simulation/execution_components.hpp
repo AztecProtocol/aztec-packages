@@ -39,11 +39,9 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
   public:
     ExecutionComponentsProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
                                 EventEmitterInterface<MemoryEvent>& memory_events,
-                                EventEmitterInterface<ContextStackEvent>& ctx_stack_events,
                                 const InstructionInfoDBInterface& instruction_info_db)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_events(memory_events)
-        , ctx_stack_events(ctx_stack_events)
         , instruction_info_db(instruction_info_db)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
@@ -62,7 +60,6 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
 
     TxBytecodeManagerInterface& tx_bytecode_manager;
     EventEmitterInterface<MemoryEvent>& memory_events;
-    EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
     const InstructionInfoDBInterface& instruction_info_db;
 
     // Sadly someone has to own these.

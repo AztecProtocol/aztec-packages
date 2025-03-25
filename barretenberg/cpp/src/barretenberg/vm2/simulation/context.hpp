@@ -43,7 +43,6 @@ class ContextInterface {
     virtual std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) const = 0;
 
     // Events
-    virtual void emit_context_snapshot() = 0;
     virtual ContextEvent get_current_context() = 0;
 };
 
@@ -55,15 +54,13 @@ class BaseContext : public ContextInterface {
                 AztecAddress msg_sender,
                 bool is_static,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
-                std::unique_ptr<MemoryInterface> memory,
-                EventEmitterInterface<ContextStackEvent>& ctx_stack_events)
+                std::unique_ptr<MemoryInterface> memory)
         : address(address)
         , msg_sender(msg_sender)
         , is_static(is_static)
         , context_id(context_id)
         , bytecode(std::move(bytecode))
         , memory(std::move(memory))
-        , ctx_stack_events(ctx_stack_events)
     {}
 
     // Having getters and setters make it easier to mock the context.
@@ -86,15 +83,6 @@ class BaseContext : public ContextInterface {
     bool get_is_static() const override { return is_static; }
 
     // Event Emitting
-    void emit_context_snapshot() override
-    {
-        ctx_stack_events.emit({ .id = context_id,
-                                .next_pc = next_pc,
-                                .msg_sender = msg_sender,
-                                .contract_addr = address,
-                                .is_static = is_static });
-    };
-
     ContextEvent get_current_context() override
     {
         return {
@@ -117,9 +105,6 @@ class BaseContext : public ContextInterface {
     std::vector<FF> nested_returndata;
     std::unique_ptr<BytecodeManagerInterface> bytecode;
     std::unique_ptr<MemoryInterface> memory;
-
-    // Emiiters
-    EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 };
 
 // TODO(ilyas): flesh these out in the cpp file, these are just temporary
@@ -131,10 +116,8 @@ class EnqueuedCallContext : public BaseContext {
                         bool is_static,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
-                        EventEmitterInterface<ContextStackEvent>& ctx_stack_events,
                         std::span<const FF> calldata)
-        : BaseContext(
-              context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory), ctx_stack_events)
+        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
         , calldata(calldata.begin(), calldata.end())
     {}
 
@@ -183,12 +166,10 @@ class NestedContext : public BaseContext {
                   bool is_static,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
-                  EventEmitterInterface<ContextStackEvent>& ctx_stack_events,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
                   MemoryAddress cd_size_address    /* This is a direct mem address */
                   )
-        : BaseContext(
-              context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory), ctx_stack_events)
+        : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
         , cd_offset_address(cd_offset_address)
         , cd_size_address(cd_size_address)
     {}

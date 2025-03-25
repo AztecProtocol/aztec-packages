@@ -39,7 +39,6 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(std::vector<FF>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (const, override));
 
     // Event Emitting
-    MOCK_METHOD(void, emit_context_snapshot, (), (override));
     MOCK_METHOD(ContextEvent, get_current_context, (), (override));
 };
 
