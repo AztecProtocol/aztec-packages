@@ -23,7 +23,9 @@
 namespace bb::avm2::simulation {
 namespace {
 
+using ::testing::_;
 using ::testing::Ref;
+using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
@@ -44,6 +46,25 @@ TEST_F(ExecutionSimulationTest, Add)
 {
     EXPECT_CALL(alu, add(Ref(context), 4, 5, 6));
     execution.add(context, 4, 5, 6);
+}
+
+TEST_F(ExecutionSimulationTest, Call)
+{
+
+    AztecAddress parent_address = 1;
+    AztecAddress nested_address = 2;
+
+    EXPECT_CALL(context, emit_context_snapshot);
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(parent_address));
+    EXPECT_CALL(memory, get).WillOnce(Return(ValueRefAndTag({ .value = nested_address, .tag = MemoryTag::U32 })));
+
+    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _))
+        .WillOnce(Return(std::make_unique<MockContext>()));
+
+    EXPECT_CALL(context, set_nested_returndata);
+
+    execution.call(context, 10);
 }
 
 } // namespace
