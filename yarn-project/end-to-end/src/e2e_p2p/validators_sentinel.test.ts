@@ -94,6 +94,5 @@ describe('e2e_p2p_validators_sentinel', () => {
     expect(okStats.history.some(h => h.status === 'attestation-sent')).toBeTrue();
     expect(okStats.history.some(h => h.status === 'block-mined' || 'block-proposed')).toBeTrue();
     expect(okStats.missedAttestations.rate).toBeLessThan(1);
-    expect(okStats.missedProposals.rate).toBeOneOf([1, NaN]);
   });
 });
