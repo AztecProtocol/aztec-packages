@@ -24,7 +24,7 @@ pub global PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS: u32 = PRIVATE_LOG_PLAINTEXT_SIZ
 /// Trait for encrypting and decrypting private logs in the Aztec protocol.
 ///
 /// This trait defines the interface for encrypting plaintext data into private logs that can be
-/// emitted on-chain, and decrypting those logs back into their original plaintext.
+/// emitted on-chain or delivered out-of-band, and decrypting those logs back into their original plaintext.
 ///
 /// # Type Parameters
 /// - `PLAINTEXT_LEN`: Length of the plaintext array in fields
