@@ -51,6 +51,7 @@ import {
   TxReceipt,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
+import type { ValidatorsStats } from '@aztec/stdlib/validators';
 import type { NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
@@ -678,5 +679,9 @@ export class TXENode implements AztecNode {
    */
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
     throw new Error('TXE Node method getWorldStateSyncStatus not implemented');
+  }
+
+  getValidatorsStats(): Promise<ValidatorsStats> {
+    throw new Error('TXE Node method getValidatorsStats not implemented');
   }
 }
