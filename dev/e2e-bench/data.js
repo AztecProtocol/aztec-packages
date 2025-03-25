@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742901488811,
+  "lastUpdate": 1742906863781,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "james.zaki@proton.me",
-            "name": "James Zaki",
-            "username": "jzaki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c9ea1cd2d36939d2064d05af998da47d18e12751",
-          "message": "docs: additions (#12551)",
-          "timestamp": "2025-03-19T15:49:03Z",
-          "tree_id": "560a4a28c7274fd4b97a5e7310d266b7f12c6d52",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c9ea1cd2d36939d2064d05af998da47d18e12751"
-        },
-        "date": 1742401025137,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9453,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23068258284215246,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 140670,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 140825,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "88586592+porco-rosso-j@users.noreply.github.com",
+            "name": "porco",
+            "username": "porco-rosso-j"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c21c74c146a282b210cc07cbeb227a1ee19bb18",
+          "message": "fix: added #[derive(Eq)] to EcdsaPublicKeyNote (#12966)",
+          "timestamp": "2025-03-25T12:16:13Z",
+          "tree_id": "8c08a239ac2f371e5beb924745ab8ccac8b15176",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c21c74c146a282b210cc07cbeb227a1ee19bb18"
+        },
+        "date": 1742906862887,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9747,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24788486045693608,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 158651,
             "unit": "us"
           }
         ]
