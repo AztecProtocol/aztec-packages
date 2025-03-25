@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742853521380,
+  "lastUpdate": 1742876194815,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5df2aea2b1723a5cf7db1dc7d9966f3b8fba476a",
-          "message": "fix: clientivc capture benchmarks include authwits (#12873)\n\nBuilds on top of:\nhttps://github.com/AztecProtocol/aztec-packages/pull/12868\n\nFixes benchmarks by making sure the profile call gets the correct\nauthwitnesses.\n\n---------\n\nCo-authored-by: MirandaWood <miranda@aztecprotocol.com>",
-          "timestamp": "2025-03-19T15:06:01+01:00",
-          "tree_id": "b5fbf1b087d8ff5eb634bffc106957f134fc3b4d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5df2aea2b1723a5cf7db1dc7d9966f3b8fba476a"
-        },
-        "date": 1742395021808,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8552,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.20868871282054063,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 112566,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 110068,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e2b1361f73ddcb582275cb9f9bb8100a94bbc9c7",
+          "message": "feat(avm): vm2 initial context (#12972)\n\nThis adds the initial work for `context` and `context_stack` to vm2. The\ninterfaces will still need to be updated in the future, but it sets up\nthe points where the context events will happen (i.e. at the end of the\nmain execution loop and within `call`).\n\nThis also outlines the contents of the two events albeit commented out\nfor now (until we have the supported inputs in the context itself)",
+          "timestamp": "2025-03-25T11:41:19+08:00",
+          "tree_id": "d8c37cf8472368ef6d8562ff6d8e4e84013d76ce",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e2b1361f73ddcb582275cb9f9bb8100a94bbc9c7"
+        },
+        "date": 1742876193976,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8348,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.21230962726497218,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 111509,
             "unit": "us"
           }
         ]
