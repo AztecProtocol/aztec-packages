@@ -113,6 +113,9 @@ function test_cmds {
   echo "$prefix simple e2e_token_contract/transfer_to_public"
   echo "$prefix simple e2e_token_contract/transfer.test"
 
+  # other
+  echo "$prefix simple e2e_sequencer_config"
+
   # circuit_recorder sub-tests
   echo "$prefix simple e2e_circuit_recorder"
 
