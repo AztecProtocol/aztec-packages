@@ -306,7 +306,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Goblin verification (final merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ vk.eccvm, vk.translator };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
-    info("Goblin verified: ", goblin_verified);
+    vinfo("Goblin verified: ", goblin_verified);
     return goblin_verified && mega_verified;
 }
 
