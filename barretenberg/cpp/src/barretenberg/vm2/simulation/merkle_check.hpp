@@ -21,12 +21,17 @@ class MerkleCheckInterface {
                                    const uint64_t leaf_index,
                                    std::span<const FF> sibling_path,
                                    const FF& root) = 0;
+    virtual FF write(const FF& current_value,
+                     const FF& new_value,
+                     const uint64_t leaf_index,
+                     std::span<const FF> sibling_path,
+                     const FF& current_root) = 0;
 };
 
 class MerkleCheck : public MerkleCheckInterface {
   public:
-    MerkleCheck(Poseidon2& poseidon2, EventEmitterInterface<MerkleCheckEvent>& event_emitter)
-        : events(event_emitter)
+    MerkleCheck(Poseidon2& poseidon2, EventEmitterInterface<MerkleCheckEvent>& emitter)
+        : events(emitter)
         , poseidon2(poseidon2)
     {}
 
@@ -34,6 +39,12 @@ class MerkleCheck : public MerkleCheckInterface {
                            const uint64_t leaf_index,
                            std::span<const FF> sibling_path,
                            const FF& root) override;
+
+    FF write(const FF& current_value,
+             const FF& new_value,
+             const uint64_t leaf_index,
+             std::span<const FF> sibling_path,
+             const FF& current_root) override;
 
   private:
     EventEmitterInterface<MerkleCheckEvent>& events;

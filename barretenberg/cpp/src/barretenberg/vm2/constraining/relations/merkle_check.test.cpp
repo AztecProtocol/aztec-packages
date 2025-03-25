@@ -40,8 +40,8 @@ using C = Column;
 using merkle_check = bb::avm2::merkle_check<FF>;
 using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-// using permutation_poseidon2_hash = bb::avm2::perm_merkle_check_perm_merkle_poseidon2_relation<FF>;
-using lookup_poseidon2_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_relation<FF>;
+using lookup_poseidon2_read_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_read_relation<FF>;
+using lookup_poseidon2_write_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_write_relation<FF>;
 
 TEST(MerkleCheckConstrainingTest, EmptyRow)
 {
@@ -250,7 +250,7 @@ TEST(MerkleCheckConstrainingTest, AssignCurrentNodeLeftOrRight)
           { C::merkle_check_read_right_node, 456 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT);
+    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ);
 
     // Test odd index (current_node goes to right_node)
     TestTraceContainer trace2({
@@ -262,14 +262,14 @@ TEST(MerkleCheckConstrainingTest, AssignCurrentNodeLeftOrRight)
           { C::merkle_check_read_right_node, 123 } },
     });
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT);
+    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ);
 
     // Negative test - now modify to an incorrect value and verify it fails
     trace2.set(C::merkle_check_read_left_node, 0, 123);  // Should be 456
     trace2.set(C::merkle_check_read_right_node, 0, 456); // Should be 123
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT),
-                              "ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ),
+                              "ASSIGN_NODE_LEFT_OR_RIGHT_READ");
 }
 
 TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRight)
@@ -284,7 +284,7 @@ TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRight)
           { C::merkle_check_read_right_node, 456 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT);
+    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ);
 
     // Test odd index (sibling goes to left_node)
     TestTraceContainer trace2({
@@ -296,14 +296,14 @@ TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRight)
           { C::merkle_check_read_right_node, 123 } },
     });
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT);
+    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ);
 
     // Negative test - now modify to an incorrect value and verify it fails
     trace2.set(C::merkle_check_read_left_node, 0, 123);  // Should be 456
     trace2.set(C::merkle_check_read_right_node, 0, 456); // Should be 123
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT),
-                              "ASSIGN_SIBLING_LEFT_OR_RIGHT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ),
+                              "ASSIGN_SIBLING_LEFT_OR_RIGHT_READ");
 }
 
 TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsCurrentNode)
@@ -323,14 +323,13 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsCurrentNode)
           { C::merkle_check_read_node, output_hash } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE);
+    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE);
 
     // Negative test - now modify to an incorrect value and verify it fails
     trace.set(C::merkle_check_read_node, 1, output_hash + 1); // Should be output_hash
 
-    EXPECT_THROW_WITH_MESSAGE(
-        check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE),
-        "OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE),
+                              "OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE");
 }
 
 TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsCurrentNodeValueForLastRow)
@@ -343,7 +342,7 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsCurrentNodeValueForLast
         { { C::merkle_check_sel, 1 }, { C::merkle_check_read_node, next_current_node } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE);
+    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE);
 }
 
 TEST(MerkleCheckConstrainingTest, WithTracegen)
@@ -386,8 +385,8 @@ TEST(MerkleCheckConstrainingTest, WithInteractions)
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
-    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
-    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
+    EventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    MerkleCheck merkle_check_sim(poseidon2, merkle_check_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -400,18 +399,18 @@ TEST(MerkleCheckConstrainingTest, WithInteractions)
     merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_check_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
-    check_interaction<lookup_poseidon2_hash>(trace);
+    LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
+    check_interaction<lookup_poseidon2_read_hash>(trace);
     check_relation<merkle_check>(trace);
 
     // Negative test - now corrupt the trace and verify it fails
     trace.set(Column::merkle_check_read_output_hash, static_cast<uint32_t>(sibling_path.size()), 66);
 
-    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace),
+    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace),
                               "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_hash>(trace),
+    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_read_hash>(trace),
                               "Relation.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* ACCUMULATION.* is non-zero");
 }
 
@@ -466,9 +465,8 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
-    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
-
-    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
+    EventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    MerkleCheck merkle_check_sim(poseidon2, merkle_check_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     MerkleCheckTraceBuilder merkle_check_builder;
@@ -487,10 +485,10 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     merkle_check_sim.assert_membership(leaf_value2, leaf_index2, sibling_path2, root2);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_check_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace);
-    check_interaction<lookup_poseidon2_hash>(trace);
+    LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
+    check_interaction<lookup_poseidon2_read_hash>(trace);
 
     check_relation<merkle_check>(trace);
 }

@@ -58,6 +58,12 @@ namespace merkle_check;
     pol commit index;
     pol commit path_len;
     pol commit root;
+
+    pol commit write;
+    write * (1 - write) = 0;
+    pol commit write_node;
+    pol commit write_root;
+
     // Hints
     pol commit sibling;
 
@@ -83,6 +89,12 @@ namespace merkle_check;
 
     #[PROPAGATE_ROOT]
     NOT_END * (root' - root) = 0;
+
+    #[PROPAGATE_WRITE]
+    NOT_END * (write' - write) = 0;
+
+    #[PROPAGATE_WRITE_ROOT]
+    NOT_END * (write_root' - write_root) = 0;
 
     // If we are not done, the path_len decrements by 1
     #[PATH_LEN_DECREMENTS]
@@ -118,13 +130,20 @@ namespace merkle_check;
     // The constraints below arrange read_node and sibling into proper left/right order
     pol commit read_left_node;
     pol commit read_right_node;
+    pol commit write_left_node;
+    pol commit write_right_node;
     // This is accomplished by using index_is_even to toggle the (read_left_node - read_right_node) term.
     // If index is even, read_left_node (to send to poseidon2) is read_node and read_right_node is sibling.
     // And vice-versa.
-    #[ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT]
+    #[ASSIGN_NODE_LEFT_OR_RIGHT_READ]
     sel * (index_is_even * (read_left_node - read_right_node) + read_right_node - read_node) = 0;
-    #[ASSIGN_SIBLING_LEFT_OR_RIGHT]
+    #[ASSIGN_SIBLING_LEFT_OR_RIGHT_READ]
     sel * (index_is_even * (read_right_node - read_left_node) + read_left_node - sibling) = 0;
+
+    #[ASSIGN_NODE_LEFT_OR_RIGHT_WRITE]
+    write * (index_is_even * (write_left_node - write_right_node) + write_right_node - write_node) = 0;
+    #[ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE]
+    write * (index_is_even * (write_right_node - write_left_node) + write_left_node - sibling) = 0;
     // NOTE: don't think these can be safely combined
 
     // read_output_hash = hash(read_left_node, read_right_node)
@@ -132,15 +151,28 @@ namespace merkle_check;
     //     if !index_is_even: read_output_hash = hash(sibling, read_node)
     // On end, read_output_hash is the root
     pol commit read_output_hash;
+    pol commit write_output_hash;
 
     pol commit constant_2;
     sel * (constant_2 - 2) = 0;
 
     // Lookup to the full poseidon2 gadget
-    #[MERKLE_POSEIDON2]
+    #[MERKLE_POSEIDON2_READ]
     sel { read_left_node, read_right_node, /*input_2=*/ precomputed.zero, /*input_len=*/ constant_2, read_output_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.input_len, poseidon2_hash.output };
 
-    // If we are not done, this row's read_output_hash is the next row's read_node input
-    #[OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE]
+    #[MERKLE_POSEIDON2_WRITE]
+    write { write_left_node, write_right_node, /*input_2=*/ precomputed.zero, /*input_len=*/ constant_2, write_output_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.input_len, poseidon2_hash.output };
+
+    // If we are not done, this row's output_hash is the next row's node
+    #[OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE]
     NOT_END * (read_node' - read_output_hash) = 0;
+    #[OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE]
+    NOT_END * (write_node' - write_output_hash) = 0;
+
+    // If we are done, the output hash is the root
+    #[READ_OUTPUT_HASH_IS_ROOT]
+    end * (read_output_hash - root) = 0;
+    #[WRITE_OUTPUT_HASH_IS_ROOT]
+    end * (write_output_hash - write_root) = 0;

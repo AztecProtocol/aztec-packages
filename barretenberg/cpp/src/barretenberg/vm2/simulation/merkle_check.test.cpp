@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
 

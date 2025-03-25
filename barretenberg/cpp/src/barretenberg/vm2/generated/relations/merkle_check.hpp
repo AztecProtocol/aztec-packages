@@ -12,8 +12,8 @@ template <typename FF_> class merkle_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 17> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 4, 4,
-                                                                            5, 3, 4, 4, 4, 4, 3, 4 };
+    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5,
+                                                                            3, 4, 4, 4, 4, 4, 4, 3, 4, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -47,50 +47,69 @@ template <typename FF_> class merkle_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_start * (FF(1) - new_term.merkle_check_start);
+            auto tmp = new_term.merkle_check_write * (FF(1) - new_term.merkle_check_write);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_end * (FF(1) - new_term.merkle_check_end);
+            auto tmp = new_term.merkle_check_start * (FF(1) - new_term.merkle_check_start);
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_end * new_term.precomputed_first_row;
+            auto tmp = new_term.merkle_check_end * (FF(1) - new_term.merkle_check_end);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        { // START_AFTER_LATCH
+        {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.merkle_check_sel_shift * (new_term.merkle_check_start_shift - merkle_check_LATCH_CONDITION);
+            auto tmp = new_term.merkle_check_end * new_term.precomputed_first_row;
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        { // SELECTOR_ON_END
+        { // START_AFTER_LATCH
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = new_term.merkle_check_end * (FF(1) - new_term.merkle_check_sel);
+            auto tmp =
+                new_term.merkle_check_sel_shift * (new_term.merkle_check_start_shift - merkle_check_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        { // PROPAGATE_ROOT
+        { // SELECTOR_ON_END
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = merkle_check_NOT_END * (new_term.merkle_check_root_shift - new_term.merkle_check_root);
+            auto tmp = new_term.merkle_check_end * (FF(1) - new_term.merkle_check_sel);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        { // PATH_LEN_DECREMENTS
+        { // PROPAGATE_ROOT
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = merkle_check_NOT_END *
-                       ((new_term.merkle_check_path_len_shift - new_term.merkle_check_path_len) + FF(1));
+            auto tmp = merkle_check_NOT_END * (new_term.merkle_check_root_shift - new_term.merkle_check_root);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        { // END_WHEN_PATH_EMPTY
+        { // PROPAGATE_WRITE
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = merkle_check_NOT_END * (new_term.merkle_check_write_shift - new_term.merkle_check_write);
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PROPAGATE_WRITE_ROOT
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            auto tmp =
+                merkle_check_NOT_END * (new_term.merkle_check_write_root_shift - new_term.merkle_check_write_root);
+            tmp *= scaling_factor;
+            std::get<10>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PATH_LEN_DECREMENTS
+            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            auto tmp = merkle_check_NOT_END *
+                       ((new_term.merkle_check_path_len_shift - new_term.merkle_check_path_len) + FF(1));
+            tmp *= scaling_factor;
+            std::get<11>(evals) += typename Accumulator::View(tmp);
+        }
+        { // END_WHEN_PATH_EMPTY
+            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_sel *
                        ((merkle_check_REMAINING_PATH_LEN *
                              (new_term.merkle_check_end * (FF(1) - new_term.merkle_check_remaining_path_len_inv) +
@@ -98,59 +117,100 @@ template <typename FF_> class merkle_checkImpl {
                          FF(1)) +
                         new_term.merkle_check_end);
             tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
+            std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_index_is_even * (FF(1) - new_term.merkle_check_index_is_even);
             tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
+            std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         { // NEXT_INDEX_IS_HALVED
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = merkle_check_NOT_END * ((new_term.merkle_check_index_shift * FF(2) + merkle_check_INDEX_IS_ODD) -
                                                new_term.merkle_check_index);
             tmp *= scaling_factor;
-            std::get<11>(evals) += typename Accumulator::View(tmp);
+            std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         { // FINAL_INDEX_IS_0_OR_1
-            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_end * new_term.merkle_check_index * (FF(1) - new_term.merkle_check_index);
             tmp *= scaling_factor;
-            std::get<12>(evals) += typename Accumulator::View(tmp);
+            std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        { // ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT
-            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+        { // ASSIGN_NODE_LEFT_OR_RIGHT_READ
+            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_sel *
                        ((new_term.merkle_check_index_is_even *
                              (new_term.merkle_check_read_left_node - new_term.merkle_check_read_right_node) +
                          new_term.merkle_check_read_right_node) -
                         new_term.merkle_check_read_node);
             tmp *= scaling_factor;
-            std::get<13>(evals) += typename Accumulator::View(tmp);
+            std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // ASSIGN_SIBLING_LEFT_OR_RIGHT
-            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+        { // ASSIGN_SIBLING_LEFT_OR_RIGHT_READ
+            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_sel *
                        ((new_term.merkle_check_index_is_even *
                              (new_term.merkle_check_read_right_node - new_term.merkle_check_read_left_node) +
                          new_term.merkle_check_read_left_node) -
                         new_term.merkle_check_sibling);
             tmp *= scaling_factor;
-            std::get<14>(evals) += typename Accumulator::View(tmp);
+            std::get<17>(evals) += typename Accumulator::View(tmp);
+        }
+        { // ASSIGN_NODE_LEFT_OR_RIGHT_WRITE
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+            auto tmp = new_term.merkle_check_write *
+                       ((new_term.merkle_check_index_is_even *
+                             (new_term.merkle_check_write_left_node - new_term.merkle_check_write_right_node) +
+                         new_term.merkle_check_write_right_node) -
+                        new_term.merkle_check_write_node);
+            tmp *= scaling_factor;
+            std::get<18>(evals) += typename Accumulator::View(tmp);
+        }
+        { // ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE
+            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
+            auto tmp = new_term.merkle_check_write *
+                       ((new_term.merkle_check_index_is_even *
+                             (new_term.merkle_check_write_right_node - new_term.merkle_check_write_left_node) +
+                         new_term.merkle_check_write_left_node) -
+                        new_term.merkle_check_sibling);
+            tmp *= scaling_factor;
+            std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_sel * (new_term.merkle_check_constant_2 - FF(2));
             tmp *= scaling_factor;
-            std::get<15>(evals) += typename Accumulator::View(tmp);
+            std::get<20>(evals) += typename Accumulator::View(tmp);
         }
-        { // OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE
-            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+        { // OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE
+            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
             auto tmp =
                 merkle_check_NOT_END * (new_term.merkle_check_read_node_shift - new_term.merkle_check_read_output_hash);
             tmp *= scaling_factor;
-            std::get<16>(evals) += typename Accumulator::View(tmp);
+            std::get<21>(evals) += typename Accumulator::View(tmp);
+        }
+        { // OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE
+            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
+            auto tmp = merkle_check_NOT_END *
+                       (new_term.merkle_check_write_node_shift - new_term.merkle_check_write_output_hash);
+            tmp *= scaling_factor;
+            std::get<22>(evals) += typename Accumulator::View(tmp);
+        }
+        { // READ_OUTPUT_HASH_IS_ROOT
+            using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
+            auto tmp =
+                new_term.merkle_check_end * (new_term.merkle_check_read_output_hash - new_term.merkle_check_root);
+            tmp *= scaling_factor;
+            std::get<23>(evals) += typename Accumulator::View(tmp);
+        }
+        { // WRITE_OUTPUT_HASH_IS_ROOT
+            using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
+            auto tmp = new_term.merkle_check_end *
+                       (new_term.merkle_check_write_output_hash - new_term.merkle_check_write_root);
+            tmp *= scaling_factor;
+            std::get<24>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -164,42 +224,63 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
         switch (index) {
         case 1:
             return "TRACE_CONTINUITY";
-        case 5:
-            return "START_AFTER_LATCH";
         case 6:
-            return "SELECTOR_ON_END";
+            return "START_AFTER_LATCH";
         case 7:
-            return "PROPAGATE_ROOT";
+            return "SELECTOR_ON_END";
         case 8:
-            return "PATH_LEN_DECREMENTS";
+            return "PROPAGATE_ROOT";
         case 9:
-            return "END_WHEN_PATH_EMPTY";
+            return "PROPAGATE_WRITE";
+        case 10:
+            return "PROPAGATE_WRITE_ROOT";
         case 11:
-            return "NEXT_INDEX_IS_HALVED";
+            return "PATH_LEN_DECREMENTS";
         case 12:
-            return "FINAL_INDEX_IS_0_OR_1";
-        case 13:
-            return "ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT";
+            return "END_WHEN_PATH_EMPTY";
         case 14:
-            return "ASSIGN_SIBLING_LEFT_OR_RIGHT";
+            return "NEXT_INDEX_IS_HALVED";
+        case 15:
+            return "FINAL_INDEX_IS_0_OR_1";
         case 16:
-            return "OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE";
+            return "ASSIGN_NODE_LEFT_OR_RIGHT_READ";
+        case 17:
+            return "ASSIGN_SIBLING_LEFT_OR_RIGHT_READ";
+        case 18:
+            return "ASSIGN_NODE_LEFT_OR_RIGHT_WRITE";
+        case 19:
+            return "ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE";
+        case 21:
+            return "OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE";
+        case 22:
+            return "OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE";
+        case 23:
+            return "READ_OUTPUT_HASH_IS_ROOT";
+        case 24:
+            return "WRITE_OUTPUT_HASH_IS_ROOT";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_START_AFTER_LATCH = 5;
-    static constexpr size_t SR_SELECTOR_ON_END = 6;
-    static constexpr size_t SR_PROPAGATE_ROOT = 7;
-    static constexpr size_t SR_PATH_LEN_DECREMENTS = 8;
-    static constexpr size_t SR_END_WHEN_PATH_EMPTY = 9;
-    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 11;
-    static constexpr size_t SR_FINAL_INDEX_IS_0_OR_1 = 12;
-    static constexpr size_t SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT = 13;
-    static constexpr size_t SR_ASSIGN_SIBLING_LEFT_OR_RIGHT = 14;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE = 16;
+    static constexpr size_t SR_START_AFTER_LATCH = 6;
+    static constexpr size_t SR_SELECTOR_ON_END = 7;
+    static constexpr size_t SR_PROPAGATE_ROOT = 8;
+    static constexpr size_t SR_PROPAGATE_WRITE = 9;
+    static constexpr size_t SR_PROPAGATE_WRITE_ROOT = 10;
+    static constexpr size_t SR_PATH_LEN_DECREMENTS = 11;
+    static constexpr size_t SR_END_WHEN_PATH_EMPTY = 12;
+    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 14;
+    static constexpr size_t SR_FINAL_INDEX_IS_0_OR_1 = 15;
+    static constexpr size_t SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ = 16;
+    static constexpr size_t SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ = 17;
+    static constexpr size_t SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE = 18;
+    static constexpr size_t SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE = 19;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 21;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 22;
+    static constexpr size_t SR_READ_OUTPUT_HASH_IS_ROOT = 23;
+    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_ROOT = 24;
 };
 
 } // namespace bb::avm2
