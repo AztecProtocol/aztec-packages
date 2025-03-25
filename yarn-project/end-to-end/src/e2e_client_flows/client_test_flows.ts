@@ -1,14 +1,14 @@
-import { getEcdsaRAccount } from '@aztec/accounts/ecdsa';
+import { EcdsaRAccountContractArtifact, getEcdsaRAccount } from '@aztec/accounts/ecdsa';
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
+  FeeJuicePaymentMethodWithClaim,
   type Logger,
   type PXE,
   createLogger,
-  sleep,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
@@ -24,7 +24,6 @@ import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
@@ -39,8 +38,8 @@ import {
   deployAccounts,
 } from '../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
-import { type SetupOptions, setupCanonicalFeeJuice, setupSponsoredFPC } from '../fixtures/utils.js';
-import { type CrossChainContext, CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
+import { type SetupOptions, setupCanonicalFeeJuice } from '../fixtures/utils.js';
+import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -66,6 +65,7 @@ export class ClientFlowsTest {
 
   public feeJuiceContract!: FeeJuiceContract;
   public bananaCoin!: BananaCoin;
+  public candyBarCoin!: TokenContract;
   public bananaFPC!: FPCContract;
   public sponsoredFPC!: SponsoredFPCContract;
   public counterContract!: CounterContract;
@@ -73,7 +73,6 @@ export class ClientFlowsTest {
 
   public context!: SubsystemsContext;
   public chainMonitor!: ChainMonitor;
-  public crossChainTestHarness!: CrossChainTestHarness;
 
   public userPXE!: PXE;
 
@@ -120,15 +119,16 @@ export class ClientFlowsTest {
 
   async createBenchmarkingAccountManager(type: 'ecdsar1' | 'schnorr') {
     const benchysSecretKey = Fr.random();
+    const salt = Fr.random();
 
     let benchysPrivateSigningKey;
     let benchysAccountManager;
     if (type === 'schnorr') {
       benchysPrivateSigningKey = deriveSigningKey(benchysSecretKey);
-      benchysAccountManager = await getSchnorrAccount(this.userPXE, benchysSecretKey, benchysPrivateSigningKey);
+      benchysAccountManager = await getSchnorrAccount(this.userPXE, benchysSecretKey, benchysPrivateSigningKey, salt);
     } else if (type === 'ecdsar1') {
       benchysPrivateSigningKey = randomBytes(32);
-      benchysAccountManager = await getEcdsaRAccount(this.userPXE, benchysSecretKey, benchysPrivateSigningKey);
+      benchysAccountManager = await getEcdsaRAccount(this.userPXE, benchysSecretKey, benchysPrivateSigningKey, salt);
     } else {
       throw new Error(`Unknown account type: ${type}`);
     }
@@ -216,6 +216,22 @@ export class ClientFlowsTest {
     );
   }
 
+  async applyDeployCandyBarTokenSnapshot() {
+    await this.snapshotManager.snapshot(
+      'deploy_candy_bar_token',
+      async () => {
+        const candyBarCoin = await BananaCoin.deploy(this.adminWallet, this.adminAddress, 'CBC', 'CBC', 18n)
+          .send()
+          .deployed();
+        this.logger.info(`CandyBarCoin deployed at ${candyBarCoin.address}`);
+        return { candyBarCoinAddress: candyBarCoin.address };
+      },
+      async ({ candyBarCoinAddress }) => {
+        this.candyBarCoin = await BananaCoin.at(candyBarCoinAddress, this.adminWallet);
+      },
+    );
+  }
+
   public async applyFPCSetupSnapshot() {
     await this.snapshotManager.snapshot(
       'fpc_setup',
@@ -224,77 +240,59 @@ export class ClientFlowsTest {
         expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
 
         const bananaCoin = this.bananaCoin;
-        this.bananaFPC = await FPCContract.deploy(this.adminWallet, bananaCoin.address, this.adminAddress)
+        const bananaFPC = await FPCContract.deploy(this.adminWallet, bananaCoin.address, this.adminAddress)
           .send()
           .deployed();
 
-        this.logger.info(`BananaPay deployed at ${this.bananaFPC.address}`);
+        this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(FEE_FUNDING_FOR_TESTER_ACCOUNT, this.bananaFPC.address);
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(FEE_FUNDING_FOR_TESTER_ACCOUNT, bananaFPC.address);
 
-        return { bananaFPCAddress: this.bananaFPC.address };
+        return { bananaFPCAddress: bananaFPC.address };
       },
       async data => {
-        const bananaFPC = await FPCContract.at(data.bananaFPCAddress, this.adminWallet);
-        this.bananaFPC = bananaFPC;
+        this.bananaFPC = await FPCContract.at(data.bananaFPCAddress, this.adminWallet);
       },
     );
   }
 
-  public async applyCrossChainHarnessSnapshot(owner: AccountWallet) {
-    await this.snapshotManager.snapshot(
-      'cross_chain_harness',
-      async context => {
-        const { publicClient, walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+  public async createCrossChainTestHarness(owner: AccountWallet) {
+    const { publicClient, walletClient } = createL1Clients(this.context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
-        const underlyingERC20Address = await deployL1Contract(
-          walletClient,
-          publicClient,
-          TestERC20Abi,
-          TestERC20Bytecode,
-          ['Underlying', 'UND', walletClient.account.address],
-        ).then(({ address }) => address);
+    const underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
+      'Underlying',
+      'UND',
+      walletClient.account.address,
+    ]).then(({ address }) => address);
 
-        this.logger.verbose(`Setting up cross chain harness...`);
-        this.crossChainTestHarness = await CrossChainTestHarness.new(
-          this.aztecNode,
-          this.pxe,
-          publicClient,
-          walletClient,
-          owner,
-          this.logger,
-          underlyingERC20Address,
-        );
-
-        this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
-
-        return this.crossChainTestHarness.toCrossChainContext();
-      },
-      async (data: CrossChainContext, context) => {
-        const l2Token = await TokenContract.at(data.l2Token, owner);
-        const l2Bridge = await TokenBridgeContract.at(data.l2Bridge, owner);
-
-        // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
-        const ethAccount = EthAddress.fromString(data.ethAccount.toString());
-        const tokenPortalAddress = EthAddress.fromString(data.tokenPortal.toString());
-
-        const { publicClient, walletClient } = createL1Clients(this.context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
-
-        this.crossChainTestHarness = new CrossChainTestHarness(
-          this.aztecNode,
-          this.pxe,
-          this.logger,
-          l2Token,
-          l2Bridge,
-          ethAccount,
-          tokenPortalAddress,
-          data.underlying,
-          publicClient,
-          walletClient,
-          context.aztecNodeConfig.l1Contracts,
-          owner,
-        );
-      },
+    this.logger.verbose(`Setting up cross chain harness...`);
+    const crossChainTestHarness = await CrossChainTestHarness.new(
+      this.aztecNode,
+      this.pxe,
+      publicClient,
+      walletClient,
+      owner,
+      this.logger,
+      underlyingERC20Address,
     );
+
+    this.logger.verbose(`L2 token deployed to: ${crossChainTestHarness.l2Token.address}`);
+
+    return crossChainTestHarness;
+  }
+
+  public async createAndFundBenchmarkingWallet(accountType: AccountType) {
+    const benchysAccountManager = await this.createBenchmarkingAccountManager(accountType);
+    const benchysWallet = await benchysAccountManager.getWallet();
+    const benchysAddress = benchysAccountManager.getAddress();
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(
+      FEE_FUNDING_FOR_TESTER_ACCOUNT,
+      benchysAddress,
+    );
+    const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysWallet, claim);
+    await benchysAccountManager.deploy({ fee: { paymentMethod } }).wait();
+    // Register benchy on admin's PXE so we can check its balances
+    await this.pxe.registerAccount(benchysWallet.getSecretKey(), benchysWallet.getCompleteAddress().partialAddress);
+    return benchysWallet;
   }
 }

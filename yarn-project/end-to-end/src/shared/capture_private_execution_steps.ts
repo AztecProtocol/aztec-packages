@@ -37,15 +37,27 @@ export async function capturePrivateExecutionStepsIfEnvSet(
   label: string,
   interaction: ContractFunctionInteraction | DeployMethod,
   opts?: Omit<ProfileMethodOptions & DeployOptions, 'profileMode'>,
+  expectedSteps?: number,
 ) {
   // Not included in env_var.ts as internal to e2e tests.
   const ivcFolder = process.env.CAPTURE_IVC_FOLDER;
   if (ivcFolder) {
     logger.info(`Capturing client ivc execution steps for ${label}`);
-    const result = await interaction.profile({ ...opts, profileMode: 'execution-steps' });
+    const result = await interaction.profile({ ...opts, profileMode: 'full' });
+    if (expectedSteps !== undefined && result.executionSteps.length !== expectedSteps) {
+      //throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
+    }
     const resultsDirectory = path.join(ivcFolder, label);
     logger.info(`Writing private execution steps to ${resultsDirectory}`);
     await fs.mkdir(resultsDirectory, { recursive: true });
+    await fs.writeFile(
+      path.join(resultsDirectory, 'steps.json'),
+      JSON.stringify(
+        result.executionSteps.map(step => ({ fnName: step.functionName, gateCount: step.gateCount })),
+        null,
+        2,
+      ),
+    );
     await _createClientIvcProofFiles(resultsDirectory, result.executionSteps);
     logger.info(`Wrote private execution steps to ${resultsDirectory}`);
   }

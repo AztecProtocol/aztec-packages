@@ -1,21 +1,15 @@
-import { EcdsaRAccountContractArtifact, getEcdsaRAccount } from '@aztec/accounts/ecdsa';
+import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
 import {
   AccountWallet,
-  AccountWalletWithSecretKey,
-  Contract,
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   Fr,
   type PXE,
-  PrivateFeePaymentMethod,
-  type Wallet,
   registerContractClass,
 } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import { randomBytes } from '@aztec/foundation/crypto';
 
 import { jest } from '@jest/globals';
-import type { Account } from 'viem';
 
 import { capturePrivateExecutionStepsIfEnvSet } from '../shared/capture_private_execution_steps.js';
 import { ClientFlowsTest } from './client_test_flows.js';
@@ -23,17 +17,13 @@ import { ClientFlowsTest } from './client_test_flows.js';
 jest.setTimeout(300_000);
 
 describe('Client flows benchmarking', () => {
-  const t = new ClientFlowsTest();
+  const t = new ClientFlowsTest('deployments');
   let adminWallet: AccountWallet;
   let adminPXE: PXE;
-  let bananaFPC: Contract;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    ({ adminWallet, bananaFPC, pxe: adminPXE } = await t.setup());
-    // Schnorr should already be registered by setup
-    const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaRAccountContractArtifact);
-    await registerContractClassInteraction.send().wait();
+    ({ adminWallet, pxe: adminPXE } = await t.setup());
   });
 
   afterAll(async () => {
@@ -42,7 +32,10 @@ describe('Client flows benchmarking', () => {
 
   describe('Deployments', () => {
     it('Deploy ECDSA R1 account contract, pay using bridged fee juice', async () => {
-      const benchysAccountManager = await t.createBenchmarkingAccountManager('ecdsar1');
+      const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaRAccountContractArtifact);
+      await registerContractClassInteraction.send().wait();
+
+      const benchysAccountManager = await t.createBenchmarkingAccountManager('schnorr');
       const benchysWallet = await benchysAccountManager.getWallet();
       const benchysAddress = benchysWallet.getAddress();
 
