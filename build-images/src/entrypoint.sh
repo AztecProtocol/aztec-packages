@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # Modify the uid and gid of aztec-dev to match that of the host users.
