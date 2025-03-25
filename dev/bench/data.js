@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742906861341,
+  "lastUpdate": 1742909780732,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "51711291+natebeauregard@users.noreply.github.com",
-            "name": "Nate Beauregard",
-            "username": "natebeauregard"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a96a908faa8122d026372a66423c94c256aa2dba",
-          "message": "chore(p2p): add tx queue to prevent ddos attacks (#12603)\n\ncloses https://github.com/AztecProtocol/aztec-packages/issues/12416\n\nAdds a `SerialQueue` for sending one tx at a time and adds a timeout of\n1s for invalid tx proofs to be invalidated.\n\nAdditionally, adds a new e2e test to ensure that large influxes of\ninvalid txs are filtered out and do not cause the node to crash or\nprevent valid txs from persisting through the p2p network.\n\n---------\n\nCo-authored-by: PhilWindle <60546371+PhilWindle@users.noreply.github.com>",
-          "timestamp": "2025-03-20T16:49:19Z",
-          "tree_id": "2f64d2d9b3078e294b92768b416f901e10d5b3d5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a96a908faa8122d026372a66423c94c256aa2dba"
-        },
-        "date": 1742491164907,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 44858,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 26030,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 11602,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 14465,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 18889,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3010,6 +2956,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15387,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ece539e68b030845808e63b4ac982644687f0bb",
+          "message": "fix(e2e): p2p (#13002)",
+          "timestamp": "2025-03-25T13:05:16Z",
+          "tree_id": "231a6abfaf7132a54dcdaa52cd53528d69d34eda",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1ece539e68b030845808e63b4ac982644687f0bb"
+        },
+        "date": 1742909772876,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39766,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26970,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 12015,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14848,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15261,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
