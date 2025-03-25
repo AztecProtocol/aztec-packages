@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Called by 'parallelise' to execute a given test cmd.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
@@ -148,7 +148,8 @@ function get_owners {
 
     # If error_regex is present, check the log content.
     if [ -n "$error_regex" ]; then
-      if grep -qE "$error_regex" $tmp_file; then
+      # Strip color codes from the log file.
+      if sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' $tmp_file | grep -qE "$error_regex"; then
         echo "$entry" | jq -r '.owners[]'
       fi
     else

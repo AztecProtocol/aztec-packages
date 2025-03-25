@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 source shared/setup.sh
 
@@ -8,7 +8,9 @@ MINT_AMOUNT=42
 
 source $flows/shared/deploy_sponsored_fpc_and_token.sh
 
+# docs:start:fpc-sponsored
 PAYMENT_METHOD="--payment method=fpc-sponsored,fpc=contracts:sponsoredFPC"
+# docs:end:fpc-sponsored
 
 aztec-wallet create-account -a user $PAYMENT_METHOD
 

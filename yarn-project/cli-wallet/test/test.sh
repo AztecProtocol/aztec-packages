@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 LOCATION=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -53,4 +53,3 @@ cd ./flows
 for file in $(ls *.sh | grep ${FILTER:-"."}); do
     ./$file
 done
-

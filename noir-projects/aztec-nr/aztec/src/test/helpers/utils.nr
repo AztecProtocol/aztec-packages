@@ -45,7 +45,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         let mut private_context = PrivateContext::new(inputs, 0);
         let args = call_interface.get_args();
         let args_hash = if args.len() > 0 { hash_args(args) } else { 0 };
-        execution_cache::store(args);
+        execution_cache::store(args, args_hash);
         let _ = private_context.call_private_function_with_args_hash(
             instance.to_address(),
             call_interface.get_selector(),

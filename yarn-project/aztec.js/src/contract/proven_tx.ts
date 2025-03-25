@@ -8,24 +8,7 @@ import { SentTx } from './sent_tx.js';
  */
 export class ProvenTx extends Tx {
   constructor(protected wallet: Wallet, tx: Tx) {
-    super(
-      tx.data,
-      tx.clientIvcProof,
-      tx.contractClassLogs,
-      tx.enqueuedPublicFunctionCalls,
-      tx.publicTeardownFunctionCall,
-    );
-  }
-
-  // Clone the TX data to get a serializable object.
-  protected getPlainDataTx(): Tx {
-    return new Tx(
-      this.data,
-      this.clientIvcProof,
-      this.contractClassLogs,
-      this.enqueuedPublicFunctionCalls,
-      this.publicTeardownFunctionCall,
-    );
+    super(tx.data, tx.clientIvcProof, tx.contractClassLogs, tx.publicFunctionCalldata);
   }
 
   /**
@@ -33,7 +16,7 @@ export class ProvenTx extends Tx {
    */
   public send(): SentTx {
     const promise = (() => {
-      return this.wallet.sendTx(this.getPlainDataTx());
+      return this.wallet.sendTx(this);
     })();
 
     return new SentTx(this.wallet, promise);

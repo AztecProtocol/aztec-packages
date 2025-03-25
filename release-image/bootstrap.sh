@@ -5,6 +5,17 @@ cmd=${1:-}
 
 hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
 
+function build_image {
+  set -euo pipefail
+  cd ..
+  docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) .
+  docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+
+  # Remove all but the most recent image.
+  docker images aztecprotocol/aztec --format "{{.ID}}" | uniq | tail -n +2 | xargs -r docker rmi -f
+}
+export -f build_image
+
 function build {
   echo_header "release-image build"
 
@@ -16,8 +27,7 @@ function build {
     docker load < release-image-base
   fi
 
-  denoise "cd .. && docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) ."
-  docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+  denoise "build_image"
 }
 
 case "$cmd" in

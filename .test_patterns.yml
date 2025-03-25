@@ -39,11 +39,14 @@ tests:
     error_regex: "field_t::range_constraint"
     owners:
       - *luke
-
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "Out of bounds memory access"
     owners:
-      - *sergei
+      - *luke
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "Sumcheck verification failed."
+    owners:
+      - *luke
 
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
@@ -79,11 +82,13 @@ tests:
     owners:
       - *charlie
 
-  # e2e
-  # e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
-  - regex: "simple e2e_p2p/"
+  - regex: "simple e2e_p2p/slashing"
     owners:
       - *sean
+
+  - regex: "simple e2e_p2p/upgrade_governance_proposer"
+    owners:
+      - *lasse
 
   - regex: "simple e2e_fees/private_payments"
     owners:
@@ -137,6 +142,10 @@ tests:
     error_regex: "Could not import your test module"
     owners:
       - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *alex
   - regex: "ethereum/src/contracts/registry.test.ts"
     error_regex: "lower than or equal to previous block's timestamp"
     owners:
@@ -167,7 +176,7 @@ tests:
 
   - regex: "spartan/bootstrap.sh test-kind-smoke"
     owners:
-      - *adam
+      - *mitch
 
   - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:
