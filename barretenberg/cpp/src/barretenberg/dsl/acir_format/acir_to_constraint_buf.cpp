@@ -895,17 +895,27 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
         // but until then a match could be pure coincidence.
         if (buf[0] == 2) {
             // Skip the format marker to get the data.
-            const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
             size_t size = buf.size() - 1;
+
+            // This works by treating the byte vector as a char*
+            // const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
+
+            // Or we can make a copy of it, which we delete when we're done.
+            char* buffer = new char[size];
+            std::copy(buf.begin() + 1, buf.end(), buffer);
+
             msgpack::null_visitor probe;
             if (msgpack::parse(buffer, size, probe)) {
                 auto o = msgpack::unpack(buffer, size).get();
                 // In experiments bincode data was parsed as 0.
                 // All the top level formats we look for are MAP types.
                 if (o.type == msgpack::type::MAP) {
-                    return decode_msgpack(o);
+                    auto v = decode_msgpack(o);
+                    delete[] buffer;
+                    return v;
                 }
             }
+            delete[] buffer;
         }
         // `buf[0] == 0` would indicate bincode starting with a format byte,
         // but if it's a coincidence and it fails to parse then we can't recover
