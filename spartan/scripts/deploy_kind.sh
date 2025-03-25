@@ -48,11 +48,7 @@ function monitor_status_logs {
   # This bypasses any output capturing/buffering from the parent script
   (
     # Disable strict mode inside this subshell
-    set +x
-    set +e
-    set +u
-    set +o pipefail
-
+    set +exuo pipefail
 
     # Redirect all output to /dev/tty to force unbuffered output directly to terminal
     exec > /dev/tty 2> /dev/tty
@@ -75,6 +71,39 @@ function monitor_status_logs {
       done
 
       if kubectl wait pod -l app!=setup-l2-contracts -l app.kubernetes.io/instance="$helm_instance" --for=condition="Ready" -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
+        echo -e "\n==== All pods are ready! Looking for setup-l2-contracts information... ====\n"
+
+        # Check if there are any setup-l2-contracts pods currently existing
+        if kubectl get pods -n "$namespace" -l app=setup-l2-contracts -o name 2>/dev/null | grep -q "pod"; then
+          echo -e "\n=== setup-l2-contracts Logs (Active) ===\n"
+
+          # Find all setup-l2-contracts pods and show their logs
+          for l2_pod in $(kubectl get pods -n "$namespace" -l app=setup-l2-contracts -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo ""); do
+            echo -e "\nLogs from $l2_pod:"
+            kubectl logs --tail=50 -n "$namespace" $l2_pod 2>/dev/null || echo "Cannot get logs from $l2_pod"
+            echo -e "\n-------------------\n"
+
+            # Check pod status
+            echo "Status of $l2_pod:"
+            kubectl get pod $l2_pod -n "$namespace" -o wide || true
+            echo -e "\n-------------------\n"
+          done
+
+          # Check if setup-l2-contracts job is complete
+          echo "Status of setup-l2-contracts job:"
+          kubectl get job -l app=setup-l2-contracts -n "$namespace" || true
+        else
+          # Check completed pods in case the job has finished but got deleted due to hook-delete-policy
+          echo -e "\n=== Looking for completed setup-l2-contracts pods ===\n"
+
+          # Try to find logs from completed pods that might be in the logs
+          echo "Checking for setup-l2-contracts in events:"
+          kubectl get events -n "$namespace" | grep -i "setup-l2-contracts" || echo "No setup-l2-contracts events found"
+
+          echo -e "\nChecking if the job completed successfully:"
+          kubectl get jobs -n "$namespace" | grep -i "setup-l2-contracts" || echo "No setup-l2-contracts job found - it may have been deleted after successful completion due to hook-delete-policy"
+        fi
+
         echo -e "\n==== All pods are ready! Stopping log monitor. ====\n"
         break
       fi
