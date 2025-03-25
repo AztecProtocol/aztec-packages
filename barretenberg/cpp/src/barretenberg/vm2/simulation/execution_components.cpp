@@ -8,6 +8,7 @@ namespace bb::avm2::simulation {
 
 std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_nested_context(AztecAddress address,
                                                                                    AztecAddress msg_sender,
+                                                                                   ContextInterface& parent_context,
                                                                                    MemoryAddress cd_offset_address,
                                                                                    MemoryAddress cd_size_address,
                                                                                    bool is_static)
@@ -19,6 +20,7 @@ std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_nested_conte
                                            is_static,
                                            std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
                                            std::make_unique<Memory>(context_id, memory_events),
+                                           parent_context,
                                            cd_offset_address,
                                            cd_size_address);
 }

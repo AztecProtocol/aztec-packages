@@ -62,7 +62,7 @@ class Execution : public ExecutionInterface {
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
-    void call(ContextInterface& context, MemoryAddress addr);
+    void call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size);
     void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
 
   private:

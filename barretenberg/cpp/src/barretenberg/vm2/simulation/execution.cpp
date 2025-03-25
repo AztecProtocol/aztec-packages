@@ -31,7 +31,7 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     memory.set(dst_addr, value, tag);
 }
 
-void Execution::call(ContextInterface& context, MemoryAddress addr)
+void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size)
 {
     // Emit Snapshot of current context
     emit_context_snapshot(context);
@@ -39,12 +39,16 @@ void Execution::call(ContextInterface& context, MemoryAddress addr)
     auto& memory = context.get_memory();
 
     // TODO: Read more stuff from call operands (e.g., calldata, gas)
+    // TODO(ilyas): How will we tag check these?
     const auto [contract_address, _] = memory.get(addr);
 
+    // We could load cd_size here, but to keep symmetry with cd_offset - we will defer the loads to a (possible)
+    // calldatacopy
     auto nested_context = execution_components.make_nested_context(contract_address,
                                                                    /*msg_sender=*/context.get_address(),
-                                                                   /*cd_offset_addr=*/0,
-                                                                   /*cd_size_addr=*/0,
+                                                                   /*parent_context=*/context,
+                                                                   /*cd_offset_addr=*/cd_offset,
+                                                                   /*cd_size_addr=*/cd_size,
                                                                    /*is_static=*/false);
 
     // We recurse. When we return, we'll continue with the current loop and emit the execution event.

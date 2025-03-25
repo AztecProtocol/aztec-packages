@@ -89,7 +89,8 @@ void ExecutionTraceBuilder::process(
                       { C::execution_is_static, ex_event.context_event.is_static },
                       { C::execution_msg_sender, ex_event.context_event.msg_sender },
                       { C::execution_contract_address, ex_event.context_event.contract_addr },
-
+                      { C::execution_parent_calldata_offset_addr, ex_event.context_event.parent_cd_addr },
+                      { C::execution_parent_calldata_size_addr, ex_event.context_event.parent_cd_size_addr },
                   } });
 
         row++;

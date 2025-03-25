@@ -26,6 +26,7 @@ class MockExecutionComponentsProvider : public ExecutionComponentsProviderInterf
                 make_nested_context,
                 (AztecAddress address,
                  AztecAddress msg_sender,
+                 ContextInterface& parent_context,
                  MemoryAddress cd_offset_address,
                  MemoryAddress cd_size_address,
                  bool is_static),

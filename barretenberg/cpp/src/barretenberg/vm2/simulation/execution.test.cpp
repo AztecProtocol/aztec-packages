@@ -66,12 +66,12 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
     EXPECT_CALL(memory, get).WillOnce(Return(ValueRefAndTag({ .value = nested_address, .tag = MemoryTag::U32 })));
 
-    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _))
+    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
         .WillOnce(Return(std::make_unique<MockContext>()));
 
     EXPECT_CALL(context, set_nested_returndata);
 
-    execution.call(context, 10);
+    execution.call(context, 10, 20, 30);
 }
 
 } // namespace

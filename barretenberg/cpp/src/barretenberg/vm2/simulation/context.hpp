@@ -82,14 +82,6 @@ class BaseContext : public ContextInterface {
     const AztecAddress& get_msg_sender() const override { return msg_sender; }
     bool get_is_static() const override { return is_static; }
 
-    // Event Emitting
-    ContextEvent get_current_context() override
-    {
-        return {
-            .id = context_id, .pc = pc, .msg_sender = msg_sender, .contract_addr = address, .is_static = is_static
-        };
-    };
-
   private:
     // Environment.
     AztecAddress address;
@@ -121,38 +113,45 @@ class EnqueuedCallContext : public BaseContext {
         , calldata(calldata.begin(), calldata.end())
     {}
 
+    // Event Emitting
+    ContextEvent get_current_context() override
+    {
+        return { .id = get_context_id(),
+                 .pc = get_pc(),
+                 .msg_sender = get_msg_sender(),
+                 .contract_addr = get_address(),
+                 .is_static = get_is_static(),
+                 .parent_cd_addr = 0,
+                 .parent_cd_size_addr = 0 };
+    };
+
     // Input / Output
     std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const override
     {
         // TODO(ilyas): Do we assert to assert cd_size < calldata.size(), otherwise it could trigger a massive write of
         // zeroes. OTOH: this should be caught by an OUT_OF_GAS exception
-
-        // Creates vector of length cd_size filled with zeroes
-        std::vector<FF> padded_calldata(cd_size, 0);
-        // We first take a slice of the calldata, the most we can slice is the actual size of the calldata
-        size_t slice_size = std::min(static_cast<size_t>(cd_offset + cd_size), calldata.size());
-
-        for (size_t i = cd_offset; i < slice_size; i++) {
-            padded_calldata[i] = calldata[i];
-        }
-
-        return padded_calldata;
+        return get_slice_helper(cd_offset, cd_size, calldata);
     };
 
     std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) const override
     {
-        std::vector<FF> padded_returndata(rd_size, 0);
-
-        size_t slice_size = std::min(static_cast<size_t>(rd_offset + rd_size), returndata.size());
-
-        for (size_t i = rd_offset; i < slice_size; i++) {
-            padded_returndata[i] = returndata[i];
-        }
-
-        return padded_returndata;
+        return get_slice_helper(rd_offset, rd_size, returndata);
     };
 
   private:
+    std::vector<FF> get_slice_helper(uint32_t offset, uint32_t size, std::span<const FF> data) const
+    {
+
+        std::vector<FF> padded_data(size, 0);
+        // We first take a slice of the data, the most we can slice is the actual size of the data
+        size_t slice_size = std::min(static_cast<size_t>(offset + size), data.size());
+
+        for (size_t i = offset; i < slice_size; i++) {
+            padded_data[i] = data[i];
+        }
+        return padded_data;
+    }
+
     std::vector<FF> calldata;
     std::vector<FF> returndata;
 };
@@ -166,20 +165,43 @@ class NestedContext : public BaseContext {
                   bool is_static,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
+                  ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
                   MemoryAddress cd_size_address    /* This is a direct mem address */
                   )
         : BaseContext(context_id, address, msg_sender, is_static, std::move(bytecode), std::move(memory))
-        , cd_offset_address(cd_offset_address)
-        , cd_size_address(cd_size_address)
+        , parent_cd_offset(cd_offset_address)
+        , parent_cd_size(cd_size_address)
+        , parent_context(parent_context)
     {}
 
-    // Input / Output
-    std::vector<FF> get_calldata([[maybe_unused]] uint32_t cd_offset, [[maybe_unused]] uint32_t cd_size) const override
+    // Event Emitting
+    ContextEvent get_current_context() override
     {
-        // Temporary implementation
-        return {};
+        return { .id = get_context_id(),
+                 .pc = get_pc(),
+                 .msg_sender = get_msg_sender(),
+                 .contract_addr = get_address(),
+                 .is_static = get_is_static(),
+                 .parent_cd_addr = parent_cd_offset,
+                 .parent_cd_size_addr = parent_cd_size };
     };
+
+    // Input / Output
+    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const override
+    {
+        ValueRefAndTag get_calldata_size = parent_context.get_memory().get(parent_cd_size);
+        // TODO(ilyas): error if tag != U32
+        auto calldata_size = static_cast<uint32_t>(get_calldata_size.value);
+        uint32_t read_size = std::min(cd_offset + cd_size, calldata_size);
+
+        auto retrieved_calldata = parent_context.get_memory().get_slice(parent_cd_offset + cd_offset, read_size).first;
+
+        // Pad the calldata
+        retrieved_calldata.resize(cd_size, 0);
+        return retrieved_calldata;
+    };
+
     std::vector<FF> get_returndata([[maybe_unused]] uint32_t rd_offset,
                                    [[maybe_unused]] uint32_t rd_size) const override
     {
@@ -188,8 +210,10 @@ class NestedContext : public BaseContext {
 
   private:
     // These are direct addresses to look up into the parent context during calldata copying
-    [[maybe_unused]] MemoryAddress cd_offset_address;
-    [[maybe_unused]] MemoryAddress cd_size_address;
+    MemoryAddress parent_cd_offset;
+    MemoryAddress parent_cd_size;
+
+    ContextInterface& parent_context;
 };
 
 } // namespace bb::avm2::simulation
