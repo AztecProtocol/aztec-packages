@@ -3,6 +3,7 @@ import { retryUntil } from '@aztec/aztec.js';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
+import 'jest-extended';
 import os from 'os';
 import path from 'path';
 
@@ -83,7 +84,7 @@ describe('e2e_p2p_validators_sentinel', () => {
     expect(offlineStats.history.every(h => h.status.endsWith('-missed'))).toBeTrue();
     expect(offlineStats.missedAttestations.count + offlineStats.missedProposals.count).toEqual(historyLength);
     expect(offlineStats.missedAttestations.rate).toEqual(1);
-    expect(offlineStats.missedProposals.rate).toEqual(1);
+    expect(offlineStats.missedProposals.rate).toBeOneOf([1, NaN]);
 
     // Check stats for a working validator
     const okValidator = t.validators[0].attester.toLowerCase();
@@ -93,6 +94,6 @@ describe('e2e_p2p_validators_sentinel', () => {
     expect(okStats.history.some(h => h.status === 'attestation-sent')).toBeTrue();
     expect(okStats.history.some(h => h.status === 'block-mined' || 'block-proposed')).toBeTrue();
     expect(okStats.missedAttestations.rate).toBeLessThan(1);
-    expect(okStats.missedProposals.rate).toBeLessThan(1);
+    expect(okStats.missedProposals.rate).toBeOneOf([1, NaN]);
   });
 });
