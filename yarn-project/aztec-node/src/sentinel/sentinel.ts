@@ -66,6 +66,16 @@ export class Sentinel implements L2BlockStreamEventHandler {
         this.slotNumberToArchive.set(block.block.header.getSlot(), block.block.archive.root.toString());
       }
     }
+    // Prune the archive map to only keep up to N slots
+    const historyLength = this.store.getHistoryLength();
+    if (this.slotNumberToArchive.size > historyLength) {
+      const toDelete = Array.from(this.slotNumberToArchive.keys())
+        .sort((a, b) => Number(a - b))
+        .slice(0, this.slotNumberToArchive.size - historyLength);
+      for (const key of toDelete) {
+        this.slotNumberToArchive.delete(key);
+      }
+    }
   }
 
   /**
@@ -206,10 +216,12 @@ export class Sentinel implements L2BlockStreamEventHandler {
   /** Computes stats to be returned based on stored data. */
   public async computeStats(): Promise<ValidatorsStats> {
     const histories = await this.store.getHistories();
+    const slotNow = this.epochCache.getEpochAndSlotNow().slot;
+    const fromSlot = (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
     const result: Record<`0x${string}`, ValidatorStats> = {};
     for (const [address, history] of Object.entries(histories)) {
       const validatorAddress = address as `0x${string}`;
-      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history);
+      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history, fromSlot);
     }
     return {
       stats: result,
@@ -219,7 +231,12 @@ export class Sentinel implements L2BlockStreamEventHandler {
     };
   }
 
-  protected computeStatsForValidator(address: `0x${string}`, history: ValidatorStatusHistory): ValidatorStats {
+  protected computeStatsForValidator(
+    address: `0x${string}`,
+    allHistory: ValidatorStatusHistory,
+    fromSlot?: bigint,
+  ): ValidatorStats {
+    const history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
     return {
       address: EthAddress.fromString(address),
       lastProposal: this.computeFromSlot(
@@ -239,10 +256,11 @@ export class Sentinel implements L2BlockStreamEventHandler {
     filter: ValidatorStatusInSlot,
   ) {
     const relevantHistory = history.filter(h => h.status.startsWith(computeOverPrefix));
+    const filteredHistory = relevantHistory.filter(h => h.status === filter);
     return {
       currentStreak: countWhile([...relevantHistory].reverse(), h => h.status === filter),
-      rate: history.filter(h => h.status === filter).length / relevantHistory.length,
-      count: history.filter(h => h.status === filter).length,
+      rate: filteredHistory.length / relevantHistory.length,
+      count: filteredHistory.length,
     };
   }
 

@@ -43,9 +43,9 @@ describe('sentinel', () => {
     blockStream = mock<L2BlockStream>();
 
     kvStore = await openTmpStore('sentinel-test');
-    store = new SentinelStore(kvStore, { historyLength: 4 });
+    store = new SentinelStore(kvStore, { historyLength: 10 });
 
-    slot = 4n;
+    slot = 10n;
     epoch = 0n;
     ts = BigInt(Math.ceil(Date.now() / 1000));
     l1Constants = {
@@ -186,6 +186,15 @@ describe('sentinel', () => {
       expect(stats.missedAttestations.currentStreak).toEqual(1);
       expect(stats.missedAttestations.rate).toEqual(0.5);
     });
+
+    it('considers only latest slots', () => {
+      const history = times(20, i => ({ slot: BigInt(i), status: 'block-missed' } as const));
+      const stats = sentinel.computeStatsForValidator(validator, history, 15n);
+
+      expect(stats.address.toString()).toEqual(validator);
+      expect(stats.totalSlots).toEqual(5);
+      expect(stats.missedProposals.count).toEqual(5);
+    });
   });
 });
 
@@ -209,7 +218,11 @@ class TestSentinel extends Sentinel {
     return super.getSlotActivity(slot, epoch, proposer, committee);
   }
 
-  public override computeStatsForValidator(address: `0x${string}`, history: ValidatorStatusHistory): ValidatorStats {
-    return super.computeStatsForValidator(address, history);
+  public override computeStatsForValidator(
+    address: `0x${string}`,
+    history: ValidatorStatusHistory,
+    fromSlot?: bigint,
+  ): ValidatorStats {
+    return super.computeStatsForValidator(address, history, fromSlot);
   }
 }

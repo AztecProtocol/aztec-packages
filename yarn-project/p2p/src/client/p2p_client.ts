@@ -679,7 +679,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       blocks.map(async block => this.synchedBlockHashes.set(block.block.number, (await block.block.hash()).toString())),
     );
     await this.synchedLatestBlockNumber.set(lastBlock.number);
-    await this.synchedLatestSlot.set(blocks.at(-1)!.block.header.getSlot());
+    await this.synchedLatestSlot.set(lastBlock.header.getSlot());
     this.log.verbose(`Synched to latest block ${lastBlock.number}`);
     await this.startServiceIfSynched();
   }
