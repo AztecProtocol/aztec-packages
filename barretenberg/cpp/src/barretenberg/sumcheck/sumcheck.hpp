@@ -897,7 +897,8 @@ template <typename Flavor, size_t LOG_CIRCUIT_SIZE = CONST_PROOF_SIZE_LOG_N> cla
                     round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
             };
 
-            // Pad claimed evaluations to the CONST_PROOF_SIZE_LOG_N
+            // The verifier uses the `full_honk_purported_value` as a claimed evaluation of the last Sumcheck Round
+            // Univariate. The correctness of this value is checked in Shplemini.
             round_univariate_evaluations[LOG_CIRCUIT_SIZE - 1][2] = full_honk_purported_value;
 
             // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed

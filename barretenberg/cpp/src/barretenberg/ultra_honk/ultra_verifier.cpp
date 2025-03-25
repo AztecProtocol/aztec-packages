@@ -23,7 +23,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         verification_key->gate_challenges.emplace_back(
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
-    info("verifer gate challenge ", verification_key->gate_challenges.back());
+
     const auto recover_fq_from_public_inputs = [](std::array<FF, 4> limbs) {
         const uint256_t limb = uint256_t(limbs[0]) +
                                (uint256_t(limbs[1]) << stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
@@ -62,7 +62,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
             ipa_transcript = std::make_shared<Transcript>(ipa_proof);
             ipa_transcript->enable_manifest(); // Enable manifest for the verifier.
             bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
-            info("ipa result ", ipa_result);
             if (!ipa_result) {
                 return false;
             }

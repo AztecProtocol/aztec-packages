@@ -160,7 +160,6 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
 
     // Get a challenge to evaluate `translation_polynomials` as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
-    info("eval challenge x rec verifier ", evaluation_challenge_x);
 
     // Populate the translation evaluations  {`op(x)`, `Px(x)`, `Py(x)`, `z1(x)`, `z2(x)`} to be batched
     for (auto [eval, label] : zip_view(translation_evaluations.get_all(), translation_evaluations.labels)) {
@@ -220,7 +219,6 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
 
     // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - MASKING_OFFSET}
     shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
-    translation_masking_term_eval.self_reduce();
 };
 
 template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

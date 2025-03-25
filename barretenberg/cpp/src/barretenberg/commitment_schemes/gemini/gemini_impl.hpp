@@ -49,6 +49,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<Transcript>& transcript,
     bool has_zk)
 {
+    // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
     const size_t virtual_log_n = multilinear_challenge.size();
     const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     const size_t n = 1 << log_n;
@@ -75,7 +76,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // Construct the d-1 Gemini foldings of A₀(X)
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
+    // If virtual_log_n >= log_n, pad the fold commitments with dummy group elements [1]_1.
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
         if (l < log_n - 1) {
@@ -101,6 +102,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     std::vector<Claim> claims = construct_univariate_opening_claims(
         log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
 
+    // If virtual_log_n >= log_n, pad the negative fold evaluations with zeroes.
     for (size_t l = 1; l <= virtual_log_n; l++) {
         std::string label = "Gemini:a_" + std::to_string(l);
         if (l <= log_n) {

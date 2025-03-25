@@ -172,8 +172,7 @@ void ECCVMProver::execute_pcs_rounds()
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
     // Reduce the opening claims to a single opening claim via Shplonk
-    const OpeningClaim batch_opening_claim =
-        Shplonk::prove(NUM_OPENING_CLAIMS, key->commitment_key, opening_claims, transcript);
+    const OpeningClaim batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 
     // Compute the opening proof for the batched opening claim with the univariate PCS
     PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, ipa_transcript);
@@ -264,7 +263,6 @@ void ECCVMProver::compute_translation_opening_claims()
 
     // Get a challenge to evaluate the `translation_polynomials` as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
-    info("eval challenge x prover ", evaluation_challenge_x);
 
     // Evaluate `translation_polynomial` as univariates and add their evaluations at x to the transcript
     for (auto [eval, poly, label] :

@@ -80,7 +80,6 @@ TEST_F(ClientIVCRecursionTests, Basic)
 
     // Generate the recursive verification circuit
     CIVCRecVerifierOutput output = verifier.verify(proof);
-    // info("CIVCOutput ", output);
 
     EXPECT_EQ(builder->failed(), false) << builder->err();
 
@@ -103,9 +102,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     ClientIVCVerifier verifier{ tube_builder, ivc_vk };
 
     // Generate the recursive verification circuit
-    info("REC VERIFIER START");
     CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(proof);
-    info("REC VERIFIER END");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
     // just using default.
@@ -119,6 +116,8 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     EXPECT_EQ(tube_builder->failed(), false) << tube_builder->err();
 
+    // EXPECT_TRUE(CircuitChecker::check(*tube_builder));
+
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
     auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
     UltraProver_<NativeFlavor> tube_prover{ proving_key };
@@ -129,7 +128,6 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
     auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
-    info("before native verifier ");
     EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
 
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
@@ -150,9 +148,8 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Natively verify the IPA proof for the base rollup circuit
     auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
     auto ipa_transcript = std::make_shared<NativeTranscript>(base_proving_key->proving_key.ipa_proof);
-    auto reduce_verify = IPA<curve::Grumpkin>::reduce_verify(
+    IPA<curve::Grumpkin>::reduce_verify(
         ipa_verification_key, output.ipa_opening_claim.get_native_opening_claim(), ipa_transcript);
-    info("reduce  verify? ", reduce_verify);
 }
 
 // Ensure that the Client IVC Recursive Verifier Circuit does not depend on the Client IVC input

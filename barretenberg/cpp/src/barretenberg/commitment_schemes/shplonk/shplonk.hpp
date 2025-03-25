@@ -261,12 +261,12 @@ template <typename Curve> class ShplonkProver_ {
      * @return ProverOpeningClaim<Curve>
      */
     template <typename Transcript>
-    static ProverOpeningClaim<Curve> prove(const size_t virtual_log_n,
-                                           const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+    static ProverOpeningClaim<Curve> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                            std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                            const std::shared_ptr<Transcript>& transcript,
                                            std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {},
-                                           std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims = {})
+                                           std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims = {},
+                                           const size_t virtual_log_n = 0)
     {
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
 
@@ -282,7 +282,7 @@ template <typename Curve> class ShplonkProver_ {
         auto batched_quotient_commitment = commitment_key->commit(batched_quotient);
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
-        info("shpl eval challenge ", z);
+
         return compute_partially_evaluated_batched_quotient(virtual_log_n,
                                                             opening_claims,
                                                             batched_quotient,
@@ -327,7 +327,6 @@ template <typename Curve> class ShplonkVerifier_ {
         auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
         const Fr z_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
-        info("shpl z ", z_challenge);
 
         // [G] = [Q] - ∑ⱼ ρʲ / (z − xⱼ )⋅[fⱼ] + G₀⋅[1]
         //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / (z − xⱼ )]
@@ -469,11 +468,11 @@ template <typename Curve> class ShplonkVerifier_ {
  */
 template <typename Fr>
 static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplonk_batching_challenge,
-                                                                 const size_t padded_log_circuit_size,
+                                                                 const size_t virtual_log_n,
                                                                  bool has_zk = false,
                                                                  bool committed_sumcheck = false)
 {
-    size_t num_powers = 2 * padded_log_circuit_size + 2;
+    size_t num_powers = 2 * virtual_log_n + 2;
     // Each round univariate is opened at 0, 1, and a round challenge.
     static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;
 
@@ -483,7 +482,7 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
     }
 
     if (committed_sumcheck) {
-        num_powers += NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND * padded_log_circuit_size;
+        num_powers += NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND * virtual_log_n;
     }
 
     std::vector<Fr> result;

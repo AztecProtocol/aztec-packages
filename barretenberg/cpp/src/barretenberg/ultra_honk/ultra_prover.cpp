@@ -65,9 +65,6 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challen
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-
-    info("prover gate challenge ", gate_challenges.back());
-
     proving_key->gate_challenges = gate_challenges;
 }
 
