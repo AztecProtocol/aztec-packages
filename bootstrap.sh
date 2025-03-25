@@ -13,9 +13,6 @@ export DENOISE=${DENOISE:-1}
 # Number of TXE servers to run when testing.
 export NUM_TXES=8
 
-# Use msgpack with Noir artifacts
-export NOIR_SERIALIZATION_FORMAT=msgpack
-
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
