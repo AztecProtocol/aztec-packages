@@ -62,8 +62,7 @@ pub unconstrained fn do_process_log<Env>(
     let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
-    // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and
-    // improved upon in the future to also handle events, etc.
+    // have 3 log types: private note logs, partial note logs and event logs.
 
     let (log_type_id, log_metadata, log_content) = decode_log_plaintext(log_plaintext);
 
