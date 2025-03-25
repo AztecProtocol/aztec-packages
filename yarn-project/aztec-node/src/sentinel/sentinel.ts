@@ -149,7 +149,11 @@ export class Sentinel implements L2BlockStreamEventHandler {
    */
   protected async processSlot(slot: bigint) {
     const { epoch, seed, committee } = await this.epochCache.getCommittee(slot);
-
+    if (committee.length === 0) {
+      this.logger.warn(`No committee found for slot ${slot} at epoch ${epoch}`);
+      this.lastProcessedSlot = slot;
+      return;
+    }
     const proposerIndex = this.epochCache.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
     const proposer = committee[Number(proposerIndex)];
     const stats = await this.getSlotActivity(slot, epoch, proposer, committee);
