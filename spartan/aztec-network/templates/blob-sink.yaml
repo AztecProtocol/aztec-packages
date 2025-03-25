@@ -31,6 +31,9 @@ spec:
       {{- if .Values.storage.localSsd }}
       {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
       {{- end }}
+      {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
