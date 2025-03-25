@@ -473,24 +473,23 @@ template <typename Curve> class GeminiVerifier_ {
         return fold_polynomial_opening_claims;
     }
 
-    static std::vector<Commitment> get_fold_commitments([[maybe_unused]] const size_t padded_log_circuit_size,
-                                                        auto& transcript)
+    static std::vector<Commitment> get_fold_commitments([[maybe_unused]] const size_t virtual_log_n, auto& transcript)
     {
         std::vector<Commitment> fold_commitments;
-        fold_commitments.reserve(padded_log_circuit_size - 1);
-        for (size_t i = 0; i < padded_log_circuit_size - 1; ++i) {
+        fold_commitments.reserve(virtual_log_n - 1);
+        for (size_t i = 0; i < virtual_log_n - 1; ++i) {
             const Commitment commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
             fold_commitments.emplace_back(commitment);
         }
         return fold_commitments;
     }
-    static std::vector<Fr> get_gemini_evaluations(const size_t padded_log_circuit_size, auto& transcript)
+    static std::vector<Fr> get_gemini_evaluations(const size_t virtual_log_n, auto& transcript)
     {
         std::vector<Fr> gemini_evaluations;
-        gemini_evaluations.reserve(padded_log_circuit_size);
+        gemini_evaluations.reserve(virtual_log_n);
 
-        for (size_t i = 1; i <= padded_log_circuit_size; ++i) {
+        for (size_t i = 1; i <= virtual_log_n; ++i) {
             const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
         }
@@ -531,7 +530,7 @@ template <typename Curve> class GeminiVerifier_ {
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
 
         Fr eval_pos_prev = batched_evaluation;
-        const size_t padded_log_circuit_size = evaluation_point.size();
+        const size_t virtual_log_n = evaluation_point.size();
 
         Fr zero{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -539,15 +538,14 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         std::vector<Fr> fold_pos_evaluations;
-        fold_pos_evaluations.reserve(padded_log_circuit_size);
+        fold_pos_evaluations.reserve(virtual_log_n);
         // Either a computed eval of A_i at r^{2^i}, or 0
         Fr value_to_emplace;
 
         // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
         evals[0] += p_neg;
-        info(" num variables ", padded_log_circuit_size);
         // Solve the sequence of linear equations
-        for (size_t l = padded_log_circuit_size; l != 0; --l) {
+        for (size_t l = virtual_log_n; l != 0; --l) {
             // Get r²⁽ˡ⁻¹⁾
             const Fr& challenge_power = challenge_powers[l - 1];
             // Get uₗ₋₁

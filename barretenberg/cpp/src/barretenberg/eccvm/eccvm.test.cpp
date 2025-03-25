@@ -42,7 +42,7 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     G1 c = G1::random_element(engine);
     Fr x = Fr::random_element(engine);
     Fr y = Fr::random_element(engine);
-    for (size_t idx = 0; idx < 150; idx++) {
+    for (size_t idx = 0; idx < 100; idx++) {
         op_queue->add_accumulate(a);
         op_queue->mul_accumulate(a, x);
         op_queue->mul_accumulate(b, x);

@@ -52,7 +52,8 @@ void ECCVMProver::execute_wire_commitments_round()
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - MASKING_OFFSET;
 
-    CommitmentKey::CommitType commit_type = CommitmentKey::CommitType::Default;
+    CommitmentKey::CommitType commit_type =
+        (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
 
     // Commit to wires whose length is bounded by the real size of the ECCVM
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
