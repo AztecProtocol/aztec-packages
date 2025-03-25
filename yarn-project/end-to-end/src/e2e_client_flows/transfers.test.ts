@@ -38,7 +38,7 @@ describe('Client flows benchmarking', () => {
     await t.teardown();
   });
 
-  //transferBenchmark('ecdsar1');
+  transferBenchmark('ecdsar1');
   transferBenchmark('schnorr');
 
   function transferBenchmark(accountType: AccountType) {
@@ -90,7 +90,7 @@ describe('Client flows benchmarking', () => {
               2 + // Account verify_private_authwit + kernel inner
               2 + // BananaCoin prepare_private_balance_increase + kernel inner
               2 + // CandyBarCoin transfer + kernel inner
-              i * 2 + // CandyBarCoin _recurse_subtract_balance + kernel inner
+              i * 2 + // (CandyBarCoin _recurse_subtract_balance + kernel inner) * recursions
               1 + // Kernel reset
               1, // Kernel tail
           );
