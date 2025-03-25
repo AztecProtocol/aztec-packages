@@ -29,6 +29,9 @@ async function getVersions() {
 
 async function preprocessIncludeVersion(markdownContent) {
   const originalContent = markdownContent;
+
+  // can't hurt to document this better
+  // this is used to replace mentions to i.e. #include_aztec_short_version with the actual version
   for (const identifier of VERSION_IDENTIFIERS) {
     const version = (await getVersions())[identifier];
     markdownContent = markdownContent.replaceAll(

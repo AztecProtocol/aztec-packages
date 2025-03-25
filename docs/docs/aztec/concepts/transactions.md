@@ -21,7 +21,7 @@ The introduction of the Private eXecution Environment (PXE) provides a safe envi
 
 The accompanying diagram illustrates the flow of interactions between a user, their wallet, the PXE, the node operators (sequencers / provers), and the L1 chain.
 
-<Image img={require("/img/transaction-lifecycle.png")} />
+<Image img={require("@site/static/img/transaction-lifecycle.png")} />
 
 1. **The user initiates a transaction** – In this example, the user decides to privately send 10 DAI to gudcause.eth. After inputting the amount and the receiving address, the user clicks the confirmation button on their wallet.
 

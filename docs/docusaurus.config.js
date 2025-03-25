@@ -56,8 +56,8 @@ const config = {
           },
           routeBasePath: "/",
           include: process.env.SHOW_PROTOCOL_SPECS
-            ? ['**/*.{md,mdx}']
-            : ['**/*.{md,mdx}', '!protocol-specs/**'],
+            ? ["**/*.{md,mdx}"]
+            : ["**/*.{md,mdx}", "!protocol-specs/**"],
 
           remarkPlugins: [math],
           rehypePlugins: [
@@ -70,6 +70,12 @@ const config = {
               },
             ],
           ],
+          versions: {
+            current: {
+              label: "dev",
+              path: "dev",
+            },
+          },
         },
         blog: false,
         theme: {
@@ -223,6 +229,11 @@ const config = {
         },
         items: [
           {
+            type: "docsVersionDropdown",
+            position: "left",
+            dropdownActiveClassDisabled: true,
+          },
+          {
             type: "doc",
             docId: "aztec/index",
             position: "left",
@@ -305,13 +316,16 @@ const config = {
                 label: "Roadmap",
                 className: "no-external-icon",
               },
-              ...(process.env.SHOW_PROTOCOL_SPECS ?
-              [{
-                type: "docSidebar",
-                sidebarId: "protocolSpecSidebar",
-                label: "Protocol Specification",
-                className: "no-external-icon",
-              }] : []),
+              ...(process.env.SHOW_PROTOCOL_SPECS
+                ? [
+                    {
+                      type: "docSidebar",
+                      sidebarId: "protocolSpecSidebar",
+                      label: "Protocol Specification",
+                      className: "no-external-icon",
+                    },
+                  ]
+                : []),
               {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",
