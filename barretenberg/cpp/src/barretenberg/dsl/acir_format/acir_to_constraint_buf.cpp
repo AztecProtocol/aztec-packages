@@ -899,7 +899,10 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
             size_t size = buf.size() - 1;
             msgpack::null_visitor probe;
             if (msgpack::parse(buffer, size, probe)) {
-                auto o = msgpack::unpack(buffer, size).get();
+                auto oh = msgpack::unpack(buffer, size);
+                // This has to be on a separate line, see
+                // https://github.com/msgpack/msgpack-c/issues/695#issuecomment-393035172
+                auto o = oh.get();
                 // In experiments bincode data was parsed as 0.
                 // All the top level formats we look for are MAP types.
                 if (o.type == msgpack::type::MAP) {
