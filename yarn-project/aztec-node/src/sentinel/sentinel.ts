@@ -62,18 +62,20 @@ export class Sentinel implements L2BlockStreamEventHandler {
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
     if (event.type === 'blocks-added') {
+      // Store mapping from slot to archive
       for (const block of event.blocks) {
         this.slotNumberToArchive.set(block.block.header.getSlot(), block.block.archive.root.toString());
       }
-    }
-    // Prune the archive map to only keep up to N slots
-    const historyLength = this.store.getHistoryLength();
-    if (this.slotNumberToArchive.size > historyLength) {
-      const toDelete = Array.from(this.slotNumberToArchive.keys())
-        .sort((a, b) => Number(a - b))
-        .slice(0, this.slotNumberToArchive.size - historyLength);
-      for (const key of toDelete) {
-        this.slotNumberToArchive.delete(key);
+
+      // Prune the archive map to only keep at most N entries
+      const historyLength = this.store.getHistoryLength();
+      if (this.slotNumberToArchive.size > historyLength) {
+        const toDelete = Array.from(this.slotNumberToArchive.keys())
+          .sort((a, b) => Number(a - b))
+          .slice(0, this.slotNumberToArchive.size - historyLength);
+        for (const key of toDelete) {
+          this.slotNumberToArchive.delete(key);
+        }
       }
     }
   }
