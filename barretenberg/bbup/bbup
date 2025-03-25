@@ -67,7 +67,7 @@ install_bb() {
     if ! version_gte "$version" "0.82.0"; then
         # Unknown when this vulnerability was introduced so we warn on all versions prior to fix.
         # See: https://github.com/AztecProtocol/aztec-packages/pull/12602
-        warn "There is a critical soundness issue in Ultrahonk in this version of Barretenberg. It is recommended to update to v0.82.0 or greater."
+        warn "There is a critical soundness issue in Ultrahonk in this version of Barretenberg. It is recommended to update to v0.82.2 or greater."
         warn "Any solidity verifier contracts must be regenerated using a patched version of Barretenberg."
     fi
 
