@@ -25,6 +25,15 @@ resource "google_container_cluster" "primary" {
       issue_client_certificate = false
     }
   }
+
+  resource_usage_export_config {
+    enable_network_egress_metering       = true
+    enable_resource_consumption_metering = true
+
+    bigquery_destination {
+      dataset_id = "egress_consumption"
+    }
+  }
 }
 
 # Create 2 core node pool with local ssd
@@ -112,7 +121,7 @@ resource "google_container_node_pool" "aztec_nodes-4core" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 8
+    max_node_count = 16
   }
 
   # Node configuration

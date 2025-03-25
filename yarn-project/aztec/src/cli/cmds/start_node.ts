@@ -50,7 +50,7 @@ export async function startNode(
 
   const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
   const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const initialFundedAccounts = [...testAccounts, ...sponsoredFPCAccounts];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 
   const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
