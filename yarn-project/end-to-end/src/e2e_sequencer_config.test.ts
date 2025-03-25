@@ -1,6 +1,3 @@
-// docs:start:import_aztecjs
-// docs:end:import_aztecjs
-// eslint-disable-next-line no-restricted-imports
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import type { PXE, TxReceipt } from '@aztec/aztec.js';
 import { Bot, type BotConfig, getBotDefaultConfig } from '@aztec/bot';
@@ -54,7 +51,7 @@ describe('e2e_sequencer_config', () => {
     });
 
     it('respects maxL2BlockGas', async () => {
-      sequencer!.updateSequencerConfig({
+      await sequencer!.updateSequencerConfig({
         maxTxsPerBlock: 1,
         minTxsPerBlock: 0,
       });
