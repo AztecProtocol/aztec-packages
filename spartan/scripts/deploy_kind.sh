@@ -42,43 +42,59 @@ fi
 # Load the Docker image into kind
 flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
 
-function show_status_until_pxe_ready {
-  set +x   # don't spam with our commands
-  sleep 15 # let helm upgrade start
-  for i in {1..100}; do
-    echo "--- Pod status ---"
-    kubectl get pods -n "$namespace"
+# Simple function to check status and display logs
+function monitor_status_logs {
+  # Create a status monitoring process that pipes directly to /dev/tty
+  # This bypasses any output capturing/buffering from the parent script
+  (
+    # Disable strict mode inside this subshell
+    set +x
+    set +e
+    set +u
+    set +o pipefail
 
 
-    # Show pod events
-    echo "--- Recent Pod Events ---"
-    kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10
+    # Redirect all output to /dev/tty to force unbuffered output directly to terminal
+    exec > /dev/tty 2> /dev/tty
 
-    # Show pods
-    echo "--- Pod Status ---"
-    kubectl get pods -n "$namespace"
+    echo "==== Starting status monitor for namespace $namespace ===="
 
+    for i in {1..100}; do
+      echo -e "\n==== STATUS UPDATE ($i) ====\n"
+      echo "--- Pod status ---"
+      kubectl get pods -n "$namespace" || true
 
-    # Show logs from validator pods only
-    echo "--- Pod logs ---"
-    for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}'); do
-      echo "Logs from $pod:"
-      kubectl logs --tail=10 -n "$namespace" --all-containers=true $pod 2>/dev/null || echo "Cannot get logs yet"
-      echo "-------------------"
+      echo -e "\n--- Recent Pod Events ---"
+      kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10 || true
+
+      echo -e "\n--- Pod logs ---"
+      for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo ""); do
+        echo -e "\nLogs from $pod:"
+        kubectl logs --tail=10 -n "$namespace" --all-containers=true $pod 2>/dev/null || echo "Cannot get logs yet"
+        echo "-------------------"
+      done
+
+      if kubectl wait pod -l app!=setup-l2-contracts -l app.kubernetes.io/instance="$helm_instance" --for=condition="Ready" -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
+        echo -e "\n==== All pods are ready! Stopping log monitor. ====\n"
+        break
+      fi
+
+      sleep 5
     done
+  ) &
 
-
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
-      break # we are up, stop showing status
-    fi
-
-  done
+  # Store PID for cleanup
+  status_monitor_pid=$!
 }
 
-show_status_until_pxe_ready &
+# Run the status monitoring function
+monitor_status_logs
 
 function cleanup {
-  trap - SIGTERM && kill $(jobs -p) &>/dev/null && rm "$mnemonic_file" || true
+  trap - SIGTERM
+  kill $status_monitor_pid 2>/dev/null || true
+  kill $(jobs -p) 2>/dev/null || true
+  rm "$mnemonic_file" || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
