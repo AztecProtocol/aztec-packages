@@ -15,7 +15,7 @@ namespace bb::world_state {
 
 using namespace bb::crypto::merkle_tree;
 
-enum class MerkleTreeId : uint8_t {
+enum MerkleTreeId {
     NULLIFIER_TREE = 0,
     NOTE_HASH_TREE = 1,
     PUBLIC_DATA_TREE = 2,
