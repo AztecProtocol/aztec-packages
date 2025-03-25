@@ -83,7 +83,6 @@ struct Instruction {
 };
 
 enum class InstrDeserializationError : uint8_t {
-    NO_ERROR,
     PC_OUT_OF_RANGE,
     OPCODE_OUT_OF_RANGE,
     INSTRUCTION_OUT_OF_RANGE,

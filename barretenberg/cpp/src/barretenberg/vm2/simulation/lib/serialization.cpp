@@ -560,25 +560,24 @@ bool check_tag(const Instruction& instruction)
                 return false;
             }
 
-            uint8_t tag = 0;
-
             try {
-                tag = uint8_t(instruction.operands.at(pos)); // Cast to uint8_t might throw
+                uint8_t tag = static_cast<uint8_t>(instruction.operands.at(pos)); // Cast to uint8_t might throw
+
+                if (tag > static_cast<uint8_t>(MemoryTag::MAX)) {
+                    vinfo("Instruction tag operand at position: ",
+                          pos,
+                          " is invalid.",
+                          " Tag value: ",
+                          tag,
+                          " WireOpCode: ",
+                          instruction.opcode);
+                    return false;
+                }
+
             } catch (const std::runtime_error&) {
                 vinfo("Instruction operand at position: ",
                       pos,
                       " is longer than a byte.",
-                      " WireOpCode: ",
-                      instruction.opcode);
-                return false;
-            }
-
-            if (tag > static_cast<uint8_t>(MemoryTag::MAX)) {
-                vinfo("Instruction tag operand at position: ",
-                      pos,
-                      " is invalid.",
-                      " Tag value: ",
-                      tag,
                       " WireOpCode: ",
                       instruction.opcode);
                 return false;

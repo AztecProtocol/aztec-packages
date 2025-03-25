@@ -71,7 +71,6 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     instr_fetching_event.bytecode = bytecode_ptr;
 
     const auto& bytecode = *bytecode_ptr;
-    instr_fetching_event.error = InstrDeserializationError::NO_ERROR;
 
     // TODO: Propagate instruction fetching error to the upper layer (execution loop)
     try {
@@ -82,7 +81,7 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
             instr_fetching_event.error = InstrDeserializationError::TAG_OUT_OF_RANGE;
         };
     } catch (const InstrDeserializationError& error) {
-        assert(error != InstrDeserializationError::NO_ERROR && error != InstrDeserializationError::TAG_OUT_OF_RANGE);
+        assert(error != InstrDeserializationError::TAG_OUT_OF_RANGE);
         instr_fetching_event.error = error;
     }
 

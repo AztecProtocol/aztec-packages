@@ -6,6 +6,7 @@
 
 namespace bb::avm2 {
 namespace {
+
 using simulation::check_tag;
 using simulation::deserialize_instruction;
 using simulation::InstrDeserializationError;
