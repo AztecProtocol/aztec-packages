@@ -21,6 +21,7 @@ import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { GasSettings } from '@aztec/stdlib/gas';
 
 import {
@@ -62,6 +63,8 @@ export class ClientFlowsTest {
   public context!: SubsystemsContext;
   public chainMonitor!: ChainMonitor;
 
+  public userPXE!: PXE;
+
   constructor(testName: string, setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {}) {
     this.logger = createLogger(`e2e:e2e_client_flows:${testName}`);
     this.snapshotManager = createSnapshotManager(
@@ -85,17 +88,6 @@ export class ClientFlowsTest {
   async teardown() {
     this.chainMonitor.stop();
     await this.snapshotManager.teardown();
-  }
-
-  setIsMarkingAsProven(b: boolean) {
-    this.context.watcher.setIsMarkingAsProven(b);
-  }
-
-  async catchUpProvenChain() {
-    const bn = await this.aztecNode.getBlockNumber();
-    while ((await this.aztecNode.getProvenBlockNumber()) < bn) {
-      await sleep(1000);
-    }
   }
 
   async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
@@ -124,7 +116,7 @@ export class ClientFlowsTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       deployAccounts(2, this.logger),
-      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig, deployL1ContractsValues }) => {
+      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
 
         this.aztecNode = aztecNode;
@@ -141,6 +133,16 @@ export class ClientFlowsTest {
         const canonicalFeeJuice = await getCanonicalFeeJuice();
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.adminWallet);
         this.coinbase = EthAddress.random();
+
+        const userPXEConfig = getPXEServiceConfig();
+        const l1Contracts = await aztecNode.getL1ContractAddresses();
+        const userPXEConfigWithContracts = {
+          ...userPXEConfig,
+          proverEnabled: ['true', '1'].includes(process.env.REAL_PROOFS ?? ''),
+          l1Contracts,
+        } as PXEServiceConfig;
+
+        this.userPXE = await createPXEService(this.aztecNode, userPXEConfigWithContracts, 'pxe-user');
       },
     );
   }
