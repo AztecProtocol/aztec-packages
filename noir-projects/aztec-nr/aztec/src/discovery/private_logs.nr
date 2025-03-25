@@ -103,7 +103,7 @@ pub unconstrained fn do_process_log<Env>(
 /// log_plaintext: [ log_expanded_metadata, ...log_content ]
 /// ```
 ///
-/// The expanded metadata itself is (currently) interpreted as a u64, of which:
+/// The expanded metadata itself is (currently) interpreted as a u128, of which:
 ///  - the upper 64 bits are the log type id
 ///  - the remaining 64 bits are called the 'log metadata'
 ///
