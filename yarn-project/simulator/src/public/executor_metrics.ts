@@ -58,12 +58,6 @@ export class ExecutorMetrics {
   }
 
   recordFunctionSimulation(durationMs: number, manaUsed: number, fnName: string, totalInstructions: number) {
-    const logger = createLogger('executor-metrics');
-    logger.error(`Recording function simulation: ${fnName}`, {
-      durationMs,
-      manaUsed,
-      totalInstructions,
-    });
     this.fnCount.add(1, {
       [Attributes.OK]: true,
       [Attributes.APP_CIRCUIT_NAME]: fnName,
