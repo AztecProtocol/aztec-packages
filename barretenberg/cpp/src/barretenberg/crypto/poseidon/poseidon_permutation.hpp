@@ -61,12 +61,6 @@ template <typename Params> class PoseidonPermutation {
     {
         State current_state(input);
 
-        // swaps state elements order
-        for (size_t i = 0; i < t / 2; ++i) {
-            size_t j = t - 1 - i;
-            auto t = current_state[i]; current_state[i] = current_state[j]; current_state[j] = t;
-        }
-
         constexpr size_t rounds_f_beginning = rounds_f / 2;
         for (size_t i = 0; i < rounds_f_beginning; ++i) {
             add_round_constants(current_state, round_constants[i]);
@@ -76,8 +70,8 @@ template <typename Params> class PoseidonPermutation {
 
         const size_t p_end = rounds_f_beginning + rounds_p;
         for (size_t i = rounds_f_beginning; i < p_end; ++i) {
-            current_state[0] += round_constants[i][0];
-            apply_single_sbox(current_state[0]);
+            current_state[2] += round_constants[i][2];
+            apply_single_sbox(current_state[2]);
             matrix_multiplication_internal(current_state);
         }
 
@@ -85,12 +79,6 @@ template <typename Params> class PoseidonPermutation {
             add_round_constants(current_state, round_constants[i]);
             apply_sbox(current_state);
             matrix_multiplication_internal(current_state);
-        }
-
-        // swaps state elements order
-        for (size_t i = 0; i < t / 2; ++i) {
-            size_t j = t - 1 - i;
-            auto t = current_state[i]; current_state[i] = current_state[j]; current_state[j] = t;
         }
 
         return current_state;
