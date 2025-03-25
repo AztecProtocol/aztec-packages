@@ -50,4 +50,11 @@ crypto::merkle_tree::GetLowIndexedLeafResponse MerkleDB::get_low_indexed_leaf(wo
     return raw_merkle_db.get_low_indexed_leaf(tree_id, value);
 }
 
+// TODO(fcarreiro): We wouldn't have a low level method here because it can't be constrained.
+crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> MerkleDB::get_leaf_preimage_public_data_tree(
+    crypto::merkle_tree::index_t leaf_index) const
+{
+    return raw_merkle_db.get_leaf_preimage_public_data_tree(leaf_index);
+}
+
 } // namespace bb::avm2::simulation

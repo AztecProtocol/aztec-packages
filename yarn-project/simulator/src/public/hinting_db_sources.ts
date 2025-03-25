@@ -1,12 +1,13 @@
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { SiblingPath } from '@aztec/foundation/trees';
+import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import {
   AvmBytecodeCommitmentHint,
   AvmContractClassHint,
   AvmContractInstanceHint,
   type AvmExecutionHints,
+  AvmGetLeafPreimageHintPublicDataTree,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
 } from '@aztec/stdlib/avm';
@@ -16,6 +17,7 @@ import {
   AppendOnlyTreeSnapshot,
   type IndexedTreeId,
   MerkleTreeId,
+  PublicDataTreeLeaf,
   type SequentialInsertionResult,
   getTreeName,
 } from '@aztec/stdlib/trees';
@@ -123,6 +125,35 @@ export class HintingPublicTreesDB extends PublicTreesDB {
       new AvmGetPreviousValueIndexHint(key, treeId, value, result.index, result.alreadyPresent),
     );
     return result;
+  }
+
+  public override async getLeafPreimage<ID extends IndexedTreeId>(
+    treeId: ID,
+    index: bigint,
+  ): Promise<IndexedTreeLeafPreimage | undefined> {
+    const preimage = await super.getLeafPreimage<ID>(treeId, index);
+    if (preimage) {
+      const key = await this.#getHintKey(treeId);
+
+      switch (treeId) {
+        case MerkleTreeId.PUBLIC_DATA_TREE:
+          this.hints.getLeafPreimageHintsPublicDataTree.push(
+            new AvmGetLeafPreimageHintPublicDataTree(
+              key,
+              index,
+              preimage.asLeaf() as PublicDataTreeLeaf,
+              preimage.getNextIndex(),
+              new Fr(preimage.getNextKey()),
+            ),
+          );
+          break;
+        default:
+          HintingPublicTreesDB.log.warn(`getLeafPreimage not hinted for tree ${getTreeName(treeId)} yet!`);
+          break;
+      }
+    }
+
+    return preimage;
   }
 
   // State modification.

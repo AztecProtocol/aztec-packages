@@ -99,7 +99,9 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
           "\n * get_sibling_path hints: ",
           hints.getSiblingPathHints.size(),
           "\n * get_previous_value_index hints: ",
-          hints.getPreviousValueIndexHints.size());
+          hints.getPreviousValueIndexHints.size(),
+          "\n* get_leaf_preimage hints_public_data_tree: ",
+          hints.getLeafPreimageHintsPublicDataTree.size());
     debug("Initializing HintedRawMerkleDB with snapshots...",
           "\n * nullifierTree: ",
           tree_roots.nullifierTree.root,
@@ -136,6 +138,15 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
         get_previous_value_index_hints[key] = {
             get_previous_value_index_hint.alreadyPresent,
             get_previous_value_index_hint.index,
+        };
+    }
+
+    for (const auto& get_leaf_preimage_hint : hints.getLeafPreimageHintsPublicDataTree) {
+        GetLeafPreimageKey key = { get_leaf_preimage_hint.hintKey, get_leaf_preimage_hint.index };
+        get_leaf_preimage_hints_public_data_tree[key] = {
+            /*val=*/get_leaf_preimage_hint.leaf,
+            /*nextIdx=*/get_leaf_preimage_hint.nextIndex,
+            /*nextVal=*/get_leaf_preimage_hint.nextValue,
         };
     }
 }
@@ -191,6 +202,24 @@ crypto::merkle_tree::GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexe
                                         static_cast<uint32_t>(tree_id),
                                         ", value: ",
                                         value,
+                                        ")"));
+    }
+    return it->second;
+}
+
+crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::
+    get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const
+{
+    auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
+    GetLeafPreimageKey key = { tree_info, leaf_index };
+    auto it = get_leaf_preimage_hints_public_data_tree.find(key);
+    if (it == get_leaf_preimage_hints_public_data_tree.end()) {
+        throw std::runtime_error(format("Leaf preimage (PUBLIC_DATA_TREE) not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", leaf_index: ",
+                                        leaf_index,
                                         ")"));
     }
     return it->second;

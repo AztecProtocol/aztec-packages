@@ -32,6 +32,10 @@ class MockMerkleDB : public MerkleDBInterface {
                 get_low_indexed_leaf,
                 (world_state::MerkleTreeId tree_id, const FF& value),
                 (const, override));
+    MOCK_METHOD(crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>,
+                get_leaf_preimage_public_data_tree,
+                (crypto::merkle_tree::index_t leaf_index),
+                (const, override));
 };
 
 } // namespace bb::avm2::simulation

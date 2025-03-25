@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "barretenberg/common/utils.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -132,6 +133,20 @@ struct GetPreviousValueIndexHint {
     MSGPACK_FIELDS(hintKey, treeId, value, index, alreadyPresent);
 };
 
+template <typename Leaf> struct GetLeafPreimageHint {
+    AppendOnlyTreeSnapshot hintKey;
+    // params (tree id will be implicit)
+    uint64_t index;
+    // return
+    Leaf leaf;
+    uint64_t nextIndex;
+    FF nextValue;
+
+    bool operator==(const GetLeafPreimageHint<Leaf>& other) const = default;
+
+    MSGPACK_FIELDS(hintKey, index, leaf, nextIndex, nextValue);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -158,6 +173,7 @@ struct ExecutionHints {
     // Merkle DB.
     std::vector<GetSiblingPathHint> getSiblingPathHints;
     std::vector<GetPreviousValueIndexHint> getPreviousValueIndexHints;
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::PublicDataLeafValue>> getLeafPreimageHintsPublicDataTree;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -166,7 +182,8 @@ struct ExecutionHints {
                    contractClasses,
                    bytecodeCommitments,
                    getSiblingPathHints,
-                   getPreviousValueIndexHints);
+                   getPreviousValueIndexHints,
+                   getLeafPreimageHintsPublicDataTree);
 };
 
 ////////////////////////////////////////////////////////////////////////////

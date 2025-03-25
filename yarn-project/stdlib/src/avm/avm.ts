@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { schemas } from '@aztec/foundation/schemas';
+import type { IndexedTreeLeaf } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -8,6 +9,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -149,6 +151,43 @@ export class AvmGetPreviousValueIndexHint {
   }
 }
 
+// Hint for MerkleTreeDB.getLeafPreimage.
+// NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
+// having the type doesn't suffice since TS does type erasure in the end.
+function AvmGetLeafPreimageHintFactory<T extends IndexedTreeLeaf>(klass: {
+  schema: z.ZodSchema;
+  new (...args: any[]): T;
+}) {
+  return class AvmGetLeafPreimageHint {
+    constructor(
+      public readonly hintKey: AppendOnlyTreeSnapshot,
+      // params (tree id will be implicit)
+      public readonly index: bigint,
+      // return
+      public readonly leaf: T,
+      public readonly nextIndex: bigint,
+      public readonly nextValue: Fr,
+    ) {}
+
+    static get schema() {
+      return z
+        .object({
+          hintKey: AppendOnlyTreeSnapshot.schema,
+          index: schemas.BigInt,
+          leaf: klass.schema,
+          nextIndex: schemas.BigInt,
+          nextValue: schemas.Fr,
+        })
+        .transform(
+          ({ hintKey, index, leaf, nextIndex, nextValue }) =>
+            new AvmGetLeafPreimageHint(hintKey, index, leaf, nextIndex, nextValue),
+        );
+    }
+  };
+}
+
+export class AvmGetLeafPreimageHintPublicDataTree extends AvmGetLeafPreimageHintFactory(PublicDataTreeLeaf) {}
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -185,6 +224,7 @@ export class AvmExecutionHints {
     // Merkle DB hints.
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
     public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
+    public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
   ) {}
 
   static empty() {
@@ -200,6 +240,7 @@ export class AvmExecutionHints {
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
+        getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree.schema.array(),
       })
       .transform(
         ({
@@ -209,6 +250,7 @@ export class AvmExecutionHints {
           bytecodeCommitments,
           getSiblingPathHints,
           getPreviousValueIndexHints,
+          getLeafPreimageHintsPublicDataTree,
         }) =>
           new AvmExecutionHints(
             enqueuedCalls,
@@ -217,6 +259,7 @@ export class AvmExecutionHints {
             bytecodeCommitments,
             getSiblingPathHints,
             getPreviousValueIndexHints,
+            getLeafPreimageHintsPublicDataTree,
           ),
       );
   }

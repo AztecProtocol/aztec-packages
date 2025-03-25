@@ -48,6 +48,8 @@ class MerkleDB final : public MerkleDBInterface {
                                                           crypto::merkle_tree::index_t leaf_index) const override;
     crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
                                                                         const FF& value) const override;
+    crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> get_leaf_preimage_public_data_tree(
+        crypto::merkle_tree::index_t leaf_index) const override;
 
   private:
     MerkleDBInterface& raw_merkle_db;

@@ -40,6 +40,8 @@ class HintedRawMerkleDB final : public MerkleDBInterface {
                                                           crypto::merkle_tree::index_t leaf_index) const override;
     crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
                                                                         const FF& value) const override;
+    crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> get_leaf_preimage_public_data_tree(
+        crypto::merkle_tree::index_t leaf_index) const override;
 
   private:
     TreeSnapshots tree_roots;
@@ -50,6 +52,9 @@ class HintedRawMerkleDB final : public MerkleDBInterface {
     using GetPreviousValueIndexKey = utils::HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, FF>;
     unordered_flat_map<GetPreviousValueIndexKey, crypto::merkle_tree::GetLowIndexedLeafResponse>
         get_previous_value_index_hints;
+    using GetLeafPreimageKey = utils::HashableTuple<AppendOnlyTreeSnapshot, crypto::merkle_tree::index_t>;
+    unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>
+        get_leaf_preimage_hints_public_data_tree;
 
     const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
 };

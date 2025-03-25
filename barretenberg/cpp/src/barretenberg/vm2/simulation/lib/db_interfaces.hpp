@@ -33,6 +33,9 @@ class MerkleDBInterface {
                                                                   crypto::merkle_tree::index_t leaf_index) const = 0;
     virtual crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
                                                                                 const FF& value) const = 0;
+    // We don't template the preimage methods because templated methods cannot be virtual.
+    virtual crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>
+    get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const = 0;
 };
 
 } // namespace bb::avm2::simulation

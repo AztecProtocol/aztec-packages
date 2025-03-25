@@ -62,6 +62,7 @@ import {
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
+  AvmGetLeafPreimageHintPublicDataTree,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
   RevertCode,
@@ -1282,6 +1283,18 @@ export function makeAvmGetPreviousValueIndexHint(seed = 0): AvmGetPreviousValueI
   );
 }
 
+export function makeAvmGetLeafPreimageHintPublicDataTree(seed = 0): AvmGetLeafPreimageHintPublicDataTree {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafPreimageHintPublicDataTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*index=*/ index,
+    /*leaf=*/ makePublicDataTreeLeaf(seed + 3),
+    /*nextIndex=*/ index + 1n,
+    /*nextValue*/ new Fr(seed + 0x500),
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1348,6 +1361,11 @@ export async function makeAvmExecutionHints(
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
+    getLeafPreimageHintPublicDataTrees: makeArray(
+      baseLength + 5,
+      makeAvmGetLeafPreimageHintPublicDataTree,
+      seed + 0x4f00,
+    ),
     ...overrides,
   };
 
@@ -1358,6 +1376,7 @@ export async function makeAvmExecutionHints(
     fields.bytecodeCommitments,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
+    fields.getLeafPreimageHintPublicDataTrees,
   );
 }
 
