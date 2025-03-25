@@ -5,6 +5,46 @@
 #include "serde.hpp"
 
 namespace Acir {
+struct Helpers {
+    static std::map<std::string, msgpack::object const*> make_kvmap(msgpack::object const& o, std::string name)
+    {
+        if (o.type != msgpack::type::MAP) {
+            std::cerr << o << std::endl;
+            throw_or_abort("expected MAP for " + name);
+        }
+        std::map<std::string, msgpack::object const*> kvmap;
+        for (uint32_t i = 0; i < o.via.map.size; ++i) {
+            if (o.via.map.ptr[i].key.type != msgpack::type::STR) {
+                std::cerr << o << std::endl;
+                throw_or_abort("expected STR for keys of " + name);
+            }
+            kvmap.emplace(std::string(o.via.map.ptr[i].key.via.str.ptr, o.via.map.ptr[i].key.via.str.size),
+                          &o.via.map.ptr[i].val);
+        }
+        return kvmap;
+    }
+
+    template <typename T>
+    static void conv_fld_from_kvmap(std::map<std::string, msgpack::object const*> const& kvmap,
+                                    std::string struct_name,
+                                    std::string field_name,
+                                    T& field)
+    {
+        auto it = kvmap.find(field_name);
+        if (it != kvmap.end()) {
+            try {
+                it->second->convert(field);
+            } catch (const msgpack::type_error&) {
+                throw_or_abort("error converting into field " + struct_name + "::" + field_name);
+            }
+        } else {
+            throw_or_abort("missing field: " + struct_name + "::" + field_name);
+        }
+    }
+};
+} // namespace Acir
+
+namespace Acir {
 
 struct BinaryFieldOp {
 
@@ -142,6 +182,7 @@ struct BinaryFieldOp {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BinaryFieldOp'; got type " + std::to_string(o.type));
@@ -150,10 +191,15 @@ struct BinaryFieldOp {
             throw_or_abort("expected 1 entry for enum 'BinaryFieldOp'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BinaryFieldOp'");
         }
         if (tag == "Add") {
             Add v;
@@ -374,6 +420,7 @@ struct BinaryIntOp {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BinaryIntOp'; got type " + std::to_string(o.type));
@@ -382,10 +429,15 @@ struct BinaryIntOp {
             throw_or_abort("expected 1 entry for enum 'BinaryIntOp'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BinaryIntOp'");
         }
         if (tag == "Add") {
             Add v;
@@ -540,6 +592,7 @@ struct IntegerBitSize {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'IntegerBitSize'; got type " + std::to_string(o.type));
@@ -548,10 +601,15 @@ struct IntegerBitSize {
             throw_or_abort("expected 1 entry for enum 'IntegerBitSize'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'IntegerBitSize'");
         }
         if (tag == "U1") {
             U1 v;
@@ -647,6 +705,7 @@ struct BitSize {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BitSize'; got type " + std::to_string(o.type));
@@ -655,10 +714,15 @@ struct BitSize {
             throw_or_abort("expected 1 entry for enum 'BitSize'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BitSize'");
         }
         if (tag == "Field") {
             Field v;
@@ -760,6 +824,7 @@ struct MemoryAddress {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'MemoryAddress'; got type " + std::to_string(o.type));
@@ -768,10 +833,15 @@ struct MemoryAddress {
             throw_or_abort("expected 1 entry for enum 'MemoryAddress'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'MemoryAddress'");
         }
         if (tag == "Direct") {
             Direct v;
@@ -808,7 +878,20 @@ struct HeapArray {
     std::vector<uint8_t> bincodeSerialize() const;
     static HeapArray bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(pointer, size);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(2);
+        packer.pack(std::make_pair("pointer", pointer));
+        packer.pack(std::make_pair("size", size));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "HeapArray";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "pointer", pointer);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "size", size);
+    }
 };
 
 struct HeapVector {
@@ -819,7 +902,20 @@ struct HeapVector {
     std::vector<uint8_t> bincodeSerialize() const;
     static HeapVector bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(pointer, size);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(2);
+        packer.pack(std::make_pair("pointer", pointer));
+        packer.pack(std::make_pair("size", size));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "HeapVector";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "pointer", pointer);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "size", size);
+    }
 };
 
 struct BlackBoxOp {
@@ -834,7 +930,24 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static AES128Encrypt bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, iv, key, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(4);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("iv", iv));
+            packer.pack(std::make_pair("key", key));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "AES128Encrypt";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "iv", iv);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "key", key);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct Blake2s {
@@ -845,7 +958,20 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static Blake2s bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(message, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("message", message));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Blake2s";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "message", message);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct Blake3 {
@@ -856,7 +982,20 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static Blake3 bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(message, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("message", message));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Blake3";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "message", message);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct Keccakf1600 {
@@ -867,7 +1006,20 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static Keccakf1600 bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(input, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("input", input));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Keccakf1600";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input", input);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct EcdsaSecp256k1 {
@@ -881,7 +1033,26 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static EcdsaSecp256k1 bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(hashed_msg, public_key_x, public_key_y, signature, result);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(5);
+            packer.pack(std::make_pair("hashed_msg", hashed_msg));
+            packer.pack(std::make_pair("public_key_x", public_key_x));
+            packer.pack(std::make_pair("public_key_y", public_key_y));
+            packer.pack(std::make_pair("signature", signature));
+            packer.pack(std::make_pair("result", result));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "EcdsaSecp256k1";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "hashed_msg", hashed_msg);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_x", public_key_x);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_y", public_key_y);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "signature", signature);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "result", result);
+        }
     };
 
     struct EcdsaSecp256r1 {
@@ -895,7 +1066,26 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static EcdsaSecp256r1 bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(hashed_msg, public_key_x, public_key_y, signature, result);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(5);
+            packer.pack(std::make_pair("hashed_msg", hashed_msg));
+            packer.pack(std::make_pair("public_key_x", public_key_x));
+            packer.pack(std::make_pair("public_key_y", public_key_y));
+            packer.pack(std::make_pair("signature", signature));
+            packer.pack(std::make_pair("result", result));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "EcdsaSecp256r1";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "hashed_msg", hashed_msg);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_x", public_key_x);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_y", public_key_y);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "signature", signature);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "result", result);
+        }
     };
 
     struct MultiScalarMul {
@@ -907,7 +1097,22 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static MultiScalarMul bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(points, scalars, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("points", points));
+            packer.pack(std::make_pair("scalars", scalars));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "MultiScalarMul";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "points", points);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "scalars", scalars);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct EmbeddedCurveAdd {
@@ -923,7 +1128,30 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static EmbeddedCurveAdd bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(input1_x, input1_y, input1_infinite, input2_x, input2_y, input2_infinite, result);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(7);
+            packer.pack(std::make_pair("input1_x", input1_x));
+            packer.pack(std::make_pair("input1_y", input1_y));
+            packer.pack(std::make_pair("input1_infinite", input1_infinite));
+            packer.pack(std::make_pair("input2_x", input2_x));
+            packer.pack(std::make_pair("input2_y", input2_y));
+            packer.pack(std::make_pair("input2_infinite", input2_infinite));
+            packer.pack(std::make_pair("result", result));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "EmbeddedCurveAdd";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input1_x", input1_x);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input1_y", input1_y);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input1_infinite", input1_infinite);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input2_x", input2_x);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input2_y", input2_y);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input2_infinite", input2_infinite);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "result", result);
+        }
     };
 
     struct BigIntAdd {
@@ -935,7 +1163,22 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntAdd bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntAdd";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntSub {
@@ -947,7 +1190,22 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntSub bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntSub";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntMul {
@@ -959,7 +1217,22 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntMul bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntMul";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntDiv {
@@ -971,7 +1244,22 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntDiv bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntDiv";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntFromLeBytes {
@@ -983,7 +1271,22 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntFromLeBytes bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, modulus, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("modulus", modulus));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntFromLeBytes";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "modulus", modulus);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntToLeBytes {
@@ -994,7 +1297,20 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntToLeBytes bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(input, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("input", input));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntToLeBytes";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input", input);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct Poseidon2Permutation {
@@ -1006,7 +1322,22 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static Poseidon2Permutation bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(message, output, len);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("message", message));
+            packer.pack(std::make_pair("output", output));
+            packer.pack(std::make_pair("len", len));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Poseidon2Permutation";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "message", message);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "len", len);
+        }
     };
 
     struct Sha256Compression {
@@ -1018,7 +1349,22 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static Sha256Compression bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(input, hash_values, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("input", input));
+            packer.pack(std::make_pair("hash_values", hash_values));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Sha256Compression";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input", input);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "hash_values", hash_values);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct ToRadix {
@@ -1032,7 +1378,26 @@ struct BlackBoxOp {
         std::vector<uint8_t> bincodeSerialize() const;
         static ToRadix bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(input, radix, output_pointer, num_limbs, output_bits);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(5);
+            packer.pack(std::make_pair("input", input));
+            packer.pack(std::make_pair("radix", radix));
+            packer.pack(std::make_pair("output_pointer", output_pointer));
+            packer.pack(std::make_pair("num_limbs", num_limbs));
+            packer.pack(std::make_pair("output_bits", output_bits));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "ToRadix";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input", input);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "radix", radix);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output_pointer", output_pointer);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "num_limbs", num_limbs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output_bits", output_bits);
+        }
     };
 
     std::variant<AES128Encrypt,
@@ -1150,6 +1515,7 @@ struct BlackBoxOp {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BlackBoxOp'; got type " + std::to_string(o.type));
@@ -1158,10 +1524,15 @@ struct BlackBoxOp {
             throw_or_abort("expected 1 entry for enum 'BlackBoxOp'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BlackBoxOp'");
         }
         if (tag == "AES128Encrypt") {
             AES128Encrypt v;
@@ -1372,7 +1743,20 @@ struct HeapValueType {
         std::vector<uint8_t> bincodeSerialize() const;
         static Array bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(value_types, size);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("value_types", value_types));
+            packer.pack(std::make_pair("size", size));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Array";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "value_types", value_types);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "size", size);
+        }
     };
 
     struct Vector {
@@ -1382,7 +1766,18 @@ struct HeapValueType {
         std::vector<uint8_t> bincodeSerialize() const;
         static Vector bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(value_types);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(1);
+            packer.pack(std::make_pair("value_types", value_types));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Vector";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "value_types", value_types);
+        }
     };
 
     std::variant<Simple, Array, Vector> value;
@@ -1427,6 +1822,7 @@ struct HeapValueType {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'HeapValueType'; got type " + std::to_string(o.type));
@@ -1435,10 +1831,15 @@ struct HeapValueType {
             throw_or_abort("expected 1 entry for enum 'HeapValueType'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'HeapValueType'");
         }
         if (tag == "Simple") {
             Simple v;
@@ -1581,6 +1982,7 @@ struct ValueOrArray {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'ValueOrArray'; got type " + std::to_string(o.type));
@@ -1589,10 +1991,15 @@ struct ValueOrArray {
             throw_or_abort("expected 1 entry for enum 'ValueOrArray'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'ValueOrArray'");
         }
         if (tag == "MemoryAddress") {
             MemoryAddress v;
@@ -1643,7 +2050,24 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static BinaryFieldOp bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination, op, lhs, rhs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(4);
+            packer.pack(std::make_pair("destination", destination));
+            packer.pack(std::make_pair("op", op));
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BinaryFieldOp";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination", destination);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "op", op);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+        }
     };
 
     struct BinaryIntOp {
@@ -1657,7 +2081,26 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static BinaryIntOp bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination, op, bit_size, lhs, rhs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(5);
+            packer.pack(std::make_pair("destination", destination));
+            packer.pack(std::make_pair("op", op));
+            packer.pack(std::make_pair("bit_size", bit_size));
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BinaryIntOp";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination", destination);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "op", op);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "bit_size", bit_size);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+        }
     };
 
     struct Not {
@@ -1669,7 +2112,22 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Not bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination, source, bit_size);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("destination", destination));
+            packer.pack(std::make_pair("source", source));
+            packer.pack(std::make_pair("bit_size", bit_size));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Not";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination", destination);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "source", source);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "bit_size", bit_size);
+        }
     };
 
     struct Cast {
@@ -1681,7 +2139,22 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Cast bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination, source, bit_size);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("destination", destination));
+            packer.pack(std::make_pair("source", source));
+            packer.pack(std::make_pair("bit_size", bit_size));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Cast";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination", destination);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "source", source);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "bit_size", bit_size);
+        }
     };
 
     struct JumpIfNot {
@@ -1692,7 +2165,20 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static JumpIfNot bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(condition, location);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("condition", condition));
+            packer.pack(std::make_pair("location", location));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "JumpIfNot";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "condition", condition);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "location", location);
+        }
     };
 
     struct JumpIf {
@@ -1703,7 +2189,20 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static JumpIf bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(condition, location);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("condition", condition));
+            packer.pack(std::make_pair("location", location));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "JumpIf";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "condition", condition);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "location", location);
+        }
     };
 
     struct Jump {
@@ -1713,7 +2212,18 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Jump bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(location);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(1);
+            packer.pack(std::make_pair("location", location));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Jump";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "location", location);
+        }
     };
 
     struct CalldataCopy {
@@ -1725,7 +2235,22 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static CalldataCopy bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination_address, size_address, offset_address);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("destination_address", destination_address));
+            packer.pack(std::make_pair("size_address", size_address));
+            packer.pack(std::make_pair("offset_address", offset_address));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "CalldataCopy";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination_address", destination_address);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "size_address", size_address);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "offset_address", offset_address);
+        }
     };
 
     struct Call {
@@ -1735,7 +2260,18 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Call bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(location);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(1);
+            packer.pack(std::make_pair("location", location));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Call";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "location", location);
+        }
     };
 
     struct Const {
@@ -1747,7 +2283,22 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Const bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination, bit_size, value);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("destination", destination));
+            packer.pack(std::make_pair("bit_size", bit_size));
+            packer.pack(std::make_pair("value", value));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Const";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination", destination);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "bit_size", bit_size);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "value", value);
+        }
     };
 
     struct IndirectConst {
@@ -1759,7 +2310,22 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static IndirectConst bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination_pointer, bit_size, value);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("destination_pointer", destination_pointer));
+            packer.pack(std::make_pair("bit_size", bit_size));
+            packer.pack(std::make_pair("value", value));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "IndirectConst";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination_pointer", destination_pointer);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "bit_size", bit_size);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "value", value);
+        }
     };
 
     struct Return {
@@ -1782,7 +2348,26 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static ForeignCall bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(function, destinations, destination_value_types, inputs, input_value_types);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(5);
+            packer.pack(std::make_pair("function", function));
+            packer.pack(std::make_pair("destinations", destinations));
+            packer.pack(std::make_pair("destination_value_types", destination_value_types));
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("input_value_types", input_value_types));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "ForeignCall";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "function", function);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destinations", destinations);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination_value_types", destination_value_types);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input_value_types", input_value_types);
+        }
     };
 
     struct Mov {
@@ -1793,7 +2378,20 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Mov bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination, source);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("destination", destination));
+            packer.pack(std::make_pair("source", source));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Mov";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination", destination);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "source", source);
+        }
     };
 
     struct ConditionalMov {
@@ -1806,7 +2404,24 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static ConditionalMov bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination, source_a, source_b, condition);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(4);
+            packer.pack(std::make_pair("destination", destination));
+            packer.pack(std::make_pair("source_a", source_a));
+            packer.pack(std::make_pair("source_b", source_b));
+            packer.pack(std::make_pair("condition", condition));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "ConditionalMov";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination", destination);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "source_a", source_a);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "source_b", source_b);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "condition", condition);
+        }
     };
 
     struct Load {
@@ -1817,7 +2432,20 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Load bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination, source_pointer);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("destination", destination));
+            packer.pack(std::make_pair("source_pointer", source_pointer));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Load";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination", destination);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "source_pointer", source_pointer);
+        }
     };
 
     struct Store {
@@ -1828,7 +2456,20 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Store bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(destination_pointer, source);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("destination_pointer", destination_pointer));
+            packer.pack(std::make_pair("source", source));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Store";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "destination_pointer", destination_pointer);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "source", source);
+        }
     };
 
     struct BlackBox {
@@ -1858,7 +2499,18 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Trap bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(revert_data);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(1);
+            packer.pack(std::make_pair("revert_data", revert_data));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Trap";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "revert_data", revert_data);
+        }
     };
 
     struct Stop {
@@ -1868,7 +2520,18 @@ struct BrilligOpcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Stop bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(return_data);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(1);
+            packer.pack(std::make_pair("return_data", return_data));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Stop";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "return_data", return_data);
+        }
     };
 
     std::variant<BinaryFieldOp,
@@ -2001,6 +2664,7 @@ struct BrilligOpcode {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BrilligOpcode'; got type " + std::to_string(o.type));
@@ -2009,10 +2673,15 @@ struct BrilligOpcode {
             throw_or_abort("expected 1 entry for enum 'BrilligOpcode'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BrilligOpcode'");
         }
         if (tag == "BinaryFieldOp") {
             BinaryFieldOp v;
@@ -2314,6 +2983,7 @@ struct ConstantOrWitnessEnum {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'ConstantOrWitnessEnum'; got type " + std::to_string(o.type));
@@ -2322,10 +2992,15 @@ struct ConstantOrWitnessEnum {
             throw_or_abort("expected 1 entry for enum 'ConstantOrWitnessEnum'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'ConstantOrWitnessEnum'");
         }
         if (tag == "Constant") {
             Constant v;
@@ -2362,7 +3037,20 @@ struct FunctionInput {
     std::vector<uint8_t> bincodeSerialize() const;
     static FunctionInput bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(input, num_bits);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(2);
+        packer.pack(std::make_pair("input", input));
+        packer.pack(std::make_pair("num_bits", num_bits));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "FunctionInput";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "input", input);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "num_bits", num_bits);
+    }
 };
 
 struct BlackBoxFuncCall {
@@ -2377,7 +3065,24 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static AES128Encrypt bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, iv, key, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(4);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("iv", iv));
+            packer.pack(std::make_pair("key", key));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "AES128Encrypt";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "iv", iv);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "key", key);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct AND {
@@ -2389,7 +3094,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static AND bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "AND";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct XOR {
@@ -2401,7 +3121,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static XOR bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "XOR";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct RANGE {
@@ -2411,7 +3146,18 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static RANGE bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(input);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(1);
+            packer.pack(std::make_pair("input", input));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "RANGE";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input", input);
+        }
     };
 
     struct Blake2s {
@@ -2422,7 +3168,20 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static Blake2s bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Blake2s";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct Blake3 {
@@ -2433,7 +3192,20 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static Blake3 bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Blake3";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct EcdsaSecp256k1 {
@@ -2447,7 +3219,26 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static EcdsaSecp256k1 bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(public_key_x, public_key_y, signature, hashed_message, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(5);
+            packer.pack(std::make_pair("public_key_x", public_key_x));
+            packer.pack(std::make_pair("public_key_y", public_key_y));
+            packer.pack(std::make_pair("signature", signature));
+            packer.pack(std::make_pair("hashed_message", hashed_message));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "EcdsaSecp256k1";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_x", public_key_x);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_y", public_key_y);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "signature", signature);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "hashed_message", hashed_message);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct EcdsaSecp256r1 {
@@ -2461,7 +3252,26 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static EcdsaSecp256r1 bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(public_key_x, public_key_y, signature, hashed_message, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(5);
+            packer.pack(std::make_pair("public_key_x", public_key_x));
+            packer.pack(std::make_pair("public_key_y", public_key_y));
+            packer.pack(std::make_pair("signature", signature));
+            packer.pack(std::make_pair("hashed_message", hashed_message));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "EcdsaSecp256r1";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_x", public_key_x);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_key_y", public_key_y);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "signature", signature);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "hashed_message", hashed_message);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct MultiScalarMul {
@@ -2473,7 +3283,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static MultiScalarMul bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(points, scalars, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("points", points));
+            packer.pack(std::make_pair("scalars", scalars));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "MultiScalarMul";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "points", points);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "scalars", scalars);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct EmbeddedCurveAdd {
@@ -2485,7 +3310,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static EmbeddedCurveAdd bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(input1, input2, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("input1", input1));
+            packer.pack(std::make_pair("input2", input2));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "EmbeddedCurveAdd";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input1", input1);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input2", input2);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct Keccakf1600 {
@@ -2496,7 +3336,20 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static Keccakf1600 bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Keccakf1600";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct RecursiveAggregation {
@@ -2510,7 +3363,26 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static RecursiveAggregation bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(verification_key, proof, public_inputs, key_hash, proof_type);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(5);
+            packer.pack(std::make_pair("verification_key", verification_key));
+            packer.pack(std::make_pair("proof", proof));
+            packer.pack(std::make_pair("public_inputs", public_inputs));
+            packer.pack(std::make_pair("key_hash", key_hash));
+            packer.pack(std::make_pair("proof_type", proof_type));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "RecursiveAggregation";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "verification_key", verification_key);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "proof", proof);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "public_inputs", public_inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "key_hash", key_hash);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "proof_type", proof_type);
+        }
     };
 
     struct BigIntAdd {
@@ -2522,7 +3394,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntAdd bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntAdd";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntSub {
@@ -2534,7 +3421,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntSub bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntSub";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntMul {
@@ -2546,7 +3448,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntMul bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntMul";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntDiv {
@@ -2558,7 +3475,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntDiv bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(lhs, rhs, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("lhs", lhs));
+            packer.pack(std::make_pair("rhs", rhs));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntDiv";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "lhs", lhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "rhs", rhs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntFromLeBytes {
@@ -2570,7 +3502,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntFromLeBytes bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, modulus, output);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("modulus", modulus));
+            packer.pack(std::make_pair("output", output));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntFromLeBytes";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "modulus", modulus);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "output", output);
+        }
     };
 
     struct BigIntToLeBytes {
@@ -2581,7 +3528,20 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static BigIntToLeBytes bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(input, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("input", input));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BigIntToLeBytes";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "input", input);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     struct Poseidon2Permutation {
@@ -2593,7 +3553,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static Poseidon2Permutation bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, outputs, len);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("outputs", outputs));
+            packer.pack(std::make_pair("len", len));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Poseidon2Permutation";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "len", len);
+        }
     };
 
     struct Sha256Compression {
@@ -2605,7 +3580,22 @@ struct BlackBoxFuncCall {
         std::vector<uint8_t> bincodeSerialize() const;
         static Sha256Compression bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(inputs, hash_values, outputs);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("hash_values", hash_values));
+            packer.pack(std::make_pair("outputs", outputs));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Sha256Compression";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "hash_values", hash_values);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+        }
     };
 
     std::variant<AES128Encrypt,
@@ -2738,6 +3728,7 @@ struct BlackBoxFuncCall {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BlackBoxFuncCall'; got type " + std::to_string(o.type));
@@ -2746,10 +3737,15 @@ struct BlackBoxFuncCall {
             throw_or_abort("expected 1 entry for enum 'BlackBoxFuncCall'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BlackBoxFuncCall'");
         }
         if (tag == "AES128Encrypt") {
             AES128Encrypt v;
@@ -3060,6 +4056,7 @@ struct BlockType {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BlockType'; got type " + std::to_string(o.type));
@@ -3068,10 +4065,15 @@ struct BlockType {
             throw_or_abort("expected 1 entry for enum 'BlockType'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BlockType'");
         }
         if (tag == "Memory") {
             Memory v;
@@ -3105,7 +4107,22 @@ struct Expression {
     std::vector<uint8_t> bincodeSerialize() const;
     static Expression bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(mul_terms, linear_combinations, q_c);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(3);
+        packer.pack(std::make_pair("mul_terms", mul_terms));
+        packer.pack(std::make_pair("linear_combinations", linear_combinations));
+        packer.pack(std::make_pair("q_c", q_c));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "Expression";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "mul_terms", mul_terms);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "linear_combinations", linear_combinations);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "q_c", q_c);
+    }
 };
 
 struct BrilligInputs {
@@ -3212,6 +4229,7 @@ struct BrilligInputs {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BrilligInputs'; got type " + std::to_string(o.type));
@@ -3220,10 +4238,15 @@ struct BrilligInputs {
             throw_or_abort("expected 1 entry for enum 'BrilligInputs'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BrilligInputs'");
         }
         if (tag == "Single") {
             Single v;
@@ -3342,6 +4365,7 @@ struct BrilligOutputs {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'BrilligOutputs'; got type " + std::to_string(o.type));
@@ -3350,10 +4374,15 @@ struct BrilligOutputs {
             throw_or_abort("expected 1 entry for enum 'BrilligOutputs'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'BrilligOutputs'");
         }
         if (tag == "Simple") {
             Simple v;
@@ -3391,7 +4420,22 @@ struct MemOp {
     std::vector<uint8_t> bincodeSerialize() const;
     static MemOp bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(operation, index, value);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(3);
+        packer.pack(std::make_pair("operation", operation));
+        packer.pack(std::make_pair("index", index));
+        packer.pack(std::make_pair("value", value));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "MemOp";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "operation", operation);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "index", index);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "value", value);
+    }
 };
 
 struct Opcode {
@@ -3445,7 +4489,22 @@ struct Opcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static MemoryOp bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(block_id, op, predicate);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("block_id", block_id));
+            packer.pack(std::make_pair("op", op));
+            packer.pack(std::make_pair("predicate", predicate));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "MemoryOp";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "block_id", block_id);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "op", op);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate);
+        }
     };
 
     struct MemoryInit {
@@ -3457,7 +4516,22 @@ struct Opcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static MemoryInit bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(block_id, init, block_type);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(3);
+            packer.pack(std::make_pair("block_id", block_id));
+            packer.pack(std::make_pair("init", init));
+            packer.pack(std::make_pair("block_type", block_type));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "MemoryInit";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "block_id", block_id);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "init", init);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "block_type", block_type);
+        }
     };
 
     struct BrilligCall {
@@ -3470,7 +4544,24 @@ struct Opcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static BrilligCall bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(id, inputs, outputs, predicate);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(4);
+            packer.pack(std::make_pair("id", id));
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("outputs", outputs));
+            packer.pack(std::make_pair("predicate", predicate));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "BrilligCall";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "id", id);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate);
+        }
     };
 
     struct Call {
@@ -3483,7 +4574,24 @@ struct Opcode {
         std::vector<uint8_t> bincodeSerialize() const;
         static Call bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(id, inputs, outputs, predicate);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(4);
+            packer.pack(std::make_pair("id", id));
+            packer.pack(std::make_pair("inputs", inputs));
+            packer.pack(std::make_pair("outputs", outputs));
+            packer.pack(std::make_pair("predicate", predicate));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Call";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "id", id);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "predicate", predicate);
+        }
     };
 
     std::variant<AssertZero, BlackBoxFuncCall, MemoryOp, MemoryInit, BrilligCall, Call> value;
@@ -3540,6 +4648,7 @@ struct Opcode {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'Opcode'; got type " + std::to_string(o.type));
@@ -3548,10 +4657,15 @@ struct Opcode {
             throw_or_abort("expected 1 entry for enum 'Opcode'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'Opcode'");
         }
         if (tag == "AssertZero") {
             AssertZero v;
@@ -3700,6 +4814,7 @@ struct ExpressionOrMemory {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'ExpressionOrMemory'; got type " + std::to_string(o.type));
@@ -3708,10 +4823,15 @@ struct ExpressionOrMemory {
             throw_or_abort("expected 1 entry for enum 'ExpressionOrMemory'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'ExpressionOrMemory'");
         }
         if (tag == "Expression") {
             Expression v;
@@ -3748,7 +4868,20 @@ struct AssertionPayload {
     std::vector<uint8_t> bincodeSerialize() const;
     static AssertionPayload bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(error_selector, payload);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(2);
+        packer.pack(std::make_pair("error_selector", error_selector));
+        packer.pack(std::make_pair("payload", payload));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "AssertionPayload";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "error_selector", error_selector);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "payload", payload);
+    }
 };
 
 struct ExpressionWidth {
@@ -3769,7 +4902,18 @@ struct ExpressionWidth {
         std::vector<uint8_t> bincodeSerialize() const;
         static Bounded bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(width);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(1);
+            packer.pack(std::make_pair("width", width));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Bounded";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "width", width);
+        }
     };
 
     std::variant<Unbounded, Bounded> value;
@@ -3810,6 +4954,7 @@ struct ExpressionWidth {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'ExpressionWidth'; got type " + std::to_string(o.type));
@@ -3818,10 +4963,15 @@ struct ExpressionWidth {
             throw_or_abort("expected 1 entry for enum 'ExpressionWidth'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'ExpressionWidth'");
         }
         if (tag == "Unbounded") {
             Unbounded v;
@@ -3873,7 +5023,20 @@ struct OpcodeLocation {
         std::vector<uint8_t> bincodeSerialize() const;
         static Brillig bincodeDeserialize(std::vector<uint8_t>);
 
-        MSGPACK_FIELDS(acir_index, brillig_index);
+        void msgpack_pack(auto& packer) const
+        {
+            packer.pack_map(2);
+            packer.pack(std::make_pair("acir_index", acir_index));
+            packer.pack(std::make_pair("brillig_index", brillig_index));
+        }
+
+        void msgpack_unpack(msgpack::object const& o)
+        {
+            auto name = "Brillig";
+            auto kvmap = Helpers::make_kvmap(o, name);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "acir_index", acir_index);
+            Helpers::conv_fld_from_kvmap(kvmap, name, "brillig_index", brillig_index);
+        }
     };
 
     std::variant<Acir, Brillig> value;
@@ -3914,6 +5077,7 @@ struct OpcodeLocation {
 
     void msgpack_unpack(msgpack::object const& o)
     {
+
         if (o.type != msgpack::type::object_type::MAP && o.type != msgpack::type::object_type::STR) {
             std::cerr << o << std::endl;
             throw_or_abort("expected MAP or STR for enum 'OpcodeLocation'; got type " + std::to_string(o.type));
@@ -3922,10 +5086,15 @@ struct OpcodeLocation {
             throw_or_abort("expected 1 entry for enum 'OpcodeLocation'; got " + std::to_string(o.via.map.size));
         }
         std::string tag;
-        if (o.type == msgpack::type::object_type::MAP) {
-            o.via.map.ptr[0].key.convert(tag);
-        } else {
-            o.convert(tag);
+        try {
+            if (o.type == msgpack::type::object_type::MAP) {
+                o.via.map.ptr[0].key.convert(tag);
+            } else {
+                o.convert(tag);
+            }
+        } catch (const msgpack::type_error&) {
+            std::cerr << o << std::endl;
+            throw_or_abort("error converting tag to string for enum 'OpcodeLocation'");
         }
         if (tag == "Acir") {
             Acir v;
@@ -3987,13 +5156,30 @@ struct Circuit {
     std::vector<uint8_t> bincodeSerialize() const;
     static Circuit bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(current_witness_index,
-                   opcodes,
-                   expression_width,
-                   private_parameters,
-                   public_parameters,
-                   return_values,
-                   assert_messages);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(7);
+        packer.pack(std::make_pair("current_witness_index", current_witness_index));
+        packer.pack(std::make_pair("opcodes", opcodes));
+        packer.pack(std::make_pair("expression_width", expression_width));
+        packer.pack(std::make_pair("private_parameters", private_parameters));
+        packer.pack(std::make_pair("public_parameters", public_parameters));
+        packer.pack(std::make_pair("return_values", return_values));
+        packer.pack(std::make_pair("assert_messages", assert_messages));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "Circuit";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "current_witness_index", current_witness_index);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "opcodes", opcodes);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "expression_width", expression_width);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "private_parameters", private_parameters);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "public_parameters", public_parameters);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "return_values", return_values);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "assert_messages", assert_messages);
+    }
 };
 
 struct BrilligBytecode {
@@ -4003,7 +5189,18 @@ struct BrilligBytecode {
     std::vector<uint8_t> bincodeSerialize() const;
     static BrilligBytecode bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(bytecode);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(1);
+        packer.pack(std::make_pair("bytecode", bytecode));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "BrilligBytecode";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "bytecode", bytecode);
+    }
 };
 
 struct Program {
@@ -4014,7 +5211,20 @@ struct Program {
     std::vector<uint8_t> bincodeSerialize() const;
     static Program bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(functions, unconstrained_functions);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(2);
+        packer.pack(std::make_pair("functions", functions));
+        packer.pack(std::make_pair("unconstrained_functions", unconstrained_functions));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "Program";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "functions", functions);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "unconstrained_functions", unconstrained_functions);
+    }
 };
 
 struct ProgramWithoutBrillig {
@@ -4024,7 +5234,18 @@ struct ProgramWithoutBrillig {
     std::vector<uint8_t> bincodeSerialize() const;
     static ProgramWithoutBrillig bincodeDeserialize(std::vector<uint8_t>);
 
-    MSGPACK_FIELDS(functions);
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_map(1);
+        packer.pack(std::make_pair("functions", functions));
+    }
+
+    void msgpack_unpack(msgpack::object const& o)
+    {
+        auto name = "ProgramWithoutBrillig";
+        auto kvmap = Helpers::make_kvmap(o, name);
+        Helpers::conv_fld_from_kvmap(kvmap, name, "functions", functions);
+    }
 };
 
 } // end of namespace Acir
