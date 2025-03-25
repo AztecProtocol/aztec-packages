@@ -36,25 +36,20 @@ const TreeSnapshots& MerkleDB::get_tree_roots() const
     return raw_merkle_db.get_tree_roots();
 }
 
-// TODO(fcarreiro): We wouldn't have a low level method here because it can't be constrained.
-crypto::merkle_tree::fr_sibling_path MerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id,
-                                                                crypto::merkle_tree::index_t leaf_index) const
+FF MerkleDB::storage_read(const FF& leaf_slot) const
 {
-    return raw_merkle_db.get_sibling_path(tree_id, leaf_index);
-}
+    // TODO(fcarreiro): constrain everything below.
+    FF result = 0;
 
-// TODO(fcarreiro): We wouldn't have a low level method here because it can't be constrained.
-crypto::merkle_tree::GetLowIndexedLeafResponse MerkleDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
-                                                                              const FF& value) const
-{
-    return raw_merkle_db.get_low_indexed_leaf(tree_id, value);
-}
+    auto [present, index] = raw_merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
+    auto path = raw_merkle_db.get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, index);
 
-// TODO(fcarreiro): We wouldn't have a low level method here because it can't be constrained.
-crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> MerkleDB::get_leaf_preimage_public_data_tree(
-    crypto::merkle_tree::index_t leaf_index) const
-{
-    return raw_merkle_db.get_leaf_preimage_public_data_tree(leaf_index);
+    if (!present) {
+        auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
+        result = preimage.value.value;
+    }
+
+    return result;
 }
 
 } // namespace bb::avm2::simulation

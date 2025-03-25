@@ -19,13 +19,10 @@ class ContractDBInterface {
     virtual std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const = 0;
 };
 
-// TODO(fcarreiro): We'll have to separate into LowLevel and HighLevel interfaces.
-// Low level will be raw and hinted, high level will be proven.
-// ADDENDUM: well actually they don't need to be separate. We might just be able to implement both low and high level in
-// both raw and proven. Just that proven will not prove low level (footgun?).
-class MerkleDBInterface {
+// Low level access to a merkle db. In general these will not be constrained.
+class LowLevelMerkleDBInterface {
   public:
-    virtual ~MerkleDBInterface() = default;
+    virtual ~LowLevelMerkleDBInterface() = default;
 
     virtual const TreeSnapshots& get_tree_roots() const = 0;
 
@@ -36,6 +33,15 @@ class MerkleDBInterface {
     // We don't template the preimage methods because templated methods cannot be virtual.
     virtual crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>
     get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const = 0;
+};
+
+// High level access to a merkle db. In general these will be constrained.
+class HighLevelMerkleDBInterface {
+  public:
+    virtual ~HighLevelMerkleDBInterface() = default;
+
+    virtual const TreeSnapshots& get_tree_roots() const = 0;
+    virtual FF storage_read(const FF& key) const = 0;
 };
 
 } // namespace bb::avm2::simulation
