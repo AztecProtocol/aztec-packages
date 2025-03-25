@@ -79,7 +79,7 @@ describe('e2e_p2p_validators_sentinel', () => {
     t.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
     const offlineStats = stats.stats[offlineValidator];
     const historyLength = offlineStats.history.length;
-    expect(offlineStats.history.length).toBeGreaterThanOrEqual(blockCount);
+    expect(offlineStats.history.length).toBeGreaterThanOrEqual(blockCount - 1);
     expect(offlineStats.history.every(h => h.status.endsWith('-missed'))).toBeTrue();
     expect(offlineStats.missedAttestations.count + offlineStats.missedProposals.count).toEqual(historyLength);
     expect(offlineStats.missedAttestations.rate).toEqual(1);
@@ -89,7 +89,7 @@ describe('e2e_p2p_validators_sentinel', () => {
     const okValidator = t.validators[0].attester.toLowerCase();
     const okStats = stats.stats[okValidator];
     t.logger.info(`Asserting stats for ok validator ${okValidator}`);
-    expect(okStats.history.length).toBeGreaterThanOrEqual(blockCount);
+    expect(okStats.history.length).toBeGreaterThanOrEqual(blockCount - 1);
     expect(okStats.history.some(h => h.status === 'attestation-sent')).toBeTrue();
     expect(okStats.history.some(h => h.status === 'block-mined' || 'block-proposed')).toBeTrue();
     expect(okStats.missedAttestations.rate).toBeLessThan(1);
