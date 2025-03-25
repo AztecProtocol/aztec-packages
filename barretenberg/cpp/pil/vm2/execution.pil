@@ -17,6 +17,8 @@ include "poseidon2_perm.pil";
 include "scalar_mul.pil";
 include "to_radix.pil";
 include "ff_gt.pil";
+include "context.pil;"
+include "context_stack.pil";
 
 namespace execution;
 
@@ -29,7 +31,6 @@ pol commit op1, op2, op3, op4;
 // resolved operands
 pol commit rop1, rop2, rop3, rop4;
 
-pol commit pc;
 pol commit bytecode_id;
 pol commit clk;
 pol commit last;
