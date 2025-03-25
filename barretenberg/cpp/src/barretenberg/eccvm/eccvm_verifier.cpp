@@ -88,7 +88,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                sumcheck_output.challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
-                                               {},
+                                               Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,

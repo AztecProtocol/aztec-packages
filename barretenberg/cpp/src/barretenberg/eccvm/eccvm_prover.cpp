@@ -174,7 +174,10 @@ void ECCVMProver::execute_pcs_rounds()
     info("before last shpl");
     const OpeningClaim batch_opening_claim =
         Shplonk::prove(NUM_OPENING_CLAIMS, key->commitment_key, opening_claims, transcript);
-
+    info("prover eval match claimed eval ",
+         batch_opening_claim.polynomial.evaluate(batch_opening_claim.opening_pair.challenge) ==
+             batch_opening_claim.opening_pair.evaluation);
+    info("prover eval ", batch_opening_claim.opening_pair.evaluation);
     // Compute the opening proof for the batched opening claim with the univariate PCS
     PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, ipa_transcript);
 }

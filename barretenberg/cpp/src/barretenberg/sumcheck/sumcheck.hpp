@@ -902,7 +902,7 @@ template <typename Flavor, size_t LOG_CIRCUIT_SIZE = CONST_PROOF_SIZE_LOG_N> cla
             };
 
             // Pad claimed evaluations to the CONST_PROOF_SIZE_LOG_N
-            for (size_t round_idx = multivariate_d; round_idx < CONST_ECCVM_LOG_N; round_idx++) {
+            for (size_t round_idx = multivariate_d; round_idx <= LOG_CIRCUIT_SIZE; round_idx++) {
                 round_univariate_evaluations[round_idx - 1][2] = full_honk_purported_value;
             };
 

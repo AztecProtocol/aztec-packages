@@ -62,6 +62,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
             ipa_transcript = std::make_shared<Transcript>(ipa_proof);
             ipa_transcript->enable_manifest(); // Enable manifest for the verifier.
             bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
+            info("ipa result ", ipa_result);
             if (!ipa_result) {
                 return false;
             }

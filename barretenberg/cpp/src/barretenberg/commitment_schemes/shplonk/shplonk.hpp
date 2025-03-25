@@ -99,7 +99,9 @@ template <typename Curve> class ShplonkProver_ {
         // batched before adding Libra commitments and evaluations is bounded by 2 * CONST_PROOF_SIZE_LOG_N + 2, where
         // 2 * CONST_PROOF_SIZE_LOG_N is the number of fold claims including the dummy ones, and +2 is reserved for
         // interleaving.
-        current_nu = nu.pow(2 * padded_log_n + 2);
+        if (!libra_opening_claims.empty()) {
+            current_nu = nu.pow(2 * padded_log_n + 2);
+        }
         info("libra");
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -114,14 +116,10 @@ template <typename Curve> class ShplonkProver_ {
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
         }
-        info("sumcheck");
         for (const auto& claim : sumcheck_round_claims) {
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
-            if (tmp.evaluate(claim.opening_pair.challenge) != claim.opening_pair.evaluation) {
-                info(idx, " not eq");
-            }
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
 
@@ -212,7 +210,9 @@ template <typename Curve> class ShplonkProver_ {
 
         // Take into account the constant proof size in Gemini
         info("virtual log_n, prover shpl ", padded_log_n);
-        current_nu = nu_challenge.pow(2 * padded_log_n + 2);
+        if (!libra_opening_claims.empty()) {
+            current_nu = nu_challenge.pow(2 * padded_log_n + 2);
+        }
 
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
