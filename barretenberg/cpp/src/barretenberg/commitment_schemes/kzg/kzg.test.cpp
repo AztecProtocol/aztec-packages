@@ -124,7 +124,7 @@ TEST_F(KZGTest, GeminiShplonkKzgWithShift)
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
     // - witness: polynomial Q - Q_z
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(log_n, ck, prover_opening_claims, prover_transcript);
 
     // KZG prover:
     // - Adds commitment [W] to transcript
@@ -178,7 +178,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
     // - witness: polynomial Q - Q_z
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(log_n, ck, prover_opening_claims, prover_transcript);
 
     // KZG prover:
     // - Adds commitment [W] to transcript
@@ -226,7 +226,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
     // - witness: polynomial Q - Q_z
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(log_n, ck, prover_opening_claims, prover_transcript);
 
     // KZG prover:
     // - Adds commitment [W] to transcript
@@ -280,7 +280,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
     // - witness: polynomial Q - Q_z
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(log_n, ck, prover_opening_claims, prover_transcript);
 
     // KZG prover:
     // - Adds commitment [W] to transcript

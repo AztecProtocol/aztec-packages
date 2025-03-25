@@ -274,7 +274,7 @@ template <typename Curve> class ShplonkProver_ {
      * @return ProverOpeningClaim<Curve>
      */
     template <typename Transcript>
-    static ProverOpeningClaim<Curve> prove(const size_t padded_log_n,
+    static ProverOpeningClaim<Curve> prove(const size_t virtual_log_n,
                                            const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                            std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                            const std::shared_ptr<Transcript>& transcript,
@@ -286,13 +286,17 @@ template <typename Curve> class ShplonkProver_ {
         // Compute the evaluations Fold_i(r^{2^i}) for i>0.
         std::vector<Fr> gemini_fold_pos_evaluations = compute_gemini_fold_pos_evaluations(opening_claims);
 
-        auto batched_quotient = compute_batched_quotient(
-            padded_log_n, opening_claims, nu, gemini_fold_pos_evaluations, libra_opening_claims, sumcheck_round_claims);
+        auto batched_quotient = compute_batched_quotient(virtual_log_n,
+                                                         opening_claims,
+                                                         nu,
+                                                         gemini_fold_pos_evaluations,
+                                                         libra_opening_claims,
+                                                         sumcheck_round_claims);
         auto batched_quotient_commitment = commitment_key->commit(batched_quotient);
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
         info("shpl eval challenge ", z);
-        return compute_partially_evaluated_batched_quotient(padded_log_n,
+        return compute_partially_evaluated_batched_quotient(virtual_log_n,
                                                             opening_claims,
                                                             batched_quotient,
                                                             nu,

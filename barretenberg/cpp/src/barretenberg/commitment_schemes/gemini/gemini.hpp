@@ -390,7 +390,7 @@ template <typename Curve> class GeminiVerifier_ {
         const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, num_variables);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
-        const std::vector<Fr> evaluations = get_gemini_evaluations(transcript);
+        const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to A₀₊
         // C₀_r_neg = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to  A₀₋

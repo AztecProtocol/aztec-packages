@@ -264,7 +264,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     auto prover_opening_claims =
         GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(small_log_n, ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
@@ -298,7 +298,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
         GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(small_log_n, ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
@@ -337,7 +337,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     auto prover_opening_claims =
         GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(small_log_n, ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // the index of the first commitment to a polynomial to be shifted in the union of unshifted_commitments and

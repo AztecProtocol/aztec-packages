@@ -23,6 +23,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     using OpeningClaim = OpeningClaim<TypeParam>;
 
     const size_t n = 16;
+    const size_t log_n = 4;
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -42,7 +43,8 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     std::vector<ProverOpeningClaim> prover_opening_claims = { { poly1, { r1, eval1 } }, { poly2, { r2, eval2 } } };
 
     // Execute the shplonk prover functionality
-    const auto batched_opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
+    const auto batched_opening_claim =
+        ShplonkProver::prove(log_n, this->ck(), prover_opening_claims, prover_transcript);
     // An intermediate check to confirm the opening of the shplonk prover witness Q
     this->verify_opening_pair(batched_opening_claim.opening_pair, batched_opening_claim.polynomial);
 

@@ -126,7 +126,6 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
-    info("rec verifier shpl batch claim ", batch_opening_claim.opening_pair.evaluation);
 
     return { batch_opening_claim, ipa_transcript };
 }

@@ -198,7 +198,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr shplonk_batching_challenge = Fr::random_element();
 
     std::vector<Fr> shplonk_batching_challenge_powers =
-        compute_shplonk_batching_challenge_powers(shplonk_batching_challenge);
+        compute_shplonk_batching_challenge_powers(shplonk_batching_challenge, this->log_n);
 
     Fr shplonk_eval_challenge = Fr::random_element();
 
