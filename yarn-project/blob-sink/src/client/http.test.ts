@@ -189,7 +189,20 @@ describe('HttpBlobSinkClient', () => {
 
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
-        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+    });
+
+    it('should handle when multiple consensus hosts are provided', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: ['invalidURL', `http://localhost:${consensusHostPort}`, 'invalidURL'],
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
@@ -202,7 +215,7 @@ describe('HttpBlobSinkClient', () => {
 
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
-        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash, testNonEncodedBlobHash]);
@@ -216,7 +229,7 @@ describe('HttpBlobSinkClient', () => {
 
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
-        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
       // Add spy on the fetch method
