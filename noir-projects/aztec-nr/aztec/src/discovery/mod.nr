@@ -1,4 +1,3 @@
-// TODO(#12750): don't make this value assume we're using AES.
 use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
