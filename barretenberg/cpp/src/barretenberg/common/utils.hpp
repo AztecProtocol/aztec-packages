@@ -30,7 +30,10 @@ template <typename... Ts> size_t hash_as_tuple(const Ts&... ts)
 // Like std::tuple, but you can hash it and therefore use in maps/sets.
 template <typename... Ts> struct HashableTuple : public std::tuple<Ts...> {
     using std::tuple<Ts...>::tuple;
-    std::size_t hash() const noexcept { return utils::hash_as_tuple(*this); }
+    std::size_t hash() const noexcept
+    {
+        return std::apply(utils::hash_as_tuple<Ts...>, static_cast<std::tuple<Ts...>>(*this));
+    }
 };
 
 } // namespace bb::utils
