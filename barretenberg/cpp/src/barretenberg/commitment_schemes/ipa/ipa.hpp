@@ -278,6 +278,9 @@ template <typename Curve_> class IPA {
                     a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+if (i == poly_length-1){
+info( "prover ipa challenge ", i, " " , round_challenge);
+}
         }
 
         // For dummy rounds, send commitments of zero()
@@ -285,8 +288,9 @@ template <typename Curve_> class IPA {
             std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment::one());
             transcript->send_to_verifier("IPA:R_" + index, Commitment::one());
-            transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+
         }
+
 
         // Step 7
         // Send G_0 to the verifier
@@ -378,6 +382,7 @@ template <typename Curve_> class IPA {
                 msm_scalars[2 * i + 1] = round_challenges[i];
             }
         }
+        info( "last verifier ipa challenge ", round_challenges.back());
 
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
@@ -495,7 +500,7 @@ template <typename Curve_> class IPA {
             msm_scalars[2 * i] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[i]);
             msm_scalars[2 * i + 1] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges[i]);
         }
-
+info( "last prover ipa challenge ", round_challenges.back());
         //  Step 4.
         // Compute b_zero where b_zero can be computed using the polynomial:
         //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).
@@ -658,7 +663,7 @@ template <typename Curve_> class IPA {
             msm_scalars[2 * i] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[i]);
             msm_scalars[2 * i + 1] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges[i]);
         }
-
+info("last ipa verifier challenge ", round_challenges.back());
         //  Step 4.
         // Compute b_zero where b_zero can be computed using the polynomial:
         //  g(X) = ∏_{i ∈ [k]} (1 + u_{i-1}^{-1}.X^{2^{i-1}}).

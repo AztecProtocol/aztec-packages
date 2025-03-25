@@ -268,6 +268,7 @@ void ECCVMProver::compute_translation_opening_claims()
 
     // Get a challenge to evaluate the `translation_polynomials` as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    info("eval challenge x prover ", evaluation_challenge_x);
 
     // Evaluate `translation_polynomial` as univariates and add their evaluations at x to the transcript
     for (auto [eval, poly, label] :

@@ -39,7 +39,7 @@ template <typename Curve> class ShplonkProver_ {
      * @param nu batching challenge
      * @return Polynomial Q(X)
      */
-    static Polynomial compute_batched_quotient(const size_t padded_log_n,
+    static Polynomial compute_batched_quotient(const size_t virtual_log_n,
                                                std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                                const Fr& nu,
                                                std::span<Fr> gemini_fold_pos_evaluations,
@@ -65,50 +65,37 @@ template <typename Curve> class ShplonkProver_ {
         Fr current_nu = Fr::one();
 
         size_t fold_idx = 0;
-        size_t idx = 0;
         for (const auto& claim : opening_claims) {
 
             // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
             if (claim.gemini_fold) {
                 tmp = claim.polynomial;
-                if (tmp.evaluate(claim.opening_pair.challenge) != claim.opening_pair.evaluation) {
-                    info(idx, " not eq");
-                }
                 tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx++];
                 tmp.factor_roots(-claim.opening_pair.challenge);
                 // Add the claim quotient to the batched quotient polynomial
                 Q.add_scaled(tmp, current_nu);
                 current_nu *= nu;
-                idx++;
             }
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
-            if (tmp.evaluate(claim.opening_pair.challenge) != claim.opening_pair.evaluation) {
-                info(idx, " not eq");
-            }
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
             // Add the claim quotient to the batched quotient polynomial
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
-            idx++;
         }
-        info(idx);
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
         // batched before adding Libra commitments and evaluations is bounded by 2 * CONST_PROOF_SIZE_LOG_N + 2, where
         // 2 * CONST_PROOF_SIZE_LOG_N is the number of fold claims including the dummy ones, and +2 is reserved for
         // interleaving.
         if (!libra_opening_claims.empty()) {
-            current_nu = nu.pow(2 * padded_log_n + 2);
+            current_nu = nu.pow(2 * virtual_log_n + 2);
         }
-        info("libra");
+
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
-            if (tmp.evaluate(claim.opening_pair.challenge) != claim.opening_pair.evaluation) {
-                info(idx, " not eq");
-            }
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
 
@@ -116,6 +103,7 @@ template <typename Curve> class ShplonkProver_ {
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
         }
+
         for (const auto& claim : sumcheck_round_claims) {
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -142,7 +130,7 @@ template <typename Curve> class ShplonkProver_ {
      * @return Output{OpeningPair, Polynomial}
      */
     static ProverOpeningClaim<Curve> compute_partially_evaluated_batched_quotient(
-        const size_t padded_log_n,
+        const size_t virtual_log_n,
         std::span<const ProverOpeningClaim<Curve>> opening_claims,
         Polynomial& batched_quotient_Q,
         const Fr& nu_challenge,
@@ -209,9 +197,8 @@ template <typename Curve> class ShplonkProver_ {
         }
 
         // Take into account the constant proof size in Gemini
-        info("virtual log_n, prover shpl ", padded_log_n);
         if (!libra_opening_claims.empty()) {
-            current_nu = nu_challenge.pow(2 * padded_log_n + 2);
+            current_nu = nu_challenge.pow(2 * virtual_log_n + 2);
         }
 
         for (const auto& claim : libra_opening_claims) {

@@ -281,6 +281,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Get Shplonk opening point z
         const Fr shplonk_evaluation_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
+        info("verifier shplemini z ", shplonk_evaluation_challenge);
 
         // Start computing the scalar to be multiplied by [1]₁
         Fr constant_term_accumulator = Fr(0);

@@ -153,6 +153,7 @@ void ECCVMVerifier::compute_translation_opening_claims(
 
     // Get a challenge to evaluate `translation_polynomials` as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    info(" verifier eval challenge ", evaluation_challenge_x);
 
     // Populate the translation evaluations  {`op(x)`, `Px(x)`, `Py(x)`, `z1(x)`, `z2(x)`} to be batched
     for (auto [eval, label] : zip_view(translation_evaluations.get_all(), translation_evaluations.labels)) {

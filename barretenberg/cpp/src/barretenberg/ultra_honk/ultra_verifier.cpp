@@ -23,7 +23,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         verification_key->gate_challenges.emplace_back(
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
-
+    info("verifer gate challenge ", verification_key->gate_challenges.back());
     const auto recover_fq_from_public_inputs = [](std::array<FF, 4> limbs) {
         const uint256_t limb = uint256_t(limbs[0]) +
                                (uint256_t(limbs[1]) << stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +

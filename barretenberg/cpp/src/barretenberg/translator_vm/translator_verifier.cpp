@@ -173,6 +173,7 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
 
     bool is_value_reconstructed =
         reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
+    info("native reconstructed ", is_value_reconstructed);
     return is_value_reconstructed;
 }
 

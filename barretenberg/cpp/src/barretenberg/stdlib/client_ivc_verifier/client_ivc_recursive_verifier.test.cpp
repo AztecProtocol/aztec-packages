@@ -103,7 +103,9 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     ClientIVCVerifier verifier{ tube_builder, ivc_vk };
 
     // Generate the recursive verification circuit
+    info("REC VERIFIER START");
     CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(proof);
+    info("REC VERIFIER END");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
     // just using default.
