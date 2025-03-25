@@ -254,7 +254,7 @@ template <typename Builder> class field_t {
      * If the witness_index of `this` is ever needed, `normalize` should be called first.
      * but it's better to call `get_normalized_witness_index` in such case
      *
-     * Will cost 1 constraint if the field element if not already normalized, as a new witness value would need to be
+     * Will cost 1 constraint if the field element is not already normalized, as a new witness value would need to be
      * created.
      * Constants do not need to be normalized, as there is no underlying 'witness'; a constant's value is
      * wholly tracked by `this.additive_constant`, so we definitely don't want to set that to 0!
