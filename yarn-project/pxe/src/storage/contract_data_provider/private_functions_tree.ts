@@ -2,12 +2,12 @@ import { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness, type MerkleTree } from '@aztec/foundation/trees';
-import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import {
-  type ContractClassWithId,
+  type PrivateFunction,
   computePrivateFunctionLeaf,
   computePrivateFunctionsTree,
-  getContractClassFromArtifact,
+  getContractClassPrivateFunctionFromArtifact,
 } from '@aztec/stdlib/contract';
 
 /**
@@ -19,78 +19,15 @@ import {
 export class PrivateFunctionsTree {
   private tree?: MerkleTree;
 
-  private constructor(private readonly artifact: ContractArtifact, private contractClass: ContractClassWithId) {}
+  private constructor(private readonly privateFunctions: PrivateFunction[]) {}
 
   static async create(artifact: ContractArtifact) {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    return new PrivateFunctionsTree(artifact, contractClass);
-  }
-
-  /**
-   * Retrieve the artifact of a given function.
-   * The function is identified by its selector, which represents a unique identifier for the function's signature.
-   * Throws an error if the function with the provided selector is not found in the contract.
-   *
-   * @param selector - The function selector.
-   * @returns The artifact object containing relevant information about the targeted function.
-   */
-  public async getFunctionArtifact(selector: FunctionSelector) {
-    const functionsAndSelectors = await Promise.all(
-      this.artifact.functions.map(async f => ({
-        f,
-        selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-      })),
+    const privateFunctions = await Promise.all(
+      artifact.functions
+        .filter(fn => fn.functionType === FunctionType.PRIVATE)
+        .map(getContractClassPrivateFunctionFromArtifact),
     );
-    const artifact = functionsAndSelectors.find(f => selector.equals(f.selector))?.f;
-    if (!artifact) {
-      throw new Error(
-        `Unknown function. Selector ${selector.toString()} not found in the artifact ${
-          this.artifact.name
-        } with class ${this.getContractClassId().toString()}.`,
-      );
-    }
-    return artifact;
-  }
-
-  /**
-   * Retrieve the bytecode of a function in the contract by its function selector.
-   * The function selector is a unique identifier for each function in a contract.
-   * Throws an error if the function with the given selector is not found in the contract.
-   *
-   * @param selector - The selector of a function to get bytecode for.
-   * @returns The bytecode of the function as a string.
-   */
-  public async getBytecode(selector: FunctionSelector) {
-    const artifact = await this.getFunctionArtifact(selector);
-    return artifact.bytecode;
-  }
-
-  /**
-   * Calculate and return the root of the function tree for the current contract.
-   * This root is a cryptographic commitment to the set of constrained functions within the contract,
-   * which is used in the Aztec node's proof system. The root will be cached after the first call.
-   *
-   * @returns A promise that resolves to the Fr (finite field element) representation of the function tree root.
-   */
-  public getFunctionTreeRoot() {
-    return this.getTree();
-  }
-
-  /** Returns the contract class object. */
-  public getContractClass() {
-    return this.contractClass;
-  }
-
-  /** Returns the contract artifact. */
-  public getArtifact() {
-    return this.artifact;
-  }
-
-  /**
-   * Returns the contract class identifier for the given artifact.
-   */
-  public getContractClassId() {
-    return this.getContractClass().id;
+    return new PrivateFunctionsTree(privateFunctions);
   }
 
   /**
@@ -105,7 +42,7 @@ export class PrivateFunctionsTree {
   public async getFunctionMembershipWitness(
     selector: FunctionSelector,
   ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT>> {
-    const fn = this.getContractClass().privateFunctions.find(f => f.selector.equals(selector));
+    const fn = this.privateFunctions.find(f => f.selector.equals(selector));
     if (!fn) {
       throw new Error(`Private function with selector ${selector.toString()} not found in contract class.`);
     }
@@ -123,8 +60,7 @@ export class PrivateFunctionsTree {
 
   private async getTree() {
     if (!this.tree) {
-      const fns = this.getContractClass().privateFunctions;
-      this.tree = await computePrivateFunctionsTree(fns);
+      this.tree = await computePrivateFunctionsTree(this.privateFunctions);
     }
     return this.tree;
   }

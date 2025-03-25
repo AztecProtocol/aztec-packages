@@ -19,8 +19,8 @@ unconstrained fn in_private(
 ) -> PrivateMutable<MockNote, &mut PrivateContext> {
     let state_var = PrivateMutable::new(&mut env.private(), storage_slot);
 
-    // This oracle is called for its side effects alone - it's always expected to return 0.
-    let _ = OracleMock::mock("notifyCreatedNote").returns(0);
+    // This oracle is called for its side effects alone - it does not return anything.
+    let _ = OracleMock::mock("notifyCreatedNote").returns(());
 
     state_var
 }

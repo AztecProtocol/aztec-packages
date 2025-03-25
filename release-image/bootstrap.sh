@@ -3,22 +3,42 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
+
+function build_image {
+  set -euo pipefail
+  cd ..
+  docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) .
+  docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+
+  # Remove all but the most recent image.
+  docker images aztecprotocol/aztec --format "{{.ID}}" | uniq | tail -n +2 | xargs -r docker rmi -f
+}
+export -f build_image
+
+function build {
+  echo_header "release-image build"
+
+  if ! cache_download release-image-base-$hash.zst; then
+    denoise "cd .. && docker build -f release-image/Dockerfile.base -t aztecprotocol/release-image-base ."
+    docker save aztecprotocol/release-image-base:latest > release-image-base
+    cache_upload release-image-base-$hash.zst release-image-base
+  else
+    docker load < release-image-base
+  fi
+
+  denoise "build_image"
+}
+
 case "$cmd" in
   ""|"fast"|"full")
-    echo_header "release-image build"
-    cd ..
-    denoise "docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) ."
-    docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+    build
 
     # TOOD(#10775): see 'releases'. We want to move away from this and use nightlies.
-    if [ "$REF_NAME" == "master" ] && [ "${CI:-0}" -eq 1 ]; then
-      if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
-        echo "Missing DOCKERHUB_PASSWORD."
-        exit 1
-      fi
+    if [ "$REF_NAME" == "master" ] && [ "$CI" -eq 1 ] && [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
       echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
       docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$COMMIT_HASH-$(arch)
-      do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH-$(arch)
+      do_or_dryrun denoise "docker push aztecprotocol/aztec:$COMMIT_HASH-$(arch)"
     fi
     ;;
   "release")
@@ -55,6 +75,9 @@ case "$cmd" in
         --amend aztecprotocol/aztec:$tag-arm64
       docker manifest push aztecprotocol/aztec:$(dist_tag)
     fi
+    ;;
+  build)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

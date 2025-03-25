@@ -1,7 +1,6 @@
 import {
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  MAX_NULLIFIERS_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
 } from '@aztec/constants';
@@ -504,14 +503,14 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
           ],
           [
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePrivateLog(tags[1]).toBuffer(),
+              log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
           ],
@@ -528,12 +527,12 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePublicLog(tags[0]).toBuffer(),
+              log: makePublicLog(tags[0]),
               isFromPublic: true,
             }),
           ],
@@ -558,12 +557,12 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: newBlockNumber,
-              logData: newLog.toBuffer(),
+              log: newLog,
               isFromPublic: false,
             }),
           ],
@@ -582,7 +581,7 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[1]).toBuffer(),
+              log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
           ],
@@ -774,59 +773,6 @@ export function describeArchiverDataStore(
             }
           }
         }
-      });
-    });
-
-    describe('findNullifiersIndexesWithBlock', () => {
-      let blocks: L2Block[];
-      const numBlocks = 10;
-      const nullifiersPerBlock = new Map<number, Fr[]>();
-
-      beforeEach(async () => {
-        blocks = await timesParallel(numBlocks, (index: number) => L2Block.random(index + 1, 1));
-
-        blocks.forEach((block, blockIndex) => {
-          nullifiersPerBlock.set(
-            blockIndex,
-            block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
-          );
-        });
-      });
-
-      it('returns wrapped nullifiers with blocks if they exist', async () => {
-        await store.addNullifiers(blocks);
-        const nullifiersToRetrieve = [...nullifiersPerBlock.get(0)!, ...nullifiersPerBlock.get(5)!, Fr.random()];
-        const blockScopedNullifiers = await store.findNullifiersIndexesWithBlock(10, nullifiersToRetrieve);
-
-        expect(blockScopedNullifiers).toHaveLength(nullifiersToRetrieve.length);
-        const [undefinedNullifier] = blockScopedNullifiers.slice(-1);
-        const realNullifiers = blockScopedNullifiers.slice(0, -1);
-        realNullifiers.forEach((blockScopedNullifier, index) => {
-          expect(blockScopedNullifier).not.toBeUndefined();
-          const { data, l2BlockNumber } = blockScopedNullifier!;
-          expect(data).toEqual(expect.any(BigInt));
-          expect(l2BlockNumber).toEqual(index < MAX_NULLIFIERS_PER_TX ? 1 : 6);
-        });
-        expect(undefinedNullifier).toBeUndefined();
-      });
-
-      it('returns wrapped nullifiers filtering by blockNumber', async () => {
-        await store.addNullifiers(blocks);
-        const nullifiersToRetrieve = [...nullifiersPerBlock.get(0)!, ...nullifiersPerBlock.get(5)!];
-        const blockScopedNullifiers = await store.findNullifiersIndexesWithBlock(5, nullifiersToRetrieve);
-
-        expect(blockScopedNullifiers).toHaveLength(nullifiersToRetrieve.length);
-        const undefinedNullifiers = blockScopedNullifiers.slice(-MAX_NULLIFIERS_PER_TX);
-        const realNullifiers = blockScopedNullifiers.slice(0, -MAX_NULLIFIERS_PER_TX);
-        realNullifiers.forEach(blockScopedNullifier => {
-          expect(blockScopedNullifier).not.toBeUndefined();
-          const { data, l2BlockNumber } = blockScopedNullifier!;
-          expect(data).toEqual(expect.any(BigInt));
-          expect(l2BlockNumber).toEqual(1);
-        });
-        undefinedNullifiers.forEach(undefinedNullifier => {
-          expect(undefinedNullifier).toBeUndefined();
-        });
       });
     });
   });

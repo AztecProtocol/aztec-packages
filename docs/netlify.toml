@@ -124,10 +124,10 @@
 
 [[redirects]]
     from = "/guides/getting_started/*"
-    to = "/developers/getting_started/*"
+    to = "/developers/getting_started"
 
 [[redirects]]
-    from = "/guides/developer_guides/getting_started/quickstart"
+    from = "/guides/developer_guides/*"
     to = "/developers/getting_started"
 
 [[redirects]]

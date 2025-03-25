@@ -3,13 +3,16 @@ import { type InitialAccountData, deployFundedSchnorrAccounts, generateSchnorrAc
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AztecAddress,
+  type AztecNode,
   BatchCall,
   type CompleteAddress,
   type ContractFunctionInteraction,
+  DefaultWaitForProvenOpts,
   type Logger,
   type PXE,
   type Wallet,
   getContractClassFromArtifact,
+  waitForProven,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
@@ -46,7 +49,13 @@ import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { type SetupOptions, createAndSyncProverNode, getLogger, getPrivateKeyFromIndex } from './utils.js';
+import {
+  type SetupOptions,
+  createAndSyncProverNode,
+  getLogger,
+  getPrivateKeyFromIndex,
+  getSponsoredFPCAddress,
+} from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export type SubsystemsContext = {
@@ -297,6 +306,8 @@ async function setupFromFresh(
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+  // Only enable proving if specifically requested.
+  aztecNodeConfig.realProofs = !!opts.realProofs;
 
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
@@ -333,8 +344,9 @@ async function setupFromFresh(
   }
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
+  const sponsoredFPCAddress = await getSponsoredFPCAddress();
   const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(
-    initialFundedAccounts.map(a => a.address),
+    initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     opts.initialAccountFeeJuice,
   );
 
@@ -400,10 +412,8 @@ async function setupFromFresh(
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
       rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
       port: blobSinkPort,
-      dataStoreConfig: {
-        dataDirectory: aztecNodeConfig.dataDirectory,
-        dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-      },
+      dataDirectory: aztecNodeConfig.dataDirectory,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
     },
     telemetry,
   );
@@ -432,6 +442,8 @@ async function setupFromFresh(
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
   pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
+  // Only enable proving if specifically requested.
+  pxeConfig.proverEnabled = !!opts.realProofs;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
@@ -522,10 +534,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
       rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
       port: blobSinkPort,
-      dataStoreConfig: {
-        dataDirectory: statePath,
-        dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
-      },
+      dataDirectory: statePath,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
     },
     telemetry,
   );
@@ -594,7 +604,12 @@ export const deployAccounts =
 
     logger.verbose('Deploying accounts funded with fee juice...');
     const deployedAccounts = initialFundedAccounts.slice(0, numberOfAccounts);
-    await deployFundedSchnorrAccounts(pxe, deployedAccounts, { proven: waitUntilProven });
+    await deployFundedSchnorrAccounts(
+      pxe,
+      deployedAccounts,
+      undefined,
+      waitUntilProven ? DefaultWaitForProvenOpts : undefined,
+    );
 
     return { deployedAccounts };
   };
@@ -604,11 +619,14 @@ export const deployAccounts =
  * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
+ * @param waitUntilProven - Whether to wait for the tx to be proven.
+ * @param pxeOrNode - PXE or AztecNode to wait for proven.
  */
 export async function publicDeployAccounts(
   sender: Wallet,
   accountsToDeploy: (CompleteAddress | AztecAddress)[],
   waitUntilProven = false,
+  pxeOrNode?: PXE | AztecNode,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = (
@@ -625,5 +643,12 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(sender, calls);
 
-  await batch.send().wait({ proven: waitUntilProven });
+  const txReceipt = await batch.send().wait();
+  if (waitUntilProven) {
+    if (!pxeOrNode) {
+      throw new Error('Need to provide a PXE or AztecNode to wait for proven.');
+    } else {
+      await waitForProven(pxeOrNode, txReceipt);
+    }
+  }
 }

@@ -57,7 +57,6 @@ export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
   #txEffectsByTxHash = new Map<string, InBlock<TxEffect>>();
   #txReceiptsByTxHash = new Map<string, TxReceipt>();
-  #blockNumberToNullifiers = new Map<number, Fr[]>();
   #noteIndex = 0;
 
   #logger = createLogger('aztec:txe_node');
@@ -125,54 +124,8 @@ export class TXENode implements AztecNode {
         undefined,
         new L2BlockHash(blockHash.toBuffer()),
         blockNumber,
-        undefined,
       ),
     );
-  }
-
-  /**
-   * Returns the indexes of the given nullifiers in the nullifier tree,
-   * scoped to the block they were included in.
-   * @param blockNumber - The block number at which to get the data.
-   * @param nullifiers - The nullifiers to search for.
-   * @returns The block scoped indexes of the given nullifiers in the nullifier tree, or undefined if not found.
-   */
-  async findNullifiersIndexesWithBlock(
-    blockNumber: L2BlockNumber,
-    nullifiers: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
-    const parsedBlockNumber = blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber;
-
-    const nullifiersInBlock: Fr[] = [];
-    for (const [key, val] of this.#blockNumberToNullifiers.entries()) {
-      if (key <= parsedBlockNumber) {
-        nullifiersInBlock.push(...val);
-      }
-    }
-
-    return nullifiers.map(nullifier => {
-      const possibleNullifierIndex = nullifiersInBlock.findIndex(nullifierInBlock =>
-        nullifierInBlock.equals(nullifier),
-      );
-      return possibleNullifierIndex === -1
-        ? undefined
-        : {
-            l2BlockNumber: parsedBlockNumber,
-            l2BlockHash: new Fr(parsedBlockNumber).toString(),
-            data: BigInt(possibleNullifierIndex),
-          };
-    });
-  }
-
-  /**
-   * Returns the indexes of the given nullifiers in the nullifier tree,
-   * scoped to the block they were included in.
-   * @param blockNumber - The block number at which to get the data.
-   * @param nullifiers - The nullifiers to search for.
-   * @returns The block scoped indexes of the given nullifiers in the nullifier tree, or undefined if not found.
-   */
-  setNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]) {
-    this.#blockNumberToNullifiers.set(blockNumber, nullifiers);
   }
 
   /**
@@ -186,13 +139,7 @@ export class TXENode implements AztecNode {
       this.#logger.verbose(`Found private log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber)),
-        this.#noteIndex,
-        blockNumber,
-        false,
-        log.toBuffer(),
-      );
+      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
     });
@@ -211,13 +158,7 @@ export class TXENode implements AztecNode {
       this.#logger.verbose(`Found public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber)),
-        this.#noteIndex,
-        blockNumber,
-        true,
-        log.toBuffer(),
-      );
+      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
 
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
@@ -247,13 +188,13 @@ export class TXENode implements AztecNode {
    * @param blockNumber - The block number at which to get the data or 'latest' for latest data
    * @param treeId - The tree to search in.
    * @param leafValue - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   * @returns The indices of leaves and the block metadata of a block in which the leaf was inserted.
    */
   async findLeavesIndexes(
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(bigint | undefined)[]> {
+  ): Promise<(InBlock<bigint> | undefined)[]> {
     // Temporary workaround to be able to respond this query: the trees are currently stored in the TXE oracle, but we
     // hold a reference to them.
     // We should likely migrate this so that the trees are owned by the node.
@@ -264,10 +205,61 @@ export class TXENode implements AztecNode {
         ? this.baseFork
         : this.nativeWorldStateService.getSnapshot(blockNumber);
 
-    return await db.findLeafIndices(
+    const maybeIndices = await db.findLeafIndices(
       treeId,
       leafValues.map(x => x.toBuffer()),
     );
+
+    // We filter out undefined values
+    const indices = maybeIndices.filter(x => x !== undefined) as bigint[];
+
+    // Now we find the block numbers for the indices
+    const blockNumbers = await db.getBlockNumbersForLeafIndices(treeId, indices);
+
+    // If any of the block numbers are undefined, we throw an error.
+    for (let i = 0; i < indices.length; i++) {
+      if (blockNumbers[i] === undefined) {
+        throw new Error(`Block number is undefined for leaf index ${indices[i]} in tree ${MerkleTreeId[treeId]}`);
+      }
+    }
+    // Get unique block numbers in order to optimize num calls to getLeafValue function.
+    const uniqueBlockNumbers = [...new Set(blockNumbers.filter(x => x !== undefined))];
+
+    // Now we obtain the block hashes from the archive tree by calling await `committedDb.getLeafValue(treeId, index)`
+    // (note that block number corresponds to the leaf index in the archive tree).
+    const blockHashes = await Promise.all(
+      uniqueBlockNumbers.map(blockNumber => {
+        return db.getLeafValue(MerkleTreeId.ARCHIVE, blockNumber!);
+      }),
+    );
+
+    // If any of the block hashes are undefined, we throw an error.
+    for (let i = 0; i < uniqueBlockNumbers.length; i++) {
+      if (blockHashes[i] === undefined) {
+        throw new Error(`Block hash is undefined for block number ${uniqueBlockNumbers[i]}`);
+      }
+    }
+
+    // Create InBlock objects by combining indices, blockNumbers and blockHashes
+    return maybeIndices.map((index, i) => {
+      if (index === undefined) {
+        return undefined;
+      }
+      const blockNumber = blockNumbers[i];
+      if (blockNumber === undefined) {
+        return undefined;
+      }
+      const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
+      const blockHash = blockHashes[blockHashIndex]?.toString();
+      if (!blockHash) {
+        return undefined;
+      }
+      return {
+        l2BlockNumber: Number(blockNumber),
+        l2BlockHash: blockHash,
+        data: index,
+      };
+    });
   }
 
   /**
@@ -396,8 +388,8 @@ export class TXENode implements AztecNode {
    * "in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
    * is contained in the leaf preimage.
    */
-  getPublicDataTreeWitness(_blockNumber: L2BlockNumber, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    throw new Error('TXE Node method getPublicDataTreeWitness not implemented');
+  getPublicDataWitness(_blockNumber: L2BlockNumber, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    throw new Error('TXE Node method getPublicDataWitness not implemented');
   }
 
   /**
@@ -655,15 +647,6 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Adds a contract class bypassing the registerer.
-   * TODO(#10007): Remove this method.
-   * @param contractClass - The class to register.
-   */
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    throw new Error('TXE Node method addContractClass not implemented');
-  }
-
-  /**
    * Method to fetch the current base fees.
    * @returns The current base fees.
    */
@@ -679,21 +662,6 @@ export class TXENode implements AztecNode {
    */
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
     throw new Error('TXE Node method getPrivateLogs not implemented');
-  }
-
-  /**
-   * Find the block numbers of the given leaf indices in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
-   * @param treeId - The tree to search in.
-   * @param leafIndices - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
-   */
-  findBlockNumbersForIndexes(
-    _blockNumber: L2BlockNumber,
-    _treeId: MerkleTreeId,
-    _leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
-    throw new Error('TXE Node method findBlockNumbersForIndexes not implemented');
   }
 
   /**

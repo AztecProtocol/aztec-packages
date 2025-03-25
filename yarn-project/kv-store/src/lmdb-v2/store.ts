@@ -8,12 +8,15 @@ import { rm } from 'fs/promises';
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Key, StoreSize } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
-import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
+// eslint-disable-next-line import/no-cycle
 import { LMDBArray } from './array.js';
-import { LMDBMap, LMDBMultiMap } from './map.js';
+// eslint-disable-next-line import/no-cycle
+import { LMDBMap } from './map.js';
 import {
   Database,
   type LMDBMessageChannel,
@@ -21,7 +24,9 @@ import {
   type LMDBRequestBody,
   type LMDBResponseBody,
 } from './message.js';
+import { LMDBMultiMap } from './multi_map.js';
 import { ReadTransaction } from './read_transaction.js';
+// eslint-disable-next-line import/no-cycle
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
 
