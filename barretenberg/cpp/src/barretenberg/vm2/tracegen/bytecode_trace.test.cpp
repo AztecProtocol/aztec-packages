@@ -556,21 +556,18 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 0,
-        .instruction = testing::random_instruction(WireOpCode::ADD_8),
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 19,
-        .instruction = testing::random_instruction(WireOpCode::ADD_8),
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE,
     });
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = bytecode_id,
         .pc = 38,
-        .instruction = testing::random_instruction(WireOpCode::ADD_8),
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::PC_OUT_OF_RANGE,
     });
@@ -624,6 +621,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
 // Test on error tag out of range
 TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
 {
+    using simulation::deserialize_instruction;
     using simulation::Operand;
     using testing::random_instruction;
     TestTraceContainer trace;
@@ -651,7 +649,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = 1,
         .pc = 0,
-        .instruction = instr_cast,
+        .instruction = deserialize_instruction(bytecode, 0), // Reflect more the real code path than passing instr_cast.
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
     });
@@ -659,7 +657,8 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
     events.emplace_back(InstructionFetchingEvent{
         .bytecode_id = 1,
         .pc = cast_size,
-        .instruction = instr_set,
+        .instruction =
+            deserialize_instruction(bytecode, cast_size), // Reflect more the real code path than passing instr_set.
         .bytecode = bytecode_ptr,
         .error = simulation::InstrDeserializationError::TAG_OUT_OF_RANGE,
     });

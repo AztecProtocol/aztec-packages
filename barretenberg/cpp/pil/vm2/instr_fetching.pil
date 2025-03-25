@@ -50,6 +50,15 @@ sel * (1 - sel) = 0;
 #[skippable_if]
 sel = 0;
 
+// This pair identifies uniquely a given instruction among the bytecodes.
+pol commit pc;
+pol commit bytecode_id;
+
+
+// ****************************************************************************
+//                List of errors
+// ****************************************************************************
+
 // pc out-of-range error boolean
 pol commit pc_out_of_range;
 pc_out_of_range * (1 - pc_out_of_range) = 0;
@@ -71,29 +80,17 @@ pol commit parsing_err;
 parsing_err = PARSING_ERROR_EXCEPT_TAG_ERROR + tag_out_of_range;
 parsing_err * (1 - parsing_err) = 0; // enforces disjoint errors
 
-pol commit pc;
-pol commit bytecode_id;
 
-// Retrieved from bc_decomposition.pil
-pol commit bytes_to_read;
+// ****************************************************************************
+//                Handling pc_out_of_range error
+// ****************************************************************************
 
 // Retrieved from bc_decomposition.pil based on bytecode_id with pc == 0
 pol commit bytecode_size;
 
-// Absolute difference variant where we compute:
-// bytes_to_read - instr_size      if instr_size <= bytes_to_read
-// instr_size - bytes_to_read - 1  if instr_size > bytes_to_read (instr_out_of_range == 1)
-pol commit instr_abs_diff;
-
-// From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
-#[INSTR_OUT_OF_RANGE_TOGGLE]
-instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
-
-#[INSTR_ABS_DIFF_POSITIVE]
-sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.clk };
-
 // We have to enforce that: pc < bytecode_size <==> pc_out_of_range == 0
-// We use same trick as above by using an absolute difference value.
+// We use a specific absolute difference value to distinguish pc < bytecode_size
+// from pc >= bytecode_size.
 
 // pc - bytecode_size       if bytecode_size <= pc
 // bytecode_size - pc - 1   if bytecode_size > pc
@@ -111,10 +108,37 @@ sel * (pc_size_in_bits - constants.AVM_PC_SIZE_IN_BITS) = 0;
 #[PC_ABS_DIFF_POSITIVE]
 sel { pc_abs_diff, pc_size_in_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
-// The size of the bytecode is bytes_remaining at pc == 0.
-#[BYTECODE_SIZE_FROM_BC_DEC]
-sel { bytecode_id, precomputed.zero, bytecode_size } in
-bc_decomposition.sel { bc_decomposition.id, bc_decomposition.pc, bc_decomposition.bytes_remaining };
+
+// ****************************************************************************
+//                Handling instr_out_of_range error
+// ****************************************************************************
+
+// Number of bytes which were read at a given pc. Retrieved from bc_decomposition.pil
+pol commit bytes_to_read;
+
+// Instruction size in bytes. Copied from precomputed.pil
+pol commit instr_size;
+
+// Absolute difference variant where we compute:
+// bytes_to_read - instr_size      if instr_size <= bytes_to_read
+// instr_size - bytes_to_read - 1  if instr_size > bytes_to_read (instr_out_of_range == 1)
+pol commit instr_abs_diff;
+
+// From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
+#[INSTR_OUT_OF_RANGE_TOGGLE]
+instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
+
+#[INSTR_ABS_DIFF_POSITIVE]
+sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.clk };
+
+
+// ****************************************************************************
+//                Handling tag_out_of_range error
+// ****************************************************************************
+
+// Retrieved from precomputed.pil (instruction specification)
+pol commit sel_has_tag; // With current instruction specs, tag can appear at op2 (SET_XXX) or op3 (CAST_8, CAST_16)
+pol commit sel_tag_is_op2; // (sel_tag_is_op2 == 0 && sel_has_tag == 1) ==> op3 is a tag
 
 // Value to validate as tag. According to our instruction specifications, there is a maximum of one tag per instruction
 // and it appears only at op2 or op3.
@@ -125,6 +149,16 @@ tag_value = (sel_has_tag - sel_tag_is_op2) * op3 + sel_tag_is_op2 * op2;
 // TODO: Investigate whether enforcing the tag checking in execution trace or in CAST/SET gadgets might be a better option.
 #[TAG_VALUE_VALIDATION]
 sel_has_tag { tag_value, tag_out_of_range } in precomputed.sel_range_8 { precomputed.clk, precomputed.sel_mem_tag_out_of_range };
+
+
+// ****************************************************************************
+//                Retrieval of information from other traces
+// ****************************************************************************
+
+// The size of the bytecode is bytes_remaining at pc == 0.
+#[BYTECODE_SIZE_FROM_BC_DEC]
+sel { bytecode_id, precomputed.zero, bytecode_size } in
+bc_decomposition.sel { bc_decomposition.id, bc_decomposition.pc, bc_decomposition.bytes_remaining };
 
 // bytecode[pc] to bytecode[pc + 36]
 pol commit bd0, bd1, bd2, bd3, bd4,
@@ -175,12 +209,6 @@ bc_decomposition.sel {
 // Wire to execution opcodes translation.
 pol commit exec_opcode;
 
-// Instruction size in bytes
-pol commit instr_size;
-
-pol commit sel_has_tag; // With current instruction specs, tag can appear at op2 (SET_XXX) or op3 (CAST_8, CAST_16)
-pol commit sel_tag_is_op2; // (sel_tag_is_op2 == 0 && sel_has_tag == 1) ==> op3 is a tag
-
 // Selectors for operands decomposition into bytes (copied from precomputed.pil)
 // This table is populated by a map generated by a cpp test in op_decomposition.test.cpp.
 pol commit sel_op_dc_0;
@@ -229,6 +257,11 @@ precomputed.sel_range_8 {
     precomputed.sel_op_dc_12, precomputed.sel_op_dc_13, precomputed.sel_op_dc_14, precomputed.sel_op_dc_15,
     precomputed.sel_op_dc_16, precomputed.sel_op_dc_17
 };
+
+
+// ****************************************************************************
+//                Decomposition of the operands
+// ****************************************************************************
 
 pol commit indirect;
 

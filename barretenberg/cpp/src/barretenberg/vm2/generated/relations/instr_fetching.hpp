@@ -12,7 +12,7 @@ template <typename FF_> class instr_fetchingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 3, 3, 4, 3, 3,
+    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 3, 4, 3, 3, 3,
                                                                             3, 4, 4, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -66,17 +66,8 @@ template <typename FF_> class instr_fetchingImpl {
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        { // INSTR_OUT_OF_RANGE_TOGGLE
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = (new_term.instr_fetching_instr_abs_diff -
-                        ((FF(2) * new_term.instr_fetching_instr_out_of_range - FF(1)) *
-                             (new_term.instr_fetching_instr_size - new_term.instr_fetching_bytes_to_read) -
-                         new_term.instr_fetching_instr_out_of_range));
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
         { // PC_OUT_OF_RANGE_TOGGLE
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = (new_term.instr_fetching_pc_abs_diff -
                         new_term.instr_fetching_sel *
                             (((FF(2) * new_term.instr_fetching_pc_out_of_range - FF(1)) *
@@ -84,12 +75,21 @@ template <typename FF_> class instr_fetchingImpl {
                               FF(1)) +
                              new_term.instr_fetching_pc_out_of_range));
             tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
+            std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp =
                 new_term.instr_fetching_sel * (new_term.instr_fetching_pc_size_in_bits - constants_AVM_PC_SIZE_IN_BITS);
+            tmp *= scaling_factor;
+            std::get<6>(evals) += typename Accumulator::View(tmp);
+        }
+        { // INSTR_OUT_OF_RANGE_TOGGLE
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp = (new_term.instr_fetching_instr_abs_diff -
+                        ((FF(2) * new_term.instr_fetching_instr_out_of_range - FF(1)) *
+                             (new_term.instr_fetching_instr_size - new_term.instr_fetching_bytes_to_read) -
+                         new_term.instr_fetching_instr_out_of_range));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
@@ -269,9 +269,9 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
     {
         switch (index) {
         case 5:
-            return "INSTR_OUT_OF_RANGE_TOGGLE";
-        case 6:
             return "PC_OUT_OF_RANGE_TOGGLE";
+        case 7:
+            return "INSTR_OUT_OF_RANGE_TOGGLE";
         case 8:
             return "TAG_VALUE";
         case 10:
@@ -295,8 +295,8 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_INSTR_OUT_OF_RANGE_TOGGLE = 5;
-    static constexpr size_t SR_PC_OUT_OF_RANGE_TOGGLE = 6;
+    static constexpr size_t SR_PC_OUT_OF_RANGE_TOGGLE = 5;
+    static constexpr size_t SR_INSTR_OUT_OF_RANGE_TOGGLE = 7;
     static constexpr size_t SR_TAG_VALUE = 8;
     static constexpr size_t SR_INDIRECT_BYTES_DECOMPOSITION = 10;
     static constexpr size_t SR_OP1_BYTES_DECOMPOSITION = 11;

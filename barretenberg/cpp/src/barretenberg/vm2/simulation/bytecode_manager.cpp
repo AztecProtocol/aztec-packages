@@ -76,7 +76,13 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     // TODO: Propagate instruction fetching error to the upper layer (execution loop)
     try {
         instr_fetching_event.instruction = deserialize_instruction(bytecode, pc);
+
+        // If the following code is executed, no error was thrown in deserialize_instruction().
+        if (!check_tag(instr_fetching_event.instruction)) {
+            instr_fetching_event.error = InstrDeserializationError::TAG_OUT_OF_RANGE;
+        };
     } catch (const InstrDeserializationError& error) {
+        assert(error != InstrDeserializationError::NO_ERROR && error != InstrDeserializationError::TAG_OUT_OF_RANGE);
         instr_fetching_event.error = error;
     }
 

@@ -10,6 +10,96 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_instr_fetching_pc_abs_diff_positive ///////////////////
+
+class lookup_instr_fetching_pc_abs_diff_positive_settings {
+  public:
+    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_PC_ABS_DIFF_POSITIVE";
+    static constexpr std::string_view RELATION_NAME = "instr_fetching";
+
+    static constexpr size_t READ_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
+    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
+    static constexpr size_t READ_TERM_DEGREE = 0;
+    static constexpr size_t WRITE_TERM_DEGREE = 0;
+
+    // Columns using the Column enum.
+    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_instr_fetching_pc_abs_diff_positive_counts;
+    static constexpr Column INVERSES = Column::lookup_instr_fetching_pc_abs_diff_positive_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::instr_fetching_pc_abs_diff, ColumnAndShifts::instr_fetching_pc_size_in_bits
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in._instr_fetching_sel() == 1 || in._range_check_sel() == 1);
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static inline auto compute_inverse_exists(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+        const auto is_operation = View(in._instr_fetching_sel());
+        const auto is_table_entry = View(in._range_check_sel());
+        return (is_operation + is_table_entry - is_operation * is_table_entry);
+    }
+
+    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
+    {
+        return std::forward_as_tuple(in._lookup_instr_fetching_pc_abs_diff_positive_inv(),
+                                     in._lookup_instr_fetching_pc_abs_diff_positive_counts(),
+                                     in._instr_fetching_sel(),
+                                     in._range_check_sel(),
+                                     in._instr_fetching_pc_abs_diff(),
+                                     in._instr_fetching_pc_size_in_bits(),
+                                     in._range_check_value(),
+                                     in._range_check_rng_chk_bits());
+    }
+};
+
+template <typename FF_>
+class lookup_instr_fetching_pc_abs_diff_positive_relation
+    : public GenericLookupRelation<lookup_instr_fetching_pc_abs_diff_positive_settings, FF_> {
+  public:
+    using Settings = lookup_instr_fetching_pc_abs_diff_positive_settings;
+    static constexpr std::string_view NAME = lookup_instr_fetching_pc_abs_diff_positive_settings::NAME;
+    static constexpr std::string_view RELATION_NAME =
+        lookup_instr_fetching_pc_abs_diff_positive_settings::RELATION_NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lookup_instr_fetching_pc_abs_diff_positive_inv.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
+};
+
 /////////////////// lookup_instr_fetching_instr_abs_diff_positive ///////////////////
 
 class lookup_instr_fetching_instr_abs_diff_positive_settings {
@@ -96,11 +186,11 @@ class lookup_instr_fetching_instr_abs_diff_positive_relation
     }
 };
 
-/////////////////// lookup_instr_fetching_pc_abs_diff_positive ///////////////////
+/////////////////// lookup_instr_fetching_tag_value_validation ///////////////////
 
-class lookup_instr_fetching_pc_abs_diff_positive_settings {
+class lookup_instr_fetching_tag_value_validation_settings {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_PC_ABS_DIFF_POSITIVE";
+    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_TAG_VALUE_VALIDATION";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
 
     static constexpr size_t READ_TERMS = 1;
@@ -113,28 +203,28 @@ class lookup_instr_fetching_pc_abs_diff_positive_settings {
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_instr_fetching_pc_abs_diff_positive_counts;
-    static constexpr Column INVERSES = Column::lookup_instr_fetching_pc_abs_diff_positive_inv;
+    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_has_tag;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr Column COUNTS = Column::lookup_instr_fetching_tag_value_validation_counts;
+    static constexpr Column INVERSES = Column::lookup_instr_fetching_tag_value_validation_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc_abs_diff, ColumnAndShifts::instr_fetching_pc_size_in_bits
+        ColumnAndShifts::instr_fetching_tag_value, ColumnAndShifts::instr_fetching_tag_out_of_range
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_sel_mem_tag_out_of_range
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel() == 1 || in._range_check_sel() == 1);
+        return (in._instr_fetching_sel_has_tag() == 1 || in._precomputed_sel_range_8() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel());
-        const auto is_table_entry = View(in._range_check_sel());
+        const auto is_operation = View(in._instr_fetching_sel_has_tag());
+        const auto is_table_entry = View(in._precomputed_sel_range_8());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -150,29 +240,29 @@ class lookup_instr_fetching_pc_abs_diff_positive_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_pc_abs_diff_positive_inv(),
-                                     in._lookup_instr_fetching_pc_abs_diff_positive_counts(),
-                                     in._instr_fetching_sel(),
-                                     in._range_check_sel(),
-                                     in._instr_fetching_pc_abs_diff(),
-                                     in._instr_fetching_pc_size_in_bits(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
+        return std::forward_as_tuple(in._lookup_instr_fetching_tag_value_validation_inv(),
+                                     in._lookup_instr_fetching_tag_value_validation_counts(),
+                                     in._instr_fetching_sel_has_tag(),
+                                     in._precomputed_sel_range_8(),
+                                     in._instr_fetching_tag_value(),
+                                     in._instr_fetching_tag_out_of_range(),
+                                     in._precomputed_clk(),
+                                     in._precomputed_sel_mem_tag_out_of_range());
     }
 };
 
 template <typename FF_>
-class lookup_instr_fetching_pc_abs_diff_positive_relation
-    : public GenericLookupRelation<lookup_instr_fetching_pc_abs_diff_positive_settings, FF_> {
+class lookup_instr_fetching_tag_value_validation_relation
+    : public GenericLookupRelation<lookup_instr_fetching_tag_value_validation_settings, FF_> {
   public:
-    using Settings = lookup_instr_fetching_pc_abs_diff_positive_settings;
-    static constexpr std::string_view NAME = lookup_instr_fetching_pc_abs_diff_positive_settings::NAME;
+    using Settings = lookup_instr_fetching_tag_value_validation_settings;
+    static constexpr std::string_view NAME = lookup_instr_fetching_tag_value_validation_settings::NAME;
     static constexpr std::string_view RELATION_NAME =
-        lookup_instr_fetching_pc_abs_diff_positive_settings::RELATION_NAME;
+        lookup_instr_fetching_tag_value_validation_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lookup_instr_fetching_pc_abs_diff_positive_inv.is_zero();
+        return in.lookup_instr_fetching_tag_value_validation_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -269,96 +359,6 @@ class lookup_instr_fetching_bytecode_size_from_bc_dec_relation
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.lookup_instr_fetching_bytecode_size_from_bc_dec_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
-
-/////////////////// lookup_instr_fetching_tag_value_validation ///////////////////
-
-class lookup_instr_fetching_tag_value_validation_settings {
-  public:
-    static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_TAG_VALUE_VALIDATION";
-    static constexpr std::string_view RELATION_NAME = "instr_fetching";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_has_tag;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
-    static constexpr Column COUNTS = Column::lookup_instr_fetching_tag_value_validation_counts;
-    static constexpr Column INVERSES = Column::lookup_instr_fetching_tag_value_validation_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_tag_value, ColumnAndShifts::instr_fetching_tag_out_of_range
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_sel_mem_tag_out_of_range
-    };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._instr_fetching_sel_has_tag() == 1 || in._precomputed_sel_range_8() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel_has_tag());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_instr_fetching_tag_value_validation_inv(),
-                                     in._lookup_instr_fetching_tag_value_validation_counts(),
-                                     in._instr_fetching_sel_has_tag(),
-                                     in._precomputed_sel_range_8(),
-                                     in._instr_fetching_tag_value(),
-                                     in._instr_fetching_tag_out_of_range(),
-                                     in._precomputed_clk(),
-                                     in._precomputed_sel_mem_tag_out_of_range());
-    }
-};
-
-template <typename FF_>
-class lookup_instr_fetching_tag_value_validation_relation
-    : public GenericLookupRelation<lookup_instr_fetching_tag_value_validation_settings, FF_> {
-  public:
-    using Settings = lookup_instr_fetching_tag_value_validation_settings;
-    static constexpr std::string_view NAME = lookup_instr_fetching_tag_value_validation_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_instr_fetching_tag_value_validation_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_instr_fetching_tag_value_validation_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
