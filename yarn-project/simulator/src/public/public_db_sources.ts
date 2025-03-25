@@ -466,18 +466,4 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     } satisfies PublicDBAccessStats);
     return index;
   }
-
-  public override batchInsert<
-    TreeHeight extends number,
-    SubtreeSiblingPathHeight extends number,
-    ID extends IndexedTreeId,
-  >(
-    _treeId: ID,
-    _leaves: Buffer[],
-    _subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
-    // But it can be supported! It's just that in principle we don't need it.
-    throw new Error('Batch insert not supported in public.');
-    // return this.operations.batchInsert(treeId, leaves, subtreeHeight);
-  }
 }

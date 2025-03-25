@@ -1273,13 +1273,13 @@ export function makeAvmGetSiblingPathHint(seed = 0): AvmGetSiblingPathHint {
 export function makeAvmGetPreviousValueIndexHint(seed = 0): AvmGetPreviousValueIndexHint {
   // We want a possibly large index, but non-random.
   const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
-  const value = BigInt(`0x${sha256(Buffer.from((seed + 2).toString())).toString('hex')}`) % (1n << 64n);
+  const value = new Fr(BigInt(`0x${sha256(Buffer.from((seed + 2).toString())).toString('hex')}`) % (1n << 128n));
   return new AvmGetPreviousValueIndexHint(
     makeAppendOnlyTreeSnapshot(seed),
     /*treeId=*/ (seed + 1) % 5,
     value,
     index,
-    /*alreadyPresent=*/ value % 2n === 0n,
+    /*alreadyPresent=*/ index % 2n === 0n,
   );
 }
 

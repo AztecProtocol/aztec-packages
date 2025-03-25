@@ -123,7 +123,7 @@ struct GetPreviousValueIndexHint {
     AppendOnlyTreeSnapshot hintKey;
     // params
     world_state::MerkleTreeId treeId;
-    uint64_t value;
+    FF value;
     // return
     uint64_t index;
     bool alreadyPresent;

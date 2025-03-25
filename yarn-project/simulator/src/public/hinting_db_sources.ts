@@ -122,7 +122,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     }
     const key = await this.#getHintKey(treeId);
     this.hints.getPreviousValueIndexHints.push(
-      new AvmGetPreviousValueIndexHint(key, treeId, value, result.index, result.alreadyPresent),
+      new AvmGetPreviousValueIndexHint(key, treeId, new Fr(value), result.index, result.alreadyPresent),
     );
     return result;
   }
@@ -148,7 +148,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
           );
           break;
         default:
-          HintingPublicTreesDB.log.warn(`getLeafPreimage not hinted for tree ${getTreeName(treeId)} yet!`);
+          HintingPublicTreesDB.log.debug(`getLeafPreimage not hinted for tree ${getTreeName(treeId)} yet!`);
           break;
       }
     }
@@ -161,7 +161,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     treeId: ID,
     leaves: Buffer[],
   ): Promise<SequentialInsertionResult<TreeHeight>> {
-    HintingPublicTreesDB.log.warn('sequentialInsert not hinted yet!');
+    HintingPublicTreesDB.log.debug('sequentialInsert not hinted yet!');
     const beforeState = await this.#getHintKey(treeId);
 
     const result = await super.sequentialInsert<TreeHeight, ID>(treeId, leaves);
@@ -177,7 +177,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
   }
 
   public override async revertCheckpoint(): Promise<void> {
-    HintingPublicTreesDB.log.warn('revertCheckpoint not hinted yet!');
+    HintingPublicTreesDB.log.debug('revertCheckpoint not hinted yet!');
     // TODO(fcarreiro): we probably want to hint on StateReference hash.
     // WARNING: is this enough? we might actually need the number of the checkpoint or similar...
     // We will need to keep a stack of checkpoints on the C++ side.

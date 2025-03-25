@@ -100,7 +100,7 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
           hints.getSiblingPathHints.size(),
           "\n * get_previous_value_index hints: ",
           hints.getPreviousValueIndexHints.size(),
-          "\n* get_leaf_preimage hints_public_data_tree: ",
+          "\n * get_leaf_preimage hints_public_data_tree: ",
           hints.getLeafPreimageHintsPublicDataTree.size());
     debug("Initializing HintedRawMerkleDB with snapshots...",
           "\n * nullifierTree: ",

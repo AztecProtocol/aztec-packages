@@ -129,7 +129,7 @@ export class AvmGetPreviousValueIndexHint {
     public readonly hintKey: AppendOnlyTreeSnapshot,
     // params
     public readonly treeId: MerkleTreeId,
-    public readonly value: bigint,
+    public readonly value: Fr,
     // return
     public readonly index: bigint,
     public readonly alreadyPresent: boolean,
@@ -140,7 +140,7 @@ export class AvmGetPreviousValueIndexHint {
       .object({
         hintKey: AppendOnlyTreeSnapshot.schema,
         treeId: z.number().int().nonnegative(),
-        value: schemas.BigInt,
+        value: schemas.Fr,
         index: schemas.BigInt,
         alreadyPresent: z.boolean(),
       })
