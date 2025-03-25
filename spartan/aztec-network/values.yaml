@@ -51,6 +51,7 @@ aztec:
   contracts:
     registryAddress: ""
     slashFactoryAddress: ""
+    rollupAddress: "" # only needed for blob sink
     feeAssetHandlerContractAddress: ""
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
