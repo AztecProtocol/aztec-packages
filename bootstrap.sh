@@ -322,6 +322,7 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       test
       bench
+      release-preview
       echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
     else
       echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
