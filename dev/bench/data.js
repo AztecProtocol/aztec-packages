@@ -1,86 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742935936663,
+  "lastUpdate": 1742942254606,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "saleel@aztecprotocol.com",
-            "name": "saleel",
-            "username": "saleel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5b064bcc6eb347dd53ad3870fe0486792d2f79bb",
-          "message": "fix(bb.js): remove size metadata from UH proof (#12775)\n\nFixes #11829 \n\n- Remove first 4 bytes from proof (metadata - length of \"proof + PI\" in\nfields) returned from `UltraHonkBackend.generateProof()`\n- `proof` returned is now 14080 bytes (440 fields) and can be directly\nverified in solidity\n\n\nNote: `proof` output from bb CLI also includes the size metadata in the\nfirst 4 bytes. This should go away with #11024\n\n---------\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2025-03-20T22:26:33+04:00",
-          "tree_id": "1575143bb9da65fe27f3bf7c4f6f57b753f29724",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5b064bcc6eb347dd53ad3870fe0486792d2f79bb"
-        },
-        "date": 1742499853080,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17136.728666999945,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15095.333082 ms\nthreads: 1"
-          },
-          {
-            "name": "field_ops_heuristic",
-            "value": 117861884358.40001,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1447838822,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 198878852,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 17691.06459999989,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15445.619601 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 49903.880012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 49903881000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3128.0394809998597,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 2993.0078000000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 8646.025262000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 8646026000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2217.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2986,6 +2908,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15035,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ba8d6548f5f97bf68364f007c2c81370fa6d37a2",
+          "message": "fix: Allow use of local blob sink client (#13025)\n\nIn #12857 an irresponsible developer changed the blob sink client\nfactory so that the remote `HttpBlobSinkClient` was used if there was a\nblob archive API defined or even an L1 chain id, since we have a method\nfor inferring an archive API just by using the L1 chain id.\n\nThis has the unintended effect of using the `HttpBlobSinkClient` pretty\nmuch always, since L1 chain id is pretty much always defined. Even when\nrunning locally against anvil. Which means the archiver no longer works\nwhen running locally, since we end up with no local blob sink.\n\nThis commit removes the check for L1 chain id when deciding whether to\nuse a local client or an http one. We assume that, if working in a\n\"real\" environment, we have an L1 consensus host url, given we hit the\narchive API just as a fallback.",
+          "timestamp": "2025-03-25T19:25:26-03:00",
+          "tree_id": "4722ac25ea1946b8532ffda3773ec9b47540e78b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ba8d6548f5f97bf68364f007c2c81370fa6d37a2"
+        },
+        "date": 1742942246953,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39528,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26189,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11895,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14556,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15311,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
