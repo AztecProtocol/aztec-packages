@@ -163,11 +163,11 @@ impl LogEncryption for AES128 {
 
         let mut ciphertext: [Field; PRIVATE_LOG_CIPHERTEXT_LEN] = [0; PRIVATE_LOG_CIPHERTEXT_LEN];
 
-        final_log[0] = eph_pk.x;
+        ciphertext[0] = eph_pk.x;
 
         let mut offset = 1;
         for i in 0..log_bytes_as_fields.len() {
-            final_log[offset + i] = log_bytes_as_fields[i];
+            ciphertext[offset + i] = log_bytes_as_fields[i];
         }
         offset += log_bytes_as_fields.len();
 
@@ -179,10 +179,10 @@ impl LogEncryption for AES128 {
             // Safety: we assume that the sender wants for the log to be private - a malicious one could simply reveal its
             // contents publicly. It is therefore fine to trust the sender to provide random padding.
             let field_bytes = unsafe { get_random_bytes::<31>() };
-            final_log[i] = Field::from_be_bytes::<31>(field_bytes);
+            ciphertext[i] = Field::from_be_bytes::<31>(field_bytes);
         }
 
-        final_log
+        ciphertext
     }
 
     unconstrained fn decrypt_log(
