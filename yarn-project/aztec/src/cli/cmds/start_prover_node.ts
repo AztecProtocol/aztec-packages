@@ -104,7 +104,7 @@ export async function startProverNode(
 
   const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
   const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const initialFundedAccounts = [...testAccounts, ...sponsoredFPCAccounts];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
   const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
