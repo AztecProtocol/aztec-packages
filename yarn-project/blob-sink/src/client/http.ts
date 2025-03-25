@@ -112,7 +112,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         let l1ConsensusHostUrl: string;
         for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
           l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
-          this.log.trace(`Attempting to get blobs from consensus host`, { slotNumber, ...consensusCtx });
+          this.log.trace(`Attempting to get blobs from consensus host`, { slotNumber, l1ConsensusHostUrl, ...ctx });
           const blobs = await this.getBlobSidecarFrom(
             l1ConsensusHostUrl,
             slotNumber,
@@ -121,7 +121,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
             undefined,
             l1ConsensusHostIndex,
           );
-          this.log.debug(`Got ${blobs.length} blobs from consensus host`, { slotNumber, ...consensusCtx });
+          this.log.debug(`Got ${blobs.length} blobs from consensus host`, { slotNumber, l1ConsensusHostUrl, ...ctx });
           if (blobs.length > 0) {
             return blobs;
           }
