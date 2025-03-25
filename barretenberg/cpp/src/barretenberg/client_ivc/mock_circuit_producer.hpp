@@ -163,8 +163,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
  * @brief A test utility for generating alternating mock app and kernel circuits and precomputing verification keys
  *
  */
-class ``ClientIVCMockCircuitProducer
-{
+class ClientIVCMockCircuitProducer {
     using ClientCircuit = ClientIVC::ClientCircuit;
 
     bool is_kernel = false;
@@ -177,7 +176,7 @@ class ``ClientIVCMockCircuitProducer
      * only necessary if the structured trace is not in use).
      *
      */
-    static ClientCircuit create_mock_circuit(ClientIVC & ivc, size_t log2_num_gates = 16)
+    static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
@@ -187,12 +186,12 @@ class ``ClientIVCMockCircuitProducer
         // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
         // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
-        // MockCircuits::construct_goblin_ecc_op_circuit(circuit);
+        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
     }
 
   public:
-    ClientCircuit create_next_circuit(ClientIVC & ivc, size_t log2_num_gates = 16, const size_t num_public_inputs = 0)
+    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 16, const size_t num_public_inputs = 0)
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
@@ -207,8 +206,9 @@ class ``ClientIVCMockCircuitProducer
         return circuit;
     }
 
-    auto precompute_verification_keys(
-        const size_t num_circuits, TraceSettings trace_settings, size_t log2_num_gates = 16)
+    auto precompute_verification_keys(const size_t num_circuits,
+                                      TraceSettings trace_settings,
+                                      size_t log2_num_gates = 16)
     {
         ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
