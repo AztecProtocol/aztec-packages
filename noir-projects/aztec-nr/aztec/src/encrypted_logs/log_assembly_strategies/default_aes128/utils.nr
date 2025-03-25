@@ -26,7 +26,11 @@ pub(crate) fn prefix_with_tag<let L: u32>(
 
 mod test {
     use super::prefix_with_tag;
-    use protocol_types::{address::AztecAddress, traits::FromField};
+    use protocol_types::{
+        address::AztecAddress,
+        indexed_tagging_secret::IndexedTaggingSecret,
+        traits::{FromField, Serialize},
+    };
     use std::test::OracleMock;
 
     #[test]
@@ -34,16 +38,17 @@ mod test {
         let sender = AztecAddress::from_field(1);
         let recipient = AztecAddress::from_field(2);
 
-        let tag = 42;
+        let indexed_tagging_secret = IndexedTaggingSecret { app_tagging_secret: 42, index: 5 };
 
         // Mock the tagging oracles
-        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(tag);
+        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(indexed_tagging_secret
+            .serialize());
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
         let log_without_tag = [1, 2, 3];
         let log_with_tag = prefix_with_tag(log_without_tag, sender, recipient);
 
-        let expected_result = [tag, 1, 2, 3];
+        let expected_result = [indexed_tagging_secret.compute_tag(recipient), 1, 2, 3];
 
         // Check tag was prefixed correctly
         assert_eq(log_with_tag, expected_result, "Tag was not prefixed correctly");
