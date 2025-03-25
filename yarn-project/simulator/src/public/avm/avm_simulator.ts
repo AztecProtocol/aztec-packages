@@ -44,11 +44,7 @@ export class AvmSimulator {
 
   // Test Purposes only: Logger will not have the proper function name. Use this constructor for testing purposes
   // only. Otherwise, use build() below.
-  constructor(
-    private context: AvmContext,
-    enableTallying = false,
-    private instructionSet: InstructionSet = INSTRUCTION_SET,
-  ) {
+  constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET) {
     // This will be used by the CALL opcode to create a new simulator. It is required to
     // avoid a dependency cycle.
     context.provideSimulator = AvmSimulator.build;
@@ -58,7 +54,7 @@ export class AvmSimulator {
     );
     this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
     // Turn on tallying if explicitly enabled or if trace logging
-    if (enableTallying || this.log.isLevelEnabled('trace')) {
+    if (this.context.enableTallying || this.log.isLevelEnabled('trace')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
       this.tallyInstructionFunction = this.tallyInstruction;
     }
@@ -66,8 +62,8 @@ export class AvmSimulator {
 
   // Factory to have a proper function name in the logger. Retrieving the name is asynchronous and
   // cannot be done as part of the constructor.
-  public static async build(context: AvmContext, enableTallying: boolean = false): Promise<AvmSimulator> {
-    const simulator = new AvmSimulator(context, enableTallying);
+  public static async build(context: AvmContext): Promise<AvmSimulator> {
+    const simulator = new AvmSimulator(context);
     const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
     simulator.log = createLogger(`simulator:avm(f:${fnName})`);
 
@@ -96,8 +92,8 @@ export class AvmSimulator {
     );
 
     const avmMachineState = new AvmMachineState(allocatedGas);
-    const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
-    return await AvmSimulator.build(avmContext, enableTallying);
+    const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState, enableTallying);
+    return await AvmSimulator.build(avmContext);
   }
 
   /**
