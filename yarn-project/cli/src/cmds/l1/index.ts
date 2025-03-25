@@ -24,8 +24,6 @@ const l1RpcUrlsOption = new Option(
   .argParser((arg: string) => arg.split(',').map(url => url.trim()));
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
-  const { BB_BINARY_PATH, BB_WORKING_DIRECTORY } = process.env;
-
   program
     .command('deploy-l1-contracts')
     .description('Deploys all necessary Ethereum contracts for Aztec.')
@@ -412,8 +410,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       'test test test test test test test test test test test junk',
     )
     .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
-    .option('--bb <path>', 'Path to bb binary', BB_BINARY_PATH)
-    .option('--bb-working-dir <path>', 'Path to bb working directory', BB_WORKING_DIRECTORY)
     .action(async options => {
       const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
       if (options.verifier === 'mock') {
@@ -435,8 +431,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
           options.l1PrivateKey,
           options.mnemonic,
           options.rpcUrl,
-          options.bb,
-          options.bbWorkingDir,
           log,
           debugLogger,
         );
