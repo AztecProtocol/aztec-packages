@@ -131,172 +131,56 @@ TEST(MerkleCheckConstrainingTest, SelectorOnEnd)
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_END), "SELECTOR_ON_END");
 }
 
-TEST(MerkleCheckConstrainingTest, InitializeCurrentNode)
+TEST(MerkleCheckConstrainingTest, PropagateRoot)
 {
-    // Test constraint: start * (current_node - leaf) = 0
-    // On start rows, current_node should equal leaf
+    // Test constraint: NOT_END * (root' - root) = 0
+    // Root should stay the same in the next row unless it's an end row
+    // When end=1, the next root can be different
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_start, 1 },
-          { C::merkle_check_leaf, 123 },
-          { C::merkle_check_current_node, 123 } }, // current_node = leaf on start row is correct
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_INITIALIZE_CURRENT_NODE);
-
-    // Create a trace for the negative test
-    TestTraceContainer negative_trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_start, 1 },
-          { C::merkle_check_leaf, 123 },
-          { C::merkle_check_current_node, 123 } }, // Correct values
-    });
-
-    // First verify it works with correct values
-    check_relation<merkle_check>(negative_trace, merkle_check::SR_INITIALIZE_CURRENT_NODE);
-
-    // Negative test - now modify to an incorrect value
-    negative_trace.set(
-        C::merkle_check_current_node, 0, 456); // This should fail - current_node should equal leaf on start row
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(negative_trace, merkle_check::SR_INITIALIZE_CURRENT_NODE),
-                              "INITIALIZE_CURRENT_NODE");
-}
-
-TEST(MerkleCheckConstrainingTest, InitializeCurrentIndexInLayer)
-{
-    // Test constraint: start * (current_index_in_layer - leaf_index) = 0
-    // On start rows, current_index_in_layer should equal leaf_index
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_start, 1 },
-          { C::merkle_check_leaf_index, 42 },
-          { C::merkle_check_current_index_in_layer, 42 } }, // current_index = leaf_index on start row is correct
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_INITIALIZE_CURRENT_INDEX_IN_LAYER);
-
-    // Negative test - now modify to an incorrect value
-    trace.set(C::merkle_check_current_index_in_layer, 0, 24); // This should fail - indices should match on start row
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_INITIALIZE_CURRENT_INDEX_IN_LAYER),
-                              "INITIALIZE_CURRENT_INDEX_IN_LAYER");
-}
-
-TEST(MerkleCheckConstrainingTest, InitializeRemainingPathLen)
-{
-    // Test constraint: start * (tree_height - remaining_path_len - 1) = 0
-    // On start rows, remaining_path_len should be tree_height - 1
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_start, 1 },
-          { C::merkle_check_tree_height, 5 },
-          { C::merkle_check_remaining_path_len, 4 } }, // remaining_path_len = tree_height - 1 on start row is correct
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_INITIALIZE_REMAINING_PATH_LEN);
-
-    // Negative test - now modify to an incorrect value
-    trace.set(C::merkle_check_remaining_path_len, 0, 3); // This should fail - should be tree_height - 1
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_INITIALIZE_REMAINING_PATH_LEN),
-                              "INITIALIZE_REMAINING_PATH_LEN");
-}
-
-TEST(MerkleCheckConstrainingTest, PropagateLeaf)
-{
-    // Test constraint: NOT_END * (leaf' - leaf) = 0
-    // Leaf value should stay the same in the next row unless it's an end row
-    // When end=1, the next leaf can be different
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_leaf, 123 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_root, 123 } },
         // Same leaf value is correct when NOT_END=1
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_leaf, 123 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_root, 123 } },
         // Different leaf value is allowed after end row
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_leaf, 456 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_root, 456 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_LEAF);
+    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_ROOT);
 
     // Negative test - now modify to an incorrect value
-    trace.set(C::merkle_check_leaf, 1, 456); // This should fail - leaf should stay the same when NOT_END=1
+    trace.set(C::merkle_check_root, 1, 456); // This should fail - root should stay the same when NOT_END=1
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_LEAF), "PROPAGATE_LEAF");
-}
-
-TEST(MerkleCheckConstrainingTest, PropagateLeafIndex)
-{
-    // Test constraint: NOT_END * (leaf_index' - leaf_index) = 0
-    // Leaf index should stay the same in the next row unless it's an end row
-    // When end=1, the next leaf_index can be different
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_leaf_index, 42 } },
-        // Same leaf index is correct when NOT_END=1
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_leaf_index, 42 } },
-        // Different leaf index is allowed after end row
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_leaf_index, 24 } },
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_LEAF_INDEX);
-
-    // Negative test - now modify to an incorrect value
-    trace.set(C::merkle_check_leaf_index, 1, 24); // This should fail - leaf index should stay the same when NOT_END=1
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_LEAF_INDEX),
-                              "PROPAGATE_LEAF_INDEX");
-}
-
-TEST(MerkleCheckConstrainingTest, PropagateTreeHeight)
-{
-    // Test constraint: NOT_END * (tree_height' - tree_height) = 0
-    // Tree height should stay the same in the next row unless it's an end row
-    // When end=1, the next tree_height can be different
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_tree_height, 5 } },
-        // Same tree height is correct when NOT_END=1
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_tree_height, 5 } },
-        // Different tree height is allowed after end row
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_tree_height, 3 } },
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_TREE_HEIGHT);
-
-    // Negative test - now modify to an incorrect value
-    trace.set(C::merkle_check_tree_height, 1, 3); // This should fail - tree height should stay the same when NOT_END=1
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_TREE_HEIGHT),
-                              "PROPAGATE_TREE_HEIGHT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_ROOT), "PROPAGATE_ROOT");
 }
 
 TEST(MerkleCheckConstrainingTest, PathLenDecrements)
 {
     TestTraceContainer trace({
         // Decrements until path_len=0
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_remaining_path_len, 2 } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_remaining_path_len, 1 } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_remaining_path_len, 0 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_path_len, 3 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_path_len, 2 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_path_len, 1 } },
         // Path len can be different after end=1
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_remaining_path_len, 5 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_path_len, 5 } },
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_PATH_LEN_DECREMENTS);
 
     // Negative test - now modify to an incorrect value and verify it fails
-    trace.set(C::merkle_check_remaining_path_len, 1, 0); // Should be 1, change to 0
+    trace.set(C::merkle_check_path_len, 1, 1); // Should be 2, change to 1
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PATH_LEN_DECREMENTS),
                               "PATH_LEN_DECREMENTS");
 }
 
-TEST(MerkleCheckConstrainingTest, EndWhenPathEmpty)
+TEST(MerkleCheckConstrainingTest, EndWhenPathLenOne)
 {
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_remaining_path_len, 1 },
+          { C::merkle_check_path_len, 2 },
           { C::merkle_check_remaining_path_len_inv, FF(1).invert() },
           { C::merkle_check_end, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_remaining_path_len, 0 },
+          { C::merkle_check_path_len, 1 },
           { C::merkle_check_remaining_path_len_inv, 0 },
           { C::merkle_check_end, 1 } },
     });
@@ -315,15 +199,15 @@ TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_end, 0 },
-          { C::merkle_check_current_index_in_layer, 6 },
+          { C::merkle_check_index, 6 },
           { C::merkle_check_index_is_even, 1 } },
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_end, 0 },
-          { C::merkle_check_current_index_in_layer, 3 }, // 6/2 = 3
+          { C::merkle_check_index, 3 }, // 6/2 = 3
           { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_end, 1 },                    // Set end=1 for final row
-          { C::merkle_check_current_index_in_layer, 1 }, // 3/2 = 1
+          { C::merkle_check_end, 1 },   // Set end=1 for final row
+          { C::merkle_check_index, 1 }, // 3/2 = 1
           { C::merkle_check_index_is_even, 0 } },
     });
 
@@ -333,22 +217,22 @@ TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_end, 0 },
-          { C::merkle_check_current_index_in_layer, 7 },
+          { C::merkle_check_index, 7 },
           { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_end, 0 },
-          { C::merkle_check_current_index_in_layer, 3 }, // (7-1)/2 = 3
+          { C::merkle_check_index, 3 }, // (7-1)/2 = 3
           { C::merkle_check_index_is_even, 0 } },
         { { C::merkle_check_sel, 1 },
-          { C::merkle_check_end, 1 },                    // Set end=1 for final row
-          { C::merkle_check_current_index_in_layer, 1 }, // 6/2 = 3
+          { C::merkle_check_end, 1 },   // Set end=1 for final row
+          { C::merkle_check_index, 1 }, // 6/2 = 3
           { C::merkle_check_index_is_even, 0 } },
     });
 
     check_relation<merkle_check>(trace2, merkle_check::SR_NEXT_INDEX_IS_HALVED);
 
     // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_current_index_in_layer, 1, 4); // Should be 3, change to 4
+    trace2.set(C::merkle_check_index, 1, 4); // Should be 3, change to 4
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_NEXT_INDEX_IS_HALVED),
                               "NEXT_INDEX_IS_HALVED");
@@ -360,10 +244,10 @@ TEST(MerkleCheckConstrainingTest, AssignCurrentNodeLeftOrRight)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_current_node, 123 },
+          { C::merkle_check_read_node, 123 },
           { C::merkle_check_sibling, 456 },
-          { C::merkle_check_left_node, 123 },
-          { C::merkle_check_right_node, 456 } },
+          { C::merkle_check_read_left_node, 123 },
+          { C::merkle_check_read_right_node, 456 } },
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT);
@@ -372,17 +256,17 @@ TEST(MerkleCheckConstrainingTest, AssignCurrentNodeLeftOrRight)
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_current_node, 123 },
+          { C::merkle_check_read_node, 123 },
           { C::merkle_check_sibling, 456 },
-          { C::merkle_check_left_node, 456 },
-          { C::merkle_check_right_node, 123 } },
+          { C::merkle_check_read_left_node, 456 },
+          { C::merkle_check_read_right_node, 123 } },
     });
 
     check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT);
 
     // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_right_node, 0, 456); // Should be 123
+    trace2.set(C::merkle_check_read_left_node, 0, 123);  // Should be 456
+    trace2.set(C::merkle_check_read_right_node, 0, 456); // Should be 123
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT),
                               "ASSIGN_CURRENT_NODE_LEFT_OR_RIGHT");
@@ -394,10 +278,10 @@ TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRight)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_current_node, 123 },
+          { C::merkle_check_read_node, 123 },
           { C::merkle_check_sibling, 456 },
-          { C::merkle_check_left_node, 123 },
-          { C::merkle_check_right_node, 456 } },
+          { C::merkle_check_read_left_node, 123 },
+          { C::merkle_check_read_right_node, 456 } },
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT);
@@ -406,17 +290,17 @@ TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRight)
     TestTraceContainer trace2({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_current_node, 123 },
+          { C::merkle_check_read_node, 123 },
           { C::merkle_check_sibling, 456 },
-          { C::merkle_check_left_node, 456 },
-          { C::merkle_check_right_node, 123 } },
+          { C::merkle_check_read_left_node, 456 },
+          { C::merkle_check_read_right_node, 123 } },
     });
 
     check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT);
 
     // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_right_node, 0, 456); // Should be 123
+    trace2.set(C::merkle_check_read_left_node, 0, 123);  // Should be 456
+    trace2.set(C::merkle_check_read_right_node, 0, 456); // Should be 123
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT),
                               "ASSIGN_SIBLING_LEFT_OR_RIGHT");
@@ -431,18 +315,18 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNextRowsCurrentNode)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_end, 0 },
-          { C::merkle_check_left_node, left_node },
-          { C::merkle_check_right_node, right_node },
-          { C::merkle_check_output_hash, output_hash } },
+          { C::merkle_check_read_node, left_node },
+          { C::merkle_check_read_right_node, right_node },
+          { C::merkle_check_read_output_hash, output_hash } },
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_end, 1 }, // Set end=1 for final row
-          { C::merkle_check_current_node, output_hash } },
+          { C::merkle_check_read_node, output_hash } },
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE);
 
     // Negative test - now modify to an incorrect value and verify it fails
-    trace.set(C::merkle_check_current_node, 1, output_hash + 1); // Should be output_hash
+    trace.set(C::merkle_check_read_node, 1, output_hash + 1); // Should be output_hash
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE),
@@ -455,8 +339,8 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsCurrentNodeValueForLast
     FF next_current_node = FF(789);
 
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_output_hash, output_hash } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_current_node, next_current_node } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_read_output_hash, output_hash } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_read_node, next_current_node } },
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_CURRENT_NODE);
@@ -491,7 +375,7 @@ TEST(MerkleCheckConstrainingTest, WithTracegen)
     // Negative test - now corrupt the trace and verify it fails
     auto rows = trace.as_rows();
     // Corrupt the last row
-    trace.set(C::merkle_check_remaining_path_len, static_cast<uint32_t>(rows.size() - 1), 66);
+    trace.set(C::merkle_check_path_len, static_cast<uint32_t>(rows.size() - 1), 66);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");
 }
@@ -523,7 +407,7 @@ TEST(MerkleCheckConstrainingTest, WithInteractions)
     check_relation<merkle_check>(trace);
 
     // Negative test - now corrupt the trace and verify it fails
-    trace.set(Column::merkle_check_output_hash, static_cast<uint32_t>(sibling_path.size()), 66);
+    trace.set(Column::merkle_check_read_output_hash, static_cast<uint32_t>(sibling_path.size()), 66);
 
     EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_hash::Settings>().process(trace),
                               "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
@@ -559,21 +443,19 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     // Empty row after last real merkle row
     uint32_t after_last_row_index = 1 + static_cast<uint32_t>(sibling_path.size() + sibling_path2.size());
     trace.set(Column::merkle_check_sel, after_last_row_index, 0);
-    trace.set(Column::merkle_check_leaf, after_last_row_index, 0);
-    trace.set(Column::merkle_check_leaf_index, after_last_row_index, 0);
-    trace.set(Column::merkle_check_tree_height, after_last_row_index, 0);
-    trace.set(Column::merkle_check_current_node, after_last_row_index, 0);
-    trace.set(Column::merkle_check_current_index_in_layer, after_last_row_index, 0);
-    trace.set(Column::merkle_check_remaining_path_len, after_last_row_index, 0);
+    trace.set(Column::merkle_check_read_node, after_last_row_index, 0);
+    trace.set(Column::merkle_check_index, after_last_row_index, 0);
+    trace.set(Column::merkle_check_path_len, after_last_row_index, 0);
     trace.set(Column::merkle_check_remaining_path_len_inv, after_last_row_index, 0);
+    trace.set(Column::merkle_check_root, after_last_row_index, 0);
     trace.set(Column::merkle_check_sibling, after_last_row_index, 0);
     trace.set(Column::merkle_check_start, after_last_row_index, 0);
     trace.set(Column::merkle_check_end, after_last_row_index, 0);
     trace.set(Column::merkle_check_index_is_even, after_last_row_index, 0);
-    trace.set(Column::merkle_check_left_node, after_last_row_index, 0);
-    trace.set(Column::merkle_check_right_node, after_last_row_index, 0);
+    trace.set(Column::merkle_check_read_left_node, after_last_row_index, 0);
+    trace.set(Column::merkle_check_read_right_node, after_last_row_index, 0);
     trace.set(Column::merkle_check_constant_2, after_last_row_index, 0);
-    trace.set(Column::merkle_check_output_hash, after_last_row_index, 0);
+    trace.set(Column::merkle_check_read_output_hash, after_last_row_index, 0);
 
     check_relation<merkle_check>(trace);
 }

@@ -29,8 +29,9 @@ void MerkleCheckTraceBuilder::process(
         for (size_t i = 0; i < full_path_len; ++i) {
             const FF sibling = event.sibling_path[i];
 
-            // path-length decrements by 1 for each level until it reaches 0
-            const FF remaining_path_len = FF(full_path_len - i - 1);
+            // path-length decrements by 1 for each level until it reaches 1
+            const FF path_len = FF(full_path_len - i);
+            const FF remaining_path_len = path_len - 1;
             const FF remaining_path_len_inv = remaining_path_len == 0 ? FF(0) : remaining_path_len.invert();
 
             // end == 1 when the remaining_path_len == 0
@@ -44,21 +45,19 @@ void MerkleCheckTraceBuilder::process(
             trace.set(row,
                       { {
                           { C::merkle_check_sel, 1 },
-                          { C::merkle_check_leaf, event.leaf_value },
-                          { C::merkle_check_leaf_index, event.leaf_index },
-                          { C::merkle_check_tree_height, full_path_len },
-                          { C::merkle_check_current_node, current_node },
-                          { C::merkle_check_current_index_in_layer, current_index_in_layer },
-                          { C::merkle_check_remaining_path_len, remaining_path_len },
+                          { C::merkle_check_read_node, current_node },
+                          { C::merkle_check_index, current_index_in_layer },
+                          { C::merkle_check_path_len, path_len },
                           { C::merkle_check_remaining_path_len_inv, remaining_path_len_inv },
+                          { C::merkle_check_root, event.root },
                           { C::merkle_check_sibling, sibling },
                           { C::merkle_check_start, start },
                           { C::merkle_check_end, end },
                           { C::merkle_check_index_is_even, index_is_even },
-                          { C::merkle_check_left_node, left_node },
-                          { C::merkle_check_right_node, right_node },
+                          { C::merkle_check_read_left_node, left_node },
+                          { C::merkle_check_read_right_node, right_node },
                           { C::merkle_check_constant_2, 2 },
-                          { C::merkle_check_output_hash, output_hash },
+                          { C::merkle_check_read_output_hash, output_hash },
                       } });
 
             // Update the current/target node value for the next iteration
