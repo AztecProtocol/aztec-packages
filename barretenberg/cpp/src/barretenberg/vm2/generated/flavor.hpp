@@ -101,16 +101,20 @@ class AvmFlavor {
 =======
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 47;
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 920;
 >>>>>>> 8de4022246 (Add tag memory validation)
 =======
     static constexpr size_t NUM_WITNESS_ENTITIES = 921;
 >>>>>>> 63a2db02fd (Commit column parsing_err_no_tag)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 920;
+>>>>>>> f786741d6b (Addressing review feedback)
     static constexpr size_t NUM_SHIFTED_ENTITIES = 134;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1102;
+    static constexpr size_t NUM_ALL_ENTITIES = 1101;
 
     // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
     // evenly processed by all the threads. This constant defines the maximum number of rows

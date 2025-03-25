@@ -389,7 +389,7 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_opcode_defined;
+    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_pc_in_range;
     static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel;
     static constexpr Column COUNTS = Column::lookup_instr_fetching_bytes_from_bc_dec_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_bytes_from_bc_dec_inv;
@@ -460,14 +460,14 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel_opcode_defined() == 1 || in._bc_decomposition_sel() == 1);
+        return (in._instr_fetching_sel_pc_in_range() == 1 || in._bc_decomposition_sel() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel_opcode_defined());
+        const auto is_operation = View(in._instr_fetching_sel_pc_in_range());
         const auto is_table_entry = View(in._bc_decomposition_sel());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
@@ -486,7 +486,7 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
     {
         return std::forward_as_tuple(in._lookup_instr_fetching_bytes_from_bc_dec_inv(),
                                      in._lookup_instr_fetching_bytes_from_bc_dec_counts(),
-                                     in._instr_fetching_sel_opcode_defined(),
+                                     in._instr_fetching_sel_pc_in_range(),
                                      in._bc_decomposition_sel(),
                                      in._instr_fetching_bytecode_id(),
                                      in._instr_fetching_pc(),
@@ -612,7 +612,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
-    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_opcode_defined;
+    static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_pc_in_range;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_instr_fetching_wire_instruction_info_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_wire_instruction_info_inv;
@@ -647,14 +647,14 @@ class lookup_instr_fetching_wire_instruction_info_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel_opcode_defined() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in._instr_fetching_sel_pc_in_range() == 1 || in._precomputed_sel_range_8() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel_opcode_defined());
+        const auto is_operation = View(in._instr_fetching_sel_pc_in_range());
         const auto is_table_entry = View(in._precomputed_sel_range_8());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
@@ -673,7 +673,7 @@ class lookup_instr_fetching_wire_instruction_info_settings {
     {
         return std::forward_as_tuple(in._lookup_instr_fetching_wire_instruction_info_inv(),
                                      in._lookup_instr_fetching_wire_instruction_info_counts(),
-                                     in._instr_fetching_sel_opcode_defined(),
+                                     in._instr_fetching_sel_pc_in_range(),
                                      in._precomputed_sel_range_8(),
                                      in._instr_fetching_bd0(),
                                      in._instr_fetching_opcode_out_of_range(),

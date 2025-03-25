@@ -486,10 +486,10 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
                           ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 0),
                           ROW_FIELD_EQ(R, instr_fetching_tag_out_of_range, 0),
                           ROW_FIELD_EQ(R, instr_fetching_parsing_err, 0),
-                          ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
+                          ROW_FIELD_EQ(R, instr_fetching_sel_pc_in_range, 1),
                           ROW_FIELD_EQ(R, instr_fetching_sel_has_tag, has_tag),
                           ROW_FIELD_EQ(R, instr_fetching_sel_tag_is_op2, tag_is_op2),
-                          ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1)));
+                          ROW_FIELD_EQ(R, instr_fetching_sel_pc_in_range, 1)));
     }
 }
 
@@ -583,7 +583,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
 
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_pc_in_range, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 0),
                       ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 20),
                       ROW_FIELD_EQ(R, instr_fetching_instr_size, 0),
@@ -596,7 +596,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
 
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_pc_in_range, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 19), // OR_16 opcode
                       ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 1),
                       ROW_FIELD_EQ(R, instr_fetching_instr_size, 8), // OR_16 is 8 bytes long
@@ -609,7 +609,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
 
     EXPECT_THAT(rows.at(3),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 0),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_pc_in_range, 0),
                       ROW_FIELD_EQ(R, instr_fetching_pc, 38),
                       ROW_FIELD_EQ(R, instr_fetching_bytes_to_read, 0),
                       ROW_FIELD_EQ(R, instr_fetching_instr_size, 0),
@@ -672,7 +672,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
 
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_pc_in_range, 1),
                       ROW_FIELD_EQ(R, instr_fetching_sel_has_tag, 1),
                       ROW_FIELD_EQ(R, instr_fetching_sel_tag_is_op2, 0),
                       ROW_FIELD_EQ(R, instr_fetching_tag_value, 9),
@@ -690,7 +690,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
 
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(R, instr_fetching_sel, 1),
-                      ROW_FIELD_EQ(R, instr_fetching_sel_opcode_defined, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_pc_in_range, 1),
                       ROW_FIELD_EQ(R, instr_fetching_sel_has_tag, 1),
                       ROW_FIELD_EQ(R, instr_fetching_sel_tag_is_op2, 1),
                       ROW_FIELD_EQ(R, instr_fetching_tag_value, 10),
