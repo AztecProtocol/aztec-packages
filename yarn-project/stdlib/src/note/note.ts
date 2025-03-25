@@ -1,15 +1,32 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { schemas } from '../schemas/index.js';
 import { Vector } from '../types/shared.js';
 
+/**
+ * The Note class represents a Note emitted from a Noir contract as a vector of Fr (finite field) elements.
+ * This data also represents a preimage to a note hash.
+ */
 export class Note extends Vector<Fr> {
+  toJSON() {
+    return this.toBuffer();
+  }
+
   static get schema() {
     return schemas.Buffer.transform(Note.fromBuffer);
   }
 
+  /**
+   * Create a Note instance from a Buffer or BufferReader.
+   * The input 'buffer' can be either a Buffer containing the serialized Fr elements or a BufferReader instance.
+   * This function reads the Fr elements in the buffer and constructs a Note with them.
+   *
+   * @param buffer - The Buffer or BufferReader containing the serialized Fr elements.
+   * @returns A Note instance containing the deserialized Fr elements.
+   */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new Note(reader.readVector(Fr));
@@ -26,5 +43,30 @@ export class Note extends Vector<Fr> {
     const numItems = randomInt(10) + 1;
     const items = Array.from({ length: numItems }, () => Fr.random());
     return new Note(items);
+  }
+
+  /**
+   * Returns a hex representation of the note.
+   * @returns A hex string with the vector length as first element.
+   */
+  override toString() {
+    return bufferToHex(this.toBuffer());
+  }
+
+  /**
+   * Creates a new Note instance from a hex string.
+   * @param str - Hex representation.
+   * @returns A Note instance.
+   */
+  static fromString(str: string) {
+    return Note.fromBuffer(hexToBuffer(str));
+  }
+
+  get length() {
+    return this.items.length;
+  }
+
+  equals(other: Note) {
+    return this.items.every((item, index) => item.equals(other.items[index]));
   }
 }
