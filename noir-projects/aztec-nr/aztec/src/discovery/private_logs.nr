@@ -7,7 +7,7 @@ use crate::{
     encrypted_logs::{
         log_assembly_strategies::default_aes128::aes128::AES128,
         log_encryption::LogEncryption,
-        log_type::{PARTIAL_NOTE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
+        log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
     },
     oracle::message_discovery::sync_notes,
     utils::array,
@@ -80,7 +80,7 @@ pub unconstrained fn do_process_log<Env>(
             log_metadata,
             log_content,
         );
-    } else if log_type_id == PARTIAL_NOTE_LOG_TYPE_ID {
+    } else if log_type_id == PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID {
         debug_log("Processing partial note private log");
 
         process_partial_note_private_log(contract_address, recipient, log_metadata, log_content);

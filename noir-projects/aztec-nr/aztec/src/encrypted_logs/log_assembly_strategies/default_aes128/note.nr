@@ -3,7 +3,7 @@ use crate::{
     encrypted_logs::{
         log_assembly_strategies::default_aes128::aes128::AES128,
         log_encryption::LogEncryption,
-        log_type::{PARTIAL_NOTE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
+        log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
     oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
@@ -80,7 +80,7 @@ where
         storage_slot,
         recipient,
         sender,
-        PARTIAL_NOTE_LOG_TYPE_ID,
+        PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID,
     )
 }
 
