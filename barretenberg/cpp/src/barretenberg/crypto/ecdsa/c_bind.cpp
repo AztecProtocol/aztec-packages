@@ -1,8 +1,11 @@
 #include "ecdsa.hpp"
 #include <barretenberg/ecc/curves/secp256k1/secp256k1.hpp>
+#include <barretenberg/ecc/curves/secp256r1/secp256r1.hpp>
 
 using namespace bb;
 using namespace bb::crypto;
+
+// secp256k1 curve
 
 WASM_EXPORT void ecdsa__compute_public_key(uint8_t const* private_key, uint8_t* public_key_buf)
 {
@@ -116,4 +119,120 @@ WASM_EXPORT void ecdsa__verify_signature_(uint8_t const* message_buf,
     auto message = from_buffer<std::string>(message_buf);
     ecdsa_signature sig = { r, s, v };
     *result = ecdsa_verify_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(message, pubk, sig);
+}
+
+// secp256r1 curve
+
+WASM_EXPORT void ecdsa_r_compute_public_key(uint8_t const* private_key, uint8_t* public_key_buf)
+{
+    auto priv_key = from_buffer<secp256r1::fr>(private_key);
+    secp256r1::g1::affine_element pub_key = secp256r1::g1::one * priv_key;
+    write(public_key_buf, pub_key);
+}
+
+WASM_EXPORT void ecdsa_r_construct_signature(uint8_t const* message,
+                                             size_t msg_len,
+                                             uint8_t const* private_key,
+                                             uint8_t* output_sig_r,
+                                             uint8_t* output_sig_s,
+                                             uint8_t* output_sig_v)
+{
+    using serialize::write;
+    auto priv_key = from_buffer<secp256r1::fr>(private_key);
+    secp256r1::g1::affine_element pub_key = secp256r1::g1::one * priv_key;
+    ecdsa_key_pair<secp256r1::fr, secp256r1::g1> key_pair = { priv_key, pub_key };
+
+    auto sig = ecdsa_construct_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
+        std::string((char*)message, msg_len), key_pair);
+    write(output_sig_r, sig.r);
+    write(output_sig_s, sig.s);
+    write(output_sig_v, sig.v);
+}
+
+WASM_EXPORT void ecdsa_r_construct_signature_(uint8_t const* message_buf,
+                                              uint8_t const* private_key,
+                                              uint8_t* output_sig_r,
+                                              uint8_t* output_sig_s,
+                                              uint8_t* output_sig_v)
+{
+    using serialize::write;
+    auto priv_key = from_buffer<secp256r1::fr>(private_key);
+    secp256r1::g1::affine_element pub_key = secp256r1::g1::one * priv_key;
+    ecdsa_key_pair<secp256r1::fr, secp256r1::g1> key_pair = { priv_key, pub_key };
+
+    auto message = from_buffer<std::string>(message_buf);
+
+    auto sig = ecdsa_construct_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, key_pair);
+    write(output_sig_r, sig.r);
+    write(output_sig_s, sig.s);
+    write(output_sig_v, sig.v);
+}
+
+WASM_EXPORT void ecdsa_r_recover_public_key_from_signature(uint8_t const* message,
+                                                           size_t msg_len,
+                                                           uint8_t const* sig_r,
+                                                           uint8_t const* sig_s,
+                                                           uint8_t* sig_v,
+                                                           uint8_t* output_pub_key)
+{
+    std::array<uint8_t, 32> r, s;
+    std::copy(sig_r, sig_r + 32, r.begin());
+    std::copy(sig_s, sig_s + 32, s.begin());
+    const uint8_t v = *sig_v;
+
+    ecdsa_signature sig = { r, s, v };
+    auto recovered_pub_key = ecdsa_recover_public_key<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
+        std::string((char*)message, msg_len), sig);
+    write(output_pub_key, recovered_pub_key);
+}
+
+WASM_EXPORT void ecdsa_r_recover_public_key_from_signature_(
+    uint8_t const* message_buf, uint8_t const* sig_r, uint8_t const* sig_s, uint8_t* sig_v, uint8_t* output_pub_key)
+{
+    std::array<uint8_t, 32> r, s;
+    std::copy(sig_r, sig_r + 32, r.begin());
+    std::copy(sig_s, sig_s + 32, s.begin());
+    const uint8_t v = *sig_v;
+
+    auto message = from_buffer<std::string>(message_buf);
+    ecdsa_signature sig = { r, s, v };
+    auto recovered_pub_key =
+        ecdsa_recover_public_key<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, sig);
+    write(output_pub_key, recovered_pub_key);
+}
+
+WASM_EXPORT bool ecdsa_r_verify_signature(uint8_t const* message,
+                                          size_t msg_len,
+                                          uint8_t const* pub_key,
+                                          uint8_t const* sig_r,
+                                          uint8_t const* sig_s,
+                                          uint8_t const* sig_v)
+{
+    auto pubk = from_buffer<secp256r1::g1::affine_element>(pub_key);
+    std::array<uint8_t, 32> r, s;
+    std::copy(sig_r, sig_r + 32, r.begin());
+    std::copy(sig_s, sig_s + 32, s.begin());
+    const uint8_t v = *sig_v;
+
+    ecdsa_signature sig = { r, s, v };
+    return ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
+        std::string((char*)message, msg_len), pubk, sig);
+}
+
+WASM_EXPORT void ecdsa_r_verify_signature_(uint8_t const* message_buf,
+                                           uint8_t const* pub_key,
+                                           uint8_t const* sig_r,
+                                           uint8_t const* sig_s,
+                                           uint8_t const* sig_v,
+                                           bool* result)
+{
+    auto pubk = from_buffer<secp256r1::g1::affine_element>(pub_key);
+    std::array<uint8_t, 32> r, s;
+    std::copy(sig_r, sig_r + 32, r.begin());
+    std::copy(sig_s, sig_s + 32, s.begin());
+    const uint8_t v = *sig_v;
+
+    auto message = from_buffer<std::string>(message_buf);
+    ecdsa_signature sig = { r, s, v };
+    *result = ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, pubk, sig);
 }

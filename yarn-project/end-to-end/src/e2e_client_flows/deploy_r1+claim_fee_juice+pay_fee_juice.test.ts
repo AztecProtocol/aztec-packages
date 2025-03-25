@@ -1,4 +1,4 @@
-import { EcdsaKAccountContractArtifact, getEcdsaKAccount } from '@aztec/accounts/ecdsa';
+import { EcdsaRAccountContractArtifact, getEcdsaRAccount } from '@aztec/accounts/ecdsa';
 import {
   AccountWallet,
   type DeployOptions,
@@ -23,7 +23,7 @@ describe('Deploy ECDSA R1 contract, pay using bridged fee juice', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     ({ adminWallet, userPXE } = await t.setup());
-    const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaKAccountContractArtifact);
+    const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaRAccountContractArtifact);
     await registerContractClassInteraction.send().wait();
   });
 
@@ -37,7 +37,7 @@ describe('Deploy ECDSA R1 contract, pay using bridged fee juice', () => {
   it('pays natively in Fee Juice by bridging funds themselves', async () => {
     const benchysSecretKey = Fr.random();
     const benchysPrivateSigningKey = randomBytes(32);
-    const benchysAccountManager = await getEcdsaKAccount(userPXE, benchysSecretKey, benchysPrivateSigningKey);
+    const benchysAccountManager = await getEcdsaRAccount(userPXE, benchysSecretKey, benchysPrivateSigningKey);
     const benchysCompleteAddress = await benchysAccountManager.getCompleteAddress();
     const benchysAddress = benchysCompleteAddress.address;
     const benchysWallet = await benchysAccountManager.register();

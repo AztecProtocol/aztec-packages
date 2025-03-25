@@ -8,45 +8,47 @@ import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
+import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import { getEcdsaRAccountContractArtifact } from '../ecdsa_r/lazy.js';
-import { EcdsaRSSHBaseAccountContract } from './account_contract.js';
+import EcdsaRAccountContractJson from '../../../artifacts/EcdsaRAccount.json' assert { type: 'json' };
+import { EcdsaRBaseAccountContract } from './account_contract.js';
+
+export const EcdsaRAccountContractArtifact: ContractArtifact = loadContractArtifact(
+  EcdsaRAccountContractJson as NoirCompiledContract,
+);
 
 /**
  * Account contract that authenticates transactions using ECDSA signatures
- * verified against a secp256r1 public key stored in an immutable encrypted note.
- * Since this implementation relays signatures to an SSH agent, we provide the
- * public key here not for signature verification, but to identify actual identity
- * that will be used to sign authwitnesses.
- * Lazily loads the contract artifact
+ * verified against a secp256k1 public key stored in an immutable encrypted note.
+ * Eagerly loads the contract artifact
  */
-export class EcdsaRSSHAccountContract extends EcdsaRSSHBaseAccountContract {
+export class EcdsaRAccountContract extends EcdsaRBaseAccountContract {
   constructor(signingPrivateKey: Buffer) {
     super(signingPrivateKey);
   }
 
   override getContractArtifact(): Promise<ContractArtifact> {
-    return getEcdsaRAccountContractArtifact();
+    return Promise.resolve(EcdsaRAccountContractArtifact);
   }
 }
-
 /**
  * Creates an Account that relies on an ECDSA signing key for authentication.
  * @param pxe - An PXE server instance.
  * @param secretKey - Secret key used to derive all the keystore keys.
- * @param signingPublicKey - Secp2561 key used to identify its corresponding private key in the SSH Agent.
+ * @param signingPrivateKey - Secp256k1 key used for signing transactions.
  * @param salt - Deployment salt.
  * @returns An account manager initialized with the account contract and its deployment params
  */
-export function getEcdsaRSSHAccount(
+export function getEcdsaRAccount(
   pxe: PXE,
   secretKey: Fr,
-  signingPublicKey: Buffer,
+  signingPrivateKey: Buffer,
   salt?: Salt,
 ): Promise<AccountManager> {
-  return AccountManager.create(pxe, secretKey, new EcdsaRSSHAccountContract(signingPublicKey), salt);
+  return AccountManager.create(pxe, secretKey, new EcdsaRAccountContract(signingPrivateKey), salt);
 }
 
 /**
@@ -56,6 +58,6 @@ export function getEcdsaRSSHAccount(
  * @param signingPrivateKey - ECDSA key used for signing transactions.
  * @returns A wallet for this account that can be used to interact with a contract instance.
  */
-export function getEcdsaRSSHWallet(pxe: PXE, address: AztecAddress, signingPublicKey: Buffer): Promise<AccountWallet> {
-  return getWallet(pxe, address, new EcdsaRSSHAccountContract(signingPublicKey));
+export function getEcdsaRWallet(pxe: PXE, address: AztecAddress, signingPrivateKey: Buffer): Promise<AccountWallet> {
+  return getWallet(pxe, address, new EcdsaRAccountContract(signingPrivateKey));
 }
