@@ -4,7 +4,7 @@ import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/acco
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
+import { setupCanonicalL2FeeJuice, setupSponsoredFPC } from '@aztec/cli/cli-utils';
 import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
 import {
   NULL_KEY,
@@ -34,7 +34,7 @@ import { foundry } from 'viem/chains';
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
-import { getSponsoredFPCAddress, setupSponsoredFPC } from './sponsored_fpc.js';
+import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
 const logger = createLogger('sandbox');
 
@@ -165,7 +165,8 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   // Create a local blob sink client inside the sandbox, no http connectivity
   const blobSinkClient = createBlobSinkClient();
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, { prefilledPublicData });
-  const pxe = await createAztecPXE(node);
+  const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
+  const pxe = await createAztecPXE(node, pxeServiceConfig);
 
   await setupCanonicalL2FeeJuice(pxe, aztecNodeConfig.l1Contracts.feeJuicePortalAddress, logger.info);
 
@@ -181,7 +182,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
 
     const deployer = await getSchnorrWallet(pxe, initialAccounts[0].address, initialAccounts[0].signingKey);
     await setupBananaFPC(initialAccounts, deployer, userLog);
-    await setupSponsoredFPC(deployer, userLog);
+    await setupSponsoredFPC(pxe, userLog);
   }
 
   const stop = async () => {
@@ -208,7 +209,6 @@ export async function createAztecNode(
     ...config,
     l1Contracts: { ...l1Contracts, ...config.l1Contracts },
   };
-  logger.info('createAztecNode', aztecNodeConfig);
   const node = await AztecNodeService.createAndSync(aztecNodeConfig, deps, options);
   return node;
 }

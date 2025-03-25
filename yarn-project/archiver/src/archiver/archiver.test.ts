@@ -1,7 +1,7 @@
 import { Blob } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { DefaultL1ContractsConfig, type ViemPublicClient } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -147,7 +147,9 @@ describe('Archiver', () => {
       address: rollupAddress.toString(),
     };
 
-    (archiver as any).rollup = mockRollup;
+    const wrapper = new RollupContract(publicClient, rollupAddress.toString());
+    (wrapper as any).rollup = mockRollup;
+    (archiver as any).rollup = wrapper;
 
     mockInboxRead = mock<MockInboxContractRead>();
     mockInboxEvents = mock<MockInboxContractEvents>();

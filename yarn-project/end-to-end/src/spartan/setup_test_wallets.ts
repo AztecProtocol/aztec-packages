@@ -56,7 +56,6 @@ export async function deployTestWalletWithTokens(
   mintAmount: bigint,
   logger: Logger,
   numberOfFundedWallets = 1,
-  initialFeeJuice = 10n ** 22n,
 ): Promise<TestWallets> {
   const pxe = await createCompatibleClient(pxeUrl, logger);
   const node = createAztecNodeClient(nodeUrl);
@@ -71,9 +70,7 @@ export async function deployTestWalletWithTokens(
   const fundedAccounts = await Promise.all(funded.map(a => getSchnorrAccount(pxe, a.secret, a.signingKey, a.salt)));
 
   const claims = await Promise.all(
-    fundedAccounts.map(a =>
-      bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), initialFeeJuice, logger),
-    ),
+    fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), undefined, logger)),
   );
 
   // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
@@ -102,15 +99,17 @@ async function bridgeL1FeeJuice(
   mnemonicOrPrivateKey: string,
   pxe: PXE,
   recipient: AztecAddress,
-  amount: bigint,
+  amount: bigint | undefined,
   log: Logger,
 ) {
   const { l1ChainId } = await pxe.getNodeInfo();
   const chain = createEthereumChain(l1RpcUrls, l1ChainId);
   const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
+  // docs:start:bridge_fee_juice
   const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
+  // docs:end:bridge_fee_juice
 
   const isSynced = async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
   await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);

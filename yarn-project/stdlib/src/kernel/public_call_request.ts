@@ -7,8 +7,8 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { FunctionSelector } from '../abi/index.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { computeCalldataHash } from '../hash/index.js';
 import type { UInt32 } from '../types/shared.js';
 
 /**
@@ -25,14 +25,13 @@ export class PublicCallRequest {
      */
     public contractAddress: AztecAddress,
     /**
-     * Function selector of the function being called.
-     */
-    public functionSelector: FunctionSelector,
-    /**
      * Determines whether the call is modifying state.
      */
     public isStaticCall: boolean,
-    public argsHash: Fr,
+    /**
+     * Hash of the calldata of the function being called.
+     */
+    public calldataHash: Fr,
   ) {}
 
   static get schema() {
@@ -40,12 +39,11 @@ export class PublicCallRequest {
       .object({
         msgSender: AztecAddress.schema,
         contractAddress: AztecAddress.schema,
-        functionSelector: FunctionSelector.schema,
         isStaticCall: z.boolean(),
-        argsHash: schemas.Fr,
+        calldataHash: schemas.Fr,
       })
-      .transform(({ msgSender, contractAddress, functionSelector, isStaticCall, argsHash }) => {
-        return new PublicCallRequest(msgSender, contractAddress, functionSelector, isStaticCall, argsHash);
+      .transform(({ msgSender, contractAddress, isStaticCall, calldataHash }) => {
+        return new PublicCallRequest(msgSender, contractAddress, isStaticCall, calldataHash);
       });
   }
 
@@ -58,13 +56,7 @@ export class PublicCallRequest {
   }
 
   static getFields(fields: FieldsOf<PublicCallRequest>) {
-    return [
-      fields.msgSender,
-      fields.contractAddress,
-      fields.functionSelector,
-      fields.isStaticCall,
-      fields.argsHash,
-    ] as const;
+    return [fields.msgSender, fields.contractAddress, fields.isStaticCall, fields.calldataHash] as const;
   }
 
   static fromFields(fields: Fr[] | FieldReader): PublicCallRequest {
@@ -72,7 +64,6 @@ export class PublicCallRequest {
     return new PublicCallRequest(
       reader.readObject(AztecAddress),
       reader.readObject(AztecAddress),
-      reader.readObject(FunctionSelector),
       reader.readBoolean(),
       reader.readField(),
     );
@@ -93,7 +84,6 @@ export class PublicCallRequest {
     return new PublicCallRequest(
       reader.readObject(AztecAddress),
       reader.readObject(AztecAddress),
-      reader.readObject(FunctionSelector),
       reader.readBoolean(),
       reader.readObject(Fr),
     );
@@ -104,16 +94,12 @@ export class PublicCallRequest {
   }
 
   static empty() {
-    return new PublicCallRequest(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false, Fr.ZERO);
+    return new PublicCallRequest(AztecAddress.ZERO, AztecAddress.ZERO, false, Fr.ZERO);
   }
 
   isEmpty(): boolean {
     return (
-      this.msgSender.isZero() &&
-      this.contractAddress.isZero() &&
-      this.functionSelector.isEmpty() &&
-      !this.isStaticCall &&
-      this.argsHash.isEmpty()
+      this.msgSender.isZero() && this.contractAddress.isZero() && !this.isStaticCall && this.calldataHash.isEmpty()
     );
   }
 
@@ -121,10 +107,19 @@ export class PublicCallRequest {
     return `PublicCallRequest {
       msgSender: ${this.msgSender}
       contractAddress: ${this.contractAddress}
-      functionSelector: ${this.functionSelector}
       isStaticCall: ${this.isStaticCall}
-      argsHash: ${this.argsHash}
+      calldataHash: ${this.calldataHash}
     }`;
+  }
+
+  static async fromCalldata(
+    msgSender: AztecAddress,
+    contractAddress: AztecAddress,
+    isStaticCall: boolean,
+    calldata: Fr[],
+  ) {
+    const calldataHash = await computeCalldataHash(calldata);
+    return new PublicCallRequest(msgSender, contractAddress, isStaticCall, calldataHash);
   }
 }
 

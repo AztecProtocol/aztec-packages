@@ -59,19 +59,19 @@ template <typename FF_> class to_radixImpl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_AFTER_LATCH
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = new_term.to_radix_sel_shift * (new_term.to_radix_start_shift - to_radix_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SELECTOR_ON_START
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = new_term.to_radix_start * (FF(1) - new_term.to_radix_sel);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SELECTOR_CONSISTENCY
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = (new_term.to_radix_sel_shift - new_term.to_radix_sel) * (FF(1) - to_radix_LATCH_CONDITION);
             tmp *= scaling_factor;
@@ -274,25 +274,25 @@ template <typename FF_> class to_radixImpl {
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OVERFLOW_CHECK
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
             auto tmp = new_term.to_radix_is_unsafe_limb * (FF(1) - new_term.to_radix_acc_under_p);
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // CONSTANT_CONSISTENCY_RADIX
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
             auto tmp = new_term.to_radix_not_end * (new_term.to_radix_radix - new_term.to_radix_radix_shift);
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // CONSTANT_CONSISTENCY_VALUE
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
             auto tmp = new_term.to_radix_not_end * (new_term.to_radix_value - new_term.to_radix_value_shift);
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // CONSTANT_CONSISTENCY_SAFE_LIMBS
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
             auto tmp = new_term.to_radix_not_end * (new_term.to_radix_safe_limbs - new_term.to_radix_safe_limbs_shift);
             tmp *= scaling_factor;

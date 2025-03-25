@@ -4,7 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractInstanceUpdateWithAddress,
@@ -25,7 +25,6 @@ import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
-import { NullifierStore } from './nullifier_store.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -35,7 +34,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   #blockStore: BlockStore;
   #logStore: LogStore;
-  #nullifierStore: NullifierStore;
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
@@ -49,13 +47,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
-    this.#nullifierStore = new NullifierStore(db);
   }
 
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
-  getContractFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+  getDebugFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
@@ -213,23 +210,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.deleteLogs(blocks);
-  }
-
-  /**
-   * Append new nullifiers to the store's list.
-   * @param blocks - The blocks for which to add the nullifiers.
-   * @returns True if the operation is successful.
-   */
-  addNullifiers(blocks: L2Block[]): Promise<boolean> {
-    return this.#nullifierStore.addNullifiers(blocks);
-  }
-
-  deleteNullifiers(blocks: L2Block[]): Promise<boolean> {
-    return this.#nullifierStore.deleteNullifiers(blocks);
-  }
-
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
-    return this.#nullifierStore.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   getTotalL1ToL2MessageCount(): Promise<bigint> {

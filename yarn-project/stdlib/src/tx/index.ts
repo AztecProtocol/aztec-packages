@@ -11,7 +11,7 @@ export * from './tx_constant_data.js';
 export * from './tx_context.js';
 export * from './tx_request.js';
 export * from './private_execution_result.js';
-export * from './public_execution_request.js';
+export * from './public_call_request_with_calldata.js';
 export * from './tx_hash.js';
 export * from './tx_receipt.js';
 export * from './tx.js';

@@ -32,7 +32,7 @@ export async function createAccount(
     Fr.ZERO,
     publicKey,
   );
-  const salt = account.getInstance().salt;
+  const { salt } = account.getInstance();
   const { address, publicKeys, partialAddress } = await account.getCompleteAddress();
 
   const out: Record<string, any> = {};
@@ -72,7 +72,7 @@ export async function createAccount(
       ...(await feeOpts.toDeployAccountOpts(wallet)),
     };
     if (feeOpts.estimateOnly) {
-      const gas = await (await account.getDeployMethod(deployOpts.deployWallet)).estimateGas(deployOpts);
+      const gas = await account.estimateDeploymentGas(deployOpts);
       if (json) {
         out.fee = {
           gasLimits: {

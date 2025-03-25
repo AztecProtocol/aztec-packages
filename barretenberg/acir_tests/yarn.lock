@@ -18,6 +18,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/bb.js@portal:../../ts::locator=bbjs-test%40workspace%3Abbjs-test":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb.js@portal:../../ts::locator=bbjs-test%40workspace%3Abbjs-test"
+  dependencies:
+    comlink: "npm:^4.4.1"
+    commander: "npm:^12.1.0"
+    debug: "npm:^4.3.4"
+    fflate: "npm:^0.8.0"
+    pako: "npm:^2.1.0"
+    tslib: "npm:^2.4.0"
+  bin:
+    bb.js: dest/node/main.js
+  languageName: node
+  linkType: soft
+
 "@aztec/bb.js@portal:../../ts::locator=browser-test-app%40workspace%3Abrowser-test-app":
   version: 0.0.0-use.local
   resolution: "@aztec/bb.js@portal:../../ts::locator=browser-test-app%40workspace%3Abrowser-test-app"
@@ -1057,6 +1072,16 @@ __metadata:
   checksum: 10c0/925a13897b4db80d4211082fe287bcf96d297af38e26448c857cee3e095c9792e3b8f26b37d268812e7f38a589f694609de8534a018b1937d7dc9f84e6b387c5
   languageName: node
   linkType: hard
+
+"bbjs-test@workspace:bbjs-test":
+  version: 0.0.0-use.local
+  resolution: "bbjs-test@workspace:bbjs-test"
+  dependencies:
+    "@aztec/bb.js": "portal:../../ts"
+    commander: "npm:^12.1.0"
+    typescript: "npm:^5.6.3"
+  languageName: unknown
+  linkType: soft
 
 "binary-extensions@npm:^2.0.0":
   version: 2.3.0
@@ -4941,7 +4966,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.4.2":
+"typescript@npm:^5.4.2, typescript@npm:^5.6.3":
   version: 5.8.2
   resolution: "typescript@npm:5.8.2"
   bin:
@@ -4951,7 +4976,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.4.2#optional!builtin<compat/typescript>":
+"typescript@patch:typescript@npm%3A^5.4.2#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^5.6.3#optional!builtin<compat/typescript>":
   version: 5.8.2
   resolution: "typescript@patch:typescript@npm%3A5.8.2#optional!builtin<compat/typescript>::version=5.8.2&hash=5786d5"
   bin:

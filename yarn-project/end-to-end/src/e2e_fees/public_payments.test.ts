@@ -15,7 +15,7 @@ describe('e2e_fees public_payment', () => {
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
 
-  const t = new FeesTest('private_payment');
+  const t = new FeesTest('public_payment');
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();

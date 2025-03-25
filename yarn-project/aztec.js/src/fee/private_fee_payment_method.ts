@@ -40,29 +40,34 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     if (!this.assetPromise) {
       // We use the utility method to avoid a signature because this function could be triggered
       // before the associated account is deployed.
-      this.assetPromise = simulateWithoutSignature(this.wallet, this.paymentContract, {
-        name: 'get_accepted_asset',
-        functionType: FunctionType.PRIVATE,
-        isInternal: false,
-        isStatic: false,
-        parameters: [],
-        returnTypes: [
-          {
-            kind: 'struct',
-            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
-            fields: [
-              {
-                name: 'inner',
-                type: {
-                  kind: 'field',
+      this.assetPromise = simulateWithoutSignature(
+        this.wallet,
+        this.paymentContract,
+        {
+          name: 'get_accepted_asset',
+          functionType: FunctionType.PRIVATE,
+          isInternal: false,
+          isStatic: false,
+          parameters: [],
+          returnTypes: [
+            {
+              kind: 'struct',
+              path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+              fields: [
+                {
+                  name: 'inner',
+                  type: {
+                    kind: 'field',
+                  },
                 },
-              },
-            ],
-          },
-        ],
-        errorTypes: {},
-        isInitializer: false,
-      }) as Promise<AztecAddress>;
+              ],
+            },
+          ],
+          errorTypes: {},
+          isInitializer: false,
+        },
+        [],
+      ) as Promise<AztecAddress>;
     }
     return this.assetPromise!;
   }

@@ -27,6 +27,7 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
+export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
 export tmp_dir=./target/tmp
 
@@ -77,9 +78,11 @@ function process_function {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
+
       local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc -b - -o $outdir -v
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$hash
+
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash
     fi
 
@@ -96,7 +99,7 @@ export -f process_function
 # Compute hash for a given contract.
 function get_contract_hash {
   hash_str \
-    $(../../noir/bootstrap.sh hash) \
+    $NOIR_HASH \
     $(cache_content_hash \
       ../../avm-transpiler/.rebuild_patterns \
       "^noir-projects/noir-contracts/contracts/$1/" \

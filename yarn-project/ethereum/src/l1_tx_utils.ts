@@ -209,7 +209,6 @@ export class L1TxUtils {
       ...defaultL1TxUtilsConfig,
       ...(config || {}),
     };
-    this.logger?.debug('Initializing L1 TX utils with config', { config: this.config });
   }
 
   public interrupt() {
