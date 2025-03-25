@@ -142,6 +142,10 @@ tests:
     error_regex: "Could not import your test module"
     owners:
       - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *alex
   - regex: "ethereum/src/contracts/registry.test.ts"
     error_regex: "lower than or equal to previous block's timestamp"
     owners:
