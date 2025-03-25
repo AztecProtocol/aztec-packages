@@ -10,7 +10,7 @@ use crate::{
         log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
     },
     oracle::message_discovery::sync_notes,
-    utils::array,
+    utils::{array, u64s_packing::unpack_two_u64s},
 };
 
 use protocol_types::{
@@ -131,10 +131,7 @@ unconstrained fn decode_log_plaintext(
 
     // See the documentation of this function for a description of the log layout
     let expanded_log_metadata = log_plaintext.get(0);
-
-    let log_metadata = ((expanded_log_metadata as u128) >> 64) as u64;
-    let log_type_id = (expanded_log_metadata as u64);
-
+    let (log_type_id, log_metadata) = unpack_two_u64s(expanded_log_metadata);
     let log_content = array::subbvec(log_plaintext, PRIVATE_LOG_EXPANDED_METADATA_LEN);
 
     (log_type_id, log_metadata, log_content)

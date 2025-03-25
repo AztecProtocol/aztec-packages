@@ -7,6 +7,7 @@ use crate::{
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
     oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
+    utils::u64s_packing::pack_two_u64s,
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -39,7 +40,7 @@ where
 
     // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
     // where the value gets decoded.
-    fields[0] = (Note::get_id() * 2.pow_32(64)) + log_type_id as Field;
+    fields[0] = pack_two_u64s(log_type_id, Note::get_id() as u64);
     fields[1] = storage_slot;
     for i in 0..packed_note.len() {
         fields[i + 2] = packed_note[i];
