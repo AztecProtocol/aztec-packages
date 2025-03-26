@@ -11,7 +11,6 @@ import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { createSandbox } from '../sandbox/index.js';
 import { github, splash } from '../splash.js';
-import { enrichEnvironmentWithChainConfig } from './chain_l2_config.js';
 import { getCliVersion } from './release_version.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';

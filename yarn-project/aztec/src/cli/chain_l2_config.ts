@@ -47,7 +47,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   aztecEpochDuration: 32,
   aztecProofSubmissionWindow: 64,
   testAccounts: true,
-  sponsoredFPC: true,
+  sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   registryAddress: '0xad85d55a4bbef35e95396191c22903aa717edf1c',
