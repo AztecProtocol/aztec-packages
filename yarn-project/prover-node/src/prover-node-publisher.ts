@@ -97,7 +97,8 @@ export class ProverNodePublisher {
     const ctx = { epochNumber, fromBlock, toBlock };
     if (!this.interrupted) {
       const timer = new Timer();
-
+      // HACK: Adjust the numPublicInputs to include the aggregation object
+      args.proof.numPublicInputs += AGGREGATION_OBJECT_LENGTH;
       // Validate epoch proof range and hashes are correct before submitting
       await this.validateEpochProofSubmission(args);
 

@@ -1,5 +1,6 @@
 import { AGGREGATION_OBJECT_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import { logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
@@ -62,19 +63,21 @@ export class Proof {
   }
 
   public withoutPublicInputs(): Buffer {
-    return Buffer.concat([this.buffer.subarray(this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs)]);
-  }
-
-  public extractPublicInputs(): Fr[] {
-    const reader = BufferReader.asReader(
-      this.buffer.subarray(this.metadataOffset, this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),
-    );
-    return reader.readArray(this.numPublicInputs, Fr);
+    return Buffer.concat([
+      this.buffer.subarray(this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs + this.metadataOffset),
+    ]);
   }
 
   public extractAggregationObject(): Fr[] {
-    const publicInputs = this.extractPublicInputs();
-    return publicInputs.slice(-1 * AGGREGATION_OBJECT_LENGTH);
+    const reader = BufferReader.asReader(
+      this.buffer.subarray(
+        this.metadataOffset +
+          Fr.SIZE_IN_BYTES * (this.numPublicInputs - AGGREGATION_OBJECT_LENGTH) +
+          this.metadataOffset,
+        this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs + this.metadataOffset,
+      ),
+    );
+    return reader.readArray(AGGREGATION_OBJECT_LENGTH, Fr);
   }
 
   /**
