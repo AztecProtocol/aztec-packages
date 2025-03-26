@@ -86,7 +86,7 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { tryFastSync } from '../actions/fast-sync.js';
+import { trySnapshotSync } from '../actions/snapshot-sync.js';
 import { uploadSnapshot } from '../actions/upload-snapshot.js';
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -99,6 +99,9 @@ import { NodeMetrics } from './node_metrics.js';
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private packageVersion: string;
   private metrics: NodeMetrics;
+
+  // Prevent two snapshot operations to happen simultaneously
+  private isUploadingSnapshot = false;
 
   // Serial queue to ensure that we only send one tx at a time
   private txQueue: SerialQueue = new SerialQueue();
@@ -172,7 +175,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     // attempt fast sync if needed
-    await tryFastSync(config, log);
+    await trySnapshotSync(config, log);
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
@@ -1006,9 +1009,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     // Test that the archiver has done an initial sync.
-    try {
-      archiver.getL1BlockNumber();
-    } catch (err) {
+    if (!archiver.isInitialSyncComplete()) {
       throw new Error(`Archiver initial sync not complete. Cannot start snapshot.`);
     }
 
@@ -1018,14 +1019,21 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
     }
 
-    // Do not wait for the upload to be complete to return to the caller
-    void uploadSnapshot(
-      location,
-      this.blockSource as Archiver,
-      this.worldStateSynchronizer,
-      this.config,
-      this.log,
-    ).catch(err => this.log.error(`Error uploading snapshot: ${err}`));
+    if (this.isUploadingSnapshot) {
+      throw new Error(`Snapshot upload already in progress. Cannot start another one until complete.`);
+    }
+
+    // Do not wait for the upload to be complete to return to the caller, but flag that an operation is in progress
+    this.isUploadingSnapshot = true;
+    void uploadSnapshot(location, this.blockSource as Archiver, this.worldStateSynchronizer, this.config, this.log)
+      .then(() => {
+        this.isUploadingSnapshot = false;
+      })
+      .catch(err => {
+        this.isUploadingSnapshot = false;
+        this.log.error(`Error uploading snapshot: ${err}`);
+      });
+
     return Promise.resolve();
   }
 

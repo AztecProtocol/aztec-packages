@@ -8,6 +8,7 @@ import {
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type EthereumClientConfig, type L1ContractAddresses, getPublicClient } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
@@ -21,7 +22,7 @@ import {
 } from '@aztec/stdlib/snapshots';
 import { NATIVE_WORLD_STATE_DBS, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from '@aztec/world-state';
 
-import { mkdtemp, rename, rm } from 'fs/promises';
+import { mkdtemp, rename } from 'fs/promises';
 import { join } from 'path';
 
 import type { AztecNodeConfig } from '../aztec-node/config.js';
@@ -29,7 +30,10 @@ import type { AztecNodeConfig } from '../aztec-node/config.js';
 // Half day worth of L1 blocks
 const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 
-type FastSyncConfig = Pick<AztecNodeConfig, 'syncMode' | 'snapshotsUrl' | 'l1ChainId' | 'version' | 'dataDirectory'> &
+type SnapshotSyncConfig = Pick<
+  AztecNodeConfig,
+  'syncMode' | 'snapshotsUrl' | 'l1ChainId' | 'version' | 'dataDirectory'
+> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
   DataStoreConfig &
   EthereumClientConfig & {
@@ -37,32 +41,32 @@ type FastSyncConfig = Pick<AztecNodeConfig, 'syncMode' | 'snapshotsUrl' | 'l1Cha
     minL1BlocksToTriggerReplace?: number;
   };
 
-export async function tryFastSync(config: FastSyncConfig, log: Logger) {
+export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   let archiverStore: ArchiverDataStore | undefined;
   let downloadDir: string | undefined;
 
   try {
     const { syncMode, snapshotsUrl, dataDirectory, l1ChainId, version: l2Version, l1Contracts } = config;
     if (syncMode === 'full') {
-      log.debug('Fast sync is disabled. Running full sync.', { syncMode: syncMode });
+      log.debug('Snapshot sync is disabled. Running full sync.', { syncMode: syncMode });
       return false;
     }
 
     if (!snapshotsUrl) {
-      log.verbose('Fast sync is disabled. No snapshots URL provided.');
+      log.verbose('Snapshot sync is disabled. No snapshots URL provided.');
       return false;
     }
 
     if (!dataDirectory) {
-      log.verbose('Fast sync is disabled. No local data directory defined.');
+      log.verbose('Snapshot sync is disabled. No local data directory defined.');
       return false;
     }
 
     let fileStore: FileStore;
     try {
-      fileStore = createFileStore(snapshotsUrl);
+      fileStore = await createFileStore(snapshotsUrl);
     } catch (err) {
-      log.error(`Invalid URL for downloading snapshots`, err);
+      log.error(`Invalid config for downloading snapshots`, err);
       return false;
     }
 
@@ -71,8 +75,14 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
 
     const minL1BlocksToTriggerReplace = config.minL1BlocksToTriggerReplace ?? MIN_L1_BLOCKS_TO_TRIGGER_REPLACE;
     const archiverL2BlockNumber = await archiverStore.getSynchedL2BlockNumber();
-    if (syncMode === 'fast' && archiverL2BlockNumber !== undefined && archiverL2BlockNumber >= INITIAL_L2_BLOCK_NUM) {
-      log.verbose(`Skipping non-replace fast sync as archiver is already synced to L2 block ${archiverL2BlockNumber}.`);
+    if (
+      syncMode === 'snapshot' &&
+      archiverL2BlockNumber !== undefined &&
+      archiverL2BlockNumber >= INITIAL_L2_BLOCK_NUM
+    ) {
+      log.verbose(
+        `Skipping non-forced snapshot sync as archiver is already synced to L2 block ${archiverL2BlockNumber}.`,
+      );
       return false;
     }
 
@@ -80,7 +90,9 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
     const archiverL1BlockNumber = await archiverStore.getSynchPoint().then(s => s.blocksSynchedTo);
     if (archiverL1BlockNumber && currentL1BlockNumber - archiverL1BlockNumber < minL1BlocksToTriggerReplace) {
       log.verbose(
-        `Skipping fast sync as archiver is less than ${currentL1BlockNumber - archiverL1BlockNumber} L1 blocks behind.`,
+        `Skipping snapshot sync as archiver is less than ${
+          currentL1BlockNumber - archiverL1BlockNumber
+        } L1 blocks behind.`,
         { archiverL1BlockNumber, currentL1BlockNumber, minL1BlocksToTriggerReplace },
       );
       return false;
@@ -91,18 +103,21 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
     try {
       snapshot = await getLatestSnapshotMetadata(indexMetadata, fileStore);
     } catch (err) {
-      log.error(`Failed to get latest snapshot metadata. Skipping fast sync.`, err, { ...indexMetadata, snapshotsUrl });
+      log.error(`Failed to get latest snapshot metadata. Skipping snapshot sync.`, err, {
+        ...indexMetadata,
+        snapshotsUrl,
+      });
       return false;
     }
 
     if (!snapshot) {
-      log.verbose(`No snapshot found. Skipping fast sync.`, { ...indexMetadata, snapshotsUrl });
+      log.verbose(`No snapshot found. Skipping snapshot sync.`, { ...indexMetadata, snapshotsUrl });
       return false;
     }
 
     if (snapshot.schemaVersions.archiver !== ARCHIVER_DB_VERSION) {
       log.warn(
-        `Skipping fast sync as last snapshot has schema version ${snapshot.schemaVersions.archiver} but expected ${ARCHIVER_DB_VERSION}.`,
+        `Skipping snapshot sync as last snapshot has schema version ${snapshot.schemaVersions.archiver} but expected ${ARCHIVER_DB_VERSION}.`,
         snapshot,
       );
       return false;
@@ -110,7 +125,7 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
 
     if (snapshot.schemaVersions.worldState !== WORLD_STATE_DB_VERSION) {
       log.warn(
-        `Skipping fast sync as last snapshot has world state schema version ${snapshot.schemaVersions.worldState} but we expected ${WORLD_STATE_DB_VERSION}.`,
+        `Skipping snapshot sync as last snapshot has world state schema version ${snapshot.schemaVersions.worldState} but we expected ${WORLD_STATE_DB_VERSION}.`,
         snapshot,
       );
       return false;
@@ -118,7 +133,7 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
 
     if (archiverL1BlockNumber && snapshot.l1BlockNumber < archiverL1BlockNumber) {
       log.verbose(
-        `Skipping fast sync since local archiver is at L1 block ${archiverL1BlockNumber} which is further than last snapshot at ${snapshot.l1BlockNumber}`,
+        `Skipping snapshot sync since local archiver is at L1 block ${archiverL1BlockNumber} which is further than last snapshot at ${snapshot.l1BlockNumber}`,
         { snapshot, archiverL1BlockNumber },
       );
       return false;
@@ -126,7 +141,7 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
 
     if (archiverL1BlockNumber && snapshot.l1BlockNumber - Number(archiverL1BlockNumber) < minL1BlocksToTriggerReplace) {
       log.verbose(
-        `Skipping fast sync as archiver is less than ${
+        `Skipping snapshot sync as archiver is less than ${
           snapshot.l1BlockNumber - Number(archiverL1BlockNumber)
         } L1 blocks behind latest snapshot.`,
         { snapshot, archiverL1BlockNumber },
@@ -137,7 +152,10 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
     // Green light. Download the snapshot to a temp location.
     downloadDir = await mkdtemp(join(dataDirectory, 'download-'));
     const downloadPaths = makeSnapshotLocalPaths(downloadDir);
-    log.info(`Downloading snapshot from ${snapshotsUrl} to ${downloadDir} for fast sync`, { snapshot, downloadPaths });
+    log.info(`Downloading snapshot from ${snapshotsUrl} to ${downloadDir} for snapshot sync`, {
+      snapshot,
+      downloadPaths,
+    });
     await downloadSnapshot(snapshot, downloadPaths, fileStore);
     log.info(`Snapshot downloaded at ${downloadDir}`, { snapshotsUrl, snapshot, downloadPaths });
 
@@ -158,7 +176,7 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
       log.info(`World state database ${name} set up from snapshot`, { path });
     }
 
-    log.info(`Fast synced to L1 block ${snapshot.l1BlockNumber} L2 block ${snapshot.l2BlockNumber}`, { snapshot });
+    log.info(`Snapshot synced to L1 block ${snapshot.l1BlockNumber} L2 block ${snapshot.l2BlockNumber}`, { snapshot });
   } finally {
     if (archiverStore) {
       log.verbose(`Closing temporary archiver data store`);
@@ -166,7 +184,7 @@ export async function tryFastSync(config: FastSyncConfig, log: Logger) {
     }
     if (downloadDir) {
       log.verbose(`Cleaning up download dir ${downloadDir}`);
-      await rm(downloadDir, { recursive: true, maxRetries: 3 });
+      await tryRmDir(downloadDir, log);
     }
   }
 

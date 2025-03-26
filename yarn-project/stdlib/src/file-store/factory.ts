@@ -6,12 +6,12 @@ import { LocalFileStore } from './local.js';
 
 const supportedExamples = [`gs://bucket-name/path/to/store`, `file:///absolute/local/path/to/store`];
 
-export function createFileStore(config: string, logger?: Logger): FileStore;
-export function createFileStore(config: undefined, logger?: Logger): undefined;
-export function createFileStore(
+export async function createFileStore(config: string, logger?: Logger): Promise<FileStore>;
+export async function createFileStore(config: undefined, logger?: Logger): Promise<undefined>;
+export async function createFileStore(
   config: string | undefined,
   logger = createLogger('stdlib:file-store'),
-): FileStore | undefined {
+): Promise<FileStore | undefined> {
   if (config === undefined) {
     return undefined;
   } else if (config.startsWith('file://')) {
@@ -28,7 +28,9 @@ export function createFileStore(
       const bucket = url.host;
       const path = url.pathname.replace(/^\/+/, '');
       logger.info(`Creating google cloud file store at ${bucket} ${path}`);
-      return new GoogleCloudFileStore(bucket, path);
+      const store = new GoogleCloudFileStore(bucket, path);
+      await store.checkCredentials();
+      return store;
     } catch (err) {
       throw new Error(`Invalid google cloud store definition: '${config}'.`);
     }

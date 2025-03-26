@@ -36,8 +36,8 @@ export type AztecNodeConfig = ArchiverConfig &
     sponsoredFPC: boolean;
     /** L1 contracts addresses */
     l1Contracts: L1ContractAddresses;
-    /** Sync mode: full to always sync via L1, fast to download a snapshot if there is no local data, replace to download even if there is local data. */
-    syncMode: 'fast' | 'full' | 'replace';
+    /** Sync mode: full to always sync via L1, snapshot to download a snapshot if there is no local data, force-snapshot to download even if there is local data. */
+    syncMode: 'full' | 'snapshot' | 'force-snapshot';
     /** Base URL for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
     snapshotsUrl?: string;
   };
@@ -73,8 +73,8 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   syncMode: {
     env: 'SYNC_MODE',
     description:
-      'Set sync mode to `full` to always sync via L1, `fast` to download a snapshot if there is no local data, `replace` to download even if there is local data.',
-    defaultValue: 'fast',
+      'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
+    defaultValue: 'snapshot',
   },
   snapshotsUrl: {
     env: 'SYNC_SNAPSHOTS_URL',

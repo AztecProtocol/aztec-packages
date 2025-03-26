@@ -10,6 +10,10 @@ export class GoogleCloudFileStore implements FileStore {
     this.storage = new Storage();
   }
 
+  public async checkCredentials() {
+    await this.storage.getServiceAccount();
+  }
+
   public async save(path: string, data: Buffer): Promise<string> {
     const fullPath = this.getFullPath(path);
     try {

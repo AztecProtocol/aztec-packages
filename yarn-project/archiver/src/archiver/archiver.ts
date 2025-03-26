@@ -86,6 +86,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
+  private initialSyncComplete: boolean = false;
 
   public readonly tracer: Tracer;
 
@@ -280,6 +281,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     // but the corresponding blocks have not been processed (see #12631).
     this.l1Timestamp = currentL1Timestamp;
     this.l1BlockNumber = currentL1BlockNumber;
+    this.initialSyncComplete = true;
 
     if (initialRun) {
       this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
@@ -542,8 +544,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return { provenBlockNumber };
   }
 
-  /** Restarts the archiver after a stop. */
-  public restart() {
+  /** Resumes the archiver after a stop. */
+  public resume() {
     if (!this.runningPromise) {
       throw new Error(`Archiver was never started`);
     }
@@ -668,6 +670,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     // TODO(palla/reorg): Is the above a safe assumption?
     const leeway = 1n;
     return l1Timestamp + leeway >= endTimestamp;
+  }
+
+  /** Returns whether the archiver has completed an initial sync run successfully. */
+  public isInitialSyncComplete(): boolean {
+    return this.initialSyncComplete;
   }
 
   /**

@@ -1,4 +1,5 @@
 import { ARCHIVER_DB_VERSION, type Archiver } from '@aztec/archiver';
+import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
 import { createFileStore } from '@aztec/stdlib/file-store';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -24,7 +25,7 @@ export async function uploadSnapshot(
   config: Pick<AztecNodeConfig, 'dataDirectory' | 'l1ChainId' | 'version'>,
   log: Logger,
 ) {
-  const store = createFileStore(location);
+  const store = await createFileStore(location);
   if (!store) {
     throw new Error(`Failed to create file store for snapshot upload for location ${location}.`);
   }
@@ -40,7 +41,7 @@ export async function uploadSnapshot(
     log.info(`Snapshot uploaded successfully`, { snapshot });
   } finally {
     log.info(`Cleaning up backup dir ${backupDir}`);
-    await rm(backupDir, { recursive: true, maxRetries: 3 });
+    await tryRmDir(backupDir, log);
   }
 }
 
@@ -94,6 +95,6 @@ async function createBackups(backupDir: string, archiver: Archiver, worldState: 
   } finally {
     log.info(`Resuming archiver and world state sync`);
     worldState.resumeSync();
-    archiver.restart();
+    archiver.resume();
   }
 }

@@ -77,7 +77,7 @@ describe('e2e_fast_sync', () => {
     const node = await createNonValidatorNode('1', {
       blobSinkUrl: undefined, // set no blob sink so it cannot sync on its own
       snapshotsUrl: snapshotLocation,
-      syncMode: 'fast',
+      syncMode: 'snapshot',
     });
 
     log.warn(`New node synced`);

@@ -12,8 +12,8 @@ export interface Service {
   /** Stops the service. */
   stop(): Promise<void>;
 
-  /** Restarts the service */
-  restart(): void;
+  /** Resumes the service after it was stopped */
+  resume(): void;
 }
 
 /** Tries to call stop on a given object and awaits it. Logs any errors and does not rethrow. */

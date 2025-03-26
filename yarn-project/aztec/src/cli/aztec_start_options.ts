@@ -276,8 +276,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--node.syncMode <value>',
       description:
-        'Set sync mode to `full` to always sync via L1, `fast` to download a snapshot if there is no local data, `replace` to download even if there is local data.',
-      defaultValue: 'fast',
+        'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
+      defaultValue: 'snapshot',
       envVar: 'SYNC_MODE',
     },
     {
