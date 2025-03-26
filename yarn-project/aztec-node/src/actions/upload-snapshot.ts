@@ -8,7 +8,7 @@ import { uploadSnapshot as uploadSnapshotToStore } from '@aztec/stdlib/snapshots
 import { WORLD_STATE_DB_VERSION } from '@aztec/world-state';
 
 import { existsSync } from 'fs';
-import { mkdtemp, rm } from 'fs/promises';
+import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
