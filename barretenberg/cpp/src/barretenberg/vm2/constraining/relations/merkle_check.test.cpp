@@ -486,6 +486,7 @@ TEST(MerkleCheckConstrainingTest, OutputHashIsNotNextRowsCurrentNodeValueForLast
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE);
+    check_relation<merkle_check>(trace, merkle_check::SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE);
 }
 
 TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
@@ -561,8 +562,8 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
-    EventEmitter<MerkleCheckEvent> merkle_check_emitter;
-    MerkleCheck merkle_check_sim(poseidon2, merkle_check_emitter);
+    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -575,7 +576,7 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
     merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    merkle_check_builder.process(merkle_check_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
@@ -601,8 +602,8 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
-    EventEmitter<MerkleCheckEvent> merkle_check_emitter;
-    MerkleCheck merkle_check_sim(poseidon2, merkle_check_emitter);
+    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -620,7 +621,7 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     EXPECT_EQ(new_root, expected_new_root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    merkle_check_builder.process(merkle_check_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
@@ -708,8 +709,8 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
-    EventEmitter<MerkleCheckEvent> merkle_check_emitter;
-    MerkleCheck merkle_check_sim(poseidon2, merkle_check_emitter);
+    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     MerkleCheckTraceBuilder merkle_check_builder;
@@ -733,7 +734,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     EXPECT_EQ(new_root2, expected_new_root2);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    merkle_check_builder.process(merkle_check_emitter.dump_events(), trace);
+    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
