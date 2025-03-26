@@ -141,11 +141,11 @@ export class SequencerClient {
 
     const ethereumSlotDuration = config.ethereumSlotDuration;
 
-    const l1MaxGasLimit = await rollupContract.getManaLimit();
-    const maxL2BlockGas = config.maxL2BlockGas ?? Number(l1MaxGasLimit);
-    if (maxL2BlockGas > Number(l1MaxGasLimit)) {
+    const rollupManaLimit = await rollupContract.getManaLimit();
+    const sequencerManaLimit = config.maxL2BlockGas ?? Number(rollupManaLimit);
+    if (sequencerManaLimit > Number(rollupManaLimit)) {
       throw new Error(
-        `provided maxL2BlockGas of ${maxL2BlockGas} is greater than the maximum allowed by the L1 (${l1MaxGasLimit})`,
+        `provided maxL2BlockGas of ${sequencerManaLimit} is greater than the maximum allowed by the L1 (${rollupManaLimit})`,
       );
     }
 
@@ -178,7 +178,7 @@ export class SequencerClient {
       contractDataSource,
       l1Constants,
       deps.dateProvider,
-      { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas },
+      { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
     );
     await validatorClient?.start();
