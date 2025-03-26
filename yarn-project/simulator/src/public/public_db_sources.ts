@@ -406,19 +406,19 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
 
     const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
-    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-      return Fr.ZERO;
+    if (!lowLeafResult) {
+      throw new Error('Low leaf not found');
     }
 
     // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
     await this.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
-
+    // Unconditionally fetching the preimage for the hints. Move it to the hinting layer?
     const preimage = (await this.getLeafPreimage(
       MerkleTreeId.PUBLIC_DATA_TREE,
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return preimage.value;
+    return lowLeafResult.alreadyPresent ? preimage.value : Fr.ZERO;
   }
 
   /**

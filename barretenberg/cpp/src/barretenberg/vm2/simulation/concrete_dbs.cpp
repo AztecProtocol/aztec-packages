@@ -39,17 +39,11 @@ const TreeSnapshots& MerkleDB::get_tree_roots() const
 FF MerkleDB::storage_read(const FF& leaf_slot) const
 {
     // TODO(fcarreiro): constrain everything below.
-    FF result = 0;
-
     auto [present, index] = raw_merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
     auto path = raw_merkle_db.get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, index);
+    auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
 
-    if (present) {
-        auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
-        result = preimage.value.value;
-    }
-
-    return result;
+    return present? preimage.value.value : 0;
 }
 
 } // namespace bb::avm2::simulation
