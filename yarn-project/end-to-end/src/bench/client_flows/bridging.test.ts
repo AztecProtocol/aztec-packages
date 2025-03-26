@@ -89,7 +89,6 @@ describe('Client flows benchmarking', () => {
             2 + // BananaCoin transfer_to_public + kernel inner
             2 + // Account verify_private_authwit + kernel inner
             2 + // BananaCoin prepare_private_balance_increase + kernel inner
-            2 + // CandyBarCoin transfer + kernel inner
             2 + // TokenBridge claim_private + kernel inner
             2 + // BridgedAsset mint_to_private + kernel inner
             1 + // Kernel reset
