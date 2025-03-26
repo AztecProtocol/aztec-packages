@@ -152,12 +152,13 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
-    // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit
+    // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
+    // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
     auto outer_proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(outer_circuit);
     UltraRollupProver outer_prover(outer_proving_key);
     auto outer_proof = outer_prover.construct_proof();
 
-    // WORKTODO: are we meaningfully verifying the correct IPA claim here?
+    // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
     auto outer_verification_key =
         std::make_shared<typename UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
     auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);

@@ -101,7 +101,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
     agg_obj.aggregate(nested_agg_obj, recursion_separator);
-    // agg_obj.aggregate(nested_agg_obj, recursion_separator);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
@@ -146,7 +145,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     pairing_points[1] = pairing_points[1].normalize();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge properly.
     agg_obj.aggregate(pairing_points, recursion_separator);
-    // agg_obj.aggregate(pairing_points, recursion_separator);
     output.agg_obj = std::move(agg_obj);
 
     // Extract the IPA claim from the public inputs

@@ -97,9 +97,9 @@ class AvmGoblinRecursiveVerifier {
         using GoblinRecursiveVerifier = stdlib::recursion::honk::GoblinRecursiveVerifier;
         using GoblinRecursiveVerifierOutput = stdlib::recursion::honk::GoblinRecursiveVerifierOutput;
 
-        // STEP 1: To establish consistency of the the proof and public inputs between the inner (Mega) circuit and the
-        // outer (Ultra) circuit, each circuit computes a hash of these components and consistency is checked on the
-        // result. The corresponding hash buffers are constructed here.
+        // STEP 1: To establish consistency of the the proof, public inputs and VK for the AVM between the inner (Mega)
+        // circuit and the outer (Ultra) circuit, each circuit computes a hash of these components and consistency is
+        // checked on the result. The corresponding hash buffers are constructed here.
 
         // Instantiate Mega builder for the inner circuit (AVM proof recursive verifier)
         GoblinProver goblin;
