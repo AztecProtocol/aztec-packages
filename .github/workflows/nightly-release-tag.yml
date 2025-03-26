@@ -24,6 +24,8 @@ jobs:
       # Then, create a nightly tag using the current version and the current UTC date.
       - name: Create Nightly Tag
         run: |
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
           current_version=$(jq -r '."."' .release-please-manifest.json)
           echo "Current version: $current_version"
           # Format the tag as: <current_version>-nightly.<YYYYMMDD>
