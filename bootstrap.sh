@@ -294,7 +294,7 @@ case "$cmd" in
     echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
     echo -n "Continue? [y/n] "
     read user_input
-    if [[ ! "$user_input" =~ ^[yY](es)?$ ]]; then
+    if [[ ! "$user_input" =~ ^[yY]([eE][sS])?$ ]]; then
       echo "Exiting without cleaning"
       exit 1
     fi
